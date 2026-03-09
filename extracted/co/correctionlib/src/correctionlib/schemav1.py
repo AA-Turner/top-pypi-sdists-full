@@ -1,13 +1,6 @@
-import sys
-from typing import List, Optional, Union
+from typing import Literal, Optional, Union
 
 from pydantic import BaseModel, ConfigDict
-
-if sys.version_info >= (3, 8):
-    from typing import Literal
-else:
-    from typing_extensions import Literal
-
 
 VERSION = 1
 
@@ -28,7 +21,7 @@ class Formula(Model):
     # TODO: nodetype: Literal["formula"]
     expression: str
     parser: Literal["TFormula", "numexpr"]
-    parameters: List[int]
+    parameters: list[int]
     "Index to Correction.inputs[]"
 
 
@@ -38,29 +31,29 @@ Content = Union["Binning", "MultiBinning", "Category", Formula, float]
 
 class Binning(Model):
     nodetype: Literal["binning"]
-    edges: List[float]
+    edges: list[float]
     "Edges of the binning, where edges[i] <= x < edges[i+1] => f(x, ...) = content[i](...)"
-    content: List[Content]
+    content: list[Content]
 
 
 class MultiBinning(Model):
     """N-dimensional rectangular binning"""
 
     nodetype: Literal["multibinning"]
-    edges: List[List[float]]
+    edges: list[list[float]]
     """Bin edges for each input
 
     C-ordered array, e.g. content[d1*d2*d3*i0 + d2*d3*i1 + d3*i2 + i3] corresponds
     to the element at i0 in dimension 0, i1 in dimension 1, etc. and d0 = len(edges[0])-1, etc.
     """
-    content: List[Content]
+    content: list[Content]
 
 
 class Category(Model):
     nodetype: Literal["category"]
     # TODO: should be Union[List[str], List[int]]
-    keys: List[Union[str, int]]
-    content: List[Content]
+    keys: list[Union[str, int]]
+    content: list[Content]
 
 
 Binning.update_forward_refs()
@@ -75,7 +68,7 @@ class Correction(Model):
     "Detailed description of the correction"
     version: int
     "Version"
-    inputs: List[Variable]
+    inputs: list[Variable]
     output: Variable
     data: Content
 
@@ -83,7 +76,7 @@ class Correction(Model):
 class CorrectionSet(Model):
     schema_version: Literal[1]
     "Schema version"
-    corrections: List[Correction]
+    corrections: list[Correction]
 
 
 if __name__ == "__main__":

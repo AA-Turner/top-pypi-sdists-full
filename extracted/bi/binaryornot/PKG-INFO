@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: binaryornot
-Version: 0.5.0
+Version: 0.6.0
 Summary: Ultra-lightweight pure Python package to check if a file is binary or text.
 Project-URL: bugs, https://github.com/binaryornot/binaryornot/issues
 Project-URL: changelog, https://github.com/binaryornot/binaryornot/releases
@@ -15,11 +15,13 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
-Requires-Python: >=3.12
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 
 # BinaryOrNot

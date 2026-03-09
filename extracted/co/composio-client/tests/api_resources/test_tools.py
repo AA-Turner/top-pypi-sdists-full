@@ -86,6 +86,7 @@ class TestTools:
             important="true",
             include_deprecated=True,
             limit=0,
+            query="query",
             scopes=["string"],
             search="search",
             tags=["string"],
@@ -192,6 +193,7 @@ class TestTools:
             text="Trigger the main workflow in the octocat/Hello-World repository on the main branch for the production environment",
             user_id="user-123",
             version="latest",
+            x_llm_gateway_headers='{"x-custom-header": "value", "authorization": "Bearer token"}',
         )
         assert_matches_type(ToolExecuteResponse, tool, path=["response"])
 
@@ -476,6 +478,7 @@ class TestAsyncTools:
             important="true",
             include_deprecated=True,
             limit=0,
+            query="query",
             scopes=["string"],
             search="search",
             tags=["string"],
@@ -582,6 +585,7 @@ class TestAsyncTools:
             text="Trigger the main workflow in the octocat/Hello-World repository on the main branch for the production environment",
             user_id="user-123",
             version="latest",
+            x_llm_gateway_headers='{"x-custom-header": "value", "authorization": "Bearer token"}',
         )
         assert_matches_type(ToolExecuteResponse, tool, path=["response"])
 

@@ -17,7 +17,7 @@ class JSONObject; // internal wrapper around rapidjson
 class Variable {
   public:
     enum class VarType {string, integer, real};
-    typedef std::variant<int, double, std::string> Type;
+    typedef std::variant<int64_t, double, std::string> Type;
 
     Variable(const JSONObject& json);
     std::string name() const { return name_; };
@@ -55,6 +55,8 @@ class FormulaAst {
       Binary,
     };
     enum class BinaryOp {
+      LogicalOr,
+      LogicalAnd,
       Equal,
       NotEqual,
       Greater,
@@ -225,7 +227,7 @@ class Category {
     double evaluate(const std::vector<Variable::Type>& values) const;
 
   private:
-    typedef std::map<int, Content> IntMap;
+    typedef std::map<int64_t, Content> IntMap;
     typedef std::map<std::string, Content> StrMap;
     std::variant<IntMap, StrMap> map_;
     std::unique_ptr<const Content> default_;

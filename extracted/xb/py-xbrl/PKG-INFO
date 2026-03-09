@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: py-xbrl
-Version: 3.0.2
+Version: 3.0.3
 Summary: Parser for parsing XBRL and iXBRL files (instance documents, taxonomy schemas, taxonomy linkbases).
 Author-email: Manuel Schmidt <hello@schmidt-manuel.de>
 License: GNU General Public License v3 (GPLv3)

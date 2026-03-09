@@ -1,3 +1,4 @@
+import importlib.resources
 import pathlib
 import sys
 
@@ -10,6 +11,7 @@ def this_module_path() -> pathlib.Path:
         import pkg_resources
 
         return pathlib.Path(pkg_resources.resource_filename("correctionlib", ""))
-    import importlib.resources
 
-    return importlib.resources.files("correctionlib")
+    traversable = importlib.resources.files("correctionlib")
+    with importlib.resources.as_file(traversable) as fspath:
+        return fspath

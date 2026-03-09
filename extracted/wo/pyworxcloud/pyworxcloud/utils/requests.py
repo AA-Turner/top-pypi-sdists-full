@@ -1,11 +1,15 @@
-"""For handling HTTP/HTTPS requests."""
+"""HTTP helpers for sync and async API access."""
 
 from __future__ import annotations
 
-from time import sleep
+import asyncio
+from typing import Any
 
+import aiohttp
 import requests
-import urllib3
+from requests.adapters import HTTPAdapter
+from urllib3.exceptions import MaxRetryError
+from urllib3.util.retry import Retry
 
 from ..exceptions import (
     APIError,
@@ -22,15 +26,8 @@ from ..exceptions import (
 # pylint: disable=invalid-name
 
 NUM_RETRIES = 5
-MAX_BACKOFF = 120
 BACKOFF_FACTOR = 3
-
-
-def backoff(retry: int) -> float:
-    """Calculate backoff time."""
-    val: float = BACKOFF_FACTOR * (2 ** (retry - 1))
-
-    return val if val <= MAX_BACKOFF else MAX_BACKOFF
+REQUEST_TIMEOUT = 60
 
 
 def HEADERS(access_token: str | None = None) -> dict:
@@ -47,83 +44,150 @@ def HEADERS(access_token: str | None = None) -> dict:
     return head
 
 
-def POST(URL: str, REQUEST_BODY: str, HEADER: dict | None = None) -> str:
-    """A request POST"""
+def _build_session() -> requests.Session:
+    """Create a sync session configured with HTTP retry adapters."""
+    retry = Retry(
+        total=NUM_RETRIES,
+        backoff_factor=BACKOFF_FACTOR,
+        status_forcelist=[429, 500, 502, 503, 504],
+        allowed_methods=frozenset(["GET", "POST"]),
+        raise_on_status=False,
+    )
+    adapter = HTTPAdapter(max_retries=retry)
+
+    session = requests.Session()
+    session.mount("https://", adapter)
+    session.mount("http://", adapter)
+
+    return session
+
+
+def create_session() -> requests.Session:
+    """Return a configured sync session instance."""
+    return _build_session()
+
+
+def _raise_http_status(code: int, err: Exception) -> None:
+    if code == 400:
+        raise RequestError()
+    if code == 401:
+        raise AuthorizationError()
+    if code == 403:
+        raise ForbiddenError()
+    if code == 404:
+        raise NotFoundError()
+    if code == 429:
+        raise TooManyRequestsError()
+    if code == 500:
+        raise InternalServerError()
+    if code in (503, 504):
+        raise ServiceUnavailableError()
+    raise APIError(err)
+
+
+async def create_async_session() -> aiohttp.ClientSession:
+    """Create aiohttp client session for async API calls."""
+    timeout = aiohttp.ClientTimeout(total=REQUEST_TIMEOUT)
+    return aiohttp.ClientSession(timeout=timeout)
+
+
+async def APOST(
+    URL: str,
+    REQUEST_BODY: Any,
+    HEADER: dict | None = None,
+    session: aiohttp.ClientSession | None = None,
+) -> Any:
+    """Perform an async POST request."""
+    if isinstance(HEADER, type(None)):
+        HEADER = HEADERS()
+
+    owns_session = session is None
+    client = session or await create_async_session()
+    try:
+        async with client.post(URL, data=REQUEST_BODY, headers=HEADER) as resp:
+            if resp.status >= 400:
+                _raise_http_status(resp.status, Exception(f"HTTP {resp.status}"))
+            return await resp.json()
+    except aiohttp.ClientError as err:
+        raise NoConnectionError() from err
+    except asyncio.TimeoutError as err:
+        raise NoConnectionError() from err
+    finally:
+        if owns_session:
+            await client.close()
+
+
+async def AGET(
+    URL: str,
+    HEADER: dict | None = None,
+    session: aiohttp.ClientSession | None = None,
+) -> Any:
+    """Perform an async GET request."""
+    if isinstance(HEADER, type(None)):
+        HEADER = HEADERS()
+
+    owns_session = session is None
+    client = session or await create_async_session()
+    try:
+        async with client.get(URL, headers=HEADER) as resp:
+            if resp.status >= 400:
+                _raise_http_status(resp.status, Exception(f"HTTP {resp.status}"))
+            return await resp.json()
+    except aiohttp.ClientError as err:
+        raise NoConnectionError() from err
+    except asyncio.TimeoutError as err:
+        raise NoConnectionError() from err
+    finally:
+        if owns_session:
+            await client.close()
+
+
+_DEFAULT_SESSION = _build_session()
+
+
+def POST(
+    URL: str,
+    REQUEST_BODY: Any,
+    HEADER: dict | None = None,
+    session: requests.Session | None = None,
+) -> Any:
+    """Perform a sync POST request (legacy interface)."""
 
     if isinstance(HEADER, type(None)):
         HEADER = HEADERS()
 
-    for retry in range(NUM_RETRIES):
-        try:
-            req = requests.post(
-                URL, REQUEST_BODY, headers=HEADER, timeout=60, cookies=None
-            )  # 60 seconds timeout
-
-            req.raise_for_status()
-
-            return req.json()
-        except requests.exceptions.HTTPError as err:
-            code = err.response.status_code
-            if code == 400:
-                raise RequestError()
-            elif code == 401:
-                raise AuthorizationError()
-            elif code == 403:
-                raise ForbiddenError()
-            elif code == 404:
-                raise NotFoundError()
-            elif code == 429:
-                raise TooManyRequestsError()
-            elif code == 500:
-                raise InternalServerError()
-            elif code == 503:
-                raise ServiceUnavailableError()
-            elif code == 504:
-                sleep(backoff(retry))
-                continue
-            else:
-                raise APIError(err)
-        except requests.exceptions.ConnectionError:
-            raise TooManyRequestsError()
-        except urllib3.exceptions.MaxRetryError:
-            raise TooManyRequestsError()
-    raise NoConnectionError()
+    client = session if session is not None else _DEFAULT_SESSION
+    try:
+        req = client.post(URL, REQUEST_BODY, headers=HEADER, timeout=REQUEST_TIMEOUT)
+        req.raise_for_status()
+        return req.json()
+    except requests.exceptions.HTTPError as err:
+        _raise_http_status(err.response.status_code, err)
+    except (
+        requests.exceptions.ConnectionError,
+        requests.exceptions.Timeout,
+        MaxRetryError,
+    ) as err:
+        raise NoConnectionError() from err
 
 
-def GET(URL: str, HEADER: dict | None = None) -> str:
-    """A request GET"""
+def GET(
+    URL: str, HEADER: dict | None = None, session: requests.Session | None = None
+) -> Any:
+    """Perform a sync GET request (legacy interface)."""
     if isinstance(HEADER, type(None)):
         HEADER = HEADERS()
 
-    for retry in range(NUM_RETRIES):
-        try:
-            req = requests.get(
-                URL, headers=HEADER, timeout=60, cookies=None
-            )  # 60 seconds timeout
-
-            req.raise_for_status()
-
-            return req.json()
-        except requests.exceptions.HTTPError as err:
-            code = err.response.status_code
-            if code == 400:
-                raise RequestError()
-            elif code == 401:
-                raise AuthorizationError()
-            elif code == 403:
-                raise ForbiddenError()
-            elif code == 404:
-                raise NotFoundError()
-            elif code == 429:
-                raise TooManyRequestsError()
-            elif code == 500:
-                raise InternalServerError()
-            elif code == 503:
-                raise ServiceUnavailableError()
-            elif code == 504:
-                sleep(backoff(retry))
-                pass
-            else:
-                raise APIError(err)
-
-    raise NoConnectionError()
+    client = session if session is not None else _DEFAULT_SESSION
+    try:
+        req = client.get(URL, headers=HEADER, timeout=REQUEST_TIMEOUT)
+        req.raise_for_status()
+        return req.json()
+    except requests.exceptions.HTTPError as err:
+        _raise_http_status(err.response.status_code, err)
+    except (
+        requests.exceptions.ConnectionError,
+        requests.exceptions.Timeout,
+        MaxRetryError,
+    ) as err:
+        raise NoConnectionError() from err

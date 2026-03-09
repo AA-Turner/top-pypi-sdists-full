@@ -772,19 +772,22 @@ class Interpolator:
     def __init__(
         self,
         points: list[Vector],
-        domain: VectorLike | None
+        domain: VectorLike | None,
+        extrapolate: bool = True,
+        **kwargs: Any
     ) -> None:
         """Initialize."""
 
         self.length = len(points)
         self.num_coords = len(points[0])
-        self.preprocess(points)
+        self.extrapolate = extrapolate
+        self.preprocess(points, **kwargs)
         self.points = [*zip(*points)]
         self.domain = list(domain) if domain is not None else domain
         self.increasing = not self.domain or len(self.domain) == 1 or self.domain[1] > self.domain[0]
 
     @classmethod
-    def preprocess(cls, points: list[Vector]) -> None:
+    def preprocess(cls, points: list[Vector], **kwargs: Any) -> None:
         """Apply any preprocessing points."""
 
         pass
@@ -838,6 +841,8 @@ class Interpolator:
         n = self.length - 1
         i = max(min(math.floor(t * n), n - 1), 0)
         t = (t - i / n) * n if 0 <= t <= 1 else t
+        if not self.extrapolate:
+            t = clamp(t, 0.0, 1.0)
 
         return self.run(i, t)
 
@@ -845,12 +850,34 @@ class Interpolator:
 class _CubicInterpolator(Interpolator):
     """Cubic interpolator."""
 
+    DEF_END_COND = 'not-a-knot'
+
+    def __init__(
+        self,
+        points: list[Vector],
+        domain: VectorLike | None,
+        **kwargs: Any
+    ) -> None:
+        """Initialize."""
+
+        self.end_condition = kwargs.get('end_cond', self.DEF_END_COND)
+        super().__init__(points, domain, **kwargs)
+
     @classmethod
-    def preprocess(cls, points: list[Vector]) -> None:
+    def preprocess(cls, points: list[Vector], end_cond: str | None = None, **kwargs: Any) -> None:
         """Apply any preprocessing points."""
 
-        points.insert(0, [2 * a - b for a, b in zip(points[0], points[1])])
-        points.append([2 * a - b for a, b in zip(points[-1], points[-2])])
+        if end_cond is None:
+            end_cond = cls.DEF_END_COND
+
+        if end_cond == 'natural' or len(points) == 2:
+            points.insert(0, [2 * a - b for a, b in zip(points[0], points[1])])
+            points.append([2 * a - b for a, b in zip(points[-1], points[-2])])
+        elif end_cond == 'not-a-knot':
+            points.insert(0, [2 * a - b for a, b in zip(points[0], points[2])])
+            points.append([2 * a - b for a, b in zip(points[-1], points[-3])])
+        else:
+            raise ValueError(f"End condition '{end_cond}' is not recognized")
 
     @staticmethod
     def interpolate(p0: float, p1: float, p2: float, p3: float, t: float) -> float:  # pragma: no cover
@@ -864,20 +891,16 @@ class _CubicInterpolator(Interpolator):
         coord = []
         for idx in range(self.num_coords):
             c = self.points[idx]
-            if t < 0 or t > 1:
-                coord.append(lerp(c[i + 1], c[i + 2], t))
-            else:
-                coord.append(
-                    self.interpolate(
-                        c[i],
-                        c[i + 1],
-                        c[i + 2],
-                        c[i + 3],
-                        t
-                    )
+            coord.append(
+                self.interpolate(
+                    c[i],
+                    c[i + 1],
+                    c[i + 2],
+                    c[i + 3],
+                    t
                 )
+            )
         return coord
-
 
 
 class CatmullRomInterpolator(_CubicInterpolator):
@@ -906,27 +929,30 @@ class MonotoneInterpolator(_CubicInterpolator):
     @staticmethod
     def interpolate(p0: float, p1: float, p2: float, p3: float, t: float) -> float:
         """
-        Monotone spline based on Hermite.
+        A monotonic cubic Hermite sampler spline.
+
+        This samples data of a points neighbors to calculate gradients and secants on the fly to
+        create a monotonic cubic Hermite spline. Calculations could be done ahead of time and stored
+        at the cost of memory, but we've opted to do this on the fly.
 
         We calculate our secants for our four samples (the center pair being our interpolation target).
-
         From those, we calculate an initial gradient, and test to see if it is needed. In the event
         that our there is no increase or decrease between the point, we can infer that the gradient
         should be horizontal. We also test if they have opposing signs, if so, we also consider the
         gradient to be zero.
 
-        Lastly, we ensure that the gradient is confined within a circle with radius 3 as it has been
-        observed that such a circle encapsulates the entire monotonicity region.
+        This is an alternative that assumes a cube with corners defined at (0,0) and (3,3) instead of
+        a circle with radius 3. Both approaches encapsulate the entire monotonicity, but the cube
+        approach requires less points and less checks and is more efficient for on the fly calculations.
 
         Once gradients are calculated, we simply perform the Hermite spline calculation and clean up
         floating point math errors to ensure monotonicity.
 
-        We could build up secant and gradient info ahead of time, but currently we do it on the fly.
-
-        http://jbrd.github.io/2020/12/27/monotone-cubic-interpolation.html
-        https://ui.adsabs.harvard.edu/abs/1990A%26A...239..443S/abstract
-        https://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.39.6720
-        https://en.wikipedia.org/w/index.php?title=Monotone_cubic_interpolation&oldid=950478742
+        - http://jbrd.github.io/2020/12/27/monotone-cubic-interpolation.html
+        - https://www.jstor.org/stable/2156610
+        - https://ui.adsabs.harvard.edu/abs/1990A%26A...239..443S/abstract
+        - https://www.researchgate.net/publication/2511970_Non-Overshooting_Hermite_Cubic_Splines_For_Keyframe_Interpolation
+        - https://en.wikipedia.org/w/index.php?title=Monotone_cubic_interpolation&oldid=950478742
         """
 
         # Save some time calculating this once
@@ -939,43 +965,42 @@ class MonotoneInterpolator(_CubicInterpolator):
         s2 = p3 - p2
 
         # Calculate initial gradients
-        m1 = (s0 + s1) * 0.5
-        m2 = (s1 + s2) * 0.5
+        m0 = (s0 + s1) * 0.5
+        m1 = (s1 + s2) * 0.5
 
         # Center segment should be horizontal as there is no increase/decrease between the two points
-        if math.isclose(p1, p2):
-            m1 = m2 = 0.0
+        if math.isclose(p1, p2, rel_tol=RTOL, abs_tol=ATOL):
+            m0 = m1 = 0.0
         else:
 
             # Gradient is zero if segment is horizontal or if the left hand secant differs in sign from current.
-            if math.isclose(p0, p1) or (math.copysign(1.0, s0) != math.copysign(1.0, s1)):
-                m1 = 0.0
+            if math.isclose(p0, p1, rel_tol=RTOL, abs_tol=ATOL) or sign(s0) != sign(s1):
+                m0 = 0.0
 
             # Ensure gradient magnitude is either 3 times the left or current secant (smaller being preferred).
             else:
-                m1 *= min(3.0 * s0 / m1, min(3.0 * s1 / m1, 1.0))
+                m0 *= min(3.0 * s0 / m0, 3.0 * s1 / m0, 1.0)
 
             # Gradient is zero if segment is horizontal or if the right hand secant differs in sign from current.
-            if math.isclose(p2, p3) or (math.copysign(1.0, s1) != math.copysign(1.0, s2)):
-                m2 = 0.0
+            if math.isclose(p2, p3, rel_tol=RTOL, abs_tol=ATOL) or sign(s1) != sign(s2):
+                m1 = 0.0
 
             # Ensure gradient magnitude is either 3 times the current or right secant (smaller being preferred).
             else:
-                m2 *= min(3.0 * s1 / m2, min(3.0 * s2 / m2, 1.0))
+                m1 *= min(3.0 * s1 / m1, 3.0 * s2 / m1, 1.0)
 
         # Now we can evaluate the Hermite spline
         result = (
-            (m1 + m2 - 2 * s1) * t3 +
-            (3.0 * s1 - 2.0 * m1 - m2) * t2 +
-            m1 * t +
+            (m0 + m1 - 2.0 * s1) * t3 +
+            (3.0 * s1 - 2.0 * m0 - m1) * t2 +
+            m0 * t +
             p1
         )
 
         # As the spline is monotonic, all interpolated values should be confined between the endpoints.
         # Floating point arithmetic can cause this to be out of bounds on occasions.
-        mn = min(p1, p2)
-        mx = max(p1, p2)
-        return min(max(result, mn), mx)
+        # If we are extrapolating (`t` is beyond the range), it doesn't really matter.
+        return clamp(result, min(p1, p2), max(p1, p2)) if 0 <= t <= 1 else result
 
 
 class BSplineInterpolator(_CubicInterpolator):
@@ -1012,6 +1037,8 @@ def _matrix_141(n: int) -> Matrix:
 
 class NaturalBSplineInterpolator(BSplineInterpolator):
     """Natural B-Spline interpolator."""
+
+    DEF_END_COND = 'natural'
 
     @staticmethod
     def naturalize(points: list[Vector]) -> None:
@@ -1053,11 +1080,11 @@ class NaturalBSplineInterpolator(BSplineInterpolator):
                 points[r] = v[r - 1]
 
     @classmethod
-    def preprocess(cls, points: list[Vector]) -> None:
+    def preprocess(cls, points: list[Vector], end_cond: str | None = None, **kwargs: Any) -> None:
         """Apply any preprocessing points."""
 
         cls.naturalize(points)
-        super(NaturalBSplineInterpolator, cls).preprocess(points)
+        super(NaturalBSplineInterpolator, cls).preprocess(points, end_cond, **kwargs)
 
 
 class SpragueInterpolator(Interpolator):
@@ -1071,27 +1098,32 @@ class SpragueInterpolator(Interpolator):
     ]
 
     @classmethod
-    def preprocess(cls, points: list[Vector]) -> None:
+    def preprocess(cls, points: list[Vector], **kwargs: Any) -> None:
         """Apply any preprocessing points."""
 
         if len(points) < 6:
             raise ValueError('Sprague interpolation requires at least 6 evenly spaced points.')
+        # Create 2 points at the start and end of the data that will guide the interpolation
+        # through the start and end points.
+        p1, p2 = points[0:6], points[-6:]
         l = len(points[0])
-        index = [0, 1, -2, -1]
-        p1, p2, p3, p4 = points[0:6], points[0:6], points[-6:], points[-6:]
-        points.insert(0, [])
-        points.insert(1, [])
-        points.append([])
-        points.append([])
+        s0 = [0.0] * l
+        s1 = [0.0] * l
+        e0 = [0.0] * l
+        e1 = [0.0] * l
         for i in range(l):
-            n = [
-                [j[i] for j in p1],
-                [j[i] for j in p2],
-                [j[i] for j in p3],
-                [j[i] for j in p4]
+            # Each row of coefficients relates to one of the new points.
+            # The top rows relate to the first two points we add to the start,
+            # and we use the first 6 starting points as context. The last two
+            # relate to the end points and use the last t points as context.
+            s0[i], s1[i], e0[i], e1[i] = [
+                matmul(row, [j[i] for j in (p1 if e < 2 else p2)], dims = D1) / 209
+                for e, row in enumerate(cls.SPRAGUE_COEFFICIENTS)
             ]
-            for e, row in enumerate(multiply(cls.SPRAGUE_COEFFICIENTS, n)):
-                points[index[e]].append(divide(sum(row), 209))
+        points.insert(0, s0)
+        points.insert(1, s1)
+        points.append(e0)
+        points.append(e1)
 
     def interpolate(self, p0: float, p1: float, p2: float, p3: float, p4: float, p5: float, t: float) -> float:
         """Interpolate with Sprague."""
@@ -1116,20 +1148,17 @@ class SpragueInterpolator(Interpolator):
         coord = []
         for idx in range(self.num_coords):
             c = self.points[idx]
-            if t < 0 or t > 1:
-                coord.append(lerp(c[i + 2], c[i + 3], t))
-            else:
-                coord.append(
-                    self.interpolate(
-                        c[i],
-                        c[i + 1],
-                        c[i + 2],
-                        c[i + 3],
-                        c[i + 4],
-                        c[i + 5],
-                        t
-                    )
+            coord.append(
+                self.interpolate(
+                    c[i],
+                    c[i + 1],
+                    c[i + 2],
+                    c[i + 3],
+                    c[i + 4],
+                    c[i + 5],
+                    t
                 )
+            )
         return coord
 
 
@@ -1146,13 +1175,25 @@ SPLINES = {
 def interpolate(
     points: list[Vector] | Vector,
     domain: VectorLike | None = None,
-    method: str = 'linear'
+    method: str = 'linear',
+    extrapolate: bool = True,
+    **kwargs: Any
 ) -> Interpolator:
     """Generic interpolation method."""
 
     if points and isinstance(points[0], Sequence):
-        return SPLINES[method](cast('list[Vector]', points[:]), domain=domain)
-    return SPLINES[method](cast('list[Vector]', [[p] for p in points]), domain=domain)
+        return SPLINES[method](
+            cast('list[Vector]', points[:]),
+            domain=domain,
+            extrapolate=extrapolate,
+            **kwargs
+        )
+    return SPLINES[method](
+        cast('list[Vector]', [[p] for p in points]),
+        domain=domain,
+        extrapolate=extrapolate,
+        **kwargs
+    )
 
 
 ################################

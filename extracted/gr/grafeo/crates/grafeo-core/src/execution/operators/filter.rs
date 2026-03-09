@@ -12,6 +12,21 @@ use regex_lite::Regex;
 use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 
+/// Extracts a required integer field from a temporal constructor map.
+fn map_int(m: &BTreeMap<PropertyKey, Value>, key: &str) -> Option<i64> {
+    match m.get(&PropertyKey::from(key))? {
+        Value::Int64(v) => Some(*v),
+        Value::Float64(f) => Some(*f as i64),
+        _ => None,
+    }
+}
+
+/// Extracts an optional integer field from a temporal constructor map,
+/// returning a default value when the key is absent.
+fn map_int_or(m: &BTreeMap<PropertyKey, Value>, key: &str, default: i64) -> i64 {
+    map_int(m, key).unwrap_or(default)
+}
+
 /// A predicate for filtering rows.
 pub trait Predicate: Send + Sync {
     /// Evaluates the predicate for a single row.
@@ -759,6 +774,18 @@ impl ExpressionPredicate {
             FilterExpression::Variable(name) if name == item_name => Some(item_val.clone()),
             FilterExpression::Literal(v) => Some(v.clone()),
             FilterExpression::Binary { left, op, right } => {
+                // IN operator needs special handling: right side is a list
+                if *op == BinaryFilterOp::In {
+                    let l = self.eval_reduce_expr(left, acc_val, acc_name, item_val, item_name)?;
+                    let r = self.eval_reduce_expr(right, acc_val, acc_name, item_val, item_name)?;
+                    return match r {
+                        Value::List(items) => {
+                            let found = items.iter().any(|v| Self::values_equal(&l, v));
+                            Some(Value::Bool(found))
+                        }
+                        _ => None,
+                    };
+                }
                 let l = self.eval_reduce_expr(left, acc_val, acc_name, item_val, item_name)?;
                 let r = self.eval_reduce_expr(right, acc_val, acc_name, item_val, item_name)?;
                 self.eval_binary_op(&l, *op, &r)
@@ -795,6 +822,43 @@ impl ExpressionPredicate {
                     None
                 }
             }
+            FilterExpression::List(items) => {
+                let values: Vec<Value> = items
+                    .iter()
+                    .filter_map(|i| {
+                        self.eval_reduce_expr(i, acc_val, acc_name, item_val, item_name)
+                    })
+                    .collect();
+                Some(Value::List(values.into()))
+            }
+            FilterExpression::Case {
+                operand,
+                when_clauses,
+                else_clause,
+            } => {
+                let eval = |e| self.eval_reduce_expr(e, acc_val, acc_name, item_val, item_name);
+                if let Some(test_expr) = operand.as_deref() {
+                    let test_val = eval(test_expr)?;
+                    for (when_expr, then_expr) in when_clauses {
+                        let when_val = eval(when_expr)?;
+                        if Self::values_equal(&test_val, &when_val) {
+                            return eval(then_expr);
+                        }
+                    }
+                } else {
+                    for (when_expr, then_expr) in when_clauses {
+                        let when_val = eval(when_expr)?;
+                        if when_val.as_bool() == Some(true) {
+                            return eval(then_expr);
+                        }
+                    }
+                }
+                if let Some(else_expr) = else_clause.as_deref() {
+                    eval(else_expr)
+                } else {
+                    Some(Value::Null)
+                }
+            }
             // For expressions not referencing the local variables, delegate to
             // the comprehension evaluator with the item binding
             _ => self.eval_comprehension_expr(expr, item_val, item_name),
@@ -813,6 +877,18 @@ impl ExpressionPredicate {
             FilterExpression::Variable(name) if name == variable => Some(item.clone()),
             FilterExpression::Literal(v) => Some(v.clone()),
             FilterExpression::Binary { left, op, right } => {
+                // IN operator needs special handling: right side is a list
+                if *op == BinaryFilterOp::In {
+                    let left_val = self.eval_comprehension_expr(left, item, variable)?;
+                    let right_val = self.eval_comprehension_expr(right, item, variable)?;
+                    return match right_val {
+                        Value::List(items) => {
+                            let found = items.iter().any(|v| Self::values_equal(&left_val, v));
+                            Some(Value::Bool(found))
+                        }
+                        _ => None,
+                    };
+                }
                 let left_val = self.eval_comprehension_expr(left, item, variable)?;
                 let right_val = self.eval_comprehension_expr(right, item, variable)?;
                 self.eval_binary_op(&left_val, *op, &right_val)
@@ -833,8 +909,58 @@ impl ExpressionPredicate {
                     None
                 }
             }
+            FilterExpression::List(items) => {
+                let values: Vec<Value> = items
+                    .iter()
+                    .filter_map(|i| self.eval_comprehension_expr(i, item, variable))
+                    .collect();
+                Some(Value::List(values.into()))
+            }
+            FilterExpression::Case {
+                operand,
+                when_clauses,
+                else_clause,
+            } => self.eval_case_in_comprehension(
+                operand.as_deref(),
+                when_clauses,
+                else_clause.as_deref(),
+                item,
+                variable,
+            ),
             // For other expression types, return None (unsupported in comprehension)
             _ => None,
+        }
+    }
+
+    /// Evaluates a CASE expression inside a list comprehension or predicate context.
+    fn eval_case_in_comprehension(
+        &self,
+        operand: Option<&FilterExpression>,
+        when_clauses: &[(FilterExpression, FilterExpression)],
+        else_clause: Option<&FilterExpression>,
+        item: &Value,
+        variable: &str,
+    ) -> Option<Value> {
+        if let Some(test_expr) = operand {
+            let test_val = self.eval_comprehension_expr(test_expr, item, variable)?;
+            for (when_expr, then_expr) in when_clauses {
+                let when_val = self.eval_comprehension_expr(when_expr, item, variable)?;
+                if Self::values_equal(&test_val, &when_val) {
+                    return self.eval_comprehension_expr(then_expr, item, variable);
+                }
+            }
+        } else {
+            for (when_expr, then_expr) in when_clauses {
+                let when_val = self.eval_comprehension_expr(when_expr, item, variable)?;
+                if when_val.as_bool() == Some(true) {
+                    return self.eval_comprehension_expr(then_expr, item, variable);
+                }
+            }
+        }
+        if let Some(else_expr) = else_clause {
+            self.eval_comprehension_expr(else_expr, item, variable)
+        } else {
+            Some(Value::Null)
         }
     }
 
@@ -2196,6 +2322,12 @@ impl ExpressionPredicate {
                     Value::String(s) => grafeo_common::types::Date::parse(&s).map(Value::Date),
                     Value::Timestamp(ts) => Some(Value::Date(ts.to_date())),
                     Value::Date(_) => Some(val),
+                    Value::Map(m) => {
+                        let year = map_int(&m, "year")? as i32;
+                        let month = map_int_or(&m, "month", 1) as u32;
+                        let day = map_int_or(&m, "day", 1) as u32;
+                        grafeo_common::types::Date::from_ymd(year, month, day).map(Value::Date)
+                    }
                     _ => None,
                 }
             }
@@ -2208,6 +2340,14 @@ impl ExpressionPredicate {
                     Value::String(s) => grafeo_common::types::Time::parse(&s).map(Value::Time),
                     Value::Timestamp(ts) => Some(Value::Time(ts.to_time())),
                     Value::Time(_) => Some(val),
+                    Value::Map(m) => {
+                        let hour = map_int_or(&m, "hour", 0) as u32;
+                        let minute = map_int_or(&m, "minute", 0) as u32;
+                        let second = map_int_or(&m, "second", 0) as u32;
+                        let nanosecond = map_int_or(&m, "nanosecond", 0) as u32;
+                        grafeo_common::types::Time::from_hms_nano(hour, minute, second, nanosecond)
+                            .map(Value::Time)
+                    }
                     _ => None,
                 }
             }
@@ -2238,6 +2378,22 @@ impl ExpressionPredicate {
                         None
                     }
                     Value::Timestamp(_) => Some(val),
+                    Value::Map(m) => {
+                        let year = map_int(&m, "year")? as i32;
+                        let month = map_int_or(&m, "month", 1) as u32;
+                        let day = map_int_or(&m, "day", 1) as u32;
+                        let hour = map_int_or(&m, "hour", 0) as u32;
+                        let minute = map_int_or(&m, "minute", 0) as u32;
+                        let second = map_int_or(&m, "second", 0) as u32;
+                        let nanosecond = map_int_or(&m, "nanosecond", 0) as u32;
+                        let date = grafeo_common::types::Date::from_ymd(year, month, day)?;
+                        let time = grafeo_common::types::Time::from_hms_nano(
+                            hour, minute, second, nanosecond,
+                        )?;
+                        Some(Value::Timestamp(
+                            grafeo_common::types::Timestamp::from_date_time(date, time),
+                        ))
+                    }
                     _ => None,
                 }
             }
@@ -2251,6 +2407,27 @@ impl ExpressionPredicate {
                         grafeo_common::types::Duration::parse(&s).map(Value::Duration)
                     }
                     Value::Duration(_) => Some(val),
+                    Value::Map(m) => {
+                        let years = map_int_or(&m, "years", 0);
+                        let months = map_int_or(&m, "months", 0);
+                        let weeks = map_int_or(&m, "weeks", 0);
+                        let days = map_int_or(&m, "days", 0);
+                        let hours = map_int_or(&m, "hours", 0);
+                        let minutes = map_int_or(&m, "minutes", 0);
+                        let seconds = map_int_or(&m, "seconds", 0);
+                        let nanoseconds = map_int_or(&m, "nanoseconds", 0);
+                        let total_months = years * 12 + months;
+                        let total_days = weeks * 7 + days;
+                        let total_nanos = hours * 3_600_000_000_000
+                            + minutes * 60_000_000_000
+                            + seconds * 1_000_000_000
+                            + nanoseconds;
+                        Some(Value::Duration(grafeo_common::types::Duration::new(
+                            total_months,
+                            total_days,
+                            total_nanos,
+                        )))
+                    }
                     _ => None,
                 }
             }
@@ -2951,6 +3128,7 @@ impl Operator for FilterOperator {
 }
 
 /// Escapes a character for use in a regex pattern.
+#[cfg(any(feature = "regex", feature = "regex-lite"))]
 fn regex_escape_char(ch: char, out: &mut String) {
     if ".+*?^${}()|[]\\".contains(ch) {
         out.push('\\');

@@ -143,6 +143,12 @@ fn color_control_tty() -> Result<()> {
     let color_default_output = zizmor()
         .output(OutputMode::Both)
         .unbuffer(true)
+        // indicatif 0.18.4+ hides progress bars when `TERM` is unset or `dumb`.
+        // GitHub Actions runners have `TERM=dumb`, so we explicitly set a
+        // color-capable value here to ensure the TTY tests can assert on
+        // progress bar output.
+        // TODO: Should probably do something more general here.
+        .setenv("TERM", "xterm-256color")
         .input(input_under_test("e2e-menagerie"))
         .run()?;
     assert!(color_default_output.contains("\x1b["));
@@ -184,6 +190,12 @@ fn progress_bar_tty() -> Result<()> {
     let progress_bar_default_output = zizmor()
         .output(OutputMode::Both)
         .unbuffer(true)
+        // indicatif 0.18.4+ hides progress bars when `TERM` is unset or `dumb`.
+        // GitHub Actions runners have `TERM=dumb`, so we explicitly set a
+        // color-capable value here to ensure the TTY tests can assert on
+        // progress bar output.
+        // TODO: Should probably do something more general here.
+        .setenv("TERM", "xterm-256color")
         .input(input_under_test("e2e-menagerie"))
         .run()?;
     assert!(progress_bar_default_output.contains("collect_inputs{}"));
@@ -408,21 +420,21 @@ fn issue_1065() -> Result<()> {
        |
     12 | /   issue-1065:
     13 | |     runs-on: ubuntu-latest
-    14 | |     steps:
-    15 | |       - name: Comment PR
+    14 | |     environment: foobar
+    15 | |     steps:
     ...  |
-    24 | |             Please review the changes and provide any feedback. Thanks! 🚀
-       | |                                                                          ^
-       | |                                                                          |
-       | |__________________________________________________________________________this job
-       |                                                                            default permissions used due to no permissions: block
+    25 | |             Please review the changes and provide any feedback. Thanks! 🚀
+       | |                                                                           ^
+       | |                                                                           |
+       | |___________________________________________________________________________this job
+       |                                                                             default permissions used due to no permissions: block
        |
        = note: audit confidence → Medium
 
     error[unpinned-uses]: unpinned action reference
-      --> @@INPUT@@:16:15
+      --> @@INPUT@@:17:15
        |
-    16 |         uses: thollander/actions-comment-pull-request@v3
+    17 |         uses: thollander/actions-comment-pull-request@v3
        |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ action is not pinned to a hash (required by blanket policy)
        |
        = note: audit confidence → High
@@ -660,10 +672,22 @@ fn test_github_output() -> Result<()> {
     ::error file=@@INPUT@@,line=5,title=excessive-permissions::several-vulnerabilities.yml:5: overly broad permissions: uses write-all permissions
     ::error file=@@INPUT@@,line=11,title=excessive-permissions::several-vulnerabilities.yml:11: overly broad permissions: uses write-all permissions
     ::error file=@@INPUT@@,line=2,title=dangerous-triggers::several-vulnerabilities.yml:2: use of fundamentally insecure workflow trigger: pull_request_target is almost always used insecurely
-    ::warning file=@@INPUT@@,line=16,title=template-injection::several-vulnerabilities.yml:16: code injection via template expansion: may expand into attacker-controllable code
     ::error file=@@INPUT@@,line=16,title=template-injection::several-vulnerabilities.yml:16: code injection via template expansion: may expand into attacker-controllable code
     ::warning file=@@INPUT@@,line=1,title=concurrency-limits::several-vulnerabilities.yml:1: insufficient job-level concurrency limits: missing concurrency setting
     "
+    );
+
+    Ok(())
+}
+
+#[test]
+fn test_sarif_zizmor_properties() -> Result<()> {
+    insta::assert_snapshot!(
+        zizmor()
+            .offline(true)
+            .input(input_under_test("several-vulnerabilities.yml"))
+            .args(["--format=sarif"])
+            .run()?
     );
 
     Ok(())

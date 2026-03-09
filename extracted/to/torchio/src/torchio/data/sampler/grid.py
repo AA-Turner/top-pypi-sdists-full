@@ -15,10 +15,10 @@ class GridSampler(PatchSampler):
     r"""Extract patches across a whole volume.
 
     Grid samplers are useful to perform inference using all patches from a
-    volume. It is often used with a [`GridAggregator`][torchio.data.GridAggregator].
+    volume. It is often used with a [`GridAggregator`](../inference/#torchio.data.GridAggregator).
 
     Args:
-        subject: Instance of [`Subject`][torchio.data.Subject]
+        subject: Instance of [`Subject`](../../data/subject/#torchio.Subject)
             from which patches will be extracted.
         patch_size: Tuple of integers $(w, h, d)$ to generate patches
             of size $w \times h \times d$.
@@ -34,7 +34,7 @@ class GridSampler(PatchSampler):
             Otherwise, the volume will be padded with
             $\left(\frac{w_o}{2}, \frac{h_o}{2}, \frac{d_o}{2} \right)$
             on each side before sampling. If the sampler is passed to a
-            [`GridAggregator`][torchio.data.GridAggregator], it will crop the output
+            [`GridAggregator`](../inference/#torchio.data.GridAggregator), it will crop the output
             to its original size.
 
     Examples:
@@ -76,8 +76,14 @@ class GridSampler(PatchSampler):
     def __getitem__(self, index):
         # Assume 3D
         location = self.locations[index]
-        index_ini = location[:3]
-        cropped_subject = self.crop(self.subject, index_ini, self.patch_size)
+        index_ini = (
+            int(location[0]),
+            int(location[1]),
+            int(location[2]),
+        )
+        si, sj, sk = (int(value) for value in self.patch_size.tolist())
+        patch_size = si, sj, sk
+        cropped_subject = self.crop(self.subject, index_ini, patch_size)
         return cropped_subject
 
     def __call__(
@@ -93,26 +99,55 @@ class GridSampler(PatchSampler):
             from ...transforms import Pad
 
             border = self.patch_overlap // 2
-            padding = border.repeat(2)
-            pad = Pad(padding, padding_mode=self.padding_mode)  # type: ignore[arg-type]
-            subject = pad(subject)  # type: ignore[assignment]
+            padding_values = [int(value) for value in border.repeat(2).tolist()]
+            padding = (
+                padding_values[0],
+                padding_values[1],
+                padding_values[2],
+                padding_values[3],
+                padding_values[4],
+                padding_values[5],
+            )
+            pad = Pad(padding, padding_mode=self.padding_mode)
+            transformed = pad(subject)
+            assert isinstance(transformed, Subject)
+            subject = transformed
         return subject
 
     def _compute_locations(self, subject: Subject):
-        sizes = subject.spatial_shape, self.patch_size, self.patch_overlap
-        self._parse_sizes(*sizes)  # type: ignore[arg-type]
-        return self._get_patches_locations(*sizes)  # type: ignore[arg-type]
+        patch_size_values = [int(value) for value in self.patch_size.tolist()]
+        patch_overlap_values = [int(value) for value in self.patch_overlap.tolist()]
+        patch_size = (
+            patch_size_values[0],
+            patch_size_values[1],
+            patch_size_values[2],
+        )
+        patch_overlap = (
+            patch_overlap_values[0],
+            patch_overlap_values[1],
+            patch_overlap_values[2],
+        )
+        self._parse_sizes(subject.spatial_shape, patch_size, patch_overlap)
+        return self._get_patches_locations(
+            subject.spatial_shape, patch_size, patch_overlap
+        )
 
-    def _generate_patches(  # type: ignore[override]
+    def _generate_patches(
         self,
         subject: Subject,
+        num_patches: int | None = None,
     ) -> Generator[Subject]:
+        if num_patches is not None:
+            message = 'GridSampler does not support limiting the number of patches'
+            raise ValueError(message)
         subject = self._pad(subject)
-        sizes = subject.spatial_shape, self.patch_size, self.patch_overlap
-        self._parse_sizes(*sizes)  # type: ignore[arg-type]
-        locations = self._get_patches_locations(*sizes)  # type: ignore[arg-type]
+        locations = self._compute_locations(subject)
         for location in locations:
-            index_ini = location[:3]
+            index_ini = (
+                int(location[0]),
+                int(location[1]),
+                int(location[2]),
+            )
             yield self.extract_patch(subject, index_ini)
 
     @staticmethod

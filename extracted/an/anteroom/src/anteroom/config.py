@@ -391,6 +391,7 @@ class EmbeddingsConfig:
     base_url: str = ""
     api_key: str = ""
     api_key_command: str = ""
+    cache_dir: str = ""  # custom fastembed cache directory for offline/vendored models
 
 
 @dataclass
@@ -605,6 +606,20 @@ class RagConfig:
     include_sources: bool = True  # search source chunks
     include_conversations: bool = True  # search past conversation messages
     exclude_current: bool = True  # exclude current conversation from results
+    retrieval_mode: str = "dense"  # "dense", "keyword", or "hybrid"
+
+
+@dataclass
+class RerankerConfig:
+    """Cross-encoder reranker settings."""
+
+    enabled: bool | None = None  # None = auto-detect (use if fastembed available)
+    provider: str = "local"  # "local" (fastembed TextCrossEncoder); only local is supported
+    model: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
+    top_k: int = 5  # keep top-K after reranking (capped to rag.max_chunks at runtime)
+    score_threshold: float = 0.0  # minimum relevance score (cross-encoder logit); 0 = no threshold
+    candidate_multiplier: int = 3  # fetch top_k * multiplier candidates before reranking
+    cache_dir: str = ""  # custom fastembed cache directory for offline/vendored models
 
 
 @dataclass
@@ -790,6 +805,7 @@ class AppConfig:
     safety: SafetyConfig = field(default_factory=SafetyConfig)
     proxy: ProxyConfig = field(default_factory=ProxyConfig)
     rag: RagConfig = field(default_factory=RagConfig)
+    reranker: RerankerConfig = field(default_factory=RerankerConfig)
     codebase_index: CodebaseIndexConfig = field(default_factory=CodebaseIndexConfig)
     storage: StorageConfig = field(default_factory=StorageConfig)
     session: SessionConfig = field(default_factory=SessionConfig)
@@ -1447,6 +1463,7 @@ def load_config(
     emb_base_url = emb_raw.get("base_url") or os.environ.get("AI_CHAT_EMBEDDINGS_BASE_URL", "")
     emb_api_key = emb_raw.get("api_key") or os.environ.get("AI_CHAT_EMBEDDINGS_API_KEY", "")
     emb_api_key_command = emb_raw.get("api_key_command") or os.environ.get("AI_CHAT_EMBEDDINGS_API_KEY_COMMAND", "")
+    emb_cache_dir = emb_raw.get("cache_dir") or os.environ.get("AI_CHAT_EMBEDDINGS_CACHE_DIR", "")
 
     embeddings_config = EmbeddingsConfig(
         enabled=emb_enabled,
@@ -1457,6 +1474,7 @@ def load_config(
         base_url=emb_base_url,
         api_key=emb_api_key,
         api_key_command=emb_api_key_command,
+        cache_dir=str(emb_cache_dir),
     )
 
     safety_raw = raw.get("safety", {})
@@ -1745,6 +1763,10 @@ def load_config(
     rag_include_sources = str(rag_raw.get("include_sources", "true")).lower() not in ("false", "0", "no")
     rag_include_conversations = str(rag_raw.get("include_conversations", "true")).lower() not in ("false", "0", "no")
     rag_exclude_current = str(rag_raw.get("exclude_current", "true")).lower() not in ("false", "0", "no")
+    _raw_retrieval_mode = str(
+        rag_raw.get("retrieval_mode", os.environ.get("AI_CHAT_RAG_RETRIEVAL_MODE", "dense"))
+    ).lower()
+    rag_retrieval_mode = _raw_retrieval_mode if _raw_retrieval_mode in ("dense", "keyword", "hybrid") else "dense"
     rag_config = RagConfig(
         enabled=rag_enabled,
         max_chunks=rag_max_chunks,
@@ -1753,6 +1775,57 @@ def load_config(
         include_sources=rag_include_sources,
         include_conversations=rag_include_conversations,
         exclude_current=rag_exclude_current,
+        retrieval_mode=rag_retrieval_mode,
+    )
+
+    # Reranker config
+    reranker_raw = raw.get("reranker", {})
+    if not isinstance(reranker_raw, dict):
+        reranker_raw = {}
+    _raw_reranker_enabled = reranker_raw.get("enabled", os.environ.get("AI_CHAT_RERANKER_ENABLED", ""))
+    if _raw_reranker_enabled == "" or _raw_reranker_enabled is None:
+        reranker_enabled: bool | None = None  # auto-detect
+    else:
+        reranker_enabled = str(_raw_reranker_enabled).lower() in ("true", "1", "yes")
+    _raw_reranker_provider = str(
+        reranker_raw.get("provider", os.environ.get("AI_CHAT_RERANKER_PROVIDER", "local"))
+    ).lower()
+    reranker_provider = _raw_reranker_provider if _raw_reranker_provider in ("local",) else "local"
+    reranker_model = str(
+        reranker_raw.get("model", os.environ.get("AI_CHAT_RERANKER_MODEL", "cross-encoder/ms-marco-MiniLM-L-6-v2"))
+    )
+    try:
+        reranker_top_k = max(1, min(50, int(reranker_raw.get("top_k", os.environ.get("AI_CHAT_RERANKER_TOP_K", 5)))))
+    except (ValueError, TypeError):
+        reranker_top_k = 5
+    try:
+        _raw_score_threshold = reranker_raw.get(
+            "score_threshold", os.environ.get("AI_CHAT_RERANKER_SCORE_THRESHOLD", 0.0)
+        )
+        reranker_score_threshold = float(_raw_score_threshold)
+    except (ValueError, TypeError):
+        reranker_score_threshold = 0.0
+    try:
+        reranker_candidate_multiplier = max(
+            1,
+            min(
+                10,
+                int(
+                    reranker_raw.get("candidate_multiplier", os.environ.get("AI_CHAT_RERANKER_CANDIDATE_MULTIPLIER", 3))
+                ),
+            ),
+        )
+    except (ValueError, TypeError):
+        reranker_candidate_multiplier = 3
+    reranker_cache_dir = reranker_raw.get("cache_dir") or os.environ.get("AI_CHAT_RERANKER_CACHE_DIR", "")
+    reranker_config = RerankerConfig(
+        enabled=reranker_enabled,
+        provider=reranker_provider,
+        model=reranker_model,
+        top_k=reranker_top_k,
+        score_threshold=reranker_score_threshold,
+        candidate_multiplier=reranker_candidate_multiplier,
+        cache_dir=str(reranker_cache_dir),
     )
 
     # Proxy config
@@ -2072,6 +2145,7 @@ def load_config(
             safety=safety_config,
             proxy=proxy_config,
             rag=rag_config,
+            reranker=reranker_config,
             references=refs_config,
             codebase_index=ci_config,
             storage=storage_config,

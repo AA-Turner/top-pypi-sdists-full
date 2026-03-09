@@ -83,6 +83,7 @@ _KNOWN_TOP_LEVEL = {
     "references",
     "storage",
     "rag",
+    "reranker",
     "codebase_index",
     "session",
     "rate_limit",
@@ -156,6 +157,7 @@ _KNOWN_KEYS: dict[str, set[str]] = {
         "base_url",
         "api_key",
         "api_key_command",
+        "cache_dir",
     },
     "safety": {
         "enabled",
@@ -237,6 +239,16 @@ _KNOWN_KEYS: dict[str, set[str]] = {
         "include_sources",
         "include_conversations",
         "exclude_current",
+        "retrieval_mode",
+    },
+    "reranker": {
+        "enabled",
+        "provider",
+        "model",
+        "top_k",
+        "score_threshold",
+        "candidate_multiplier",
+        "cache_dir",
     },
     "codebase_index": {"enabled", "map_tokens", "languages", "exclude_dirs"},
     "session": {
@@ -403,6 +415,7 @@ def validate_config(raw: dict[str, Any]) -> ValidationResult:
     _check_section_type(raw, "storage", dict, result)
     _check_section_type(raw, "identity", dict, result)
     _check_section_type(raw, "rag", dict, result)
+    _check_section_type(raw, "reranker", dict, result)
     _check_section_type(raw, "codebase_index", dict, result)
     _check_section_type(raw, "session", dict, result)
     _check_section_type(raw, "audit", dict, result)

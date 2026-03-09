@@ -38,16 +38,6 @@ fn test_template_injection_dynamic_matrix() -> Result<()> {
             .args(["--persona=auditor"])
             .run()?,
         @r#"
-    help[template-injection]: code injection via template expansion
-      --> @@INPUT@@:26:36
-       |
-    25 |         run: |
-       |         --- this run block
-    26 |           echo "doing a thing: ${{ matrix.dynamic }}"
-       |                                    ^^^^^^^^^^^^^^ may expand into attacker-controllable code
-       |
-       = note: audit confidence → High
-
     warning[template-injection]: code injection via template expansion
       --> @@INPUT@@:26:36
        |
@@ -59,7 +49,7 @@ fn test_template_injection_dynamic_matrix() -> Result<()> {
        = note: audit confidence → Medium
        = note: this finding has an auto-fix
 
-    2 findings (1 fixable): 0 informational, 1 low, 1 medium, 0 high
+    1 findings (1 fixable): 0 informational, 0 low, 1 medium, 0 high
     "#
     );
 
@@ -96,7 +86,7 @@ fn test_pr_317_repro() -> Result<()> {
        = note: audit confidence → Medium
        = note: this finding has an auto-fix
 
-    3 findings (2 suppressed, 1 fixable): 0 informational, 0 low, 1 medium, 0 high
+    2 findings (1 suppressed, 1 fixable): 0 informational, 0 low, 1 medium, 0 high
     "
     );
 
@@ -143,7 +133,7 @@ fn test_static_env() -> Result<()> {
        = note: audit confidence → High
        = note: this finding has an auto-fix
 
-    13 findings (10 suppressed, 3 fixable): 0 informational, 3 low, 0 medium, 0 high
+    7 findings (4 suppressed, 3 fixable): 0 informational, 3 low, 0 medium, 0 high
     "
     );
 
@@ -167,7 +157,7 @@ fn test_issue_339_repro() -> Result<()> {
        |
        = note: audit confidence → Low
 
-    3 findings (2 suppressed): 1 informational, 0 low, 0 medium, 0 high
+    2 findings (1 suppressed): 1 informational, 0 low, 0 medium, 0 high
     "#
     );
 
@@ -183,7 +173,7 @@ fn test_issue_418_repro() -> Result<()> {
         zizmor()
             .input(input_under_test("template-injection/issue-418-repro.yml"))
             .run()?,
-        @"No findings to report. Good job! (3 suppressed)"
+        @"No findings to report. Good job! (2 suppressed)"
     );
 
     Ok(())
@@ -254,7 +244,7 @@ fn test_pr_425_backstop_action() -> Result<()> {
        |
        = note: audit confidence → High
 
-    9 findings (4 suppressed, 1 fixable): 0 informational, 0 low, 0 medium, 5 high
+    5 findings (1 fixable): 0 informational, 0 low, 0 medium, 5 high
     "#
     );
 
@@ -307,7 +297,7 @@ fn test_codeql_sinks() -> Result<()> {
        |
        = note: audit confidence → High
 
-    3 findings (2 suppressed): 0 informational, 0 low, 0 medium, 1 high
+    2 findings (1 suppressed): 0 informational, 0 low, 0 medium, 1 high
     "
     );
 
@@ -334,7 +324,7 @@ fn test_pwsh_script() -> Result<()> {
        |
        = note: audit confidence → High
 
-    3 findings (2 suppressed): 0 informational, 0 low, 0 medium, 1 high
+    2 findings (1 suppressed): 0 informational, 0 low, 0 medium, 1 high
     "#
     );
 
@@ -448,7 +438,7 @@ fn test_issue_883_repro_action() -> Result<()> {
         |
         = note: audit confidence → High
 
-    14 findings (7 suppressed): 0 informational, 6 low, 0 medium, 1 high
+    7 findings: 0 informational, 6 low, 0 medium, 1 high
     "#
     );
 
@@ -465,19 +455,6 @@ fn test_multiline_expression_pedantic() -> Result<()> {
             .args(["--persona=pedantic"])
             .run()?,
         @r#"
-    help[template-injection]: code injection via template expansion
-      --> @@INPUT@@:18:13
-       |
-    16 |         - run: |
-       |           --- this run block
-    17 |             echo ${{
-    18 | /             some.ctx
-    19 | |             && foo.bar
-    20 | |             || baz.qux
-       | |______________________^ may expand into attacker-controllable code
-       |
-       = note: audit confidence → High
-
     info[template-injection]: code injection via template expansion
       --> @@INPUT@@:19:16
        |
@@ -513,7 +490,7 @@ fn test_multiline_expression_pedantic() -> Result<()> {
        |
        = note: audit confidence → High
 
-    4 findings: 2 informational, 2 low, 0 medium, 0 high
+    3 findings: 2 informational, 1 low, 0 medium, 0 high
     "#
     );
 
@@ -551,6 +528,74 @@ fn test_issue_988_repro_pedantic() -> Result<()> {
        = note: audit confidence → High
 
     2 findings: 0 informational, 2 low, 0 medium, 0 high
+    "#
+    );
+
+    Ok(())
+}
+
+/// Repro case for #1638: `github.triggering_actor` should not be considered an
+/// injection risk in the default persona.
+///
+/// See: <https://github.com/zizmorcore/zizmor/issues/1638>
+#[test]
+fn test_issue_1638() -> Result<()> {
+    insta::assert_snapshot!(
+        zizmor()
+            .input(input_under_test("template-injection/issue-1638-repro.yml"))
+            .run()?,
+        @"No findings to report. Good job! (1 suppressed)"
+    );
+
+    insta::assert_snapshot!(
+        zizmor()
+            .input(input_under_test("template-injection/issue-1638-repro.yml"))
+            .args(["--persona=pedantic"])
+            .run()?,
+        @r#"
+    help[template-injection]: code injection via template expansion
+      --> @@INPUT@@:19:24
+       |
+    19 |         run: echo "${{ github.triggering_actor }}"
+       |         ---            ^^^^^^^^^^^^^^^^^^^^^^^ may expand into attacker-controllable code
+       |         |
+       |         this run block
+       |
+       = note: audit confidence → High
+
+    1 finding: 0 informational, 1 low, 0 medium, 0 high
+    "#
+    );
+
+    Ok(())
+}
+
+/// Repro case for #1664: expressions that span mulitiple lines within a folded YAML
+/// block should have their subfeatures extracted correctly, without crashing.
+///
+/// See: <https://github.com/zizmorcore/zizmor/issues/1664>
+#[test]
+fn test_issue_1664() -> Result<()> {
+    insta::assert_snapshot!(
+        zizmor()
+            .input(input_under_test("template-injection/issue-1664-repro.yml"))
+            .args(["--persona=pedantic"])
+            .run()?,
+        @r#"
+    help[template-injection]: code injection via template expansion
+      --> @@INPUT@@:17:15
+       |
+    16 |           run: >
+       |           --- this run block
+    17 |             ${{ secrets.MY_SECRET
+       |  _______________^
+    18 | |           && 'true'
+    19 | |           || 'echo "fallback"' }}
+       | |______________________________^ may expand into attacker-controllable code
+       |
+       = note: audit confidence → High
+
+    3 findings (2 ignored): 0 informational, 1 low, 0 medium, 0 high
     "#
     );
 

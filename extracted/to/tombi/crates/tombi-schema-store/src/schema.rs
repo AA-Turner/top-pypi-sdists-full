@@ -54,9 +54,112 @@ pub type SchemaProperties =
 pub type SchemaPatternProperties =
     Arc<tokio::sync::RwLock<tombi_hashmap::HashMap<String, PropertySchema>>>;
 pub type SchemaItem = Arc<tokio::sync::RwLock<Referable<ValueSchema>>>;
-pub type SchemaDefinitions =
-    Arc<tokio::sync::RwLock<tombi_hashmap::HashMap<String, Referable<ValueSchema>>>>;
+pub type SchemaMap = tombi_hashmap::HashMap<String, Referable<ValueSchema>>;
+pub type SchemaDefinitions = Arc<tokio::sync::RwLock<SchemaMap>>;
+pub type SchemaAnchors = Arc<tokio::sync::RwLock<SchemaMap>>;
+pub type SchemaDynamicAnchors = Arc<tokio::sync::RwLock<SchemaMap>>;
+pub type AnchorCollector = SchemaMap;
+pub type DynamicAnchorCollector = SchemaMap;
 pub type ReferableValueSchemas = Arc<tokio::sync::RwLock<Vec<Referable<ValueSchema>>>>;
+
+pub(crate) fn referable_from_schema_value(
+    value: &tombi_json::ValueNode,
+    string_formats: Option<&[tombi_x_keyword::StringFormat]>,
+    dialect: Option<crate::JsonSchemaDialect>,
+    anchor_collector: Option<&mut AnchorCollector>,
+    dynamic_anchor_collector: Option<&mut DynamicAnchorCollector>,
+) -> Option<Referable<ValueSchema>> {
+    match value {
+        tombi_json::ValueNode::Object(obj) => Referable::<ValueSchema>::new(
+            obj,
+            string_formats,
+            dialect,
+            anchor_collector,
+            dynamic_anchor_collector,
+        ),
+        tombi_json::ValueNode::Bool(boolean_schema) => Some(Referable::Resolved {
+            schema_uri: None,
+            value: Arc::new(boolean_value_schema(boolean_schema.value)),
+        }),
+        _ => None,
+    }
+}
+
+pub(crate) fn schema_item_from_schema_value(
+    value: &tombi_json::ValueNode,
+    string_formats: Option<&[tombi_x_keyword::StringFormat]>,
+    dialect: Option<crate::JsonSchemaDialect>,
+    anchor_collector: Option<&mut AnchorCollector>,
+    dynamic_anchor_collector: Option<&mut DynamicAnchorCollector>,
+) -> Option<SchemaItem> {
+    referable_from_schema_value(
+        value,
+        string_formats,
+        dialect,
+        anchor_collector,
+        dynamic_anchor_collector,
+    )
+    .map(|schema| Arc::new(tokio::sync::RwLock::new(schema)))
+}
+
+pub(crate) fn boolean_value_schema(allow: bool) -> ValueSchema {
+    if allow {
+        ValueSchema::AnyOf(AnyOfSchema::default())
+    } else {
+        ValueSchema::OneOf(OneOfSchema::default())
+    }
+}
+
+pub(crate) fn update_named_anchors(
+    object: &tombi_json::ObjectNode,
+    referable: &Referable<ValueSchema>,
+    dialect: Option<crate::JsonSchemaDialect>,
+    anchor_collector: Option<&mut AnchorCollector>,
+    mut dynamic_anchor_collector: Option<&mut DynamicAnchorCollector>,
+) {
+    let Some(dialect) = dialect else {
+        return;
+    };
+
+    if crate::supports_keyword(dialect, "$anchor")
+        && let Some(anchor) = object
+            .get("$anchor")
+            .and_then(|value| value.as_str())
+            .filter(|anchor| is_plain_name_fragment(anchor))
+        && let Some(anchor_collector) = anchor_collector
+    {
+        anchor_collector
+            .entry(format!("#{anchor}"))
+            .or_insert_with(|| referable.clone());
+    }
+    if crate::supports_keyword(dialect, "$dynamicAnchor")
+        && let Some(dynamic_anchor) = object
+            .get("$dynamicAnchor")
+            .and_then(|value| value.as_str())
+            .filter(|dynamic_anchor| is_plain_name_fragment(dynamic_anchor))
+        && let Some(dynamic_anchor_collector) = dynamic_anchor_collector.as_deref_mut()
+    {
+        dynamic_anchor_collector
+            .entry(format!("#{dynamic_anchor}"))
+            .or_insert_with(|| referable.clone());
+    }
+    if crate::supports_keyword(dialect, "$recursiveAnchor")
+        && object
+            .get("$recursiveAnchor")
+            .and_then(|value| value.as_bool())
+            == Some(true)
+        && let Some(dynamic_anchor_collector) = dynamic_anchor_collector
+    {
+        dynamic_anchor_collector
+            .entry("#".to_string())
+            .or_insert_with(|| referable.clone());
+    }
+}
+
+#[inline]
+fn is_plain_name_fragment(fragment: &str) -> bool {
+    !fragment.is_empty() && !fragment.contains('/')
+}
 
 #[derive(Debug, Clone)]
 pub struct PropertySchema {

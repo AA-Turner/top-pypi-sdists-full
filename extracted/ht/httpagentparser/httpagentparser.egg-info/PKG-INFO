@@ -1,61 +1,72 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: httpagentparser
-Version: 1.9.5
+Version: 1.9.9
 Summary: Extracts OS Browser etc information from http user agent string
-Home-page: https://github.com/shon/httpagentparser
-Author: Shekhar Tiwatne
-Author-email: pythonic@gmail.com
-License: http://www.opensource.org/licenses/mit-license.php
-Platform: UNKNOWN
+Author-email: Shekhar Tiwatne <pythonic@gmail.com>
+License: The MIT License (MIT)
+        
+        Copyright (c) 2013 Shekhar Tiwatne
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy
+        of this software and associated documentation files (the "Software"), to deal
+        in the Software without restriction, including without limitation the rights
+        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+        copies of the Software, and to permit persons to whom the Software is
+        furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in
+        all copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+        THE SOFTWARE.
+        
+Project-URL: Homepage, https://github.com/shon/httpagentparser
 Classifier: Programming Language :: Python :: 3
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
 License-File: LICENSE.txt
+Dynamic: license-file
 
-.. image:: http://pepy.tech/badge/httpagentparser
-        :target: http://pepy.tech/project/httpagentparser
+[![Downloads](http://pepy.tech/badge/httpagentparser)](http://pepy.tech/project/httpagentparser)
 
-.. image:: https://img.shields.io/pypi/v/httpagentparser.svg
-        :target: https://pypi.python.org/pypi/httpagentparser
+[![PYPI](https://img.shields.io/pypi/v/httpagentparser.svg)](https://pypi.python.org/pypi/httpagentparser)
 
-.. image:: https://img.shields.io/travis/shon/httpagentparser.svg
-        :target: https://travis-ci.org/shon/httpagentparser
+[![Travis](https://img.shields.io/travis/shon/httpagentparser.svg)](https://travis-ci.org/shon/httpagentparser)
 
 
-.. image:: https://img.shields.io/travis/shon/httpagentparser.svg
-        :target: https://travis-ci.org/shon/httpagentparser
+# Features
 
-Features
---------
+-   Fast
+-   Detects OS and Browser. Does not aim to be a full featured agent parser
+-   Will not turn into django-httpagentparser ;)
 
-- Fast
-- Detects OS and Browser. Does not aim to be a full featured agent parser
-- Will not turn into django-httpagentparser ;)
+# Usage
 
-Usage
------
+```python
+>>> import httpagentparser
+>>> s = "Mozilla/5.0 (X11; U; Linux i686; en-US) AppleWebKit/532.9 (KHTML, like Gecko) \
+        Chrome/5.0.307.11 Safari/532.9"
+>>> print(httpagentparser.simple_detect(s))
+('Linux', 'Chrome 5.0.307.11')
+>>> print(httpagentparser.detect(s))
+{'os': {'name': 'Linux'},
+ 'browser': {'version': '5.0.307.11', 'name': 'Chrome'}}
 
-.. code-block:: python
+>>> s = "Mozilla/5.0 (Linux; U; Android 2.3.5; en-in; HTC_DesireS_S510e Build/GRJ90) \
+        AppleWebKit/533.1 (KHTML, like Gecko) Version/4.0 Mobile Safari/533.1"
+>>> print(httpagentparser.simple_detect(s))
+('Android Linux 2.3.5', 'Safari 4.0')
+>>> print(httpagentparser.detect(s))
+{'dist': {'version': '2.3.5', 'name': 'Android'},
+'os': {'name': 'Linux'},
+'browser': {'version': '4.0', 'name': 'Safari'}}
+```
 
-    >>> import httpagentparser
-    >>> s = "Mozilla/5.0 (X11; U; Linux i686; en-US) AppleWebKit/532.9 (KHTML, like Gecko) \
-            Chrome/5.0.307.11 Safari/532.9"
-    >>> print(httpagentparser.simple_detect(s))
-    ('Linux', 'Chrome 5.0.307.11')
-    >>> print(httpagentparser.detect(s))
-    {'os': {'name': 'Linux'},
-     'browser': {'version': '5.0.307.11', 'name': 'Chrome'}}
+# History
 
-    >>> s = "Mozilla/5.0 (Linux; U; Android 2.3.5; en-in; HTC_DesireS_S510e Build/GRJ90) \
-            AppleWebKit/533.1 (KHTML, like Gecko) Version/4.0 Mobile Safari/533.1"
-    >>> print(httpagentparser.simple_detect(s))
-    ('Android Linux 2.3.5', 'Safari 4.0')
-    >>> print(httpagentparser.detect(s))
-    {'dist': {'version': '2.3.5', 'name': 'Android'},
-    'os': {'name': 'Linux'},
-    'browser': {'version': '4.0', 'name': 'Safari'}}
-
-History
--------
-
-http://stackoverflow.com/questions/927552/parsing-http-user-agent-string/1151956#1151956
-
-
+<http://stackoverflow.com/questions/927552/parsing-http-user-agent-string/1151956#1151956>

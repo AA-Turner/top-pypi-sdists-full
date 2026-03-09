@@ -1,4 +1,4 @@
-use std::{borrow::Cow, sync::Arc};
+use std::borrow::Cow;
 
 use itertools::Itertools;
 use tombi_future::{BoxFuture, Boxable};
@@ -7,8 +7,8 @@ use tombi_x_keyword::{
 };
 
 use super::{
-    CurrentSchema, FindSchemaCandidates, Referable, SchemaDefinitions, SchemaItem, SchemaUri,
-    ValueSchema,
+    AnchorCollector, CurrentSchema, DynamicAnchorCollector, FindSchemaCandidates,
+    SchemaDefinitions, SchemaItem, SchemaUri, ValueSchema, schema_item_from_schema_value,
 };
 use crate::{
     Accessor, SchemaStore,
@@ -45,7 +45,17 @@ impl ArraySchema {
         object: &tombi_json::ObjectNode,
         string_formats: Option<&[StringFormat]>,
         dialect: Option<crate::JsonSchemaDialect>,
+        anchor_collector: Option<&mut AnchorCollector>,
+        dynamic_anchor_collector: Option<&mut DynamicAnchorCollector>,
     ) -> Self {
+        let mut anchor_collector = anchor_collector;
+        let mut dynamic_anchor_collector = dynamic_anchor_collector;
+        let uses_prefix_items_semantics =
+            dialect.is_some_and(|dialect| crate::supports_keyword(dialect, "prefixItems"));
+        let has_prefix_items = object.get("prefixItems").is_some()
+            || object
+                .get("items")
+                .is_some_and(|value| value.as_array().is_some());
         Self {
             title: object
                 .get("title")
@@ -54,10 +64,18 @@ impl ArraySchema {
                 .get("description")
                 .and_then(|v| v.as_str().map(|s| s.to_string())),
             items: object.get("items").and_then(|value| {
-                value
-                    .as_object()
-                    .and_then(|obj| Referable::<ValueSchema>::new(obj, string_formats, dialect))
-                    .map(|schema| Arc::new(tokio::sync::RwLock::new(schema)))
+                // draft 2020-12: when prefixItems is present, boolean `items`
+                // configures overflow allowance and should not be treated as a schema item.
+                if uses_prefix_items_semantics && has_prefix_items && value.as_bool().is_some() {
+                    return None;
+                }
+                schema_item_from_schema_value(
+                    value,
+                    string_formats,
+                    dialect,
+                    anchor_collector.as_deref_mut(),
+                    dynamic_anchor_collector.as_deref_mut(),
+                )
             }),
             prefix_items: object
                 .get("prefixItems")
@@ -66,16 +84,18 @@ impl ArraySchema {
                 .map(|arr| {
                     arr.items
                         .iter()
-                        .filter_map(|v| {
-                            v.as_object()
-                                .and_then(|obj| {
-                                    Referable::<ValueSchema>::new(obj, string_formats, dialect)
-                                })
-                                .map(|schema| Arc::new(tokio::sync::RwLock::new(schema)))
+                        .filter_map(|value| {
+                            schema_item_from_schema_value(
+                                value,
+                                string_formats,
+                                dialect,
+                                anchor_collector.as_deref_mut(),
+                                dynamic_anchor_collector.as_deref_mut(),
+                            )
                         })
                         .collect_vec()
                 }),
-            additional_items: if dialect == Some(crate::JsonSchemaDialect::Draft2020_12) {
+            additional_items: if uses_prefix_items_semantics {
                 // In 2020-12, `items: false` means no overflow items (like `additionalItems: false` in draft-07)
                 match object.get("items") {
                     Some(tombi_json::ValueNode::Bool(b)) => Some(b.value),
@@ -88,20 +108,30 @@ impl ArraySchema {
                     _ => None,
                 }
             },
-            additional_items_schema: if dialect == Some(crate::JsonSchemaDialect::Draft2020_12) {
+            additional_items_schema: if uses_prefix_items_semantics {
                 None
             } else {
-                object
-                    .get("additionalItems")
-                    .and_then(|v| v.as_object())
-                    .and_then(|obj| Referable::<ValueSchema>::new(obj, string_formats, dialect))
-                    .map(|schema| Arc::new(tokio::sync::RwLock::new(schema)))
+                match object.get("additionalItems") {
+                    Some(value @ tombi_json::ValueNode::Object(_)) => {
+                        schema_item_from_schema_value(
+                            value,
+                            string_formats,
+                            dialect,
+                            anchor_collector.as_deref_mut(),
+                            dynamic_anchor_collector.as_deref_mut(),
+                        )
+                    }
+                    _ => None,
+                }
             },
             contains: object.get("contains").and_then(|value| {
-                value
-                    .as_object()
-                    .and_then(|obj| Referable::<ValueSchema>::new(obj, string_formats, dialect))
-                    .map(|schema| Arc::new(tokio::sync::RwLock::new(schema)))
+                schema_item_from_schema_value(
+                    value,
+                    string_formats,
+                    dialect,
+                    anchor_collector.as_deref_mut(),
+                    dynamic_anchor_collector.as_deref_mut(),
+                )
             }),
             min_contains: object
                 .get("minContains")
@@ -137,8 +167,21 @@ impl ArraySchema {
                 .and_then(XTombiArrayValuesOrder::new),
             deprecated: object.get("deprecated").and_then(|v| v.as_bool()),
             range: object.range,
-            not: NotSchema::new(object, string_formats, dialect),
-            if_then_else: IfThenElseSchema::new(object, string_formats, dialect).map(Box::new),
+            not: NotSchema::new(
+                object,
+                string_formats,
+                dialect,
+                anchor_collector.as_deref_mut(),
+                dynamic_anchor_collector.as_deref_mut(),
+            ),
+            if_then_else: IfThenElseSchema::new(
+                object,
+                string_formats,
+                dialect,
+                anchor_collector,
+                dynamic_anchor_collector,
+            )
+            .map(Box::new),
         }
     }
 
@@ -226,7 +269,7 @@ impl XTombiArrayValuesOrder {
                                         None => {
                                             log::warn!(
                                                 "Invalid {X_TOMBI_ARRAY_VALUES_ORDER} {group_name} group: {}",
-                                                group_orders.to_string()
+                                                group_orders
                                             );
                                         }
                                     }
@@ -248,7 +291,7 @@ impl XTombiArrayValuesOrder {
                                         None => {
                                             log::warn!(
                                                 "Invalid {X_TOMBI_ARRAY_VALUES_ORDER} {group_name} group: {}",
-                                                group_orders.to_string()
+                                                group_orders
                                             );
                                         }
                                     }

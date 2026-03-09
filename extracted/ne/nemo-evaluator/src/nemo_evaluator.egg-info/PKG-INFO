@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nemo-evaluator
-Version: 0.1.95
+Version: 0.2.0
 Summary: Common utilities for NVIDIA evaluation frameworks
 Author: NVIDIA
 Author-email: nemo-toolkit@nvidia.com
@@ -219,7 +219,7 @@ Requires-Python: <3.14,>=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: flask
-Requires-Dist: httpx<1,>=0.27.2
+Requires-Dist: httpx<1,>=0.20.0
 Requires-Dist: jinja2
 Requires-Dist: psutil
 Requires-Dist: pydantic

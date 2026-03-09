@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: open-webui
-Version: 0.8.9
+Version: 0.8.10
 Summary: Open WebUI
 Author-email: Timothy Jaeryang Baek <tim@openwebui.com>
 License: Copyright (c) 2023- Open WebUI Inc. [Created by Timothy Jaeryang Baek]
@@ -146,6 +146,7 @@ Requires-Dist: docker~=7.1.0; extra == 'all'
 Requires-Dist: elasticsearch==9.3.0; extra == 'all'
 Requires-Dist: firecrawl-py==4.18.0; extra == 'all'
 Requires-Dist: gcp-storage-emulator>=2024.8.3; extra == 'all'
+Requires-Dist: mariadb==1.1.14; extra == 'all'
 Requires-Dist: moto[s3]>=5.0.26; extra == 'all'
 Requires-Dist: oracledb==3.4.2; extra == 'all'
 Requires-Dist: pgvector==0.4.2; extra == 'all'
@@ -158,6 +159,8 @@ Requires-Dist: pytest-docker~=3.2.5; extra == 'all'
 Requires-Dist: pytest~=8.3.2; extra == 'all'
 Requires-Dist: qdrant-client==1.17.0; extra == 'all'
 Requires-Dist: weaviate-client==4.20.3; extra == 'all'
+Provides-Extra: mariadb
+Requires-Dist: mariadb==1.1.14; extra == 'mariadb'
 Provides-Extra: postgres
 Requires-Dist: pgvector==0.4.2; extra == 'postgres'
 Requires-Dist: psycopg2-binary==2.9.11; extra == 'postgres'

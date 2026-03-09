@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mindroom
-Version: 2026.3.61
+Version: 2026.3.67
 Summary: A universal interface for AI agents with persistent memory, where every conversation has a home
 Project-URL: documentation, https://github.com/mindroom-ai/mindroom
 Project-URL: homepage, https://github.com/mindroom-ai/mindroom
@@ -20,6 +20,7 @@ Requires-Dist: cron-descriptor>=1.4.5
 Requires-Dist: croniter>=6
 Requires-Dist: diskcache>=5.6.3
 Requires-Dist: fastapi[standard]>=0.116.1
+Requires-Dist: filetype>=1.2
 Requires-Dist: google-genai
 Requires-Dist: groq>=0.31
 Requires-Dist: httpx>=0.27
@@ -285,7 +286,7 @@ Description-Content-Type: text/markdown
 [![Downloads](https://img.shields.io/pypi/dm/mindroom)](https://pypi.org/project/mindroom/)
 [![GitHub](https://img.shields.io/badge/github-mindroom--ai%2Fmindroom-blue?logo=github)](https://github.com/mindroom-ai/mindroom)
 
-<img src="https://raw.githubusercontent.com/mindroom-ai/mindroom/main/frontend/public/logo-text.svg" alt="MindRoom Logo" align="right" width="150" />
+<img src="frontend/public/logo.png" alt="MindRoom Logo" align="right" width="150" />
 
 **Your AI is trapped in apps. We set it free.**
 

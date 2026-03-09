@@ -10,7 +10,6 @@ from wisent.core.utils.config_tools.constants import (
     OPTUNA_BACKEND_NAME,
     OPTUNA_SIGMA_SPREAD_FACTOR,
     QUANTIZATION_STEP_DEFAULT,
-    TPE_N_STARTUP_TRIALS_DEFAULT,
 )
 from wisent.core.utils.services.optimization.core.parameters import (
     CategoricalParam,
@@ -36,12 +35,10 @@ class UnifiedOptimizer:
         backend: str = HYPEROPT_BACKEND_NAME,
         direction: str = "maximize",
         seed: int | None = None,
-        n_startup_trials: int = TPE_N_STARTUP_TRIALS_DEFAULT,
     ):
         self.backend = backend
         self.direction = direction
         self.seed = seed
-        self.n_startup_trials = n_startup_trials
 
     def optimize(
         self,
@@ -143,7 +140,6 @@ class UnifiedOptimizer:
             direction=self.direction,
             sampler=optuna.samplers.TPESampler(
                 seed=self.seed,
-                n_startup_trials=self.n_startup_trials,
             ),
         )
         study.optimize(objective, n_trials=n_trials, show_progress_bar=True)

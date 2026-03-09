@@ -57,7 +57,7 @@ def string_in_keys(strings, kwargs):
             if s.lower() in key.lower():
                 return key
     return None
-def make_dirs(path, exist_ok=True, **kwargs):
+def make_dirs(*paths, exist_ok=True, **kwargs):
     remote = get_user_pass_host_key(**kwargs)
  
     if remote:
@@ -66,7 +66,10 @@ def make_dirs(path, exist_ok=True, **kwargs):
         resp = run_pruned_func(run_cmd, **kwargs)
        
     else:
-        os.makedirs(path, exist_ok=exist_ok)
+        path = ""
+        for temp_path in paths:
+            path = os.path.join(path,temp_path)
+            os.makedirs(path, exist_ok=exist_ok)
     return path
 def make_path(path, home_dir=None, file=None, **kwargs):
     if not path:

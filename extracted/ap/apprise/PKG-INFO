@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apprise
-Version: 1.9.7
+Version: 1.9.8
 Summary: Push Notifications that work with just about every platform!
 Author-email: Chris Caron <lead2gold@gmail.com>
 License: BSD-2-Clause
@@ -8,7 +8,7 @@ Project-URL: Homepage, https://appriseit.com
 Project-URL: Source, https://github.com/caronc/apprise
 Project-URL: Tracker, https://github.com/caronc/apprise/issues
 Project-URL: Documentation, https://appriseit.com
-Keywords: 46elks,Africas Talking,Alerts,Apprise API,Automated Packet Reporting System,AWS,Bark,BlueSky,Brevo,BulkSMS,BulkVS,Burst SMS,Chanify,Chat,CLI,Clickatell,ClickSend,D7Networks,Dapnet,DBus,DingTalk,Discord,Dot,Email,Emby,Enigma2,FCM,Feishu,Flock,Form,Free Mobile,Gnome,Google Chat,Gotify,Growl,Guilded,Home Assistant,httpSMS,IFTTT,Join,JSON,Kavenegar,KODI,Kumulos,LaMetric,Lark,Line,MacOSX,Mailgun,Mastodon,Matrix,Mattermost,MessageBird,Microsoft,Misskey,MQTT,MSG91,MSTeams,Nextcloud,NextcloudTalk,Notica,NotificationAPI,Notifiarr,Notifico,Ntfy,Office365,OneSignal,Opsgenie,PagerDuty,PagerTree,ParsePlatform,Plivo,PopcornNotify,Power Automate,Prowl,Push Notifications,PushBullet,PushDeer,Pushed,Pushjet,PushMe,Pushover,Pushplus,PushSafer,Pushy,QQ Push,Quote/0,Reddit,Resend,Revolt,Rocket.Chat,RSyslog,Ryver,SendGrid,SendPulse,ServerChan,SES,Seven,SFR,Signal,SIGNL4,SimplePush,Sinch,Slack,SMPP,SMS Manager,SMSEagle,SMTP2Go,SNS,SparkPost,Spike,Splunk,SpugPush,Streamlabs,Stride,Synology Chat,Syslog,Techulus,Telegram,Threema Gateway,Twilio,Twist,Twitter,Vapid,VictorOps,Voipms,Vonage,Webex,Webpush,WeCom Bot,WhatsApp,Windows,Workflows,WxPusher,XBMC,XML,Zulip
+Keywords: 46elks,Africas Talking,Alerts,Apprise API,Automated Packet Reporting System,AWS,Bark,BlueSky,Brevo,BulkSMS,BulkVS,Burst SMS,Chanify,Chat,CLI,Clickatell,ClickSend,D7Networks,Dapnet,DBus,DingTalk,Discord,Dot,Email,Emby,Enigma2,FCM,Feishu,Flock,Fluxer,Form,Free Mobile,Gnome,Google Chat,Gotify,Growl,Guilded,Home Assistant,httpSMS,IFTTT,IRC,Jellyfin,Join,JSON,Kavenegar,KODI,Kumulos,LaMetric,Lark,Line,MacOSX,Mailgun,Mastodon,Matrix,Mattermost,MessageBird,Microsoft,Misskey,MQTT,MSG91,MSTeams,Nextcloud,NextcloudTalk,Notica,NotificationAPI,Notifiarr,Notifico,Ntfy,Office365,OneSignal,Opsgenie,PagerDuty,PagerTree,ParsePlatform,Plivo,PopcornNotify,Power Automate,Prowl,Push Notifications,PushBullet,PushDeer,Pushed,Pushjet,PushMe,Pushover,Pushplus,PushSafer,Pushy,QQ Push,Quote/0,Reddit,Resend,Revolt,Rocket.Chat,RSyslog,Ryver,SendGrid,SendPulse,ServerChan,SES,Seven,SFR,Signal,SIGNL4,SimplePush,Sinch,Slack,SMPP,SMS Manager,SMSEagle,SMTP2Go,SNS,SparkPost,Spike,Splunk,SpugPush,Streamlabs,Stride,Synology Chat,Syslog,Techulus,Telegram,Threema Gateway,Twilio,Twist,Twitter,Vapid,Viber,VictorOps,Voipms,Vonage,Webex,Webpush,WeCom Bot,WhatsApp,Windows,Workflows,WxPusher,XBMC,XML,XMPP,Zulip
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: System Administrators
@@ -49,6 +49,7 @@ Requires-Dist: gntp; extra == "all-plugins"
 Requires-Dist: paho-mqtt!=2.0.*; extra == "all-plugins"
 Requires-Dist: PGPy; extra == "all-plugins"
 Requires-Dist: smpplib; extra == "all-plugins"
+Requires-Dist: slixmpp>=1.10.0; extra == "all-plugins"
 Provides-Extra: windows
 Requires-Dist: pywin32; extra == "windows"
 Requires-Dist: tzdata; extra == "windows"
@@ -136,6 +137,8 @@ The table below identifies the services this tool supports and some example serv
 | [Guilded](https://appriseit.com/services/guilded/)  | guilded://   | (TCP) 443   | guilded://webhook_id/webhook_token<br />guilded://avatar@webhook_id/webhook_token
 | [Home Assistant](https://appriseit.com/services/homeassistant/)       | hassio:// or hassios://   | (TCP) 8123 or 443 | hassio://hostname/accesstoken<br />hassio://user@hostname/accesstoken<br />hassio://user:password@hostname:port/accesstoken<br />hassio://hostname/optional/path/accesstoken
 | [IFTTT](https://appriseit.com/services/ifttt/) | ifttt://    | (TCP) 443    | ifttt://webhooksID/Event<br />ifttt://webhooksID/Event1/Event2/EventN<br/>ifttt://webhooksID/Event1/?+Key=Value<br/>ifttt://webhooksID/Event1/?-Key=value1
+| [IRC](https://appriseit.com/services/irc/) | irc:// or ircs://   | (TCP) 6667 or 6697 | ircs://user:pass@irc.server/@user<br /> ircs://user:pass@irc.server/#channel?join=true&mode=nickserv<br/>ircs://user:pass@znc.server/@user1/@user2/@user3/#channel1
+| [Jellyfin](https://appriseit.com/services/jellyfin/)  | jellyfin:// or jellyfins:// | (TCP) 8096 | jellyfin://user@hostname/<br />jellyfins://user:password@hostname
 | [Join](https://appriseit.com/services/join/) | join://   | (TCP) 443    | join://apikey/device<br />join://apikey/device1/device2/deviceN/<br />join://apikey/group<br />join://apikey/groupA/groupB/groupN<br />join://apikey/DeviceA/groupA/groupN/DeviceN/
 | [KODI](https://appriseit.com/services/kodi/) | kodi:// or kodis://    | (TCP) 8080 or 443   | kodi://hostname<br />kodi://user@hostname<br />kodi://user:password@hostname:port
 | [Kumulos](https://appriseit.com/services/kumulos/) | kumulos:// | (TCP) 443 | kumulos://apikey/serverkey
@@ -201,11 +204,13 @@ The table below identifies the services this tool supports and some example serv
 | [Twitter](https://appriseit.com/services/twitter/) | twitter://  | (TCP) 443   | twitter://CKey/CSecret/AKey/ASecret<br/>twitter://user@CKey/CSecret/AKey/ASecret<br/>twitter://CKey/CSecret/AKey/ASecret/User1/User2/User2<br/>twitter://CKey/CSecret/AKey/ASecret?mode=tweet
 | [Twist](https://appriseit.com/services/twist/) | twist://  | (TCP) 443   | twist://pasword:login<br/>twist://password:login/#channel<br/>twist://password:login/#team:channel<br/>twist://password:login/#team:channel1/channel2/#team3:channel
 | [Vapid (WebPush)](https://appriseit.com/services/vapid/) | vapid://    | (TCP) 443    | vapid://subscriber/target<br/>vapid://subscriber/target?subfile=path&keyfile=path
+| [Viber](https://appriseit.com/services/viber/) | viber://    | (TCP) 443    | viber://token/target
 | [Webex Teams (Cisco)](https://appriseit.com/services/wxteams/) | wxteams://  | (TCP) 443   | wxteams://Token
 | [WeCom Bot](https://appriseit.com/services/wecombot/) | wecombot://  | (TCP) 443   | wecombot://BotKey
 | [WhatsApp](https://appriseit.com/services/whatsapp/) | whatsapp://  | (TCP) 443   | whatsapp://AccessToken@FromPhoneID/ToPhoneNo<br/>whatsapp://Template:AccessToken@FromPhoneID/ToPhoneNo
 | [WxPusher](https://appriseit.com/services/wxpusher/) | wxpusher://  | (TCP) 443   | wxpusher://AppToken@UserID1/UserID2/UserIDN<br/>wxpusher://AppToken@Topic1/Topic2/Topic3<br/>wxpusher://AppToken@UserID1/Topic1/
 | [XBMC](https://appriseit.com/services/xbmc/) | xbmc:// or xbmcs://    | (TCP) 8080 or 443   | xbmc://hostname<br />xbmc://user@hostname<br />xbmc://user:password@hostname:port
+| [XMPP](https://appriseit.com/services/xmpp/) | xmpp:// or xmpps://    | (TCP) 5222 or 5223   | xmpp://user:pass@hostname<br />xmpps://user:pass@hostname/jid<br />xmpps://user:pass@hostname/jid1/jid2@example.ca
 | [Zulip Chat](https://appriseit.com/services/zulip/) | zulip://  | (TCP) 443   | zulip://botname@Organization/Token<br />zulip://botname@Organization/Token/Stream<br />zulip://botname@Organization/Token/Email
 
 ## SMS Notifications

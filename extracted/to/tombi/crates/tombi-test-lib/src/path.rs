@@ -66,6 +66,12 @@ pub fn dependencies_test_schema_path() -> PathBuf {
         .join("dependencies-test.schema.json")
 }
 
+pub fn dependencies_strict_mode_test_schema_path() -> PathBuf {
+    project_root_path()
+        .join("schemas")
+        .join("dependencies-strict-mode-test.schema.json")
+}
+
 pub fn tuple_items_test_schema_path() -> PathBuf {
     project_root_path()
         .join("schemas")
@@ -112,4 +118,28 @@ pub fn min_max_contains_test_schema_path() -> PathBuf {
     project_root_path()
         .join("schemas")
         .join("min-max-contains-test.schema.json")
+}
+
+pub fn anchor_dynamic_ref_test_schema_path() -> PathBuf {
+    project_root_path()
+        .join("schemas")
+        .join("anchor-dynamic-ref-test.schema.json")
+}
+
+pub fn recursive_anchor_ref_test_schema_path() -> PathBuf {
+    project_root_path()
+        .join("schemas")
+        .join("recursive-anchor-ref-test.schema.json")
+}
+
+pub fn format_annotation_test_schema_path() -> PathBuf {
+    project_root_path()
+        .join("schemas")
+        .join("format-annotation-test.schema.json")
+}
+
+pub fn format_assertion_vocab_test_schema_path() -> PathBuf {
+    project_root_path()
+        .join("schemas")
+        .join("format-assertion-vocab-test.schema.json")
 }

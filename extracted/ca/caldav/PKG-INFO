@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: caldav
-Version: 3.0.0
+Version: 3.0.1
 Summary: CalDAV (RFC4791) client library
 Project-URL: Repository, https://github.com/python-caldav/caldav
 Project-URL: Issues, https://github.com/python-caldav/caldav/issues

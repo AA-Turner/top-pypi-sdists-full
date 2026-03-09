@@ -64,7 +64,10 @@ static GLOBAL: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
 
 // TODO: Dedupe this with the top-level `sponsors.json` used by the
 // README + docs site.
-const THANKS: &[(&str, &str)] = &[("Grafana Labs", "https://grafana.com")];
+const THANKS: &[(&str, &str)] = &[
+    ("Grafana Labs", "https://grafana.com"),
+    ("Kusari", "https://kusari.dev"),
+];
 
 /// Finds security issues in GitHub Actions setups.
 #[derive(Parser)]
@@ -91,9 +94,17 @@ struct App {
     #[arg(short, long, env = "ZIZMOR_OFFLINE")]
     offline: bool,
 
-    /// The GitHub API token to use.
-    #[arg(long, env, value_parser = GitHubToken::new)]
+    /// The GitHub API token to use [env: GH_TOKEN or GITHUB_TOKEN or ZIZMOR_GITHUB_TOKEN]
+    #[arg(long, env, hide_env = true, value_parser = GitHubToken::new)]
     gh_token: Option<GitHubToken>,
+
+    /// This is an alias for `--gh-token` / `GH_TOKEN`.
+    #[arg(long, env, hide = true, value_parser = GitHubToken::new)]
+    github_token: Option<GitHubToken>,
+
+    /// This is an alias for `--gh-token` / `GH_TOKEN` / `--github-token` / `GITHUB_TOKEN`
+    #[arg(long, env, hide = true, value_parser = GitHubToken::new)]
+    zizmor_github_token: Option<GitHubToken>,
 
     /// The GitHub Server Hostname. Defaults to github.com
     #[arg(long, env = "GH_HOST", default_value_t)]
@@ -730,6 +741,13 @@ async fn run(app: &mut App) -> Result<ExitCode, Error> {
         app.persona = Persona::Pedantic;
     }
 
+    // Merge `--github-token` or `--zizmor-github-token` into `--gh-token`, if present.
+    app.gh_token = app
+        .gh_token
+        .take()
+        .or(app.github_token.take())
+        .or(app.zizmor_github_token.take());
+
     // Unset the GitHub token if we're in offline mode.
     // We do this manually instead of with clap's `conflicts_with` because
     // we want to support explicitly enabling offline mode while still
@@ -749,6 +767,12 @@ async fn run(app: &mut App) -> Result<ExitCode, Error> {
         .with_default_directive(app.verbose.tracing_level_filter().into())
         .from_env()
         .expect("failed to parse RUST_LOG");
+
+    // HACK: The current alpha release of http-cache (via http-cache-reqwest)
+    // emits a lot of noisy WARN-level logs about invalid cache entries
+    // due to their bincode -> postcard migration. These aren't actionable for us.
+    #[allow(clippy::unwrap_used)]
+    let filter = filter.add_directive("http_cache::managers::cacache=error".parse().unwrap());
 
     let reg = tracing_subscriber::registry()
         .with(

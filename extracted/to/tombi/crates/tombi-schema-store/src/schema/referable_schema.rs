@@ -5,7 +5,16 @@ use tombi_x_keyword::StringFormat;
 
 use crate::x_taplo::XTaplo;
 
-use super::{SchemaDefinitions, SchemaUri, ValueSchema};
+use super::{
+    AnchorCollector, DynamicAnchorCollector, SchemaDefinitions, SchemaMap, SchemaUri, ValueSchema,
+};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReferenceKind {
+    Ref,
+    DynamicRef,
+    RecursiveRef,
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Referable<T> {
@@ -15,6 +24,7 @@ pub enum Referable<T> {
     },
     Ref {
         reference: String,
+        kind: ReferenceKind,
         title: Option<String>,
         description: Option<String>,
         deprecated: Option<bool>,
@@ -61,16 +71,41 @@ impl Referable<ValueSchema> {
         object: &tombi_json::ObjectNode,
         string_formats: Option<&[StringFormat]>,
         dialect: Option<crate::JsonSchemaDialect>,
+        anchor_collector: Option<&mut AnchorCollector>,
+        dynamic_anchor_collector: Option<&mut DynamicAnchorCollector>,
     ) -> Option<Self> {
+        let mut anchor_collector = anchor_collector;
+        let mut dynamic_anchor_collector = dynamic_anchor_collector;
         if let Some(x_taplo) = object.get("x-taplo")
             && let Ok(x_taplo) = tombi_json::from_value_node::<XTaplo>(x_taplo.to_owned())
             && x_taplo.hidden == Some(true)
         {
             return None;
         }
-        if let Some(tombi_json::ValueNode::String(ref_string)) = object.get("$ref") {
-            return Some(Referable::Ref {
-                reference: ref_string.value.clone(),
+        let (reference_kind, reference_value) = match (
+            object.get("$ref").and_then(|v| v.as_str()),
+            dialect
+                .filter(|dialect| crate::supports_keyword(*dialect, "$dynamicRef"))
+                .and_then(|_| object.get("$dynamicRef").and_then(|v| v.as_str())),
+            dialect
+                .filter(|dialect| crate::supports_keyword(*dialect, "$recursiveRef"))
+                .and_then(|_| object.get("$recursiveRef").and_then(|v| v.as_str())),
+        ) {
+            (Some(reference), _, _) => (Some(ReferenceKind::Ref), Some(reference)),
+            (None, Some(reference), _) => (Some(ReferenceKind::DynamicRef), Some(reference)),
+            (None, None, Some(reference)) => {
+                if reference == "#" {
+                    (Some(ReferenceKind::RecursiveRef), Some(reference))
+                } else {
+                    (None, None)
+                }
+            }
+            (None, None, None) => (None, None),
+        };
+        let referable = if let (Some(kind), Some(reference)) = (reference_kind, reference_value) {
+            Some(Referable::Ref {
+                reference: reference.to_string(),
+                kind,
                 title: object
                     .get("title")
                     .and_then(|title| title.as_str().map(|s| s.to_string())),
@@ -80,15 +115,32 @@ impl Referable<ValueSchema> {
                 deprecated: object
                     .get("deprecated")
                     .and_then(|deprecated| deprecated.as_bool()),
-            });
-        }
-
-        ValueSchema::new_in_dialect(object, string_formats, dialect).map(|value_schema| {
-            Referable::Resolved {
+            })
+        } else {
+            ValueSchema::new(
+                object,
+                string_formats,
+                dialect,
+                anchor_collector.as_deref_mut(),
+                dynamic_anchor_collector.as_deref_mut(),
+            )
+            .map(|value_schema| Referable::Resolved {
                 schema_uri: None,
                 value: Arc::new(value_schema),
-            }
-        })
+            })
+        };
+
+        if let Some(referable) = referable.as_ref() {
+            super::update_named_anchors(
+                object,
+                referable,
+                dialect,
+                anchor_collector,
+                dynamic_anchor_collector,
+            );
+        }
+
+        referable
     }
 
     pub fn is_resolved(&self) -> bool {
@@ -111,10 +163,16 @@ impl Referable<ValueSchema> {
     pub async fn value_type(&self) -> crate::ValueType {
         match self {
             Referable::Resolved { value, .. } => value.value_type().await,
-            Referable::Ref { reference, .. } => {
+            Referable::Ref {
+                reference, kind, ..
+            } => {
+                let ref_keyword = match kind {
+                    ReferenceKind::Ref => "$ref",
+                    ReferenceKind::DynamicRef => "$dynamicRef",
+                    ReferenceKind::RecursiveRef => "$recursiveRef",
+                };
                 log::warn!(
-                    "unresolved $ref while determining value type: reference={}",
-                    reference
+                    "unresolved {ref_keyword} while determining value type: reference={reference}",
                 );
                 // Unknown under the current API surface (no schema context here).
                 crate::ValueType::AnyOf(Vec::new())
@@ -128,34 +186,76 @@ impl Referable<ValueSchema> {
         definitions: Cow<'a, SchemaDefinitions>,
         schema_store: &'a crate::SchemaStore,
     ) -> tombi_future::BoxFuture<'b, Result<Option<CurrentSchema<'a>>, crate::Error>> {
+        let dynamic_scope = vec![schema_uri.as_ref().clone()];
+        self.resolve_with_dynamic_scope(schema_uri, definitions, schema_store, dynamic_scope)
+    }
+
+    fn resolve_with_dynamic_scope<'a: 'b, 'b>(
+        &'a mut self,
+        schema_uri: Cow<'a, SchemaUri>,
+        definitions: Cow<'a, SchemaDefinitions>,
+        schema_store: &'a crate::SchemaStore,
+        dynamic_scope: Vec<SchemaUri>,
+    ) -> tombi_future::BoxFuture<'b, Result<Option<CurrentSchema<'a>>, crate::Error>> {
         Box::pin(async move {
             match self {
                 Referable::Ref {
                     reference,
+                    kind,
                     title,
                     description,
                     deprecated,
                 } => {
-                    let definition_schema = {
-                        let definitions_guard = definitions.read().await;
-                        definitions_guard.get(reference).cloned()
+                    let dynamic_target = match kind {
+                        ReferenceKind::DynamicRef => parse_dynamic_anchor_reference(reference),
+                        ReferenceKind::RecursiveRef => parse_recursive_anchor_reference(reference),
+                        ReferenceKind::Ref => None,
                     };
-                    if let Some(definition_schema) = definition_schema {
-                        let mut referable_schema = definition_schema;
-                        if let Referable::Resolved {
-                            value: value_schema,
-                            ..
-                        } = &mut referable_schema
-                        {
-                            let value_schema = Arc::make_mut(value_schema);
-                            if title.is_some() || description.is_some() {
-                                value_schema.set_title(title.to_owned());
-                                value_schema.set_description(description.to_owned());
-                            }
-                            if let Some(deprecated) = deprecated {
-                                value_schema.set_deprecated(*deprecated);
-                            }
+                    if let Some((base_schema_uri, dynamic_anchor_ref)) = dynamic_target {
+                        let mut scope_for_dynamic_ref = dynamic_scope.clone();
+                        if let Some(base_schema_uri) = base_schema_uri {
+                            scope_for_dynamic_ref.insert(0, base_schema_uri);
                         }
+                        if let Some((mut referable_schema, owner_schema_uri, owner_definitions)) =
+                            resolve_dynamic_anchor_from_scope(
+                                &dynamic_anchor_ref,
+                                &scope_for_dynamic_ref,
+                                schema_store,
+                            )
+                            .await?
+                        {
+                            apply_ref_annotations(
+                                &mut referable_schema,
+                                title.as_ref(),
+                                description.as_ref(),
+                                *deprecated,
+                            );
+                            *self = referable_schema;
+                            return self
+                                .resolve_with_dynamic_scope(
+                                    Cow::Owned(owner_schema_uri),
+                                    Cow::Owned(owner_definitions),
+                                    schema_store,
+                                    scope_for_dynamic_ref,
+                                )
+                                .await;
+                        }
+                    }
+
+                    let definition_schema =
+                        { resolve_from_schema_map(&definitions, reference).await };
+                    let anchor_schema = if definition_schema.is_none() {
+                        resolve_anchor_reference(reference, &schema_uri, schema_store).await?
+                    } else {
+                        None
+                    };
+                    if let Some(mut referable_schema) = definition_schema.or(anchor_schema) {
+                        apply_ref_annotations(
+                            &mut referable_schema,
+                            title.as_ref(),
+                            description.as_ref(),
+                            *deprecated,
+                        );
 
                         *self = referable_schema;
                     } else if is_json_pointer(reference) {
@@ -200,43 +300,36 @@ impl Referable<ValueSchema> {
                             // Offline Mode
                             return Ok(None);
                         }
-                    } else if let Ok(schema_uri) = SchemaUri::from_str(reference) {
-                        if let Some(document_schema) =
-                            schema_store.try_get_document_schema(&schema_uri).await?
-                        {
-                            if let Some(value_schema) = document_schema.value_schema.as_ref() {
-                                let mut resolved_value = value_schema.clone();
-                                if title.is_some() || description.is_some() {
-                                    let value_schema = Arc::make_mut(&mut resolved_value);
-                                    value_schema.set_title(title.to_owned());
-                                    value_schema.set_description(description.to_owned());
-                                }
-                                if let Some(deprecated) = deprecated {
-                                    let value_schema = Arc::make_mut(&mut resolved_value);
-                                    value_schema.set_deprecated(*deprecated);
-                                }
-
-                                *self = Referable::Resolved {
-                                    schema_uri: Some(document_schema.schema_uri.clone()),
-                                    value: resolved_value,
-                                };
-
-                                return self
-                                    .resolve(
-                                        Cow::Owned(document_schema.schema_uri.clone()),
-                                        Cow::Owned(document_schema.definitions.clone()),
-                                        schema_store,
-                                    )
-                                    .await;
-                            } else {
-                                return Err(crate::Error::InvalidJsonSchemaReference {
-                                    reference: reference.to_owned(),
-                                    schema_uri: schema_uri.clone(),
-                                });
-                            }
-                        } else {
-                            return Ok(None);
+                    } else if let Some(resolved_reference) =
+                        resolve_external_reference(reference, schema_uri.as_ref(), schema_store)
+                            .await?
+                    {
+                        let mut resolved_value = resolved_reference.value_schema.clone();
+                        if title.is_some() || description.is_some() {
+                            let value_schema = Arc::make_mut(&mut resolved_value);
+                            value_schema.set_title(title.to_owned());
+                            value_schema.set_description(description.to_owned());
                         }
+                        if let Some(deprecated) = deprecated {
+                            let value_schema = Arc::make_mut(&mut resolved_value);
+                            value_schema.set_deprecated(*deprecated);
+                        }
+
+                        *self = Referable::Resolved {
+                            schema_uri: Some(resolved_reference.schema_uri.as_ref().clone()),
+                            value: resolved_value,
+                        };
+                        let mut dynamic_scope = dynamic_scope.clone();
+                        dynamic_scope.insert(0, resolved_reference.schema_uri.as_ref().clone());
+
+                        return self
+                            .resolve_with_dynamic_scope(
+                                Cow::Owned(resolved_reference.schema_uri.into_owned()),
+                                Cow::Owned(resolved_reference.definitions.into_owned()),
+                                schema_store,
+                                dynamic_scope,
+                            )
+                            .await;
                     } else {
                         return Err(crate::Error::UnsupportedReference {
                             reference: reference.to_owned(),
@@ -244,7 +337,13 @@ impl Referable<ValueSchema> {
                         });
                     }
 
-                    self.resolve(schema_uri, definitions, schema_store).await
+                    self.resolve_with_dynamic_scope(
+                        schema_uri,
+                        definitions,
+                        schema_store,
+                        dynamic_scope,
+                    )
+                    .await
                 }
                 Referable::Resolved {
                     schema_uri: reference_url,
@@ -258,7 +357,7 @@ impl Referable<ValueSchema> {
                                     schema_store.try_get_document_schema(reference_url).await?
                                 {
                                     (
-                                        Cow::Owned(document_schema.schema_uri.clone()),
+                                        Cow::Owned(document_base_uri(&document_schema)),
                                         Cow::Owned(document_schema.definitions.clone()),
                                     )
                                 } else {
@@ -302,7 +401,7 @@ impl Referable<ValueSchema> {
                             schema_store.try_get_document_schema(reference_url).await?
                         {
                             (
-                                Cow::Owned(document_schema.schema_uri.clone()),
+                                Cow::Owned(document_base_uri(&document_schema)),
                                 Cow::Owned(document_schema.definitions.clone()),
                             )
                         } else {
@@ -322,6 +421,216 @@ impl Referable<ValueSchema> {
     }
 }
 
+fn apply_ref_annotations(
+    referable_schema: &mut Referable<ValueSchema>,
+    title: Option<&String>,
+    description: Option<&String>,
+    deprecated: Option<bool>,
+) {
+    if let Referable::Resolved {
+        value: value_schema,
+        ..
+    } = referable_schema
+    {
+        let value_schema = Arc::make_mut(value_schema);
+        if let Some(title) = title {
+            value_schema.set_title(Some(title.clone()));
+        }
+        if let Some(description) = description {
+            value_schema.set_description(Some(description.clone()));
+        }
+        if let Some(deprecated) = deprecated {
+            value_schema.set_deprecated(deprecated);
+        }
+    }
+}
+
+async fn resolve_from_schema_map(
+    map: &std::sync::Arc<tokio::sync::RwLock<SchemaMap>>,
+    reference: &str,
+) -> Option<Referable<ValueSchema>> {
+    let map_guard = map.read().await;
+    map_guard.get(reference).cloned()
+}
+
+async fn resolve_anchor_reference(
+    reference: &str,
+    schema_uri: &SchemaUri,
+    schema_store: &crate::SchemaStore,
+) -> Result<Option<Referable<ValueSchema>>, crate::Error> {
+    if !is_plain_name_anchor_reference(reference) {
+        return Ok(None);
+    }
+    let Some(document_schema) = schema_store.try_get_document_schema(schema_uri).await? else {
+        return Ok(None);
+    };
+    Ok(resolve_from_schema_map(&document_schema.anchors, reference).await)
+}
+
+async fn resolve_dynamic_anchor_from_scope(
+    reference: &str,
+    dynamic_scope: &[SchemaUri],
+    schema_store: &crate::SchemaStore,
+) -> Result<Option<(Referable<ValueSchema>, SchemaUri, SchemaDefinitions)>, crate::Error> {
+    for scope_schema_uri in dynamic_scope {
+        let Some(document_schema) = schema_store
+            .try_get_document_schema(scope_schema_uri)
+            .await?
+        else {
+            continue;
+        };
+        let dynamic_anchors = &document_schema.dynamic_anchors;
+        let dynamic_anchor_schema = {
+            let anchors = dynamic_anchors.read().await;
+            anchors.get(reference).cloned()
+        };
+        if let Some(dynamic_anchor_schema) = dynamic_anchor_schema {
+            return Ok(Some((
+                dynamic_anchor_schema,
+                document_base_uri(&document_schema),
+                document_schema.definitions.clone(),
+            )));
+        }
+    }
+
+    Ok(None)
+}
+
+async fn resolve_external_reference(
+    reference: &str,
+    base_schema_uri: &SchemaUri,
+    schema_store: &crate::SchemaStore,
+) -> Result<Option<CurrentSchema<'static>>, crate::Error> {
+    let joined = if let Ok(url) = base_schema_uri.join(reference) {
+        Some(SchemaUri::from(url))
+    } else {
+        SchemaUri::from_str(reference).ok()
+    };
+    let Some(mut resolved_schema_uri) = joined else {
+        return Ok(None);
+    };
+
+    let fragment = resolved_schema_uri
+        .fragment()
+        .map(ToString::to_string)
+        .and_then(|fragment| (!fragment.is_empty()).then_some(fragment));
+    resolved_schema_uri.set_fragment(None);
+
+    let Some(document_schema) = schema_store
+        .try_get_document_schema(&resolved_schema_uri)
+        .await?
+    else {
+        return Ok(None);
+    };
+
+    let Some(fragment) = fragment else {
+        let Some(value_schema) = document_schema.value_schema.as_ref() else {
+            return Err(crate::Error::InvalidJsonSchemaReference {
+                reference: reference.to_owned(),
+                schema_uri: resolved_schema_uri,
+            });
+        };
+        return Ok(Some(CurrentSchema {
+            value_schema: value_schema.clone(),
+            schema_uri: Cow::Owned(document_base_uri(&document_schema)),
+            definitions: Cow::Owned(document_schema.definitions.clone()),
+        }));
+    };
+
+    let reference_with_fragment = format!("#{fragment}");
+    if is_plain_name_anchor_reference(&reference_with_fragment) {
+        if let Some(mut referable) =
+            resolve_from_schema_map(&document_schema.anchors, &reference_with_fragment).await
+        {
+            return referable
+                .resolve(
+                    Cow::Owned(document_base_uri(&document_schema)),
+                    Cow::Owned(document_schema.definitions.clone()),
+                    schema_store,
+                )
+                .await
+                .map(|result| result.map(CurrentSchema::into_owned));
+        }
+        return Err(crate::Error::InvalidJsonSchemaReference {
+            reference: reference.to_owned(),
+            schema_uri: resolved_schema_uri,
+        });
+    }
+
+    if is_json_pointer(&reference_with_fragment) {
+        if let Some(schema_value) = schema_store
+            .fetch_schema_value(&resolved_schema_uri)
+            .await?
+        {
+            let dialect = schema_value
+                .as_object()
+                .and_then(|object| object.get("$schema"))
+                .and_then(|value| value.as_str())
+                .and_then(|dialect_uri| crate::JsonSchemaDialect::try_from(dialect_uri).ok());
+            if let Some(value_schema) =
+                resolve_json_pointer(&schema_value, &reference_with_fragment, None, dialect)?
+            {
+                return Ok(Some(CurrentSchema {
+                    value_schema: Arc::new(value_schema),
+                    schema_uri: Cow::Owned(document_base_uri(&document_schema)),
+                    definitions: Cow::Owned(document_schema.definitions.clone()),
+                }));
+            }
+        }
+        return Err(crate::Error::InvalidJsonPointer {
+            pointer: reference_with_fragment,
+            schema_uri: resolved_schema_uri,
+        });
+    }
+
+    Err(crate::Error::UnsupportedReference {
+        reference: reference.to_owned(),
+        schema_uri: resolved_schema_uri,
+    })
+}
+
+fn document_base_uri(document_schema: &crate::DocumentSchema) -> SchemaUri {
+    document_schema.base_uri().clone()
+}
+
+fn parse_dynamic_anchor_reference(reference: &str) -> Option<(Option<SchemaUri>, String)> {
+    if let Some(fragment) = reference.strip_prefix('#') {
+        if !is_plain_name_fragment(fragment) {
+            return None;
+        }
+        return Some((None, format!("#{fragment}")));
+    }
+
+    let (base_uri, fragment) = reference.split_once('#')?;
+    if !is_plain_name_fragment(fragment) {
+        return None;
+    }
+
+    let base_schema_uri = SchemaUri::from_str(base_uri).ok()?;
+    Some((Some(base_schema_uri), format!("#{fragment}")))
+}
+
+fn parse_recursive_anchor_reference(reference: &str) -> Option<(Option<SchemaUri>, String)> {
+    if reference == "#" {
+        Some((None, "#".to_string()))
+    } else {
+        None
+    }
+}
+
+fn is_plain_name_anchor_reference(reference: &str) -> bool {
+    if let Some(fragment) = reference.strip_prefix('#') {
+        is_plain_name_fragment(fragment)
+    } else {
+        false
+    }
+}
+
+#[inline]
+fn is_plain_name_fragment(fragment: &str) -> bool {
+    !fragment.is_empty() && !fragment.contains('/')
+}
+
 /// Two-path schema collection: tries a read lock first for already-resolved schemas,
 /// resolves refs on cloned entries, and writes back only newly-resolved entries.
 ///
@@ -338,7 +647,7 @@ pub async fn resolve_and_collect_schemas(
     let Some(_cycle_guard) = schema_visits.get_cycle_guard(schemas) else {
         log::debug!(
             "detected composite schema cycle while collecting schemas: schema_uri={schema_uri} accessors={accessors} reason=reentrant_schema_traversal",
-            schema_uri = schema_uri.as_ref().to_string(),
+            schema_uri = schema_uri.as_ref(),
             accessors = crate::Accessors::from(accessors.to_vec())
         );
         return None;
@@ -350,7 +659,7 @@ pub async fn resolve_and_collect_schemas(
             // try_read() failed -- a write lock is held.
             log::debug!(
                 "failed to acquire read lock for composite schema collection: schema_uri={schema_uri} accessors={accessors} reason=write_lock_held",
-                schema_uri = schema_uri.as_ref().to_string(),
+                schema_uri = schema_uri.as_ref(),
                 accessors = crate::Accessors::from(accessors.to_vec())
             );
             return None;
@@ -390,7 +699,7 @@ pub async fn resolve_and_collect_schemas(
                         .await
                     {
                         Ok(Some(document_schema)) => (
-                            document_schema.schema_uri.clone(),
+                            document_base_uri(&document_schema),
                             document_schema.definitions.clone(),
                         ),
                         Ok(None) => (default_schema_uri.clone(), default_definitions.clone()),
@@ -439,7 +748,7 @@ pub async fn resolve_and_collect_schemas(
         let Ok(mut schema_guard) = schemas.try_write() else {
             log::debug!(
                 "failed to acquire write lock for composite schema resolution: schema_uri={schema_uri} accessors={accessors} reason=lock_contention",
-                schema_uri = schema_uri.as_ref().to_string(),
+                schema_uri = schema_uri.as_ref(),
                 accessors = crate::Accessors::from(accessors.to_vec())
             );
             return Some(collected);
@@ -525,7 +834,7 @@ pub fn resolve_json_pointer(
     if path.is_empty() {
         return Ok(schema_node
             .as_object()
-            .and_then(|obj| ValueSchema::new_in_dialect(obj, string_formats, dialect)));
+            .and_then(|obj| ValueSchema::new(obj, string_formats, dialect, None, None)));
     }
 
     // RFC 6901: Percent-decode the path before splitting on '/'
@@ -564,7 +873,7 @@ pub fn resolve_json_pointer(
     // Convert the final ValueNode to ValueSchema
     match current {
         tombi_json::ValueNode::Object(obj) => {
-            Ok(ValueSchema::new_in_dialect(obj, string_formats, dialect))
+            Ok(ValueSchema::new(obj, string_formats, dialect, None, None))
         }
         _ => Ok(None),
     }
@@ -612,9 +921,12 @@ fn percent_decode(input: &str) -> String {
 
 #[cfg(test)]
 mod test {
-    use std::str::FromStr;
+    use std::{borrow::Cow, str::FromStr};
 
-    use crate::{Referable, ValueSchema, schema::referable_schema::resolve_json_pointer};
+    use crate::{
+        Referable, SchemaStore, ValueSchema,
+        schema::referable_schema::{parse_dynamic_anchor_reference, resolve_json_pointer},
+    };
 
     #[test]
     fn test_json_pointer_percent_decode() {
@@ -726,6 +1038,7 @@ mod test {
     async fn test_value_type_ref_does_not_panic() {
         let referable = Referable::Ref {
             reference: "#/definitions/foo".to_string(),
+            kind: super::ReferenceKind::Ref,
             title: None,
             description: None,
             deprecated: None,
@@ -733,5 +1046,203 @@ mod test {
 
         let value_type = referable.value_type().await;
         assert!(matches!(value_type, crate::ValueType::AnyOf(types) if types.is_empty()));
+    }
+
+    #[tokio::test]
+    async fn test_dynamic_ref_resolves_to_dynamic_anchor_in_scope() {
+        let schema_json = r##"{
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$dynamicAnchor": "rootDyn",
+            "type": "string",
+            "$defs": {
+                "useDynamic": {
+                    "$dynamicRef": "#rootDyn"
+                }
+            }
+        }"##;
+
+        let schema_path = std::env::temp_dir().join(format!(
+            "tombi_dynamic_ref_{}_{}.json",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::write(&schema_path, schema_json).unwrap();
+
+        let schema_uri = tombi_uri::SchemaUri::from_file_path(&schema_path).unwrap();
+        let schema_store = SchemaStore::new();
+        let document_schema = schema_store
+            .try_get_document_schema(&schema_uri)
+            .await
+            .unwrap()
+            .unwrap();
+        let definitions = document_schema.definitions.clone();
+        let mut referable = {
+            let defs = definitions.read().await;
+            defs.get("#/$defs/useDynamic").cloned().unwrap()
+        };
+        assert!(matches!(
+            referable,
+            Referable::Ref {
+                kind: super::ReferenceKind::DynamicRef,
+                ..
+            }
+        ));
+
+        let resolved = referable
+            .resolve(
+                Cow::Owned(schema_uri),
+                Cow::Owned(definitions),
+                &schema_store,
+            )
+            .await
+            .unwrap();
+
+        assert!(matches!(
+            resolved.map(|s| s.value_schema),
+            Some(schema) if matches!(&*schema, ValueSchema::String(_))
+        ));
+        let _ = std::fs::remove_file(schema_path);
+    }
+
+    #[tokio::test]
+    async fn test_recursive_ref_resolves_to_recursive_anchor_in_scope() {
+        let schema_json = r##"{
+            "$schema": "https://json-schema.org/draft/2019-09/schema",
+            "$recursiveAnchor": true,
+            "type": "string",
+            "$defs": {
+                "useRecursive": {
+                    "$recursiveRef": "#"
+                }
+            }
+        }"##;
+
+        let schema_path = std::env::temp_dir().join(format!(
+            "tombi_recursive_ref_{}_{}.json",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::write(&schema_path, schema_json).unwrap();
+
+        let schema_uri = tombi_uri::SchemaUri::from_file_path(&schema_path).unwrap();
+        let schema_store = SchemaStore::new();
+        let document_schema = schema_store
+            .try_get_document_schema(&schema_uri)
+            .await
+            .unwrap()
+            .unwrap();
+        let definitions = document_schema.definitions.clone();
+        let mut referable = {
+            let defs = definitions.read().await;
+            defs.get("#/$defs/useRecursive").cloned().unwrap()
+        };
+        assert!(matches!(
+            referable,
+            Referable::Ref {
+                kind: super::ReferenceKind::RecursiveRef,
+                ..
+            }
+        ));
+
+        let resolved = referable
+            .resolve(
+                Cow::Owned(schema_uri),
+                Cow::Owned(definitions),
+                &schema_store,
+            )
+            .await
+            .unwrap();
+
+        assert!(matches!(
+            resolved.map(|s| s.value_schema),
+            Some(schema) if matches!(&*schema, ValueSchema::String(_))
+        ));
+        let _ = std::fs::remove_file(schema_path);
+    }
+
+    #[tokio::test]
+    async fn test_relative_ref_with_external_fragment_resolves() {
+        let temp_dir = std::env::temp_dir().join(format!(
+            "tombi_referable_schema_{}_{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&temp_dir).unwrap();
+        let defs_path = temp_dir.join("defs-source.json");
+        let main_path = temp_dir.join("main.json");
+
+        std::fs::write(
+            &defs_path,
+            r#"{
+                "$defs": {
+                    "name": { "type": "string" }
+                }
+            }"#,
+        )
+        .unwrap();
+
+        std::fs::write(
+            &main_path,
+            r#"{
+                "$defs": {
+                    "useExternal": {
+                        "$ref": "./defs.json#/$defs/name"
+                    }
+                }
+            }"#,
+        )
+        .unwrap();
+
+        let renamed_defs_path = main_path.parent().unwrap().join("defs.json");
+        std::fs::copy(&defs_path, &renamed_defs_path).unwrap();
+
+        let schema_uri = tombi_uri::SchemaUri::from_file_path(&main_path).unwrap();
+        let schema_store = SchemaStore::new();
+        let document_schema = schema_store
+            .try_get_document_schema(&schema_uri)
+            .await
+            .unwrap()
+            .unwrap();
+        let definitions = document_schema.definitions.clone();
+        let mut referable = {
+            let defs = definitions.read().await;
+            defs.get("#/$defs/useExternal").cloned().unwrap()
+        };
+
+        let resolved = referable
+            .resolve(
+                Cow::Owned(schema_uri),
+                Cow::Owned(definitions),
+                &schema_store,
+            )
+            .await
+            .unwrap();
+
+        assert!(matches!(
+            resolved.map(|s| s.value_schema),
+            Some(schema) if matches!(&*schema, ValueSchema::String(_))
+        ));
+
+        let _ = std::fs::remove_dir_all(temp_dir);
+    }
+
+    #[test]
+    fn test_parse_dynamic_anchor_reference() {
+        let local = parse_dynamic_anchor_reference("#rootDyn");
+        assert_eq!(local, Some((None, "#rootDyn".to_string())));
+
+        let remote = parse_dynamic_anchor_reference("https://example.com/schema.json#rootDyn");
+        assert!(matches!(remote, Some((Some(_), anchor)) if anchor == "#rootDyn"));
+
+        assert!(parse_dynamic_anchor_reference("#/defs/x").is_none());
     }
 }

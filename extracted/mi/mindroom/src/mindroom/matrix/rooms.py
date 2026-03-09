@@ -11,15 +11,23 @@ import nio
 from mindroom.logging_config import get_logger
 from mindroom.matrix.avatar import check_and_set_avatar
 from mindroom.matrix.client import (
+    add_room_to_space,
     create_room,
+    create_space,
     ensure_room_directory_visibility,
     ensure_room_join_rule,
+    ensure_room_name,
     get_joined_rooms,
     join_room,
     leave_room,
     matrix_client,
 )
-from mindroom.matrix.identity import MatrixID, extract_server_name_from_homeserver, managed_room_alias_localpart
+from mindroom.matrix.identity import (
+    MatrixID,
+    extract_server_name_from_homeserver,
+    managed_room_alias_localpart,
+    managed_space_alias_localpart,
+)
 from mindroom.matrix.state import MatrixRoom, MatrixState
 from mindroom.matrix.users import INTERNAL_USER_ACCOUNT_KEY
 from mindroom.topic_generator import ensure_room_has_topic, generate_room_topic_ai
@@ -28,6 +36,48 @@ if TYPE_CHECKING:
     from mindroom.config.main import Config
 
 logger = get_logger(__name__)
+_ROOT_SPACE_TOPIC = "Your MindRoom AI workspace"
+_ROOT_SPACE_AVATAR_KEY = "root_space"
+_AVATARS_DIR = Path(__file__).resolve().parents[3] / "avatars"
+
+
+def _managed_avatar_path(category: str, avatar_name: str) -> Path:
+    """Return the bundled avatar path for a managed room-like entity."""
+    return _AVATARS_DIR / category / f"{avatar_name}.png"
+
+
+async def _set_room_avatar_if_available(
+    client: nio.AsyncClient,
+    room_id: str,
+    *,
+    avatar_category: str,
+    avatar_name: str,
+    context: str,
+) -> None:
+    """Set a room avatar when a bundled asset exists.
+
+    Avatar reconciliation is cosmetic, so failures are logged but do not abort
+    room or Space creation.
+    """
+    avatar_path = _managed_avatar_path(avatar_category, avatar_name)
+    if not avatar_path.exists():
+        return
+
+    if await check_and_set_avatar(client, avatar_path, room_id=room_id):
+        logger.info(
+            "Set avatar for managed Matrix room",
+            room_id=room_id,
+            avatar_path=str(avatar_path),
+            context=context,
+        )
+        return
+
+    logger.warning(
+        "Failed to set avatar for managed Matrix room",
+        room_id=room_id,
+        avatar_path=str(avatar_path),
+        context=context,
+    )
 
 
 async def _configure_managed_room_access(
@@ -294,14 +344,13 @@ async def _ensure_room_exists(  # noqa: C901, PLR0912
                 directory_visibility="private",
             )
 
-        # Set room avatar if available (for newly created rooms)
-        # Note: Avatars can also be updated later using scripts/generate_avatars.py
-        avatar_path = Path(__file__).parent.parent.parent.parent / "avatars" / "rooms" / f"{room_key}.png"
-        if avatar_path.exists():
-            if await check_and_set_avatar(client, avatar_path, room_id=created_room_id):
-                logger.info(f"Set avatar for newly created room {room_key}")
-            else:
-                logger.warning(f"Failed to set avatar for room {room_key}")
+        await _set_room_avatar_if_available(
+            client,
+            created_room_id,
+            avatar_category="rooms",
+            avatar_name=room_key,
+            context=f"managed_room:{room_key}",
+        )
 
         return created_room_id
     logger.error(f"Failed to create room {room_key}")
@@ -357,6 +406,90 @@ async def ensure_all_rooms_exist(
             room_ids[room_key] = room_id
 
     return room_ids
+
+
+async def _ensure_root_space_exists(
+    client: nio.AsyncClient,
+    config: Config,
+) -> str | None:
+    """Ensure the configured root Matrix Space exists and return its room ID."""
+    if not config.matrix_space.enabled:
+        return None
+
+    state = MatrixState.load()
+    joined_room_ids = await get_joined_rooms(client) or []
+    if state.space_room_id and state.space_room_id in joined_room_ids:
+        return state.space_room_id
+
+    server_name = extract_server_name_from_homeserver(client.homeserver)
+    alias_localpart = managed_space_alias_localpart()
+    full_alias = f"#{alias_localpart}:{server_name}"
+    response = await client.room_resolve_alias(full_alias)
+    if isinstance(response, nio.RoomResolveAliasResponse):
+        space_room_id = str(response.room_id)
+        joined_space = space_room_id in client.rooms or space_room_id in joined_room_ids
+        if not joined_space and not await join_room(client, space_room_id):
+            logger.warning(
+                "Resolved existing root space but router could not join it; skipping reconciliation",
+                space_room_id=space_room_id,
+                space_alias=full_alias,
+            )
+            return None
+        if state.space_room_id != space_room_id:
+            state.set_space_room_id(space_room_id)
+            state.save()
+        return space_room_id
+
+    space_room_id = await create_space(
+        client=client,
+        name=config.matrix_space.name,
+        alias=alias_localpart,
+        topic=_ROOT_SPACE_TOPIC,
+    )
+    if space_room_id is None:
+        return None
+
+    state.set_space_room_id(space_room_id)
+    state.save()
+    return space_room_id
+
+
+async def ensure_root_space(
+    client: nio.AsyncClient,
+    config: Config,
+    room_ids: dict[str, str],
+) -> str | None:
+    """Ensure the optional root Matrix Space exists and links the supplied managed rooms."""
+    if not config.matrix_space.enabled:
+        return None
+
+    root_space_id = await _ensure_root_space_exists(client, config)
+    if root_space_id is None:
+        return None
+
+    if not await ensure_room_name(client, root_space_id, config.matrix_space.name):
+        logger.warning("Failed to set root space name; skipping child linking", space_id=root_space_id)
+        return None
+
+    server_name = extract_server_name_from_homeserver(client.homeserver)
+    for room_id in dict.fromkeys(room_ids.values()):
+        if not await add_room_to_space(client, root_space_id, room_id, server_name):
+            logger.warning(
+                "Failed to link room to root space; aborting reconciliation",
+                space_id=root_space_id,
+                room_id=room_id,
+            )
+            return None
+
+    await _set_room_avatar_if_available(
+        client,
+        root_space_id,
+        avatar_category="spaces",
+        avatar_name=_ROOT_SPACE_AVATAR_KEY,
+        context="root_space",
+    )
+
+    return root_space_id
 
 
 async def ensure_user_in_rooms(homeserver: str, room_ids: dict[str, str]) -> None:

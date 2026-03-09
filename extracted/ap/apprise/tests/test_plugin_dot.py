@@ -1,7 +1,7 @@
 # BSD 2-Clause License
 #
 # Apprise - Push Notification Library.
-# Copyright (c) 2025, Chris Caron <lead2gold@gmail.com>
+# Copyright (c) 2026, Chris Caron <lead2gold@gmail.com>
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
@@ -965,4 +965,3 @@ def test_notify_dot_parse_url_without_host_field():
         assert result.get("device_id") is None
         assert result.get("apikey") == "apikey"
         assert result.get("refresh_now") is True  # refresh was in qsd
-

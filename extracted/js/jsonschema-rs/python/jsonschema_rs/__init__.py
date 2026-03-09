@@ -30,6 +30,7 @@ from .jsonschema_rs import (
     meta,
     validate,
     validator_cls_for,
+    bundle,
     validator_for,
 )
 
@@ -46,6 +47,7 @@ class ValidationError(ValueError):
     evaluation_path: list[str | int]
     kind: ValidationErrorKind
     instance: Any
+    absolute_keyword_location: str | None
 
     def __init__(
         self,
@@ -56,6 +58,7 @@ class ValidationError(ValueError):
         evaluation_path: list[str | int],
         kind: ValidationErrorKind,
         instance: Any,
+        absolute_keyword_location: str | None = None,
     ) -> None:
         super().__init__(verbose_message)
         self.message = message
@@ -65,6 +68,7 @@ class ValidationError(ValueError):
         self.evaluation_path = evaluation_path
         self.kind = kind
         self.instance = instance
+        self.absolute_keyword_location = absolute_keyword_location
 
     def __str__(self) -> str:
         return self.verbose_message
@@ -115,6 +119,7 @@ __all__ = [
     "canonical",
     "ValidationErrorKind",
     "Evaluation",
+    "bundle",
     "is_valid",
     "validate",
     "iter_errors",

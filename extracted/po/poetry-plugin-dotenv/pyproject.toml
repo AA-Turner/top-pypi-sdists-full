@@ -1,10 +1,10 @@
 [tool.poetry]
 name = "poetry-plugin-dotenv"
-version = "3.1.1"
+version = "3.2.0"
 description = "poetry-plugin-dotenv - is the plugin that automatically loads environment variables from a dotenv file into the environment before poetry commands are run."
 license = "MIT"
-authors = ["Volodymyr Pivoshenko <volodymyr.pivoshenko@gmail.com>"]
-maintainers = ["Volodymyr Pivoshenko <volodymyr.pivoshenko@gmail.com>"]
+authors = ["Volodymyr Pivoshenko <contact@pivoshenko.dev>"]
+maintainers = ["Volodymyr Pivoshenko <contact@pivoshenko.dev>"]
 keywords = [
   "config",
   "configuration",
@@ -66,12 +66,12 @@ poethepoet = "^0.37.0"
 
 [tool.poetry.group.formatters.dependencies]
 pyupgrade = "^3.21.0"
-ruff = "^0.14.14"
+ruff = "^0.15.4"
 
 [tool.poetry.group.linters.dependencies]
 commitizen = "^4.10.1"
-ruff = "^0.14.14"
-ty = "^0.0.14"
+ruff = "^0.15.4"
+ty = ">=0.0.17,<0.0.20"
 
 [tool.poetry.group.tests.dependencies]
 coverage = { version = "^7.10.7", extras = ["toml"] }

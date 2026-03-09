@@ -1,7 +1,7 @@
 # BSD 2-Clause License
 #
 # Apprise - Push Notification Library.
-# Copyright (c) 2025, Chris Caron <lead2gold@gmail.com>
+# Copyright (c) 2026, Chris Caron <lead2gold@gmail.com>
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
@@ -265,6 +265,20 @@ apprise_url_tests = (
         "bark://192.168.0.6:8081/device_key/?call=1&sound=alarm&level=critical",
         {
             # set call parameter with other parameters
+            "instance": NotifyBark,
+        },
+    ),
+    (
+        "bark://192.168.0.6:8081/device_key/?format=markdown",
+        {
+            # enable markdown mode via global format parameter
+            "instance": NotifyBark,
+        },
+    ),
+    (
+        "bark://192.168.0.6:8081/device_key/?format=text",
+        {
+            # explicitly set text format (default behavior)
             "instance": NotifyBark,
         },
     ),

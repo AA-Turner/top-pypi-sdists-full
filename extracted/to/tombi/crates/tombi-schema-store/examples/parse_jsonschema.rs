@@ -39,15 +39,7 @@ fn main() {
     match parse(&content) {
         Ok(value_node) => {
             eprintln!("✅ Parse successful!");
-            let object_node = match value_node {
-                tombi_json::ValueNode::Object(object_node) => object_node,
-                _ => {
-                    eprintln!("❌ Parse error: expected object node");
-                    process::exit(1);
-                }
-            };
-
-            println!("{:#?}", DocumentSchema::new(object_node, schema_uri));
+            println!("{:#?}", DocumentSchema::new(value_node, schema_uri));
         }
         Err(err) => {
             eprintln!("❌ Parse error: {}", err);
@@ -70,12 +62,8 @@ fn read_content(input: &str) -> Result<(String, tombi_uri::SchemaUri), Box<dyn s
         let content = fs::read_to_string(input)?;
         Ok((
             content,
-            tombi_uri::SchemaUri::from_file_path(std::path::Path::new(input)).map_err(|_| {
-                Box::new(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    "Invalid file path",
-                ))
-            })?,
+            tombi_uri::SchemaUri::from_file_path(std::path::Path::new(input))
+                .map_err(|_| Box::new(std::io::Error::other("Invalid file path")))?,
         ))
     }
 }

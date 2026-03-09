@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: SpeechRecognition
-Version: 3.14.5
+Version: 3.14.6
 Summary: Library for performing speech recognition, with support for several engines and APIs, online and offline.
 Home-page: https://github.com/Uberi/speech_recognition#readme
 Author: Anthony Zhang (Uberi)
@@ -37,6 +37,7 @@ Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-randomly; extra == "dev"
 Requires-Dist: respx; extra == "dev"
 Requires-Dist: numpy; extra == "dev"
+Requires-Dist: pytest-httpserver; extra == "dev"
 Requires-Dist: mypy; extra == "dev"
 Requires-Dist: types-requests; extra == "dev"
 Provides-Extra: audio
@@ -99,6 +100,18 @@ SpeechRecognition
     :target: https://travis-ci.org/Uberi/speech_recognition
     :alt: Continuous Integration Test Results
 
+.. image:: https://deepwiki.com/badge.svg
+    :target: https://deepwiki.com/Uberi/speech_recognition
+    :alt: Ask DeepWiki
+
+.. image:: https://img.shields.io/badge/docs-Mintlify-0ea5e9?logo=mintlify&logoColor=white
+    :target: https://mintlify.com/Uberi/speech_recognition
+    :alt: Mintlify Docs (Auto generated)
+
+.. image:: https://img.shields.io/badge/Docs-Context7-6C47FF
+    :target: https://context7.com/uberi/speech_recognition
+    :alt: Context7
+
 Library for performing speech recognition, with support for several engines and APIs, online and offline.
 
 Recall.ai - Meeting Transcription API
@@ -124,6 +137,7 @@ Speech recognition engine/API support:
 * `Vosk API <https://github.com/alphacep/vosk-api/>`__ (works offline)
 * `OpenAI whisper <https://github.com/openai/whisper>`__ (works offline)
 * `OpenAI Whisper API <https://platform.openai.com/docs/guides/speech-to-text>`__
+    * OpenAI compatible self-hosted endpoints (e.g. vLLM, Ollama)
 * `Groq Whisper API <https://console.groq.com/docs/speech-to-text>`__
 
 **Quickstart:** ``pip install SpeechRecognition``. See the "Installing" section for more details.
@@ -181,6 +195,7 @@ To use all of the functionality of the library, you should have:
 * **Whisper** (required only if you need to use Whisper ``recognizer_instance.recognize_whisper``)
 * **Faster Whisper** (required only if you need to use Faster Whisper ``recognizer_instance.recognize_faster_whisper``)
 * **openai** (required only if you need to use OpenAI Whisper API speech recognition ``recognizer_instance.recognize_openai``)
+    * includes OpenAI compatible self-hosted endpoints (e.g. vLLM, Ollama)
 * **groq** (required only if you need to use Groq Whisper API speech recognition ``recognizer_instance.recognize_groq``)
 
 The following requirements are optional, but can improve or extend functionality in some situations:
@@ -274,6 +289,13 @@ The library `openai <https://pypi.org/project/openai/>`__ is **required if and o
 You can install it with ``python3 -m pip install SpeechRecognition[openai]``.
 
 Please set the environment variable ``OPENAI_API_KEY`` before calling ``recognizer_instance.recognize_openai``.
+
+OpenAI-compatible self-hosted Whisper endpoints (for users of vLLM, Ollama, etc.)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+``recognizer_instance.recognize_openai`` also supports OpenAI-compatible endpoints.
+
+Set ``OPENAI_BASE_URL`` to point to your custom endpoint with dummy ``OPENAI_API_KEY``.
 
 Groq Whisper API (for Groq Whisper API users)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

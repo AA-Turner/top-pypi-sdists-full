@@ -278,8 +278,7 @@ async fn validate_table(
         if !matched_key {
             if let Some((_, referable_additional_property_schema)) =
                 &table_schema.additional_property_schema
-            {
-                if let Ok(Some(current_schema)) = tombi_schema_store::resolve_schema_item(
+                && let Ok(Some(current_schema)) = tombi_schema_store::resolve_schema_item(
                     referable_additional_property_schema,
                     current_schema.schema_uri.clone(),
                     current_schema.definitions.clone(),
@@ -287,22 +286,21 @@ async fn validate_table(
                 )
                 .await
                 .inspect_err(|err| log::warn!("{err}"))
-                {
-                    handle_deprecated_value(
-                        &mut total_diagnostics,
-                        current_schema.value_schema.deprecated().await,
-                        &new_accessors,
-                        value,
-                        table_value.comment_directives(),
-                        table_rules.as_ref().map(|rules| &rules.common),
-                    );
+            {
+                handle_deprecated_value(
+                    &mut total_diagnostics,
+                    current_schema.value_schema.deprecated().await,
+                    &new_accessors,
+                    value,
+                    table_value.comment_directives(),
+                    table_rules.as_ref().map(|rules| &rules.common),
+                );
 
-                    if let Err(crate::Error { diagnostics, .. }) = value
-                        .validate(&new_accessors, Some(&current_schema), schema_context)
-                        .await
-                    {
-                        total_diagnostics.extend(diagnostics);
-                    }
+                if let Err(crate::Error { diagnostics, .. }) = value
+                    .validate(&new_accessors, Some(&current_schema), schema_context)
+                    .await
+                {
+                    total_diagnostics.extend(diagnostics);
                 }
             }
             if table_schema.check_strict_additional_properties_violation(schema_context.strict()) {
@@ -497,8 +495,21 @@ async fn validate_table(
                     .await
                     .inspect_err(|err| log::warn!("{err}"))
                     {
+                        // A dependency schema is an additional constraint layered on top of
+                        // the parent table schema. Running strict mode here against the
+                        // partial dependency schema causes false-positive additional key
+                        // diagnostics for valid keys defined by the parent schema.
+                        let dependency_schema_context = tombi_schema_store::SchemaContext {
+                            toml_version: schema_context.toml_version,
+                            root_schema: schema_context.root_schema,
+                            sub_schema_uri_map: schema_context.sub_schema_uri_map,
+                            schema_visits: schema_context.schema_visits.clone(),
+                            store: schema_context.store,
+                            strict: Some(false),
+                        };
+
                         if let Err(crate::Error { diagnostics, .. }) = table_value
-                            .validate(accessors, Some(&dep_schema), schema_context)
+                            .validate(accessors, Some(&dep_schema), &dependency_schema_context)
                             .await
                         {
                             total_diagnostics.extend(diagnostics);
@@ -548,8 +559,18 @@ async fn validate_table(
             .await
             .inspect_err(|err| log::warn!("{err}"))
             {
+                // See the rationale in the `Dependency::Schema` branch above.
+                let dependency_schema_context = tombi_schema_store::SchemaContext {
+                    toml_version: schema_context.toml_version,
+                    root_schema: schema_context.root_schema,
+                    sub_schema_uri_map: schema_context.sub_schema_uri_map,
+                    schema_visits: schema_context.schema_visits.clone(),
+                    store: schema_context.store,
+                    strict: Some(false),
+                };
+
                 if let Err(crate::Error { diagnostics, .. }) = table_value
-                    .validate(accessors, Some(&dep_schema), schema_context)
+                    .validate(accessors, Some(&dep_schema), &dependency_schema_context)
                     .await
                 {
                     total_diagnostics.extend(diagnostics);
@@ -596,7 +617,7 @@ async fn validate_table(
         }
 
         if let Some(r#enum) = &table_schema.r#enum {
-            if !r#enum.iter().any(|item| *item == actual_object) {
+            if !r#enum.contains(&actual_object) {
                 let level = table_rules
                     .map(|rules| &rules.common)
                     .and_then(|rules| rules.r#enum().map(SeverityLevelDefaultError::from))
@@ -642,6 +663,13 @@ async fn validate_table(
     {
         let allows_empty_key = string_schema.min_length == Some(0);
 
+        let format_assertion = schema_context
+            .root_schema
+            .is_none_or(|root| root.format_assertion())
+            || string_schema
+                .format
+                .is_some_and(|format| schema_context.has_string_format(format));
+
         for key in table_value.keys() {
             if !allows_empty_key {
                 check_key_empty(key, &mut total_diagnostics).await;
@@ -659,6 +687,7 @@ async fn validate_table(
                 &key.value,
                 key.range(),
                 string_schema,
+                format_assertion,
                 lint_rules.as_ref(),
                 key.comment_directives(),
             );
@@ -692,8 +721,8 @@ async fn validate_table(
         );
     }
 
-    if let Some(not_schema) = table_schema.not.as_ref() {
-        if let Err(error) = validate_not(
+    if let Some(not_schema) = table_schema.not.as_ref()
+        && let Err(error) = validate_not(
             table_value,
             accessors,
             not_schema,
@@ -703,13 +732,12 @@ async fn validate_table(
             table_rules.as_ref().map(|rules| &rules.common),
         )
         .await
-        {
-            total_diagnostics.extend(error.diagnostics);
-        }
+    {
+        total_diagnostics.extend(error.diagnostics);
     }
 
-    if let Some(if_then_else_schema) = table_schema.if_then_else.as_ref() {
-        if let Err(error) = validate_if_then_else(
+    if let Some(if_then_else_schema) = table_schema.if_then_else.as_ref()
+        && let Err(error) = validate_if_then_else(
             table_value,
             accessors,
             if_then_else_schema,
@@ -717,9 +745,8 @@ async fn validate_table(
             schema_context,
         )
         .await
-        {
-            total_diagnostics.extend(error.diagnostics);
-        }
+    {
+        total_diagnostics.extend(error.diagnostics);
     }
 
     if total_diagnostics.is_empty() {

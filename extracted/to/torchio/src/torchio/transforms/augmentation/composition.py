@@ -2,9 +2,7 @@ from __future__ import annotations
 
 import warnings
 from collections.abc import Sequence
-from typing import Any
 from typing import TypeAlias
-from typing import Union
 
 import numpy as np
 import torch
@@ -13,8 +11,8 @@ from ...data.subject import Subject
 from ..transform import Transform
 from . import RandomTransform
 
-TypeTransformsDict: TypeAlias = Union[dict[Transform, float], Sequence[Transform]]
-HydraConfig: TypeAlias = dict[str, Any]
+TypeTransformsDict: TypeAlias = dict[Transform, float] | Sequence[Transform]
+HydraConfig: TypeAlias = dict[str, object]
 HydraConfigDict: TypeAlias = dict[str, HydraConfig]
 
 
@@ -48,15 +46,15 @@ class Compose(Transform):
     def __repr__(self) -> str:
         return f'{self.name}({self.transforms})'
 
-    def get_base_args(self) -> dict:
-        init_args = super().get_base_args()
+    def _get_base_args(self) -> dict[str, object]:
+        init_args = super()._get_base_args()
         if 'parse_input' in init_args:
             init_args.pop('parse_input')
         return init_args
 
     def apply_transform(self, subject: Subject) -> Subject:
         for transform in self.transforms:
-            subject = transform(subject)  # type: ignore[assignment]
+            subject = transform(subject)
         return subject
 
     def is_invertible(self) -> bool:
@@ -76,7 +74,7 @@ class Compose(Transform):
                 message = f'Skipping {transform.name} as it is not invertible'
                 warnings.warn(message, RuntimeWarning, stacklevel=2)
         transforms.reverse()
-        result = Compose(transforms, **self.get_base_args())
+        result = Compose(transforms, **self._get_base_args())
         if not transforms and warn:
             warnings.warn(
                 'No invertible transforms found',
@@ -88,10 +86,11 @@ class Compose(Transform):
     def to_hydra_config(self) -> HydraConfig:
         """Return a dictionary representation of the transform for Hydra instantiation."""
         transform_dict: HydraConfig = {'_target_': self._get_name_with_module()}
-        transform_dict['transforms'] = []
         transform_dict.update(self._get_reproducing_arguments())
+        transforms_config: list[HydraConfig] = []
         for transform in self.transforms:
-            transform_dict['transforms'].append(transform.to_hydra_config())
+            transforms_config.append(transform.to_hydra_config())
+        transform_dict['transforms'] = transforms_config
         return self._tuples_to_lists(transform_dict)
 
 
@@ -122,8 +121,8 @@ class OneOf(RandomTransform):
         super().__init__(parse_input=False, **kwargs)
         self.transforms_dict = self._get_transforms_dict(transforms)
 
-    def get_base_args(self) -> dict:
-        init_args = super().get_base_args()
+    def _get_base_args(self) -> dict:
+        init_args = super()._get_base_args()
         if 'parse_input' in init_args:
             init_args.pop('parse_input')
         return init_args
@@ -134,7 +133,7 @@ class OneOf(RandomTransform):
         transforms = list(self.transforms_dict.keys())
         transform = transforms[index]
         transformed = transform(subject)
-        return transformed  # type: ignore[return-value]
+        return transformed
 
     def _get_transforms_dict(
         self,

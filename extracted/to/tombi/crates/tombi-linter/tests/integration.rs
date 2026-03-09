@@ -1,15 +1,21 @@
+#[path = "integration/anchor_dynamic_ref_test_schema.rs"]
+mod anchor_dynamic_ref_test_schema;
 #[path = "integration/array_const_enum_test_schema.rs"]
 mod array_const_enum_test_schema;
 #[path = "integration/cargo_schema.rs"]
 mod cargo_schema;
 #[path = "integration/contains_test_schema.rs"]
 mod contains_test_schema;
+#[path = "integration/dependencies_strict_mode_test_schema.rs"]
+mod dependencies_strict_mode_test_schema;
 #[path = "integration/dependencies_test_schema.rs"]
 mod dependencies_test_schema;
 #[path = "integration/dependent_required_test_schema.rs"]
 mod dependent_required_test_schema;
 #[path = "integration/dependent_schemas_test_schema.rs"]
 mod dependent_schemas_test_schema;
+#[path = "integration/format_annotation_test_schema.rs"]
+mod format_annotation_test_schema;
 #[path = "integration/min_max_contains_test_schema.rs"]
 mod min_max_contains_test_schema;
 #[path = "integration/non_schema.rs"]
@@ -18,6 +24,8 @@ mod non_schema;
 mod other_schema;
 #[path = "integration/prefix_items_test_schema.rs"]
 mod prefix_items_test_schema;
+#[path = "integration/recursive_anchor_ref_test_schema.rs"]
+mod recursive_anchor_ref_test_schema;
 #[path = "integration/string_format_test_schema.rs"]
 mod string_format_test_schema;
 #[path = "integration/table_const_enum_test_schema.rs"]

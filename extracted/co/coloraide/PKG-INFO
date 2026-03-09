@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: coloraide
-Version: 8.6
+Version: 8.7
 Summary: A color library for Python.
 Project-URL: Homepage, https://github.com/facelessuser/coloraide
 Author-email: Isaac Muse <Isaac.Muse@gmail.com>
@@ -13,7 +13,6 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -23,7 +22,7 @@ Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Text Processing :: Filters
 Classifier: Topic :: Text Processing :: Markup :: HTML
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Requires-Dist: typing-extensions; python_version < '3.11'
 Description-Content-Type: text/markdown
 

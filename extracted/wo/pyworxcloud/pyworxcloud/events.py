@@ -3,6 +3,8 @@
 # pylint: disable=unnecessary-lambda
 from __future__ import annotations
 
+import asyncio
+import inspect
 import logging
 from enum import IntEnum
 from typing import Any
@@ -24,7 +26,6 @@ _LOGGER = logging.getLogger("pyworxcloud.events")
 
 def check_syntax(args: dict[str, Any], objs: list[str], expected_type: Any) -> bool:
     """Check if the object is of the expected type."""
-    _LOGGER.debug("Checking %s against %s", objs, args)
     for obj in objs:
         if not obj in args:
             _LOGGER.debug("%s was not found in %s", obj, args)
@@ -44,18 +45,32 @@ def check_syntax(args: dict[str, Any], objs: list[str], expected_type: Any) -> b
 class EventHandler:
     """Event handler for Landroid Cloud."""
 
-    __events: dict[LandroidEvent, Any] = {}
-
     def __init__(self) -> None:
         """Initialize the event handler object."""
+        self.__events: dict[LandroidEvent, Any] = {}
 
     def set_handler(self, event: LandroidEvent, func: Any) -> None:
         """Set handler for a LandroidEvent"""
         self.__events.update({event: func})
 
+    @staticmethod
+    def _invoke(handler: Any, **kwargs) -> None:
+        """Invoke sync or async event handlers safely."""
+        result = handler(**kwargs)
+        if not inspect.isawaitable(result):
+            return
+
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            asyncio.run(result)
+            return
+
+        loop.create_task(result)
+
     def del_handler(self, event: LandroidEvent) -> None:
         """Remove a handler for a LandroidEvent."""
-        self.__events.pop(event)
+        self.__events.pop(event, None)
 
     def call(self, event: LandroidEvent, **kwargs) -> bool:
         """Call a handler if it was set."""
@@ -63,7 +78,7 @@ class EventHandler:
             # Event was not set
             return False
 
-        if LandroidEvent.DATA_RECEIVED == event or LandroidEvent.API == event:
+        if LandroidEvent.DATA_RECEIVED == event:
             from .utils.devices import DeviceHandler
 
             if not check_syntax(kwargs, ["name"], str) or not check_syntax(
@@ -74,19 +89,42 @@ class EventHandler:
                 )
                 return False
 
-            self.__events[event](name=kwargs["name"], device=kwargs["device"])
+            self._invoke(
+                self.__events[event], name=kwargs["name"], device=kwargs["device"]
+            )
             return True
+        elif LandroidEvent.API == event:
+            # Preferred API callback payload.
+            if check_syntax(kwargs, ["api_data"], dict):
+                self._invoke(self.__events[event], api_data=kwargs["api_data"])
+                return True
+
+            # Backward-compatible payload shape used in forced refresh flow.
+            from .utils.devices import DeviceHandler
+
+            if check_syntax(kwargs, ["name"], str) and check_syntax(
+                kwargs, ["device"], DeviceHandler
+            ):
+                self._invoke(
+                    self.__events[event], name=kwargs["name"], device=kwargs["device"]
+                )
+                return True
+
+            _LOGGER.warning(
+                "requirements for API event attributes were not fulfilled, not sending event!"
+            )
+            return False
         elif LandroidEvent.MQTT_CONNECTION == event:
             if not check_syntax(kwargs, ["state"], bool):
                 return False
 
-            self.__events[event](state=kwargs["state"])
+            self._invoke(self.__events[event], state=kwargs["state"])
             return True
         elif LandroidEvent.MQTT_RATELIMIT == event:
             if not check_syntax(kwargs, ["message"], str):
                 return False
 
-            self.__events[event](message=kwargs["message"])
+            self._invoke(self.__events[event], message=kwargs["message"])
             return True
         elif LandroidEvent.MQTT_PUBLISH == event:
             if not check_syntax(kwargs, ["message", "device", "topic"], str):
@@ -98,7 +136,8 @@ class EventHandler:
             if not check_syntax(kwargs, ["retain"], bool):
                 return False
 
-            self.__events[event](
+            self._invoke(
+                self.__events[event],
                 message=kwargs["message"],
                 qos=kwargs["qos"],
                 retain=kwargs["retain"],
@@ -110,7 +149,8 @@ class EventHandler:
             if not check_syntax(kwargs, ["message", "level"], str):
                 return False
 
-            self.__events[event](
+            self._invoke(
+                self.__events[event],
                 message=kwargs["message"],
                 level=kwargs["level"],
             )

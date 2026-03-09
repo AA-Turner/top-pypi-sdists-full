@@ -34,11 +34,12 @@ use grafeo_core::execution::operators::{
     FactorizedAggregate, FactorizedAggregateOperator, FilterExpression, FilterOperator,
     HashAggregateOperator, HashJoinOperator, HorizontalAggregateOperator,
     JoinType as PhysicalJoinType, LazyFactorizedChainOperator, LeapfrogJoinOperator,
-    MapCollectOperator, MergeOperator, MergeRelationshipConfig, MergeRelationshipOperator,
-    NestedLoopJoinOperator, NodeListOperator, NullOrder, Operator, ParameterScanOperator,
-    ProjectExpr, ProjectOperator, PropertySource, RemoveLabelOperator, ScanOperator,
-    SetPropertyOperator, ShortestPathOperator, SimpleAggregateOperator, SortDirection,
-    SortKey as PhysicalSortKey, SortOperator, UnwindOperator, VariableLengthExpandOperator,
+    LoadCsvOperator, MapCollectOperator, MergeOperator, MergeRelationshipConfig,
+    MergeRelationshipOperator, NestedLoopJoinOperator, NodeListOperator, NullOrder, Operator,
+    ParameterScanOperator, ProjectExpr, ProjectOperator, PropertySource, RemoveLabelOperator,
+    ScanOperator, SetPropertyOperator, ShortestPathOperator, SimpleAggregateOperator,
+    SortDirection, SortKey as PhysicalSortKey, SortOperator, UnwindOperator,
+    VariableLengthExpandOperator,
 };
 use grafeo_core::graph::{Direction, GraphStore, GraphStoreMut};
 use std::collections::HashMap;
@@ -92,6 +93,10 @@ pub struct Planner {
     /// Variables from variable-length expand patterns (group-list variables).
     /// Used by the aggregate planner to detect horizontal aggregation (GE09).
     pub(super) group_list_variables: std::cell::RefCell<std::collections::HashSet<String>>,
+    /// When true, each physical operator is wrapped in `ProfiledOperator`.
+    profiling: std::cell::Cell<bool>,
+    /// Profile entries collected during planning (post-order).
+    profile_entries: std::cell::RefCell<Vec<crate::query::profile::ProfileEntry>>,
 }
 
 impl Planner {
@@ -115,6 +120,8 @@ impl Planner {
             catalog: None,
             correlated_param_state: std::cell::RefCell::new(None),
             group_list_variables: std::cell::RefCell::new(std::collections::HashSet::new()),
+            profiling: std::cell::Cell::new(false),
+            profile_entries: std::cell::RefCell::new(Vec::new()),
         }
     }
 
@@ -139,6 +146,8 @@ impl Planner {
             catalog: None,
             correlated_param_state: std::cell::RefCell::new(None),
             group_list_variables: std::cell::RefCell::new(std::collections::HashSet::new()),
+            profiling: std::cell::Cell::new(false),
+            profile_entries: std::cell::RefCell::new(Vec::new()),
         }
     }
 
@@ -228,6 +237,34 @@ impl Planner {
             columns,
             adaptive_context: None,
         })
+    }
+
+    /// Plans a logical plan with profiling: each physical operator is wrapped
+    /// in [`ProfiledOperator`](grafeo_core::execution::ProfiledOperator) to
+    /// collect row counts and timing. Returns the physical plan together with
+    /// the collected [`ProfileEntry`](crate::query::profile::ProfileEntry)
+    /// items in post-order (children before parents).
+    pub fn plan_profiled(
+        &self,
+        logical_plan: &LogicalPlan,
+    ) -> Result<(PhysicalPlan, Vec<crate::query::profile::ProfileEntry>)> {
+        self.profiling.set(true);
+        self.profile_entries.borrow_mut().clear();
+
+        let result = self.plan_operator(&logical_plan.root);
+
+        self.profiling.set(false);
+        let (operator, columns) = result?;
+        let entries = self.profile_entries.borrow_mut().drain(..).collect();
+
+        Ok((
+            PhysicalPlan {
+                operator,
+                columns,
+                adaptive_context: None,
+            },
+            entries,
+        ))
     }
 
     /// Plans a logical plan with adaptive execution support.
@@ -431,15 +468,34 @@ impl Planner {
         }
     }
 
+    /// If profiling is enabled, wraps a planned result in `ProfiledOperator`
+    /// and records a [`ProfileEntry`](crate::query::profile::ProfileEntry).
+    fn maybe_profile(
+        &self,
+        result: Result<(Box<dyn Operator>, Vec<String>)>,
+        op: &LogicalOperator,
+    ) -> Result<(Box<dyn Operator>, Vec<String>)> {
+        if self.profiling.get() {
+            let (physical, columns) = result?;
+            let (entry, stats) =
+                crate::query::profile::ProfileEntry::new(physical.name(), op.display_label());
+            let profiled = grafeo_core::execution::ProfiledOperator::new(physical, stats);
+            self.profile_entries.borrow_mut().push(entry);
+            Ok((Box::new(profiled), columns))
+        } else {
+            result
+        }
+    }
+
     /// Plans a single logical operator.
     fn plan_operator(&self, op: &LogicalOperator) -> Result<(Box<dyn Operator>, Vec<String>)> {
-        match op {
+        let result = match op {
             LogicalOperator::NodeScan(scan) => self.plan_node_scan(scan),
             LogicalOperator::Expand(expand) => {
                 if self.factorized_execution {
                     let (chain_len, _base) = Self::count_expand_chain(op);
                     if chain_len >= 2 {
-                        return self.plan_expand_chain(op);
+                        return self.maybe_profile(self.plan_expand_chain(op), op);
                     }
                 }
                 self.plan_expand(expand)
@@ -496,6 +552,15 @@ impl Planner {
             }
             LogicalOperator::MultiWayJoin(mwj) => self.plan_multi_way_join(mwj),
             LogicalOperator::HorizontalAggregate(ha) => self.plan_horizontal_aggregate(ha),
+            LogicalOperator::LoadCsv(load) => {
+                let operator: Box<dyn Operator> = Box::new(LoadCsvOperator::new(
+                    load.path.clone(),
+                    load.with_headers,
+                    load.field_terminator,
+                    load.variable.clone(),
+                ));
+                Ok((operator, vec![load.variable.clone()]))
+            }
             LogicalOperator::Empty => Err(Error::Internal("Empty plan".to_string())),
             LogicalOperator::VectorScan(_) => Err(Error::Internal(
                 "VectorScan requires vector-index feature".to_string(),
@@ -507,7 +572,8 @@ impl Planner {
                 "Unsupported operator: {:?}",
                 std::mem::discriminant(op)
             ))),
-        }
+        };
+        self.maybe_profile(result, op)
     }
 
     /// Plans a horizontal aggregate operator (per-row aggregation over a list column).

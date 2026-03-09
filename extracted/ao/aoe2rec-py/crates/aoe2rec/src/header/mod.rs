@@ -39,6 +39,31 @@ pub struct RecHeader {
 }
 
 #[binrw]
+#[derive(Serialize, Debug, Clone, Copy)]
+#[brw(repr(i32))]
+pub enum Difficulty {
+    Extreme = -1,
+    Hardest = 0,
+    Hard = 1,
+    Moderate = 2,
+    Standard = 3,
+    Easiest = 4,
+}
+
+impl From<Difficulty> for i32 {
+    fn from(num: Difficulty) -> Self {
+        match num {
+            Difficulty::Extreme => -1,
+            Difficulty::Hardest => 0,
+            Difficulty::Hard => 1,
+            Difficulty::Moderate => 2,
+            Difficulty::Standard => 3,
+            Difficulty::Easiest => 4,
+        }
+    }
+}
+
+#[binrw]
 #[derive(Serialize, Debug)]
 #[br(import(major: u16))]
 pub struct GameSettings {
@@ -47,8 +72,8 @@ pub struct GameSettings {
     pub n_dlc: u32,
     #[br(count=n_dlc)]
     pub dlcs: Vec<u32>,
-    pub dataset_ref: u32,
-    pub difficulty: u32,
+    pub difficulty: Difficulty,
+    pub map_size: u32,
     pub selected_map_id: u32,
     pub resolved_map_id: u32,
     pub reveal_map: u32,
@@ -65,8 +90,8 @@ pub struct GameSettings {
     // #[bw(calc(players.len().try_into().unwrap()))]
     pub n_players: u32,
     pub unused_player_color: u32,
-    pub victory_amount: i32,
     pub unknown_field: u8,
+    pub victory_amount: i32,
     #[br(magic = b"\xa3_\x02\x00")]
     #[bw(magic = b"\xa3_\x02\x00")]
     pub trade_enabled: Bool,
@@ -250,16 +275,16 @@ pub struct GameSettings {
     pub unknown27: Vec<u32>,
     #[serde(skip_serializing)]
     pub unknown20: DeString,
+    #[br(if(major >= 67))]
+    pub unknown_de_67_2_1: DeString,
+    #[br(if(major >= 67))]
+    pub unknown_de_67_2_2: DeString,
     #[serde(skip_serializing)]
     pub unknown21: [u8; 5],
     #[serde(skip_serializing)]
     pub unknown22: u8, // 13.13
     #[serde(skip_serializing)]
     pub unknown23: [u8; 2], // 13.13
-    #[br(if(major >= 67))]
-    pub unknown_de_67_2_1: u32,
-    #[br(if(major >= 67))]
-    pub unknown_de_67_2_2: u32,
     pub timestamp: u32,
     #[serde(skip_serializing)]
     pub unknown25: u32,
@@ -316,8 +341,9 @@ pub struct Player {
     pub selected_color: u8,
     pub selected_team_id: u8,
     pub resolved_team_id: u8,
+    pub datamod_checksum: i32,
     #[serde(skip_serializing)]
-    pub dat_crc: [u8; 8],
+    pub dat_crc: [u8; 4],
     pub mp_game_version: u8,
     pub civ_id: u32,
     pub custom_civ_count: u32,
@@ -335,7 +361,8 @@ pub struct Player {
     pub player_number: i32,
     pub prefer_random: Bool,
     pub custom_ai: u8,
-    pub handicap: [u8; 8],
+    pub unknown_handicap: [u8; 4],
+    pub handicap: i32,
     #[br(if(major >= 64))]
     pub unknown_de_64_19661: u32,
     #[br(if(major >= 67))]

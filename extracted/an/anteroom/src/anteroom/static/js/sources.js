@@ -24,6 +24,10 @@ const Sources = (() => {
     let _attachedTag = null;     // {id, name}
     let _attachedGroup = null;   // {id, name}
 
+    // Space-source tracking
+    let _spaceSourceIds = new Set();  // IDs of sources linked to active space
+    let _spaceFilterActive = false;   // Show only space sources
+
     function init() {
         const closeBtn = document.getElementById('sources-close');
         const toggleBtn = document.getElementById('btn-sources-toggle');
@@ -272,6 +276,7 @@ const Sources = (() => {
             <div class="source-detail-info">
                 <span class="source-detail-date">${created}</span>
                 ${chunksCount > 0 ? `<span class="source-detail-chunks">${chunksCount} chunks</span>` : ''}
+                ${source.embedding_status ? `<span class="source-detail-embedding-status">${source.embedding_status}</span>` : ''}
             </div>
             <div class="source-detail-tags" id="source-detail-tags">
                 ${tagsHtml}
@@ -281,6 +286,7 @@ const Sources = (() => {
             <div class="source-detail-actions">
                 <button class="btn-modal-save source-attach-btn" id="source-attach-btn">${isAttached ? 'Detach from chat' : 'Attach to chat'}</button>
                 <button class="btn-modal-save source-edit-btn" id="source-edit-btn">Edit</button>
+                <button class="btn-modal-save source-reprocess-btn" id="source-reprocess-btn">Reprocess</button>
                 <button class="btn-modal-cancel source-delete-btn" id="source-delete-btn">Delete</button>
             </div>
         `;
@@ -305,6 +311,22 @@ const Sources = (() => {
         // Edit button
         document.getElementById('source-edit-btn').addEventListener('click', () => {
             _showEditForm(source);
+        });
+
+        // Reprocess button
+        document.getElementById('source-reprocess-btn').addEventListener('click', async () => {
+            if (!confirm('Re-extract text and rebuild chunks for this source?')) return;
+            try {
+                const result = await App.api(`/api/sources/${encodeURIComponent(source.id)}/reprocess`, { method: 'POST' });
+                if (result.warnings && result.warnings.length > 0) {
+                    Chat.showToast('Reprocessed with warnings: ' + result.warnings.join('; '));
+                } else {
+                    Chat.showToast('Source reprocessed successfully');
+                }
+                await showDetailView(source.id);
+            } catch (err) {
+                alert('Failed to reprocess: ' + err.message);
+            }
         });
 
         // Delete button
@@ -449,6 +471,20 @@ const Sources = (() => {
         addBtn.replaceWith(picker);
     }
 
+    async function _refreshSpaceSourceIds() {
+        const spaceId = App.state ? App.state.currentSpaceId : null;
+        if (!spaceId) {
+            _spaceSourceIds = new Set();
+            return;
+        }
+        try {
+            const sources = await App.api(`/api/spaces/${encodeURIComponent(spaceId)}/sources`);
+            _spaceSourceIds = new Set(sources.map(s => s.id));
+        } catch {
+            _spaceSourceIds = new Set();
+        }
+    }
+
     async function refreshList() {
         const listEl = document.getElementById('sources-list');
         if (!listEl || _currentView !== 'list') return;
@@ -456,13 +492,30 @@ const Sources = (() => {
         const search = (document.getElementById('sources-search') || {}).value || '';
         const typeFilter = (document.getElementById('sources-type-filter') || {}).value || '';
 
-        let url = '/api/sources?limit=100';
-        if (search) url += `&search=${encodeURIComponent(search)}`;
-        if (typeFilter) url += `&type=${encodeURIComponent(typeFilter)}`;
+        await _refreshSpaceSourceIds();
 
         try {
-            const data = await App.api(url);
-            _sources = data.sources || [];
+            let sources;
+            if (_spaceFilterActive && _spaceSourceIds.size > 0) {
+                // Fetch space sources directly — avoids pagination cap
+                const spaceId = App.getState().currentSpaceId;
+                sources = await App.api(`/api/spaces/${encodeURIComponent(spaceId)}/sources`);
+                // Apply local search/type filters
+                if (search) {
+                    const q = search.toLowerCase();
+                    sources = sources.filter(s => (s.title || '').toLowerCase().includes(q) || (s.content || '').toLowerCase().includes(q));
+                }
+                if (typeFilter) {
+                    sources = sources.filter(s => s.type === typeFilter);
+                }
+            } else {
+                let url = '/api/sources?limit=0';
+                if (search) url += `&search=${encodeURIComponent(search)}`;
+                if (typeFilter) url += `&type=${encodeURIComponent(typeFilter)}`;
+                const data = await App.api(url);
+                sources = data.sources || [];
+            }
+            _sources = sources;
             _renderList();
         } catch (err) {
             listEl.innerHTML = `<div class="sources-error">${DOMPurify.sanitize(err.message)}</div>`;
@@ -473,6 +526,27 @@ const Sources = (() => {
         const listEl = document.getElementById('sources-list');
         if (!listEl) return;
         listEl.innerHTML = '';
+
+        // Space filter toggle (only when a space is active)
+        const spaceId = App.state ? App.state.currentSpaceId : null;
+        if (spaceId && _spaceSourceIds.size > 0) {
+            const filterBar = document.createElement('div');
+            filterBar.className = 'sources-space-filter';
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.id = 'sources-space-filter-cb';
+            cb.checked = _spaceFilterActive;
+            const lbl = document.createElement('label');
+            lbl.htmlFor = 'sources-space-filter-cb';
+            lbl.textContent = 'Space sources only';
+            cb.addEventListener('change', () => {
+                _spaceFilterActive = cb.checked;
+                refreshList();
+            });
+            filterBar.appendChild(cb);
+            filterBar.appendChild(lbl);
+            listEl.appendChild(filterBar);
+        }
 
         // "Attach by tag" link at the top
         const tagLink = document.createElement('div');
@@ -504,13 +578,15 @@ const Sources = (() => {
             item.dataset.id = source.id;
 
             const isAttached = _attachedSources.some(s => s.id === source.id);
+            const isInSpace = _spaceSourceIds.has(source.id);
             const typeBadge = _typeBadge(source.type);
             const title = DOMPurify.sanitize(source.title || 'Untitled');
+            const spaceBadge = isInSpace ? '<span class="source-space-badge">space</span>' : '';
             const date = App.formatTimestamp(source.created_at);
 
             item.innerHTML = `
                 <div class="source-item-main">
-                    <div class="source-item-title">${isAttached ? '<span class="source-attached-dot"></span>' : ''}${title}</div>
+                    <div class="source-item-title">${isAttached ? '<span class="source-attached-dot"></span>' : ''}${title}${spaceBadge}</div>
                     <div class="source-item-meta">
                         ${typeBadge}
                         <span class="source-item-date">${date}</span>
@@ -570,23 +646,36 @@ const Sources = (() => {
             if (_createType === 'file') {
                 if (_selectedFiles.length > 0) {
                     // Multi-file batch upload: use filename as title for each
+                    const allWarnings = [];
                     for (const file of _selectedFiles) {
                         const formData = new FormData();
                         formData.append('file', file);
                         formData.append('title', file.name);
-                        await App.api('/api/sources/upload', {
+                        const resp = await App.api('/api/sources/upload', {
                             method: 'POST',
                             body: formData,
                         });
+                        if (resp && resp.warnings && resp.warnings.length > 0) {
+                            allWarnings.push({ file: file.name, warnings: resp.warnings });
+                        }
+                    }
+                    if (allWarnings.length > 0) {
+                        const msg = allWarnings.map(w =>
+                            `${w.file}: ${w.warnings.join('; ')}`
+                        ).join('\n');
+                        Chat.showToast('Upload warnings:\n' + msg);
                     }
                 } else if (_selectedFile) {
                     const formData = new FormData();
                     formData.append('file', _selectedFile);
                     formData.append('title', title);
-                    await App.api('/api/sources/upload', {
+                    const resp = await App.api('/api/sources/upload', {
                         method: 'POST',
                         body: formData,
                     });
+                    if (resp && resp.warnings && resp.warnings.length > 0) {
+                        Chat.showToast(resp.warnings.join('\n'));
+                    }
                 } else {
                     alert('Please select a file.');
                     return;

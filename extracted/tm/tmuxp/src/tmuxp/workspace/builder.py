@@ -15,12 +15,73 @@ from libtmux.session import Session
 from libtmux.window import Window
 
 from tmuxp import exc
+from tmuxp.log import TmuxpLoggerAdapter
 from tmuxp.util import get_current_pane, run_before_script
 
 if t.TYPE_CHECKING:
     from collections.abc import Iterator
 
 logger = logging.getLogger(__name__)
+
+
+def _wait_for_pane_ready(
+    pane: Pane,
+    timeout: float = 2.0,
+    interval: float = 0.05,
+) -> bool:
+    """Wait for pane shell to draw its prompt.
+
+    Polls the pane's cursor position until it moves from origin (0, 0),
+    indicating the shell has finished initializing and drawn its prompt.
+
+    Parameters
+    ----------
+    pane : :class:`libtmux.Pane`
+        pane to wait for
+    timeout : float
+        maximum seconds to wait before giving up
+    interval : float
+        seconds between polling attempts
+
+    Returns
+    -------
+    bool
+        True if pane became ready, False on timeout or error
+
+    Examples
+    --------
+    >>> pane = session.active_window.active_pane
+
+    Wait for the shell to be ready:
+
+    >>> _wait_for_pane_ready(pane, timeout=5.0)
+    True
+    """
+    start = time.monotonic()
+    while time.monotonic() - start < timeout:
+        try:
+            pane.refresh()
+        except Exception:
+            logger.debug(
+                "pane refresh failed during readiness check",
+                exc_info=True,
+                extra={"tmux_pane": str(pane.pane_id)},
+            )
+            return False
+        if pane.cursor_x != "0" or pane.cursor_y != "0":
+            logger.debug(
+                "pane ready, cursor moved from origin",
+                extra={"tmux_pane": str(pane.pane_id)},
+            )
+            return True
+        time.sleep(interval)
+    logger.debug(
+        "pane readiness check timed out after %.1f seconds",
+        timeout,
+        extra={"tmux_pane": str(pane.pane_id)},
+    )
+    return False
+
 
 COLUMNS_FALLBACK = 80
 
@@ -108,6 +169,101 @@ class WorkspaceBuilder:
     >>> sorted([window.name for window in session.windows])
     ['editor', 'logging', 'test']
 
+    **Progress callback:**
+
+    >>> calls: list[str] = []
+    >>> progress_cfg = {
+    ...     "session_name": "progress-demo",
+    ...     "windows": [{"window_name": "main", "panes": [{"shell_command": []}]}],
+    ... }
+    >>> builder = WorkspaceBuilder(
+    ...     session_config=progress_cfg,
+    ...     server=server,
+    ...     on_progress=calls.append,
+    ... )
+    >>> builder.build()
+    >>> "Workspace built" in calls
+    True
+
+    **Before-script hook:**
+
+    >>> hook_calls: list[bool] = []
+    >>> no_script_cfg = {
+    ...     "session_name": "hook-demo",
+    ...     "windows": [{"window_name": "main", "panes": [{"shell_command": []}]}],
+    ... }
+    >>> builder = WorkspaceBuilder(
+    ...     session_config=no_script_cfg,
+    ...     server=server,
+    ...     on_before_script=lambda: hook_calls.append(True),
+    ... )
+    >>> builder.build()
+    >>> hook_calls  # no before_script in config, callback not fired
+    []
+
+    **Script output hook:**
+
+    >>> script_lines: list[str] = []
+    >>> no_script_cfg2 = {
+    ...     "session_name": "script-output-demo",
+    ...     "windows": [{"window_name": "main", "panes": [{"shell_command": []}]}],
+    ... }
+    >>> builder = WorkspaceBuilder(
+    ...     session_config=no_script_cfg2,
+    ...     server=server,
+    ...     on_script_output=script_lines.append,
+    ... )
+    >>> builder.build()
+    >>> script_lines  # no before_script in config, callback not fired
+    []
+
+    **Build events hook:**
+
+    >>> events: list[dict] = []
+    >>> event_cfg = {
+    ...     "session_name": "events-demo",
+    ...     "windows": [{"window_name": "main", "panes": [{"shell_command": []}]}],
+    ... }
+    >>> builder = WorkspaceBuilder(
+    ...     session_config=event_cfg,
+    ...     server=server,
+    ...     on_build_event=events.append,
+    ... )
+    >>> builder.build()
+    >>> [e["event"] for e in events]
+    ['session_created', 'window_started', 'pane_creating',
+     'window_done', 'workspace_built']
+    >>> next(e for e in events if e["event"] == "session_created")["session_pane_total"]
+    1
+
+    **Build events with before_script:**
+
+    ``before_script_started`` fires before the script runs;
+    ``before_script_done`` fires in ``finally`` (success or failure).
+
+    >>> script_events: list[dict] = []
+    >>> script_event_cfg = {
+    ...     "session_name": "script-events-demo",
+    ...     "before_script": "echo hello",
+    ...     "windows": [{"window_name": "main", "panes": [{"shell_command": []}]}],
+    ... }
+    >>> builder = WorkspaceBuilder(
+    ...     session_config=script_event_cfg,
+    ...     server=server,
+    ...     on_build_event=script_events.append,
+    ... )
+    >>> builder.build()
+    >>> event_names = [e["event"] for e in script_events]
+    >>> "before_script_started" in event_names
+    True
+    >>> "before_script_done" in event_names
+    True
+    >>> bs_start = event_names.index("before_script_started")
+    >>> bs_done = event_names.index("before_script_done")
+    >>> win_start = event_names.index("window_started")
+    >>> bs_start < bs_done < win_start
+    True
+
     The normal phase of loading is:
 
     1. Load JSON / YAML file via :class:`pathlib.Path`::
@@ -150,12 +306,20 @@ class WorkspaceBuilder:
     server: Server
     _session: Session | None
     session_name: str
+    on_progress: t.Callable[[str], None] | None
+    on_before_script: t.Callable[[], None] | None
+    on_script_output: t.Callable[[str], None] | None
+    on_build_event: t.Callable[[dict[str, t.Any]], None] | None
 
     def __init__(
         self,
         session_config: dict[str, t.Any],
         server: Server,
         plugins: list[t.Any] | None = None,
+        on_progress: t.Callable[[str], None] | None = None,
+        on_before_script: t.Callable[[], None] | None = None,
+        on_script_output: t.Callable[[str], None] | None = None,
+        on_build_event: t.Callable[[dict[str, t.Any]], None] | None = None,
     ) -> None:
         """Initialize workspace loading.
 
@@ -169,6 +333,23 @@ class WorkspaceBuilder:
 
         server : :class:`libtmux.Server`
             tmux server to build session in
+
+        on_progress : callable, optional
+            callback for progress updates during building
+
+        on_before_script : callable, optional
+            called just before ``before_script`` runs; use to clear the terminal
+            (e.g. stop a spinner) so script output is not interleaved
+
+        on_script_output : callable, optional
+            called with each output line from ``before_script`` subprocess; when
+            set, raw TTY tee is suppressed so the caller can route lines to a
+            live panel instead
+
+        on_build_event : callable, optional
+            called with a dict event at each structural build milestone (session
+            created, window started/done, pane creating, workspace built); used
+            by the CLI to render a live session tree
 
         Notes
         -----
@@ -187,6 +368,10 @@ class WorkspaceBuilder:
 
         self.session_config = session_config
         self.plugins = plugins
+        self.on_progress = on_progress
+        self.on_before_script = on_before_script
+        self.on_script_output = on_script_output
+        self.on_build_event = on_build_event
 
         if self.server is not None and self.session_exists(
             session_name=self.session_config["session_name"],
@@ -271,7 +456,26 @@ class WorkspaceBuilder:
         assert session is not None
         assert session.name is not None
 
+        if self.on_progress:
+            self.on_progress(f"Session created: {session.name}")
+
         self._session = session
+        if self.on_build_event:
+            self.on_build_event(
+                {
+                    "event": "session_created",
+                    "name": session.name,
+                    "window_total": len(self.session_config["windows"]),
+                    "session_pane_total": sum(
+                        len(w.get("panes", [])) for w in self.session_config["windows"]
+                    ),
+                }
+            )
+        _log = TmuxpLoggerAdapter(
+            logger,
+            {"tmux_session": self.session_config["session_name"]},
+        )
+        _log.info("session created")
 
         assert session.server is not None
 
@@ -288,6 +492,10 @@ class WorkspaceBuilder:
         focus = None
 
         if "before_script" in self.session_config:
+            if self.on_before_script:
+                self.on_before_script()
+            if self.on_build_event:
+                self.on_build_event({"event": "before_script_started"})
             try:
                 cwd = None
 
@@ -295,10 +503,28 @@ class WorkspaceBuilder:
                 # session start directory, if it exists.
                 if "start_directory" in self.session_config:
                     cwd = self.session_config["start_directory"]
-                run_before_script(self.session_config["before_script"], cwd=cwd)
+                _log.debug(
+                    "running before script",
+                )
+                run_before_script(
+                    self.session_config["before_script"],
+                    cwd=cwd,
+                    on_line=self.on_script_output,
+                )
             except Exception:
+                _log.error(
+                    "before script failed",
+                    extra={
+                        "tmux_config_path": str(
+                            self.session_config["before_script"],
+                        ),
+                    },
+                )
                 self.session.kill()
                 raise
+            finally:
+                if self.on_build_event:
+                    self.on_build_event({"event": "before_script_done"})
 
         if "options" in self.session_config:
             for option, value in self.session_config["options"].items():
@@ -323,9 +549,6 @@ class WorkspaceBuilder:
                 assert isinstance(pane, Pane)
                 pane = pane
 
-                if "layout" in window_config:
-                    window.select_layout(window_config["layout"])
-
                 if pane_config.get("focus"):
                     focus_pane = pane
 
@@ -340,8 +563,17 @@ class WorkspaceBuilder:
             if focus_pane:
                 focus_pane.select()
 
+            if self.on_build_event:
+                self.on_build_event({"event": "window_done"})
+
         if focus:
             focus.select()
+
+        if self.on_progress:
+            self.on_progress("Workspace built")
+        _log.info("workspace built")
+        if self.on_build_event:
+            self.on_build_event({"event": "workspace_built"})
 
     def iter_create_windows(
         self,
@@ -373,6 +605,17 @@ class WorkspaceBuilder:
             start=1,
         ):
             window_name = window_config.get("window_name", None)
+
+            if self.on_progress:
+                self.on_progress(f"Creating window: {window_name or window_iterator}")
+            if self.on_build_event:
+                self.on_build_event(
+                    {
+                        "event": "window_started",
+                        "name": window_name or str(window_iterator),
+                        "pane_total": len(window_config["panes"]),
+                    }
+                )
 
             is_first_window_pass = self.first_window_pass(
                 window_iterator,
@@ -412,6 +655,14 @@ class WorkspaceBuilder:
                 environment=environment,
             )
             assert isinstance(window, Window)
+            window_log = TmuxpLoggerAdapter(
+                logger,
+                {
+                    "tmux_session": session.name or "",
+                    "tmux_window": window_name or "",
+                },
+            )
+            window_log.debug("window created")
 
             if is_first_window_pass:  # if first window, use window 1
                 session.active_window.kill()
@@ -461,6 +712,17 @@ class WorkspaceBuilder:
             window_config["panes"],
             start=pane_base_index,
         ):
+            if self.on_progress:
+                self.on_progress(f"Creating pane: {pane_index}")
+            if self.on_build_event:
+                self.on_build_event(
+                    {
+                        "event": "pane_creating",
+                        "pane_num": pane_index - int(pane_base_index) + 1,
+                        "pane_total": len(window_config["panes"]),
+                    }
+                )
+
             if pane_index == int(pane_base_index):
                 pane = window.active_pane
             else:
@@ -506,6 +768,23 @@ class WorkspaceBuilder:
                 )
 
             assert isinstance(pane, Pane)
+            pane_log = TmuxpLoggerAdapter(
+                logger,
+                {
+                    "tmux_session": window.session.name or "",
+                    "tmux_window": window.name or "",
+                    "tmux_pane": pane.pane_id or "",
+                },
+            )
+            pane_log.debug("pane created")
+
+            # Skip readiness wait when a custom shell/command launcher is set.
+            # The shell/window_shell key runs a command (e.g. "top", "sleep 999")
+            # that replaces the default shell — the pane exits when the command
+            # exits, so there is no interactive prompt to wait for.
+            pane_shell = pane_config.get("shell", window_config.get("window_shell"))
+            if pane_shell is None:
+                _wait_for_pane_ready(pane)
 
             if "layout" in window_config:
                 window.select_layout(window_config["layout"])
@@ -529,6 +808,7 @@ class WorkspaceBuilder:
                     time.sleep(sleep_before)
 
                 pane.send_keys(cmd["cmd"], suppress_history=suppress, enter=enter)
+                pane_log.debug("sent command %s", cmd["cmd"])
 
                 if sleep_after is not None:
                     time.sleep(sleep_after)

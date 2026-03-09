@@ -8,6 +8,7 @@ Instructions: Print or write JSON dictionary 'data' as
 Adapted from:
   https://stackoverflow.com/questions/16264515/json-dumps-custom-formatting
 """
+
 import gzip
 import json
 import math
@@ -112,7 +113,7 @@ class JSONEncoder(json.JSONEncoder):
                 if not retval:
                     lines = (",\n" + indent_str).join(output)  # lines between brackets
                     if (
-                        grandparent == dict or self.breakbrackets
+                        grandparent is dict or self.breakbrackets
                     ):  # break first line after opening bracket
                         retval = (
                             "[\n" + indent_str + lines + "\n" + " " * self._indent + "]"

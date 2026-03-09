@@ -123,7 +123,7 @@ def get_input_file_path(country, parser, data_source="harvest"):
     Get input file path from config file for the given country.
     Path depends on data_source flag:
         - 'harvest': ${PATHS:dir_output}/{project_name}/crop_t{floor}/{country}/
-        - 'agmet': ${PATHS:dir_crop_inputs}/processed/{country}/
+        - 'agmet': ${input_file_path}/{country}/
     
     :param country: Country name
     :param parser: ConfigParser object
@@ -236,7 +236,7 @@ class cei_runner(base.BaseGeo):
     def collect_files_agmet(self):
         """
         Collect files for 'agmet' data source.
-        Recursively finds all CSV files in the processed directory.
+        Recursively finds all CSV files in the input directory.
         
         :return: DataFrame with file information
         """
@@ -287,15 +287,6 @@ class cei_runner(base.BaseGeo):
 
                 # Add to dataframe
                 df_files.loc[len(df_files)] = [process_type, filepath, filename, admin_zone, admin_col_name]
-
-        # Exclude those rows where directory is processed and file is already in
-        # processed_include_fall directory
-        no_fall = df_files["directory"] == "processed"
-        include_fall = df_files[df_files["directory"] == "processed_include_fall"][
-            "filename"
-        ]
-
-        df_files = df_files[~(no_fall & (df_files["filename"].isin(include_fall)))]
 
         return df_files
 

@@ -3,6 +3,7 @@ import shutil
 import subprocess
 import tempfile
 
+import correctionlib.version
 import pytest
 
 import correctionlib
@@ -90,7 +91,8 @@ def test_cmake_static_compilation(csetstr: str):
             f.write(CMAKELIST_SRC)
         testprog = os.path.join(tmpdir, "test.cc")
         # SKBUILD_PROJECT_VERSION only includes major.minor.patch
-        versionstr = ".".join(correctionlib.__version__.split(".")[:3])
+        # it also trims any prerelease suffixes
+        versionstr = ".".join(map(str, correctionlib.version.__version_tuple__[:3]))
         with open(testprog, "w") as f:
             f.write(TESTPROG_SRC % (versionstr, csetstr))
         flags = (

@@ -1,7 +1,7 @@
 # BSD 2-Clause License
 #
 # Apprise - Push Notification Library.
-# Copyright (c) 2025, Chris Caron <lead2gold@gmail.com>
+# Copyright (c) 2026, Chris Caron <lead2gold@gmail.com>
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
@@ -1529,4 +1529,3 @@ def test_config_base_expired_with_int_cache(monkeypatch):
     # Beyond cache window
     monkeypatch.setattr(time, "time", lambda: 1031.0)
     assert cb.expired() is True
-

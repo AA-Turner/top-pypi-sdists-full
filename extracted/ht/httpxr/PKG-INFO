@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: httpxr
-Version: 0.30.23
+Version: 0.30.24
 Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Web Environment
 Classifier: Framework :: AsyncIO
@@ -18,8 +18,6 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Internet :: WWW/HTTP
-Requires-Dist: openai>=2.21.0
-Requires-Dist: pydantic>=2.12.5
 Requires-Dist: click==8.* ; extra == 'cli'
 Requires-Dist: pygments==2.* ; extra == 'cli'
 Requires-Dist: rich>=10,<15 ; extra == 'cli'

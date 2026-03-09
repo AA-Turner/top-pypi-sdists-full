@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kfactory
-Version: 2.4.5
+Version: 2.4.6
 Summary: KLayout API implementation of gdsfactory
 Author-email: gdsfactory community <contact@gdsfactory.com>
 Classifier: Programming Language :: Python :: 3.11
@@ -12,7 +12,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: aenum<4,>=3.1.16
 Requires-Dist: cachetools>=6.2.4
-Requires-Dist: klayout<0.31.0,>=0.30.5
+Requires-Dist: klayout==0.30.6
 Requires-Dist: loguru<0.8,>=0.7.3
 Requires-Dist: pydantic<2.13,>=2.12.5
 Requires-Dist: pydantic-extra-types>=2.11
@@ -77,14 +77,14 @@ Requires-Dist: ipytree>=0.2.2; extra == "ipy"
 Requires-Dist: ipywidgets>=8.1.5; extra == "ipy"
 Dynamic: license-file
 
-# KFactory 2.4.5
+# KFactory 2.4.6
 
 [![codecov](https://codecov.io/gh/gdsfactory/kfactory/graph/badge.svg?token=dArcfnQE4w)](https://codecov.io/gh/gdsfactory/kfactory)
 
 Kfactory is the backend for [gdsfactory](https://github.com/gdsfactory/gdsfactory). It is built upon [KLayout](https://klayout.de).
 It offers basic operations like gdsfactory, so it can be used on its own as a layout tool as well.
 
-It is recommended to pin the version of KFactory in `requirements.txt` or `pyproject.toml` with `kfactory==2.4.5` for example.
+It is recommended to pin the version of KFactory in `requirements.txt` or `pyproject.toml` with `kfactory==2.4.6` for example.
 
 Features similar to gdsfactory:
 

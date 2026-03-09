@@ -1,7 +1,7 @@
 # BSD 2-Clause License
 #
 # Apprise - Push Notification Library.
-# Copyright (c) 2025, Chris Caron <lead2gold@gmail.com>
+# Copyright (c) 2026, Chris Caron <lead2gold@gmail.com>
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
@@ -100,7 +100,7 @@ apprise_url_tests = (
         {
             # A good email
             "instance": NotifyResend,
-            "privacy_url": \
+            "privacy_url":
                 "resend://a...d:user@example.com/newuser2@example.com",
             "url_matches": r"name=Jessica",
         },
@@ -113,7 +113,7 @@ apprise_url_tests = (
         {
             # A good email
             "instance": NotifyResend,
-            "privacy_url": \
+            "privacy_url":
                 "resend://a...d:user2@example.ca/",
             "url_matches": r"name=Ralph",
             "force_debug": True,
@@ -127,7 +127,7 @@ apprise_url_tests = (
         {
             # A good email
             "instance": NotifyResend,
-            "privacy_url": \
+            "privacy_url":
                 "resend://a...d:user@example.com/newuser5@example.com",
             "url_matches": r"name=Joe",
         },
@@ -140,7 +140,7 @@ apprise_url_tests = (
         {
             # A good email
             "instance": NotifyResend,
-            "privacy_url": \
+            "privacy_url":
                 "resend://a...d:user@example.com",
             "url_matches": r"reply=John",
         },

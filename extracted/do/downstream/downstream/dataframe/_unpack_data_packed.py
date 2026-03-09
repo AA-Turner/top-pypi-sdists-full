@@ -122,7 +122,6 @@ def _deserialize_h_matrix(h_matrix_str: str) -> np.ndarray:
     return h_matrix
 
 
-
 def _apply_data_parity0(df: pl.DataFrame) -> pl.DataFrame:
     """Apply downstream_data_parity0_rule to compute parity syndrome.
 
@@ -134,44 +133,59 @@ def _apply_data_parity0(df: pl.DataFrame) -> pl.DataFrame:
     then performs vectorized bulk computation across all rows sharing
     the same H matrix.
     """
-    parity_result = np.zeros(len(df), dtype=int)
+    df_len = df.lazy().select(pl.len()).collect().item()
+    parity_result = np.zeros(df_len, dtype=int)
 
     logging.info(" - filtering non-empty parity rules...")
-    indexed = df.with_row_index(
-        "_downstream_parity_idx",
-    ).filter(
-        pl.col("downstream_data_parity0_rule").is_not_null()
-        & (pl.col("downstream_data_parity0_rule").cast(pl.String).str.len_bytes() > 0),
+    indexed = (
+        df.lazy()
+        .with_row_index("_downstream_parity_idx")
+        .filter(
+            pl.col("downstream_data_parity0_rule").is_not_null()
+            & (
+                pl.col("downstream_data_parity0_rule")
+                .cast(pl.String)
+                .str.len_bytes()
+                > 0
+            ),
+        )
     )
+    indexed_len = indexed.select(pl.len()).collect().item()
     logging.info(
-        f" - {len(indexed)} of {len(df)} row(s) have parity rules...",
+        f" - {indexed_len} of {df_len} row(s) have parity rules...",
     )
-    for (h_matrix_str,), group in indexed.group_by(
-        "downstream_data_parity0_rule",
-    ):
-        indices = group["_downstream_parity_idx"].to_numpy()
+    unique_rules = (
+        indexed.select("downstream_data_parity0_rule")
+        .unique()
+        .collect()
+        .to_series()
+        .to_list()
+    )
+    for h_matrix_str in unique_rules:
+        group = indexed.filter(
+            pl.col("downstream_data_parity0_rule") == h_matrix_str,
+        )
+        num_rows = group.select(pl.len()).collect().item()
+        indices = (
+            group.select("_downstream_parity_idx").collect().to_numpy().ravel()
+        )
 
-        logging.info(f" - deserializing H matrix for {len(group)} row(s)...")
+        logging.info(f" - deserializing H matrix for {num_rows} row(s)...")
         h_matrix = _deserialize_h_matrix(str(h_matrix_str))
         logging.info(f" - H matrix has {h_matrix.shape[0]} parity rule(s)...")
 
-        logging.info(f" - concatenating data_hex for {len(group)} row(s)...")
+        logging.info(f" - concatenating data_hex for {num_rows} row(s)...")
         concat_hex = (
-            group.lazy()
-            .select(pl.col("data_hex").str.join(""))
-            .collect()
-            .item()
+            group.select(pl.col("data_hex").str.join("")).collect().item()
         )
         hex_len = (
-            group.lazy()
-            .select(pl.col("data_hex").str.len_bytes().first())
+            group.select(pl.col("data_hex").str.len_bytes().first())
             .collect()
             .item()
         )
         logging.info(" - converting hex to bits...")
         all_bits = unpack_hex_bits(concat_hex)
 
-        num_rows = len(group)
         bits_per_row = hex_len * 4
         data_matrix = all_bits.reshape(num_rows, bits_per_row)
 
@@ -196,7 +210,8 @@ def _apply_data_parity0(df: pl.DataFrame) -> pl.DataFrame:
 
     return df.with_columns(
         downstream_data_parity0_result=pl.Series(
-            parity_result, dtype=pl.UInt32,
+            parity_result,
+            dtype=pl.UInt32,
         ),
     ).drop("downstream_data_parity0_rule")
 
@@ -238,9 +253,11 @@ def _perform_validations(
     col_name: str,
 ) -> pl.DataFrame:
     validator_strs = (
-        df.select(pl.col(col_name))
-        .to_series()
+        df.lazy()
+        .select(pl.col(col_name))
         .unique()
+        .collect()
+        .to_series()
         .drop_nulls()
         .replace("", None)
         .drop_nulls()
@@ -248,12 +265,11 @@ def _perform_validations(
     )
     for validator in validator_strs:
         validation_expr = eval(validator, {"pl": pl})
-        group = df.filter(pl.col(col_name) == validator)
-        validation_result = group.select(validation_expr).to_series()
-        if not validation_result.all():
+        group = df.lazy().filter(pl.col(col_name) == validator)
+        if not group.select(validation_expr.all()).collect().item():
             err_msg = f"{col_name} `{validator}` failed"
             logging.error(err_msg)
-            failed_rows = group.filter(~validation_result)
+            failed_rows = group.filter(~validation_expr).collect()
             logging.error(failed_rows.glimpse(return_type="str"))
             for dump_path in (
                 pathlib.Path.home()
@@ -280,11 +296,13 @@ def _apply_filters(
     df: pl.DataFrame,
     col_name: str,
 ) -> pl.DataFrame:
-    num_before = len(df)
+    num_before = df.lazy().select(pl.len()).collect().item()
     filter_strs = (
-        df.select(pl.col(col_name))
-        .to_series()
+        df.lazy()
+        .select(pl.col(col_name))
         .unique()
+        .collect()
+        .to_series()
         .drop_nulls()
         .replace("", None)
         .drop_nulls()
@@ -312,13 +330,16 @@ def _apply_filters(
 
 def _drop_excluded_rows(df: pl.DataFrame) -> pl.DataFrame:
     has_dropped_validations = (
-        "downstream_validate_exploded" in df
-        and df.select(
-            (pl.col("downstream_validate_exploded").str.len_bytes() > 0)
-            & pl.col("downstream_exclude_unpacked")
+        "downstream_validate_exploded" in df.lazy().collect_schema().names()
+        and df.lazy()
+        .select(
+            (
+                (pl.col("downstream_validate_exploded").str.len_bytes() > 0)
+                & pl.col("downstream_exclude_unpacked")
+            ).any()
         )
-        .to_series()
-        .any()
+        .collect()
+        .item()
     )
     if has_dropped_validations:
         warnings.warn(
@@ -328,7 +349,7 @@ def _drop_excluded_rows(df: pl.DataFrame) -> pl.DataFrame:
         )
 
     kept = pl.col("downstream_exclude_unpacked").not_().fill_null(True)
-    num_before = len(df)
+    num_before = df.lazy().select(pl.len()).collect().item()
     df = df.filter(kept).drop("downstream_exclude_unpacked")
     num_after = len(df)
     num_dropped = num_before - num_after
@@ -514,6 +535,8 @@ def unpack_data_packed(
     if "downstream_data_parity0_rule" in schema_names:
         logging.info(" - computing downstream_data_parity0_result...")
         df = _apply_data_parity0(df)
+    else:
+        logging.info(" - downstream_data_parity0_rule not found in df")
 
     if "downstream_validate_packed" in df:
         logging.info(" - evaluating `downstream_validate_packed` exprs...")

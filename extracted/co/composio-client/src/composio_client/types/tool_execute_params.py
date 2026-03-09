@@ -39,7 +39,7 @@ __all__ = [
 
 class ToolExecuteParams(TypedDict, total=False):
     allow_tracing: Optional[bool]
-    """Enable debug tracing for tool execution (useful for debugging)"""
+    """Deprecated. Enable debug tracing for tool execution (useful for debugging)"""
 
     arguments: Dict[str, Optional[object]]
     """
@@ -76,6 +76,12 @@ class ToolExecuteParams(TypedDict, total=False):
 
     version: str
     """Tool version to execute (defaults to "00000000_00" if not specified)"""
+
+    x_llm_gateway_headers: Annotated[str, PropertyInfo(alias="x-llm-gateway-headers")]
+    """
+    JSON object containing custom headers to pass to LLM providers (OpenAI, Bedrock,
+    etc.)
+    """
 
 
 _CustomAuthParamsParameterReservedKeywords = TypedDict(
@@ -125,7 +131,7 @@ class CustomConnectionDataUnionMember0ValAuthedUser(TypedDict, total=False):
     scope: str
 
 
-class CustomConnectionDataUnionMember0ValTyped(TypedDict, total=False):
+class CustomConnectionDataUnionMember0Val(TypedDict, total=False, extra_items=Optional[object]):  # type: ignore[call-arg]
     access_token: Required[str]
 
     account_id: str
@@ -194,11 +200,6 @@ class CustomConnectionDataUnionMember0ValTyped(TypedDict, total=False):
     your_domain: Annotated[str, PropertyInfo(alias="your-domain")]
 
 
-CustomConnectionDataUnionMember0Val: TypeAlias = Union[
-    CustomConnectionDataUnionMember0ValTyped, Dict[str, Optional[object]]
-]
-
-
 class CustomConnectionDataUnionMember0(TypedDict, total=False):
     auth_scheme: Required[Annotated[Literal["OAUTH2"], PropertyInfo(alias="authScheme")]]
 
@@ -207,7 +208,7 @@ class CustomConnectionDataUnionMember0(TypedDict, total=False):
     val: Required[CustomConnectionDataUnionMember0Val]
 
 
-class CustomConnectionDataUnionMember1ValTyped(TypedDict, total=False):
+class CustomConnectionDataUnionMember1Val(TypedDict, total=False, extra_items=Optional[object]):  # type: ignore[call-arg]
     access_token: Required[str]
 
     client_id: Required[str]
@@ -281,11 +282,6 @@ class CustomConnectionDataUnionMember1ValTyped(TypedDict, total=False):
     your_domain: Annotated[str, PropertyInfo(alias="your-domain")]
 
 
-CustomConnectionDataUnionMember1Val: TypeAlias = Union[
-    CustomConnectionDataUnionMember1ValTyped, Dict[str, Optional[object]]
-]
-
-
 class CustomConnectionDataUnionMember1(TypedDict, total=False):
     auth_scheme: Required[Annotated[Literal["DCR_OAUTH"], PropertyInfo(alias="authScheme")]]
 
@@ -294,7 +290,7 @@ class CustomConnectionDataUnionMember1(TypedDict, total=False):
     val: Required[CustomConnectionDataUnionMember1Val]
 
 
-class CustomConnectionDataUnionMember2ValTyped(TypedDict, total=False):
+class CustomConnectionDataUnionMember2Val(TypedDict, total=False, extra_items=Optional[object]):  # type: ignore[call-arg]
     account_id: str
 
     account_url: str
@@ -348,11 +344,6 @@ class CustomConnectionDataUnionMember2ValTyped(TypedDict, total=False):
     your_domain: Annotated[str, PropertyInfo(alias="your-domain")]
 
 
-CustomConnectionDataUnionMember2Val: TypeAlias = Union[
-    CustomConnectionDataUnionMember2ValTyped, Dict[str, Optional[object]]
-]
-
-
 class CustomConnectionDataUnionMember2(TypedDict, total=False):
     auth_scheme: Required[Annotated[Literal["API_KEY"], PropertyInfo(alias="authScheme")]]
 
@@ -361,7 +352,7 @@ class CustomConnectionDataUnionMember2(TypedDict, total=False):
     val: Required[CustomConnectionDataUnionMember2Val]
 
 
-class CustomConnectionDataUnionMember3ValTyped(TypedDict, total=False):
+class CustomConnectionDataUnionMember3Val(TypedDict, total=False, extra_items=Optional[object]):  # type: ignore[call-arg]
     password: Required[str]
 
     username: Required[str]
@@ -411,11 +402,6 @@ class CustomConnectionDataUnionMember3ValTyped(TypedDict, total=False):
     your_domain: Annotated[str, PropertyInfo(alias="your-domain")]
 
 
-CustomConnectionDataUnionMember3Val: TypeAlias = Union[
-    CustomConnectionDataUnionMember3ValTyped, Dict[str, Optional[object]]
-]
-
-
 class CustomConnectionDataUnionMember3(TypedDict, total=False):
     auth_scheme: Required[Annotated[Literal["BASIC_WITH_JWT"], PropertyInfo(alias="authScheme")]]
 
@@ -424,7 +410,7 @@ class CustomConnectionDataUnionMember3(TypedDict, total=False):
     val: Required[CustomConnectionDataUnionMember3Val]
 
 
-class CustomConnectionDataUnionMember4ValTyped(TypedDict, total=False):
+class CustomConnectionDataUnionMember4Val(TypedDict, total=False, extra_items=Optional[object]):  # type: ignore[call-arg]
     username: Required[str]
 
     account_id: str
@@ -474,11 +460,6 @@ class CustomConnectionDataUnionMember4ValTyped(TypedDict, total=False):
     your_domain: Annotated[str, PropertyInfo(alias="your-domain")]
 
 
-CustomConnectionDataUnionMember4Val: TypeAlias = Union[
-    CustomConnectionDataUnionMember4ValTyped, Dict[str, Optional[object]]
-]
-
-
 class CustomConnectionDataUnionMember4(TypedDict, total=False):
     auth_scheme: Required[Annotated[Literal["BASIC"], PropertyInfo(alias="authScheme")]]
 
@@ -487,7 +468,7 @@ class CustomConnectionDataUnionMember4(TypedDict, total=False):
     val: Required[CustomConnectionDataUnionMember4Val]
 
 
-class CustomConnectionDataUnionMember5ValTyped(TypedDict, total=False):
+class CustomConnectionDataUnionMember5Val(TypedDict, total=False, extra_items=Optional[object]):  # type: ignore[call-arg]
     token: Required[str]
 
     account_id: str
@@ -535,11 +516,6 @@ class CustomConnectionDataUnionMember5ValTyped(TypedDict, total=False):
     your_domain: Annotated[str, PropertyInfo(alias="your-domain")]
 
 
-CustomConnectionDataUnionMember5Val: TypeAlias = Union[
-    CustomConnectionDataUnionMember5ValTyped, Dict[str, Optional[object]]
-]
-
-
 class CustomConnectionDataUnionMember5(TypedDict, total=False):
     auth_scheme: Required[Annotated[Literal["BEARER_TOKEN"], PropertyInfo(alias="authScheme")]]
 
@@ -548,7 +524,7 @@ class CustomConnectionDataUnionMember5(TypedDict, total=False):
     val: Required[CustomConnectionDataUnionMember5Val]
 
 
-class CustomConnectionDataUnionMember6ValTyped(TypedDict, total=False):
+class CustomConnectionDataUnionMember6Val(TypedDict, total=False, extra_items=Optional[object]):  # type: ignore[call-arg]
     oauth_token: Required[str]
 
     oauth_token_secret: Required[str]
@@ -606,11 +582,6 @@ class CustomConnectionDataUnionMember6ValTyped(TypedDict, total=False):
     your_domain: Annotated[str, PropertyInfo(alias="your-domain")]
 
 
-CustomConnectionDataUnionMember6Val: TypeAlias = Union[
-    CustomConnectionDataUnionMember6ValTyped, Dict[str, Optional[object]]
-]
-
-
 class CustomConnectionDataUnionMember6(TypedDict, total=False):
     auth_scheme: Required[Annotated[Literal["OAUTH1"], PropertyInfo(alias="authScheme")]]
 
@@ -619,7 +590,7 @@ class CustomConnectionDataUnionMember6(TypedDict, total=False):
     val: Required[CustomConnectionDataUnionMember6Val]
 
 
-class CustomConnectionDataUnionMember7ValTyped(TypedDict, total=False):
+class CustomConnectionDataUnionMember7Val(TypedDict, total=False, extra_items=Optional[object]):  # type: ignore[call-arg]
     account_id: str
 
     account_url: str
@@ -665,11 +636,6 @@ class CustomConnectionDataUnionMember7ValTyped(TypedDict, total=False):
     your_domain: Annotated[str, PropertyInfo(alias="your-domain")]
 
 
-CustomConnectionDataUnionMember7Val: TypeAlias = Union[
-    CustomConnectionDataUnionMember7ValTyped, Dict[str, Optional[object]]
-]
-
-
 class CustomConnectionDataUnionMember7(TypedDict, total=False):
     auth_scheme: Required[Annotated[Literal["NO_AUTH"], PropertyInfo(alias="authScheme")]]
 
@@ -678,7 +644,7 @@ class CustomConnectionDataUnionMember7(TypedDict, total=False):
     val: Required[CustomConnectionDataUnionMember7Val]
 
 
-class CustomConnectionDataUnionMember8ValTyped(TypedDict, total=False):
+class CustomConnectionDataUnionMember8Val(TypedDict, total=False, extra_items=Optional[object]):  # type: ignore[call-arg]
     application_id: Required[str]
 
     installation_id: Required[str]
@@ -730,11 +696,6 @@ class CustomConnectionDataUnionMember8ValTyped(TypedDict, total=False):
     your_domain: Annotated[str, PropertyInfo(alias="your-domain")]
 
 
-CustomConnectionDataUnionMember8Val: TypeAlias = Union[
-    CustomConnectionDataUnionMember8ValTyped, Dict[str, Optional[object]]
-]
-
-
 class CustomConnectionDataUnionMember8(TypedDict, total=False):
     auth_scheme: Required[Annotated[Literal["SERVICE_ACCOUNT"], PropertyInfo(alias="authScheme")]]
 
@@ -743,7 +704,7 @@ class CustomConnectionDataUnionMember8(TypedDict, total=False):
     val: Required[CustomConnectionDataUnionMember8Val]
 
 
-class CustomConnectionDataUnionMember9ValTyped(TypedDict, total=False):
+class CustomConnectionDataUnionMember9Val(TypedDict, total=False, extra_items=Optional[object]):  # type: ignore[call-arg]
     credentials_json: Required[str]
 
     account_id: str
@@ -789,11 +750,6 @@ class CustomConnectionDataUnionMember9ValTyped(TypedDict, total=False):
     your_server: str
 
     your_domain: Annotated[str, PropertyInfo(alias="your-domain")]
-
-
-CustomConnectionDataUnionMember9Val: TypeAlias = Union[
-    CustomConnectionDataUnionMember9ValTyped, Dict[str, Optional[object]]
-]
 
 
 class CustomConnectionDataUnionMember9(TypedDict, total=False):

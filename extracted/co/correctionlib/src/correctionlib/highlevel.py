@@ -1,15 +1,20 @@
-"""High-level correctionlib objects
+"""High-level correctionlib objects"""
 
-"""
+from __future__ import annotations
+
 import json
+from collections.abc import Iterator, Mapping
 from numbers import Integral
-from typing import Any, Callable, Dict, Iterator, List, Mapping, Union
+from typing import TYPE_CHECKING, Any, Callable
 
 import numpy
 from packaging import version
 
 import correctionlib._core
 import correctionlib.version
+
+if TYPE_CHECKING:
+    import awkward
 
 _min_version_ak = version.parse("2.0.0")
 _min_version_dak = version.parse("2024.1.1")
@@ -98,7 +103,7 @@ def _call_as_numpy(
 
 def _wrap_awkward(
     func: Callable[..., Any],
-    *args: Union["numpy.ndarray[Any, Any]", str, int, float],
+    *args: awkward.Array | numpy.ndarray[Any, Any] | str | int | float,
 ) -> Any:
     from functools import partial
 
@@ -133,14 +138,14 @@ def _wrap_awkward(
 
 def _call_dask_correction(
     correction: Any,
-    *args: Union["numpy.ndarray[Any, Any]", str, int, float],
+    *args: numpy.ndarray[Any, Any] | str | int | float,
 ):
     return _wrap_awkward(correction._base.evalv, *args)
 
 
 def _wrap_dask_awkward(
     correction: Any,
-    *args: Union["numpy.ndarray[Any, Any]", str, int, float],
+    *args: numpy.ndarray[Any, Any] | str | int | float,
 ) -> Any:
     import dask.delayed
     import dask_awkward
@@ -174,6 +179,50 @@ def _wrap_dask_awkward(
     )
 
 
+def _isinstance(arg: Any, clsprefix: str) -> bool:
+    """Return True if arg is an instance of a class with the given prefix
+
+    Avoids importing modules
+    """
+    return str(type(arg)).startswith(f"<class '{clsprefix}.")
+
+
+def _evaluate(
+    corr: Correction | CompoundCorrection,
+    *args: awkward.Array | numpy.ndarray[Any, Any] | str | int | float,
+) -> float | awkward.Array | numpy.ndarray[Any, numpy.dtype[numpy.float64]]:
+    # TODO: create a ufunc with numpy.vectorize in constructor?
+    if any(_isinstance(arg, "dask.array") for arg in args):
+        raise TypeError(
+            "Correctionlib does not yet handle dask.array collections. "
+            "If you require this functionality (i.e. you cannot or do "
+            "not want to use dask_awkward/awkward arrays) please open an "
+            "issue at https://github.com/cms-nanoAOD/correctionlib/issues."
+        )
+    if any(_isinstance(arg, "dask_awkward") for arg in args):
+        return _wrap_dask_awkward(corr, *args)  # type: ignore
+    if any(_isinstance(arg, "awkward") for arg in args):
+        return _wrap_awkward(corr._base.evalv, *args)  # type: ignore
+    if all(isinstance(arg, (str, int, float)) for arg in args):
+        return corr._base.evaluate(*args)  # type: ignore
+
+    # everything else: convert to numpy and broadcast
+    vargs = [
+        numpy.asarray(arg) for arg in args if not isinstance(arg, (str, int, float))
+    ]
+    assert vargs, "should have caught all-scalar case above"
+    bargs = numpy.broadcast_arrays(*vargs)
+    oshape = bargs[0].shape
+    fargs = (arg.flatten() for arg in bargs)
+    out = corr._base.evalv(
+        *(
+            next(fargs) if not isinstance(arg, (str, int, float)) else arg
+            for arg in args
+        )
+    )
+    return out.reshape(oshape)
+
+
 class Correction:
     """High-level correction evaluator object
 
@@ -181,15 +230,15 @@ class Correction:
     a CorrectionSet object, rather than directly by construction.
     """
 
-    def __init__(self, base: correctionlib._core.Correction, context: "CorrectionSet"):
+    def __init__(self, base: correctionlib._core.Correction, context: CorrectionSet):
         self._base = base
         self._name = base.name
         self._context = context
 
-    def __getstate__(self) -> Dict[str, Any]:
+    def __getstate__(self) -> dict[str, Any]:
         return {"_context": self._context, "_name": self._name}
 
-    def __setstate__(self, state: Dict[str, Any]) -> None:
+    def __setstate__(self, state: dict[str, Any]) -> None:
         self._context = state["_context"]
         self._name = state["_name"]
         self._base = self._context[self._name]._base
@@ -207,7 +256,7 @@ class Correction:
         return self._base.version
 
     @property
-    def inputs(self) -> List[correctionlib._core.Variable]:
+    def inputs(self) -> list[correctionlib._core.Variable]:
         return self._base.inputs
 
     @property
@@ -215,43 +264,9 @@ class Correction:
         return self._base.output
 
     def evaluate(
-        self, *args: Union["numpy.ndarray[Any, Any]", str, int, float]
-    ) -> Union[float, "numpy.ndarray[Any, numpy.dtype[numpy.float64]]"]:
-        # TODO: create a ufunc with numpy.vectorize in constructor?
-        if any(str(type(arg)).startswith("<class 'dask.array.") for arg in args):
-            raise TypeError(
-                "Correctionlib does not yet handle dask.array collections. "
-                "If you require this functionality (i.e. you cannot or do "
-                "not want to use dask_awkward/awkward arrays) please open an "
-                "issue at https://github.com/cms-nanoAOD/correctionlib/issues."
-            )
-        try:
-            vargs = [
-                numpy.asarray(arg)
-                for arg in args
-                if not isinstance(arg, (str, int, float))
-            ]
-        except NotImplementedError:
-            if any(str(type(arg)).startswith("<class 'dask_awkward.") for arg in args):
-                return _wrap_dask_awkward(self, *args)  # type: ignore
-            raise
-        except (ValueError, TypeError):
-            if any(str(type(arg)).startswith("<class 'awkward.") for arg in args):
-                return _wrap_awkward(self._base.evalv, *args)  # type: ignore
-            raise
-
-        if vargs:
-            bargs = numpy.broadcast_arrays(*vargs)
-            oshape = bargs[0].shape
-            fargs = (arg.flatten() for arg in bargs)
-            out = self._base.evalv(
-                *(
-                    next(fargs) if not isinstance(arg, (str, int, float)) else arg
-                    for arg in args
-                )
-            )
-            return out.reshape(oshape)
-        return self._base.evaluate(*args)  # type: ignore
+        self, *args: awkward.Array | numpy.ndarray[Any, Any] | str | int | float
+    ) -> float | awkward.Array | numpy.ndarray[Any, numpy.dtype[numpy.float64]]:
+        return _evaluate(self, *args)
 
 
 class CompoundCorrection:
@@ -262,16 +277,16 @@ class CompoundCorrection:
     """
 
     def __init__(
-        self, base: correctionlib._core.CompoundCorrection, context: "CorrectionSet"
+        self, base: correctionlib._core.CompoundCorrection, context: CorrectionSet
     ):
         self._base = base
         self._name = base.name
         self._context = context
 
-    def __getstate__(self) -> Dict[str, Any]:
+    def __getstate__(self) -> dict[str, Any]:
         return {"_context": self._context, "_name": self._name}
 
-    def __setstate__(self, state: Dict[str, Any]) -> None:
+    def __setstate__(self, state: dict[str, Any]) -> None:
         self._context = state["_context"]
         self._name = state["_name"]
         self._base = self._context.compound[self._name]._base
@@ -285,7 +300,7 @@ class CompoundCorrection:
         return self._base.description
 
     @property
-    def inputs(self) -> List[correctionlib._core.Variable]:
+    def inputs(self) -> list[correctionlib._core.Variable]:
         return self._base.inputs
 
     @property
@@ -293,50 +308,16 @@ class CompoundCorrection:
         return self._base.output
 
     def evaluate(
-        self, *args: Union["numpy.ndarray[Any, Any]", str, int, float]
-    ) -> Union[float, "numpy.ndarray[Any, numpy.dtype[numpy.float64]]"]:
-        # TODO: create a ufunc with numpy.vectorize in constructor?
-        if any(str(type(arg)).startswith("<class 'dask.array.") for arg in args):
-            raise TypeError(
-                "Correctionlib does not yet handle dask.array collections. "
-                "if you require this functionality (i.e. you cannot or do "
-                "not want to use dask_awkward/awkward arrays) please open an "
-                "issue at https://github.com/cms-nanoAOD/correctionlib/issues."
-            )
-        try:
-            vargs = [
-                numpy.asarray(arg)
-                for arg in args
-                if not isinstance(arg, (str, int, float))
-            ]
-        except NotImplementedError:
-            if any(str(type(arg)).startswith("<class 'dask_awkward.") for arg in args):
-                return _wrap_dask_awkward(self, *args)  # type: ignore
-            raise
-        except (ValueError, TypeError):
-            if any(str(type(arg)).startswith("<class 'awkward.") for arg in args):
-                return _wrap_awkward(self._base.evalv, *args)  # type: ignore
-            raise
-
-        if vargs:
-            bargs = numpy.broadcast_arrays(*vargs)
-            oshape = bargs[0].shape
-            fargs = (arg.flatten() for arg in bargs)
-            out = self._base.evalv(
-                *(
-                    next(fargs) if not isinstance(arg, (str, int, float)) else arg
-                    for arg in args
-                )
-            )
-            return out.reshape(oshape)
-        return self._base.evaluate(*args)  # type: ignore
+        self, *args: awkward.Array | numpy.ndarray[Any, Any] | str | int | float
+    ) -> float | awkward.Array | numpy.ndarray[Any, numpy.dtype[numpy.float64]]:
+        return _evaluate(self, *args)
 
 
 class _CompoundMap(Mapping[str, CompoundCorrection]):
     def __init__(
         self,
         base: Mapping[str, correctionlib._core.CompoundCorrection],
-        context: "CorrectionSet",
+        context: CorrectionSet,
     ):
         self._base = base
         self._context = context
@@ -369,21 +350,21 @@ class CorrectionSet(Mapping[str, Correction]):
         self._base = correctionlib._core.CorrectionSet.from_string(self._data)
 
     @classmethod
-    def from_file(cls, filename: str) -> "CorrectionSet":
+    def from_file(cls, filename: str) -> CorrectionSet:
         return cls(open_auto(filename))
 
     @classmethod
-    def from_string(cls, data: str) -> "CorrectionSet":
+    def from_string(cls, data: str) -> CorrectionSet:
         return cls(data)
 
-    def __getstate__(self) -> Dict[str, Any]:
+    def __getstate__(self) -> dict[str, Any]:
         return {"_data": self._data}
 
-    def __setstate__(self, state: Dict[str, Any]) -> None:
+    def __setstate__(self, state: dict[str, Any]) -> None:
         self._data = state["_data"]
         self._base = correctionlib._core.CorrectionSet.from_string(self._data)
 
-    def _ipython_key_completions_(self) -> List[str]:
+    def _ipython_key_completions_(self) -> list[str]:
         return list(self.keys())
 
     @property

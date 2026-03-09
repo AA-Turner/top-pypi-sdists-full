@@ -1,4 +1,5 @@
 import argparse
+from collections import OrderedDict
 import configargparse
 from contextlib import contextmanager
 import inspect
@@ -9,16 +10,23 @@ import tempfile
 import types
 import unittest
 from unittest import mock
+import textwrap
 
-from io import StringIO
+from io import BytesIO, StringIO
 
 if sys.version_info >= (3, 10):
-    OPTIONAL_ARGS_STRING="options"
+    OPTIONAL_ARGS_STRING = "options"
 else:
-    OPTIONAL_ARGS_STRING="optional arguments"
+    OPTIONAL_ARGS_STRING = "optional arguments"
+
+# In Python 3.13+, short option metavars are no longer repeated
+if sys.version_info >= (3, 13):
+    SHORT_OPT_METAVAR = ""  # e.g., "-g, --my-cfg-file MY_CFG_FILE"
+else:
+    SHORT_OPT_METAVAR = "(?: {metavar})?"  # e.g., "-g MY_CFG_FILE, --my-cfg-file MY_CFG_FILE" or "-g, --my-cfg-file MY_CFG_FILE"
 
 # set COLUMNS to get expected wrapping
-os.environ['COLUMNS'] = '80'
+os.environ["COLUMNS"] = "80"
 
 # enable logging to simplify debugging
 logger = logging.getLogger()
@@ -26,10 +34,12 @@ logger.level = logging.DEBUG
 stream_handler = logging.StreamHandler(sys.stdout)
 logger.addHandler(stream_handler)
 
+
 def replace_error_method(arg_parser):
     """Swap out arg_parser's error(..) method so that instead of calling
     sys.exit(..) it just raises an error.
     """
+
     def error_method(self, message):
         raise argparse.ArgumentError(None, message)
 
@@ -58,7 +68,6 @@ def captured_output():
 
 
 class TestCase(unittest.TestCase):
-
     def initParser(self, *args, **kwargs):
         p = configargparse.ArgParser(*args, **kwargs)
         self.parser = replace_error_method(p)
@@ -68,16 +77,12 @@ class TestCase(unittest.TestCase):
         self.format_values = self.parser.format_values
         self.format_help = self.parser.format_help
 
-        if not hasattr(self, "assertRegex"):
-            self.assertRegex = self.assertRegexpMatches
-        if not hasattr(self, "assertRaisesRegex"):
-            self.assertRaisesRegex = self.assertRaisesRegexp
-
         return self.parser
 
     def assertParseArgsRaises(self, regex, args, **kwargs):
-        self.assertRaisesRegex(argparse.ArgumentError, regex, self.parse,
-                               args=args, **kwargs)
+        self.assertRaisesRegex(
+            argparse.ArgumentError, regex, self.parse, args=args, **kwargs
+        )
 
 
 class TestBasicUseCases(TestCase):
@@ -91,64 +96,87 @@ class TestBasicUseCases(TestCase):
         self.add_arg("-y", "--arg-y", dest="y1", type=int, required=True)
         self.add_arg("--arg-z", action="append", type=float, required=True)
         if sys.version_info >= (3, 9):
-            self.add_arg('--foo', action=argparse.BooleanOptionalAction, default=False)
+            self.add_arg("--foo", action=argparse.BooleanOptionalAction, default=False)
         else:
-            self.add_arg('--foo', action="store_true", default=False)
+            self.add_arg("--foo", action="store_true", default=False)
 
         # make sure required args are enforced
-        self.assertParseArgsRaises("too few arg"
-            if sys.version_info.major < 3 else
-            "the following arguments are required",  args="")
-        self.assertParseArgsRaises("argument -y/--arg-y is required"
-            if sys.version_info.major < 3 else
-            "the following arguments are required: -y/--arg-y",
-            args="-x --arg-z 11 file1.txt")
-        self.assertParseArgsRaises("argument --arg-z is required"
-            if sys.version_info.major < 3 else
-            "the following arguments are required: --arg-z",
-            args="file1.txt file2.txt file3.txt -x -y 1")
+        self.assertParseArgsRaises(
+            (
+                "too few arg"
+                if sys.version_info.major < 3
+                else "the following arguments are required"
+            ),
+            args="",
+        )
+        self.assertParseArgsRaises(
+            (
+                "argument -y/--arg-y is required"
+                if sys.version_info.major < 3
+                else "the following arguments are required: -y/--arg-y"
+            ),
+            args="-x --arg-z 11 file1.txt",
+        )
+        self.assertParseArgsRaises(
+            (
+                "argument --arg-z is required"
+                if sys.version_info.major < 3
+                else "the following arguments are required: --arg-z"
+            ),
+            args="file1.txt file2.txt file3.txt -x -y 1",
+        )
 
         # check values after setting args on command line
-        ns = self.parse(args="file1.txt --arg-x -y 3 --arg-z 10 --foo",
-                        config_file_contents="")
+        ns = self.parse(
+            args="file1.txt --arg-x -y 3 --arg-z 10 --foo", config_file_contents=""
+        )
         self.assertListEqual(ns.filenames, ["file1.txt"])
         self.assertEqual(ns.arg_x, True)
         self.assertEqual(ns.y1, 3)
         self.assertEqual(ns.arg_z, [10])
         self.assertEqual(ns.foo, True)
 
-        self.assertRegex(self.format_values(),
-            'Command Line Args:   file1.txt --arg-x -y 3 --arg-z 10')
+        self.assertRegex(
+            self.format_values(),
+            "Command Line Args:   file1.txt --arg-x -y 3 --arg-z 10",
+        )
 
         # check values after setting args in config file
-        ns = self.parse(args="file1.txt file2.txt", config_file_contents="""
+        ns = self.parse(
+            args="file1.txt file2.txt",
+            config_file_contents="""
             # set all required args in config file
             arg-x = True
             arg-y = 10
             arg-z = 30
             arg-z = 40
             foo = True
-            """)
+            """,
+        )
         self.assertListEqual(ns.filenames, ["file1.txt", "file2.txt"])
         self.assertEqual(ns.arg_x, True)
         self.assertEqual(ns.y1, 10)
         self.assertEqual(ns.arg_z, [40])
         self.assertEqual(ns.foo, True)
 
-        self.assertRegex(self.format_values(),
-            'Command Line Args: \\s+ file1.txt file2.txt\n'
-            'Config File \\(method arg\\):\n'
-            '  arg-x: \\s+ True\n'
-            '  arg-y: \\s+ 10\n'
-            '  arg-z: \\s+ 40\n'
-            '  foo: \\s+ True\n')
+        self.assertRegex(
+            self.format_values(),
+            "Command Line Args: \\s+ file1.txt file2.txt\n"
+            "Config File \\(method arg\\):\n"
+            "  arg-x: \\s+ True\n"
+            "  arg-y: \\s+ 10\n"
+            "  arg-z: \\s+ 40\n"
+            "  foo: \\s+ True\n",
+        )
 
         # check values after setting args in both command line and config file
-        ns = self.parse(args="file1.txt file2.txt --arg-x -y 3 --arg-z 100 ",
+        ns = self.parse(
+            args="file1.txt file2.txt --arg-x -y 3 --arg-z 100 ",
             config_file_contents="""arg-y = 31.5
                                     arg-z = 30
                                     foo = True
-                                 """)
+                                 """,
+        )
         self.format_help()
         self.format_values()
         self.assertListEqual(ns.filenames, ["file1.txt", "file2.txt"])
@@ -157,8 +185,10 @@ class TestBasicUseCases(TestCase):
         self.assertEqual(ns.arg_z, [100])
         self.assertEqual(ns.foo, True)
 
-        self.assertRegex(self.format_values(),
-            "Command Line Args:   file1.txt file2.txt --arg-x -y 3 --arg-z 100")
+        self.assertRegex(
+            self.format_values(),
+            "Command Line Args:   file1.txt file2.txt --arg-x -y 3 --arg-z 100",
+        )
 
     def testBasicCase2(self, use_groups=False):
 
@@ -166,38 +196,58 @@ class TestBasicUseCases(TestCase):
         default_config_file = tempfile.NamedTemporaryFile(mode="w", delete=False)
         default_config_file.flush()
 
-        p = self.initParser(default_config_files=['/etc/settings.ini',
-                '/home/jeff/.user_settings', default_config_file.name])
-        p.add_arg('vcf', nargs='+', help='Variant file(s)')
+        p = self.initParser(
+            default_config_files=[
+                "/etc/settings.ini",
+                "/home/jeff/.user_settings",
+                default_config_file.name,
+            ]
+        )
+        p.add_arg("vcf", nargs="+", help="Variant file(s)")
         if not use_groups:
-            self.add_arg('--genome', help='Path to genome file', required=True)
-            self.add_arg('-v', dest='verbose', action='store_true')
-            self.add_arg('-g', '--my-cfg-file', required=True,
-                         is_config_file=True)
-            self.add_arg('-d', '--dbsnp', env_var='DBSNP_PATH')
-            self.add_arg('-f', '--format',
-                         choices=["BED", "MAF", "VCF", "WIG", "R"],
-                         dest="fmt", metavar="FRMT", env_var="OUTPUT_FORMAT",
-                         default="BED")
+            self.add_arg("--genome", help="Path to genome file", required=True)
+            self.add_arg("-v", dest="verbose", action="store_true")
+            self.add_arg("-g", "--my-cfg-file", required=True, is_config_file=True)
+            self.add_arg("-d", "--dbsnp", env_var="DBSNP_PATH")
+            self.add_arg(
+                "-f",
+                "--format",
+                choices=["BED", "MAF", "VCF", "WIG", "R"],
+                dest="fmt",
+                metavar="FRMT",
+                env_var="OUTPUT_FORMAT",
+                default="BED",
+            )
         else:
             g = p.add_argument_group(title="g1")
-            g.add_arg('--genome', help='Path to genome file', required=True)
-            g.add_arg('-v', dest='verbose', action='store_true')
-            g.add_arg('-g', '--my-cfg-file', required=True,
-                      is_config_file=True)
+            g.add_arg("--genome", help="Path to genome file", required=True)
+            g.add_arg("-v", dest="verbose", action="store_true")
+            g.add_arg("-g", "--my-cfg-file", required=True, is_config_file=True)
             g = p.add_argument_group(title="g2")
-            g.add_arg('-d', '--dbsnp', env_var='DBSNP_PATH')
-            g.add_arg('-f', '--format',
-                      choices=["BED", "MAF", "VCF", "WIG", "R"],
-                      dest="fmt", metavar="FRMT", env_var="OUTPUT_FORMAT",
-                      default="BED")
+            g.add_arg("-d", "--dbsnp", env_var="DBSNP_PATH")
+            g.add_arg(
+                "-f",
+                "--format",
+                choices=["BED", "MAF", "VCF", "WIG", "R"],
+                dest="fmt",
+                metavar="FRMT",
+                env_var="OUTPUT_FORMAT",
+                default="BED",
+            )
 
         # make sure required args are enforced
-        self.assertParseArgsRaises("too few arg"
-                                   if sys.version_info.major < 3 else
-                                   "the following arguments are required: vcf, -g/--my-cfg-file",
-                                   args="--genome hg19")
-        self.assertParseArgsRaises("Unable to open config file: file.txt. Error: No such file or director", args="-g file.txt")
+        self.assertParseArgsRaises(
+            (
+                "too few arg"
+                if sys.version_info.major < 3
+                else "the following arguments are required: vcf, -g/--my-cfg-file"
+            ),
+            args="--genome hg19",
+        )
+        self.assertParseArgsRaises(
+            "Unable to open config file: file.txt. Error: No such file or director",
+            args="-g file.txt",
+        )
 
         # check values after setting args on command line
         config_file2 = tempfile.NamedTemporaryFile(mode="w", delete=False)
@@ -210,133 +260,174 @@ class TestBasicUseCases(TestCase):
         self.assertEqual(ns.fmt, "BED")
         self.assertListEqual(ns.vcf, ["bla.vcf"])
 
-        self.assertRegex(self.format_values(),
-            'Command Line Args:   --genome hg19 -g [^\\s]+ bla.vcf\n'
-            'Defaults:\n'
-            '  --format: \\s+ BED\n')
+        self.assertRegex(
+            self.format_values(),
+            "Command Line Args:   --genome hg19 -g [^\\s]+ bla.vcf\n"
+            "Defaults:\n"
+            "  --format: \\s+ BED\n",
+        )
 
         # check precedence: args > env > config > default using the --format arg
         default_config_file.write("--format MAF")
         default_config_file.flush()
         ns = self.parse(args="--genome hg19 -g %s f.vcf " % config_file2.name)
         self.assertEqual(ns.fmt, "MAF")
-        self.assertRegex(self.format_values(),
-            'Command Line Args:   --genome hg19 -g [^\\s]+ f.vcf\n'
-            'Config File \\([^\\s]+\\):\n'
-            '  --format: \\s+ MAF\n')
+        self.assertRegex(
+            self.format_values(),
+            "Command Line Args:   --genome hg19 -g [^\\s]+ f.vcf\n"
+            "Config File \\([^\\s]+\\):\n"
+            "  --format: \\s+ MAF\n",
+        )
 
         config_file2.write("--format VCF")
         config_file2.flush()
         ns = self.parse(args="--genome hg19 -g %s f.vcf " % config_file2.name)
         self.assertEqual(ns.fmt, "VCF")
-        self.assertRegex(self.format_values(),
-            'Command Line Args:   --genome hg19 -g [^\\s]+ f.vcf\n'
-            'Config File \\([^\\s]+\\):\n'
-            '  --format: \\s+ VCF\n')
+        self.assertRegex(
+            self.format_values(),
+            "Command Line Args:   --genome hg19 -g [^\\s]+ f.vcf\n"
+            "Config File \\([^\\s]+\\):\n"
+            "  --format: \\s+ VCF\n",
+        )
 
-        ns = self.parse(env_vars={"OUTPUT_FORMAT":"R", "DBSNP_PATH":"/a/b.vcf"},
-            args="--genome hg19 -g %s f.vcf " % config_file2.name)
+        ns = self.parse(
+            env_vars={"OUTPUT_FORMAT": "R", "DBSNP_PATH": "/a/b.vcf"},
+            args="--genome hg19 -g %s f.vcf " % config_file2.name,
+        )
         self.assertEqual(ns.fmt, "R")
         self.assertEqual(ns.dbsnp, "/a/b.vcf")
-        self.assertRegex(self.format_values(),
-            'Command Line Args:   --genome hg19 -g [^\\s]+ f.vcf\n'
-            'Environment Variables:\n'
-            '  DBSNP_PATH: \\s+ /a/b.vcf\n'
-            '  OUTPUT_FORMAT: \\s+ R\n')
+        self.assertRegex(
+            self.format_values(),
+            "Command Line Args:   --genome hg19 -g [^\\s]+ f.vcf\n"
+            "Environment Variables:\n"
+            "  DBSNP_PATH: \\s+ /a/b.vcf\n"
+            "  OUTPUT_FORMAT: \\s+ R\n",
+        )
 
-        ns = self.parse(env_vars={"OUTPUT_FORMAT":"R", "DBSNP_PATH":"/a/b.vcf",
-                                  "ANOTHER_VAR":"something"},
-            args="--genome hg19 -g %s --format WIG f.vcf" % config_file2.name)
+        ns = self.parse(
+            env_vars={
+                "OUTPUT_FORMAT": "R",
+                "DBSNP_PATH": "/a/b.vcf",
+                "ANOTHER_VAR": "something",
+            },
+            args="--genome hg19 -g %s --format WIG f.vcf" % config_file2.name,
+        )
         self.assertEqual(ns.fmt, "WIG")
         self.assertEqual(ns.dbsnp, "/a/b.vcf")
-        self.assertRegex(self.format_values(),
-            'Command Line Args:   --genome hg19 -g [^\\s]+ --format WIG f.vcf\n'
-            'Environment Variables:\n'
-            '  DBSNP_PATH: \\s+ /a/b.vcf\n')
+        self.assertRegex(
+            self.format_values(),
+            "Command Line Args:   --genome hg19 -g [^\\s]+ --format WIG f.vcf\n"
+            "Environment Variables:\n"
+            "  DBSNP_PATH: \\s+ /a/b.vcf\n",
+        )
 
         if not use_groups:
-            self.assertRegex(self.format_help(),
-                'usage: .* \\[-h\\] --genome GENOME \\[-v\\] -g MY_CFG_FILE\n?'
-                '\\s+\\[-d DBSNP\\]\\s+\\[-f FRMT\\]\\s+vcf \\[vcf ...\\]\n\n'
-                'positional arguments:\n'
-                '  vcf \\s+ Variant file\\(s\\)\n\n'
-                '%s:\n'
-                '  -h, --help \\s+ show this help message and exit\n'
-                '  --genome GENOME \\s+ Path to genome file\n'
-                '  -v\n'
-                '  -g(?: MY_CFG_FILE)?, --my-cfg-file MY_CFG_FILE\n'
-                '  -d(?: DBSNP)?, --dbsnp DBSNP\\s+\\[env var: DBSNP_PATH\\]\n'
-                '  -f(?: FRMT)?, --format FRMT\\s+\\[env var: OUTPUT_FORMAT\\]\n\n'%OPTIONAL_ARGS_STRING +
-                7*r'(.+\s*)')
+            short_g = SHORT_OPT_METAVAR.format(metavar="MY_CFG_FILE")
+            short_d = SHORT_OPT_METAVAR.format(metavar="DBSNP")
+            short_f = SHORT_OPT_METAVAR.format(metavar="FRMT")
+            self.assertRegex(
+                self.format_help(),
+                "usage: .* \\[-h\\] --genome GENOME \\[-v\\] -g MY_CFG_FILE\n?"
+                "\\s+\\[-d DBSNP\\]\\s+\\[-f FRMT\\]\\s+vcf \\[vcf ...\\]\n\n"
+                "positional arguments:\n"
+                "  vcf \\s+ Variant file\\(s\\)\n\n"
+                "%s:\n"
+                "  -h, --help \\s+ show this help message and exit\n"
+                "  --genome GENOME \\s+ Path to genome file\n"
+                "  -v\n"
+                f"  -g{short_g}, --my-cfg-file MY_CFG_FILE\n"
+                f"  -d{short_d}, --dbsnp DBSNP\\s+\\[env var: DBSNP_PATH\\]\n"
+                f"  -f{short_f}, --format FRMT\\s+\\[env var: OUTPUT_FORMAT\\]\n\n"
+                % OPTIONAL_ARGS_STRING
+                + 7 * r"(.+\s*)",
+            )
         else:
-            self.assertRegex(self.format_help(),
-                'usage: .* \\[-h\\] --genome GENOME \\[-v\\] -g MY_CFG_FILE\n?'
-                '\\s+\\[-d DBSNP\\]\\s+\\[-f FRMT\\]\\s+vcf \\[vcf ...\\]\n\n'
-                'positional arguments:\n'
-                '  vcf \\s+ Variant file\\(s\\)\n\n'
-                '%s:\n'
-                '  -h, --help \\s+ show this help message and exit\n\n'
-                'g1:\n'
-                '  --genome GENOME \\s+ Path to genome file\n'
-                '  -v\n'
-                '  -g(?: MY_CFG_FILE)?, --my-cfg-file MY_CFG_FILE\n\n'
-                'g2:\n'
-                '  -d(?: DBSNP)?, --dbsnp DBSNP\\s+\\[env var: DBSNP_PATH\\]\n'
-                '  -f(?: FRMT)?, --format FRMT\\s+\\[env var: OUTPUT_FORMAT\\]\n\n'%OPTIONAL_ARGS_STRING +
-                7*r'(.+\s*)')
+            short_g = SHORT_OPT_METAVAR.format(metavar="MY_CFG_FILE")
+            short_d = SHORT_OPT_METAVAR.format(metavar="DBSNP")
+            short_f = SHORT_OPT_METAVAR.format(metavar="FRMT")
+            self.assertRegex(
+                self.format_help(),
+                "usage: .* \\[-h\\] --genome GENOME \\[-v\\] -g MY_CFG_FILE\n?"
+                "\\s+\\[-d DBSNP\\]\\s+\\[-f FRMT\\]\\s+vcf \\[vcf ...\\]\n\n"
+                "positional arguments:\n"
+                "  vcf \\s+ Variant file\\(s\\)\n\n"
+                "%s:\n"
+                "  -h, --help \\s+ show this help message and exit\n\n"
+                "g1:\n"
+                "  --genome GENOME \\s+ Path to genome file\n"
+                "  -v\n"
+                f"  -g{short_g}, --my-cfg-file MY_CFG_FILE\n\n"
+                "g2:\n"
+                f"  -d{short_d}, --dbsnp DBSNP\\s+\\[env var: DBSNP_PATH\\]\n"
+                f"  -f{short_f}, --format FRMT\\s+\\[env var: OUTPUT_FORMAT\\]\n\n"
+                % OPTIONAL_ARGS_STRING
+                + 7 * r"(.+\s*)",
+            )
 
-        self.assertParseArgsRaises("invalid choice: 'ZZZ'",
-            args="--genome hg19 -g %s --format ZZZ f.vcf" % config_file2.name)
-        self.assertParseArgsRaises("unrecognized arguments: --bla",
-            args="--bla --genome hg19 -g %s f.vcf" % config_file2.name)
+        self.assertParseArgsRaises(
+            "invalid choice: 'ZZZ'",
+            args="--genome hg19 -g %s --format ZZZ f.vcf" % config_file2.name,
+        )
+        self.assertParseArgsRaises(
+            "unrecognized arguments: --bla",
+            args="--bla --genome hg19 -g %s f.vcf" % config_file2.name,
+        )
 
         default_config_file.close()
         config_file2.close()
-
 
     def testBasicCase2_WithGroups(self):
         self.testBasicCase2(use_groups=True)
 
     def testCustomOpenFunction(self):
-        expected_output = 'dummy open called'
+        expected_output = "dummy open called"
 
         def dummy_open(p):
             print(expected_output)
             return open(p)
 
         self.initParser(config_file_open_func=dummy_open)
-        self.add_arg('--config', is_config_file=True)
-        self.add_arg('--arg1', default=1, type=int)
+        self.add_arg("--config", is_config_file=True)
+        self.add_arg("--arg1", default=1, type=int)
 
-        with tempfile.NamedTemporaryFile(mode='w', delete=False) as config_file:
-            config_file.write('arg1 2')
+        with tempfile.NamedTemporaryFile(mode="w", delete=False) as config_file:
+            config_file.write("arg1 2")
             config_file_path = config_file.name
 
         with captured_output() as (out, _):
-            args = self.parse('--config {}'.format(config_file_path))
-            self.assertTrue(hasattr(args, 'arg1'))
+            args = self.parse("--config {}".format(config_file_path))
+            self.assertTrue(hasattr(args, "arg1"))
             self.assertEqual(args.arg1, 2)
             output = out.getvalue().strip()
             self.assertEqual(output, expected_output)
 
     def testIgnoreHelpArgs(self):
         p = self.initParser()
-        self.add_arg('--arg1')
-        args, _ = self.parse_known('--arg2 --help', ignore_help_args=True)
+        self.add_arg("--arg1")
+        args, _ = self.parse_known("--arg2 --help", ignore_help_args=True)
         self.assertEqual(args.arg1, None)
-        self.add_arg('--arg2')
-        args, _ = self.parse_known('--arg2 3 --help', ignore_help_args=True)
+        self.add_arg("--arg2")
+        args, _ = self.parse_known("--arg2 3 --help", ignore_help_args=True)
         self.assertEqual(args.arg2, "3")
-        self.assertRaisesRegex(TypeError, "exit", self.parse_known, '--arg2 3 --help', ignore_help_args=False)
+        self.assertRaisesRegex(
+            TypeError,
+            "exit",
+            self.parse_known,
+            "--arg2 3 --help",
+            ignore_help_args=False,
+        )
 
     def testPositionalAndConfigVarLists(self):
         self.initParser()
         self.add_arg("a")
         self.add_arg("-x", "--arg", nargs="+")
 
-        ns = self.parse("positional_value", config_file_contents="""arg = [Shell, someword, anotherword]""")
+        ns = self.parse(
+            "positional_value",
+            config_file_contents="""arg = [Shell, someword, anotherword]""",
+        )
 
-        self.assertEqual(ns.arg, ['Shell', 'someword', 'anotherword'])
+        self.assertEqual(ns.arg, ["Shell", "someword", "anotherword"])
         self.assertEqual(ns.a, "positional_value")
 
     def testMutuallyExclusiveArgs(self):
@@ -344,49 +435,70 @@ class TestBasicUseCases(TestCase):
 
         p = self.parser
         g = p.add_argument_group(title="group1")
-        g.add_arg('--genome', help='Path to genome file', required=True)
-        g.add_arg('-v', dest='verbose', action='store_true')
+        g.add_arg("--genome", help="Path to genome file", required=True)
+        g.add_arg("-v", dest="verbose", action="store_true")
 
         g = p.add_mutually_exclusive_group(required=True)
-        g.add_arg('-f1', '--type1-cfg-file', is_config_file=True)
-        g.add_arg('-f2', '--type2-cfg-file', is_config_file=True)
+        g.add_arg("-f1", "--type1-cfg-file", is_config_file=True)
+        g.add_arg("-f2", "--type2-cfg-file", is_config_file=True)
 
         g = p.add_mutually_exclusive_group(required=True)
-        g.add_arg('-f', '--format', choices=["BED", "MAF", "VCF", "WIG", "R"],
-                     dest="fmt", metavar="FRMT", env_var="OUTPUT_FORMAT",
-                     default="BED")
-        g.add_arg('-b', '--bam', dest='fmt', action="store_const", const="BAM",
-                  env_var='BAM_FORMAT')
+        g.add_arg(
+            "-f",
+            "--format",
+            choices=["BED", "MAF", "VCF", "WIG", "R"],
+            dest="fmt",
+            metavar="FRMT",
+            env_var="OUTPUT_FORMAT",
+            default="BED",
+        )
+        g.add_arg(
+            "-b",
+            "--bam",
+            dest="fmt",
+            action="store_const",
+            const="BAM",
+            env_var="BAM_FORMAT",
+        )
 
         ns = self.parse(args="--genome hg19 -f1 %s --bam" % config_file.name)
         self.assertEqual(ns.genome, "hg19")
         self.assertEqual(ns.verbose, False)
         self.assertEqual(ns.fmt, "BAM")
 
-        ns = self.parse(env_vars={"BAM_FORMAT" : "true"},
-                        args="--genome hg19 -f1 %s" % config_file.name)
+        ns = self.parse(
+            env_vars={"BAM_FORMAT": "true"},
+            args="--genome hg19 -f1 %s" % config_file.name,
+        )
         self.assertEqual(ns.genome, "hg19")
         self.assertEqual(ns.verbose, False)
         self.assertEqual(ns.fmt, "BAM")
-        self.assertRegex(self.format_values(),
-            'Command Line Args:   --genome hg19 -f1 [^\\s]+\n'
-            'Environment Variables:\n'
-            '  BAM_FORMAT: \\s+ true\n'
-            'Defaults:\n'
-            '  --format: \\s+ BED\n')
+        self.assertRegex(
+            self.format_values(),
+            "Command Line Args:   --genome hg19 -f1 [^\\s]+\n"
+            "Environment Variables:\n"
+            "  BAM_FORMAT: \\s+ true\n"
+            "Defaults:\n"
+            "  --format: \\s+ BED\n",
+        )
 
-        self.assertRegex(self.format_help(),
-            r'usage: .* \[-h\] --genome GENOME \[-v\]\s+\(-f1 TYPE1_CFG_FILE \|'
-            r'\s+-f2 TYPE2_CFG_FILE\)\s+\(-f FRMT \| -b\)\n\n'
-            '%s:\n'
-            '  -h, --help            show this help message and exit\n'
-            '  -f1(?: TYPE1_CFG_FILE)?, --type1-cfg-file TYPE1_CFG_FILE\n'
-            '  -f2(?: TYPE2_CFG_FILE)?, --type2-cfg-file TYPE2_CFG_FILE\n'
-            '  -f(?: FRMT)?, --format FRMT\\s+\\[env var: OUTPUT_FORMAT\\]\n'
-            '  -b, --bam\\s+\\[env var: BAM_FORMAT\\]\n\n'
-            'group1:\n'
-            '  --genome GENOME       Path to genome file\n'
-            '  -v\n\n'%OPTIONAL_ARGS_STRING)
+        short_f1 = SHORT_OPT_METAVAR.format(metavar="TYPE1_CFG_FILE")
+        short_f2 = SHORT_OPT_METAVAR.format(metavar="TYPE2_CFG_FILE")
+        short_f = SHORT_OPT_METAVAR.format(metavar="FRMT")
+        self.assertRegex(
+            self.format_help(),
+            r"usage: .* \[-h\] --genome GENOME \[-v\]\s+\(-f1 TYPE1_CFG_FILE \|"
+            r"\s+-f2 TYPE2_CFG_FILE\)\s+\(-f FRMT \| -b\)\n\n"
+            "%s:\n"
+            "  -h, --help            show this help message and exit\n"
+            f"  -f1{short_f1}, --type1-cfg-file TYPE1_CFG_FILE\n"
+            f"  -f2{short_f2}, --type2-cfg-file TYPE2_CFG_FILE\n"
+            f"  -f{short_f}, --format FRMT\\s+\\[env var: OUTPUT_FORMAT\\]\n"
+            "  -b, --bam\\s+\\[env var: BAM_FORMAT\\]\n\n"
+            "group1:\n"
+            "  --genome GENOME       Path to genome file\n"
+            "  -v\n\n" % OPTIONAL_ARGS_STRING,
+        )
         config_file.close()
 
     def testSubParsers(self):
@@ -402,50 +514,70 @@ class TestBasicUseCases(TestCase):
         subparsers = parser.add_subparsers(title="actions")
 
         parent_parser = configargparse.ArgumentParser(add_help=False)
-        parent_parser.add_argument("-p", "--p", type=int, required=True,
-                                   help="set db parameter")
+        parent_parser.add_argument(
+            "-p", "--p", type=int, required=True, help="set db parameter"
+        )
 
-        create_p = subparsers.add_parser("create", parents=[parent_parser],
-                                         help="create the orbix environment")
-        create_p.add_argument("--i", env_var="INIT", choices=["A","B"],
-                              default="A")
+        create_p = subparsers.add_parser(
+            "create", parents=[parent_parser], help="create the orbix environment"
+        )
+        create_p.add_argument("--i", env_var="INIT", choices=["A", "B"], default="A")
         create_p.add_argument("-config", is_config_file=True)
 
-
-        update_p = subparsers.add_parser("update", parents=[parent_parser],
-                                         help="update the orbix environment")
+        update_p = subparsers.add_parser(
+            "update", parents=[parent_parser], help="update the orbix environment"
+        )
         update_p.add_argument("-config2", is_config_file=True, required=True)
 
-        ns = parser.parse_args(args = "create -p 2 -config "+config_file1.name)
+        ns = parser.parse_args(args="create -p 2 -config " + config_file1.name)
         self.assertEqual(ns.p, 2)
         self.assertEqual(ns.i, "B")
 
-        ns = parser.parse_args(args = "update -config2 " + config_file2.name)
+        ns = parser.parse_args(args="update -config2 " + config_file2.name)
         self.assertEqual(ns.p, 10)
         config_file1.close()
         config_file2.close()
 
     def testAddArgsErrors(self):
-        self.assertRaisesRegex(ValueError, "arg with "
+        self.assertRaisesRegex(
+            ValueError,
+            "arg with "
             "is_write_out_config_file_arg=True can't also have "
-            "is_config_file_arg=True", self.add_arg, "-x", "--X",
-            is_config_file=True, is_write_out_config_file_arg=True)
-        self.assertRaisesRegex(ValueError, "arg with "
-            "is_write_out_config_file_arg=True must have action='store'",
-            self.add_arg, "-y", "--Y", action="append",
-            is_write_out_config_file_arg=True)
-
+            "is_config_file_arg=True",
+            self.add_arg,
+            "-x",
+            "--X",
+            is_config_file=True,
+            is_write_out_config_file_arg=True,
+        )
+        self.assertRaisesRegex(
+            ValueError,
+            "arg with " "is_write_out_config_file_arg=True must have action='store'",
+            self.add_arg,
+            "-y",
+            "--Y",
+            action="append",
+            is_write_out_config_file_arg=True,
+        )
 
     def testConfigFileSyntax(self):
-        self.add_arg('-x', required=True, type=int)
-        self.add_arg('--y', required=True, type=float)
-        self.add_arg('--z')
-        self.add_arg('--c')
-        self.add_arg('--b', action="store_true")
-        self.add_arg('--a', action="append", type=int)
-        self.add_arg('--m', action="append", nargs=3, metavar=("<a1>", "<a2>", "<a3>"),)
+        self.add_arg("-x", required=True, type=int)
+        self.add_arg("--y", required=True, type=float)
+        self.add_arg("--z")
+        self.add_arg("--c")
+        self.add_arg("--b", action="store_true")
+        self.add_arg("--a", action="append", type=int)
+        self.add_arg(
+            "--m",
+            action="append",
+            nargs=3,
+            metavar=("<a1>", "<a2>", "<a3>"),
+        )
 
-        ns = self.parse(args="-x 1", env_vars={}, config_file_contents="""
+        ns = self.parse(
+            args="-x 1",
+            env_vars={},
+            config_file_contents="""
 
         #inline comment 1
         # inline comment 2
@@ -481,53 +613,64 @@ class TestBasicUseCases(TestCase):
         z z 1
         ---
         m = [[1, 2, 3], [4, 5, 6]]
-        """)
+        """,
+        )
 
         self.assertEqual(ns.x, 1)
         self.assertEqual(ns.y, 12.1)
-        self.assertEqual(ns.z, 'z 1')
+        self.assertEqual(ns.z, "z 1")
         self.assertIsNone(ns.c)
         self.assertEqual(ns.b, True)
         self.assertEqual(ns.a, [33])
-        self.assertRegex(self.format_values(),
-            'Command Line Args: \\s+ -x 1\n'
-            'Config File \\(method arg\\):\n'
-            '  y: \\s+ 12.1\n'
-            '  b: \\s+ True\n'
-            '  a: \\s+ 33\n'
-            '  z: \\s+ z 1\n')
-        self.assertEqual(ns.m, [['1', '2', '3'], ['4', '5', '6']])
+        self.assertRegex(
+            self.format_values(),
+            "Command Line Args: \\s+ -x 1\n"
+            "Config File \\(method arg\\):\n"
+            "  y: \\s+ 12.1\n"
+            "  b: \\s+ True\n"
+            "  a: \\s+ 33\n"
+            "  z: \\s+ z 1\n",
+        )
+        self.assertEqual(ns.m, [["1", "2", "3"], ["4", "5", "6"]])
 
         # -x is not a long arg so can't be set via config file
-        self.assertParseArgsRaises("argument -x is required"
-                                   if sys.version_info.major < 3 else
-                                   "the following arguments are required: -x, --y",
-                                   args="",
-                                   config_file_contents="-x 3")
-        self.assertParseArgsRaises("invalid float value: 'abc'",
-                                   args="-x 5",
-                                   config_file_contents="y: abc")
-        self.assertParseArgsRaises("argument --y is required"
-                                   if sys.version_info.major < 3 else
-                                   "the following arguments are required: --y",
-                                   args="-x 5",
-                                   config_file_contents="z: 1")
+        self.assertParseArgsRaises(
+            (
+                "argument -x is required"
+                if sys.version_info.major < 3
+                else "the following arguments are required: -x, --y"
+            ),
+            args="",
+            config_file_contents="-x 3",
+        )
+        self.assertParseArgsRaises(
+            "invalid float value: 'abc'", args="-x 5", config_file_contents="y: abc"
+        )
+        self.assertParseArgsRaises(
+            (
+                "argument --y is required"
+                if sys.version_info.major < 3
+                else "the following arguments are required: --y"
+            ),
+            args="-x 5",
+            config_file_contents="z: 1",
+        )
 
         # test unknown config file args
-        self.assertParseArgsRaises("bla",
-            args="-x 1 --y 2.3",
-            config_file_contents="bla=3")
+        self.assertParseArgsRaises(
+            "bla", args="-x 1 --y 2.3", config_file_contents="bla=3"
+        )
 
-        ns, args = self.parse_known("-x 10 --y 3.8",
-                        config_file_contents="bla=3",
-                        env_vars={"bla": "2"})
+        ns, args = self.parse_known(
+            "-x 10 --y 3.8", config_file_contents="bla=3", env_vars={"bla": "2"}
+        )
         self.assertListEqual(args, ["--bla=3"])
 
         self.initParser(ignore_unknown_config_file_keys=False)
-        ns, args = self.parse_known(args="-x 1", config_file_contents="bla=3",
-            env_vars={"bla": "2"})
+        ns, args = self.parse_known(
+            args="-x 1", config_file_contents="bla=3", env_vars={"bla": "2"}
+        )
         self.assertEqual(set(args), {"--bla=3", "-x", "1"})
-
 
     def testQuotedArgumentValues(self):
         self.initParser()
@@ -540,17 +683,31 @@ class TestBasicUseCases(TestCase):
         self.add_arg("--quotes")
 
         # sys.argv equivalent of -a="1"  --b "1" -c= --d "" -e=: -q "\"'" --quotes "\"'"
-        ns = self.parse(args=['-a=1', '--b', '1', '-c=', '--d', '', '-e=:',
-                '-q', '"\'', '--quotes', '"\''],
-                env_vars={}, config_file_contents="")
+        ns = self.parse(
+            args=[
+                "-a=1",
+                "--b",
+                "1",
+                "-c=",
+                "--d",
+                "",
+                "-e=:",
+                "-q",
+                "\"'",
+                "--quotes",
+                "\"'",
+            ],
+            env_vars={},
+            config_file_contents="",
+        )
 
         self.assertEqual(ns.a, "1")
         self.assertEqual(ns.b, "1")
         self.assertEqual(ns.c, "")
         self.assertEqual(ns.d, "")
         self.assertEqual(ns.e, ":")
-        self.assertEqual(ns.q, '"\'')
-        self.assertEqual(ns.quotes, '"\'')
+        self.assertEqual(ns.q, "\"'")
+        self.assertEqual(ns.quotes, "\"'")
 
     def testQuotedConfigFileValues(self):
         self.initParser()
@@ -558,11 +715,15 @@ class TestBasicUseCases(TestCase):
         self.add_arg("--b")
         self.add_arg("--c")
 
-        ns = self.parse(args="", env_vars={}, config_file_contents="""
+        ns = self.parse(
+            args="",
+            env_vars={},
+            config_file_contents="""
         a="1"
         b=:
         c=
-        """)
+        """,
+        )
 
         self.assertEqual(ns.a, "1")
         self.assertEqual(ns.b, ":")
@@ -571,12 +732,18 @@ class TestBasicUseCases(TestCase):
     def testBooleanValuesCanBeExpressedAsNumbers(self):
         self.initParser()
         store_true_env_var_name = "STORE_TRUE"
-        self.add_arg("--boolean_store_true", action="store_true", env_var=store_true_env_var_name)
+        self.add_arg(
+            "--boolean_store_true", action="store_true", env_var=store_true_env_var_name
+        )
 
-        result_namespace = self.parse("", config_file_contents="""boolean_store_true = 1""")
+        result_namespace = self.parse(
+            "", config_file_contents="""boolean_store_true = 1"""
+        )
         self.assertTrue(result_namespace.boolean_store_true)
 
-        result_namespace = self.parse("", config_file_contents="""boolean_store_true = 0""")
+        result_namespace = self.parse(
+            "", config_file_contents="""boolean_store_true = 0"""
+        )
         self.assertFalse(result_namespace.boolean_store_true)
 
         result_namespace = self.parse("", env_vars={store_true_env_var_name: "1"})
@@ -587,12 +754,20 @@ class TestBasicUseCases(TestCase):
 
         self.initParser()
         store_false_env_var_name = "STORE_FALSE"
-        self.add_arg("--boolean_store_false", action="store_false", env_var=store_false_env_var_name)
+        self.add_arg(
+            "--boolean_store_false",
+            action="store_false",
+            env_var=store_false_env_var_name,
+        )
 
-        result_namespace = self.parse("", config_file_contents="""boolean_store_false = 1""")
+        result_namespace = self.parse(
+            "", config_file_contents="""boolean_store_false = 1"""
+        )
         self.assertFalse(result_namespace.boolean_store_false)
 
-        result_namespace = self.parse("", config_file_contents="""boolean_store_false = 0""")
+        result_namespace = self.parse(
+            "", config_file_contents="""boolean_store_false = 0"""
+        )
         self.assertTrue(result_namespace.boolean_store_false)
 
         result_namespace = self.parse("", env_vars={store_false_env_var_name: "1"})
@@ -604,44 +779,45 @@ class TestBasicUseCases(TestCase):
     def testConfigOrEnvValueErrors(self):
         # error should occur when a flag arg is set to something other than "true" or "false"
         self.initParser()
-        self.add_arg("--height", env_var = "HEIGHT", required=True)
-        self.add_arg("--do-it", dest="x", env_var = "FLAG1", action="store_true")
-        self.add_arg("--dont-do-it", dest="y", env_var = "FLAG2", action="store_false")
-        ns = self.parse("", env_vars = {"HEIGHT": "tall", "FLAG1": "yes"})
+        self.add_arg("--height", env_var="HEIGHT", required=True)
+        self.add_arg("--do-it", dest="x", env_var="FLAG1", action="store_true")
+        self.add_arg("--dont-do-it", dest="y", env_var="FLAG2", action="store_false")
+        ns = self.parse("", env_vars={"HEIGHT": "tall", "FLAG1": "yes"})
         self.assertEqual(ns.height, "tall")
         self.assertEqual(ns.x, True)
-        ns = self.parse("", env_vars = {"HEIGHT": "tall", "FLAG2": "yes"})
+        ns = self.parse("", env_vars={"HEIGHT": "tall", "FLAG2": "yes"})
         self.assertEqual(ns.y, False)
-        ns = self.parse("", env_vars = {"HEIGHT": "tall", "FLAG2": "no"})
+        ns = self.parse("", env_vars={"HEIGHT": "tall", "FLAG2": "no"})
         self.assertEqual(ns.y, True)
 
         # error should occur when flag arg is given a value
         self.initParser()
         self.add_arg("-v", "--verbose", env_var="VERBOSE", action="store_true")
-        self.assertParseArgsRaises("Unexpected value for VERBOSE: 'bla'. "
-                                   "Expecting 'true', 'false', 'yes', 'no', 'on', 'off', '1' or '0'",
+        self.assertParseArgsRaises(
+            "Unexpected value for VERBOSE: 'bla'. "
+            "Expecting 'true', 'false', 'yes', 'no', 'on', 'off', '1' or '0'",
             args="",
-            env_vars={"VERBOSE" : "bla"})
-        ns = self.parse("",
-                        config_file_contents="verbose=true",
-                        env_vars={"HEIGHT": "true"})
+            env_vars={"VERBOSE": "bla"},
+        )
+        ns = self.parse(
+            "", config_file_contents="verbose=true", env_vars={"HEIGHT": "true"}
+        )
         self.assertEqual(ns.verbose, True)
-        ns = self.parse("",
-                        config_file_contents="verbose",
-                        env_vars={"HEIGHT": "true"})
+        ns = self.parse("", config_file_contents="verbose", env_vars={"HEIGHT": "true"})
         self.assertEqual(ns.verbose, True)
-        ns = self.parse("", env_vars = {"HEIGHT": "true", "VERBOSE": "true"})
+        ns = self.parse("", env_vars={"HEIGHT": "true", "VERBOSE": "true"})
         self.assertEqual(ns.verbose, True)
-        ns = self.parse("", env_vars = {"HEIGHT": "true", "VERBOSE": "false"})
+        ns = self.parse("", env_vars={"HEIGHT": "true", "VERBOSE": "false"})
         self.assertEqual(ns.verbose, False)
-        ns = self.parse("", config_file_contents="--verbose",
-                        env_vars = {"HEIGHT": "true"})
+        ns = self.parse(
+            "", config_file_contents="--verbose", env_vars={"HEIGHT": "true"}
+        )
         self.assertEqual(ns.verbose, True)
 
         # error should occur is non-append arg is given a list value
         self.initParser()
         self.add_arg("-f", "--file", env_var="FILES", action="append", type=int)
-        ns = self.parse("", env_vars = {"file": "[1,2,3]", "VERBOSE": "true"})
+        ns = self.parse("", env_vars={"file": "[1,2,3]", "VERBOSE": "true"})
         self.assertIsNone(ns.file)
 
     def testValuesStartingWithDash(self):
@@ -649,15 +825,15 @@ class TestBasicUseCases(TestCase):
         self.add_arg("--arg0")
         self.add_arg("--arg1", env_var="ARG1")
         self.add_arg("--arg2")
-        self.add_arg("--arg3", action='append')
-        self.add_arg("--arg4", action='append', env_var="ARG4")
-        self.add_arg("--arg5", action='append')
+        self.add_arg("--arg3", action="append")
+        self.add_arg("--arg4", action="append", env_var="ARG4")
+        self.add_arg("--arg5", action="append")
         self.add_arg("--arg6")
 
         ns = self.parse(
             "--arg0=-foo --arg3=-foo --arg3=-bar --arg6=-test-more-dashes",
             config_file_contents="arg2: -foo\narg5: [-foo, -bar]",
-            env_vars={"ARG1": "-foo", "ARG4": "[-foo, -bar]"}
+            env_vars={"ARG1": "-foo", "ARG4": "[-foo, -bar]"},
         )
         self.assertEqual(ns.arg0, "-foo")
         self.assertEqual(ns.arg1, "-foo")
@@ -674,22 +850,20 @@ class TestBasicUseCases(TestCase):
         ns = self.parse(
             "--arg command_line_val",
             config_file_contents="arg: config_val",
-            env_vars={"ARG": "env_val"}
-            )
+            env_vars={"ARG": "env_val"},
+        )
         self.assertEqual(ns.arg, "command_line_val")
 
         ns = self.parse(
             "--arg=command_line_val",
             config_file_contents="arg: config_val",
-            env_vars={"ARG": "env_val"}
-            )
+            env_vars={"ARG": "env_val"},
+        )
         self.assertEqual(ns.arg, "command_line_val")
 
         ns = self.parse(
-            "",
-            config_file_contents="arg: config_val",
-            env_vars={"ARG": "env_val"}
-            )
+            "", config_file_contents="arg: config_val", env_vars={"ARG": "env_val"}
+        )
         self.assertEqual(ns.arg, "env_val")
 
     def testPriorityUnknown(self):
@@ -698,14 +872,14 @@ class TestBasicUseCases(TestCase):
         ns, args = self.parse_known(
             "--arg command_line_val",
             config_file_contents="arg: config_val",
-            env_vars={"arg": "env_val"}
-            )
+            env_vars={"arg": "env_val"},
+        )
         self.assertListEqual(args, ["--arg", "command_line_val"])
 
         ns, args = self.parse_known(
             "--arg=command_line_val",
             config_file_contents="arg: config_val",
-            )
+        )
         self.assertListEqual(args, ["--arg=command_line_val"])
 
     def testAutoEnvVarPrefix(self):
@@ -716,13 +890,17 @@ class TestBasicUseCases(TestCase):
         self.add_arg("-y", "--arg3", action="append", type=int)
         self.add_arg("-z", "--arg4", required=True)
         self.add_arg("-w", "--arg4-more", required=True)
-        ns = self.parse("", env_vars = {
-            "TEST_ARG0": "0",
-            "TEST_ARG1": "1",
-            "TEST_ARG2": "2",
-            "TEST2": "22",
-            "TEST_ARG4": "arg4_value",
-            "TEST_ARG4_MORE": "magic"})
+        ns = self.parse(
+            "",
+            env_vars={
+                "TEST_ARG0": "0",
+                "TEST_ARG1": "1",
+                "TEST_ARG2": "2",
+                "TEST2": "22",
+                "TEST_ARG4": "arg4_value",
+                "TEST_ARG4_MORE": "magic",
+            },
+        )
         self.assertIsNone(ns.arg0)
         self.assertIsNone(ns.arg1)
         self.assertEqual(ns.arg2, 22)
@@ -737,16 +915,20 @@ class TestBasicUseCases(TestCase):
         self.add_arg("-u", "--arg5", env_var="TEST5", nargs="+", type=int)
         self.add_arg("--arg6", env_var="TEST6")
         self.add_arg("--arg7", env_var="TEST7", action="append")
-        ns = self.parse("", env_vars={"TEST2": "22",
-                                      "TEST3": "22",
-                                      "TEST4": "[Shell, someword, anotherword]",
-                                      "TEST5": "[22, 99, 33]",
-                                      "TEST6": "[value6.1, value6.2, value6.3]",
-                                      "TEST7": "[value7.1, value7.2, value7.3]",
-                                      })
+        ns = self.parse(
+            "",
+            env_vars={
+                "TEST2": "22",
+                "TEST3": "22",
+                "TEST4": "[Shell, someword, anotherword]",
+                "TEST5": "[22, 99, 33]",
+                "TEST6": "[value6.1, value6.2, value6.3]",
+                "TEST7": "[value7.1, value7.2, value7.3]",
+            },
+        )
         self.assertEqual(ns.arg2, "22")
         self.assertEqual(ns.arg3, 22)
-        self.assertEqual(ns.arg4, ['Shell', 'someword', 'anotherword'])
+        self.assertEqual(ns.arg4, ["Shell", "someword", "anotherword"])
         self.assertEqual(ns.arg5, [22, 99, 33])
         self.assertEqual(ns.arg6, "[value6.1, value6.2, value6.3]")
         self.assertEqual(ns.arg7, ["value7.1", "value7.2", "value7.3"])
@@ -756,9 +938,11 @@ class TestBasicUseCases(TestCase):
         self.add_arg("a")
         self.add_arg("-x", "--arg", env_var="TEST", nargs="+")
 
-        ns = self.parse("positional_value", env_vars={"TEST": "[Shell, someword, anotherword]"})
+        ns = self.parse(
+            "positional_value", env_vars={"TEST": "[Shell, someword, anotherword]"}
+        )
 
-        self.assertEqual(ns.arg, ['Shell', 'someword', 'anotherword'])
+        self.assertEqual(ns.arg, ["Shell", "someword", "anotherword"])
         self.assertEqual(ns.a, "positional_value")
 
     def testCounterCommandLine(self):
@@ -775,26 +959,38 @@ class TestBasicUseCases(TestCase):
         self.initParser()
         self.add_arg("--verbose", "-v", action="count", default=0)
 
-        ns = self.parse(args="", env_vars={}, config_file_contents="""
-        verbose""")
+        ns = self.parse(
+            args="",
+            env_vars={},
+            config_file_contents="""
+        verbose""",
+        )
         self.assertEqual(ns.verbose, 1)
 
-        ns = self.parse(args="", env_vars={}, config_file_contents="""
-        verbose=3""")
+        ns = self.parse(
+            args="",
+            env_vars={},
+            config_file_contents="""
+        verbose=3""",
+        )
         self.assertEqual(ns.verbose, 3)
+
 
 class TestMisc(TestCase):
     # TODO test different action types with config file, env var
 
     """Test edge cases"""
+
     def setUp(self):
         self.initParser(args_for_setting_config_path=[])
 
-    @mock.patch('argparse.ArgumentParser.__init__')
+    @mock.patch("argparse.ArgumentParser.__init__")
     def testKwrgsArePassedToArgParse(self, argparse_init):
         kwargs_for_argparse = {"allow_abbrev": False, "whatever_other_arg": "something"}
 
-        parser = configargparse.ArgumentParser(add_config_file_help=False, **kwargs_for_argparse)
+        parser = configargparse.ArgumentParser(
+            add_config_file_help=False, **kwargs_for_argparse
+        )
 
         argparse_init.assert_called_with(parser, **kwargs_for_argparse)
 
@@ -802,9 +998,13 @@ class TestMisc(TestCase):
         p = configargparse.getArgumentParser(name, prog="prog", usage="test")
         self.assertEqual(p.usage, "test")
         self.assertEqual(p.prog, "prog")
-        self.assertRaisesRegex(ValueError, "kwargs besides 'name' can only be "
-            "passed in the first time", configargparse.getArgumentParser, name,
-            prog="prog")
+        self.assertRaisesRegex(
+            ValueError,
+            "kwargs besides 'name' can only be " "passed in the first time",
+            configargparse.getArgumentParser,
+            name,
+            prog="prog",
+        )
 
         p2 = configargparse.getArgumentParser(name)
         self.assertEqual(p, p2)
@@ -814,14 +1014,15 @@ class TestMisc(TestCase):
         self.testGlobalInstances("name2")
 
     def testAddArguments_ArgValidation(self):
-        self.assertRaises(ValueError, self.add_arg, 'positional', env_var="bla")
-        action = self.add_arg('positional')
+        self.assertRaises(ValueError, self.add_arg, "positional", env_var="bla")
+        action = self.add_arg("positional")
         self.assertIsNotNone(action)
         self.assertEqual(action.dest, "positional")
 
     def testAddArguments_IsConfigFilePathArg(self):
-        self.assertRaises(ValueError, self.add_arg, 'c', action="store_false",
-                          is_config_file=True)
+        self.assertRaises(
+            ValueError, self.add_arg, "c", action="store_false", is_config_file=True
+        )
 
         self.add_arg("-c", "--config", is_config_file=True)
         self.add_arg("--x", required=True)
@@ -843,15 +1044,21 @@ class TestMisc(TestCase):
         temp_cfg.write("genome=hg19")
         temp_cfg.flush()
 
-        self.initParser(args_for_setting_config_path=["-c", "--config"],
-                        config_arg_is_required = True,
-                        config_arg_help_message = "my config file",
-                        default_config_files=[temp_cfg.name])
-        self.add_arg('--genome', help='Path to genome file', required=True)
-        self.assertParseArgsRaises("argument -c/--config is required"
-                                   if sys.version_info.major < 3 else
-                                   "arguments are required: -c/--config",
-                                   args="")
+        self.initParser(
+            args_for_setting_config_path=["-c", "--config"],
+            config_arg_is_required=True,
+            config_arg_help_message="my config file",
+            default_config_files=[temp_cfg.name],
+        )
+        self.add_arg("--genome", help="Path to genome file", required=True)
+        self.assertParseArgsRaises(
+            (
+                "argument -c/--config is required"
+                if sys.version_info.major < 3
+                else "arguments are required: -c/--config"
+            ),
+            args="",
+        )
 
         temp_cfg2 = tempfile.NamedTemporaryFile(mode="w", delete=False)
         ns = self.parse("-c " + temp_cfg2.name)
@@ -863,13 +1070,16 @@ class TestMisc(TestCase):
         ns = self.parse("-c " + temp_cfg2.name)
         self.assertEqual(ns.genome, "hg20")
 
-        self.assertRegex(self.format_help(),
-            r'usage: .* \[-h\] -c CONFIG_FILE --genome GENOME\n\n'
-            r'%s:\n'
-            r'  -h, --help\s+ show this help message and exit\n'
-            r'  -c(?: CONFIG_FILE)?, --config CONFIG_FILE\s+ my config file\n'
-            r'  --genome GENOME\s+ Path to genome file\n\n'%OPTIONAL_ARGS_STRING +
-            5*r'(.+\s*)')
+        short_c = SHORT_OPT_METAVAR.format(metavar="CONFIG_FILE")
+        self.assertRegex(
+            self.format_help(),
+            r"usage: .* \[-h\] -c CONFIG_FILE --genome GENOME\n\n"
+            r"%s:\n"
+            r"  -h, --help\s+ show this help message and exit\n"
+            rf"  -c{short_c}, --config CONFIG_FILE\s+ my config file\n"
+            r"  --genome GENOME\s+ Path to genome file\n\n" % OPTIONAL_ARGS_STRING
+            + 5 * r"(.+\s*)",
+        )
 
         # just run print_values() to make sure it completes and returns None
         output = StringIO()
@@ -878,8 +1088,12 @@ class TestMisc(TestCase):
 
         # test ignore_unknown_config_file_keys=False
         self.initParser(ignore_unknown_config_file_keys=False)
-        self.assertRaisesRegex(argparse.ArgumentError, "unrecognized arguments",
-            self.parse, config_file_contents="arg1 = 3")
+        self.assertRaisesRegex(
+            argparse.ArgumentError,
+            "unrecognized arguments",
+            self.parse,
+            config_file_contents="arg1 = 3",
+        )
         ns, args = self.parse_known(config_file_contents="arg1 = 3")
         self.assertEqual(getattr(ns, "arg1", ""), "")
 
@@ -891,9 +1105,7 @@ class TestMisc(TestCase):
         self.assertEqual(getattr(ns, "arg1", ""), "")
 
     def test_AbbrevConfigFileArgs(self):
-        """Tests that abbreviated values don't get pulled from config file.
-
-        """
+        """Tests that abbreviated values don't get pulled from config file."""
         temp_cfg = tempfile.NamedTemporaryFile(mode="w", delete=False)
         temp_cfg.write("a2a = 0.5\n")
         temp_cfg.write("a3a = 0.5\n")
@@ -901,80 +1113,78 @@ class TestMisc(TestCase):
 
         self.initParser()
 
-        self.add_arg('-c', '--config_file', required=False, is_config_file=True,
-                     help='config file path')
+        self.add_arg(
+            "-c",
+            "--config_file",
+            required=False,
+            is_config_file=True,
+            help="config file path",
+        )
 
-        self.add_arg('--hello', type=int, required=False)
+        self.add_arg("--hello", type=int, required=False)
 
-        command = '-c {} --hello 2'.format(temp_cfg.name)
+        command = "-c {} --hello 2".format(temp_cfg.name)
 
         known, unknown = self.parse_known(command)
 
-        self.assertListEqual(unknown, ['--a2a=0.5', '--a3a=0.5'])
+        self.assertListEqual(unknown, ["--a2a=0.5", "--a3a=0.5"])
 
     def test_FormatHelp(self):
-        self.initParser(args_for_setting_config_path=["-c", "--config"],
-                        config_arg_is_required = True,
-                        config_arg_help_message = "my config file",
-                        default_config_files=["~/.myconfig"],
-                        args_for_writing_out_config_file=["-w", "--write-config"],
-                        )
-        self.add_arg('--arg1', help='Arg1 help text', required=True)
-        self.add_arg('--flag', help='Flag help text', action="store_true")
+        self.initParser(
+            args_for_setting_config_path=["-c", "--config"],
+            config_arg_is_required=True,
+            config_arg_help_message="my config file",
+            default_config_files=["~/.myconfig"],
+            args_for_writing_out_config_file=["-w", "--write-config"],
+        )
+        self.add_arg("--arg1", help="Arg1 help text", required=True)
+        self.add_arg("--flag", help="Flag help text", action="store_true")
 
-        self.assertRegex(self.format_help(),
-            r'usage: .* \[-h\] -c CONFIG_FILE\s+'
-            r'\[-w CONFIG_OUTPUT_PATH\]\s* --arg1\s+ARG1\s*\[--flag\]\s*'
-            '%s:\\s*'
-            '-h, --help \\s* show this help message and exit '
-            r'-c(?: CONFIG_FILE)?, --config CONFIG_FILE\s+my config file '
-            r'-w(?: CONFIG_OUTPUT_PATH)?, --write-config CONFIG_OUTPUT_PATH takes '
-            r'the current command line args and writes them '
-            r'out to a config file at the given path, then exits '
-            r'--arg1 ARG1 Arg1 help text '
-            r'--flag Flag help text '
-            'Args that start with \'--\' can also be set in a '
-            r'config file \(~/.myconfig or specified via -c\). '
-            r'Config file syntax allows: key=value, flag=true, stuff=\[a,b,c\] '
-            r'\(for details, see syntax at https://goo.gl/R74nmi\). '
-            r'In general, command-line values override config file values '
-            r'which override defaults. '.replace(' ', r'\s*') % OPTIONAL_ARGS_STRING
+        short_c = SHORT_OPT_METAVAR.format(metavar="CONFIG_FILE")
+        short_w = SHORT_OPT_METAVAR.format(metavar="CONFIG_OUTPUT_PATH")
+        self.assertRegex(
+            self.format_help(),
+            r"usage: .* \[-h\] -c CONFIG_FILE\s+"
+            r"\[-w CONFIG_OUTPUT_PATH\]\s* --arg1\s+ARG1\s*\[--flag\]\s*"
+            "%s:\\s*"
+            "-h, --help \\s* show this help message and exit "
+            rf"-c{short_c}, --config CONFIG_FILE\s+my config file "
+            rf"-w{short_w}, --write-config CONFIG_OUTPUT_PATH takes "
+            r"the current command line args and writes them "
+            r"out to a config file at the given path, then exits "
+            r"--arg1 ARG1 Arg1 help text "
+            r"--flag Flag help text "
+            "Args that start with '--' can also be set in a "
+            r"config file \(~/.myconfig or specified via -c\). "
+            r"Config file syntax allows: key=value, flag=true, stuff=\[a,b,c\] "
+            r"\(for details, see syntax at https://goo.gl/R74nmi\). "
+            r"In general, command-line values override config file values "
+            r"which override defaults. ".replace(" ", r"\s*") % OPTIONAL_ARGS_STRING,
         )
 
     def test_FormatHelpProg(self):
-        self.initParser('format_help_prog')
-        self.assertRegex(self.format_help(), 'usage: format_help_prog .*')
+        self.initParser("format_help_prog")
+        self.assertRegex(self.format_help(), "usage: format_help_prog .*")
 
     def test_FormatHelpProgLib(self):
-        parser = argparse.ArgumentParser('format_help_prog')
-        self.assertRegex(parser.format_help(), 'usage: format_help_prog .*')
-
-    class CustomClass(object):
-        def __init__(self, name):
-            self.name = name
-
-        def __str__(self):
-            return self.name
-
-    @staticmethod
-    def valid_custom(s):
-        if s == "invalid": raise Exception("invalid name")
-        return TestMisc.CustomClass(s)
+        parser = argparse.ArgumentParser("format_help_prog")
+        self.assertRegex(parser.format_help(), "usage: format_help_prog .*")
 
     def testConstructor_WriteOutConfigFileArgs(self):
         # Test constructor args:
         #   args_for_writing_out_config_file
         #   write_out_config_file_arg_help_message
         cfg_f = tempfile.NamedTemporaryFile(mode="w+", delete=False)
-        self.initParser(args_for_writing_out_config_file=["-w"],
-                        write_out_config_file_arg_help_message="write config")
-
+        self.initParser(
+            args_for_writing_out_config_file=["-w"],
+            write_out_config_file_arg_help_message="write config",
+        )
 
         self.add_arg("-not-config-file-settable")
         self.add_arg("--config-file-settable-arg", type=int)
         self.add_arg("--config-file-settable-arg2", type=int, default=3)
         self.add_arg("--config-file-settable-flag", action="store_true")
-        self.add_arg("--config-file-settable-custom", type=TestMisc.valid_custom)
+        self.add_arg("--config-file-settable-custom")
         self.add_arg("-l", "--config-file-settable-list", action="append")
 
         # write out a config file
@@ -996,10 +1206,13 @@ class TestMisc(TestCase):
         expected_config_file_contents += "config-file-settable-list = [a, b, c, d]\n"
         expected_config_file_contents += "config-file-settable-arg2 = 3\n"
 
-        self.assertEqual(cfg_f.read().strip(),
-            expected_config_file_contents.strip())
-        self.assertRaisesRegex(ValueError, "Couldn't open / for writing:",
-            self.parse, args = command_line_args + " -w /")
+        self.assertEqual(cfg_f.read().strip(), expected_config_file_contents.strip())
+        self.assertRaisesRegex(
+            ValueError,
+            "Couldn't open / for writing:",
+            self.parse,
+            args=command_line_args + " -w /",
+        )
         cfg_f.close()
 
     def testConstructor_WriteOutConfigFileArgs2(self):
@@ -1007,9 +1220,10 @@ class TestMisc(TestCase):
         #   args_for_writing_out_config_file
         #   write_out_config_file_arg_help_message
         cfg_f = tempfile.NamedTemporaryFile(mode="w+", delete=False)
-        self.initParser(args_for_writing_out_config_file=["-w"],
-                        write_out_config_file_arg_help_message="write config")
-
+        self.initParser(
+            args_for_writing_out_config_file=["-w"],
+            write_out_config_file_arg_help_message="write config",
+        )
 
         self.add_arg("-not-config-file-settable")
         self.add_arg("-a", "--arg1", type=int, env_var="ARG1")
@@ -1017,8 +1231,9 @@ class TestMisc(TestCase):
         self.add_arg("-c", "--arg3")
         self.add_arg("-d", "--arg4")
         self.add_arg("-e", "--arg5")
-        self.add_arg("--config-file-settable-flag", action="store_true",
-                     env_var="FLAG_ARG")
+        self.add_arg(
+            "--config-file-settable-flag", action="store_true", env_var="FLAG_ARG"
+        )
         self.add_arg("-l", "--config-file-settable-list", action="append")
 
         # write out a config file
@@ -1027,10 +1242,11 @@ class TestMisc(TestCase):
 
         self.assertFalse(self.parser._exit_method_called)
 
-        ns = self.parse(command_line_args,
-                        env_vars={"ARG1": "10", "FLAG_ARG": "true",
-                                "SOME_OTHER_ENV_VAR": "2"},
-                        config_file_contents="arg3 = bla3\narg4 = bla4")
+        ns = self.parse(
+            command_line_args,
+            env_vars={"ARG1": "10", "FLAG_ARG": "true", "SOME_OTHER_ENV_VAR": "2"},
+            config_file_contents="arg3 = bla3\narg4 = bla4",
+        )
         self.assertTrue(self.parser._exit_method_called)
 
         cfg_f.seek(0)
@@ -1041,10 +1257,13 @@ class TestMisc(TestCase):
         expected_config_file_contents += "arg4 = bla4\n"
         expected_config_file_contents += "arg2 = 3\n"
 
-        self.assertEqual(cfg_f.read().strip(),
-                         expected_config_file_contents.strip())
-        self.assertRaisesRegex(ValueError, "Couldn't open / for writing:",
-                                self.parse, args = command_line_args + " -w /")
+        self.assertEqual(cfg_f.read().strip(), expected_config_file_contents.strip())
+        self.assertRaisesRegex(
+            ValueError,
+            "Couldn't open / for writing:",
+            self.parse,
+            args=command_line_args + " -w /",
+        )
         cfg_f.close()
 
     def testConstructor_WriteOutConfigFileArgsLong(self):
@@ -1058,9 +1277,10 @@ class TestMisc(TestCase):
         #   args_for_writing_out_config_file
         #   write_out_config_file_arg_help_message
         cfg_f = tempfile.NamedTemporaryFile(mode="w+", delete=False)
-        self.initParser(args_for_writing_out_config_file=["--write-config"],
-                        write_out_config_file_arg_help_message="write config")
-
+        self.initParser(
+            args_for_writing_out_config_file=["--write-config"],
+            write_out_config_file_arg_help_message="write config",
+        )
 
         self.add_arg("-not-config-file-settable")
         self.add_arg("--config-file-settable-arg", type=int)
@@ -1085,10 +1305,13 @@ class TestMisc(TestCase):
         expected_config_file_contents += "config-file-settable-list = [a, b, c, d]\n"
         expected_config_file_contents += "config-file-settable-arg2 = 3\n"
 
-        self.assertEqual(cfg_f.read().strip(),
-            expected_config_file_contents.strip())
-        self.assertRaisesRegex(ValueError, "Couldn't open / for writing:",
-            self.parse, args = command_line_args + " --write-config /")
+        self.assertEqual(cfg_f.read().strip(), expected_config_file_contents.strip())
+        self.assertRaisesRegex(
+            ValueError,
+            "Couldn't open / for writing:",
+            self.parse,
+            args=command_line_args + " --write-config /",
+        )
         cfg_f.close()
 
     def testMethodAliases(self):
@@ -1121,16 +1344,229 @@ class TestMisc(TestCase):
         # test OSError
         def error_func(path):
             raise OSError(9, "some error")
+
         self.initParser(config_file_open_func=error_func)
-        self.parser.add_argument('-g', is_config_file=True)
-        self.assertParseArgsRaises("Unable to open config file: file.txt. Error: some error", args="-g file.txt")
+        self.parser.add_argument("-g", is_config_file=True)
+        self.assertParseArgsRaises(
+            "Unable to open config file: file.txt. Error: some error",
+            args="-g file.txt",
+        )
 
         # test other error
         def error_func(path):
-            raise Exception('custom error')
+            raise Exception("custom error")
+
         self.initParser(config_file_open_func=error_func)
-        self.parser.add_argument('-g', is_config_file=True)
-        self.assertParseArgsRaises("Unable to open config file: file.txt. Error: custom error", args="-g file.txt")
+        self.parser.add_argument("-g", is_config_file=True)
+        self.assertParseArgsRaises(
+            "Unable to open config file: file.txt. Error: custom error",
+            args="-g file.txt",
+        )
+
+    def testDoubleDashSeparator(self):
+        """Test that -- separator correctly separates optional from positional args
+        when config file or env vars are used. Regression test for issue #298."""
+        config_file = tempfile.NamedTemporaryFile(
+            mode="w", delete=False, suffix=".conf"
+        )
+        config_file.write("list = [1, 2, 3]\n")
+        config_file.flush()
+        config_file.close()
+
+        try:
+            # Test with config file and -- separator
+            self.initParser(args_for_setting_config_path=["-c", "--config"])
+            self.parser.add_argument("--list", action="append")
+            self.parser.add_argument("positional_arg", nargs="*")
+
+            ns = self.parse(args="-c %s -- foo bar" % config_file.name)
+            self.assertEqual(ns.positional_arg, ["foo", "bar"])
+            self.assertEqual(ns.list, ["1", "2", "3"])
+
+            # Test without -- separator
+            ns = self.parse(args="-c %s foo bar" % config_file.name)
+            self.assertEqual(ns.positional_arg, ["foo", "bar"])
+            self.assertEqual(ns.list, ["1", "2", "3"])
+
+            # Test with env var and -- separator
+            self.initParser()
+            self.parser.add_argument("--list", action="append", env_var="MY_LIST")
+            self.parser.add_argument("positional_arg", nargs="*")
+
+            old_env = os.environ.get("MY_LIST")
+            try:
+                os.environ["MY_LIST"] = "[1,2,3]"
+                ns = self.parse(args="-- foo bar")
+                self.assertEqual(ns.positional_arg, ["foo", "bar"])
+                self.assertEqual(ns.list, ["1", "2", "3"])
+            finally:
+                if old_env is not None:
+                    os.environ["MY_LIST"] = old_env
+                elif "MY_LIST" in os.environ:
+                    del os.environ["MY_LIST"]
+        finally:
+            os.unlink(config_file.name)
+
+    def testRemainderWithConfigFile(self):
+        """Test that nargs=REMAINDER works correctly with config files.
+        Regression test for issue #285."""
+        config_file = tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".cfg")
+        config_file.write("config_file_option=value_from_config\n")
+        config_file.flush()
+        config_file.close()
+
+        try:
+            self.initParser()
+            self.parser.add_argument(
+                "--config", is_config_file=True, default=config_file.name
+            )
+            self.parser.add_argument("--config_file_option", nargs="*", default=None)
+            self.parser.add_argument(
+                "remainder_option", nargs=argparse.REMAINDER, default=None
+            )
+
+            ns = self.parse(args=["test"])
+            self.assertEqual(ns.remainder_option, ["test"])
+            self.assertEqual(ns.config_file_option, ["value_from_config"])
+
+            ns = self.parse(args=["test", "arg1", "arg2"])
+            self.assertEqual(ns.remainder_option, ["test", "arg1", "arg2"])
+            self.assertEqual(ns.config_file_option, ["value_from_config"])
+        finally:
+            os.unlink(config_file.name)
+
+    def testEmptyValuesIgnored(self):
+        """Test that empty string values from config files and env vars are ignored
+        for args with nargs. Regression test for issue #296."""
+        # Test empty value in config file
+        config_file = tempfile.NamedTemporaryFile(
+            mode="w", delete=False, suffix=".conf"
+        )
+        config_file.write("test-opt=\n")
+        config_file.flush()
+        config_file.close()
+
+        try:
+            self.initParser()
+            self.parser.add_argument(
+                "--config", is_config_file=True, default=config_file.name
+            )
+            self.parser.add_argument(
+                "--test-opt", nargs=2, default=["default1", "default2"]
+            )
+
+            ns = self.parse(args=[])
+            self.assertEqual(ns.test_opt, ["default1", "default2"])
+        finally:
+            os.unlink(config_file.name)
+
+        # Test empty environment variable
+        self.initParser()
+        self.parser.add_argument(
+            "--test-opt", nargs=2, env_var="TEST_OPT", default=["default1", "default2"]
+        )
+
+        old_env = os.environ.get("TEST_OPT")
+        try:
+            os.environ["TEST_OPT"] = ""
+            ns = self.parse(args=[])
+            self.assertEqual(ns.test_opt, ["default1", "default2"])
+        finally:
+            if old_env is not None:
+                os.environ["TEST_OPT"] = old_env
+            elif "TEST_OPT" in os.environ:
+                del os.environ["TEST_OPT"]
+
+    def testConfigArgOrderWithOptsOnCli(self):
+        """Test that config args with nargs/append are parsed correctly when
+        optional args are already on the command line."""
+        config_file = tempfile.NamedTemporaryFile(
+            mode="w", delete=False, suffix=".conf"
+        )
+        config_file.write("from_config = [x, y]\n")
+        config_file.flush()
+        config_file.close()
+
+        try:
+            self.initParser()
+            self.parser.add_argument(
+                "--config", is_config_file=True, default=config_file.name
+            )
+            self.parser.add_argument("--from_config", action="append")
+            self.parser.add_argument("--cli_opt")
+            self.parser.add_argument("positional", nargs="*")
+
+            ns = self.parse(args="--cli_opt val pos1 pos2")
+            self.assertEqual(ns.positional, ["pos1", "pos2"])
+            self.assertEqual(ns.cli_opt, "val")
+            self.assertEqual(ns.from_config, ["x", "y"])
+        finally:
+            os.unlink(config_file.name)
+
+    def testConfigArgOrderNoOptsOnCli(self):
+        """Test that config args are parsed correctly when no optional args
+        are on the command line (only positional args)."""
+        config_file = tempfile.NamedTemporaryFile(
+            mode="w", delete=False, suffix=".conf"
+        )
+        config_file.write("flag\n")
+        config_file.flush()
+        config_file.close()
+
+        try:
+            self.initParser()
+            self.parser.add_argument(
+                "--config", is_config_file=True, default=config_file.name
+            )
+            self.parser.add_argument("--flag", action="store_true")
+            self.parser.add_argument("positional")
+
+            ns = self.parse(args="mypos")
+            self.assertEqual(ns.positional, "mypos")
+            self.assertTrue(ns.flag)
+        finally:
+            os.unlink(config_file.name)
+
+    def testEnvVarArgOrderWithOptsOnCli(self):
+        """Test that env var args with nargs/append are parsed correctly when
+        optional args are already on the command line."""
+        self.initParser()
+        self.parser.add_argument("--from_env", action="append", env_var="FROM_ENV")
+        self.parser.add_argument("--cli_opt")
+        self.parser.add_argument("positional", nargs="*")
+
+        old_env = os.environ.get("FROM_ENV")
+        try:
+            os.environ["FROM_ENV"] = "[a,b]"
+            ns = self.parse(args="--cli_opt val pos1 pos2")
+            self.assertEqual(ns.positional, ["pos1", "pos2"])
+            self.assertEqual(ns.cli_opt, "val")
+            self.assertEqual(ns.from_env, ["a", "b"])
+        finally:
+            if old_env is not None:
+                os.environ["FROM_ENV"] = old_env
+            elif "FROM_ENV" in os.environ:
+                del os.environ["FROM_ENV"]
+
+    def testEnvVarArgOrderNoOptsOnCli(self):
+        """Test that env var args are parsed correctly when no optional args
+        are on the command line (only positional args)."""
+        self.initParser()
+        self.parser.add_argument("--flag", action="store_true", env_var="MY_FLAG")
+        self.parser.add_argument("positional")
+
+        old_env = os.environ.get("MY_FLAG")
+        try:
+            os.environ["MY_FLAG"] = "true"
+            ns = self.parse(args="mypos")
+            self.assertEqual(ns.positional, "mypos")
+            self.assertTrue(ns.flag)
+        finally:
+            if old_env is not None:
+                os.environ["MY_FLAG"] = old_env
+            elif "MY_FLAG" in os.environ:
+                del os.environ["MY_FLAG"]
+
 
 class TestConfigFileParsers(TestCase):
     """Test ConfigFileParser subclasses in isolation"""
@@ -1144,10 +1580,11 @@ class TestConfigFileParsers(TestCase):
         parsed_obj = p.parse(input_config_str)
         output_config_str = p.serialize(parsed_obj)
 
-        self.assertEqual(input_config_str.getvalue().replace(": ", " = "),
-                         output_config_str)
+        self.assertEqual(
+            input_config_str.getvalue().replace(": ", " = "), output_config_str
+        )
 
-        self.assertDictEqual(parsed_obj, {'a': '3'})
+        self.assertDictEqual(parsed_obj, {"a": "3"})
 
     def testDefaultConfigFileParser_All(self):
         p = configargparse.DefaultConfigFileParser()
@@ -1167,275 +1604,327 @@ class TestConfigFileParsers(TestCase):
         ]
 
         # test parse
-        input_config_str = StringIO("\n".join(config_lines)+"\n")
+        input_config_str = StringIO("\n".join(config_lines) + "\n")
         parsed_obj = p.parse(input_config_str)
 
         # test serialize
         output_config_str = p.serialize(parsed_obj)
-        self.assertEqual("\n".join(
-            l.replace(': ', ' = ') for l in config_lines if l.startswith('_'))+"\n",
-            output_config_str)
+        self.assertEqual(
+            "\n".join(l.replace(": ", " = ") for l in config_lines if l.startswith("_"))
+            + "\n",
+            output_config_str,
+        )
 
-        self.assertDictEqual(parsed_obj, {
-            '_a': '3',
-            '_b': 'c',
-            '_list_arg1': ['a', 'b', 'c'],
-            '_str_arg': 'true',
-            '_list_arg2': [1, 2, 3],
-        })
+        self.assertDictEqual(
+            parsed_obj,
+            {
+                "_a": "3",
+                "_b": "c",
+                "_list_arg1": ["a", "b", "c"],
+                "_str_arg": "true",
+                "_list_arg2": [1, 2, 3],
+            },
+        )
 
-        self.assertListEqual(parsed_obj['_list_arg1'], ['a', 'b', 'c'])
-        self.assertListEqual(parsed_obj['_list_arg2'], [1, 2, 3])
+        self.assertListEqual(parsed_obj["_list_arg1"], ["a", "b", "c"])
+        self.assertListEqual(parsed_obj["_list_arg2"], [1, 2, 3])
 
     def testDefaultConfigFileParser_BasicValues(self):
         p = configargparse.DefaultConfigFileParser()
 
         # test the all syntax case
         config_lines = [
-            {'line': 'key = value # comment # comment',   'expected': ('key', 'value', 'comment # comment')},
-            {'line': 'key=value#comment ',                'expected': ('key', 'value#comment', None)},
-            {'line': 'key=value',                         'expected': ('key', 'value', None)},
-            {'line': 'key =value',                        'expected': ('key', 'value', None)},
-            {'line': 'key= value',                        'expected': ('key', 'value', None)},
-            {'line': 'key = value',                       'expected': ('key', 'value', None)},
-            {'line': 'key  =  value',                     'expected': ('key', 'value', None)},
-            {'line': ' key  =  value ',                   'expected': ('key', 'value', None)},
-            {'line': 'key:value',                         'expected': ('key', 'value', None)},
-            {'line': 'key :value',                        'expected': ('key', 'value', None)},
-            {'line': 'key: value',                        'expected': ('key', 'value', None)},
-            {'line': 'key : value',                       'expected': ('key', 'value', None)},
-            {'line': 'key  :  value',                     'expected': ('key', 'value', None)},
-            {'line': ' key  :  value ',                   'expected': ('key', 'value', None)},
-            {'line': 'key value',                         'expected': ('key', 'value', None)},
-            {'line': 'key  value',                        'expected': ('key', 'value', None)},
-            {'line': ' key    value ',                    'expected': ('key', 'value', None)},
+            {
+                "line": "key = value # comment # comment",
+                "expected": ("key", "value", "comment # comment"),
+            },
+            {"line": "key=value#comment ", "expected": ("key", "value#comment", None)},
+            {"line": "key=value", "expected": ("key", "value", None)},
+            {"line": "key =value", "expected": ("key", "value", None)},
+            {"line": "key= value", "expected": ("key", "value", None)},
+            {"line": "key = value", "expected": ("key", "value", None)},
+            {"line": "key  =  value", "expected": ("key", "value", None)},
+            {"line": " key  =  value ", "expected": ("key", "value", None)},
+            {"line": "key:value", "expected": ("key", "value", None)},
+            {"line": "key :value", "expected": ("key", "value", None)},
+            {"line": "key: value", "expected": ("key", "value", None)},
+            {"line": "key : value", "expected": ("key", "value", None)},
+            {"line": "key  :  value", "expected": ("key", "value", None)},
+            {"line": " key  :  value ", "expected": ("key", "value", None)},
+            {"line": "key value", "expected": ("key", "value", None)},
+            {"line": "key  value", "expected": ("key", "value", None)},
+            {"line": " key    value ", "expected": ("key", "value", None)},
         ]
 
         for test in config_lines:
-            parsed_obj = p.parse(StringIO(test['line']))
-            parsed_obj = dict(parsed_obj)
-            expected = {test['expected'][0]: test['expected'][1]}
-            self.assertDictEqual(parsed_obj, expected,
-                    msg="Line %r" % (test['line']))
+            with self.subTest(test=test):
+                parsed_obj = p.parse(StringIO(test["line"]))
+                parsed_obj = dict(parsed_obj)
+                expected = {test["expected"][0]: test["expected"][1]}
+                self.assertDictEqual(
+                    parsed_obj, expected, msg="Line %r" % (test["line"])
+                )
 
     def testDefaultConfigFileParser_QuotedValues(self):
         p = configargparse.DefaultConfigFileParser()
 
         # test the all syntax case
         config_lines = [
-            {'line': 'key="value"',                       'expected': ('key', 'value', None)},
-            {'line': 'key  =  "value"',                   'expected': ('key', 'value', None)},
-            {'line': ' key  =  "value" ',                 'expected': ('key', 'value', None)},
-            {'line': 'key=" value "',                     'expected': ('key', ' value ', None)},
-            {'line': 'key  =  " value "',                 'expected': ('key', ' value ', None)},
-            {'line': ' key  =  " value " ',               'expected': ('key', ' value ', None)},
-            {'line': "key='value'",                       'expected': ('key', 'value', None)},
-            {'line': "key  =  'value'",                   'expected': ('key', 'value', None)},
-            {'line': " key  =  'value' ",                 'expected': ('key', 'value', None)},
-            {'line': "key=' value '",                     'expected': ('key', ' value ', None)},
-            {'line': "key  =  ' value '",                 'expected': ('key', ' value ', None)},
-            {'line': " key  =  ' value ' ",               'expected': ('key', ' value ', None)},
-            {'line': 'key="',                             'expected': ('key', '"', None)},
-            {'line': 'key  =  "',                         'expected': ('key', '"', None)},
-            {'line': ' key  =  " ',                       'expected': ('key', '"', None)},
-            {'line': 'key = \'"value"\'',                 'expected': ('key', '"value"', None)},
-            {'line': 'key = "\'value\'"',                 'expected': ('key', "'value'", None)},
-            {'line': 'key = ""value""',                   'expected': ('key', '"value"', None)},
-            {'line': 'key = \'\'value\'\'',               'expected': ('key', "'value'", None)},
-            {'line': 'key="value',                        'expected': ('key', '"value', None)},
-            {'line': 'key  =  "value',                    'expected': ('key', '"value', None)},
-            {'line': ' key  =  "value ',                  'expected': ('key', '"value', None)},
-            {'line': 'key=value"',                        'expected': ('key', 'value"', None)},
-            {'line': 'key  =  value"',                    'expected': ('key', 'value"', None)},
-            {'line': ' key  =  value " ',                 'expected': ('key', 'value "', None)},
-            {'line': "key='value",                        'expected': ('key', "'value", None)},
-            {'line': "key  =  'value",                    'expected': ('key', "'value", None)},
-            {'line': " key  =  'value ",                  'expected': ('key', "'value", None)},
-            {'line': "key=value'",                        'expected': ('key', "value'", None)},
-            {'line': "key  =  value'",                    'expected': ('key', "value'", None)},
-            {'line': " key  =  value ' ",                 'expected': ('key', "value '", None)},
+            {"line": 'key="value"', "expected": ("key", "value", None)},
+            {"line": 'key  =  "value"', "expected": ("key", "value", None)},
+            {"line": ' key  =  "value" ', "expected": ("key", "value", None)},
+            {"line": 'key=" value "', "expected": ("key", " value ", None)},
+            {"line": 'key  =  " value "', "expected": ("key", " value ", None)},
+            {"line": ' key  =  " value " ', "expected": ("key", " value ", None)},
+            {"line": "key='value'", "expected": ("key", "value", None)},
+            {"line": "key  =  'value'", "expected": ("key", "value", None)},
+            {"line": " key  =  'value' ", "expected": ("key", "value", None)},
+            {"line": "key=' value '", "expected": ("key", " value ", None)},
+            {"line": "key  =  ' value '", "expected": ("key", " value ", None)},
+            {"line": " key  =  ' value ' ", "expected": ("key", " value ", None)},
+            {"line": 'key="', "expected": ("key", '"', None)},
+            {"line": 'key  =  "', "expected": ("key", '"', None)},
+            {"line": ' key  =  " ', "expected": ("key", '"', None)},
+            {"line": "key = '\"value\"'", "expected": ("key", '"value"', None)},
+            {"line": "key = \"'value'\"", "expected": ("key", "'value'", None)},
+            {"line": 'key = ""value""', "expected": ("key", '"value"', None)},
+            {"line": "key = ''value''", "expected": ("key", "'value'", None)},
+            {"line": 'key="value', "expected": ("key", '"value', None)},
+            {"line": 'key  =  "value', "expected": ("key", '"value', None)},
+            {"line": ' key  =  "value ', "expected": ("key", '"value', None)},
+            {"line": 'key=value"', "expected": ("key", 'value"', None)},
+            {"line": 'key  =  value"', "expected": ("key", 'value"', None)},
+            {"line": ' key  =  value " ', "expected": ("key", 'value "', None)},
+            {"line": "key='value", "expected": ("key", "'value", None)},
+            {"line": "key  =  'value", "expected": ("key", "'value", None)},
+            {"line": " key  =  'value ", "expected": ("key", "'value", None)},
+            {"line": "key=value'", "expected": ("key", "value'", None)},
+            {"line": "key  =  value'", "expected": ("key", "value'", None)},
+            {"line": " key  =  value ' ", "expected": ("key", "value '", None)},
         ]
 
         for test in config_lines:
-            parsed_obj = p.parse(StringIO(test['line']))
-            parsed_obj = dict(parsed_obj)
-            expected = {test['expected'][0]: test['expected'][1]}
-            self.assertDictEqual(parsed_obj, expected,
-                    msg="Line %r" % (test['line']))
+            with self.subTest(test=test):
+                parsed_obj = p.parse(StringIO(test["line"]))
+                parsed_obj = dict(parsed_obj)
+                expected = {test["expected"][0]: test["expected"][1]}
+                self.assertDictEqual(
+                    parsed_obj, expected, msg="Line %r" % (test["line"])
+                )
 
     def testDefaultConfigFileParser_BlankValues(self):
         p = configargparse.DefaultConfigFileParser()
 
         # test the all syntax case
         config_lines = [
-            {'line': 'key=',                              'expected': ('key', '', None)},
-            {'line': 'key =',                             'expected': ('key', '', None)},
-            {'line': 'key= ',                             'expected': ('key', '', None)},
-            {'line': 'key = ',                            'expected': ('key', '', None)},
-            {'line': 'key  =  ',                          'expected': ('key', '', None)},
-            {'line': ' key  =   ',                        'expected': ('key', '', None)},
-            {'line': 'key:',                              'expected': ('key', '', None)},
-            {'line': 'key :',                             'expected': ('key', '', None)},
-            {'line': 'key: ',                             'expected': ('key', '', None)},
-            {'line': 'key : ',                            'expected': ('key', '', None)},
-            {'line': 'key  :  ',                          'expected': ('key', '', None)},
-            {'line': ' key  :   ',                        'expected': ('key', '', None)},
+            {"line": "key=", "expected": ("key", "", None)},
+            {"line": "key =", "expected": ("key", "", None)},
+            {"line": "key= ", "expected": ("key", "", None)},
+            {"line": "key = ", "expected": ("key", "", None)},
+            {"line": "key  =  ", "expected": ("key", "", None)},
+            {"line": " key  =   ", "expected": ("key", "", None)},
+            {"line": "key:", "expected": ("key", "", None)},
+            {"line": "key :", "expected": ("key", "", None)},
+            {"line": "key: ", "expected": ("key", "", None)},
+            {"line": "key : ", "expected": ("key", "", None)},
+            {"line": "key  :  ", "expected": ("key", "", None)},
+            {"line": " key  :   ", "expected": ("key", "", None)},
         ]
 
         for test in config_lines:
-            parsed_obj = p.parse(StringIO(test['line']))
-            parsed_obj = dict(parsed_obj)
-            expected = {test['expected'][0]: test['expected'][1]}
-            self.assertDictEqual(parsed_obj, expected,
-                    msg="Line %r" % (test['line']))
+            with self.subTest(test=test):
+                parsed_obj = p.parse(StringIO(test["line"]))
+                parsed_obj = dict(parsed_obj)
+                expected = {test["expected"][0]: test["expected"][1]}
+                self.assertDictEqual(
+                    parsed_obj, expected, msg="Line %r" % (test["line"])
+                )
 
     def testDefaultConfigFileParser_UnspecifiedValues(self):
         p = configargparse.DefaultConfigFileParser()
 
         # test the all syntax case
         config_lines = [
-            {'line': 'key ',                              'expected': ('key', 'true', None)},
-            {'line': 'key',                               'expected': ('key', 'true', None)},
-            {'line': 'key  ',                             'expected': ('key', 'true', None)},
-            {'line': ' key     ',                         'expected': ('key', 'true', None)},
+            {"line": "key ", "expected": ("key", "true", None)},
+            {"line": "key", "expected": ("key", "true", None)},
+            {"line": "key  ", "expected": ("key", "true", None)},
+            {"line": " key     ", "expected": ("key", "true", None)},
         ]
 
         for test in config_lines:
-            parsed_obj = p.parse(StringIO(test['line']))
-            parsed_obj = dict(parsed_obj)
-            expected = {test['expected'][0]: test['expected'][1]}
-            self.assertDictEqual(parsed_obj, expected,
-                    msg="Line %r" % (test['line']))
+            with self.subTest(test=test):
+                parsed_obj = p.parse(StringIO(test["line"]))
+                parsed_obj = dict(parsed_obj)
+                expected = {test["expected"][0]: test["expected"][1]}
+                self.assertDictEqual(
+                    parsed_obj, expected, msg="Line %r" % (test["line"])
+                )
 
     def testDefaultConfigFileParser_ColonEqualSignValue(self):
         p = configargparse.DefaultConfigFileParser()
 
         # test the all syntax case
         config_lines = [
-            {'line': 'key=:',                             'expected': ('key', ':', None)},
-            {'line': 'key =:',                            'expected': ('key', ':', None)},
-            {'line': 'key= :',                            'expected': ('key', ':', None)},
-            {'line': 'key = :',                           'expected': ('key', ':', None)},
-            {'line': 'key  =  :',                         'expected': ('key', ':', None)},
-            {'line': ' key  =  : ',                       'expected': ('key', ':', None)},
-            {'line': 'key:=',                             'expected': ('key', '=', None)},
-            {'line': 'key :=',                            'expected': ('key', '=', None)},
-            {'line': 'key: =',                            'expected': ('key', '=', None)},
-            {'line': 'key : =',                           'expected': ('key', '=', None)},
-            {'line': 'key  :  =',                         'expected': ('key', '=', None)},
-            {'line': ' key  :  = ',                       'expected': ('key', '=', None)},
-            {'line': 'key==',                             'expected': ('key', '=', None)},
-            {'line': 'key ==',                            'expected': ('key', '=', None)},
-            {'line': 'key= =',                            'expected': ('key', '=', None)},
-            {'line': 'key = =',                           'expected': ('key', '=', None)},
-            {'line': 'key  =  =',                         'expected': ('key', '=', None)},
-            {'line': ' key  =  = ',                       'expected': ('key', '=', None)},
-            {'line': 'key::',                             'expected': ('key', ':', None)},
-            {'line': 'key ::',                            'expected': ('key', ':', None)},
-            {'line': 'key: :',                            'expected': ('key', ':', None)},
-            {'line': 'key : :',                           'expected': ('key', ':', None)},
-            {'line': 'key  :  :',                         'expected': ('key', ':', None)},
-            {'line': ' key  :  : ',                       'expected': ('key', ':', None)},
+            {"line": "key=:", "expected": ("key", ":", None)},
+            {"line": "key =:", "expected": ("key", ":", None)},
+            {"line": "key= :", "expected": ("key", ":", None)},
+            {"line": "key = :", "expected": ("key", ":", None)},
+            {"line": "key  =  :", "expected": ("key", ":", None)},
+            {"line": " key  =  : ", "expected": ("key", ":", None)},
+            {"line": "key:=", "expected": ("key", "=", None)},
+            {"line": "key :=", "expected": ("key", "=", None)},
+            {"line": "key: =", "expected": ("key", "=", None)},
+            {"line": "key : =", "expected": ("key", "=", None)},
+            {"line": "key  :  =", "expected": ("key", "=", None)},
+            {"line": " key  :  = ", "expected": ("key", "=", None)},
+            {"line": "key==", "expected": ("key", "=", None)},
+            {"line": "key ==", "expected": ("key", "=", None)},
+            {"line": "key= =", "expected": ("key", "=", None)},
+            {"line": "key = =", "expected": ("key", "=", None)},
+            {"line": "key  =  =", "expected": ("key", "=", None)},
+            {"line": " key  =  = ", "expected": ("key", "=", None)},
+            {"line": "key::", "expected": ("key", ":", None)},
+            {"line": "key ::", "expected": ("key", ":", None)},
+            {"line": "key: :", "expected": ("key", ":", None)},
+            {"line": "key : :", "expected": ("key", ":", None)},
+            {"line": "key  :  :", "expected": ("key", ":", None)},
+            {"line": " key  :  : ", "expected": ("key", ":", None)},
         ]
 
         for test in config_lines:
-            parsed_obj = p.parse(StringIO(test['line']))
-            parsed_obj = dict(parsed_obj)
-            expected = {test['expected'][0]: test['expected'][1]}
-            self.assertDictEqual(parsed_obj, expected,
-                    msg="Line %r" % (test['line']))
+            with self.subTest(test=test):
+                parsed_obj = p.parse(StringIO(test["line"]))
+                parsed_obj = dict(parsed_obj)
+                expected = {test["expected"][0]: test["expected"][1]}
+                self.assertDictEqual(
+                    parsed_obj, expected, msg="Line %r" % (test["line"])
+                )
 
     def testDefaultConfigFileParser_ValuesWithComments(self):
         p = configargparse.DefaultConfigFileParser()
 
         # test the all syntax case
         config_lines = [
-            {'line': 'key=value#comment ',                'expected': ('key', 'value#comment', None)},
-            {'line': 'key=value #comment',                'expected': ('key', 'value', 'comment')},
-            {'line': ' key  =  value  #  comment',        'expected': ('key', 'value', 'comment')},
-            {'line': 'key:value#comment',                 'expected': ('key', 'value#comment', None)},
-            {'line': 'key:value #comment',                'expected': ('key', 'value', 'comment')},
-            {'line': ' key  :  value  #  comment',        'expected': ('key', 'value', 'comment')},
-            {'line': 'key=value;comment ',                'expected': ('key', 'value;comment', None)},
-            {'line': 'key=value ;comment',                'expected': ('key', 'value', 'comment')},
-            {'line': ' key  =  value  ;  comment',        'expected': ('key', 'value', 'comment')},
-            {'line': 'key:value;comment',                 'expected': ('key', 'value;comment', None)},
-            {'line': 'key:value ;comment',                'expected': ('key', 'value', 'comment')},
-            {'line': ' key  :  value  ;  comment',        'expected': ('key', 'value', 'comment')},
-            {'line': 'key = value # comment # comment',   'expected': ('key', 'value', 'comment # comment')},
-            {'line': 'key = "value # comment" # comment', 'expected': ('key', 'value # comment', 'comment')},
-            {'line': 'key = "#" ; comment',               'expected': ('key', '#', 'comment')},
-            {'line': 'key = ";" # comment',               'expected': ('key', ';', 'comment')},
+            {"line": "key=value#comment ", "expected": ("key", "value#comment", None)},
+            {"line": "key=value #comment", "expected": ("key", "value", "comment")},
+            {
+                "line": " key  =  value  #  comment",
+                "expected": ("key", "value", "comment"),
+            },
+            {"line": "key:value#comment", "expected": ("key", "value#comment", None)},
+            {"line": "key:value #comment", "expected": ("key", "value", "comment")},
+            {
+                "line": " key  :  value  #  comment",
+                "expected": ("key", "value", "comment"),
+            },
+            {"line": "key=value;comment ", "expected": ("key", "value;comment", None)},
+            {"line": "key=value ;comment", "expected": ("key", "value", "comment")},
+            {
+                "line": " key  =  value  ;  comment",
+                "expected": ("key", "value", "comment"),
+            },
+            {"line": "key:value;comment", "expected": ("key", "value;comment", None)},
+            {"line": "key:value ;comment", "expected": ("key", "value", "comment")},
+            {
+                "line": " key  :  value  ;  comment",
+                "expected": ("key", "value", "comment"),
+            },
+            {
+                "line": "key = value # comment # comment",
+                "expected": ("key", "value", "comment # comment"),
+            },
+            {
+                "line": 'key = "value # comment" # comment',
+                "expected": ("key", "value # comment", "comment"),
+            },
+            {"line": 'key = "#" ; comment', "expected": ("key", "#", "comment")},
+            {"line": 'key = ";" # comment', "expected": ("key", ";", "comment")},
         ]
 
         for test in config_lines:
-            parsed_obj = p.parse(StringIO(test['line']))
-            parsed_obj = dict(parsed_obj)
-            expected = {test['expected'][0]: test['expected'][1]}
-            self.assertDictEqual(parsed_obj, expected,
-                    msg="Line %r" % (test['line']))
+            with self.subTest(test=test):
+                parsed_obj = p.parse(StringIO(test["line"]))
+                parsed_obj = dict(parsed_obj)
+                expected = {test["expected"][0]: test["expected"][1]}
+                self.assertDictEqual(
+                    parsed_obj, expected, msg="Line %r" % (test["line"])
+                )
 
     def testDefaultConfigFileParser_NegativeValues(self):
         p = configargparse.DefaultConfigFileParser()
 
         # test the all syntax case
         config_lines = [
-            {'line': 'key = -10',                       'expected': ('key', '-10', None)},
-            {'line': 'key : -10',                       'expected': ('key', '-10', None)},
-            {'line': 'key -10',                         'expected': ('key', '-10', None)},
-            {'line': 'key = "-10"',                     'expected': ('key', '-10', None)},
-            {'line': "key  =  '-10'",                   'expected': ('key', '-10', None)},
-            {'line': 'key=-10',                         'expected': ('key', '-10', None)},
+            {"line": "key = -10", "expected": ("key", "-10", None)},
+            {"line": "key : -10", "expected": ("key", "-10", None)},
+            {"line": "key -10", "expected": ("key", "-10", None)},
+            {"line": 'key = "-10"', "expected": ("key", "-10", None)},
+            {"line": "key  =  '-10'", "expected": ("key", "-10", None)},
+            {"line": "key=-10", "expected": ("key", "-10", None)},
         ]
 
         for test in config_lines:
-            parsed_obj = p.parse(StringIO(test['line']))
-            parsed_obj = dict(parsed_obj)
-            expected = {test['expected'][0]: test['expected'][1]}
-            self.assertDictEqual(parsed_obj, expected,
-                    msg="Line %r" % (test['line']))
+            with self.subTest(test=test):
+                parsed_obj = p.parse(StringIO(test["line"]))
+                parsed_obj = dict(parsed_obj)
+                expected = {test["expected"][0]: test["expected"][1]}
+                self.assertDictEqual(
+                    parsed_obj, expected, msg="Line %r" % (test["line"])
+                )
 
     def testDefaultConfigFileParser_KeySyntax(self):
         p = configargparse.DefaultConfigFileParser()
 
         # test the all syntax case
         config_lines = [
-            {'line': 'key_underscore = value',            'expected': ('key_underscore', 'value', None)},
-            {'line': 'key_underscore=',                   'expected': ('key_underscore', '', None)},
-            {'line': 'key_underscore',                    'expected': ('key_underscore', 'true', None)},
-            {'line': '_key_underscore = value',           'expected': ('_key_underscore', 'value', None)},
-            {'line': '_key_underscore=',                  'expected': ('_key_underscore', '', None)},
-            {'line': '_key_underscore',                   'expected': ('_key_underscore', 'true', None)},
-            {'line': 'key_underscore_ = value',           'expected': ('key_underscore_', 'value', None)},
-            {'line': 'key_underscore_=',                  'expected': ('key_underscore_', '', None)},
-            {'line': 'key_underscore_',                   'expected': ('key_underscore_', 'true', None)},
-            {'line': 'key-dash = value',                  'expected': ('key-dash', 'value', None)},
-            {'line': 'key-dash=',                         'expected': ('key-dash', '', None)},
-            {'line': 'key-dash',                          'expected': ('key-dash', 'true', None)},
-            {'line': 'key@word = value',                  'expected': ('key@word', 'value', None)},
-            {'line': 'key@word=',                         'expected': ('key@word', '', None)},
-            {'line': 'key@word',                          'expected': ('key@word', 'true', None)},
-            {'line': 'key$word = value',                  'expected': ('key$word', 'value', None)},
-            {'line': 'key$word=',                         'expected': ('key$word', '', None)},
-            {'line': 'key$word',                          'expected': ('key$word', 'true', None)},
-            {'line': 'key.word = value',                  'expected': ('key.word', 'value', None)},
-            {'line': 'key.word=',                         'expected': ('key.word', '', None)},
-            {'line': 'key.word',                          'expected': ('key.word', 'true', None)},
+            {
+                "line": "key_underscore = value",
+                "expected": ("key_underscore", "value", None),
+            },
+            {"line": "key_underscore=", "expected": ("key_underscore", "", None)},
+            {"line": "key_underscore", "expected": ("key_underscore", "true", None)},
+            {
+                "line": "_key_underscore = value",
+                "expected": ("_key_underscore", "value", None),
+            },
+            {"line": "_key_underscore=", "expected": ("_key_underscore", "", None)},
+            {"line": "_key_underscore", "expected": ("_key_underscore", "true", None)},
+            {
+                "line": "key_underscore_ = value",
+                "expected": ("key_underscore_", "value", None),
+            },
+            {"line": "key_underscore_=", "expected": ("key_underscore_", "", None)},
+            {"line": "key_underscore_", "expected": ("key_underscore_", "true", None)},
+            {"line": "key-dash = value", "expected": ("key-dash", "value", None)},
+            {"line": "key-dash=", "expected": ("key-dash", "", None)},
+            {"line": "key-dash", "expected": ("key-dash", "true", None)},
+            {"line": "key@word = value", "expected": ("key@word", "value", None)},
+            {"line": "key@word=", "expected": ("key@word", "", None)},
+            {"line": "key@word", "expected": ("key@word", "true", None)},
+            {"line": "key$word = value", "expected": ("key$word", "value", None)},
+            {"line": "key$word=", "expected": ("key$word", "", None)},
+            {"line": "key$word", "expected": ("key$word", "true", None)},
+            {"line": "key.word = value", "expected": ("key.word", "value", None)},
+            {"line": "key.word=", "expected": ("key.word", "", None)},
+            {"line": "key.word", "expected": ("key.word", "true", None)},
         ]
 
         for test in config_lines:
-            parsed_obj = p.parse(StringIO(test['line']))
-            parsed_obj = dict(parsed_obj)
-            expected = {test['expected'][0]: test['expected'][1]}
-            self.assertDictEqual(parsed_obj, expected,
-                    msg="Line %r" % (test['line']))
+            with self.subTest(test=test):
+                parsed_obj = p.parse(StringIO(test["line"]))
+                parsed_obj = dict(parsed_obj)
+                expected = {test["expected"][0]: test["expected"][1]}
+                self.assertDictEqual(
+                    parsed_obj, expected, msg="Line %r" % (test["line"])
+                )
 
     def testYAMLConfigFileParser_Basic(self):
         try:
             import yaml
         except:
-            logging.warning("WARNING: PyYAML not installed. "
-                            "Couldn't test YAMLConfigFileParser")
+            logging.warning(
+                "WARNING: PyYAML not installed. " "Couldn't test YAMLConfigFileParser"
+            )
             return
 
         p = configargparse.YAMLConfigFileParser()
@@ -1447,14 +1936,15 @@ class TestConfigFileParsers(TestCase):
 
         self.assertEqual(input_config_str.getvalue(), output_config_str)
 
-        self.assertDictEqual(parsed_obj, {'a': '3'})
+        self.assertDictEqual(parsed_obj, {"a": "3"})
 
     def testYAMLConfigFileParser_All(self):
         try:
             import yaml
         except:
-            logging.warning("WARNING: PyYAML not installed. "
-                            "Couldn't test YAMLConfigFileParser")
+            logging.warning(
+                "WARNING: PyYAML not installed. " "Couldn't test YAMLConfigFileParser"
+            )
             return
 
         p = configargparse.YAMLConfigFileParser()
@@ -1469,40 +1959,317 @@ class TestConfigFileParsers(TestCase):
         ]
 
         # test parse
-        input_config_str = StringIO("\n".join(config_lines)+"\n")
+        input_config_str = StringIO("\n".join(config_lines) + "\n")
         parsed_obj = p.parse(input_config_str)
 
         # test serialize
         output_config_str = p.serialize(parsed_obj)
         self.assertEqual(input_config_str.getvalue(), output_config_str)
 
-        self.assertDictEqual(parsed_obj, {'a': '3', 'list_arg': [1,2,3]})
+        self.assertDictEqual(parsed_obj, {"a": "3", "list_arg": [1, 2, 3]})
 
     def testYAMLConfigFileParser_w_ArgumentParser_parsed_values(self):
         try:
             import yaml
         except:
-            raise AssertionError("WARNING: PyYAML not installed. "
-                            "Couldn't test YAMLConfigFileParser")
+            raise AssertionError(
+                "WARNING: PyYAML not installed. " "Couldn't test YAMLConfigFileParser"
+            )
             return
-        
-        parser = configargparse.ArgumentParser(config_file_parser_class=configargparse.YAMLConfigFileParser)
-        parser.add_argument('-c', '--config', is_config_file=True)
-        parser.add_argument('--verbosity', action='count')
-        parser.add_argument('--verbose', action='store_true')
-        parser.add_argument('--level', type=int)
 
-        config_lines = ["verbosity: 3", 
-                        "verbose: true", 
-                        "level: 35"]
-        config_str = "\n".join(config_lines)+"\n"
-        config_file = tempfile.gettempdir()+"/temp_YAMLConfigFileParser.cfg"
-        with open(config_file, 'w') as f:
+        parser = configargparse.ArgumentParser(
+            config_file_parser_class=configargparse.YAMLConfigFileParser
+        )
+        parser.add_argument("-c", "--config", is_config_file=True)
+        parser.add_argument("--verbosity", action="count")
+        parser.add_argument("--verbose", action="store_true")
+        parser.add_argument("--level", type=int)
+
+        config_lines = ["verbosity: 3", "verbose: true", "level: 35"]
+        config_str = "\n".join(config_lines) + "\n"
+        config_file = tempfile.gettempdir() + "/temp_YAMLConfigFileParser.cfg"
+        with open(config_file, "w") as f:
             f.write(config_str)
-        args = parser.parse_args(["--config=%s"%config_file])
+        args = parser.parse_args(["--config=%s" % config_file])
         assert args.verbosity == 3
         assert args.verbose == True
         assert args.level == 35
+
+
+class TestTomlConfigParser(unittest.TestCase):
+    def write_toml_file(self, content, obj=StringIO):
+        f = obj()
+        dedent = lambda x: x
+        if isinstance(content, str):
+            dedent = textwrap.dedent
+        f.write(dedent(content))
+        f.seek(0)
+        return f
+
+    def test_section(self):
+        f = self.write_toml_file("""
+            [section]
+            key1 = 'toml1'
+            key2 = 'toml2'
+            """)
+        parser = configargparse.TomlConfigParser(["section"])
+        self.assertEqual(parser.parse(f), {"key1": "toml1", "key2": "toml2"})
+
+    def test_no_sections(self):
+        f = self.write_toml_file("""
+            [section]
+            key1 = 'toml1'
+            key2 = 'toml2'
+            """)
+        parser = configargparse.TomlConfigParser([])
+        self.assertEqual(parser.parse(f), {})
+
+    def test_empty_section(self):
+        f = self.write_toml_file("[section]")
+        parser = configargparse.TomlConfigParser(["section"])
+        self.assertEqual(parser.parse(f), {})
+
+    def test_empty_file(self):
+        f = self.write_toml_file("")
+        parser = configargparse.TomlConfigParser(["section"])
+        self.assertEqual(parser.parse(f), {})
+
+    @unittest.expectedFailure  # Ints should be strings
+    def test_advanced(self):
+        f = self.write_toml_file("""
+            [tool.section]
+            key1 = "toml1"
+            key2 = [1, 2, 3]
+            """)
+        parser = configargparse.TomlConfigParser(["tool.section"])
+        self.assertEqual(parser.parse(f), {"key1": "toml1", "key2": ["1", "2", "3"]})
+
+    @unittest.skipIf(
+        sys.version_info < (3, 11),
+        "Binary mode only supported with tomllib (Python 3.11+)",
+    )
+    def test_binary_read_works(self):
+        # Binary mode now works with tomllib (Python 3.11+)
+        f = self.write_toml_file(
+            b"""[tool.section]\nkey1 = "toml1"
+            """,
+            obj=BytesIO,
+        )
+        parser = configargparse.TomlConfigParser(["tool.section"])
+        # Should successfully parse binary stream
+        self.assertEqual(parser.parse(f), {"key1": "toml1"})
+
+    @unittest.skipIf(
+        sys.version_info >= (3, 11),
+        "On Python 3.11+, tomllib handles binary; this tests the toml package fallback",
+    )
+    def test_binary_read_fails_without_tomllib(self):
+        # Without tomllib (Python < 3.11), binary streams should fail
+        f = self.write_toml_file(
+            b"""[section]\nkey1 = "toml1"\n""",
+            obj=BytesIO,
+        )
+        parser = configargparse.TomlConfigParser(["section"])
+        with self.assertRaises(configargparse.ConfigFileParserException):
+            parser.parse(f)
+
+    def test_serialize_with_section(self):
+        parser = configargparse.TomlConfigParser(["section"])
+        try:
+            import toml
+        except ImportError:
+            self.skipTest("toml package not installed")
+        items = OrderedDict([("key1", "val1"), ("key2", "val2")])
+        result = parser.serialize(items)
+        # Verify round-trip: parse the serialized output
+        parsed = parser.parse(StringIO(result))
+        self.assertEqual(parsed, {"key1": "val1", "key2": "val2"})
+
+    def test_serialize_nested_section(self):
+        parser = configargparse.TomlConfigParser(["tool.section"])
+        try:
+            import toml
+        except ImportError:
+            self.skipTest("toml package not installed")
+        items = OrderedDict([("key1", "val1")])
+        result = parser.serialize(items)
+        parsed = parser.parse(StringIO(result))
+        self.assertEqual(parsed, {"key1": "val1"})
+
+    def test_serialize_no_sections(self):
+        parser = configargparse.TomlConfigParser([])
+        try:
+            import toml
+        except ImportError:
+            self.skipTest("toml package not installed")
+        items = OrderedDict([("key1", "val1")])
+        result = parser.serialize(items)
+        self.assertIn("key1", result)
+
+    def test_serialize_without_toml_package(self):
+        parser = configargparse.TomlConfigParser(["section"])
+        items = OrderedDict([("key1", "val1")])
+        # Mock tomllib import succeeding but toml import failing
+        import unittest.mock as mock
+
+        with mock.patch.dict(sys.modules, {"toml": None}):
+            with self.assertRaises(configargparse.ConfigFileParserException):
+                parser.serialize(items)
+
+
+class TestIniConfigParserSerialize(unittest.TestCase):
+    def test_serialize_basic(self):
+        parser = configargparse.IniConfigParser(["section"], False)
+        items = OrderedDict([("key1", "val1"), ("key2", "val2")])
+        result = parser.serialize(items)
+        # Verify round-trip
+        parsed = parser.parse(StringIO(result))
+        self.assertEqual(parsed, {"key1": "val1", "key2": "val2"})
+
+    def test_serialize_list_as_python_syntax(self):
+        parser = configargparse.IniConfigParser(["section"], False)
+        items = OrderedDict([("key1", ["a", "b", "c"])])
+        result = parser.serialize(items)
+        parsed = parser.parse(StringIO(result))
+        self.assertEqual(parsed, {"key1": ["a", "b", "c"]})
+
+    def test_serialize_list_multiline(self):
+        parser = configargparse.IniConfigParser(["section"], True)
+        items = OrderedDict([("key1", ["a", "b", "c"])])
+        result = parser.serialize(items)
+        # Should use multiline format
+        self.assertIn("\n", result.split("key1")[1])
+
+    def test_serialize_default_section(self):
+        parser = configargparse.IniConfigParser([], False)
+        items = OrderedDict([("key1", "val1")])
+        result = parser.serialize(items)
+        self.assertIn("key1", result)
+
+
+class TestCompositeConfigParser(unittest.TestCase):
+    def setUp(self):
+        self.tmpdir = tempfile.TemporaryDirectory()
+        self.old_cwd = os.getcwd()
+        os.chdir(self.tmpdir.name)
+        self.parser = configargparse.ArgParser(
+            description="test",
+            default_config_files=["config.yaml", "config.toml", "config.ini"],
+            config_file_parser_class=configargparse.CompositeConfigParser(
+                [
+                    configargparse.IniConfigParser(["section"], False),
+                    configargparse.TomlConfigParser(["section"]),
+                    configargparse.YAMLConfigFileParser,
+                ]
+            ),
+        )
+        self.parser.add_argument("--config", is_config_file=True)
+        self.parser.add_argument("--key1", type=str)
+        self.parser.add_argument("--key2", type=str)
+
+    def tearDown(self):
+        os.chdir(self.old_cwd)
+        self.tmpdir.cleanup()
+
+    def write_yaml_file(self, content="[section]\nkey1: yaml1\nkey2: yaml2"):
+        with open("config.yaml", "w") as f:
+            f.write(content)
+
+    def write_ini_file(
+        self, content="[section]\nkey1=ini1\nkey2=ini2\n; this is an ini comment"
+    ):
+        with open("config.ini", "w") as f:
+            f.write(content)
+
+    def write_toml_file(
+        self,
+        content="[section]\nkey1 = 'toml1'\nkey2 = 'toml2'\nspecial.key = { a = 1 }\n# this is a toml comment",
+    ):
+        with open("config.toml", "w") as f:
+            f.write(content)
+
+    def write_toml_file_extra(self):
+        self.write_toml_file()
+        with open("config.toml", "a") as f:
+            f.write("\nkey3 = 'toml3'\nkey4 = 'toml4'")
+
+    def test_plain(self):
+        self.assertEqual(
+            vars(self.parser.parse_args([])),
+            {"config": None, "key1": None, "key2": None},
+        )
+
+    @unittest.expectedFailure  # unknown fields should be ignored
+    def test_with_all_configs(self):
+        self.write_yaml_file()
+        self.write_ini_file()
+        self.write_toml_file()
+        self.assertEqual(
+            vars(self.parser.parse_args([])),
+            {"config": None, "key1": "ini1", "key2": "ini2"},
+        )
+
+    @unittest.expectedFailure  # unknown fields should be ignored
+    def test_with_all_configs_override(self):
+        self.write_yaml_file()
+        self.write_ini_file()
+        self.write_toml_file()
+        self.assertEqual(
+            vars(self.parser.parse_args(["--key1", "val1"])),
+            {"config": None, "key1": "val1", "key2": "ini2"},
+        )
+
+    def test_missing_primary_config(self):
+        self.write_yaml_file()
+        self.assertEqual(
+            vars(self.parser.parse_args([])),
+            {"config": None, "key1": "yaml1", "key2": "yaml2"},
+        )
+
+    @unittest.expectedFailure  # unknown fields should be ignored
+    def test_toml(self):
+        self.write_yaml_file()
+        self.write_toml_file()
+        self.assertEqual(
+            vars(self.parser.parse_args([])),
+            {"config": None, "key1": "toml1", "key2": "toml2"},
+        )
+
+    @unittest.expectedFailure  # unknown fields should be ignored
+    def test_override_primary_config(self):
+        self.write_yaml_file()
+        self.write_ini_file()
+        self.write_toml_file()
+        self.assertEqual(
+            vars(self.parser.parse_args(["--config", "config.yaml"])),
+            {"config": "config.yaml", "key1": "yaml1", "key2": "yaml2"},
+        )
+
+    def test_toml_extra(self):
+        self.write_yaml_file()
+        self.write_ini_file()
+        self.write_toml_file_extra()
+        with self.assertRaises(SystemExit):
+            self.parser.parse_args([])
+
+    def test_composite_serialize_delegates_to_first_parser(self):
+        composite = configargparse.CompositeConfigParser(
+            [
+                configargparse.IniConfigParser(["section"], False),
+                configargparse.DefaultConfigFileParser,
+            ]
+        )()
+        items = OrderedDict([("key1", "val1"), ("key2", "val2")])
+        result = composite.serialize(items)
+        # Should use INI format (first parser)
+        self.assertIn("[section]", result)
+        self.assertIn("key1 = val1", result)
+
+    def test_composite_serialize_empty_parsers(self):
+        composite = configargparse.CompositeConfigParser([])()
+        with self.assertRaises(configargparse.ConfigFileParserException):
+            composite.serialize(OrderedDict())
+
 
 ################################################################################
 # since configargparse should work as a drop-in replacement for argparse
@@ -1511,21 +2278,27 @@ class TestConfigFileParsers(TestCase):
 
 try:
     import test.test_argparse
-    #Sig = test.test_argparse.Sig
-    #NS = test.test_argparse.NS
+
+    # Sig = test.test_argparse.Sig
+    # NS = test.test_argparse.NS
 except ImportError:
-    logging.error("\n\n"
+    logging.error(
+        "\n\n"
         "============================\n"
         "ERROR: Many tests couldn't be run because 'import test.test_argparse' "
         "failed. Try building/installing python from source rather than through"
         " a package manager.\n"
-        "============================\n")
+        "============================\n"
+    )
 else:
     test_argparse_source_code = inspect.getsource(test.test_argparse)
-    test_argparse_source_code = test_argparse_source_code.replace(
-        'argparse.ArgumentParser', 'configargparse.ArgumentParser').replace(
-        'TestHelpFormattingMetaclass', '_TestHelpFormattingMetaclass').replace(
-        'test_main', '_test_main')
+    test_argparse_source_code = (
+        test_argparse_source_code.replace(
+            "argparse.ArgumentParser", "configargparse.ArgumentParser"
+        )
+        .replace("TestHelpFormattingMetaclass", "_TestHelpFormattingMetaclass")
+        .replace("test_main", "_test_main")
+    )
 
     # pytest tries to collect tests from TestHelpFormattingMetaclass, and
     # test_main, and raises a warning when it finds it's not a test class
@@ -1533,24 +2306,24 @@ else:
     # prevents pytest from trying.
 
     # run or debug a subset of the argparse tests
-    #test_argparse_source_code = test_argparse_source_code.replace(
+    # test_argparse_source_code = test_argparse_source_code.replace(
     #   "(TestCase)", "").replace(
     #   "(ParserTestCase)", "").replace(
     #   "(HelpTestCase)", "").replace(
     #   ", TestCase", "").replace(
     #   ", ParserTestCase", "")
-    #test_argparse_source_code = test_argparse_source_code.replace(
+    # test_argparse_source_code = test_argparse_source_code.replace(
     #   "class TestMessageContentError", "class TestMessageContentError(TestCase)")
 
     exec(test_argparse_source_code)
 
     # print argparse unittest source code
     def print_source_code(source_code, line_numbers, context_lines=10):
-         for n in line_numbers:
-             logging.debug("##### Code around line %s #####" % n)
-             lines_to_print = set(range(n - context_lines, n + context_lines))
-             for n2, line in enumerate(source_code.split("\n"), 1):
-                 if n2 in lines_to_print:
-                     logging.debug("%s %5d: %s" % (
-                        "**" if n2 == n else "  ", n2, line))
-    #print_source_code(test_argparse_source_code, [4540, 4565])
+        for n in line_numbers:
+            logging.debug("##### Code around line %s #####" % n)
+            lines_to_print = set(range(n - context_lines, n + context_lines))
+            for n2, line in enumerate(source_code.split("\n"), 1):
+                if n2 in lines_to_print:
+                    logging.debug("%s %5d: %s" % ("**" if n2 == n else "  ", n2, line))
+
+    # print_source_code(test_argparse_source_code, [4540, 4565])

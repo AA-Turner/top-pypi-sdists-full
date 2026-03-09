@@ -85,10 +85,8 @@ class Config(BaseModel):
     def from_file(cls, path: str | Path) -> Config:
         """Load and validate config from JSON file.
 
-        Automatically loads .env files co-located with the config file before
-        performing variable substitution. Lookup order:
-          1. .env.<stem>  (e.g. .env.pranav for dev-config-pranav.json)
-          2. .env
+        Automatically loads a .env file co-located with the config file before
+        performing variable substitution.
         """
         path = Path(path).expanduser().resolve()
 

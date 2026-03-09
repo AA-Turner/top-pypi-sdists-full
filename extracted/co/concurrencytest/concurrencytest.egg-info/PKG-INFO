@@ -1,41 +1,40 @@
 Metadata-Version: 2.4
 Name: concurrencytest
-Version: 0.1.6
+Version: 0.1.9
 Summary: Python testtools extension for running unittest test suites concurrently
-Home-page: https://github.com/cgoldberg/concurrencytest
-Download-URL: https://pypi.org/project/concurrencytest
 Author: Corey Goldberg
-License: GNU GPLv2+
+Maintainer: Corey Goldberg
+License-Expression: GPL-2.0-or-later
+Project-URL: homepage, https://github.com/cgoldberg/concurrencytest
+Project-URL: source, https://github.com/cgoldberg/concurrencytest
+Project-URL: download, https://pypi.org/project/concurrencytest
 Keywords: test,testing,testtools,unittest,concurrency,parallel
 Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Information Technology
 Classifier: Operating System :: POSIX
 Classifier: Operating System :: Unix
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Software Development :: Testing
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: python-subunit
 Requires-Dist: testtools
-Dynamic: author
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: download-url
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
 Dynamic: license-file
-Dynamic: requires-dist
-Dynamic: summary
 
 concurrencytest
 ===============
 
 ![testing goats](https://raw.github.com/cgoldberg/concurrencytest/master/testing-goats.png "testing goats")
 
-Python testtools extension for running unittest test suites concurrently.
+### Python testtools extension for running unittest test suites concurrently.
 
 ----
 
@@ -46,6 +45,24 @@ Python testtools extension for running unittest test suites concurrently.
 - Original code from:
   - Bazaar (`bzrlib.tests.__init__.py`, v2.6, copied Jun 01 2013)
   - Copyright (c) 2005-2011 Canonical Ltd
+
+----
+
+## About
+
+`concurrencytest` allows you to parallelize a `unittest` tests across a configurable
+number of worker processes. Tests are assigned to worker processes in a round-robin
+fashion.
+
+This module provides the `ConcurrentTestSuite` class from `testtools` and the
+`fork_for_tests` function (`make_tests` implementation needed to use
+`ConcurrentTestSuite`).
+
+You can specify the number of worker process to use when calling `fork_for_tests`, or
+use the default concurrecy (1 process per available CPU core).
+
+For more info about writing/running tests with the `unittest` testing framework, see
+the [official documentation](https://docs.python.org/library/unittest.html).
 
 ----
 

@@ -19,7 +19,7 @@ import warnings
 from collections import Counter
 from collections.abc import Iterable
 from itertools import chain
-from typing import Callable
+from typing import Any, Callable
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -1651,6 +1651,12 @@ class Stylometry:
         filename: str | None = None,
         random_state: int = 42,
         show: bool = True,
+        show_loadings: bool = False,
+        n_loadings: int = 20,
+        loading_by: str = 'overall',
+        loading_scale: float = 1.0,
+        loading_alpha: float = 0.5,
+        loading_color: str = 'gray',
     ) -> tuple[plt.Figure, plt.Axes] | None:
         """
         Create a 2D scatter plot of documents or authors.
@@ -1668,6 +1674,17 @@ class Stylometry:
             filename: If provided, save figure to this path
             random_state: Random seed for t-SNE/MDS
             show: If True, display plot. If False, return (fig, ax).
+            show_loadings: If True, show feature loading arrows (PCA biplot). Only works
+                with method='pca'.
+            n_loadings: Number of top features to show as loading arrows.
+            loading_by: How to select top features for loadings:
+                - 'overall': Select top N features by loading magnitude (default)
+                - 'author': Select top N features per author based on centroid direction
+                  alignment (shows which features characterize each author)
+            loading_scale: Scaling factor for loading arrows (default 1.0).
+            loading_alpha: Transparency of loading arrows (default 0.5).
+            loading_color: Color of loading arrows for 'overall' mode (default 'gray').
+                In 'author' mode, arrows use author colors.
         
         Returns:
             None if show=True, otherwise (fig, ax) tuple.
@@ -1679,6 +1696,16 @@ class Stylometry:
         
         if method not in ('pca', 'tsne', 'mds'):
             raise ValueError(f"method must be 'pca', 'tsne', or 'mds', got '{method}'")
+        
+        if show_loadings and method != 'pca':
+            logger.warning(
+                f"show_loadings=True only works with method='pca', not '{method}'. "
+                "Loadings will not be displayed."
+            )
+            show_loadings = False
+        
+        if loading_by not in ('overall', 'author'):
+            raise ValueError(f"loading_by must be 'overall' or 'author', got '{loading_by}'")
         
         vectors, doc_labels = self._get_vectors_and_labels(level)
         author_for_point = self.document_labels if level == 'document' else self.authors
@@ -1694,7 +1721,7 @@ class Stylometry:
         if len(vectors) < 2:
             raise ValueError("Need at least 2 items to create a plot")
         
-        coords, axis_labels = self._reduce_dimensions(vectors, method, random_state)
+        coords, axis_labels, pca_reducer = self._reduce_dimensions(vectors, method, random_state)
         
         if coords.ndim == 1 or coords.shape[1] == 1:
             coords = np.column_stack([coords.flatten(), np.zeros(len(vectors))])
@@ -1703,20 +1730,48 @@ class Stylometry:
         
         is_unsupervised = len(unique_authors) == 1 and unique_authors[0] == 'unk'
         
+        # Build color map for authors
+        cmap = matplotlib.colormaps['tab10']
+        if colors is None:
+            color_map = {author: cmap(i % 10) for i, author in enumerate(unique_authors)}
+        else:
+            color_map = colors
+        
         if is_unsupervised:
             self._plot_unsupervised(ax, coords, doc_labels, show_labels, marker_size, fontsize)
         else:
-            cmap = matplotlib.colormaps['tab10']
             self._plot_supervised(
                 ax, coords, doc_labels, author_for_point, unique_authors,
                 colors, show_labels, marker_size, fontsize, cmap
             )
         
+        # Draw loading arrows for PCA biplot
+        loading_scale_used = None
+        if show_loadings and pca_reducer is not None:
+            loading_scale_used = self._plot_loadings(
+                ax=ax,
+                coords=coords,
+                pca=pca_reducer,
+                n_loadings=n_loadings,
+                loading_by=loading_by,
+                loading_scale=loading_scale,
+                loading_alpha=loading_alpha,
+                loading_color=loading_color,
+                fontsize=fontsize,
+                author_for_point=author_for_point if loading_by == 'author' else None,
+                color_map=color_map if loading_by == 'author' else None,
+            )
+        
         ax.set_xlabel(axis_labels[0], fontsize=fontsize + 2)
         ax.set_ylabel(axis_labels[1], fontsize=fontsize + 2)
         
-        if title:
-            ax.set_title(title, fontsize=fontsize + 4)
+        # Build title with loading scale info if applicable
+        plot_title = title
+        if show_loadings and loading_scale_used is not None and title is None:
+            plot_title = f"PCA with Top Feature Loadings (×{loading_scale_used:.0f})"
+        
+        if plot_title:
+            ax.set_title(plot_title, fontsize=fontsize + 4)
         
         ax.grid(True, alpha=0.3, linestyle='--')
         plt.tight_layout()
@@ -1735,8 +1790,14 @@ class Stylometry:
         vectors: np.ndarray,
         method: str,
         random_state: int,
-    ) -> tuple[np.ndarray, tuple[str, str]]:
-        """Reduce high-dimensional vectors to 2D for visualization."""
+    ) -> tuple[np.ndarray, tuple[str, str], Any]:
+        """Reduce high-dimensional vectors to 2D for visualization.
+        
+        Returns:
+            Tuple of (coords, axis_labels, reducer) where reducer is the fitted
+            PCA object when method='pca', or None for other methods.
+        """
+        reducer_out = None
         if method == 'pca':
             from sklearn.decomposition import PCA
             reducer = PCA(n_components=min(2, len(vectors)))
@@ -1744,11 +1805,12 @@ class Stylometry:
             var_explained = reducer.explained_variance_ratio_
             if len(var_explained) >= 2:
                 axis_labels = (
-                    f'PC1 ({var_explained[0]*100:.1f}% variance)',
-                    f'PC2 ({var_explained[1]*100:.1f}% variance)'
+                    f'PC1 ({var_explained[0]*100:.1f}%)',
+                    f'PC2 ({var_explained[1]*100:.1f}%)'
                 )
             else:
-                axis_labels = (f'PC1 ({var_explained[0]*100:.1f}% variance)', 'PC2')
+                axis_labels = (f'PC1 ({var_explained[0]*100:.1f}%)', 'PC2')
+            reducer_out = reducer
         elif method == 'tsne':
             from sklearn.manifold import TSNE
             perplexity = min(30, len(vectors) - 1)
@@ -1761,7 +1823,7 @@ class Stylometry:
             coords = reducer.fit_transform(vectors)
             axis_labels = ('MDS 1', 'MDS 2')
         
-        return coords, axis_labels
+        return coords, axis_labels, reducer_out
     
     def _plot_unsupervised(
         self,
@@ -1826,6 +1888,137 @@ class Stylometry:
         
         ax.legend(loc='best', fontsize=fontsize - 2)
     
+    def _plot_loadings(
+        self,
+        ax: plt.Axes,
+        coords: np.ndarray,
+        pca: Any,
+        n_loadings: int,
+        loading_by: str,
+        loading_scale: float,
+        loading_alpha: float,
+        loading_color: str,
+        fontsize: int,
+        author_for_point: list[str] | None = None,
+        color_map: dict[str, Any] | None = None,
+    ) -> float:
+        """Draw feature loading arrows for PCA biplot.
+        
+        Args:
+            ax: Matplotlib axes to draw on
+            coords: PCA-transformed coordinates, shape (n_points, 2)
+            pca: Fitted PCA object (must have components_ attribute)
+            n_loadings: Number of top features to display
+            loading_by: 'overall' or 'author'
+            loading_scale: Multiplier to scale arrow lengths
+            loading_alpha: Arrow transparency (0-1)
+            loading_color: Arrow color (for overall mode)
+            fontsize: Base font size for labels
+            author_for_point: Author label for each point (required for 'author' mode)
+            color_map: Author to color mapping (for 'author' mode)
+            
+        Returns:
+            The computed scale factor used for the loadings.
+        """
+        loadings = pca.components_.T  # Shape: (n_features, 2)
+        
+        # Scale loadings to fit data range
+        data_max = np.max(np.abs(coords))
+        loading_max = np.max(np.abs(loadings))
+        scale = (data_max / loading_max) * loading_scale
+        
+        if loading_by == 'overall' or author_for_point is None:
+            # Overall mode: top N by magnitude
+            magnitudes = np.sqrt(loadings[:, 0]**2 + loadings[:, 1]**2)
+            top_indices = np.argsort(magnitudes)[-n_loadings:]
+            self._draw_loading_arrows(
+                ax, loadings, top_indices, scale,
+                loading_color, loading_alpha, fontsize
+            )
+        else:
+            # Per-author mode: top N per author by centroid alignment
+            unique_authors = list(dict.fromkeys(author_for_point))  # Preserve order
+            drawn_features = set()  # Track which features we've drawn
+            
+            for author in unique_authors:
+                # Get author's centroid in PCA space
+                author_mask = np.array([a == author for a in author_for_point])
+                author_coords = coords[author_mask]
+                centroid = author_coords.mean(axis=0)
+                
+                # Normalize centroid direction
+                centroid_norm = np.linalg.norm(centroid)
+                if centroid_norm < 1e-10:
+                    continue
+                centroid_dir = centroid / centroid_norm
+                
+                # Cosine similarity: loading · centroid_dir
+                similarities = loadings @ centroid_dir
+                
+                # Top N features aligned with this author's direction
+                # Exclude features already drawn for other authors
+                sorted_indices = np.argsort(similarities)[::-1]
+                top_indices = []
+                for idx in sorted_indices:
+                    if idx not in drawn_features:
+                        top_indices.append(idx)
+                        drawn_features.add(idx)
+                    if len(top_indices) >= n_loadings:
+                        break
+                
+                # Use author's color
+                color = color_map.get(author, loading_color) if color_map else loading_color
+                self._draw_loading_arrows(
+                    ax, loadings, top_indices, scale,
+                    color, loading_alpha, fontsize
+                )
+        
+        # Draw reference lines at x=0 and y=0
+        ax.axhline(y=0, color='gray', linestyle='--', linewidth=0.5, alpha=0.5)
+        ax.axvline(x=0, color='gray', linestyle='--', linewidth=0.5, alpha=0.5)
+        
+        return scale
+    
+    def _draw_loading_arrows(
+        self,
+        ax: plt.Axes,
+        loadings: np.ndarray,
+        indices: list[int],
+        scale: float,
+        color: Any,
+        alpha: float,
+        fontsize: int,
+    ) -> None:
+        """Helper to draw arrows for selected feature indices.
+        
+        Args:
+            ax: Matplotlib axes
+            loadings: Loading matrix, shape (n_features, 2)
+            indices: Feature indices to draw
+            scale: Scaling factor for arrow coordinates
+            color: Arrow and label color
+            alpha: Arrow transparency
+            fontsize: Base font size
+        """
+        for idx in indices:
+            x, y = loadings[idx] * scale
+            feature_name = self.features[idx]
+            
+            # Draw arrow from origin
+            ax.annotate(
+                '', xy=(x, y), xytext=(0, 0),
+                arrowprops=dict(
+                    arrowstyle='->', color=color,
+                    alpha=alpha, lw=1
+                )
+            )
+            # Label at arrow tip
+            ax.annotate(
+                feature_name, xy=(x, y),
+                fontsize=fontsize - 2, alpha=0.7, color=color,
+                ha='center', va='bottom'
+            )
+    
     def dendrogram(
         self,
         method: str = 'average',
@@ -1836,6 +2029,8 @@ class Stylometry:
         title: str | None = None,
         fontsize: int = 10,
         color_threshold: float | None = None,
+        color_mode: str = 'clusters',
+        above_threshold_color: str = 'C0',
         filename: str | None = None,
         show: bool = True,
         distance: str | None = None,
@@ -1851,7 +2046,15 @@ class Stylometry:
             labels: Custom labels for leaves
             title: Plot title
             fontsize: Font size for labels
-            color_threshold: Distance threshold for coloring
+            color_threshold: Distance threshold for coloring. If None, uses
+                0.7 * max distance for 'clusters' mode, or no coloring for 'branches' mode.
+            color_mode: Coloring strategy:
+                - 'clusters': (scipy default) Links below threshold get distinct colors,
+                  identifying clusters that would form if cutting at that height.
+                - 'branches': Links above threshold get distinct colors, propagating
+                  downward to all descendants. Highlights major branching structure.
+            above_threshold_color: Color for links above threshold in 'clusters' mode,
+                or the default/root color in 'branches' mode when threshold is at max.
             filename: If provided, save figure to this path
             show: If True, display plot. If False, return result dict.
             distance: Distance metric override.
@@ -1868,6 +2071,10 @@ class Stylometry:
         if orientation not in valid_orientations:
             raise ValueError(f"orientation must be one of {valid_orientations}, got '{orientation}'")
         
+        valid_color_modes = ('clusters', 'branches')
+        if color_mode not in valid_color_modes:
+            raise ValueError(f"color_mode must be one of {valid_color_modes}, got '{color_mode}'")
+        
         linkage_matrix, doc_labels = self.hierarchical_clustering(
             method=method,
             level=level,
@@ -1880,14 +2087,32 @@ class Stylometry:
             doc_labels = list(labels)
         
         fig, ax = plt.subplots(figsize=figsize)
-        dendro_result = scipy_dendrogram(
-            linkage_matrix,
-            labels=doc_labels,
-            orientation=orientation,
-            leaf_font_size=fontsize,
-            color_threshold=color_threshold,
-            ax=ax,
-        )
+        
+        if color_mode == 'clusters':
+            dendro_result = scipy_dendrogram(
+                linkage_matrix,
+                labels=doc_labels,
+                orientation=orientation,
+                leaf_font_size=fontsize,
+                color_threshold=color_threshold,
+                above_threshold_color=above_threshold_color,
+                ax=ax,
+            )
+        else:
+            link_color_func = self._compute_branch_colors(
+                linkage_matrix,
+                color_threshold,
+                above_threshold_color,
+            )
+            dendro_result = scipy_dendrogram(
+                linkage_matrix,
+                labels=doc_labels,
+                orientation=orientation,
+                leaf_font_size=fontsize,
+                color_threshold=0,
+                link_color_func=link_color_func,
+                ax=ax,
+            )
         
         if title:
             ax.set_title(title, fontsize=fontsize + 4)
@@ -1903,6 +2128,78 @@ class Stylometry:
             dendro_result['fig'] = fig
             dendro_result['ax'] = ax
             return dendro_result
+    
+    def _compute_branch_colors(
+        self,
+        linkage_matrix: np.ndarray,
+        threshold: float | None,
+        default_color: str,
+    ) -> Callable[[int], str]:
+        """
+        Compute colors for 'branches' mode: major branches above threshold
+        get distinct colors that propagate to all descendants.
+        
+        Args:
+            linkage_matrix: Hierarchical clustering linkage matrix
+            threshold: Distance threshold. Links above this spawn new branch colors.
+                If None, no coloring is applied (all same color).
+            default_color: Color for the root/above-threshold portion
+        
+        Returns:
+            A function mapping cluster index to color string
+        """
+        n_leaves = len(linkage_matrix) + 1
+        n_merges = len(linkage_matrix)
+        
+        if threshold is None:
+            return lambda k: default_color
+        
+        colors = [
+            '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd',
+            '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf',
+            '#aec7e8', '#ffbb78', '#98df8a', '#ff9896', '#c5b0d5',
+        ]
+        
+        link_colors: dict[int, str] = {}
+        color_idx = 0
+        
+        def assign_colors(cluster_id: int, inherited_color: str | None) -> None:
+            nonlocal color_idx
+            
+            if cluster_id < n_leaves:
+                return
+            
+            row_idx = cluster_id - n_leaves
+            dist = linkage_matrix[row_idx, 2]
+            left = int(linkage_matrix[row_idx, 0])
+            right = int(linkage_matrix[row_idx, 1])
+            
+            if dist >= threshold:
+                link_colors[cluster_id] = default_color
+                
+                for child in (left, right):
+                    if child < n_leaves:
+                        continue
+                    child_dist = linkage_matrix[child - n_leaves, 2]
+                    if child_dist < threshold:
+                        new_color = colors[color_idx % len(colors)]
+                        color_idx += 1
+                        link_colors[child] = new_color
+                        assign_colors(child, new_color)
+                    else:
+                        assign_colors(child, None)
+            else:
+                if inherited_color is not None:
+                    link_colors[cluster_id] = inherited_color
+                else:
+                    link_colors[cluster_id] = default_color
+                assign_colors(left, inherited_color)
+                assign_colors(right, inherited_color)
+        
+        root_id = n_leaves + n_merges - 1
+        assign_colors(root_id, None)
+        
+        return lambda k: link_colors.get(k, default_color)
 
 
 # =============================================================================

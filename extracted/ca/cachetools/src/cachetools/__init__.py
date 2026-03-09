@@ -12,7 +12,7 @@ __all__ = (
     "cachedmethod",
 )
 
-__version__ = "7.0.3"
+__version__ = "7.0.4"
 
 import collections
 import collections.abc
@@ -748,8 +748,8 @@ def cached(cache, key=keys.hashkey, lock=None, condition=None, info=False):
 
 
 def cachedmethod(cache, key=keys.methodkey, lock=None, condition=None, info=False):
-    """Decorator to wrap a class or instance method with a memoizing
-    callable that saves results in a cache.
+    """Decorator to wrap a method with a memoizing callable that saves
+    results in a cache.
 
     """
     from ._cachedmethod import _wrapper

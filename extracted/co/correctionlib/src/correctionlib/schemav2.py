@@ -1,7 +1,8 @@
 import math
-import sys
+import warnings
 from collections import Counter
-from typing import Dict, List, Optional, Set, Tuple, Union
+from functools import partial
+from typing import Annotated, Callable, Literal, Optional, Union
 
 from pydantic import (
     AfterValidator,
@@ -12,6 +13,7 @@ from pydantic import (
     StrictStr,
     ValidationInfo,
     field_validator,
+    model_validator,
 )
 from rich.columns import Columns
 from rich.console import Console, ConsoleOptions, RenderResult
@@ -20,16 +22,6 @@ from rich.tree import Tree
 
 import correctionlib.highlevel
 
-if sys.version_info >= (3, 9):
-    from typing import Annotated, Literal
-elif sys.version_info >= (3, 8):
-    from typing import Literal
-
-    from typing_extensions import Annotated
-else:
-    from typing_extensions import Annotated, Literal
-
-
 VERSION = 2
 
 # See https://github.com/cms-nanoAOD/correctionlib/issues/255
@@ -37,17 +29,7 @@ IGNORE_FLOAT_INF = False
 
 
 class Model(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-
-class _SummaryInfo:
-    def __init__(self) -> None:
-        self.values: Set[Union[str, int]] = set()
-        self.default: bool = False
-        self.overflow: bool = True
-        self.transform: bool = False
-        self.min: float = float("inf")
-        self.max: float = float("-inf")
+    model_config = ConfigDict(extra="forbid", serialize_by_alias=True)
 
 
 class Variable(Model):
@@ -92,21 +74,13 @@ class Formula(Model):
     nodetype: Literal["formula"]
     expression: str
     parser: Literal["TFormula"]
-    variables: List[str] = Field(
+    variables: list[str] = Field(
         description="The names of the correction input variables this formula applies to"
     )
-    parameters: Optional[List[float]] = Field(
+    parameters: Optional[list[float]] = Field(
         description="Parameters, if the parser supports them (e.g. [0] for TFormula)",
         default=None,
     )
-
-    def summarize(
-        self, nodecount: Dict[str, int], inputstats: Dict[str, _SummaryInfo]
-    ) -> None:
-        nodecount["Formula"] += 1
-        for input in self.variables:
-            inputstats[input].min = float("-inf")
-            inputstats[input].max = float("inf")
 
 
 class FormulaRef(Model):
@@ -116,14 +90,9 @@ class FormulaRef(Model):
     index: int = Field(
         description="Index into the Correction.generic_formulas list", ge=0
     )
-    parameters: List[float] = Field(
+    parameters: list[float] = Field(
         description="Same interpretation as Formula.parameters"
     )
-
-    def summarize(
-        self, nodecount: Dict[str, int], inputstats: Dict[str, _SummaryInfo]
-    ) -> None:
-        nodecount["FormulaRef"] += 1
 
 
 class Transform(Model):
@@ -142,14 +111,6 @@ class Transform(Model):
         description="A subtree that will be evaluated with transformed values"
     )
 
-    def summarize(
-        self, nodecount: Dict[str, int], inputstats: Dict[str, _SummaryInfo]
-    ) -> None:
-        nodecount["Transform"] += 1
-        inputstats[self.input].transform = True
-        if not isinstance(self.content, float):
-            self.content.summarize(nodecount, inputstats)
-
 
 class HashPRNG(Model):
     """A node that generates a pseudorandom number deterministic in its inputs
@@ -159,7 +120,7 @@ class HashPRNG(Model):
     """
 
     nodetype: Literal["hashprng"]
-    inputs: List[str] = Field(
+    inputs: list[str] = Field(
         description="The names of the input variables to use as entropy sources",
         min_length=1,
     )
@@ -167,10 +128,16 @@ class HashPRNG(Model):
         description="The output distribution to draw from"
     )
 
-    def summarize(
-        self, nodecount: Dict[str, int], inputstats: Dict[str, _SummaryInfo]
-    ) -> None:
-        nodecount["HashPRNG"] += 1
+    @field_validator("distribution")
+    @classmethod
+    def validate_distribution(cls, distribution: str) -> str:
+        if distribution == "stdnormal":
+            warnings.warn(
+                "'stdnormal' distribution is deprecated, use 'normal' instead (cms-nanoAOD/correctionlib#287)",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        return distribution
 
 
 class UniformBinning(Model):
@@ -199,7 +166,7 @@ class UniformBinning(Model):
 
 
 Infinity = Literal["inf", "+inf", "-inf"]
-Edges = List[Union[float, Infinity]]
+Edges = list[Union[float, Infinity]]
 
 
 def validate_nonuniform_edges(edges: Edges) -> Edges:
@@ -231,7 +198,7 @@ class Binning(Model):
     edges: Union[NonUniformBinning, UniformBinning] = Field(
         description="Edges of the binning, either as a list of monotonically increasing floats or as an instance of UniformBinning. edges[i] <= x < edges[i+1] => f(x, ...) = content[i](...)"
     )
-    content: List[Content]
+    content: list[Content]
     flow: Union[Content, Literal["clamp", "error", "wrap"]] = Field(
         description="Overflow behavior for out-of-bounds values"
     )
@@ -239,8 +206,8 @@ class Binning(Model):
     @field_validator("content")
     @classmethod
     def validate_content(
-        cls, content: List[Content], info: ValidationInfo
-    ) -> List[Content]:
+        cls, content: list[Content], info: ValidationInfo
+    ) -> list[Content]:
         assert "edges" in info.data
         if isinstance(info.data["edges"], list):
             nbins = len(info.data["edges"]) - 1
@@ -252,36 +219,19 @@ class Binning(Model):
             )
         return content
 
-    def summarize(
-        self, nodecount: Dict[str, int], inputstats: Dict[str, _SummaryInfo]
-    ) -> None:
-        nodecount["Binning"] += 1
-        inputstats[self.input].overflow &= self.flow != "error"
-        low = float(self.edges[0]) if isinstance(self.edges, list) else self.edges.low
-        high = (
-            float(self.edges[-1]) if isinstance(self.edges, list) else self.edges.high
-        )
-        inputstats[self.input].min = min(inputstats[self.input].min, low)
-        inputstats[self.input].max = max(inputstats[self.input].max, high)
-        for item in self.content:
-            if not isinstance(item, float):
-                item.summarize(nodecount, inputstats)
-        if not isinstance(self.flow, (float, str)):
-            self.flow.summarize(nodecount, inputstats)
-
 
 class MultiBinning(Model):
     """N-dimensional rectangular binning"""
 
     nodetype: Literal["multibinning"]
-    inputs: List[str] = Field(
+    inputs: list[str] = Field(
         description="The names of the correction input variables this binning applies to",
         min_length=1,
     )
-    edges: List[Union[NonUniformBinning, UniformBinning]] = Field(
+    edges: list[Union[NonUniformBinning, UniformBinning]] = Field(
         description="Bin edges for each input"
     )
-    content: List[Content] = Field(
+    content: list[Content] = Field(
         description="""Bin contents as a flattened array
         This is a C-ordered array, i.e. content[d1*d2*d3*i0 + d2*d3*i1 + d3*i2 + i3] corresponds
         to the element at i0 in dimension 0, i1 in dimension 1, etc. and d0 = len(edges[0])-1, etc.
@@ -294,8 +244,8 @@ class MultiBinning(Model):
     @field_validator("content")
     @classmethod
     def validate_content(
-        cls, content: List[Content], info: ValidationInfo
-    ) -> List[Content]:
+        cls, content: list[Content], info: ValidationInfo
+    ) -> list[Content]:
         assert "edges" in info.data
         nbins = 1
         for dim in info.data["edges"]:
@@ -308,22 +258,6 @@ class MultiBinning(Model):
                 f"MultiBinning content length ({len(content)}) does not match the product of dimension sizes ({nbins})"
             )
         return content
-
-    def summarize(
-        self, nodecount: Dict[str, int], inputstats: Dict[str, _SummaryInfo]
-    ) -> None:
-        nodecount["MultiBinning"] += 1
-        for input, edges in zip(self.inputs, self.edges):
-            low = float(edges[0]) if isinstance(edges, list) else edges.low
-            high = float(edges[-1]) if isinstance(edges, list) else edges.high
-            inputstats[input].overflow &= self.flow != "error"
-            inputstats[input].min = min(inputstats[input].min, low)
-            inputstats[input].max = max(inputstats[input].max, high)
-        for item in self.content:
-            if not isinstance(item, float):
-                item.summarize(nodecount, inputstats)
-        if not isinstance(self.flow, (float, str)):
-            self.flow.summarize(nodecount, inputstats)
 
 
 class CategoryItem(Model):
@@ -343,17 +277,17 @@ class Category(Model):
     input: str = Field(
         description="The name of the correction input variable this category node applies to"
     )
-    content: List[CategoryItem]
+    content: list[CategoryItem]
     default: Optional[Content] = None
 
     @field_validator("content")
     @classmethod
-    def validate_content(cls, content: List[CategoryItem]) -> List[CategoryItem]:
+    def validate_content(cls, content: list[CategoryItem]) -> list[CategoryItem]:
         if len(content):
             keytype = type(content[0].key)
             if not all(isinstance(item.key, keytype) for item in content):
                 raise ValueError(
-                    f"Keys in the Category node do not have a homogenous type, expected all {keytype}"
+                    f"Keys in the Category node do not have a homogeneous type, expected all {keytype}"
                 )
 
             keys = {item.key for item in content}
@@ -361,29 +295,100 @@ class Category(Model):
                 raise ValueError("Duplicate keys detected in Category node")
         return content
 
-    def summarize(
-        self, nodecount: Dict[str, int], inputstats: Dict[str, _SummaryInfo]
-    ) -> None:
-        nodecount["Category"] += 1
-        if self.input not in inputstats:
-            raise RuntimeError(
-                f"The input variable {self.input} of a Category node is not defined "
-                "in the inputs of the Correction object"
-            )
-        inputstats[self.input].values |= {item.key for item in self.content}
-        inputstats[self.input].default |= self.default is not None
-        for item in self.content:
-            if not isinstance(item.value, float):
-                item.value.summarize(nodecount, inputstats)
-        if self.default and not isinstance(self.default, float):
-            self.default.summarize(nodecount, inputstats)
-
 
 Transform.model_rebuild()
 Binning.model_rebuild()
 MultiBinning.model_rebuild()
 CategoryItem.model_rebuild()
 Category.model_rebuild()
+
+
+def walk_content(content: Content, func: Callable[[Content], None]) -> None:
+    """Visit all content nodes in a tree, applying func to each node."""
+    func(content)
+    if isinstance(content, (float, Formula, FormulaRef, HashPRNG)):
+        pass
+    elif isinstance(content, (Binning, MultiBinning)):
+        for bin in content.content:
+            walk_content(bin, func)
+        if not isinstance(content.flow, str):
+            walk_content(content.flow, func)
+    elif isinstance(content, Category):
+        for cat in content.content:
+            walk_content(cat.value, func)
+        if content.default:
+            walk_content(content.default, func)
+    elif isinstance(content, Transform):
+        walk_content(content.rule, func)
+        walk_content(content.content, func)
+    else:
+        raise RuntimeError(f"Unknown content node type: {type(content)}")
+
+
+def _validate_input(allowed_names: set[str], node: Content) -> None:
+    nodename = type(node).__name__
+    if isinstance(node, (Binning, Category, Transform)):
+        if node.input not in allowed_names:
+            msg = f"{nodename} input {node.input!r} not found in Correction inputs {allowed_names}"
+            raise ValueError(msg)
+    elif isinstance(node, (MultiBinning, HashPRNG)):
+        for inp in node.inputs:
+            if inp not in allowed_names:
+                msg = f"{nodename} input {inp!r} not found in Correction inputs {allowed_names}"
+                raise ValueError(msg)
+    elif isinstance(node, Formula):
+        for inp in node.variables:
+            if inp not in allowed_names:
+                msg = f"{nodename} input {inp!r} not found in Correction inputs {allowed_names}"
+                raise ValueError(msg)
+    # FormulaRef has no direct input names
+
+
+def _binning_range(
+    edges: Union[NonUniformBinning, UniformBinning],
+) -> tuple[float, float]:
+    if isinstance(edges, list):
+        low = float(edges[0])
+        high = float(edges[-1])
+    else:
+        low = edges.low
+        high = edges.high
+    return low, high
+
+
+class _SummaryInfo:
+    def __init__(self) -> None:
+        self.values: set[Union[str, int]] = set()
+        self.default: bool = False
+        self.overflow: bool = True
+        self.transform: bool = False
+        self.min: float = float("inf")
+        self.max: float = float("-inf")
+
+
+def _summarize(
+    nodecount: dict[str, int], inputstats: dict[str, _SummaryInfo], node: Content
+) -> None:
+    """Compile summary statistics for a content node."""
+    if isinstance(node, float):
+        return
+    nodecount[type(node).__name__] += 1
+    if isinstance(node, Binning):
+        inputstats[node.input].overflow &= node.flow != "error"
+        low, high = _binning_range(node.edges)
+        inputstats[node.input].min = min(inputstats[node.input].min, low)
+        inputstats[node.input].max = max(inputstats[node.input].max, high)
+    elif isinstance(node, MultiBinning):
+        for input, edges in zip(node.inputs, node.edges):
+            inputstats[input].overflow &= node.flow != "error"
+            low, high = _binning_range(edges)
+            inputstats[input].min = min(inputstats[input].min, low)
+            inputstats[input].max = max(inputstats[input].max, high)
+    elif isinstance(node, Category):
+        inputstats[node.input].values |= {item.key for item in node.content}
+        inputstats[node.input].default |= node.default is not None
+    elif isinstance(node, Transform):
+        inputstats[node.input].transform = True
 
 
 class Correction(Model):
@@ -395,11 +400,11 @@ class Correction(Model):
     version: int = Field(
         description="Some value that may increase over time due to bugfixes"
     )
-    inputs: List[Variable] = Field(
+    inputs: list[Variable] = Field(
         description="The function signature of the correction"
     )
     output: Variable = Field(description="Output type for this correction")
-    generic_formulas: Optional[List[Formula]] = Field(
+    generic_formulas: Optional[list[Formula]] = Field(
         description="""A list of common formulas that may be used
 
         For corrections with many parameterized formulas that follow a regular pattern,
@@ -420,14 +425,19 @@ class Correction(Model):
             )
         return output
 
-    def summary(self) -> Tuple[Dict[str, int], Dict[str, _SummaryInfo]]:
-        nodecount: Dict[str, int] = Counter()
+    @model_validator(mode="after")
+    def check_input_names(self) -> "Correction":
+        input_names = {var.name for var in self.inputs}
+        walk_content(self.data, partial(_validate_input, input_names))
+        return self
+
+    def summary(self) -> tuple[dict[str, int], dict[str, _SummaryInfo]]:
+        nodecount: dict[str, int] = Counter()
         inputstats = {var.name: _SummaryInfo() for var in self.inputs}
-        if not isinstance(self.data, float):
-            self.data.summarize(nodecount, inputstats)
+        walk_content(self.data, partial(_summarize, nodecount, inputstats))
         if self.generic_formulas:
             for formula in self.generic_formulas:
-                formula.summarize(nodecount, inputstats)
+                _summarize(nodecount, inputstats, formula)
         return nodecount, inputstats
 
     def __rich_console__(
@@ -493,11 +503,11 @@ class CompoundCorrection(Model):
         description="Detailed description of the correction stack",
         default=None,
     )
-    inputs: List[Variable] = Field(
+    inputs: list[Variable] = Field(
         description="The function signature of the correction"
     )
     output: Variable = Field(description="Output type for this correction")
-    inputs_update: List[str] = Field(
+    inputs_update: list[str] = Field(
         description="Names of the input variables to update with the output of the previous correction"
     )
     input_op: Literal["+", "*", "/"] = Field(
@@ -506,7 +516,7 @@ class CompoundCorrection(Model):
     output_op: Literal["+", "*", "/", "last"] = Field(
         description="How to accumulate changes in the output variable"
     )
-    stack: List[str] = Field(
+    stack: list[str] = Field(
         description="Names of the component corrections. Each component should have a subset of the inputs listed in this object."
     )
 
@@ -544,12 +554,21 @@ class CorrectionSet(Model):
         description="A nice description of what is in this CorrectionSet means",
         default=None,
     )
-    corrections: List[Correction]
-    compound_corrections: Optional[List[CompoundCorrection]] = None
+    corrections: list[Correction]
+    compound_corrections: Optional[list[CompoundCorrection]] = None
+    schema_url: Optional[str] = Field(
+        default="https://cms-nanoaod.github.io/correctionlib/_downloads/87e1187fe70c7ee30d50bbacaa2b2cb5/schemav2.json",
+        alias="$schema",
+        description="""\
+A URL to the schema. This is published in the correctionlib documentation
+at https://cms-nanoaod.github.io/correctionlib/schemav2.html and some IDEs
+may use it to provide autocompletion and validation against the schema.
+""",
+    )
 
     @field_validator("corrections")
     @classmethod
-    def validate_corrections(cls, items: List[Correction]) -> List[Correction]:
+    def validate_corrections(cls, items: list[Correction]) -> list[Correction]:
         seen = set()
         dupe = set()
         for item in items:
@@ -565,8 +584,8 @@ class CorrectionSet(Model):
     @field_validator("compound_corrections")
     @classmethod
     def validate_compound(
-        cls, items: Optional[List[CompoundCorrection]]
-    ) -> Optional[List[CompoundCorrection]]:
+        cls, items: Optional[list[CompoundCorrection]]
+    ) -> Optional[list[CompoundCorrection]]:
         if items is None:
             return items
         seen = set()

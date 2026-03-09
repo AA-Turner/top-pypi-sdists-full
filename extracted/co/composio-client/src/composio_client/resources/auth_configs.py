@@ -27,6 +27,8 @@ __all__ = ["AuthConfigsResource", "AsyncAuthConfigsResource"]
 
 
 class AuthConfigsResource(SyncAPIResource):
+    """Authentication configuration management"""
+
     @cached_property
     def with_raw_response(self) -> AuthConfigsResourceWithRawResponse:
         """
@@ -59,7 +61,10 @@ class AuthConfigsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AuthConfigCreateResponse:
         """
-        Create new authentication configuration
+        Creates a new auth config for a toolkit, allowing you to use your own OAuth
+        credentials or API keys instead of Composio-managed authentication. This is
+        required when you want to use custom OAuth apps (bring your own client
+        ID/secret) or configure specific authentication parameters for a toolkit.
 
         Args:
           extra_headers: Send extra headers
@@ -129,6 +134,7 @@ class AuthConfigsResource(SyncAPIResource):
         type: Literal["custom"],
         credentials: auth_config_update_params.Variant0Credentials | Omit = omit,
         is_enabled_for_tool_router: bool | Omit = omit,
+        name: str | Omit = omit,
         proxy_config: Optional[auth_config_update_params.Variant0ProxyConfig] | Omit = omit,
         restrict_to_following_tools: SequenceNotStr[str] | Omit = omit,
         shared_credentials: Dict[str, Optional[object]] | Omit = omit,
@@ -148,6 +154,8 @@ class AuthConfigsResource(SyncAPIResource):
           nanoid: The unique identifier of the authentication configuration to update
 
           is_enabled_for_tool_router: Whether this auth config is enabled for tool router
+
+          name: The display name of the authentication configuration
 
           restrict_to_following_tools: Use tool_access_config instead. This field will be deprecated in the future.
 
@@ -172,6 +180,7 @@ class AuthConfigsResource(SyncAPIResource):
         *,
         type: Literal["default"],
         is_enabled_for_tool_router: bool | Omit = omit,
+        name: str | Omit = omit,
         restrict_to_following_tools: SequenceNotStr[str] | Omit = omit,
         scopes: Union[str, SequenceNotStr[str]] | Omit = omit,
         shared_credentials: Dict[str, Optional[object]] | Omit = omit,
@@ -191,6 +200,8 @@ class AuthConfigsResource(SyncAPIResource):
           nanoid: The unique identifier of the authentication configuration to update
 
           is_enabled_for_tool_router: Whether this auth config is enabled for tool router
+
+          name: The display name of the authentication configuration
 
           restrict_to_following_tools: Use tool_access_config instead. This field will be deprecated in the future.
 
@@ -216,6 +227,7 @@ class AuthConfigsResource(SyncAPIResource):
         type: Literal["custom"] | Literal["default"],
         credentials: auth_config_update_params.Variant0Credentials | Omit = omit,
         is_enabled_for_tool_router: bool | Omit = omit,
+        name: str | Omit = omit,
         proxy_config: Optional[auth_config_update_params.Variant0ProxyConfig] | Omit = omit,
         restrict_to_following_tools: SequenceNotStr[str] | Omit = omit,
         shared_credentials: Dict[str, Optional[object]] | Omit = omit,
@@ -239,6 +251,7 @@ class AuthConfigsResource(SyncAPIResource):
                     "type": type,
                     "credentials": credentials,
                     "is_enabled_for_tool_router": is_enabled_for_tool_router,
+                    "name": name,
                     "proxy_config": proxy_config,
                     "restrict_to_following_tools": restrict_to_following_tools,
                     "shared_credentials": shared_credentials,
@@ -271,8 +284,12 @@ class AuthConfigsResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AuthConfigListResponse:
-        """
-        List authentication configurations with optional filters
+        """Retrieves all auth configs for your project.
+
+        Auth configs define how users
+        authenticate with external services (OAuth, API keys, etc.). Use filters to find
+        configs for specific toolkits or to distinguish between Composio-managed and
+        custom configurations.
 
         Args:
           cursor: Cursor for pagination. The cursor is a base64 encoded string of the page and
@@ -288,7 +305,7 @@ class AuthConfigsResource(SyncAPIResource):
 
           limit: Number of items per page, max allowed is 1000
 
-          search: Search auth configs by name
+          search: Search auth configs by name or id
 
           show_disabled: Show disabled auth configs
 
@@ -405,6 +422,8 @@ class AuthConfigsResource(SyncAPIResource):
 
 
 class AsyncAuthConfigsResource(AsyncAPIResource):
+    """Authentication configuration management"""
+
     @cached_property
     def with_raw_response(self) -> AsyncAuthConfigsResourceWithRawResponse:
         """
@@ -437,7 +456,10 @@ class AsyncAuthConfigsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AuthConfigCreateResponse:
         """
-        Create new authentication configuration
+        Creates a new auth config for a toolkit, allowing you to use your own OAuth
+        credentials or API keys instead of Composio-managed authentication. This is
+        required when you want to use custom OAuth apps (bring your own client
+        ID/secret) or configure specific authentication parameters for a toolkit.
 
         Args:
           extra_headers: Send extra headers
@@ -507,6 +529,7 @@ class AsyncAuthConfigsResource(AsyncAPIResource):
         type: Literal["custom"],
         credentials: auth_config_update_params.Variant0Credentials | Omit = omit,
         is_enabled_for_tool_router: bool | Omit = omit,
+        name: str | Omit = omit,
         proxy_config: Optional[auth_config_update_params.Variant0ProxyConfig] | Omit = omit,
         restrict_to_following_tools: SequenceNotStr[str] | Omit = omit,
         shared_credentials: Dict[str, Optional[object]] | Omit = omit,
@@ -526,6 +549,8 @@ class AsyncAuthConfigsResource(AsyncAPIResource):
           nanoid: The unique identifier of the authentication configuration to update
 
           is_enabled_for_tool_router: Whether this auth config is enabled for tool router
+
+          name: The display name of the authentication configuration
 
           restrict_to_following_tools: Use tool_access_config instead. This field will be deprecated in the future.
 
@@ -550,6 +575,7 @@ class AsyncAuthConfigsResource(AsyncAPIResource):
         *,
         type: Literal["default"],
         is_enabled_for_tool_router: bool | Omit = omit,
+        name: str | Omit = omit,
         restrict_to_following_tools: SequenceNotStr[str] | Omit = omit,
         scopes: Union[str, SequenceNotStr[str]] | Omit = omit,
         shared_credentials: Dict[str, Optional[object]] | Omit = omit,
@@ -569,6 +595,8 @@ class AsyncAuthConfigsResource(AsyncAPIResource):
           nanoid: The unique identifier of the authentication configuration to update
 
           is_enabled_for_tool_router: Whether this auth config is enabled for tool router
+
+          name: The display name of the authentication configuration
 
           restrict_to_following_tools: Use tool_access_config instead. This field will be deprecated in the future.
 
@@ -594,6 +622,7 @@ class AsyncAuthConfigsResource(AsyncAPIResource):
         type: Literal["custom"] | Literal["default"],
         credentials: auth_config_update_params.Variant0Credentials | Omit = omit,
         is_enabled_for_tool_router: bool | Omit = omit,
+        name: str | Omit = omit,
         proxy_config: Optional[auth_config_update_params.Variant0ProxyConfig] | Omit = omit,
         restrict_to_following_tools: SequenceNotStr[str] | Omit = omit,
         shared_credentials: Dict[str, Optional[object]] | Omit = omit,
@@ -617,6 +646,7 @@ class AsyncAuthConfigsResource(AsyncAPIResource):
                     "type": type,
                     "credentials": credentials,
                     "is_enabled_for_tool_router": is_enabled_for_tool_router,
+                    "name": name,
                     "proxy_config": proxy_config,
                     "restrict_to_following_tools": restrict_to_following_tools,
                     "shared_credentials": shared_credentials,
@@ -649,8 +679,12 @@ class AsyncAuthConfigsResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AuthConfigListResponse:
-        """
-        List authentication configurations with optional filters
+        """Retrieves all auth configs for your project.
+
+        Auth configs define how users
+        authenticate with external services (OAuth, API keys, etc.). Use filters to find
+        configs for specific toolkits or to distinguish between Composio-managed and
+        custom configurations.
 
         Args:
           cursor: Cursor for pagination. The cursor is a base64 encoded string of the page and
@@ -666,7 +700,7 @@ class AsyncAuthConfigsResource(AsyncAPIResource):
 
           limit: Number of items per page, max allowed is 1000
 
-          search: Search auth configs by name
+          search: Search auth configs by name or id
 
           show_disabled: Show disabled auth configs
 

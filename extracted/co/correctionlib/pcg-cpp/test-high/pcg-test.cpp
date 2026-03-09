@@ -148,7 +148,7 @@ int main(int argc, char** argv)
          */      
         enum { SUITS = 4, NUMBERS = 13, CARDS = 52 };
         char cards[CARDS];
-        iota(begin(cards), end(cards), 0);
+        iota(begin(cards), end(cards), char(0));
         pcg_extras::shuffle(begin(cards), end(cards), rng);
 
         /* Output the shuffled deck */

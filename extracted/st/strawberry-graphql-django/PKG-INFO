@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: strawberry-graphql-django
-Version: 0.79.1
+Version: 0.80.0
 Summary: Strawberry GraphQL Django extension
 Project-URL: homepage, https://strawberry.rocks/docs/django
 Project-URL: repository, https://github.com/strawberry-graphql/strawberry-django
@@ -30,7 +30,7 @@ Classifier: Programming Language :: Python :: 3.14
 Requires-Python: <4.0,>=3.10
 Requires-Dist: asgiref>=3.8
 Requires-Dist: django>=4.2
-Requires-Dist: strawberry-graphql>=0.303.0
+Requires-Dist: strawberry-graphql>=0.310.1
 Provides-Extra: debug-toolbar
 Requires-Dist: django-debug-toolbar>=6.0.0; extra == 'debug-toolbar'
 Provides-Extra: enum

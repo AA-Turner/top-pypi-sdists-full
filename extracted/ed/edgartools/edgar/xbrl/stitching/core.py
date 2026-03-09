@@ -11,10 +11,26 @@ from enum import Enum
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 from edgar.xbrl.core import format_date, parse_date
-from edgar.xbrl.standardization import ConceptMapper, initialize_default_mappings, standardize_statement
+from edgar.xbrl.exceptions import StatementNotFound
+from edgar.xbrl.standardization import standardize_statement
 from edgar.xbrl.stitching.ordering import StatementOrderingManager
 from edgar.xbrl.stitching.periods import determine_optimal_periods
 from edgar.xbrl.stitching.presentation import VirtualPresentationTree
+
+# Standard concepts that represent the same economic item but have different names
+# in the standardization map (e.g., balance sheet vs cash flow variants of "cash").
+# Groups containing concepts from equivalent standards are merged without the
+# variant-name check — value agreement on overlapping periods is still enforced.
+_EQUIVALENT_STANDARD_CONCEPTS = [
+    ('CashAndCashEquivalents', 'CashAndMarketableSecurities'),
+]
+
+# Build a lookup for fast access: standard_concept -> canonical representative
+_EQUIV_MAP: dict[str, str] = {}
+for _group in _EQUIVALENT_STANDARD_CONCEPTS:
+    _canonical = _group[0]
+    for _sc in _group:
+        _EQUIV_MAP[_sc] = _canonical
 
 
 class StatementStitcher:
@@ -39,20 +55,15 @@ class StatementStitcher:
         QUARTERLY_TREND = "Quarterly Trend"
         ALL_PERIODS = "All Available Periods"
 
-    def __init__(self, concept_mapper: Optional[ConceptMapper] = None):
+    def __init__(self, industry: Optional[str] = None):
         """
         Initialize a StatementStitcher instance.
 
         Args:
-            concept_mapper: Optional ConceptMapper for standardizing concepts.
-                            If None, a default mapper is created.
+            industry: Optional Fama-French 48 industry code (e.g., "Banks")
+                      for industry-specific standardization overrides.
         """
-        if concept_mapper is None:
-            self.mapping_store = initialize_default_mappings()
-            self.concept_mapper = ConceptMapper(self.mapping_store)
-        else:
-            self.concept_mapper = concept_mapper
-            self.mapping_store = concept_mapper.mapping_store
+        self.industry = industry
 
         # Initialize data structures
         self.periods = []  # Ordered list of period identifiers
@@ -343,8 +354,8 @@ class StatementStitcher:
         for item in statement_data:
             item['statement_type'] = statement_type
 
-        # Apply standardization using the concept mapper
-        return standardize_statement(statement_data, self.concept_mapper)
+        # Apply standardization using the reverse index (concept_mapper not needed)
+        return standardize_statement(statement_data, None, industry=self.industry)
 
     def _integrate_statement_data(
         self,
@@ -404,6 +415,7 @@ class StatementStitcher:
                     'original_concept': concept,
                     'latest_label': label,  # Store the original label too
                     'standard_concept': item.get('standard_concept'),
+                    'preferred_sign': self._extract_preferred_sign(item),
                 }
             else:
                 # For existing concepts, update the label to use the most recent one
@@ -429,6 +441,12 @@ class StatementStitcher:
                     if new_standard and not self.concept_metadata[concept_key].get('standard_concept'):
                         self.concept_metadata[concept_key]['standard_concept'] = new_standard
 
+                    # Propagate preferred_sign from newer filing if not set
+                    if self.concept_metadata[concept_key].get('preferred_sign') is None:
+                        ps = self._extract_preferred_sign(item)
+                        if ps is not None:
+                            self.concept_metadata[concept_key]['preferred_sign'] = ps
+
             # Store values for relevant periods
             for period_id in relevant_periods:
                 if period_id in self.periods:  # Only include selected periods
@@ -439,34 +457,161 @@ class StatementStitcher:
                             'decimals': item.get('decimals', {}).get(period_id, 0)
                         }
 
+    @staticmethod
+    def _extract_preferred_sign(item: Dict[str, Any]) -> Optional[int]:
+        """Extract concept-level preferred_sign from a statement item.
+
+        preferred_signs is a dict of {period_id: sign_value} but the sign is the same
+        for all periods (it's a concept-level attribute), so we just take the first value.
+        """
+        preferred_signs = item.get('preferred_signs', {})
+        if preferred_signs:
+            return next(iter(preferred_signs.values()))
+        return None
+
+    @staticmethod
+    def _bare_concept_name(concept_key: str) -> str:
+        """Strip namespace prefix from a concept key to get the bare concept name.
+
+        'us-gaap_NetCashProvidedByUsedInOperatingActivities' → 'NetCashProvidedByUsedInOperatingActivities'
+        """
+        # Handle both us-gaap_Concept and us-gaap:Concept formats
+        for sep in ('_', ':'):
+            idx = concept_key.find(sep)
+            if idx != -1:
+                return concept_key[idx + 1:]
+        return concept_key
+
+    @staticmethod
+    def _are_concept_name_variants(key_a: str, key_b: str) -> bool:
+        """Check if two concept keys are name variants of the same line item.
+
+        Two concepts are considered variants when one bare name contains the other.
+        This catches common XBRL aliasing patterns like:
+          - NetCashProvidedByUsedInOperatingActivities
+          - NetCashProvidedByUsedInOperatingActivitiesContinuingOperations
+          - StockholdersEquity
+          - StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest
+
+        But NOT unrelated sub-items like:
+          - NetCashProvidedByUsedInOperatingActivities
+          - CashProvidedByUsedInOperatingActivitiesDiscontinuedOperations
+        """
+        a = StatementStitcher._bare_concept_name(key_a)
+        b = StatementStitcher._bare_concept_name(key_b)
+        return a in b or b in a
+
+    @staticmethod
+    def _overlap_values_agree(primary_data: Dict, secondary_data: Dict, overlap_periods: Set) -> bool:
+        """Check whether overlapping period values agree (same economic line item).
+
+        When a company switches XBRL concept names between filings (e.g.,
+        NetCashProvidedByUsedInOperatingActivities → *ContinuingOperations),
+        the newer filing's comparative data creates overlapping periods with the
+        older filing's primary data.  If the values match, they're the same line
+        item and should be merged.  If they differ, they're genuinely different
+        breakdowns and must stay separate.
+        """
+        for period_id in overlap_periods:
+            pv = primary_data[period_id]['value']
+            sv = secondary_data[period_id]['value']
+            if pv is None or sv is None:
+                continue
+            # Allow a small relative tolerance for rounding differences
+            if pv == sv:
+                continue
+            if pv != 0 and abs((pv - sv) / pv) < 0.001:
+                continue
+            # Values disagree — these are genuinely different line items
+            return False
+        return True
+
+    def _merge_into(self, primary_key: str, secondary_key: str):
+        """Merge secondary concept data and metadata into primary, then remove secondary."""
+        secondary_data = self.data.get(secondary_key, {})
+        for period_id, value_data in secondary_data.items():
+            if period_id not in self.data[primary_key]:
+                self.data[primary_key][period_id] = value_data
+        # Propagate preferred_sign from secondary if primary doesn't have one
+        if secondary_key in self.concept_metadata:
+            if self.concept_metadata[primary_key].get('preferred_sign') is None:
+                secondary_ps = self.concept_metadata[secondary_key].get('preferred_sign')
+                if secondary_ps is not None:
+                    self.concept_metadata[primary_key]['preferred_sign'] = secondary_ps
+        # Remove the secondary entry
+        if secondary_key in self.data:
+            del self.data[secondary_key]
+        if secondary_key in self.concept_metadata:
+            del self.concept_metadata[secondary_key]
+
     def _merge_duplicate_standard_concepts(self):
-        """Merge concept entries that map to the same standard_concept."""
+        """Merge concept entries that map to the same standard_concept.
+
+        Handles the common case where a company switches between related XBRL
+        concept variants across filings (e.g., us-gaap:NetCashProvidedByUsedIn
+        OperatingActivities vs *ContinuingOperations).  Both map to the same
+        standard concept and represent the same economic line item.
+
+        Two concepts are merged only when:
+        1. Their bare concept names are variants (one contains the other), AND
+        2. Any overlapping period values agree (or there is no overlap).
+
+        This prevents unrelated sub-items that happen to map to the same standard
+        concept from being incorrectly merged (Issue #642).
+
+        Additionally, concepts whose standard concepts are declared equivalent
+        (via _EQUIVALENT_STANDARD_CONCEPTS) are grouped together and merged
+        without the variant-name check — value agreement on overlapping periods
+        is still enforced (Issue #610).
+        """
         standard_to_keys = defaultdict(list)
         for concept_key, metadata in self.concept_metadata.items():
             sc = metadata.get('standard_concept')
             if sc:
                 standard_to_keys[sc].append(concept_key)
 
+        # Merge equivalent standard concept groups (e.g., CashAndCashEquivalents
+        # and CashAndMarketableSecurities) into a single group.
+        equivalence_merged: set[str] = set()
+        for sc in list(standard_to_keys.keys()):
+            canonical = _EQUIV_MAP.get(sc)
+            if canonical and canonical != sc:
+                standard_to_keys[canonical].extend(standard_to_keys.pop(sc))
+                equivalence_merged.add(canonical)
+
         for standard_concept, keys in standard_to_keys.items():
             if len(keys) <= 1:
                 continue
-            # Keep the key with the most data points; use key name as tiebreaker for determinism
-            primary_key = max(keys, key=lambda k: (len(self.data.get(k, {})), k))
-            for secondary_key in keys:
-                if secondary_key == primary_key:
-                    continue
-                # Only merge if no period overlap (same concept across filings, not two different breakdowns)
-                overlap = set(self.data.get(primary_key, {}).keys()) & set(self.data.get(secondary_key, {}).keys())
-                if overlap:
-                    continue  # Skip - these are genuinely different line items
-                # Merge data from secondary into primary
-                for period_id, value_data in self.data.get(secondary_key, {}).items():
-                    self.data[primary_key][period_id] = value_data
-                # Remove the secondary entry
-                if secondary_key in self.data:
-                    del self.data[secondary_key]
-                if secondary_key in self.concept_metadata:
-                    del self.concept_metadata[secondary_key]
+            skip_variant_check = standard_concept in equivalence_merged
+            # Pairwise merge: iteratively find compatible pairs until no more merges
+            merged = True
+            while merged:
+                merged = False
+                # Rebuild the live key list (some may have been deleted by prior merges)
+                live_keys = [k for k in keys if k in self.data]
+                if len(live_keys) <= 1:
+                    break
+                # Sort so the concept with the most data is tried first as primary
+                live_keys.sort(key=lambda k: (-len(self.data.get(k, {})), k))
+                for i in range(len(live_keys)):
+                    if merged:
+                        break
+                    for j in range(i + 1, len(live_keys)):
+                        a_key, b_key = live_keys[i], live_keys[j]
+                        # For equivalent-merged groups the equivalence declaration
+                        # is the identity signal; skip the variant name check.
+                        # For regular groups, require name containment (Issue #642).
+                        if not skip_variant_check and not self._are_concept_name_variants(a_key, b_key):
+                            continue
+                        a_data = self.data.get(a_key, {})
+                        b_data = self.data.get(b_key, {})
+                        overlap = set(a_data.keys()) & set(b_data.keys())
+                        if overlap and not self._overlap_values_agree(a_data, b_data, overlap):
+                            continue
+                        # Compatible — merge b into a (a has more or equal data)
+                        self._merge_into(a_key, b_key)
+                        merged = True
+                        break
 
     def _format_output_with_ordering(self, statements: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
@@ -520,6 +665,13 @@ class StatementStitcher:
                     item['values'][period_id] = self.data[concept][period_id]['value']
                     item['decimals'][period_id] = self.data[concept][period_id]['decimals']
 
+            # Add preferred_signs for rendering and DataFrame sign application
+            preferred_sign = metadata.get('preferred_sign')
+            if preferred_sign is not None:
+                item['preferred_signs'] = {pid: preferred_sign for pid in item['values']}
+            else:
+                item['preferred_signs'] = {}
+
             # Set has_values flag based on whether there are any values
             item['has_values'] = len(item['values']) > 0
 
@@ -542,13 +694,14 @@ class StatementStitcher:
 
 
 def stitch_statements(
-    xbrl_list: List[Any], 
+    xbrl_list: List[Any],
     statement_type: str = 'IncomeStatement',
     period_type: Union[StatementStitcher.PeriodType, str] = StatementStitcher.PeriodType.RECENT_PERIODS,
     max_periods: int = 3,
     standard: bool = True,
     use_optimal_periods: bool = True,
-    include_dimensions: bool = False
+    include_dimensions: bool = False,
+    industry: Optional[str] = None
 ) -> Dict[str, Any]:
     """
     Stitch together statements from multiple XBRL objects.
@@ -561,12 +714,20 @@ def stitch_statements(
         standard: Whether to use standardized concept labels (default: True)
         use_optimal_periods: Whether to use the entity info to determine optimal periods (default: True)
         include_dimensions: Whether to include dimensional segment data (default: False for stitching)
+        industry: Optional Fama-French 48 industry code (e.g., "Banks").
+                  If None, auto-detected from the first XBRL object's standardization cache.
 
     Returns:
         Stitched statement data
     """
+    # Auto-detect industry from first XBRL if not provided
+    if industry is None and xbrl_list:
+        first_xbrl = xbrl_list[0]
+        if hasattr(first_xbrl, 'standardization'):
+            industry = first_xbrl.standardization.industry
+
     # Initialize the stitcher
-    stitcher = StatementStitcher()
+    stitcher = StatementStitcher(industry=industry)
 
     # Collect statements of the specified type from each XBRL object
     statements = []
@@ -585,8 +746,13 @@ def stitch_statements(
             xbrl_index = period_metadata['xbrl_index']
             xbrl = xbrl_list[xbrl_index]
 
-            # Get the statement and period info
-            statement = xbrl.get_statement_by_type(statement_type, include_dimensions=include_dimensions)
+            # Get the statement and period info — skip filings that lack
+            # this statement type (e.g., some VALE 20-F filings have no
+            # cash flow presentation role).  Issue #683.
+            try:
+                statement = xbrl.get_statement_by_type(statement_type, include_dimensions=include_dimensions)
+            except StatementNotFound:
+                continue
             if statement:
                 # Only include the specific period from this statement
                 period_key = period_metadata['period_key']

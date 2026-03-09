@@ -1,4 +1,4 @@
-"""Unit tests for plato.worlds.lazy_dvc — DVCFileEntry, DVCManifest, and smart_commit."""
+"""Unit tests for plato.worlds.lazy_dvc — DVCManifestEntry, DVCManifest, and smart_commit."""
 
 import hashlib
 import json
@@ -8,128 +8,94 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from plato.worlds.dvc_models import DVCFileEntry, DVCManifest, LazyDVCMount, S3Config, smart_commit
+from plato.chronos.models import DVCManifestEntry
+from plato.worlds.dvc_models import DVCManifest, LazyDVCMount, S3Config, smart_commit
 
 # ---------------------------------------------------------------------------
-# DVCFileEntry round-trip
+# DVCManifestEntry serialization
 # ---------------------------------------------------------------------------
 
 
-class TestDVCFileEntry:
-    def test_regular_file_defaults(self):
-        entry = DVCFileEntry(relpath="src/main.py", md5="abc123", size=100)
-        assert entry.mode == 0o644
-        assert entry.is_symlink is False
-        assert entry.symlink_target == ""
-
-    def test_regular_file_to_dict(self):
-        entry = DVCFileEntry(relpath="readme.md", md5="def456", size=50)
-        d = entry.to_dict()
+class TestDVCManifestEntry:
+    def test_regular_file(self):
+        entry = DVCManifestEntry(relpath="readme.md", md5="def456", size=50)
+        d = entry.model_dump(exclude_none=True)
         assert d == {"relpath": "readme.md", "md5": "def456", "size": 50}
         assert "isexec" not in d
         assert "islink" not in d
 
-    def test_executable_file_to_dict(self):
-        entry = DVCFileEntry(relpath="bin/run.sh", md5="aaa", size=30, mode=0o755)
-        d = entry.to_dict()
+    def test_executable_file(self):
+        entry = DVCManifestEntry(relpath="bin/run.sh", md5="aaa", size=30, isexec=True)
+        d = entry.model_dump(exclude_none=True)
         assert d["isexec"] is True
         assert "islink" not in d
 
-    def test_symlink_to_dict(self):
-        entry = DVCFileEntry(
+    def test_symlink(self):
+        entry = DVCManifestEntry(
             relpath="node_modules/.bin/tsc",
             md5="bbb",
             size=20,
-            mode=0o777,
-            is_symlink=True,
+            islink=True,
             symlink_target="../typescript/bin/tsc",
         )
-        d = entry.to_dict()
+        d = entry.model_dump(exclude_none=True)
         assert d["islink"] is True
         assert d["symlink_target"] == "../typescript/bin/tsc"
-
-    def test_symlink_to_dict_no_isexec(self):
-        """Symlinks with mode 0o777 must NOT emit isexec."""
-        entry = DVCFileEntry(
-            relpath="link",
-            md5="aaa",
-            size=5,
-            mode=0o777,
-            is_symlink=True,
-            symlink_target="target",
-        )
-        d = entry.to_dict()
         assert "isexec" not in d
-        assert d["islink"] is True
 
-    def test_symlink_no_target_to_dict(self):
-        entry = DVCFileEntry(relpath="link", md5="ccc", size=0, is_symlink=True)
-        d = entry.to_dict()
+    def test_symlink_no_target(self):
+        entry = DVCManifestEntry(relpath="link", md5="ccc", size=0, islink=True)
+        d = entry.model_dump(exclude_none=True)
         assert d["islink"] is True
         assert "symlink_target" not in d
 
     def test_from_dict_regular(self):
-        d = {"relpath": "a.txt", "md5": "abc", "size": 10}
-        entry = DVCFileEntry.from_dict(d)
+        entry = DVCManifestEntry(**{"relpath": "a.txt", "md5": "abc", "size": 10})
         assert entry.relpath == "a.txt"
         assert entry.md5 == "abc"
         assert entry.size == 10
-        assert entry.mode == 0o644
-        assert entry.is_symlink is False
-        assert entry.symlink_target == ""
+        assert entry.islink is None
+        assert entry.isexec is None
 
     def test_from_dict_executable(self):
-        d = {"relpath": "run.sh", "md5": "x", "size": 5, "isexec": True}
-        entry = DVCFileEntry.from_dict(d)
-        assert entry.mode == 0o755
+        entry = DVCManifestEntry(**{"relpath": "run.sh", "md5": "x", "size": 5, "isexec": True})
+        assert entry.isexec is True
 
     def test_from_dict_symlink(self):
-        d = {"relpath": "link", "md5": "y", "size": 8, "islink": True, "symlink_target": "../target"}
-        entry = DVCFileEntry.from_dict(d)
-        assert entry.is_symlink is True
+        entry = DVCManifestEntry(
+            **{"relpath": "link", "md5": "y", "size": 8, "islink": True, "symlink_target": "../target"}
+        )
+        assert entry.islink is True
         assert entry.symlink_target == "../target"
-        assert entry.mode == 0o644  # symlink mode comes from manifest, not isexec
 
     def test_round_trip_regular(self):
-        original = DVCFileEntry(relpath="file.txt", md5="abc", size=100)
-        restored = DVCFileEntry.from_dict(original.to_dict())
+        original = DVCManifestEntry(relpath="file.txt", md5="abc", size=100)
+        restored = DVCManifestEntry(**original.model_dump(exclude_none=True))
         assert restored.relpath == original.relpath
         assert restored.md5 == original.md5
         assert restored.size == original.size
-        assert restored.is_symlink == original.is_symlink
 
     def test_round_trip_executable(self):
-        original = DVCFileEntry(relpath="run.sh", md5="x", size=50, mode=0o755)
-        restored = DVCFileEntry.from_dict(original.to_dict())
-        assert restored.mode == 0o755
+        original = DVCManifestEntry(relpath="run.sh", md5="x", size=50, isexec=True)
+        restored = DVCManifestEntry(**original.model_dump(exclude_none=True))
+        assert restored.isexec is True
 
     def test_round_trip_symlink(self):
-        original = DVCFileEntry(
-            relpath="link.js",
-            md5="z",
-            size=12,
-            mode=0o777,
-            is_symlink=True,
-            symlink_target="../real.js",
-        )
-        d = original.to_dict()
-        assert "isexec" not in d  # symlinks must not get isexec
-        restored = DVCFileEntry.from_dict(d)
-        assert restored.is_symlink is True
+        original = DVCManifestEntry(relpath="link.js", md5="z", size=12, islink=True, symlink_target="../real.js")
+        d = original.model_dump(exclude_none=True)
+        assert "isexec" not in d
+        restored = DVCManifestEntry(**d)
+        assert restored.islink is True
         assert restored.symlink_target == "../real.js"
-        # mode round-trips as 0o644 (default for non-exec) — FUSE layer
-        # hardcodes 0o777 for symlinks via _make_attrs, so this is fine
-        assert restored.mode == 0o644
 
-    def test_from_dict_missing_size_defaults_zero(self):
-        d = {"relpath": "a", "md5": "b"}
-        assert DVCFileEntry.from_dict(d).size == 0
+    def test_missing_size_defaults_none(self):
+        entry = DVCManifestEntry(**{"relpath": "a", "md5": "b"})
+        assert entry.size is None
 
-    def test_from_dict_no_symlink_target_defaults_empty(self):
-        d = {"relpath": "a", "md5": "b", "islink": True}
-        entry = DVCFileEntry.from_dict(d)
-        assert entry.is_symlink is True
-        assert entry.symlink_target == ""
+    def test_no_symlink_target_defaults_none(self):
+        entry = DVCManifestEntry(**{"relpath": "a", "md5": "b", "islink": True})
+        assert entry.islink is True
+        assert entry.symlink_target is None
 
 
 # ---------------------------------------------------------------------------
@@ -140,15 +106,9 @@ class TestDVCFileEntry:
 class TestDVCManifest:
     def test_manifest_round_trip_mixed_entries(self):
         entries = [
-            DVCFileEntry(relpath="a.txt", md5="aaa", size=10),
-            DVCFileEntry(relpath="b.sh", md5="bbb", size=20, mode=0o755),
-            DVCFileEntry(
-                relpath="c.link",
-                md5="ccc",
-                size=5,
-                is_symlink=True,
-                symlink_target="./real",
-            ),
+            DVCManifestEntry(relpath="a.txt", md5="aaa", size=10),
+            DVCManifestEntry(relpath="b.sh", md5="bbb", size=20, isexec=True),
+            DVCManifestEntry(relpath="c.link", md5="ccc", size=5, islink=True, symlink_target="./real"),
         ]
         manifest = DVCManifest(entries_list=entries, manifest_md5="m123")
         d = manifest.to_dict()
@@ -158,15 +118,15 @@ class TestDVCManifest:
         assert restored.manifest_md5 == "m123"
 
         by_relpath = {e.relpath: e for e in restored.entries_list}
-        assert not by_relpath["a.txt"].is_symlink
-        assert by_relpath["b.sh"].mode == 0o755
-        assert by_relpath["c.link"].is_symlink
+        assert not by_relpath["a.txt"].islink
+        assert by_relpath["b.sh"].isexec is True
+        assert by_relpath["c.link"].islink is True
         assert by_relpath["c.link"].symlink_target == "./real"
 
     def test_entries_dict(self):
         entries = [
-            DVCFileEntry(relpath="x", md5="1", size=1),
-            DVCFileEntry(relpath="y", md5="2", size=2),
+            DVCManifestEntry(relpath="x", md5="1", size=1),
+            DVCManifestEntry(relpath="y", md5="2", size=2),
         ]
         manifest = DVCManifest(entries_list=entries, manifest_md5="m")
         d = manifest.entries_dict()
@@ -174,7 +134,7 @@ class TestDVCManifest:
         assert d["x"].md5 == "1"
 
     @pytest.mark.asyncio
-    async def test_from_dvc_file_resolves_missing_sizes(self):
+    async def test_from_dvc_file_parses_manifest(self):
         s3_config = S3Config(
             bucket="test-bucket",
             prefix="test-prefix",
@@ -182,80 +142,22 @@ class TestDVCManifest:
         )
         dvc_content = "outs:\n- md5: deadbeef.dir\n"
         manifest_items = [
-            {"relpath": "data.bin", "md5": "aa11", "size": 0},
-            {"relpath": "link.txt", "md5": "bb22", "size": 0, "islink": True, "symlink_target": "../target"},
+            {"relpath": "data.bin", "md5": "aa11", "size": 42},
+            {"relpath": "link.txt", "md5": "bb22", "size": 9, "islink": True, "symlink_target": "../target"},
             {"relpath": "known.txt", "md5": "cc33", "size": 7},
         ]
 
-        with (
-            patch(
-                "plato.worlds.dvc_models.s3_download_bytes",
-                new=AsyncMock(return_value=json.dumps(manifest_items).encode()),
-            ),
-            patch(
-                "plato.worlds.dvc_models.s3_head_size",
-                new=AsyncMock(return_value=123),
-            ) as mock_head,
+        with patch(
+            "plato.worlds.dvc_models.s3_download_bytes",
+            new=AsyncMock(return_value=json.dumps(manifest_items).encode()),
         ):
             manifest = await DVCManifest.from_dvc_file(dvc_content, s3_config)
 
         by_relpath = manifest.entries_dict()
-        assert by_relpath["data.bin"].size == 123
-        assert by_relpath["link.txt"].size == len("../target")
+        assert by_relpath["data.bin"].size == 42
+        assert by_relpath["link.txt"].islink is True
+        assert by_relpath["link.txt"].symlink_target == "../target"
         assert by_relpath["known.txt"].size == 7
-        mock_head.assert_awaited_once_with(
-            s3_config,
-            f"{s3_config.cache_prefix}/aa/11",
-        )
-
-    @pytest.mark.asyncio
-    async def test_from_dvc_file_keeps_zero_size_when_s3_object_missing(self):
-        s3_config = S3Config(
-            bucket="test-bucket",
-            prefix="test-prefix",
-            credentials={"AWS_ACCESS_KEY_ID": "fake", "AWS_SECRET_ACCESS_KEY": "fake"},
-        )
-        dvc_content = "outs:\n- md5: deadbeef.dir\n"
-        manifest_items = [{"relpath": "missing.bin", "md5": "aa11", "size": 0}]
-
-        with (
-            patch(
-                "plato.worlds.dvc_models.s3_download_bytes",
-                new=AsyncMock(return_value=json.dumps(manifest_items).encode()),
-            ),
-            patch(
-                "plato.worlds.dvc_models.s3_head_size",
-                new=AsyncMock(side_effect=FileNotFoundError("missing")),
-            ),
-        ):
-            manifest = await DVCManifest.from_dvc_file(dvc_content, s3_config)
-
-        assert manifest.entries_list[0].size == 0
-
-    @pytest.mark.asyncio
-    async def test_from_dvc_file_skips_head_for_existing_sizes(self):
-        s3_config = S3Config(
-            bucket="test-bucket",
-            prefix="test-prefix",
-            credentials={"AWS_ACCESS_KEY_ID": "fake", "AWS_SECRET_ACCESS_KEY": "fake"},
-        )
-        dvc_content = "outs:\n- md5: deadbeef.dir\n"
-        manifest_items = [{"relpath": "known.bin", "md5": "aa11", "size": 99}]
-
-        with (
-            patch(
-                "plato.worlds.dvc_models.s3_download_bytes",
-                new=AsyncMock(return_value=json.dumps(manifest_items).encode()),
-            ),
-            patch(
-                "plato.worlds.dvc_models.s3_head_size",
-                new=AsyncMock(),
-            ) as mock_head,
-        ):
-            manifest = await DVCManifest.from_dvc_file(dvc_content, s3_config)
-
-        assert manifest.entries_list[0].size == 99
-        mock_head.assert_not_awaited()
 
 
 # ---------------------------------------------------------------------------
@@ -285,28 +187,20 @@ class TestSmartCommitSymlinks:
     async def test_smart_commit_creates_symlink_entry(self, s3_config, mount_dir):
         tmp_path, cache_dir, overlay_dir, mountpoint = mount_dir
 
-        # Set up a manifest with one regular file
         original = DVCManifest(
-            entries_list=[DVCFileEntry(relpath="file.txt", md5="orig_md5", size=5)],
+            entries_list=[DVCManifestEntry(relpath="file.txt", md5="orig_md5", size=5)],
             manifest_md5="orig_manifest",
         )
         (mountpoint / "file.txt").write_text("hello")
 
-        # Create a new symlink in the overlay
         link_dir = overlay_dir / "links"
         link_dir.mkdir()
         os.symlink("../file.txt", link_dir / "ref.txt")
 
-        # Write meta.json indicating the symlink was created
         meta = {"modified": [], "deleted": [], "created": ["links/ref.txt"]}
         (cache_dir / "meta.json").write_text(json.dumps(meta))
 
-        mount = LazyDVCMount(
-            mountpoint=mountpoint,
-            cache_dir=cache_dir,
-            manifest=original,
-            worker_proc=None,
-        )
+        mount = LazyDVCMount(mountpoint=mountpoint, cache_dir=cache_dir, manifest=original, worker_proc=None)
 
         uploaded: dict[str, bytes] = {}
 
@@ -317,30 +211,29 @@ class TestSmartCommitSymlinks:
             for local_path, key in uploads:
                 uploaded[key] = Path(local_path).read_bytes()
 
+        async def mock_download(config, key):
+            return uploaded[key]
+
         with (
             patch("plato.worlds.dvc_models.s3_upload_bytes", side_effect=mock_upload),
             patch("plato.worlds.dvc_models.s3_upload_batch", side_effect=mock_batch_upload),
+            patch("plato.worlds.dvc_models.s3_download_bytes", side_effect=mock_download),
         ):
             manifest_md5, dvc_yaml = await smart_commit(mount, s3_config)
 
-        # The manifest should have been uploaded
         manifest_key = f"{s3_config.cache_prefix}/{manifest_md5[:2]}/{manifest_md5[2:]}.dir"
         assert manifest_key in uploaded
 
-        # Parse the uploaded manifest
         entries = json.loads(uploaded[manifest_key])
         by_relpath = {e["relpath"]: e for e in entries}
 
-        # Original file should be preserved
         assert "file.txt" in by_relpath
         assert by_relpath["file.txt"]["md5"] == "orig_md5"
 
-        # Symlink should appear with islink flag
         assert "links/ref.txt" in by_relpath
         link_entry = by_relpath["links/ref.txt"]
         assert link_entry["islink"] is True
         assert link_entry["symlink_target"] == "../file.txt"
-        # MD5 should be of the target string, not the file contents
         expected_md5 = hashlib.md5(b"../file.txt").hexdigest()
         assert link_entry["md5"] == expected_md5
 
@@ -350,11 +243,10 @@ class TestSmartCommitSymlinks:
         tmp_path, cache_dir, overlay_dir, mountpoint = mount_dir
 
         original = DVCManifest(
-            entries_list=[DVCFileEntry(relpath="config.json", md5="old_md5", size=100)],
+            entries_list=[DVCManifestEntry(relpath="config.json", md5="old_md5", size=100)],
             manifest_md5="orig",
         )
 
-        # Replace with a symlink in overlay
         os.symlink("defaults/config.json", overlay_dir / "config.json")
 
         meta = {"modified": ["config.json"], "deleted": [], "created": []}
@@ -371,13 +263,16 @@ class TestSmartCommitSymlinks:
             for local_path, key in uploads:
                 uploaded[key] = Path(local_path).read_bytes()
 
+        async def mock_download(config, key):
+            return uploaded[key]
+
         with (
             patch("plato.worlds.dvc_models.s3_upload_bytes", side_effect=mock_upload),
             patch("plato.worlds.dvc_models.s3_upload_batch", side_effect=mock_batch_upload),
+            patch("plato.worlds.dvc_models.s3_download_bytes", side_effect=mock_download),
         ):
             await smart_commit(mount, s3_config)
 
-        # Find the manifest in uploads
         manifest_entries = None
         for key, data in uploaded.items():
             if key.endswith(".dir"):
@@ -395,12 +290,11 @@ class TestSmartCommitSymlinks:
         tmp_path, cache_dir, overlay_dir, mountpoint = mount_dir
 
         original = DVCManifest(
-            entries_list=[DVCFileEntry(relpath="run.sh", md5="old", size=10, mode=0o755)],
+            entries_list=[DVCManifestEntry(relpath="run.sh", md5="old", size=10, isexec=True)],
             manifest_md5="orig",
         )
         (mountpoint / "run.sh").write_text("#!/bin/sh\necho hi\n")
 
-        # Untouched file — should preserve mode in manifest
         meta = {"modified": [], "deleted": [], "created": []}
         (cache_dir / "meta.json").write_text(json.dumps(meta))
 
@@ -411,7 +305,13 @@ class TestSmartCommitSymlinks:
         async def mock_upload(config, key, data):
             uploaded[key] = data
 
-        with patch("plato.worlds.dvc_models.s3_upload_bytes", side_effect=mock_upload):
+        async def mock_download(config, key):
+            return uploaded[key]
+
+        with (
+            patch("plato.worlds.dvc_models.s3_upload_bytes", side_effect=mock_upload),
+            patch("plato.worlds.dvc_models.s3_download_bytes", side_effect=mock_download),
+        ):
             await smart_commit(mount, s3_config)
 
         for key, data in uploaded.items():
@@ -443,9 +343,13 @@ class TestSmartCommitSymlinks:
             for local_path, key in uploads:
                 uploaded[key] = Path(local_path).read_bytes()
 
+        async def mock_download(config, key):
+            return uploaded[key]
+
         with (
             patch("plato.worlds.dvc_models.s3_upload_bytes", side_effect=mock_upload),
             patch("plato.worlds.dvc_models.s3_upload_batch", side_effect=mock_batch_upload),
+            patch("plato.worlds.dvc_models.s3_download_bytes", side_effect=mock_download),
         ):
             await smart_commit(mount, s3_config)
 

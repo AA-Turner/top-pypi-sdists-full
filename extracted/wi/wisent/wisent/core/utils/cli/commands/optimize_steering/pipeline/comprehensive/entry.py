@@ -64,7 +64,6 @@ def execute_comprehensive_optimization(args) -> Dict[str, Any]:
             model=args.model, task_name=task_name, methods=methods,
             num_layers=num_layers, device=device,
             verbose=verbose, backend=backend,
-            n_startup_trials=args.n_startup_trials,
             args=args,
         )
         all_task_results[task_name] = task_result
@@ -94,7 +93,7 @@ def _optimize_task(
     model: str, task_name: str, methods: List[str],
     num_layers: int, device: Optional[str],
     verbose: bool, backend: str,
-    n_startup_trials: int, args: Any,
+    args: Any,
 ) -> Dict[str, Any]:
     """Optimize all methods for a single task."""
     from .runner import run_method_search
@@ -119,7 +118,6 @@ def _optimize_task(
             pairs_file=pairs_file, num_layers=num_layers,
             device=device, verbose=verbose,
             backend=backend,
-            n_startup_trials=n_startup_trials,
             search_overrides=_extract_search_overrides(args, method),
             early_rejection_config=_extract_early_rejection(args),
         )

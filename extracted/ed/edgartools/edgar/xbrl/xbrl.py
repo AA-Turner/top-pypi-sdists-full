@@ -530,6 +530,18 @@ class XBRL:
         except Exception:
             pass
 
+        # Try to set industry from filing header SIC for industry-specific standardization
+        try:
+            if hasattr(filing, '_sgml') and filing._sgml is not None:
+                # Only use SIC if header is already loaded (no extra network call)
+                header = filing._sgml.header
+                if header and header.filers:
+                    sic = header.filers[0].company_data.assigned_sic
+                    if sic:
+                        xbrl.standardization.set_industry_from_sic(sic)
+        except Exception:
+            pass
+
         return xbrl
 
     @property
@@ -728,6 +740,24 @@ class XBRL:
                         statement_type = statement_alias
                     if 'BalanceSheet' not in statement_type:
                         break
+
+            # If we didn't find a match, try IFRS concept → type mapping
+            if not statement_type:
+                _IFRS_CONCEPT_TO_TYPE = {
+                    "ifrs-full_StatementOfProfitOrLossAbstract": "IncomeStatement",
+                    "ifrs-full_IncomeStatementAbstract": "IncomeStatement",
+                    "ifrs-full_StatementOfFinancialPositionAbstract": "BalanceSheet",
+                    "ifrs-full_StatementOfCashFlowsAbstract": "CashFlowStatement",
+                    "ifrs-full_StatementOfChangesInEquityAbstract": "StatementOfEquity",
+                    "ifrs-full_StatementOfComprehensiveIncomeAbstract": "ComprehensiveIncome",
+                    "ifrs-full_StatementOfProfitOrLossAndOtherComprehensiveIncomeAbstract": "ComprehensiveIncome",
+                }
+                matched_type = _IFRS_CONCEPT_TO_TYPE.get(primary_concept)
+                if matched_type:
+                    if 'parenthetical' in role_def:
+                        statement_type = f"{matched_type}Parenthetical"
+                    else:
+                        statement_type = matched_type
 
             # If we didn't find a match, try additional patterns for notes and disclosures
             if not statement_type:
@@ -972,6 +1002,10 @@ class XBRL:
             from edgar.xbrl.deduplication_strategy import RevenueDeduplicator
             line_items = RevenueDeduplicator.deduplicate_statement_items(line_items)
 
+        # Issue edgartools-3n9t / gh:572: Merge rows with same label but different concepts
+        # from XBRL concept switches between periods (complementary NaN values)
+        line_items = self._merge_same_label_line_items(line_items)
+
         # Issue #575: Reorder items so components appear before their totals
         # This fixes cases where the presentation linkbase has incorrect ordering
         # (e.g., IESC filing puts Cash at the end instead of with Current Assets)
@@ -1178,43 +1212,118 @@ class XBRL:
                             pt = context.period.get('type') if isinstance(context.period, dict) else getattr(context.period, 'type', None)
                             period_types[period_key] = pt
 
+                elif not non_dimensioned_facts_for_period and not values.get(period_key):
+                    # Issue #646: No non-dimensional total — compute from dimensional members
+                    # Use only facts that passed is_valid_dimension filtering
+                    valid_dim_facts = [
+                        (cid, wf) for cid, wf in period_facts
+                        if wf['dimension_info'] and len(wf['dimension_info']) == 1  # Skip multi-axis facts
+                    ]
+                    # Re-apply is_valid_dimension filter (match the logic above)
+                    filtered_dim_facts = []
+                    for cid, wf in valid_dim_facts:
+                        dim_info = wf['dimension_info']
+                        is_valid = True
+                        if view != StatementView.DETAILED and valid_dimensional_members:
+                            for dim_data in dim_info:
+                                axis_key = dim_data.get('dimension', '').replace(':', '_')
+                                member_key = dim_data.get('member', '').replace(':', '_')
+                                if axis_key in valid_dimensional_members:
+                                    if member_key not in valid_dimensional_members[axis_key]:
+                                        is_valid = False
+                                        break
+                        if is_valid:
+                            filtered_dim_facts.append((cid, wf))
+
+                    synthetic = self._compute_synthetic_total(filtered_dim_facts, element_id_normalized)
+                    if synthetic:
+                        values[period_key] = synthetic['total']
+                        fact = synthetic['fact']
+                        context_id = synthetic['context_id']
+
+                        if fact.decimals is not None:
+                            try:
+                                if fact.decimals == 'INF':
+                                    decimals[period_key] = 0
+                                else:
+                                    decimals[period_key] = int(fact.decimals)
+                            except (ValueError, TypeError):
+                                decimals[period_key] = 0
+
+                        units[period_key] = fact.unit_ref
+
+                        if context_id in self.contexts:
+                            context = self.contexts[context_id]
+                            if hasattr(context, 'period') and context.period:
+                                pt = context.period.get('type') if isinstance(context.period, dict) else getattr(context.period, 'type', None)
+                                period_types[period_key] = pt
+
             else:
                 # For standard financial statements, prefer non-dimensioned facts
                 # Issue #564: Select by (1) fewest dimensions, (2) highest precision
-                if len(period_facts) == 1:
-                    context_id, wrapped_fact = period_facts[0]
-                    fact = wrapped_fact['fact']
+                # Issue #646: When only dimensional facts exist, compute total from members
+                non_dim_facts = [(cid, wf) for cid, wf in period_facts if not wf['dimension_info']]
+
+                if non_dim_facts:
+                    # Normal path: select best non-dimensional fact
+                    if len(non_dim_facts) == 1:
+                        context_id, wrapped_fact = non_dim_facts[0]
+                        fact = wrapped_fact['fact']
+                    else:
+                        best = min(non_dim_facts,
+                                   key=lambda x: (len(x[1]['dimension_info']),
+                                                  -self._get_fact_precision(x[1]['fact'])))
+                        context_id, wrapped_fact = best
+                        fact = wrapped_fact['fact']
+
+                    values[period_key] = fact.numeric_value if fact.numeric_value is not None else fact.value
+
+                    # Store the decimals info for proper scaling
+                    if fact.decimals is not None:
+                        try:
+                            if fact.decimals == 'INF':
+                                decimals[period_key] = 0
+                            else:
+                                decimals[period_key] = int(fact.decimals)
+                        except (ValueError, TypeError):
+                            decimals[period_key] = 0
+
+                    units[period_key] = fact.unit_ref
+
+                    if context_id in self.contexts:
+                        context = self.contexts[context_id]
+                        if hasattr(context, 'period') and context.period:
+                            pt = context.period.get('type') if isinstance(context.period, dict) else getattr(context.period, 'type', None)
+                            period_types[period_key] = pt
                 else:
-                    # Multiple contexts for same period - select best by dimensions and precision
-                    # min() with tuple key: (dimension_count ASC, -precision DESC)
-                    best = min(period_facts,
-                               key=lambda x: (len(x[1]['dimension_info']),
-                                              -self._get_fact_precision(x[1]['fact'])))
-                    context_id, wrapped_fact = best
-                    fact = wrapped_fact['fact']
+                    # Issue #646: No non-dimensional facts — compute total from dimensional members
+                    # Only use single-axis facts to avoid double-counting cross-dimensioned facts
+                    dim_facts = [
+                        (cid, wf) for cid, wf in period_facts
+                        if wf['dimension_info'] and len(wf['dimension_info']) == 1
+                    ]
+                    synthetic = self._compute_synthetic_total(dim_facts, element_id_normalized)
+                    if synthetic:
+                        values[period_key] = synthetic['total']
+                        fact = synthetic['fact']
+                        context_id = synthetic['context_id']
 
-                # Store the value
-                values[period_key] = fact.numeric_value if fact.numeric_value is not None else fact.value
+                        if fact.decimals is not None:
+                            try:
+                                if fact.decimals == 'INF':
+                                    decimals[period_key] = 0
+                                else:
+                                    decimals[period_key] = int(fact.decimals)
+                            except (ValueError, TypeError):
+                                decimals[period_key] = 0
 
-                # Store the decimals info for proper scaling
-                if fact.decimals is not None:
-                    try:
-                        if fact.decimals == 'INF':
-                            decimals[period_key] = 0  # Infinite precision, no scaling
-                        else:
-                            decimals[period_key] = int(fact.decimals)
-                    except (ValueError, TypeError):
-                        decimals[period_key] = 0  # Default if decimals can't be converted
+                        units[period_key] = fact.unit_ref
 
-                # Store unit_ref for this period
-                units[period_key] = fact.unit_ref
-
-                # Store period_type from context
-                if context_id in self.contexts:
-                    context = self.contexts[context_id]
-                    if hasattr(context, 'period') and context.period:
-                        pt = context.period.get('type') if isinstance(context.period, dict) else getattr(context.period, 'type', None)
-                        period_types[period_key] = pt
+                        if context_id in self.contexts:
+                            context = self.contexts[context_id]
+                            if hasattr(context, 'period') and context.period:
+                                pt = context.period.get('type') if isinstance(context.period, dict) else getattr(context.period, 'type', None)
+                                period_types[period_key] = pt
 
         # Create preferred_signs dict for all periods (same value for all periods of this concept)
         preferred_signs = {}
@@ -1468,6 +1577,115 @@ class XBRL:
         dim_items[:] = ordered
 
     @staticmethod
+    def _merge_same_label_line_items(line_items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Merge rows with same label but different concepts from XBRL concept switches.
+
+        When a company switches concepts between periods (e.g., aapl:DerivativeInstrument
+        to us-gaap:CashFlowHedge), the presentation tree creates separate rows with the
+        same label but complementary period values. Merge when values agree on overlap.
+
+        Two guards prevent incorrect merges:
+        1. Same label — group non-abstract, non-dimensional items by label
+        2. Value agreement — overlapping period values must match (0.1% tolerance)
+        """
+        from collections import defaultdict
+
+        # Build label -> [indices] map for non-abstract, non-dimensional items
+        label_groups: Dict[str, List[int]] = defaultdict(list)
+        for i, item in enumerate(line_items):
+            if item.get('is_abstract') or item.get('is_dimensional'):
+                continue
+            label = item.get('label', '')
+            if label:
+                label_groups[label].append(i)
+
+        # Only process labels with multiple items
+        indices_to_remove: set = set()
+        for label, indices in label_groups.items():
+            if len(indices) < 2:
+                continue
+
+            # Try pairwise merging (process in order so primary is first occurrence)
+            for a_pos in range(len(indices)):
+                a_idx = indices[a_pos]
+                if a_idx in indices_to_remove:
+                    continue
+                item_a = line_items[a_idx]
+                values_a = item_a.get('values', {})
+
+                for b_pos in range(a_pos + 1, len(indices)):
+                    b_idx = indices[b_pos]
+                    if b_idx in indices_to_remove:
+                        continue
+                    item_b = line_items[b_idx]
+                    values_b = item_b.get('values', {})
+
+                    # Check overlapping period values agree
+                    overlap_keys = set(values_a.keys()) & set(values_b.keys())
+                    values_agree = True
+                    for pk in overlap_keys:
+                        va = values_a[pk]
+                        vb = values_b[pk]
+                        if va is None or vb is None:
+                            continue
+                        if va == vb:
+                            continue
+                        # Skip numeric tolerance check for non-numeric values
+                        try:
+                            if va != 0 and abs((va - vb) / va) < 0.001:
+                                continue
+                        except TypeError:
+                            pass
+                        values_agree = False
+                        break
+
+                    if not values_agree:
+                        continue
+
+                    # Determine primary (more period values) and secondary
+                    if len(values_b) > len(values_a):
+                        primary_idx, secondary_idx = b_idx, a_idx
+                    else:
+                        primary_idx, secondary_idx = a_idx, b_idx
+                    primary = line_items[primary_idx]
+                    secondary = line_items[secondary_idx]
+
+                    # Merge secondary values into primary
+                    for pk, val in secondary.get('values', {}).items():
+                        if pk not in primary['values']:
+                            primary['values'][pk] = val
+
+                    # Propagate metadata from secondary where primary is missing
+                    for meta_key in ('preferred_signs', 'balance', 'weight', 'units', 'decimals', 'period_types'):
+                        primary_meta = primary.get(meta_key, {})
+                        secondary_meta = secondary.get(meta_key, {})
+                        if isinstance(primary_meta, dict) and isinstance(secondary_meta, dict):
+                            for pk, val in secondary_meta.items():
+                                if pk not in primary_meta:
+                                    primary_meta[pk] = val
+                            primary[meta_key] = primary_meta
+
+                    # Merge all_names
+                    primary_names = primary.get('all_names', [])
+                    secondary_names = secondary.get('all_names', [])
+                    for name in secondary_names:
+                        if name not in primary_names:
+                            primary_names.append(name)
+                    primary['all_names'] = primary_names
+
+                    indices_to_remove.add(secondary_idx)
+
+                    # If a was consumed as secondary, stop matching it against further items.
+                    # The primary (b) will be revisited when the outer loop reaches it.
+                    if secondary_idx == a_idx:
+                        break
+
+        if not indices_to_remove:
+            return line_items
+
+        return [item for i, item in enumerate(line_items) if i not in indices_to_remove]
+
+    @staticmethod
     def _reorder_by_calculation_parent(line_items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
         Reorder line items so that components appear before their totals.
@@ -1559,6 +1777,52 @@ class XBRL:
                 item['level'] += 1
 
         return line_items
+
+    def _compute_synthetic_total(self, dim_facts, element_id_normalized):
+        """
+        Issue #646: Compute a synthetic total from single-axis dimensional members.
+
+        When a concept has only dimensional facts (no non-dimensional total),
+        group by axis, pick the axis with the most members, and sum their values.
+
+        Guards:
+        - Skips per-share and ratio concepts (summing them is meaningless)
+        - Expects only single-axis facts (caller must filter multi-axis facts)
+
+        Returns dict with 'total', 'fact', 'context_id' or None if not computable.
+        """
+        if not dim_facts:
+            return None
+
+        # Guard: don't synthesize totals for per-share or ratio concepts
+        element = self.element_catalog.get(element_id_normalized)
+        if element:
+            dt = (element.data_type or '').lower()
+            if 'pershare' in dt or 'pure' in dt:
+                return None
+
+        from collections import defaultdict
+        axis_groups = defaultdict(list)
+        for cid, wf in dim_facts:
+            dim_info = wf['dimension_info']
+            val = wf['fact'].numeric_value
+            if val is not None:
+                axis = dim_info[0].get('dimension', '')
+                axis_groups[axis].append((cid, wf, val))
+
+        if not axis_groups:
+            return None
+
+        # Pick the axis with most members (most complete breakdown)
+        best_axis = max(axis_groups.values(), key=len)
+        total = sum(v for _, _, v in best_axis)
+        first_cid, first_wf, _ = best_axis[0]
+
+        return {
+            'total': total,
+            'fact': first_wf['fact'],
+            'context_id': first_cid,
+        }
 
     @staticmethod
     def _get_fact_precision(fact) -> int:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyhanko-certvalidator
-Version: 0.30.0
+Version: 0.30.1
 Summary: Validates X.509 certificates and paths; forked from wbond/certvalidator
 Author-email: Matthias Valvekens <dev@mvalvekens.be>
 License-Expression: MIT

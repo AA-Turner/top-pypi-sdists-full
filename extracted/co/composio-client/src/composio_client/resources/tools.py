@@ -15,7 +15,7 @@ from ..types import (
     tool_get_input_params,
 )
 from .._types import Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
-from .._utils import maybe_transform, async_maybe_transform
+from .._utils import maybe_transform, strip_not_given, async_maybe_transform
 from .._compat import cached_property
 from .._resource import SyncAPIResource, AsyncAPIResource
 from .._response import (
@@ -36,6 +36,8 @@ __all__ = ["ToolsResource", "AsyncToolsResource"]
 
 
 class ToolsResource(SyncAPIResource):
+    """Tool execution endpoints"""
+
     @cached_property
     def with_raw_response(self) -> ToolsResourceWithRawResponse:
         """
@@ -115,6 +117,7 @@ class ToolsResource(SyncAPIResource):
         important: Literal["true", "false"] | Omit = omit,
         include_deprecated: bool | Omit = omit,
         limit: Optional[float] | Omit = omit,
+        query: str | Omit = omit,
         scopes: Optional[SequenceNotStr[str]] | Omit = omit,
         search: str | Omit = omit,
         tags: SequenceNotStr[str] | Omit = omit,
@@ -147,9 +150,13 @@ class ToolsResource(SyncAPIResource):
 
           limit: Number of items per page, max allowed is 1000
 
+          query: Full-text search query to filter tools by name, slug, or description. Applied as
+              a soft filter on top of other filters.
+
           scopes: Array of scopes to filter tools by)
 
-          search: Free-text search query to find tools by name, description, or functionality
+          search: Deprecated: use "query" instead. Free-text search query to find tools by name,
+              description, or functionality.
 
           tags: Filter tools by one or more tags (can be specified multiple times)
 
@@ -183,6 +190,7 @@ class ToolsResource(SyncAPIResource):
                         "important": important,
                         "include_deprecated": include_deprecated,
                         "limit": limit,
+                        "query": query,
                         "scopes": scopes,
                         "search": search,
                         "tags": tags,
@@ -209,6 +217,7 @@ class ToolsResource(SyncAPIResource):
         text: str | Omit = omit,
         user_id: str | Omit = omit,
         version: str | Omit = omit,
+        x_llm_gateway_headers: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -223,7 +232,7 @@ class ToolsResource(SyncAPIResource):
         processing by providing a text description of what you want to accomplish.
 
         Args:
-          allow_tracing: Enable debug tracing for tool execution (useful for debugging)
+          allow_tracing: Deprecated. Enable debug tracing for tool execution (useful for debugging)
 
           arguments: Key-value pairs of arguments required by the tool (mutually exclusive with text)
 
@@ -244,6 +253,9 @@ class ToolsResource(SyncAPIResource):
 
           version: Tool version to execute (defaults to "00000000_00" if not specified)
 
+          x_llm_gateway_headers: JSON object containing custom headers to pass to LLM providers (OpenAI, Bedrock,
+              etc.)
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -254,6 +266,7 @@ class ToolsResource(SyncAPIResource):
         """
         if not tool_slug:
             raise ValueError(f"Expected a non-empty value for `tool_slug` but received {tool_slug!r}")
+        extra_headers = {**strip_not_given({"x-llm-gateway-headers": x_llm_gateway_headers}), **(extra_headers or {})}
         return self._post(
             f"/api/v3/tools/execute/{tool_slug}",
             body=maybe_transform(
@@ -428,6 +441,8 @@ class ToolsResource(SyncAPIResource):
 
 
 class AsyncToolsResource(AsyncAPIResource):
+    """Tool execution endpoints"""
+
     @cached_property
     def with_raw_response(self) -> AsyncToolsResourceWithRawResponse:
         """
@@ -507,6 +522,7 @@ class AsyncToolsResource(AsyncAPIResource):
         important: Literal["true", "false"] | Omit = omit,
         include_deprecated: bool | Omit = omit,
         limit: Optional[float] | Omit = omit,
+        query: str | Omit = omit,
         scopes: Optional[SequenceNotStr[str]] | Omit = omit,
         search: str | Omit = omit,
         tags: SequenceNotStr[str] | Omit = omit,
@@ -539,9 +555,13 @@ class AsyncToolsResource(AsyncAPIResource):
 
           limit: Number of items per page, max allowed is 1000
 
+          query: Full-text search query to filter tools by name, slug, or description. Applied as
+              a soft filter on top of other filters.
+
           scopes: Array of scopes to filter tools by)
 
-          search: Free-text search query to find tools by name, description, or functionality
+          search: Deprecated: use "query" instead. Free-text search query to find tools by name,
+              description, or functionality.
 
           tags: Filter tools by one or more tags (can be specified multiple times)
 
@@ -575,6 +595,7 @@ class AsyncToolsResource(AsyncAPIResource):
                         "important": important,
                         "include_deprecated": include_deprecated,
                         "limit": limit,
+                        "query": query,
                         "scopes": scopes,
                         "search": search,
                         "tags": tags,
@@ -601,6 +622,7 @@ class AsyncToolsResource(AsyncAPIResource):
         text: str | Omit = omit,
         user_id: str | Omit = omit,
         version: str | Omit = omit,
+        x_llm_gateway_headers: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -615,7 +637,7 @@ class AsyncToolsResource(AsyncAPIResource):
         processing by providing a text description of what you want to accomplish.
 
         Args:
-          allow_tracing: Enable debug tracing for tool execution (useful for debugging)
+          allow_tracing: Deprecated. Enable debug tracing for tool execution (useful for debugging)
 
           arguments: Key-value pairs of arguments required by the tool (mutually exclusive with text)
 
@@ -636,6 +658,9 @@ class AsyncToolsResource(AsyncAPIResource):
 
           version: Tool version to execute (defaults to "00000000_00" if not specified)
 
+          x_llm_gateway_headers: JSON object containing custom headers to pass to LLM providers (OpenAI, Bedrock,
+              etc.)
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -646,6 +671,7 @@ class AsyncToolsResource(AsyncAPIResource):
         """
         if not tool_slug:
             raise ValueError(f"Expected a non-empty value for `tool_slug` but received {tool_slug!r}")
+        extra_headers = {**strip_not_given({"x-llm-gateway-headers": x_llm_gateway_headers}), **(extra_headers or {})}
         return await self._post(
             f"/api/v3/tools/execute/{tool_slug}",
             body=await async_maybe_transform(

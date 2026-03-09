@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import functools
+import logging
 import os
 import pathlib
 import textwrap
@@ -24,8 +25,8 @@ from tests.fixtures import utils as test_utils
 from tmuxp import exc
 from tmuxp._internal.config_reader import ConfigReader
 from tmuxp.cli.load import load_plugins
-from tmuxp.workspace import loader
-from tmuxp.workspace.builder import WorkspaceBuilder
+from tmuxp.workspace import builder as builder_module, loader
+from tmuxp.workspace.builder import WorkspaceBuilder, _wait_for_pane_ready
 
 if t.TYPE_CHECKING:
     from libtmux.server import Server
@@ -697,6 +698,7 @@ def test_window_index(
 
 def test_before_script_throw_error_if_retcode_error(
     server: Server,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Test tmuxp configuration before_script when command fails."""
     config_script_fails = test_utils.read_workspace_file(
@@ -716,11 +718,19 @@ def test_before_script_throw_error_if_retcode_error(
         session_name = sess.name
         assert session_name is not None
 
-        with pytest.raises(exc.BeforeLoadScriptError):
+        with (
+            caplog.at_level(logging.ERROR, logger="tmuxp.workspace.builder"),
+            pytest.raises(exc.BeforeLoadScriptError),
+        ):
             builder.build(session=sess)
 
         result = server.has_session(session_name)
         assert not result, "Kills session if before_script exits with errcode"
+
+    error_records = [r for r in caplog.records if r.levelno == logging.ERROR]
+    assert len(error_records) >= 1
+    assert error_records[0].msg == "before script failed"
+    assert hasattr(error_records[0], "tmux_session")
 
 
 def test_before_script_throw_error_if_file_not_exists(
@@ -1513,3 +1523,248 @@ def test_issue_800_default_size_many_windows(
 
     builder.build()
     assert len(server.sessions) == 1
+
+
+def test_wait_for_pane_ready_returns_true(session: Session) -> None:
+    """Verify _wait_for_pane_ready detects shell prompt."""
+    pane = session.active_window.active_pane
+    assert pane is not None
+    result = _wait_for_pane_ready(pane, timeout=2.0)
+    assert result is True
+
+
+def test_wait_for_pane_ready_timeout(session: Session) -> None:
+    """Verify _wait_for_pane_ready returns False on timeout for non-shell."""
+    window = session.active_window
+    assert window.active_pane is not None
+    new_pane = window.active_pane.split(shell="sleep 999")
+    assert new_pane is not None
+    result = _wait_for_pane_ready(new_pane, timeout=0.2)
+    assert result is False
+
+
+class PaneReadinessFixture(t.NamedTuple):
+    """Test fixture for pane readiness call count verification."""
+
+    test_id: str
+    yaml: str
+    expected_wait_count: int
+
+
+PANE_READINESS_FIXTURES: list[PaneReadinessFixture] = [
+    PaneReadinessFixture(
+        test_id="waits_for_pane_with_commands",
+        yaml=textwrap.dedent(
+            """\
+session_name: readiness-test
+windows:
+- panes:
+  - shell_command:
+    - cmd: echo hello
+  - shell_command:
+    - cmd: echo world
+""",
+        ),
+        expected_wait_count=2,
+    ),
+    PaneReadinessFixture(
+        test_id="waits_for_pane_without_commands",
+        yaml=textwrap.dedent(
+            """\
+session_name: readiness-test
+windows:
+- panes:
+  - shell_command:
+    - cmd: echo hello
+  - shell_command: []
+""",
+        ),
+        expected_wait_count=2,
+    ),
+    PaneReadinessFixture(
+        test_id="skips_pane_with_custom_shell",
+        yaml=textwrap.dedent(
+            """\
+session_name: readiness-test
+windows:
+- panes:
+  - shell_command:
+    - cmd: echo hello
+  - shell: sleep 999
+    shell_command:
+    - cmd: echo world
+""",
+        ),
+        expected_wait_count=1,
+    ),
+    PaneReadinessFixture(
+        test_id="skips_all_panes_with_window_shell",
+        yaml=textwrap.dedent(
+            """\
+session_name: readiness-test
+windows:
+- window_shell: top
+  panes:
+  - shell_command: []
+  - shell_command: []
+""",
+        ),
+        expected_wait_count=0,
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    list(PaneReadinessFixture._fields),
+    PANE_READINESS_FIXTURES,
+    ids=[t.test_id for t in PANE_READINESS_FIXTURES],
+)
+def test_pane_readiness_call_count(
+    tmp_path: pathlib.Path,
+    server: Server,
+    monkeypatch: pytest.MonkeyPatch,
+    test_id: str,
+    yaml: str,
+    expected_wait_count: int,
+) -> None:
+    """Verify _wait_for_pane_ready is called only for appropriate panes."""
+    call_count = 0
+    original = builder_module._wait_for_pane_ready
+
+    def counting_wait(
+        pane: Pane,
+        timeout: float = 2.0,
+        interval: float = 0.05,
+    ) -> bool:
+        nonlocal call_count
+        call_count += 1
+        return original(pane, timeout=timeout, interval=interval)
+
+    monkeypatch.setattr(builder_module, "_wait_for_pane_ready", counting_wait)
+
+    yaml_workspace = tmp_path / "readiness.yaml"
+    yaml_workspace.write_text(yaml, encoding="utf-8")
+    workspace = ConfigReader._from_file(yaml_workspace)
+    workspace = loader.expand(workspace)
+    workspace = loader.trickle(workspace)
+
+    builder = WorkspaceBuilder(session_config=workspace, server=server)
+    builder.build()
+    assert call_count == expected_wait_count
+
+
+def test_select_layout_not_called_after_yield(
+    tmp_path: pathlib.Path,
+    server: Server,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Verify select_layout is called once per pane, not duplicated in build()."""
+    call_count = 0
+    original_select_layout = Window.select_layout
+
+    def counting_layout(self: Window, layout: str | None = None) -> Window:
+        nonlocal call_count
+        call_count += 1
+        return original_select_layout(self, layout)
+
+    monkeypatch.setattr(Window, "select_layout", counting_layout)
+
+    yaml_config = textwrap.dedent(
+        """\
+session_name: layout-test
+windows:
+- layout: main-vertical
+  panes:
+  - shell_command: []
+  - shell_command: []
+  - shell_command: []
+""",
+    )
+
+    yaml_workspace = tmp_path / "layout.yaml"
+    yaml_workspace.write_text(yaml_config, encoding="utf-8")
+    workspace = ConfigReader._from_file(yaml_workspace)
+    workspace = loader.expand(workspace)
+    workspace = loader.trickle(workspace)
+
+    builder = WorkspaceBuilder(session_config=workspace, server=server)
+    builder.build()
+    # 3 panes = 3 layout calls (one per pane in iter_create_panes), not 6
+    assert call_count == 3
+
+
+def test_builder_logs_session_created(
+    server: Server,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """WorkspaceBuilder.build() logs INFO with tmux_session extra."""
+    workspace = {
+        "session_name": "test_log_session",
+        "windows": [
+            {
+                "window_name": "main",
+                "panes": [
+                    {"shell_command": []},
+                ],
+            },
+        ],
+    }
+    builder = WorkspaceBuilder(session_config=workspace, server=server)
+
+    with caplog.at_level(logging.DEBUG, logger="tmuxp.workspace.builder"):
+        builder.build()
+
+    session_logs = [
+        r
+        for r in caplog.records
+        if hasattr(r, "tmux_session") and r.msg == "session created"
+    ]
+    assert len(session_logs) >= 1
+    assert session_logs[0].tmux_session == "test_log_session"
+
+    # Verify workspace built log
+    built_logs = [r for r in caplog.records if r.msg == "workspace built"]
+    assert len(built_logs) >= 1
+
+    builder.session.kill()
+
+
+def test_builder_logs_window_and_pane_creation(
+    server: Server,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """WorkspaceBuilder logs DEBUG with tmux_window and tmux_pane extra."""
+    workspace = {
+        "session_name": "test_log_wp",
+        "windows": [
+            {
+                "window_name": "editor",
+                "panes": [
+                    {"shell_command": [{"cmd": "echo hello"}]},
+                    {"shell_command": []},
+                ],
+            },
+        ],
+    }
+    builder = WorkspaceBuilder(session_config=workspace, server=server)
+
+    with caplog.at_level(logging.DEBUG, logger="tmuxp.workspace.builder"):
+        builder.build()
+
+    window_logs = [
+        r
+        for r in caplog.records
+        if hasattr(r, "tmux_window") and r.msg == "window created"
+    ]
+    assert len(window_logs) >= 1
+    assert window_logs[0].tmux_window == "editor"
+
+    pane_logs = [
+        r for r in caplog.records if hasattr(r, "tmux_pane") and r.msg == "pane created"
+    ]
+    assert len(pane_logs) >= 1
+
+    cmd_logs = [r for r in caplog.records if r.msg == "sent command %s"]
+    assert len(cmd_logs) >= 1
+
+    builder.session.kill()

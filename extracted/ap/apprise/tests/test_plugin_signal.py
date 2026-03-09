@@ -1,7 +1,7 @@
 # BSD 2-Clause License
 #
 # Apprise - Push Notification Library.
-# Copyright (c) 2025, Chris Caron <lead2gold@gmail.com>
+# Copyright (c) 2026, Chris Caron <lead2gold@gmail.com>
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
@@ -493,6 +493,7 @@ def test_notify_signal_plugin_attachments(request_mock):
         is True
     )
     assert request_mock.call_count == 1
+
 
 def test_plugin_signal_text_mode_markdown_from_url(request_mock):
     """NotifySignalAPI() sets text_mode=styled when ?format=markdown"""

@@ -18,6 +18,8 @@ from typing import Any
 
 import yaml
 
+from plato.chronos.models import DVCManifestEntry
+
 logger = logging.getLogger(__name__)
 
 
@@ -46,44 +48,8 @@ class S3Config:
 
 
 @dataclass
-class DVCFileEntry:
-    relpath: str
-    md5: str
-    size: int = 0
-    mode: int = 0o644
-    is_symlink: bool = False
-    symlink_target: str = ""
-
-    def to_dict(self) -> dict:
-        data: dict[str, Any] = {
-            "relpath": self.relpath,
-            "md5": self.md5,
-            "size": self.size,
-        }
-        if not self.is_symlink and self.mode & 0o111:
-            data["isexec"] = True
-        if self.is_symlink:
-            data["islink"] = True
-            if self.symlink_target:
-                data["symlink_target"] = self.symlink_target
-        return data
-
-    @classmethod
-    def from_dict(cls, d: dict) -> DVCFileEntry:
-        mode = 0o755 if d.get("isexec") else 0o644
-        return cls(
-            relpath=d["relpath"],
-            md5=d["md5"],
-            size=d.get("size", 0),
-            mode=mode,
-            is_symlink=bool(d.get("islink")),
-            symlink_target=str(d.get("symlink_target") or ""),
-        )
-
-
-@dataclass
 class DVCManifest:
-    entries_list: list[DVCFileEntry]
+    entries_list: list[DVCManifestEntry]
     manifest_md5: str
 
     @classmethod
@@ -107,23 +73,23 @@ class DVCManifest:
             logger.warning("Manifest not found at %s, trying %s", manifest_key, manifest_key_alt)
             raw = await s3_download_bytes(s3_config, manifest_key_alt)
         items = json.loads(raw)
-        entries = [DVCFileEntry.from_dict(it) for it in items]
+        entries = [DVCManifestEntry(**it) for it in items]
 
         return cls(entries_list=entries, manifest_md5=manifest_md5)
 
-    def entries_dict(self) -> dict[str, DVCFileEntry]:
+    def entries_dict(self) -> dict[str, DVCManifestEntry]:
         return {e.relpath: e for e in self.entries_list}
 
     def to_dict(self) -> dict:
         return {
-            "entries": [e.to_dict() for e in self.entries_list],
+            "entries": [e.model_dump(exclude_none=True) for e in self.entries_list],
             "manifest_md5": self.manifest_md5,
         }
 
     @classmethod
     def from_dict(cls, d: dict) -> DVCManifest:
         return cls(
-            entries_list=[DVCFileEntry.from_dict(e) for e in d["entries"]],
+            entries_list=[DVCManifestEntry(**e) for e in d["entries"]],
             manifest_md5=d["manifest_md5"],
         )
 
@@ -405,7 +371,7 @@ async def smart_commit(
         st = os.lstat(local_path)
         mode = stat_mod.S_IMODE(st.st_mode)
         is_symlink = stat_mod.S_ISLNK(st.st_mode)
-        symlink_target = os.readlink(local_path) if is_symlink else ""
+        symlink_target = os.readlink(local_path) if is_symlink else None
         data = symlink_target.encode("utf-8") if is_symlink else local_path.read_bytes()
         size = len(data)
         new_md5 = hashlib.md5(data).hexdigest()
@@ -420,14 +386,14 @@ async def smart_commit(
         else:
             batch_uploads.append((str(local_path), key))
 
-        entry = DVCFileEntry(
+        entry = DVCManifestEntry(
             relpath=relpath,
             md5=new_md5,
             size=size,
-            mode=mode,
-            is_symlink=is_symlink,
+            isexec=True if (not is_symlink and mode & 0o111) else None,
+            islink=True if is_symlink else None,
             symlink_target=symlink_target,
-        ).to_dict()
+        ).model_dump(exclude_none=True)
         return entry, size
 
     for relpath, entry in original.items():
@@ -438,13 +404,23 @@ async def smart_commit(
             entries.append(new_entry)
             total_size += size
         else:
-            if entry.size == 0 and entry.md5:
+            entry_size = entry.size or 0
+            if entry_size == 0 and entry.md5:
                 try:
-                    entry.size = os.lstat(mountpoint / relpath).st_size
+                    entry_size = os.lstat(mountpoint / relpath).st_size
                 except OSError:
                     pass
-            entries.append(entry.to_dict())
-            total_size += entry.size
+            entries.append(
+                DVCManifestEntry(
+                    relpath=entry.relpath,
+                    md5=entry.md5,
+                    size=entry_size,
+                    isexec=entry.isexec,
+                    islink=entry.islink,
+                    symlink_target=entry.symlink_target,
+                ).model_dump(exclude_none=True)
+            )
+            total_size += entry_size
 
     for relpath in created:
         if relpath in original:

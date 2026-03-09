@@ -27,7 +27,7 @@ keywords = [
   "downstream",
 ]
 requires-python = ">=3.10"
-version = "1.21.0"
+version = "1.21.1"
 
 [project.optional-dependencies]
 jit = [

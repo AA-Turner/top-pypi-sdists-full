@@ -583,7 +583,7 @@ def _expand_file_references(text: str, working_dir: str, file_max_chars: int = 1
 
                     if mime in EXTRACTABLE_MIME_TYPES:
                         file_data = resolved.read_bytes()
-                        extracted = extract_text(file_data, mime)
+                        extracted = extract_text(file_data, mime).text
                         if extracted:
                             if len(extracted) > file_max_chars:
                                 extracted = extracted[:file_max_chars] + "\n... (truncated)"
@@ -851,6 +851,25 @@ async def _load_instructions_with_trust(
     return "\n\n".join(parts)
 
 
+async def _embed_after_upload(
+    get_worker: Any,
+    source_id: str,
+) -> int | None:
+    """Embed source chunks inline after CLI upload.
+
+    Extracted for testability — this is the parity fix for #834.
+    Returns chunk count on success, None if skipped or failed.
+    """
+    worker = await get_worker()
+    if not worker:
+        return None
+    try:
+        return await worker.embed_source(source_id)
+    except Exception:
+        logger.debug("Inline embed failed for upload; background worker will retry", exc_info=True)
+        return None
+
+
 async def _run_mcp_startup_live(
     mcp_manager: Any,
     mcp_servers: list[Any],
@@ -1086,6 +1105,8 @@ async def run_cli(
             renderer.console.print(f"  [{MUTED}]✗ Denied: {escape(verdict.tool_name)}[/{MUTED}]\n")
             return False
 
+        await renderer.stop_thinking()
+
         async with _approval_lock:
             renderer.console.print(f"\n[yellow bold]Warning:[/yellow bold] {verdict.reason}")
             if verdict.details.get("command"):
@@ -1099,9 +1120,12 @@ async def run_cli(
                 answer = await _confirm_session.prompt_async(
                     "  [y] Allow once  [s] Allow for session  [a] Allow always  [n] Deny: "
                 )
-                return _apply_choice(answer.strip().lower())
+                result = _apply_choice(answer.strip().lower())
+                renderer.start_thinking()
+                return result
             except (EOFError, KeyboardInterrupt):
                 renderer.console.print(f"  [{MUTED}]✗ Denied: {escape(verdict.tool_name)}[/{MUTED}]\n")
+                renderer.start_thinking()
                 return False
 
     def _persist_allowed_tool(tool_name: str) -> None:
@@ -2023,6 +2047,7 @@ async def _run_repl(
         "model",
         "plan",
         "upload",
+        "reprocess",
         "usage",
         "verbose",
         "detail",
@@ -2568,6 +2593,47 @@ async def _run_repl(
                 logger.debug("RAG: failed to create embedding service", exc_info=True)
                 return None
 
+        _embedding_worker: list[Any] = [None]
+
+        async def _get_embedding_worker() -> Any:
+            """Lazily create an EmbeddingWorker for inline embedding after uploads."""
+            if _embedding_worker[0] is not None:
+                return _embedding_worker[0]
+            svc = await _get_rag_embedding_service()
+            if svc is None:
+                return None
+            try:
+                from ..services.embedding_worker import EmbeddingWorker
+
+                _embedding_worker[0] = EmbeddingWorker(db, svc, vec_manager=vec_manager)
+                return _embedding_worker[0]
+            except Exception:
+                logger.debug("Failed to create embedding worker for CLI", exc_info=True)
+                return None
+
+        _rag_reranker_service: list[Any] = [None]
+        _reranker_checked: list[bool] = [False]
+
+        async def _get_rag_reranker_service() -> Any:
+            """Lazily create reranker service for RAG reranking, with auto-detect probe."""
+            if _reranker_checked[0]:
+                return _rag_reranker_service[0]
+            _reranker_checked[0] = True
+            try:
+                from ..services.reranker import create_reranker_service
+
+                svc = create_reranker_service(config)
+                if svc and config.reranker.enabled is None:
+                    probe_ok = await svc.probe()
+                    if not probe_ok:
+                        logger.info("Reranker model unavailable; reranking disabled")
+                        svc = None
+                _rag_reranker_service[0] = svc
+                return svc
+            except Exception:
+                logger.debug("RAG: failed to create reranker service", exc_info=True)
+                return None
+
         def _apply_plan_mode(conv_id: str) -> None:
             nonlocal tools_openai, extra_system_prompt
             plan_path = get_plan_file_path(config.app.data_dir, conv_id)
@@ -2804,7 +2870,7 @@ async def _run_repl(
                         file_data = upload_path.read_bytes()
                         guess = _ft.guess(file_data)
                         mime = guess.mime if guess else (mimetypes.guess_type(str(upload_path))[0] or "text/plain")
-                        source = storage.save_source_file(
+                        source, upload_warnings = storage.save_source_file(
                             db,
                             title=upload_path.name,
                             filename=upload_path.name,
@@ -2823,12 +2889,60 @@ async def _run_repl(
                             renderer.console.print(
                                 f"  [{MUTED}]{mime}, {len(source['content']):,} chars extracted[/{MUTED}]"
                             )
+                            n = await _embed_after_upload(_get_embedding_worker, source["id"])
+                            if n:
+                                renderer.console.print(f"  [{MUTED}]{n} chunk(s) embedded for search[/{MUTED}]")
                         else:
                             renderer.console.print(f"  [{MUTED}]{mime}, stored (no text extracted)[/{MUTED}]")
+                        for w in upload_warnings:
+                            renderer.console.print(f"  [yellow]{w}[/yellow]")
                         renderer.console.print()
                     except Exception:
                         logger.error("CLI upload failed", exc_info=True)
                         renderer.console.print(f"[{CHROME}]Upload failed[/{CHROME}]\n")
+                    continue
+                elif cmd == "/reprocess":
+                    parts = user_input.split(maxsplit=1)
+                    if len(parts) < 2 or not parts[1].strip():
+                        renderer.console.print(
+                            f"[{CHROME}]Usage: /reprocess <source_id> or /reprocess all[/{CHROME}]\n"
+                        )
+                        continue
+                    arg = parts[1].strip()
+                    data_dir = config.app.data_dir
+                    if arg.lower() == "all":
+                        rows = db.execute_fetchall(
+                            "SELECT id, title FROM sources WHERE content IS NULL AND storage_path IS NOT NULL"
+                        )
+                        if not rows:
+                            renderer.console.print(f"[{CHROME}]No sources need reprocessing.[/{CHROME}]\n")
+                            continue
+                        renderer.console.print(f"[{CHROME}]Reprocessing {len(rows)} source(s)...[/{CHROME}]")
+                        for r in rows:
+                            rd = dict(r)
+                            src, warns = storage.reprocess_source(db, rd["id"], data_dir)
+                            title = rd.get("title", rd["id"][:8])
+                            if src.get("content"):
+                                cc = src.get("chunk_count", 0)
+                                renderer.console.print(f"  [{MUTED}]{title} — {cc} chunk(s)[/{MUTED}]")
+                            else:
+                                renderer.console.print(f"  [{MUTED}]{title} — no text[/{MUTED}]")
+                            for w in warns:
+                                renderer.console.print(f"  [yellow]{w}[/yellow]")
+                        renderer.console.print()
+                    else:
+                        src, warns = storage.reprocess_source(db, arg, data_dir)
+                        if not src:
+                            renderer.console.print(f"[{CHROME}]Source not found.[/{CHROME}]\n")
+                        else:
+                            if src.get("content"):
+                                cc = src.get("chunk_count", 0)
+                                renderer.console.print(f"[{CHROME}]Reprocessed — {cc} chunk(s)[/{CHROME}]")
+                            else:
+                                renderer.console.print(f"[{CHROME}]Reprocessed — no text extracted[/{CHROME}]")
+                            for w in warns:
+                                renderer.console.print(f"  [yellow]{w}[/yellow]")
+                            renderer.console.print()
                     continue
                 elif cmd == "/usage":
                     _show_usage_stats(db, config)
@@ -3498,12 +3612,154 @@ async def _run_repl(
                             _wsf(_export_path, cfg)
                             renderer.console.print(f"[green]Exported space to:[/green] {_export_path}\n")
 
+                    elif sub == "sources":
+                        sp = _active_space[0]  # type: ignore[assignment]
+                        if not sp:
+                            renderer.console.print(f"[{CHROME}]No active space[/{CHROME}]\n")
+                            continue
+                        from ..services.storage import get_direct_space_source_links
+
+                        linked = get_direct_space_source_links(db, sp["id"])
+                        if not linked:
+                            renderer.console.print(f"[{CHROME}]No sources linked to space '{sp['name']}'.[/{CHROME}]")
+                            renderer.console.print(
+                                f"[{CHROME}]  Link one with: /space link-source <title-or-id>[/{CHROME}]\n"
+                            )
+                            continue
+                        renderer.console.print(f"\n[bold]Sources in {sp['name']}:[/bold]")
+                        for _src_row in linked:
+                            _title = _src_row.get("title", "Untitled")
+                            _type = _src_row.get("type", "")
+                            _sid = str(_src_row["id"])[:8]
+                            renderer.console.print(f"  {_title} [{MUTED}]{_type} · {_sid}...[/{MUTED}]")
+                        renderer.console.print()
+
+                    elif sub == "link-source":
+                        sp = _active_space[0]  # type: ignore[assignment]
+                        if not sp:
+                            renderer.console.print(f"[{CHROME}]No active space[/{CHROME}]\n")
+                            continue
+                        query = parts[2].strip() if len(parts) >= 3 else ""
+                        if not query:
+                            renderer.console.print(f"[{CHROME}]Usage: /space link-source <title-or-id>[/{CHROME}]\n")
+                            continue
+                        from ..services.storage import (
+                            get_direct_space_source_links,
+                        )
+                        from ..services.storage import (
+                            link_source_to_space as _link_src,
+                        )
+                        from ..services.storage import (
+                            list_sources as _list_srcs,
+                        )
+
+                        all_srcs = _list_srcs(db, limit=0)
+                        match = None
+                        # Exact match by ID (unique, no ambiguity)
+                        for s in all_srcs:
+                            if s["id"] == query:
+                                match = s
+                                break
+                        # Exact title match with disambiguation
+                        if not match:
+                            exact = [s for s in all_srcs if s.get("title", "").lower() == query.lower()]
+                            if len(exact) == 1:
+                                match = exact[0]
+                            elif len(exact) > 1:
+                                renderer.console.print(f"[{CHROME}]Multiple sources named '{query}':[/{CHROME}]")
+                                for c in exact[:10]:
+                                    _ct = c.get("title", "Untitled")
+                                    _ci = str(c["id"])[:8]
+                                    renderer.console.print(f"  {_ct} [{MUTED}]{_ci}...[/{MUTED}]")
+                                renderer.console.print(f"[{CHROME}]Use the source ID to disambiguate.[/{CHROME}]\n")
+                                continue
+                        # Partial title match with disambiguation
+                        if not match:
+                            candidates = [s for s in all_srcs if query.lower() in s.get("title", "").lower()]
+                            if len(candidates) == 1:
+                                match = candidates[0]
+                            elif len(candidates) > 1:
+                                renderer.console.print(f"[{CHROME}]Multiple sources match '{query}':[/{CHROME}]")
+                                for c in candidates[:10]:
+                                    _ct = c.get("title", "Untitled")
+                                    _ci = str(c["id"])[:8]
+                                    renderer.console.print(f"  {_ct} [{MUTED}]{_ci}...[/{MUTED}]")
+                                renderer.console.print(f"[{CHROME}]Be more specific or use the source ID.[/{CHROME}]\n")
+                                continue
+                        if not match:
+                            renderer.render_error(f"Source '{query}' not found.")
+                            continue
+                        already = get_direct_space_source_links(db, sp["id"])
+                        if any(r["id"] == match["id"] for r in already):
+                            _t = match.get("title", "Untitled")
+                            renderer.console.print(f"[{CHROME}]'{_t}' is already linked to '{sp['name']}'[/{CHROME}]\n")
+                            continue
+                        _link_src(db, sp["id"], source_id=match["id"])
+                        renderer.console.print(
+                            f"[green]Linked '{match.get('title', 'Untitled')}' to space '{sp['name']}'[/green]\n"
+                        )
+
+                    elif sub == "unlink-source":
+                        sp = _active_space[0]  # type: ignore[assignment]
+                        if not sp:
+                            renderer.console.print(f"[{CHROME}]No active space[/{CHROME}]\n")
+                            continue
+                        query = parts[2].strip() if len(parts) >= 3 else ""
+                        if not query:
+                            renderer.console.print(f"[{CHROME}]Usage: /space unlink-source <title-or-id>[/{CHROME}]\n")
+                            continue
+                        from ..services.storage import get_direct_space_source_links as _get_direct
+                        from ..services.storage import (
+                            unlink_source_from_space as _unlink_src,
+                        )
+
+                        linked = _get_direct(db, sp["id"])
+                        match = None
+                        # Exact match by ID (unique, no ambiguity)
+                        for s in linked:
+                            if s["id"] == query:
+                                match = s
+                                break
+                        # Exact title match with disambiguation
+                        if not match:
+                            exact = [s for s in linked if s.get("title", "").lower() == query.lower()]
+                            if len(exact) == 1:
+                                match = exact[0]
+                            elif len(exact) > 1:
+                                renderer.console.print(f"[{CHROME}]Multiple sources named '{query}':[/{CHROME}]")
+                                for c in exact[:10]:
+                                    _ct = c.get("title", "Untitled")
+                                    _ci = str(c["id"])[:8]
+                                    renderer.console.print(f"  {_ct} [{MUTED}]{_ci}...[/{MUTED}]")
+                                renderer.console.print(f"[{CHROME}]Use the source ID to disambiguate.[/{CHROME}]\n")
+                                continue
+                        # Partial title match with disambiguation
+                        if not match:
+                            candidates = [s for s in linked if query.lower() in s.get("title", "").lower()]
+                            if len(candidates) == 1:
+                                match = candidates[0]
+                            elif len(candidates) > 1:
+                                renderer.console.print(f"[{CHROME}]Multiple sources match '{query}':[/{CHROME}]")
+                                for c in candidates[:10]:
+                                    _ct = c.get("title", "Untitled")
+                                    _ci = str(c["id"])[:8]
+                                    renderer.console.print(f"  {_ct} [{MUTED}]{_ci}...[/{MUTED}]")
+                                renderer.console.print(f"[{CHROME}]Be more specific or use the source ID.[/{CHROME}]\n")
+                                continue
+                        if not match:
+                            renderer.render_error(f"Source '{query}' is not directly linked to space '{sp['name']}'.")
+                            continue
+                        _unlink_src(db, sp["id"], source_id=match["id"])
+                        renderer.console.print(
+                            f"[green]Unlinked '{match.get('title', 'Untitled')}' from space '{sp['name']}'[/green]\n"
+                        )
+
                     else:
                         if _active_space[0]:
                             renderer.console.print(f"[{CHROME}]Active space: {_active_space[0]['name']}[/{CHROME}]")
                         renderer.console.print(
                             f"[{CHROME}]Usage: /space [list|show|switch|create|init|load|refresh|clear|"
-                            f"clone|map|edit|export][/{CHROME}]\n"
+                            f"clone|map|edit|export|sources|link-source|unlink-source][/{CHROME}]\n"
                         )
                     continue
                 elif cmd in ("/packs", "/pack"):
@@ -4268,6 +4524,7 @@ async def _run_repl(
             renderer.render_newline()
 
             # RAG: retrieve relevant context from knowledge base
+            _rag_chunks: list[Any] = []
             if config.rag.enabled and not _plan_active[0]:
                 try:
                     from ..services.rag import format_rag_context, retrieve_context, strip_rag_context
@@ -4277,8 +4534,11 @@ async def _run_repl(
                     extra_system_prompt = strip_rag_context(extra_system_prompt)
 
                     _rag_emb = await _get_rag_embedding_service()
-                    if _rag_emb:
-                        _rag_chunks = await retrieve_context(
+                    _rag_mode = getattr(config.rag, "retrieval_mode", "dense")
+                    _rag_uses_keyword = _rag_mode in ("keyword", "hybrid")
+                    if _rag_emb or _rag_uses_keyword:
+                        _rag_reranker = await _get_rag_reranker_service()
+                        _rag_chunks, _rag_reason = await retrieve_context(
                             query=expanded,
                             db=db,
                             embedding_service=_rag_emb,
@@ -4286,6 +4546,8 @@ async def _run_repl(
                             current_conversation_id=conv["id"],
                             space_id=conv.get("space_id"),
                             vec_manager=vec_manager,
+                            reranker_service=_rag_reranker,
+                            reranker_config=config.reranker,
                         )
                         if _rag_chunks:
                             extra_system_prompt += format_rag_context(_rag_chunks)
@@ -4293,7 +4555,8 @@ async def _run_repl(
                                 f"  [{MUTED}][RAG: {len(_rag_chunks)} relevant chunk(s) retrieved][/{MUTED}]"
                             )
                         else:
-                            renderer.console.print(f"  [{MUTED}][RAG: no relevant context found][/{MUTED}]")
+                            _reason_suffix = f" — {_rag_reason}" if _rag_reason else ""
+                            renderer.console.print(f"  [{MUTED}][RAG: no results{_reason_suffix}][/{MUTED}]")
                     else:
                         renderer.console.print(f"  [{MUTED}][RAG: embedding service unavailable][/{MUTED}]")
                 except Exception:
@@ -4582,6 +4845,8 @@ async def _run_repl(
                             if not cancel_event.is_set():
                                 renderer.save_turn_history()
                                 renderer.render_response_end()
+                                if _rag_chunks:
+                                    renderer.render_rag_sources(_rag_chunks)
                                 renderer.render_newline()
                                 context_tokens = _estimate_tokens(ai_messages)
                                 renderer.render_context_footer(

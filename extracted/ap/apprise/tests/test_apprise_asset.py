@@ -1,7 +1,7 @@
 # BSD 2-Clause License
 #
 # Apprise - Push Notification Library.
-# Copyright (c) 2025, Chris Caron <lead2gold@gmail.com>
+# Copyright (c) 2026, Chris Caron <lead2gold@gmail.com>
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
@@ -55,7 +55,6 @@ def test_timezone():
     assert isinstance(asset.tzinfo, tzinfo)
     asset = AppriseAsset(timezone=ZoneInfo("America/Toronto"))
     assert isinstance(asset.tzinfo, tzinfo)
-
 
     with pytest.raises(AttributeError):
         AppriseAsset(timezone=object)

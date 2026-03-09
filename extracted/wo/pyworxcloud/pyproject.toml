@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "pyworxcloud"
-version = "v5.0.0"
+version = "6.0.0"
 description = "Landroid cloud (Positec) API library"
 authors = ["Malene Trab <malene@trab.dk>"]
 documentation = "https://github.com/mtrab/pyworxcloud"
@@ -22,4 +22,13 @@ readme = "README.md"
 python = "^3.9"
 urllib3 = ">=1.26.5"
 requests = "^2.32.0"
-awsiotsdk = "1.24.0"
+awsiotsdk = "1.28.1"
+aiohttp = "^3.11.0"
+tzdata = ">=2024.1"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.0"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]

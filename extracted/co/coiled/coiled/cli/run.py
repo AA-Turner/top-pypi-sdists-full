@@ -577,6 +577,11 @@ def get_entrypoint(connection, container_name) -> str:
     help="Don't automatically mount SSD/NVMe (if any) to ``/scratch``.",
 )
 @click.option(
+    "--ami-version",
+    default=None,
+    help="Use non-default Coiled AMI, e.g. 'DL' for the Deep Learning Base OSS Nvidia Driver GPU AMI.",
+)
+@click.option(
     "--filestore",
     "filestore_names",
     default=None,
@@ -614,6 +619,7 @@ def run(
     package_sync_conda_extras,
     docker_shm_size,
     skip_ssd_mount,
+    ami_version,
     filestore_names,
     command,
 ):
@@ -650,6 +656,7 @@ def run(
         package_sync_strict=package_sync_strict,
         package_sync_conda_extras=package_sync_conda_extras,
         docker_shm_size=docker_shm_size,
+        ami_version=ami_version,
         filestore_names=filestore_names,
         skip_ssd_mount=skip_ssd_mount,
     )
@@ -691,6 +698,7 @@ def start_run(
     docker_shm_size: str | None = None,
     filestore_names: list[str] | None = None,
     skip_ssd_mount: bool | None = None,
+    ami_version: str | None = None,
 ):
     runtime_env_dict = dict_from_key_val_list(env)
     tags = dict_from_key_val_list(tag)
@@ -761,6 +769,13 @@ def start_run(
                     workspace=workspace,
                 )
                 info["workspace"] = workspace
+
+                backend_options = {}
+                if ami_version:
+                    backend_options["ami_version"] = ami_version
+                if docker_shm_size:
+                    backend_options["docker_shm_size"] = docker_shm_size
+
                 cluster_kwargs: ClusterKwargs = {
                     "workspace": workspace,
                     "n_workers": 0,
@@ -785,7 +800,7 @@ def start_run(
                     "host_setup_script": host_setup_script,
                     "package_sync_strict": package_sync_strict,
                     "package_sync_conda_extras": package_sync_conda_extras,
-                    "backend_options": {"docker_shm_size": docker_shm_size} if docker_shm_size else None,
+                    "backend_options": backend_options or None,  # type: ignore
                     "unset_single_threading_variables": True,
                     "skip_ssd_mount": skip_ssd_mount,
                     "filestores_to_attach": filestores_to_attach,

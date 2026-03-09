@@ -128,7 +128,7 @@ class FeatureSet:
             "description": "it's possible to save and load objects to the calendar"
         },
         "save-load.event": {"description": "it's possible to save and load events to the calendar"},
-        "save-load.event.recurrences": {"description": "it's possible to save and load recurring events to the calendar - events with an RRULE property set, including recurrence sets"},
+        "save-load.event.recurrences": {"description": "it's possible to save and load recurring events to the calendar - events with an RRULE property set, including recurrence sets", "default": {"support": "full"}},
         "save-load.event.recurrences.count": {"description": "The server will receive and store a recurring event with a count set in the RRULE", "default": {"support": "full"}},
         ## This was Claude's suggestion and it works as of today, the
         ## "unsupported" description matches the behaviour of the Stalwart server.
@@ -160,11 +160,10 @@ class FeatureSet:
         "search": {
             "description": "calendar MUST support searching for objects using the REPORT method, as specified in RFC4791, section 7"
         },
-        "search.comp-type-optional": { ## TODO: search.comp-type.optional is better?  (Discovered this just while doing the last polishing on the CHANGELOG before releasing v3.0 and I will NOT spend time on this or rerun all the tests)
+        "search.comp-type.optional": {
             "description": "In all the search examples in the RFC, comptype is given during a search, the client specifies if it's event or tasks or journals that is wanted.  However, as I read the RFC this is not required.  If omitted, the server should deliver all objects.  Many servers will not return anything if the COMPTYPE filter is not set.  Other servers will return 404"
         },
         "search.comp-type": {
-            "type": "server-peculiarity", ## TODO: why?  This type may for sure be removed?  (Discovered this just while doing the last polishing on the CHANGELOG before releasing v3.0 and I will NOT spend time on this or rerun all the tests)
             "description": "Server correctly filters calendar-query results by component type. When 'broken', server may misclassify component types (e.g., returning TODOs when VEVENTs are requested). The library will perform client-side filtering to work around this issue",
             "default": {"support": "full"}
         },
@@ -182,6 +181,10 @@ class FeatureSet:
         "search.time-range.event.old-dates": {"description": "time range searches for events with old dates (e.g. year 2000) work - some servers enforce a min-date-time restriction"},
         "search.time-range.journal": {"description": "basic time range searches for journal works"},
         "search.time-range.alarm": {"description": "Time range searches for alarms work. The server supports searching for events based on when their alarms trigger, as specified in RFC4791 section 9.9"},
+        "search.unlimited-time-range": {
+            "description": "A REPORT without a time-range filter should return all matching objects regardless of when they occur. Some servers (e.g. OX App Suite) use a sliding window for REPORT requests without a time range, returning only objects within approximately ±1 year of now and potentially missing older or far-future objects.",
+            "default": {"support": "full"},
+        },
         "search.is-not-defined": {
             "description": "Supports searching for objects where properties is-not-defined according to rfc4791 section 9.7.4",
             "default": {"support": "full"}
@@ -829,7 +832,7 @@ xandikos_v0_2_12 = {
     'search.recurrences.expanded': {'support': 'unsupported'},
     'search.time-range.todo': {'support': 'unsupported'},
     'search.time-range.alarm': {'support': 'ungraceful', 'behaviour': '500 internal server error'},
-    'search.comp-type-optional': {'support': 'ungraceful'},
+    'search.comp-type.optional': {'support': 'ungraceful'},
     "search.text.substring": {"support": "unsupported"},
     "search.text.category.substring": {"support": "unsupported"},
     'principal-search': {'support': 'unsupported'},
@@ -855,7 +858,7 @@ xandikos_v0_2_12 = {
 xandikos_v0_3 = {
     ## this only applies for very simple installations
     "auto-connect.url": {"domain": "localhost", "scheme": "http", "basepath": "/"},
-    'search.comp-type-optional': {'support': 'unsupported'},
+    'search.comp-type.optional': {'support': 'unsupported'},
     ## This suddenly disappeared.  Should probably look more into the checks ...
     #"search.recurrences.includes-implicit.todo.pending": {"support": "unsupported"},
     'search.recurrences.expanded.todo': {'support': 'unsupported'},
@@ -922,7 +925,7 @@ nextcloud = {
         'basepath': '/remote.php/dav',
     },
     ## I'm surprised, I'm quite sure this was reported ungraceful earlier.  Passed with caldav commit a98d50490b872e9b9d8e93e2e401c936ad193003, caldav server checker commit 3cae24cf99da1702b851b5a74a9b88c8e5317dad 2026-02-15.  The commit 3cae24cf99da1702b851b5a74a9b88c8e5317dad was however development done on the wrong branch and has been force-pushed awway.  It was again observed ungraceful at commits be26d42b1ca3ff3b4fd183761b4a9b024ce12b84 / 537a23b145487006bb987dee5ab9e00cdebb0492
-    'search.comp-type-optional': {'support': 'ungraceful'},
+    'search.comp-type.optional': {'support': 'ungraceful'},
     'search.recurrences.expanded.todo': {'support': 'unsupported'},
     'search.recurrences.expanded.exception': {'support': 'unsupported'}, ## TODO: verify
     'delete-calendar': {
@@ -979,7 +982,7 @@ zimbra = {
     # sometimes throws a 500
     'search.text.category': {'support': 'ungraceful'},
     'search.recurrences.expanded.todo': { "support": "unsupported" },
-    'search.comp-type-optional': {'support': 'fragile'}, ## TODO: more research on this, looks like a bug in the checker,
+    'search.comp-type.optional': {'support': 'fragile'}, ## TODO: more research on this, looks like a bug in the checker,
     'search.time-range.alarm': {'support': 'unsupported'},
     'principal-search': "unsupported",
 
@@ -1009,7 +1012,7 @@ zimbra = {
 
 bedework = {
     'search.comp-type': {'support': 'broken', 'behaviour': 'Server returns everything when searching for events and nothing when searching for todos'},
-    'search.comp-type-optional': {'support': 'ungraceful'},
+    'search.comp-type.optional': {'support': 'ungraceful'},
     #'search.time-range.event': {'support': 'unsupported'}, ## TODO: flapping??
     #"search.combined-is-logical-and": { "support": "unsupported" },
     ## TODO: play with this and see if it's needed
@@ -1068,7 +1071,7 @@ synology = {
     'principal-search': False,
     'sync-token': 'fragile',
     'delete-calendar': False,
-    'search.comp-type-optional': 'fragile',
+    'search.comp-type.optional': 'fragile',
     'search.is-not-defined': {'support': 'fragile', 'behaviour': 'works for CLASS but not for CATEGORIES'},
     'search.text.case-sensitive': {'support': 'unsupported'},
     'search.time-range.alarm': {'support': 'unsupported'},
@@ -1079,7 +1082,7 @@ synology = {
 
 baikal =  { ## version 0.10.1
     "http.multiplexing": "fragile", ## ref https://github.com/python-caldav/caldav/issues/564
-    'search.comp-type-optional': {'support': 'ungraceful'},
+    'search.comp-type.optional': {'support': 'ungraceful'},
     'search.recurrences.expanded.todo': {'support': 'unsupported'},
     'search.recurrences.expanded.exception': {'support': 'unsupported'},
     'search.recurrences.includes-implicit.todo': {'support': 'unsupported'},
@@ -1104,7 +1107,7 @@ baikal_old = baikal | {
 }
 
 cyrus = {
-    "search.comp-type-optional": {"support": "ungraceful"},
+    "search.comp-type.optional": {"support": "ungraceful"},
     "search.recurrences.expanded.exception": {"support": "unsupported"},
     "search.time-range.alarm": {"support": "ungraceful"},
     'principal-search': {'support': 'ungraceful'},
@@ -1136,7 +1139,7 @@ davical = {
     # Disable HTTP/2 multiplexing - davical doesn't support it well and niquests
     # lazy responses cause MultiplexingError when accessing status_code
     "http.multiplexing": { "support": "unsupported" },
-    "search.comp-type-optional": { "support": "fragile" },
+    "search.comp-type.optional": { "support": "fragile" },
     "search.recurrences.expanded.exception": { "support": "unsupported" },
     "search.time-range.alarm": { "support": "unsupported" },
     'sync-token': {'support': 'fragile'},
@@ -1171,7 +1174,7 @@ sogo = {
         "support": "unsupported"
     },
     ## was unsupported.  reported ungraceful with caldav commit a98d50490b872e9b9d8e93e2e401c936ad193003, caldav server checker commit 3cae24cf99da1702b851b5a74a9b88c8e5317dad 2026-02-15
-    "search.comp-type-optional": {
+    "search.comp-type.optional": {
         "support": "ungraceful"
     },
     ## includes-implicit.todo has been observed as both supported and unsupported
@@ -1244,7 +1247,7 @@ robur = {
     "search.time-range.alarm": {'support': 'unsupported'},
     "search.text": { "support": "unsupported", "behaviour": "a text search ignores the filter and returns all elements" },
     "search.text.by-uid": { "support": "fragile", "behaviour": "Probably not supported, but my caldav-server-checker tool has issues with it at the moment" },
-    "search.comp-type-optional": { "support": "ungraceful" },
+    "search.comp-type.optional": { "support": "ungraceful" },
     "search.recurrences.expanded.todo": { "support": "unsupported" },
     "search.recurrences.expanded.event": { "support": "fragile" },
     "search.recurrences.expanded.exception": { "support": "unsupported" },
@@ -1274,7 +1277,7 @@ posteo = {
     "save.duplicate-uid.cross-calendar": { "support": "unknown" },
     ## foo ... "full" observed for the next two, 70938dc1cbb6a839978eee4315699746d38ee5f0/3cae24cf99da1702b851b5a74a9b88c8e5317dad, 2026-02-17
     ## bar ... 3cae24cf99da1702b851b5a74a9b88c8e5317dad was probably the rotten commit, ungraceful again in  be26d42b1ca3ff3b4fd183761b4a9b024ce12b84 / 537a23b145487006bb987dee5ab9e00cdebb0492
-    'search.comp-type-optional': {'support': 'ungraceful'},
+    'search.comp-type.optional': {'support': 'ungraceful'},
     #'search.text.case-sensitive': {'support': 'unsupported'},
     ## Comment from claude:
     ## Text search precondition check returns unexpected results on posteo
@@ -1322,7 +1325,7 @@ davis = {
     "principal-search.by-name.self": {"support": "unsupported"},
     "principal-search": {"support": "ungraceful"},
     "save-load.journal.mixed-calendar": {"support": "unsupported"},
-    "search.comp-type-optional": {"support": "ungraceful"},
+    "search.comp-type.optional": {"support": "ungraceful"},
     "old_flags": [
         "calendar_order",
         "calendar_color",
@@ -1348,7 +1351,7 @@ ccs = {
     "search.time-range.event.old-dates": {"support": "ungraceful"},
     "search.time-range.todo": {"support": "full"},
     "search.time-range.todo.old-dates": {"support": "ungraceful"},
-    "search.comp-type-optional": {"support": "ungraceful"},
+    "search.comp-type.optional": {"support": "ungraceful"},
     ## "full" observed, 70938dc1cbb6a839978eee4315699746d38ee5f0/3cae24cf99da1702b851b5a74a9b88c8e5317dad, 2026-02-17.
     ## However, this may be due to mess with the caldav-server-checker branches.  "unsupported" again at be26d42b1ca3ff3b4fd183761b4a9b024ce12b84 / 537a23b145487006bb987dee5ab9e00cdebb0492
     "search.text.case-sensitive": {"support": "unsupported"},
@@ -1387,10 +1390,8 @@ stalwart = {
     ## returns 3 items instead of 2 for a recurring event with one exception
     ## (the exception is stored as a separate object and returned twice).
     'search.recurrences.expanded.exception': False,
-    ## Stalwart doesn't store master+exception VEVENTs correctly as a single resource
-    ## (returns 3 VEVENTs instead of 2 when the master+exception event is expanded).
-    ## Since server-side expansion is also broken, both paths give wrong results.
-    'save-load.event.recurrences.exception': {'support': 'unsupported'},
+    ## Stalwart stores master+exception VEVENTs as a single resource with 2 VEVENTs.
+    'save-load.event.recurrences.exception': {'support': 'full'},
     'old_flags': [
         ## Stalwart does not return VTODO items without DTSTART in date searches
         'vtodo_datesearch_nodtstart_task_is_skipped',
@@ -1410,7 +1411,7 @@ purelymail = {
     ## 409 Conflict with <must-have-parent> when PUTting to a URL not under an existing calendar
     #'save-load.get-by-url': {'support': 'unknown'},
     #'save-load.todo': {'support': 'ungraceful'},
-    'search.comp-type-optional': {'support': 'unsupported'},
+    'search.comp-type.optional': {'support': 'unsupported'},
     ## The search features below are unreliable on purelymail, likely due
     ## to the 160s search-cache delay.  Results flip between unsupported
     ## and ungraceful across runs.  Marked fragile so the checker skips them.
@@ -1453,7 +1454,7 @@ gmx = {
         'default_sleep': 4,
         'max_sleep': 30
     },
-    'search.comp-type-optional': {'support': 'fragile', 'description': 'unexpected results from date-search without comp-type - but only sometimes - TODO: research more'},
+    'search.comp-type.optional': {'support': 'fragile', 'description': 'unexpected results from date-search without comp-type - but only sometimes - TODO: research more'},
     'search.recurrences.expanded': {'support': 'unsupported'},
     ## TODO: flapping between ungraceful and unsupported?
     #'search.text.case-sensitive': {'support': 'ungraceful'},
@@ -1483,6 +1484,46 @@ gmx = {
         "no_scheduling_calendar_user_address_set",
         "vtodo-cannot-be-uncompleted",
     ]
+}
+
+## https://www.open-xchange.com/
+## OX App Suite CalDAV served at /caldav/ (Apache proxies to /servlet/dav/caldav on port 8009).
+## The Docker image must be built locally before use (see tests/docker-test-servers/ox/build.sh).
+ox = {
+    ## Renaming a calendar after creation via PROPPATCH is not supported
+    'create-calendar.set-displayname': {'support': 'unsupported'},
+    ## VTODOs must be in a dedicated VTODO-only calendar; mixed calendars not supported
+    'save-load.todo.mixed-calendar': {'support': 'unsupported'},
+    ## Basic VTODO support works fine; only recurrences are broken
+    'save-load.todo': {'support': 'full'},
+    ## Recurring VTODOs (RRULE in VTODO) are rejected with 400
+    'save-load.todo.recurrences': {'support': 'ungraceful'},
+    ## VJOURNAL is not supported
+    'save-load.journal': {'support': 'unsupported'},
+    ## Search limitations
+    'search.time-range.event.old-dates': {'support': 'unsupported'},
+    'search.time-range.todo.old-dates': {'support': 'unsupported'},
+    'search.time-range.alarm': {'support': 'unsupported'},
+    'search.unlimited-time-range': {'support': 'broken'},
+    'search.comp-type.optional': {'support': 'ungraceful'},
+    'search.text': {'support': 'unsupported'},
+    'search.text.category': {'support': 'unsupported'},
+    'search.text.case-sensitive': {'support': 'unsupported'},
+    'search.text.case-insensitive': {'support': 'unsupported'},
+    ## Recurrence searching broken (sliding window + old-dates limitation)
+    'search.recurrences.includes-implicit': {'support': 'unsupported'},
+    'search.recurrences.includes-implicit.todo.pending': {'support': 'unsupported'},
+    'search.recurrences.expanded': {'support': 'unsupported'},
+    ## is-not-defined for DTEND is not supported
+    'search.is-not-defined.dtend': {'support': 'unsupported'},
+    ## Freebusy queries are not supported (returns 400)
+    'freebusy-query': {'support': 'ungraceful'},
+    ## Principal search not supported
+    'principal-search': {'support': 'unsupported'},
+    'principal-search.by-name.self': {'support': 'unsupported'},
+    'principal-search.list-all': {'support': 'unsupported'},
+    ## Cross-calendar duplicate UID test fails (AuthorizationError creating second calendar)
+    'save.duplicate-uid.cross-calendar': {'support': 'ungraceful'},
 }
 
 # fmt: on

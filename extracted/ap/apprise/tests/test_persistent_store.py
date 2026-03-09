@@ -1,7 +1,7 @@
 # BSD 2-Clause License
 #
 # Apprise - Push Notification Library.
-# Copyright (c) 2025, Chris Caron <lead2gold@gmail.com>
+# Copyright (c) 2026, Chris Caron <lead2gold@gmail.com>
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
@@ -425,7 +425,7 @@ def test_persistent_storage_flush_mode(tmpdir):
     assert pc.read("foobar") is None
 
     # Set our max_file_size
-    _prev_max_file_size = pc.max_file_size
+    prev_max_file_size = pc.max_file_size
     pc.max_file_size = 1
     assert pc.delete()
 
@@ -433,7 +433,7 @@ def test_persistent_storage_flush_mode(tmpdir):
     assert pc.read() is None
 
     # Restore setting
-    pc.max_file_size = _prev_max_file_size
+    pc.max_file_size = prev_max_file_size
 
     # Reset
     pc.delete()

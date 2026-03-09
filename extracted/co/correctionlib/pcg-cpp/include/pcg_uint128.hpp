@@ -67,7 +67,7 @@
         #define PCG_LITTLE_ENDIAN 1
     #elif __BIG_ENDIAN__ || _BIG_ENDIAN
         #define PCG_LITTLE_ENDIAN 0
-    #elif __x86_64 || __x86_64__ || _M_X64 || __i386 || __i386__ || _M_IX86
+    #elif __x86_64 || __x86_64__ || __i386 || __i386__ || _M_IX86 || _M_AMD64 || _M_ARM64
         #define PCG_LITTLE_ENDIAN 1
     #elif __powerpc__ || __POWERPC__ || __ppc__ || __PPC__ \
           || __m68k__ || __mc68000__
@@ -105,20 +105,20 @@ namespace pcg_extras {
 
 inline bitcount_t flog2(uint32_t v)
 {
-    return 31 - __builtin_clz(v);
+    return bitcount_t(31 - __builtin_clz(v));
 }
 
 inline bitcount_t trailingzeros(uint32_t v)
 {
-    return __builtin_ctz(v);
+    return bitcount_t(__builtin_ctz(v));
 }
 
 inline bitcount_t flog2(uint64_t v)
 {
 #if UINT64_MAX == ULONG_MAX
-    return 63 - __builtin_clzl(v);
+    return bitcount_t(63 - __builtin_clzl(v));
 #elif UINT64_MAX == ULLONG_MAX
-    return 63 - __builtin_clzll(v);
+    return bitcount_t(63 - __builtin_clzll(v));
 #else
     #error Cannot find a function for uint64_t
 #endif
@@ -127,9 +127,9 @@ inline bitcount_t flog2(uint64_t v)
 inline bitcount_t trailingzeros(uint64_t v)
 {
 #if UINT64_MAX == ULONG_MAX
-    return __builtin_ctzl(v);
+    return bitcount_t(__builtin_ctzl(v));
 #elif UINT64_MAX == ULLONG_MAX
-    return __builtin_ctzll(v);
+    return bitcount_t(__builtin_ctzll(v));
 #else
     #error Cannot find a function for uint64_t
 #endif
@@ -733,7 +733,13 @@ uint_x4<UInt,UIntX2> operator*(const uint_x4<UInt,UIntX2>& a,
 
 #if PCG_64BIT_SPECIALIZATIONS
 #if defined(_MSC_VER)
+#if defined(_M_AMD64) || defined(_M_IX86)
 #pragma intrinsic(_umul128)
+#elif defined(_M_ARM64)
+#pragma intrinsic(__umulh)
+#else
+#error Unsupported architecture
+#endif
 #endif
 
 #if defined(_MSC_VER) || __SIZEOF_INT128__
@@ -742,8 +748,15 @@ uint_x4<UInt32,uint64_t> operator*(const uint_x4<UInt32,uint64_t>& a,
 				   const uint_x4<UInt32,uint64_t>& b)
 {
 #if defined(_MSC_VER)
+#if defined(_M_AMD64) || defined(_M_IX86)
     uint64_t hi;
     uint64_t lo = _umul128(a.d.v01, b.d.v01, &hi);
+#elif defined(_M_ARM64)
+    uint64_t lo = a.d.v01 * b.d.v01;
+    uint64_t hi = __umulh(a.d.v01, b.d.v01);
+#else
+#error Unsupported architecture
+#endif
 #else
     __uint128_t r = __uint128_t(a.d.v01) * __uint128_t(b.d.v01);
     uint64_t lo = uint64_t(r);

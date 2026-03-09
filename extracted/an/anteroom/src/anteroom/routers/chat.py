@@ -435,6 +435,7 @@ async def _build_chat_system_prompt(
     source_group_id: str | None,
     vec_enabled: bool = False,
     embedding_service: Any = None,
+    reranker_service: Any = None,
     injection_detector: Any = None,
     artifact_registry: Any = None,
     skill_registry: Any = None,
@@ -558,19 +559,17 @@ async def _build_chat_system_prompt(
 
     # RAG context (skip in plan mode)
     rag_config = getattr(config, "rag", None)
-    if (
-        rag_config
-        and rag_config.enabled
-        and not plan_mode
-        and vec_enabled
-        and embedding_service
-        and message_text.strip()
-    ):
+    _rag_mode = getattr(rag_config, "retrieval_mode", "dense") if rag_config else "dense"
+    _rag_uses_keyword = _rag_mode in ("keyword", "hybrid")
+    # Keyword and hybrid modes can run without embeddings; dense requires both.
+    _rag_has_backend = (vec_enabled and embedding_service) or _rag_uses_keyword
+    if rag_config and rag_config.enabled and not plan_mode and _rag_has_backend and message_text.strip():
         try:
             from ..services.rag import format_rag_context, retrieve_context, strip_rag_context
 
             extra = strip_rag_context(extra)
-            rag_chunks = await retrieve_context(
+            _reranker_cfg = getattr(config, "reranker", None)
+            rag_chunks, rag_reason = await retrieve_context(
                 query=message_text,
                 db=db,
                 embedding_service=embedding_service,
@@ -578,15 +577,23 @@ async def _build_chat_system_prompt(
                 current_conversation_id=conversation_id,
                 space_id=space_id,
                 vec_manager=vec_manager,
+                reranker_service=reranker_service,
+                reranker_config=_reranker_cfg,
             )
             meta["rag_status"] = "ok" if rag_chunks else "no_results"
             meta["rag_chunks"] = len(rag_chunks)
+            if rag_reason:
+                meta["rag_reason"] = rag_reason
+            meta["rag_sources"] = [
+                {"label": c.source_label, "type": c.source_type, "source_id": c.source_id} for c in rag_chunks
+            ]
             if rag_chunks:
                 extra += format_rag_context(rag_chunks)
         except Exception:
             logger.debug("RAG retrieval failed, continuing without context", exc_info=True)
             meta["rag_status"] = "failed"
             meta["rag_chunks"] = 0
+            meta["rag_sources"] = []
     else:
         # Capture the reason RAG was skipped so prompt_meta is always consistent
         if not rag_config:
@@ -595,13 +602,12 @@ async def _build_chat_system_prompt(
             meta["rag_status"] = "disabled"
         elif plan_mode:
             meta["rag_status"] = "skipped_plan_mode"
-        elif not vec_enabled:
+        elif not _rag_has_backend:
             meta["rag_status"] = "no_vec_support"
-        elif not embedding_service:
-            meta["rag_status"] = "no_embedding_service"
         else:
             meta["rag_status"] = "skipped"
         meta["rag_chunks"] = 0
+        meta["rag_sources"] = []
 
     # Codebase index
     try:
@@ -1859,7 +1865,7 @@ async def chat(conversation_id: str, request: Request) -> Any:
                             validated_mime = att.get("mime_type") or f.content_type
                             extracted = None
                             if validated_mime and validated_mime in EXTRACTABLE_MIME_TYPES:
-                                extracted = extract_text(file_data, validated_mime)
+                                extracted = extract_text(file_data, validated_mime).text
                             if extracted:
                                 max_chars = 50_000
                                 if len(extracted) > max_chars:
@@ -1979,6 +1985,7 @@ async def chat(conversation_id: str, request: Request) -> Any:
         source_group_id=source_group_id,
         vec_enabled=getattr(request.app.state, "vec_enabled", False),
         embedding_service=getattr(request.app.state, "embedding_service", None),
+        reranker_service=getattr(request.app.state, "reranker_service", None),
         injection_detector=getattr(request.app.state, "injection_detector", None),
         artifact_registry=req_art_reg,
         skill_registry=req_skill_reg,

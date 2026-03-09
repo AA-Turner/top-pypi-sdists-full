@@ -478,68 +478,31 @@ impl SchemaStore {
         &self,
         schema_uri: &SchemaUri,
     ) -> Result<Option<Arc<DocumentSchema>>, crate::Error> {
-        let object = match self.fetch_schema_value(schema_uri).await? {
-            Some(tombi_json::ValueNode::Object(object)) => object,
-            Some(_) => {
-                return Err(crate::Error::SchemaMustBeObject {
-                    schema_uri: schema_uri.to_owned(),
-                });
-            }
+        let schema_value = match self.fetch_schema_value(schema_uri).await? {
+            Some(value) => value,
             None => return Ok(None),
         };
-        let dialect = object
-            .get("$schema")
-            .and_then(|value| value.as_str())
-            .and_then(|dialect_uri| crate::JsonSchemaDialect::try_from(dialect_uri).ok())
-            .unwrap_or_default();
-        let deprecated_keyword_usages = crate::collect_deprecated_keyword_usages(&object, dialect);
-        let document_schema = DocumentSchema::new(object, schema_uri.clone());
-        if !deprecated_keyword_usages.is_empty() {
-            let total = deprecated_keyword_usages.len();
-            let sample_limit = 3;
-            let samples: Vec<String> = deprecated_keyword_usages
-                .iter()
-                .take(sample_limit)
-                .map(|usage| {
-                    if let Some(replacement_hint) = usage.replacement_hint {
-                        format!(
-                            "keyword={} pointer={} hint={}",
-                            usage.keyword, usage.pointer, replacement_hint
-                        )
-                    } else {
-                        format!("keyword={} pointer={}", usage.keyword, usage.pointer)
-                    }
-                })
-                .collect();
-            let remaining = total.saturating_sub(samples.len());
-            if remaining > 0 {
-                log::warn!(
-                    "deprecated JSON Schema keywords used for current dialect: schema_uri={} count={} samples=[{}] ... ({} more occurrences not shown)",
-                    schema_uri,
-                    total,
-                    samples.join("; "),
-                    remaining,
-                );
-            } else {
-                log::warn!(
-                    "deprecated JSON Schema keywords used for current dialect: schema_uri={} count={} samples=[{}]",
-                    schema_uri,
-                    total,
-                    samples.join("; "),
-                );
-            }
+        if !matches!(
+            schema_value,
+            tombi_json::ValueNode::Object(_) | tombi_json::ValueNode::Bool(_)
+        ) {
+            return Err(crate::Error::SchemaMustBeObjectOrBoolean {
+                schema_uri: schema_uri.clone(),
+            });
         }
+        let document_schema = DocumentSchema::new(schema_value, schema_uri.clone());
         if let Some(
             ValueSchema::AllOf(AllOfSchema { schemas, .. })
             | ValueSchema::AnyOf(AnyOfSchema { schemas, .. })
             | ValueSchema::OneOf(OneOfSchema { schemas, .. }),
         ) = document_schema.value_schema.as_deref()
         {
+            let document_base_uri = document_schema.base_uri().clone();
             {
                 for referable_schema in schemas.write().await.iter_mut() {
                     referable_schema
                         .resolve(
-                            Cow::Borrowed(schema_uri),
+                            Cow::Borrowed(&document_base_uri),
                             Cow::Borrowed(&document_schema.definitions),
                             self,
                         )

@@ -1,0 +1,121 @@
+external-url-prefix: "http://ca.example.com"
+keysets:
+  testing-ca:
+    path-prefix: keys
+    keys:
+      root:
+        path: root.key.pem
+      interm1:
+        path: interm1.key.pem
+      interm2:
+        path: interm2.key.pem
+      alice:
+        path: alice.key.pem
+      bob:
+        path: bob.key.pem
+
+pki-architectures:
+  multilayer-ca:
+    keyset: testing-ca
+    entity-defaults:
+      country-name: XX
+      organization-name: Testing Authority
+      organizational-unit-name: Multilayer Test
+    entities:
+      root:
+        common-name: Root CA
+      interm1:
+        common-name: Intermediate CA 1
+      interm2:
+        common-name: Intermediate CA 2
+      alice:
+        common-name: Alice
+      bob:
+        common-name: Bob
+    certs:
+      root:
+        subject: root
+        issuer: root
+        validity:
+          valid-from: "2000-01-01T00:00:00+0000"
+          valid-to: "2500-01-01T00:00:00+0000"
+        profiles:
+          - id: simple-ca
+            params:
+              crl-repo: root
+      interm1:
+        subject: interm1
+        issuer: root
+        validity:
+          valid-from: "2000-01-01T00:00:00+0000"
+          valid-to: "2100-01-01T00:00:00+0000"
+        profiles:
+          - id: simple-ca
+            params:
+              crl-repo: interm1
+              max-path-len: 1
+      interm2:
+        subject: interm2
+        issuer: interm1
+        validity:
+          valid-from: "2000-01-01T00:00:00+0000"
+          valid-to: "2100-01-01T00:00:00+0000"
+        profiles:
+          - id: simple-ca
+            params:
+              crl-repo: interm2
+              max-path-len: 0
+        extensions:
+          - id: authority_information_access
+            critical: false
+            smart-value:
+              schema: aia-urls
+              params:
+                ca-issuer-links:
+                  - repo: interm1
+      alice:
+        subject: alice
+        issuer: interm2
+        issuer-cert: interm2
+        validity:
+          valid-from: "2000-01-01T00:00:00+0000"
+          valid-to: "2100-01-01T00:00:00+0000"
+        revocation:
+          revoked-since: "2020-12-01T00:00:00+0000"
+          reason: key_compromise
+        extensions:
+          - id: key_usage
+            critical: true
+            smart-value:
+              schema: key-usage
+              params: [digital_signature]
+          - id: authority_information_access
+            critical: false
+            smart-value:
+              schema: aia-urls
+              params:
+                ca-issuer-links:
+                  - repo: interm2
+    services:
+      crl-repo:
+        root:
+          for-issuer: root
+          signing-key: root
+          simulated-update-schedule: "P10D"
+        interm1:
+          for-issuer: interm1
+          signing-key: interm1
+          issuer-cert: interm1
+          simulated-update-schedule: "P10D"
+        interm2:
+          for-issuer: interm2
+          signing-key: interm2
+          issuer-cert: interm2
+          simulated-update-schedule: "P10D"
+      cert-repo:
+        root:
+          for-issuer: root
+        interm1:
+          for-issuer: interm1
+        interm2:
+          for-issuer: interm2

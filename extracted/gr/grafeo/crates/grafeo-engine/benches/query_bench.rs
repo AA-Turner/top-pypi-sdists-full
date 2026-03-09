@@ -115,6 +115,21 @@ fn bench_filter_range(c: &mut Criterion) {
     });
 }
 
+fn bench_fan_out_expand_1k(c: &mut Criterion) {
+    let db = setup_social_graph(1_000, 5);
+    let session = db.session();
+
+    // Expands from ALL Person nodes, testing scatter performance.
+    c.bench_function("query_fan_out_expand_1k", |b| {
+        b.iter(|| {
+            let result = session
+                .execute("MATCH (a:Person)-[:KNOWS]->(b) RETURN COUNT(b)")
+                .unwrap();
+            black_box(result)
+        });
+    });
+}
+
 fn bench_insert_single_node(c: &mut Criterion) {
     let db = GrafeoDB::new_in_memory();
     let session = db.session();
@@ -135,6 +150,7 @@ criterion_group!(
     bench_node_lookup,
     bench_pattern_match,
     bench_two_hop_pattern,
+    bench_fan_out_expand_1k,
     bench_aggregation_count,
     bench_filter_range,
     bench_insert_single_node,

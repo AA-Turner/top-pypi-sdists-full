@@ -1,5 +1,5 @@
 [build-system]
-requires = ["uv_build>=0.10,<0.11"]
+requires = ["uv_build>=0.10.9,<0.11"]
 build-backend = "uv_build"
 
 [tool.uv.build-backend]
@@ -8,7 +8,7 @@ module-root = ""
 [project]
 name = "optype"
 description = "Building Blocks for Precise & Flexible Type Hints"
-version = "0.16.0"
+version = "0.17.0"
 authors = [{ name = "Joren Hammudoglu", email = "jhammudoglu@gmail.com" }]
 license = "BSD-3-Clause"
 license-files = ["LICENSE"]
@@ -67,14 +67,13 @@ extra = [
   "optype[numpy]",
 ]
 doc = [
-  "zensical>=0.0.23,<0.1",
-  "pymdown-extensions>=10.21,<11",
+  "zensical==0.0.24",
   "pygments>=2.19.2,<3",
 ]
 lint = [
-  "dprint-py>=0.51.1.0",
-  "ruff>=0.15.1",
-  "sp-repo-review[cli]>=2025.11.21",
+  "dprint-py==0.52.0.0",
+  "ruff==0.15.4",
+  "sp-repo-review[cli]==2026.3.2",
 ]
 test = [
   { include-group = "extra" },
@@ -85,10 +84,10 @@ test = [
 type = [
   { include-group = "extra" },
   { include-group = "test" },
-  "basedpyright==1.38.1",
+  "basedpyright==1.38.2",
   "mypy[faster-cache]==1.19.1",
-  "pyrefly==0.53.0",
-  "ty==0.0.17",
+  "pyrefly==0.55.0",
+  "ty==0.0.20",
 ]
 dev = [
   { include-group = "extra" },
@@ -168,7 +167,6 @@ reportUnusedVariable = false # dupe of F841
 
 [tool.ty.environment]
 python-platform = "all"
-python-version = "3.11" # unlike mypy and pyright, this doesn't depend on the Python env
 
 [tool.ty.src]
 include = [

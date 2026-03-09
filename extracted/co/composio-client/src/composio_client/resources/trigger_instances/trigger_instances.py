@@ -33,8 +33,11 @@ __all__ = ["TriggerInstancesResource", "AsyncTriggerInstancesResource"]
 
 
 class TriggerInstancesResource(SyncAPIResource):
+    """Trigger management and execution"""
+
     @cached_property
     def manage(self) -> ManageResource:
+        """Trigger management and execution"""
         return ManageResource(self._client)
 
     @cached_property
@@ -81,7 +84,13 @@ class TriggerInstancesResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> TriggerInstanceListActiveResponse:
-        """
+        """Retrieves all active trigger instances for your project.
+
+        Triggers listen for
+        events from connected accounts (e.g., new emails, Slack messages, GitHub
+        commits) and can invoke webhooks or workflows. Use filters to find triggers for
+        specific users, connected accounts, or trigger types.
+
         Args:
           query_auth_config_ids_1: Array of auth config IDs to filter triggers by
 
@@ -180,10 +189,15 @@ class TriggerInstancesResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> TriggerInstanceUpsertResponse:
-        """Args:
-          slug: The slug of the trigger instance.
+        """
+        Creates a new trigger instance or updates an existing one with the same
+        configuration. Triggers listen for events from external services (webhooks or
+        polling) and can invoke your workflows. If a matching trigger already exists and
+        is disabled, it will be re-enabled. Requires a connected account ID to associate
+        the trigger with a specific user connection.
 
-        Case-insensitive (internally normalized to
+        Args:
+          slug: The slug of the trigger instance. Case-insensitive (internally normalized to
               uppercase).
 
           connected_account_id: Connected account nanoid
@@ -233,8 +247,11 @@ class TriggerInstancesResource(SyncAPIResource):
 
 
 class AsyncTriggerInstancesResource(AsyncAPIResource):
+    """Trigger management and execution"""
+
     @cached_property
     def manage(self) -> AsyncManageResource:
+        """Trigger management and execution"""
         return AsyncManageResource(self._client)
 
     @cached_property
@@ -281,7 +298,13 @@ class AsyncTriggerInstancesResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> TriggerInstanceListActiveResponse:
-        """
+        """Retrieves all active trigger instances for your project.
+
+        Triggers listen for
+        events from connected accounts (e.g., new emails, Slack messages, GitHub
+        commits) and can invoke webhooks or workflows. Use filters to find triggers for
+        specific users, connected accounts, or trigger types.
+
         Args:
           query_auth_config_ids_1: Array of auth config IDs to filter triggers by
 
@@ -380,10 +403,15 @@ class AsyncTriggerInstancesResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> TriggerInstanceUpsertResponse:
-        """Args:
-          slug: The slug of the trigger instance.
+        """
+        Creates a new trigger instance or updates an existing one with the same
+        configuration. Triggers listen for events from external services (webhooks or
+        polling) and can invoke your workflows. If a matching trigger already exists and
+        is disabled, it will be re-enabled. Requires a connected account ID to associate
+        the trigger with a specific user connection.
 
-        Case-insensitive (internally normalized to
+        Args:
+          slug: The slug of the trigger instance. Case-insensitive (internally normalized to
               uppercase).
 
           connected_account_id: Connected account nanoid
@@ -445,6 +473,7 @@ class TriggerInstancesResourceWithRawResponse:
 
     @cached_property
     def manage(self) -> ManageResourceWithRawResponse:
+        """Trigger management and execution"""
         return ManageResourceWithRawResponse(self._trigger_instances.manage)
 
 
@@ -461,6 +490,7 @@ class AsyncTriggerInstancesResourceWithRawResponse:
 
     @cached_property
     def manage(self) -> AsyncManageResourceWithRawResponse:
+        """Trigger management and execution"""
         return AsyncManageResourceWithRawResponse(self._trigger_instances.manage)
 
 
@@ -477,6 +507,7 @@ class TriggerInstancesResourceWithStreamingResponse:
 
     @cached_property
     def manage(self) -> ManageResourceWithStreamingResponse:
+        """Trigger management and execution"""
         return ManageResourceWithStreamingResponse(self._trigger_instances.manage)
 
 
@@ -493,4 +524,5 @@ class AsyncTriggerInstancesResourceWithStreamingResponse:
 
     @cached_property
     def manage(self) -> AsyncManageResourceWithStreamingResponse:
+        """Trigger management and execution"""
         return AsyncManageResourceWithStreamingResponse(self._trigger_instances.manage)

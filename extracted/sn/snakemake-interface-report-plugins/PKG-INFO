@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: snakemake-interface-report-plugins
-Version: 1.3.0
+Version: 2.0.1
 Summary: The interface for Snakemake report plugins.
 License-File: LICENSE
 Author: Johannes Koester
@@ -11,7 +11,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Requires-Dist: snakemake-interface-common (>=1.16.0,<2.0.0)
+Requires-Dist: snakemake-interface-common (>=1.23.0,<2.0.0)
 Description-Content-Type: text/markdown
 
 # Snakemake interface for report plugins

@@ -149,7 +149,7 @@ int main(int argc, char** argv)
         rng_copy = rng;
         enum { SUITS = 4, NUMBERS = 13, CARDS = 52 };
         char cards[CARDS];
-        iota(begin(cards), end(cards), 0);
+        iota(begin(cards), end(cards), char(0));
         std::shuffle(begin(cards), end(cards), rng);
         auto std_shuffle_steps = rng - rng_copy;
         
@@ -157,7 +157,7 @@ int main(int argc, char** argv)
          * the algorithm for shuffling that most programmers would expect.
          */      
         rng = rng_copy;
-        iota(begin(cards), end(cards), 0);
+        iota(begin(cards), end(cards), char(0));
         pcg_extras::shuffle(begin(cards), end(cards), rng);
         auto my_shuffle_steps = rng - rng_copy;
 

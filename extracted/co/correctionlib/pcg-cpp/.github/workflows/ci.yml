@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build:
+    name: ${{ matrix.os }} / ${{ matrix.compiler }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            compiler: gcc
+            cc: gcc
+            cxx: g++
+          - os: ubuntu-latest
+            compiler: clang
+            cc: clang
+            cxx: clang++
+          - os: windows-latest
+            compiler: msvc
+          - os: macos-latest
+            compiler: apple-clang
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Configure CMake
+      run: >
+        cmake -B build
+        -DPCG_CPP_BUILD_SAMPLES=ON
+        -DPCG_CPP_BUILD_TESTS=ON
+        -DCMAKE_BUILD_TYPE=Release
+      env:
+        CC: ${{ matrix.cc }}
+        CXX: ${{ matrix.cxx }}
+
+    - name: Build
+      run: cmake --build build --config Release
+
+    - name: Run CTest
+      run: |
+        cd build
+        ctest -C Release --output-on-failure
+
+    - name: Run Scripted Tests (Linux/macOS)
+      if: runner.os != 'Windows'
+      run: |
+        chmod +x ./test-high/run-tests.sh
+        # run-tests.sh expects binaries in specific locations or build dir
+        # Our updated run-tests.sh supports ../build/test-high
+        ./test-high/run-tests.sh
+
+    - name: Run Scripted Tests (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        ./test-high/run-tests.ps1

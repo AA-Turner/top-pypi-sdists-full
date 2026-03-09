@@ -252,6 +252,7 @@ prompt: |
   | dimensions      | int       | 0 (auto)               | AI_CHAT_EMBEDDINGS_DIMENSIONS     |
   | base_url        | str       | —                      | AI_CHAT_EMBEDDINGS_BASE_URL       |
   | api_key         | str       | —                      | AI_CHAT_EMBEDDINGS_API_KEY        |
+  | cache_dir       | str       | —                      | AI_CHAT_EMBEDDINGS_CACHE_DIR      |
 
   #### RAG Pipeline (rag section)
 
@@ -263,6 +264,19 @@ prompt: |
   | similarity_threshold | float | 0.5     | AI_CHAT_RAG_SIMILARITY_THRESHOLD|
   | include_sources      | bool  | true    | —                               |
   | include_conversations| bool  | true    | —                               |
+  | retrieval_mode       | str   | dense   | AI_CHAT_RAG_RETRIEVAL_MODE      |
+
+  #### Reranker (reranker section)
+
+  | Field                | Type  | Default                                  | Env Override                         |
+  |----------------------|-------|------------------------------------------|--------------------------------------|
+  | enabled              | bool  | None (auto-detect)                       | AI_CHAT_RERANKER_ENABLED             |
+  | provider             | str   | local                                    | AI_CHAT_RERANKER_PROVIDER            |
+  | model                | str   | cross-encoder/ms-marco-MiniLM-L-6-v2    | AI_CHAT_RERANKER_MODEL               |
+  | top_k                | int   | 5                                        | AI_CHAT_RERANKER_TOP_K               |
+  | score_threshold      | float | 0.0                                      | AI_CHAT_RERANKER_SCORE_THRESHOLD     |
+  | candidate_multiplier | int   | 3                                        | AI_CHAT_RERANKER_CANDIDATE_MULTIPLIER|
+  | cache_dir            | str   | —                                        | AI_CHAT_RERANKER_CACHE_DIR           |
 
   #### Codebase Index (codebase_index section)
 
@@ -365,6 +379,7 @@ prompt: |
   | aroom          | --port PORT             | Override web server port                       |
   | aroom          | --approval-mode MODE    | Override safety mode (auto/ask_for_dangerous/ask_for_writes/ask) |
   | aroom          | --allowed-tools LIST    | Pre-allow tools (comma-separated)              |
+  | aroom          | --denied-tools LIST     | Hard-block tools (comma-separated)             |
   | aroom          | --read-only             | Enable read-only mode (READ-tier tools only)   |
   | aroom          | --temperature TEMP      | Override model temperature (0.0-2.0)           |
   | aroom          | --top-p TOP_P           | Override model top_p (0.0-1.0)                 |
@@ -428,6 +443,9 @@ prompt: |
   | aroom space    | clone NAME_OR_ID        | Clone repos and install packs from space       |
   | aroom space    | map NAME_OR_ID          | Show mapped directories for a space            |
   | aroom space    | move-root NAME_OR_ID    | Move space repos to a new root directory       |
+  | aroom space    | sources                 | List sources directly linked to active space   |
+  | aroom space    | link-source QUERY       | Link a source to active space by title or ID   |
+  | aroom space    | unlink-source QUERY     | Unlink a source from active space              |
   | aroom start    |                         | Start the web server in the background         |
   | aroom start    | --no-browser            | Start without opening the browser              |
   | aroom stop     |                         | Stop the background web server                 |
@@ -515,6 +533,7 @@ prompt: |
   | /rewind        | Undo the last message pair                       |
   | /last          | Load the last message                            |
   | /upload        | Upload a file as context                         |
+  | /reprocess     | Re-extract and re-chunk a source (by ID or "all")|
   | /model NAME    | Switch AI model                                  |
   | /compact       | Compact conversation to reduce token usage       |
   | /usage         | Show token usage and cost statistics             |
@@ -553,7 +572,7 @@ prompt: |
   `AI_CHAT_EMBEDDINGS_MODEL`, `AI_CHAT_EMBEDDINGS_LOCAL_MODEL`, `AI_CHAT_EMBEDDINGS_DIMENSIONS`,
   `AI_CHAT_EMBEDDINGS_BASE_URL`, `AI_CHAT_EMBEDDINGS_API_KEY`,
   `AI_CHAT_RAG_ENABLED`, `AI_CHAT_RAG_MAX_CHUNKS`, `AI_CHAT_RAG_MAX_TOKENS`,
-  `AI_CHAT_RAG_SIMILARITY_THRESHOLD`
+  `AI_CHAT_RAG_SIMILARITY_THRESHOLD`, `AI_CHAT_RAG_RETRIEVAL_MODE`
 
   **Storage/Session**: `AI_CHAT_STORAGE_RETENTION_DAYS`, `AI_CHAT_STORAGE_CHECK_INTERVAL`,
   `AI_CHAT_STORAGE_PURGE_ATTACHMENTS`, `AI_CHAT_STORAGE_PURGE_EMBEDDINGS`,
@@ -619,6 +638,9 @@ prompt: |
   - `aroom space clone NAME_OR_ID` — clone repos and install packs from space definition
   - `aroom space map NAME_OR_ID` — show mapped directories for a space
   - `aroom space move-root NAME_OR_ID` — move space repos to a new root directory
+  - `aroom space sources` — list sources directly linked to the active space
+  - `aroom space link-source QUERY` — link a source to the active space by title or ID
+  - `aroom space unlink-source QUERY` — unlink a source from the active space
 
   ### Artifact Commands
   - `aroom artifact list [--type TYPE] [--namespace NS] [--source SOURCE]` — list artifacts

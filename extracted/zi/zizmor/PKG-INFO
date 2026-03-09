@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zizmor
-Version: 1.22.0
+Version: 1.23.1
 License-File: LICENSE
 Summary: Static analysis for GitHub Actions
 Home-Page: https://docs.zizmor.sh
@@ -91,6 +91,13 @@ Trail of Bits
 <img src="https://avatars.githubusercontent.com/u/163036520?s=100&v=4" width="100px">
 <br>
 Shipfox
+</a>
+</td>
+<td align="center" valign="top" width="15%">
+<a href="https://kusari.dev">
+<img src="https://avatars.githubusercontent.com/u/105390000?s=100&v=4" width="100px">
+<br>
+Kusari
 </a>
 </td>
 </tr>

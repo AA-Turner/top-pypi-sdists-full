@@ -17,7 +17,7 @@ def run_method_search(
     model: str, task_name: str, method: str,
     pairs_file: str, num_layers: int,
     device: Optional[str], verbose: bool,
-    backend: str, n_startup_trials: int,
+    backend: str,
     search_overrides: Dict[str, Any],
     early_rejection_config: Dict[str, Any],
 ) -> Dict[str, Any]:
@@ -48,7 +48,6 @@ def run_method_search(
 
     optimizer = UnifiedOptimizer(
         backend=backend, direction="maximize",
-        n_startup_trials=n_startup_trials,
     )
 
     with tempfile.TemporaryDirectory() as work_dir:

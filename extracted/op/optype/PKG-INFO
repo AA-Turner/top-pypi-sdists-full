@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: optype
-Version: 0.16.0
+Version: 0.17.0
 Summary: Building Blocks for Precise & Flexible Type Hints
 Keywords: annotations,basedpyright,checker,checking,hinting,hints,mypy,numpy,numpy-typing-compat,pyright,protocols,stubs,type,typechecking,typehinting,typehints,typing
 Author: Joren Hammudoglu

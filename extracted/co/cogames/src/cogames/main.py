@@ -25,6 +25,7 @@ import yaml  # type: ignore[import]
 from click.core import ParameterSource
 from packaging.version import Version
 from rich import box
+from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import Prompt
 from rich.table import Table
@@ -39,7 +40,7 @@ from cogames import play as play_module
 from cogames import train as train_module
 from cogames.cli.auth import CoGamesAuthenticator, auth_app
 from cogames.cli.base import console, emit_json
-from cogames.cli.client import SeasonInfo, TournamentServerClient
+from cogames.cli.client import SeasonDetail, TournamentServerClient
 from cogames.cli.episode import episode_app
 from cogames.cli.leaderboard import (
     leaderboard_cmd,
@@ -570,7 +571,7 @@ def play_cmd(
         "--steps",
         "-s",
         metavar="N",
-        help="Max steps per episode.",
+        help="Max steps per episode (note: -s is steps, not seed).",
         rich_help_panel="Simulation",
     ),
     render: RenderMode = typer.Option(  # noqa: B008
@@ -586,7 +587,7 @@ def play_cmd(
     seed: int = typer.Option(
         42,
         "--seed",
-        help="RNG seed for reproducibility.",
+        help="RNG seed for reproducibility (use --seed, not -s).",
         rich_help_panel="Simulation",
     ),
     map_seed: Optional[int] = typer.Option(
@@ -1286,7 +1287,7 @@ def run_cmd(
         "--steps",
         "-s",
         metavar="N",
-        help="Max steps per episode.",
+        help="Max steps per episode (note: -s is steps, not seed).",
         min=1,
         show_default="from mission",
         rich_help_panel="Simulation",
@@ -1295,7 +1296,7 @@ def run_cmd(
         42,
         "--seed",
         metavar="N",
-        help="Seed for evaluation RNG.",
+        help="Seed for evaluation RNG (use --seed, not -s).",
         min=0,
         rich_help_panel="Simulation",
     ),
@@ -1342,9 +1343,13 @@ def run_cmd(
         rich_help_panel="Other",
     ),
 ) -> None:
+    # When structured output is requested, redirect all status messages to stderr
+    # so only clean JSON/YAML appears on stdout.
+    out = Console(stderr=True) if format_ else console
+
     # Handle mission set expansion
     if mission_set and missions:
-        console.print("[red]Error: Cannot use both --mission-set and --mission[/red]")
+        out.print("[red]Error: Cannot use both --mission-set and --mission[/red]")
         raise typer.Exit(1)
 
     if mission_set:
@@ -1353,9 +1358,9 @@ def run_cmd(
         try:
             mission_objs = load_mission_set(mission_set)
             missions = [m.full_name() for m in mission_objs]
-            console.print(f"[cyan]Using mission set '{mission_set}' ({len(missions)} missions)[/cyan]")
+            out.print(f"[cyan]Using mission set '{mission_set}' ({len(missions)} missions)[/cyan]")
         except ValueError as e:
-            console.print(f"[red]{e}[/red]")
+            out.print(f"[red]{e}[/red]")
             raise typer.Exit(1) from e
 
         # Default to 4 cogs for mission sets unless explicitly specified
@@ -1378,23 +1383,23 @@ def run_cmd(
             if isinstance(map_builder, MapGen.Config):
                 map_builder.seed = map_seed
 
-    resolved_device = resolve_training_device(console, device)
+    resolved_device = resolve_training_device(out, device)
     policy_specs = get_policy_specs_with_proportions(ctx, policies, device=str(resolved_device))
 
     if ctx.info_name == "scrimmage":
         if len(policy_specs) != 1:
-            console.print("[red]Error: scrimmage accepts exactly one --policy / -p value.[/red]")
+            out.print("[red]Error: scrimmage accepts exactly one --policy / -p value.[/red]")
             raise typer.Exit(1)
         if policy_specs[0].proportion != 1.0:
-            console.print("[red]Error: scrimmage does not support policy proportions.[/red]")
+            out.print("[red]Error: scrimmage does not support policy proportions.[/red]")
             raise typer.Exit(1)
 
-    console.print(
+    out.print(
         f"[cyan]Preparing evaluation for {len(policy_specs)} policies across {len(selected_missions)} mission(s)[/cyan]"
     )
 
     evaluate_module.evaluate(
-        console,
+        out,
         missions=selected_missions,
         policy_specs=[spec.to_policy_spec() for spec in policy_specs],
         proportions=[spec.proportion for spec in policy_specs],
@@ -1489,7 +1494,7 @@ def pickup_cmd(
         "--steps",
         "-s",
         metavar="N",
-        help="Max steps per episode.",
+        help="Max steps per episode (note: -s is steps, not seed).",
         min=1,
         rich_help_panel="Simulation",
     ),
@@ -1497,7 +1502,7 @@ def pickup_cmd(
         50,
         "--seed",
         metavar="N",
-        help="Base random seed.",
+        help="Base random seed (use --seed, not -s).",
         min=0,
         rich_help_panel="Simulation",
     ),
@@ -1598,7 +1603,7 @@ def version_cmd() -> None:
     table.add_column("", justify="right", style="bold cyan")
     table.add_column("", justify="right")
 
-    for dist_name in ["mettagrid", "pufferlib-core", "cogames"]:
+    for dist_name in ["mettagrid", "cogames"]:
         table.add_row(dist_name, public_version(dist_name))
 
     console.print(table)
@@ -1693,7 +1698,13 @@ app.command(
     rich_help_panel="Tournament",
     epilog="""[dim]Examples:[/dim]
 
-[cyan]cogames leaderboard --season beta-cogsguard[/cyan]           View rankings""",
+[cyan]cogames leaderboard beta-cvc[/cyan]                          View rankings (positional season)
+
+[cyan]cogames leaderboard --season beta-cvc[/cyan]                 View rankings (option)
+
+[cyan]cogames leaderboard beta-cvc --policy slanky[/cyan]          Filter by policy name
+
+[cyan]cogames leaderboard beta-cvc --mine[/cyan]                   Show only your policies""",
     add_help_option=False,
 )(leaderboard_cmd)
 
@@ -1704,6 +1715,8 @@ app.command(
     epilog="""[dim]Examples:[/dim]
 
 [cyan]cogames matches[/cyan]                              List recent matches
+
+[cyan]cogames matches --policy slanky[/cyan]               Filter by policy name
 
 [cyan]cogames matches <match-id>[/cyan]                   Show match details
 
@@ -1743,9 +1756,8 @@ app.command(
 )(diagnose_module.diagnose_cmd)
 
 
-def _resolve_season(server: str, login_server: str | None = None, season_name: str | None = None) -> SeasonInfo:
+def _resolve_season(server: str, login_server: str | None = None, season_name: str | None = None) -> SeasonDetail:
     auth_token = CoGamesAuthenticator().load_token(login_server) if login_server else None
-
     try:
         with TournamentServerClient(server_url=server, token=auth_token, login_server=login_server) as client:
             if season_name is None:

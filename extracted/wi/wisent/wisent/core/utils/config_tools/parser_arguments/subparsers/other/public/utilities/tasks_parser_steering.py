@@ -1,10 +1,6 @@
 """Steering and advanced arguments for the tasks parser."""
 
-from wisent.core.utils.config_tools.constants import (
-    EARLY_REJECTION_CV_THRESHOLD_DEFAULT,
-    EARLY_REJECTION_SNR_THRESHOLD_DEFAULT,
-    NONSENSE_MAX_WORD_LENGTH,
-)
+from wisent.core.utils.config_tools.constants import NONSENSE_MAX_WORD_LENGTH
 
 
 def setup_steering_task_args(parser):
@@ -253,13 +249,13 @@ def setup_steering_task_args(parser):
     parser.add_argument(
         "--early-rejection-snr-threshold",
         type=float,
-        default=EARLY_REJECTION_SNR_THRESHOLD_DEFAULT,
+        required=True,
         help="Minimum SNR for early rejection during optimization"
     )
     parser.add_argument(
         "--early-rejection-cv-threshold",
         type=float,
-        default=EARLY_REJECTION_CV_THRESHOLD_DEFAULT,
+        required=True,
         help="Minimum cross-validation score for early rejection during optimization"
     )
 

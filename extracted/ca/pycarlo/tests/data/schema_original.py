@@ -15820,6 +15820,79 @@ class AuthorRef(sgqlc.types.Type):
     email = sgqlc.types.Field(String, graphql_name="email")
 
 
+class AuthorizationGroupAuditInfo(sgqlc.types.Type):
+    """Audit information for an authorization group."""
+
+    __schema__ = schema
+    __field_names__ = ("created_on", "last_updated_on", "last_update_user", "audit_logs")
+    created_on = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdOn")
+    """Timestamp when this group was created."""
+
+    last_updated_on = sgqlc.types.Field(
+        sgqlc.types.non_null(DateTime), graphql_name="lastUpdatedOn"
+    )
+    """Timestamp when this group was last modified."""
+
+    last_update_user = sgqlc.types.Field("AuthUser", graphql_name="lastUpdateUser")
+    """User that last updated this group. Null for groups that predate
+    audit tracking.
+    """
+
+    audit_logs = sgqlc.types.Field(
+        "AuthorizationGroupAuditLogConnection",
+        graphql_name="auditLogs",
+        args=sgqlc.types.ArgDict(
+            (
+                ("start_time", sgqlc.types.Arg(DateTime, graphql_name="startTime", default=None)),
+                ("end_time", sgqlc.types.Arg(DateTime, graphql_name="endTime", default=None)),
+                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
+                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
+                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
+                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
+            )
+        ),
+    )
+    """Recent activity for this group, including membership changes.
+
+    Arguments:
+
+    * `start_time` (`DateTime`): Optional start time to filter audit
+      logs.
+    * `end_time` (`DateTime`): Optional end time to filter audit logs.
+    * `before` (`String`)None
+    * `after` (`String`)None
+    * `first` (`Int`)None
+    * `last` (`Int`)None
+    """
+
+
+class AuthorizationGroupAuditLogConnection(sgqlc.types.relay.Connection):
+    __schema__ = schema
+    __field_names__ = ("page_info", "edges")
+    page_info = sgqlc.types.Field(sgqlc.types.non_null("PageInfo"), graphql_name="pageInfo")
+    """Pagination data for this connection."""
+
+    edges = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of("AuthorizationGroupAuditLogEdge")),
+        graphql_name="edges",
+    )
+    """Contains the nodes in this connection."""
+
+
+class AuthorizationGroupAuditLogEdge(sgqlc.types.Type):
+    """A Relay edge containing a `AuthorizationGroupAuditLog` and its
+    cursor.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("node", "cursor")
+    node = sgqlc.types.Field("AuditLogEntry", graphql_name="node")
+    """The item at the end of the edge"""
+
+    cursor = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="cursor")
+    """A cursor for use in pagination"""
+
+
 class AuthorizationGroupOutput(sgqlc.types.Type):
     """Authorization group used to configure access and permissions for
     users.
@@ -15839,6 +15912,7 @@ class AuthorizationGroupOutput(sgqlc.types.Type):
         "sso_group",
         "source",
         "is_membership_managed",
+        "audit_info",
     )
     name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
     """Unique to the account, human-readable name (for use in code/policy
@@ -15902,6 +15976,9 @@ class AuthorizationGroupOutput(sgqlc.types.Type):
     authorization provider or SSO group. If true, membership changes
     can only be made through that source.
     """
+
+    audit_info = sgqlc.types.Field(AuthorizationGroupAuditInfo, graphql_name="auditInfo")
+    """(experimental) Audit information for this group."""
 
 
 class AuthorizationPolicyStatement(sgqlc.types.Type):
@@ -64812,8 +64889,17 @@ class Query(sgqlc.types.Type):
     get_authorization_groups = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.non_null(AuthorizationGroupOutput)),
         graphql_name="getAuthorizationGroups",
+        args=sgqlc.types.ArgDict(
+            (("group_name", sgqlc.types.Arg(String, graphql_name="groupName", default=None)),)
+        ),
     )
-    """Get authorization group list for the user's account."""
+    """Get authorization group list for the user's account.
+
+    Arguments:
+
+    * `group_name` (`String`): Optional group name to filter by. If
+      provided, returns only that group.
+    """
 
     get_user_authorization = sgqlc.types.Field(
         sgqlc.types.non_null("UserAuthorizationOutput"),
@@ -70909,6 +70995,63 @@ class ResumeMonitorBootstrap(sgqlc.types.Type):
     """The monitor whose bootstrapping was resumed"""
 
 
+class RoleAuditInfo(sgqlc.types.Type):
+    """Audit information for a custom role."""
+
+    __schema__ = schema
+    __field_names__ = (
+        "created_on",
+        "last_updated_on",
+        "created_by",
+        "last_update_user",
+        "audit_logs",
+    )
+    created_on = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdOn")
+    """Timestamp when this role was created."""
+
+    last_updated_on = sgqlc.types.Field(
+        sgqlc.types.non_null(DateTime), graphql_name="lastUpdatedOn"
+    )
+    """Timestamp when this role was last modified."""
+
+    created_by = sgqlc.types.Field(sgqlc.types.non_null("AuthUser"), graphql_name="createdBy")
+    """User that created this role."""
+
+    last_update_user = sgqlc.types.Field(
+        sgqlc.types.non_null("AuthUser"), graphql_name="lastUpdateUser"
+    )
+    """User that last updated this role."""
+
+    audit_logs = sgqlc.types.Field(
+        AuditLogEntryConnection,
+        graphql_name="auditLogs",
+        args=sgqlc.types.ArgDict(
+            (
+                ("start_time", sgqlc.types.Arg(DateTime, graphql_name="startTime", default=None)),
+                ("end_time", sgqlc.types.Arg(DateTime, graphql_name="endTime", default=None)),
+                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
+                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
+                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
+                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
+                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
+            )
+        ),
+    )
+    """Change audit logs for this role.
+
+    Arguments:
+
+    * `start_time` (`DateTime`): Optional start time to filter audit
+      logs.
+    * `end_time` (`DateTime`): Optional end time to filter audit logs.
+    * `offset` (`Int`)None
+    * `before` (`String`)None
+    * `after` (`String`)None
+    * `first` (`Int`)None
+    * `last` (`Int`)None
+    """
+
+
 class RoleOutput(sgqlc.types.Type):
     """A named set of authorization policy statements that can be
     assigned to authorization groups.
@@ -70930,10 +71073,11 @@ class RoleOutput(sgqlc.types.Type):
         "policy_statements",
         "definition",
         "authorization_groups",
+        "audit_info",
     )
     name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
-    """Unique, human-readable name with format of [company-prefix]/[role-
-    name]
+    """Unique, human-readable role name. The mcd/ prefix is reserved for
+    managed roles.
     """
 
     version = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="version")
@@ -71003,6 +71147,11 @@ class RoleOutput(sgqlc.types.Type):
     )
     """(experimental) List of the authorization groups that this role is
     assigned to.
+    """
+
+    audit_info = sgqlc.types.Field(RoleAuditInfo, graphql_name="auditInfo")
+    """(experimental) Audit information for this role. Null for managed
+    roles; present for custom roles.
     """
 
 
@@ -79737,6 +79886,7 @@ class AuditLogEntry(sgqlc.types.Type, Node):
         "changes",
         "object_type_name",
         "object_uuid",
+        "actor_display_name",
         "actor_first_name",
         "actor_last_name",
     )
@@ -79759,6 +79909,9 @@ class AuditLogEntry(sgqlc.types.Type, Node):
 
     object_uuid = sgqlc.types.Field(UUID, graphql_name="objectUuid")
     """Object UUID (if available)"""
+
+    actor_display_name = sgqlc.types.Field(String, graphql_name="actorDisplayName")
+    """Resolved display name of the user who made the change."""
 
     actor_first_name = sgqlc.types.Field(String, graphql_name="actorFirstName")
     """First name of the user who made the change"""
@@ -79864,6 +80017,7 @@ class AuthUser(sgqlc.types.Type, Node):
         "lineage_repl_rules",
         "lineagenodecollapsingpatternmodel_created_by",
         "lineagenodecollapsingpatternmodel_updated_by",
+        "name",
     )
     cognito_user_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="cognitoUserId")
 
@@ -81233,6 +81387,11 @@ class AuthUser(sgqlc.types.Type, Node):
         graphql_name="lineagenodecollapsingpatternmodelUpdatedBy",
     )
     """Last updated by"""
+
+    name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
+    """Resolved display name: display_name, then first/last name, then
+    email.
+    """
 
 
 class AzureDevOpsWorkItem(sgqlc.types.Type, NodeWithUUID):

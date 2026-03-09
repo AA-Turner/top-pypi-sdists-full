@@ -1,7 +1,7 @@
 # BSD 2-Clause License
 #
 # Apprise - Push Notification Library.
-# Copyright (c) 2025, Chris Caron <lead2gold@gmail.com>
+# Copyright (c) 2026, Chris Caron <lead2gold@gmail.com>
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
@@ -280,7 +280,6 @@ def test_plugin_apprise_api_urls():
 
     # Run our general tests
     AppriseURLTester(tests=apprise_url_tests).run_all()
-
 
 
 @mock.patch("requests.post")

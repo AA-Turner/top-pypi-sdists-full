@@ -27,34 +27,41 @@ classifiers = [
   "License :: OSI Approved :: BSD License",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Development Status :: 5 - Production/Stable",
 ]
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 dependencies = [
   "numpy >=1.13.3",
-  "typing-extensions;python_version<'3.8'",
-  "dataclasses;python_version<'3.7'",
   "pydantic >=2",
   "rich",
   "packaging",
 ]
 
 [project.optional-dependencies]
-test = [
-  "pytest >=4.6",
+convert = [
+  "pandas",
+  "uproot >=4.0.4",
+  "requests",
   "scipy",
-  "awkward >=2.2.2;python_version>'3.7'",
-  "awkward <2;python_version<='3.7'",
-  "dask-awkward >=2024.1.1;python_version>'3.7'",
-  "dask <2025.4.0;python_version>'3.7'",
 ]
-dev = [
-  "pytest >=4.6",
-  "pre-commit",
-  "mypy",
-  "uhi",
-  "awkward >=2",
-  "dask-awkward;python_version>'3.7'",
+
+[dependency-groups]
+test = [
+  "pandas",
+  "uproot >=4.0.4",
+  "requests",
+  "scipy",
+  "pytest >=6.0",
+  "pytest-run-parallel",
+  "awkward >=2.2.2",
+  "dask-awkward >=2024.1.1",
+  "pytest-benchmark",
 ]
 docs = [
   "recommonmark >=0.5.0",
@@ -64,12 +71,63 @@ docs = [
   "sphinx-jsonschema",
   "myst-parser",
   "nbsphinx",
+  # to match binder/requirements.txt
+  "awkward",
+  "hist[plot]",
+  "matplotlib",
+  "ipykernel",
 ]
-convert = [
-  "pandas",
-  "uproot >=4.0.4",
-  "requests",
-  "scipy",
+dev = [
+  {include-group = "test"},
+  {include-group = "docs"},
+  "pre-commit",
+  "mypy",
+  "ruff",
+  "uhi",
+]
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = ["-ra"]
+testpaths = ["tests"]
+markers = [
+  "cvmfs: tests that require CVMFS",
+]
+
+[tool.check-manifest]
+ignore = [
+  ".github/**",
+  "docs/**",
+  ".pre-commit-config.yaml",
+  ".readthedocs.yml",
+  "src/*/version.py",
+  "data/**",
+  "Makefile",
+  "cpp-peglib/**",
+  "pybind11/**",
+  "rapidjson/**",
+]
+
+[tool.mypy]
+python_version = "3.9"
+files = ["src"]
+
+[[tool.mypy.overrides]]
+module = ["awkward.*", "uproot.*"]
+follow_untyped_imports = true
+
+[[tool.mypy.overrides]]
+module = ["cppyy.*", "scipy.*"]
+ignore_missing_imports = true
+
+[tool.ruff.lint]
+select = [
+  "E",  # all errors
+  "F",  # all pyflakes checks
+  "I",  # import-related checks
+]
+ignore = [
+  "E501", # line too long (comments and docstrings, code will be formatted with ruff)
 ]
 
 [project.scripts]
@@ -90,14 +148,14 @@ BUILD_DEMO = "OFF"
 write_to = "src/correctionlib/version.py"
 
 [tool.cibuildwheel]
-skip = ["pp*-*"]
-test-extras = "test"
+skip = ["cp3{9,10}*-win_arm64"]
+test-groups = ["test"]
 test-command = "python -m pytest {package}/tests"
-# When cpython 3.7 is dropped we can ignore i686 (numpy not built)
-test-skip = ["pp*-*", "*-musllinux_*", "cp3{10,11,12}-win32", "cp3{8,9,10,11,12}-manylinux_i686"]
-manylinux-x86_64-image = "manylinux2014"
-manylinux-i686-image = "manylinux2014"
+test-skip = ["*-musllinux_*", "cp3{10,11,12}-win32", "cp*-win_arm64"]
 
 [tool.cibuildwheel.environment]
 # this makes sure that we build only on platforms that have a corresponding numpy wheel
 PIP_ONLY_BINARY = ":all:"
+
+[tool.codespell]
+ignore-regex = "[A-Za-z0-9+/]{100,}"  # ignore long base64 strings

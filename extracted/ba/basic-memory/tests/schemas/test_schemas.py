@@ -345,13 +345,53 @@ def test_edit_entity_request_find_replace_empty_find_text():
 def test_edit_entity_request_replace_section_empty_section():
     """Test that replace_section operation requires non-empty section parameter."""
     with pytest.raises(
-        ValueError, match="section parameter is required for replace_section operation"
+        ValueError, match="section parameter is required for section-based operations"
     ):
         EditEntityRequest.model_validate(
             {
                 "operation": "replace_section",
                 "content": "new content",
                 "section": "",  # Empty string triggers validation
+            }
+        )
+
+
+def test_edit_entity_request_insert_before_section():
+    """Test insert_before_section is a valid operation."""
+    edit_request = EditEntityRequest.model_validate(
+        {
+            "operation": "insert_before_section",
+            "content": "content to insert",
+            "section": "## Target Section",
+        }
+    )
+    assert edit_request.operation == "insert_before_section"
+    assert edit_request.section == "## Target Section"
+
+
+def test_edit_entity_request_insert_after_section():
+    """Test insert_after_section is a valid operation."""
+    edit_request = EditEntityRequest.model_validate(
+        {
+            "operation": "insert_after_section",
+            "content": "content to insert",
+            "section": "## Target Section",
+        }
+    )
+    assert edit_request.operation == "insert_after_section"
+    assert edit_request.section == "## Target Section"
+
+
+def test_edit_entity_request_insert_before_section_empty_section():
+    """Test that insert_before_section requires non-empty section parameter."""
+    with pytest.raises(
+        ValueError, match="section parameter is required for section-based operations"
+    ):
+        EditEntityRequest.model_validate(
+            {
+                "operation": "insert_before_section",
+                "content": "content",
+                "section": "",
             }
         )
 
@@ -391,7 +431,7 @@ class TestTimeframeParsing:
         result_1d = parse_timeframe("1d")
         expected_1d = now - timedelta(days=1)
         diff = abs((result_1d - expected_1d).total_seconds())
-        assert diff < 3600  # Within 1 hour tolerance (accounts for DST transitions)
+        assert diff <= 3610  # Within 1 hour tolerance + execution margin (DST transitions)
         assert result_1d.tzinfo is not None
 
         # Test yesterday - should be yesterday at same time
@@ -404,7 +444,7 @@ class TestTimeframeParsing:
         result_week = parse_timeframe("1 week ago")
         expected_week = now - timedelta(weeks=1)
         diff = abs((result_week - expected_week).total_seconds())
-        assert diff < 3600  # Within 1 hour tolerance
+        assert diff <= 3610  # Within 1 hour tolerance + execution margin (DST transitions)
         assert result_week.tzinfo is not None
 
     def test_parse_timeframe_invalid(self):

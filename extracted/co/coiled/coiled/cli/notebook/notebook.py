@@ -166,6 +166,16 @@ def check_jupyter() -> bool:
     help="For AWS, allows you to specify existing Capacity Reservation group to use.",
 )
 @click.option(
+    "--docker-shm-size",
+    default=None,
+    help="Non-default value for shm_size (for example, '3 GiB').",
+)
+@click.option(
+    "--ami-version",
+    default=None,
+    help="Use non-default Coiled AMI, e.g. 'DL' for the Deep Learning Base OSS Nvidia Driver GPU AMI.",
+)
+@click.option(
     "--region",
     default=None,
     help="The cloud provider region in which to run the notebook.",
@@ -273,6 +283,8 @@ def start_notebook(
     disk_config: str | None,
     capacity_reservation_id: str | None,
     capacity_reservation_group_arn: str | None,
+    docker_shm_size: str | None,
+    ami_version: str | None,
     region: str | None,
     zone: str | None,
     open: bool,
@@ -314,6 +326,8 @@ def start_notebook(
         disk_config=disk_config_dict,
         capacity_reservation_id=capacity_reservation_id,
         capacity_reservation_group_arn=capacity_reservation_group_arn,
+        docker_shm_size=docker_shm_size,
+        ami_version=ami_version,
         region=region,
         zone=zone,
         open=open,
@@ -347,6 +361,8 @@ def _start_notebook(
     disk_config: dict | None = None,
     capacity_reservation_id: str | None = None,
     capacity_reservation_group_arn: str | None = None,
+    docker_shm_size: str | None = None,
+    ami_version: str | None = None,
     region: str | None = None,
     zone: str | None = None,
     open: bool = False,
@@ -430,6 +446,10 @@ def _start_notebook(
                 backend_options["capacity_reservation_id"] = capacity_reservation_id
             if capacity_reservation_group_arn:
                 backend_options["capacity_reservation_group_arn"] = capacity_reservation_group_arn
+            if ami_version:
+                backend_options["ami_version"] = ami_version
+            if docker_shm_size:
+                backend_options["docker_shm_size"] = docker_shm_size
 
             cluster = coiled.Cluster(
                 name=name,

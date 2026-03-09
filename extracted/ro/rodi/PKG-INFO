@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rodi
-Version: 2.0.8
+Version: 2.1.0
 Summary: Implementation of dependency injection for Python 3
 Project-URL: Homepage, https://github.com/Neoteroi/rodi
 Project-URL: Bug Tracker, https://github.com/Neoteroi/rodi/issues
@@ -31,15 +31,12 @@ Keywords: dependency,hints,injection,type,typing
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.7
-Requires-Dist: typing-extensions; python_version < '3.8'
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 
 ![Build](https://github.com/Neoteroi/rodi/workflows/Build/badge.svg)

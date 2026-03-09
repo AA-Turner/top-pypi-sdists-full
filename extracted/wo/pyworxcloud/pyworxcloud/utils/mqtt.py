@@ -18,14 +18,15 @@ The MQTT class provides the following functionality:
 from __future__ import annotations
 
 import asyncio
+import itertools
 import json
 import random
-import time
+import threading
 import urllib.parse
 from concurrent.futures import Future
-from datetime import datetime
+from datetime import datetime, timezone
 from logging import Logger
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 from uuid import uuid4
 
 import awscrt.io
@@ -33,10 +34,11 @@ import awscrt.mqtt
 from awsiot import mqtt_connection_builder
 
 from ..events import EventHandler, LandroidEvent
-from ..exceptions import NoConnectionError
+from ..exceptions import NoConnectionError, TimeoutException
 from .landroid_class import LDict
 
 QOS_FLAG = awscrt.mqtt.QoS.AT_LEAST_ONCE
+DEFAULT_RESPONSE_TIMEOUT = 30.0
 
 
 class MQTTMsgType(LDict):
@@ -111,27 +113,44 @@ class MQTT(LDict):
         user_id: int,
         logger: Logger,
         callback: Any,
+        identifier_resolver: Callable[[str], set[str]] | None = None,
+        deduplicate_inflight_commands: bool = False,
+        response_timeout: float = DEFAULT_RESPONSE_TIMEOUT,
     ) -> dict:
         """Initialize AWSIoT MQTT handler."""
 
         super().__init__()
         self._events = EventHandler()
         self._on_update = callback
+        self._identifier_resolver = identifier_resolver
+        self._deduplicate_inflight_commands = deduplicate_inflight_commands
         self._endpoint = endpoint
         self._log = logger.getChild("MQTT")
         self._reconnected: bool = False
         self._topic: list = []
         self._api = api
-        self._await_publish: bool = False
-        self._await_timestamp: time = None
         self._uuid = uuid4()
         self._is_connected: bool = False
         self._brandprefix = brandprefix
         self._user_id = user_id
         self._connection_future: Optional[Future] = None
+        self._command_lock = threading.Lock()
+        self._response_lock = threading.Lock()
+        self._response_event = threading.Event()
+        self._pending_response_target: str | None = None
+        self._pending_response_message_id: int | None = None
+        self._pending_command_signature: tuple[str, str, int, str] | None = None
+        self._last_command_payload: dict[str, Any] | None = None
+        self._lifecycle_lock = threading.RLock()
+        self._message_id_lock = threading.Lock()
+        self._message_id_seq = itertools.count(random.randint(1024, 65535))
+        if response_timeout <= 0:
+            raise ValueError("response_timeout must be greater than 0")
+        self._response_timeout = float(response_timeout)
         self._client_id = (
             f"{self._brandprefix}/USER/{self._user_id}/homeassistant/{self._uuid}"
         )
+        self._shutdown_event = False
 
         # Create event loop group and connection
         self._event_loop_group = awscrt.io.EventLoopGroup(1)
@@ -204,8 +223,67 @@ class MQTT(LDict):
         """Callback when a message is received."""
         msg = payload.decode("utf-8")
         self._log.debug("Received MQTT message on topic '%s':\n%s", topic, msg)
-        self._await_publish = False
+        identifiers, message_ids = self._extract_response_markers(msg)
+        expanded_identifiers = self._expand_identifiers(identifiers)
+        with self._response_lock:
+            id_matches = (
+                not message_ids
+                or self._pending_response_message_id is None
+                or self._pending_response_message_id in message_ids
+            )
+            if (
+                self._pending_response_target is not None
+                and self._pending_response_target in expanded_identifiers
+                and id_matches
+            ):
+                self._response_event.set()
         self._on_update(msg)
+
+    def _expand_identifiers(self, identifiers: set[str]) -> set[str]:
+        """Expand identifiers using optional mower alias resolver."""
+        expanded = set(identifiers)
+        resolver = self._identifier_resolver
+        if resolver is None:
+            return expanded
+
+        for identifier in list(identifiers):
+            try:
+                aliases = resolver(identifier)
+            except Exception:  # pragma: no cover - defensive resolver guard
+                aliases = set()
+            if aliases:
+                expanded.update(str(alias) for alias in aliases if alias is not None)
+        return expanded
+
+    def _extract_response_markers(self, payload: str) -> tuple[set[str], set[int]]:
+        """Extract identifiers and command ids from an incoming MQTT payload."""
+        try:
+            data = json.loads(payload)
+        except json.JSONDecodeError:
+            return set(), set()
+
+        identifiers: set[str] = set()
+        message_ids: set[int] = set()
+        cfg = data["cfg"] if isinstance(data, dict) and "cfg" in data else {}
+        dat = data["dat"] if isinstance(data, dict) and "dat" in data else {}
+
+        if isinstance(cfg, dict) and "sn" in cfg and cfg["sn"] is not None:
+            identifiers.add(str(cfg["sn"]))
+        if isinstance(cfg, dict) and "id" in cfg and isinstance(cfg["id"], int):
+            message_ids.add(cfg["id"])
+
+        if isinstance(dat, dict):
+            if "uuid" in dat and dat["uuid"] is not None:
+                identifiers.add(str(dat["uuid"]))
+            if "mac" in dat and dat["mac"] is not None:
+                identifiers.add(str(dat["mac"]))
+            if "id" in dat and isinstance(dat["id"], int):
+                message_ids.add(dat["id"])
+
+        if isinstance(data, dict) and "id" in data and isinstance(data["id"], int):
+            message_ids.add(data["id"])
+
+        return identifiers, message_ids
 
     def subscribe(self, topic: str, append: bool = True) -> None:
         """Subscribe to MQTT updates."""
@@ -220,6 +298,10 @@ class MQTT(LDict):
         subscribe_future.result()
         self._log.debug(f"Subscribed to topic: {topic}")
 
+    async def asubscribe(self, topic: str, append: bool = True) -> None:
+        """Async subscribe wrapper."""
+        await asyncio.to_thread(self.subscribe, topic, append)
+
     def connect(self) -> None:
         """Connect to the MQTT service."""
         try:
@@ -227,13 +309,11 @@ class MQTT(LDict):
             self._connection_future = self.client.connect()
 
             # Wait for connection to complete
-            connect_result = self._connection_future.result()
-            self._log.debug(f"Connected with result: {connect_result}")
+            self._connection_future.result()
 
             # Update connection state
             self._is_connected = True
             self._reconnected = False
-            self._await_publish = False
 
             # Subscribe to saved topics
             for topic in self._topic:
@@ -247,6 +327,10 @@ class MQTT(LDict):
             self._is_connected = False
             self._log.error(f"Failed to connect to MQTT: {exc}")
             raise NoConnectionError() from exc
+
+    async def aconnect(self) -> None:
+        """Async connect wrapper."""
+        await asyncio.to_thread(self.connect)
 
     def update_token(self) -> None:
         """Update the token."""
@@ -264,98 +348,263 @@ class MQTT(LDict):
 
         self._log.debug("Token updated")
 
+    async def aupdate_token(self) -> None:
+        """Async token update wrapper."""
+        await asyncio.to_thread(self.update_token)
+
     def disconnect(self, keep_topic: bool = False):  # pylint: disable=unused-argument
         """Disconnect from AWSIoT MQTT server."""
         logger = self._log.getChild("MQTT_Disconnect")
+        with self._lifecycle_lock:
+            if self._shutdown_event:
+                self._is_connected = False
+                return
 
-        if self.connected:
             # Clear topic list
             if not keep_topic:
                 self._topic = []
 
-            # Disconnect
-            disconnect_future = self.client.disconnect()
-            disconnect_future.result()
+            client = self.client
+            if client is None:
+                self._is_connected = False
+                return
 
-            # Update state
+            try:
+                if self._is_connected:
+                    disconnect_future = client.disconnect()
+                    disconnect_future.result()
+                    logger.debug("MQTT disconnected")
+            except Exception as err:  # pragma: no cover - defensive
+                logger.debug("MQTT disconnect raised during teardown: %s", err)
+            finally:
+                # Ensure internal state remains consistent after teardown attempts.
+                self._is_connected = False
+
+    async def adisconnect(self, keep_topic: bool = False) -> None:
+        """Async disconnect wrapper."""
+        await asyncio.to_thread(self.disconnect, keep_topic)
+
+    def shutdown(self) -> None:
+        """Release background AWS CRT resources."""
+        with self._lifecycle_lock:
+            if self._shutdown_event:
+                return
+            self._shutdown_event = True
+
+            host_resolver = self._host_resolver
+            client_bootstrap = self._client_bootstrap
+            event_loop_group = self._event_loop_group
+            client = self.client
+
+            self.client = None
+            self._host_resolver = None
+            self._client_bootstrap = None
+            self._event_loop_group = None
             self._is_connected = False
-            logger.debug("MQTT disconnected")
 
-    def ping(self, serial_number: str, topic: str, protocol: int = 0) -> None:
+        # Disconnect after detaching internals, so concurrent calls see teardown state.
+        if client is not None:
+            try:
+                disconnect_future = client.disconnect()
+                disconnect_future.result()
+            except Exception:  # pragma: no cover - defensive
+                pass
+
+        if host_resolver is not None and hasattr(host_resolver, "shutdown_event"):
+            host_resolver.shutdown_event.wait(5)
+        if client_bootstrap is not None and hasattr(client_bootstrap, "shutdown_event"):
+            client_bootstrap.shutdown_event.wait(5)
+        if event_loop_group is not None and hasattr(event_loop_group, "shutdown_event"):
+            event_loop_group.shutdown_event.wait(5)
+
+    async def ashutdown(self) -> None:
+        """Async shutdown wrapper."""
+        await asyncio.to_thread(self.shutdown)
+
+    def ping(
+        self,
+        serial_number: str,
+        topic: str,
+        protocol: int = 0,
+        timeout: float | None = None,
+    ) -> None:
         """Ping (update) the mower."""
         cmd = {"cmd": Command.FORCE_REFRESH}
-        try:
-            self._log.debug("Sending '%s' on topic '%s'", cmd, topic)
-            self.publish(serial_number, topic, cmd, protocol)
-        except NoConnectionError:
-            pass
+        self._log.debug("Sending '%s' on topic '%s'", cmd, topic)
+        self.publish(serial_number, topic, cmd, protocol, timeout=timeout)
+
+    async def aping(
+        self,
+        serial_number: str,
+        topic: str,
+        protocol: int = 0,
+        timeout: float | None = None,
+    ) -> None:
+        """Async ping wrapper."""
+        await asyncio.to_thread(self.ping, serial_number, topic, protocol, timeout)
 
     def command(
-        self, serial_number: str, topic: str, action: Command, protocol: int = 0
+        self,
+        serial_number: str,
+        topic: str,
+        action: Command,
+        protocol: int = 0,
+        timeout: float | None = None,
     ) -> None:
         """Send a specific command to the mower."""
-        cmd = self.format_message(serial_number, {"cmd": action}, protocol)
-        self._log.debug("Sending '%s' on topic '%s'", cmd, topic)
+        self.publish(
+            serial_number=serial_number,
+            topic=topic,
+            message={"cmd": action},
+            protocol=protocol,
+            timeout=timeout,
+        )
 
-        # Publish the command
-        if self.connected:
-            publish_future, _ = self.client.publish(
-                topic=topic, payload=cmd, qos=QOS_FLAG
-            )
-            # Wait for the message to be published
-            publish_future.result()
-        else:
-            self._log.warning("Cannot send command: not connected")
+    async def acommand(
+        self,
+        serial_number: str,
+        topic: str,
+        action: Command,
+        protocol: int = 0,
+        timeout: float | None = None,
+    ) -> None:
+        """Async command wrapper."""
+        await asyncio.to_thread(
+            self.command, serial_number, topic, action, protocol, timeout
+        )
 
     def publish(
-        self, serial_number: str, topic: str, message: dict, protocol: int = 0
+        self,
+        serial_number: str,
+        topic: str,
+        message: dict,
+        protocol: int = 0,
+        timeout: float | None = None,
     ) -> None:
-        """Publish a message to the mower."""
+        """Publish a message to the mower and wait for response."""
+        effective_timeout = self._response_timeout if timeout is None else timeout
+        if effective_timeout <= 0:
+            raise ValueError("timeout must be greater than 0")
+
         if not self.connected:
             self.update_token()
-            # raise NoConnectionError("No connection to AwSIoT MQTT")
 
-        while self._await_publish:
-            if self._await_timestamp + 30 >= time.time():
-                self._await_publish = False
-                break
-            asyncio.run(asyncio.sleep(1))
-
-        self._await_publish = True
-        self._await_timestamp = time.time()
+        command_signature = (
+            serial_number,
+            topic,
+            protocol,
+            json.dumps(message, sort_keys=True, separators=(",", ":")),
+        )
+        if self._deduplicate_inflight_commands and self._command_lock.locked():
+            with self._response_lock:
+                if self._pending_command_signature == command_signature:
+                    self._log.debug(
+                        "Dropping duplicate in-flight command serial=%s topic=%s protocol=%s message=%s",
+                        serial_number,
+                        topic,
+                        protocol,
+                        message,
+                    )
+                    return
 
         # Format the message
         formatted_message = self.format_message(serial_number, message, protocol)
-        self._log.debug("Publishing message '%s'", formatted_message)
-
-        # Publish the message
-        publish_future, _ = self.client.publish(
-            topic=topic, payload=formatted_message, qos=QOS_FLAG
+        command_message_id = json.loads(formatted_message)["id"]
+        identifier_type = "sn" if protocol == 0 else "uuid" if protocol == 1 else "id"
+        self._last_command_payload = {
+            "serial": serial_number,
+            "identifier_type": identifier_type,
+            "topic": topic,
+            "message": message,
+            "protocol": protocol,
+            "command_id": command_message_id,
+            "payload": formatted_message,
+        }
+        self._log.debug(
+            "Publishing message id=%s serial=%s topic=%s payload=%s",
+            command_message_id,
+            serial_number,
+            topic,
+            formatted_message,
         )
 
-        # Wait for the message to be published
-        publish_future.result()
+        # Only allow one in-flight command until response/timeout.
+        with self._command_lock:
+            with self._response_lock:
+                self._pending_response_target = serial_number
+                self._pending_response_message_id = command_message_id
+                self._pending_command_signature = command_signature
+                self._response_event.clear()
+
+            try:
+                # Publish the message
+                publish_future, _ = self.client.publish(
+                    topic=topic, payload=formatted_message, qos=QOS_FLAG
+                )
+
+                # Wait for the message to be published
+                publish_future.result()
+
+                if not self._response_event.wait(effective_timeout):
+                    payload = self._last_command_payload or {}
+                    self._log.warning(
+                        "Timeout waiting for device response; identifier_type=%s identifier=%s protocol=%s command_id=%s topic=%s payload=%s",
+                        payload.get("identifier_type", identifier_type),
+                        payload.get("serial", serial_number),
+                        payload.get("protocol", protocol),
+                        payload.get("command_id"),
+                        payload.get("topic"),
+                        payload.get("payload"),
+                    )
+                    raise TimeoutException(
+                        f"Timed out waiting for device response from '{serial_number}'"
+                    )
+            finally:
+                with self._response_lock:
+                    self._pending_response_target = None
+                    self._pending_response_message_id = None
+                    self._pending_command_signature = None
+                    self._response_event.clear()
+
+    async def apublish(
+        self,
+        serial_number: str,
+        topic: str,
+        message: dict,
+        protocol: int = 0,
+        timeout: float | None = None,
+    ) -> None:
+        """Async publish wrapper."""
+        await asyncio.to_thread(
+            self.publish, serial_number, topic, message, protocol, timeout
+        )
 
     def format_message(self, serial_number: str, message: dict, protocol: int) -> str:
         """
         Format a message.
         Message is expected to be a dict like this: {"cmd": 1}
         """
+        with self._message_id_lock:
+            message_id = 1024 + (next(self._message_id_seq) - 1024) % (65535 - 1024 + 1)
+
         now = datetime.now()
         msg = {}
         if protocol == 0:
             msg = {
-                "id": random.randint(1024, 65535),
+                "id": message_id,
                 "sn": serial_number,
                 "tm": now.strftime("%H:%M:%S"),
                 "dt": now.strftime("%d/%m/%Y"),
             }
         elif protocol == 1:
+            utc_now = datetime.now(timezone.utc)
             msg = {
-                "id": random.randint(1024, 65535),
+                "id": message_id,
                 "uuid": serial_number,
-                "tm": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "tm": utc_now.strftime("%Y-%m-%dT%H:%M:%SZ"),
             }
+        else:
+            raise ValueError(f"Unsupported protocol: {protocol}")
 
         msg.update(message)
         self._log.debug("Formatting message '%s' to '%s'", message, msg)

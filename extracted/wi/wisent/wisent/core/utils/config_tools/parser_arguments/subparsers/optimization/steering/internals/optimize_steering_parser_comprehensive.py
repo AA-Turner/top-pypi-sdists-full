@@ -2,10 +2,7 @@
 from wisent.core.control.steering_methods.registry import SteeringMethodRegistry
 from wisent.core.control.steering_methods.definitions._definitions_tetno_grom import TETNO_STEERING_LAYER_CONFIGS
 from wisent.core.utils.cli.commands.steering.core.configuration.settings.steering_search_space_classes import DirectionWeighting
-from wisent.core.utils.config_tools.constants import (
-    EARLY_REJECTION_CV_THRESHOLD_DEFAULT,
-    TPE_N_STARTUP_TRIALS_DEFAULT,
-)
+from wisent.core.utils.config_tools.constants import EARLY_REJECTION_CV_THRESHOLD_DEFAULT
 AVAILABLE_METHODS = [m.upper() for m in SteeringMethodRegistry.list_methods()]
 
 def setup_comprehensive_parser(steering_subparsers):
@@ -63,7 +60,7 @@ def setup_comprehensive_parser(steering_subparsers):
     comprehensive_parser.add_argument(
         "--baseline-output-dir",
         type=str,
-        required=True,
+        default=None,
         help="Directory to save baseline comparison results",
     )
     comprehensive_parser.add_argument(
@@ -129,15 +126,6 @@ def setup_comprehensive_parser(steering_subparsers):
         type=float,
         default=EARLY_REJECTION_CV_THRESHOLD_DEFAULT,
         help="Minimum cross-validation score for early rejection during optimization"
-    )
-
-    # SEARCH STRATEGY CONFIGURATION
-
-    comprehensive_parser.add_argument(
-        "--n-startup-trials",
-        type=int,
-        default=TPE_N_STARTUP_TRIALS_DEFAULT,
-        help="Number of random trials before TPE kicks in"
     )
     
     # SEARCH SPACE CONFIGURATION

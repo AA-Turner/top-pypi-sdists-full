@@ -555,7 +555,7 @@ impl Session {
             };
         }
 
-        match cmd {
+        let result = match cmd {
             SchemaStatement::CreateNodeType(stmt) => {
                 #[cfg(feature = "wal")]
                 let props_for_wal: Vec<(String, String, bool)> = stmt
@@ -1250,7 +1250,15 @@ impl Session {
                 wal_log!(self, WalRecord::DropProcedure { name: name.clone() });
                 Ok(QueryResult::status(format!("Dropped procedure '{name}'")))
             }
+        };
+
+        // Invalidate all cached query plans after any successful DDL change.
+        // DDL is rare, so clearing the entire cache is cheap and correct.
+        if result.is_ok() {
+            self.query_cache.clear();
         }
+
+        result
     }
 
     /// Creates a vector index on the store by scanning existing nodes.
@@ -1355,6 +1363,59 @@ impl Session {
         ))
     }
 
+    /// Returns a table of all indexes from the catalog.
+    fn execute_show_indexes(&self) -> Result<QueryResult> {
+        let indexes = self.catalog.all_indexes();
+        let columns = vec![
+            "name".to_string(),
+            "type".to_string(),
+            "label".to_string(),
+            "property".to_string(),
+        ];
+        let rows: Vec<Vec<Value>> = indexes
+            .into_iter()
+            .map(|def| {
+                let label_name = self
+                    .catalog
+                    .get_label_name(def.label)
+                    .unwrap_or_else(|| "?".into());
+                let prop_name = self
+                    .catalog
+                    .get_property_key_name(def.property_key)
+                    .unwrap_or_else(|| "?".into());
+                vec![
+                    Value::from(format!("idx_{}_{}", label_name, prop_name)),
+                    Value::from(format!("{:?}", def.index_type)),
+                    Value::from(&*label_name),
+                    Value::from(&*prop_name),
+                ]
+            })
+            .collect();
+        Ok(QueryResult {
+            columns,
+            column_types: Vec::new(),
+            rows,
+            ..QueryResult::empty()
+        })
+    }
+
+    /// Returns a table of all constraints (currently metadata-only).
+    fn execute_show_constraints(&self) -> Result<QueryResult> {
+        // Constraints are tracked in WAL but not yet in a queryable catalog.
+        // Return an empty table with the expected schema.
+        Ok(QueryResult {
+            columns: vec![
+                "name".to_string(),
+                "type".to_string(),
+                "label".to_string(),
+                "properties".to_string(),
+            ],
+            column_types: Vec::new(),
+            rows: Vec::new(),
+            ..QueryResult::empty()
+        })
+    }
+
     /// Executes a GQL query.
     ///
     /// # Errors
@@ -1446,6 +1507,39 @@ impl Session {
             let mut plan = optimized_plan;
             annotate_pushdown_hints(&mut plan.root, self.graph_store.as_ref());
             return Ok(explain_result(&plan));
+        }
+
+        // PROFILE: execute with per-operator instrumentation
+        if optimized_plan.profile {
+            let has_mutations = optimized_plan.root.has_mutations();
+            return self.with_auto_commit(has_mutations, || {
+                let (viewing_epoch, transaction_id) = self.get_transaction_context();
+                let planner = self.create_planner(viewing_epoch, transaction_id);
+                let (mut physical_plan, entries) = planner.plan_profiled(&optimized_plan)?;
+
+                let executor = Executor::with_columns(physical_plan.columns.clone())
+                    .with_deadline(self.query_deadline());
+                let _result = executor.execute(physical_plan.operator.as_mut())?;
+
+                let total_time_ms;
+                #[cfg(not(target_arch = "wasm32"))]
+                {
+                    total_time_ms = start_time.elapsed().as_secs_f64() * 1000.0;
+                }
+                #[cfg(target_arch = "wasm32")]
+                {
+                    total_time_ms = 0.0;
+                }
+
+                let profile_tree = crate::query::profile::build_profile_tree(
+                    &optimized_plan.root,
+                    &mut entries.into_iter(),
+                );
+                Ok(crate::query::profile::profile_result(
+                    &profile_tree,
+                    total_time_ms,
+                ))
+            });
         }
 
         let has_mutations = optimized_plan.root.has_mutations();
@@ -1570,6 +1664,33 @@ impl Session {
             Executor, binder::Binder, cache::CacheKey, optimizer::Optimizer,
             processor::QueryLanguage, translators::cypher,
         };
+        use grafeo_common::utils::error::{Error as GrafeoError, QueryError, QueryErrorKind};
+
+        // Handle schema DDL and SHOW commands before the normal query path
+        let translation = cypher::translate_full(query)?;
+        match translation {
+            cypher::CypherTranslationResult::SchemaCommand(cmd) => {
+                if *self.read_only_tx.lock() {
+                    return Err(GrafeoError::Query(QueryError::new(
+                        QueryErrorKind::Semantic,
+                        "Cannot execute schema DDL in a read-only transaction",
+                    )));
+                }
+                return self.execute_schema_command(cmd);
+            }
+            cypher::CypherTranslationResult::ShowIndexes => {
+                return self.execute_show_indexes();
+            }
+            cypher::CypherTranslationResult::ShowConstraints => {
+                return self.execute_show_constraints();
+            }
+            cypher::CypherTranslationResult::Plan(_) => {
+                // Fall through to normal execution below
+            }
+        }
+
+        #[cfg(not(target_arch = "wasm32"))]
+        let start_time = std::time::Instant::now();
 
         // Create cache key for this query
         let cache_key = CacheKey::new(query, QueryLanguage::Cypher);
@@ -1594,6 +1715,47 @@ impl Session {
 
             plan
         };
+
+        // EXPLAIN
+        if optimized_plan.explain {
+            use crate::query::processor::{annotate_pushdown_hints, explain_result};
+            let mut plan = optimized_plan;
+            annotate_pushdown_hints(&mut plan.root, self.graph_store.as_ref());
+            return Ok(explain_result(&plan));
+        }
+
+        // PROFILE
+        if optimized_plan.profile {
+            let has_mutations = optimized_plan.root.has_mutations();
+            return self.with_auto_commit(has_mutations, || {
+                let (viewing_epoch, transaction_id) = self.get_transaction_context();
+                let planner = self.create_planner(viewing_epoch, transaction_id);
+                let (mut physical_plan, entries) = planner.plan_profiled(&optimized_plan)?;
+
+                let executor = Executor::with_columns(physical_plan.columns.clone())
+                    .with_deadline(self.query_deadline());
+                let _result = executor.execute(physical_plan.operator.as_mut())?;
+
+                let total_time_ms;
+                #[cfg(not(target_arch = "wasm32"))]
+                {
+                    total_time_ms = start_time.elapsed().as_secs_f64() * 1000.0;
+                }
+                #[cfg(target_arch = "wasm32")]
+                {
+                    total_time_ms = 0.0;
+                }
+
+                let profile_tree = crate::query::profile::build_profile_tree(
+                    &optimized_plan.root,
+                    &mut entries.into_iter(),
+                );
+                Ok(crate::query::profile::profile_result(
+                    &profile_tree,
+                    total_time_ms,
+                ))
+            });
+        }
 
         let has_mutations = optimized_plan.root.has_mutations();
 
@@ -1794,6 +1956,64 @@ impl Session {
         })
     }
 
+    /// Executes a GraphQL query against the RDF store.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the query fails to parse or execute.
+    #[cfg(all(feature = "graphql", feature = "rdf"))]
+    pub fn execute_graphql_rdf(&self, query: &str) -> Result<QueryResult> {
+        use crate::query::{
+            Executor, optimizer::Optimizer, planner::rdf::RdfPlanner, translators::graphql_rdf,
+        };
+
+        let logical_plan = graphql_rdf::translate(query, "http://example.org/")?;
+
+        let optimizer = Optimizer::from_graph_store(&*self.graph_store);
+        let optimized_plan = optimizer.optimize(logical_plan)?;
+
+        let planner = RdfPlanner::new(Arc::clone(&self.rdf_store))
+            .with_transaction_id(*self.current_transaction.lock());
+        let mut physical_plan = planner.plan(&optimized_plan)?;
+
+        let executor = Executor::with_columns(physical_plan.columns.clone())
+            .with_deadline(self.query_deadline());
+        executor.execute(physical_plan.operator.as_mut())
+    }
+
+    /// Executes a GraphQL query against the RDF store with parameters.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the query fails to parse or execute.
+    #[cfg(all(feature = "graphql", feature = "rdf"))]
+    pub fn execute_graphql_rdf_with_params(
+        &self,
+        query: &str,
+        params: std::collections::HashMap<String, Value>,
+    ) -> Result<QueryResult> {
+        use crate::query::processor::{QueryLanguage, QueryProcessor};
+
+        let has_mutations = Self::query_looks_like_mutation(query);
+
+        self.with_auto_commit(has_mutations, || {
+            let (viewing_epoch, transaction_id) = self.get_transaction_context();
+
+            let processor = QueryProcessor::for_graph_store_with_transaction(
+                Arc::clone(&self.graph_store),
+                Arc::clone(&self.transaction_manager),
+            );
+
+            let processor = if let Some(transaction_id) = transaction_id {
+                processor.with_transaction_context(viewing_epoch, transaction_id)
+            } else {
+                processor
+            };
+
+            processor.process(query, QueryLanguage::GraphQLRdf, Some(&params))
+        })
+    }
+
     /// Executes a SQL/PGQ query (SQL:2023 GRAPH_TABLE).
     ///
     /// # Errors
@@ -1958,17 +2178,33 @@ impl Session {
     pub fn execute_sparql_with_params(
         &self,
         query: &str,
-        _params: std::collections::HashMap<String, Value>,
+        params: std::collections::HashMap<String, Value>,
     ) -> Result<QueryResult> {
-        // TODO: Implement parameter substitution for SPARQL
-        // For now, just execute the query without parameters
-        self.execute_sparql(query)
+        use crate::query::{
+            Executor, optimizer::Optimizer, planner::rdf::RdfPlanner, processor::substitute_params,
+            translators::sparql,
+        };
+
+        let mut logical_plan = sparql::translate(query)?;
+
+        substitute_params(&mut logical_plan, &params)?;
+
+        let optimizer = Optimizer::from_graph_store(&*self.graph_store);
+        let optimized_plan = optimizer.optimize(logical_plan)?;
+
+        let planner = RdfPlanner::new(Arc::clone(&self.rdf_store))
+            .with_transaction_id(*self.current_transaction.lock());
+        let mut physical_plan = planner.plan(&optimized_plan)?;
+
+        let executor = Executor::with_columns(physical_plan.columns.clone())
+            .with_deadline(self.query_deadline());
+        executor.execute(physical_plan.operator.as_mut())
     }
 
     /// Executes a query in the specified language by name.
     ///
     /// Supported language names: `"gql"`, `"cypher"`, `"gremlin"`, `"graphql"`,
-    /// `"sparql"`, `"sql"`. Each requires the corresponding feature flag.
+    /// `"graphql-rdf"`, `"sparql"`, `"sql"`. Each requires the corresponding feature flag.
     ///
     /// # Errors
     ///
@@ -2025,6 +2261,14 @@ impl Session {
                     self.execute_graphql(query)
                 }
             }
+            #[cfg(all(feature = "graphql", feature = "rdf"))]
+            "graphql-rdf" => {
+                if let Some(p) = params {
+                    self.execute_graphql_rdf_with_params(query, p)
+                } else {
+                    self.execute_graphql_rdf(query)
+                }
+            }
             #[cfg(feature = "sql-pgq")]
             "sql" | "sql-pgq" => {
                 if let Some(p) = params {
@@ -2072,6 +2316,21 @@ impl Session {
     /// # Ok(())
     /// # }
     /// ```
+    /// Clears all cached query plans.
+    ///
+    /// The plan cache is shared across all sessions on the same database,
+    /// so clearing from one session affects all sessions.
+    pub fn clear_plan_cache(&self) {
+        self.query_cache.clear();
+    }
+
+    /// Begins a new transaction on this session.
+    ///
+    /// Uses the default isolation level (`SnapshotIsolation`).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if a transaction is already active.
     pub fn begin_transaction(&mut self) -> Result<()> {
         self.begin_transaction_inner(false, None)
     }

@@ -23,6 +23,7 @@ from . import (
     list_sessions,
     list_tags,
     put_session_state,
+    update_session_notes,
     update_session_tags,
 )
 
@@ -34,6 +35,7 @@ __all__ = [
     "get_session",
     "get_session_status",
     "update_session_tags",
+    "update_session_notes",
     "complete_session",
     "get_session_logs",
     "get_session_logs_download",

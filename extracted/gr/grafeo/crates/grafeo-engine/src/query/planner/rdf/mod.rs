@@ -47,6 +47,10 @@ pub struct RdfPlanner {
     chunk_size: usize,
     /// Optional transaction ID for transactional operations.
     transaction_id: Option<TransactionId>,
+    /// When true, each physical operator is wrapped in `ProfiledOperator`.
+    profiling: std::cell::Cell<bool>,
+    /// Profile entries collected during planning (post-order).
+    profile_entries: std::cell::RefCell<Vec<crate::query::profile::ProfileEntry>>,
 }
 
 impl RdfPlanner {
@@ -57,6 +61,8 @@ impl RdfPlanner {
             store,
             chunk_size: DEFAULT_CHUNK_SIZE,
             transaction_id: None,
+            profiling: std::cell::Cell::new(false),
+            profile_entries: std::cell::RefCell::new(Vec::new()),
         }
     }
 
@@ -88,9 +94,54 @@ impl RdfPlanner {
         })
     }
 
+    /// Plans a logical plan with profiling: each physical operator is wrapped
+    /// in [`ProfiledOperator`](grafeo_core::execution::ProfiledOperator) to
+    /// collect row counts and timing.
+    pub fn plan_profiled(
+        &self,
+        logical_plan: &LogicalPlan,
+    ) -> Result<(PhysicalPlan, Vec<crate::query::profile::ProfileEntry>)> {
+        self.profiling.set(true);
+        self.profile_entries.borrow_mut().clear();
+
+        let result = self.plan_operator(&logical_plan.root);
+
+        self.profiling.set(false);
+        let (operator, columns) = result?;
+        let entries = self.profile_entries.borrow_mut().drain(..).collect();
+
+        Ok((
+            PhysicalPlan {
+                operator,
+                columns,
+                adaptive_context: None,
+            },
+            entries,
+        ))
+    }
+
+    /// If profiling is enabled, wraps a planned result in `ProfiledOperator`
+    /// and records a [`ProfileEntry`](crate::query::profile::ProfileEntry).
+    fn maybe_profile(
+        &self,
+        result: Result<(Box<dyn Operator>, Vec<String>)>,
+        op: &LogicalOperator,
+    ) -> Result<(Box<dyn Operator>, Vec<String>)> {
+        if self.profiling.get() {
+            let (physical, columns) = result?;
+            let (entry, stats) =
+                crate::query::profile::ProfileEntry::new(physical.name(), op.display_label());
+            let profiled = grafeo_core::execution::ProfiledOperator::new(physical, stats);
+            self.profile_entries.borrow_mut().push(entry);
+            Ok((Box::new(profiled), columns))
+        } else {
+            result
+        }
+    }
+
     /// Plans a single logical operator.
     fn plan_operator(&self, op: &LogicalOperator) -> Result<(Box<dyn Operator>, Vec<String>)> {
-        match op {
+        let result = match op {
             LogicalOperator::TripleScan(scan) => self.plan_triple_scan(scan),
             LogicalOperator::Filter(filter) => self.plan_filter(filter),
             LogicalOperator::Project(project) => self.plan_project(project),
@@ -114,12 +165,16 @@ impl RdfPlanner {
             LogicalOperator::MoveGraph(move_op) => self.plan_move_graph(move_op),
             LogicalOperator::AddGraph(add) => self.plan_add_graph(add),
             LogicalOperator::Bind(bind) => self.plan_bind(bind),
-            LogicalOperator::Empty => Ok((Box::new(SingleRowOperator::new()), vec![])),
+            LogicalOperator::Empty => {
+                let op: Box<dyn Operator> = Box::new(SingleRowOperator::new());
+                Ok((op, vec![]))
+            }
             _ => Err(Error::Internal(format!(
                 "Unsupported RDF operator: {:?}",
                 std::mem::discriminant(op)
             ))),
-        }
+        };
+        self.maybe_profile(result, op)
     }
 
     /// Plans a triple scan operator.
@@ -484,13 +539,51 @@ impl RdfPlanner {
     fn plan_aggregate(&self, agg: &AggregateOp) -> Result<(Box<dyn Operator>, Vec<String>)> {
         use grafeo_core::execution::operators::AggregateExpr as PhysicalAggregateExpr;
 
-        let (input_op, input_columns) = self.plan_operator(&agg.input)?;
+        let (mut input_op, input_columns) = self.plan_operator(&agg.input)?;
 
-        let variable_columns: HashMap<String, usize> = input_columns
+        let mut variable_columns: HashMap<String, usize> = input_columns
             .iter()
             .enumerate()
             .map(|(i, name)| (name.clone(), i))
             .collect();
+
+        // Pre-project complex expressions (CASE, Binary, etc.) inside aggregate arguments
+        let mut expression_projections: Vec<(FilterExpression, String)> = Vec::new();
+        let mut next_col_idx = input_columns.len();
+        for agg_expr in &agg.aggregates {
+            for expr_opt in [&agg_expr.expression, &agg_expr.expression2] {
+                let Some(expr) = expr_opt else { continue };
+                match expr {
+                    LogicalExpression::Variable(_) => {}
+                    _ => {
+                        let col_name = format!("__expr_{:?}", expr);
+                        if !variable_columns.contains_key(&col_name) {
+                            let filter_expr = convert_filter_expression(expr)?;
+                            expression_projections.push((filter_expr, col_name.clone()));
+                            variable_columns.insert(col_name, next_col_idx);
+                            next_col_idx += 1;
+                        }
+                    }
+                }
+            }
+        }
+
+        if !expression_projections.is_empty() {
+            let mut projections: Vec<ProjectExpr> =
+                (0..input_columns.len()).map(ProjectExpr::Column).collect();
+            let mut output_types: Vec<LogicalType> =
+                input_columns.iter().map(|_| LogicalType::String).collect();
+
+            for (filter_expr, _col_name) in &expression_projections {
+                projections.push(ProjectExpr::Expression {
+                    expr: filter_expr.clone(),
+                    variable_columns: variable_columns.clone(),
+                });
+                output_types.push(LogicalType::Any);
+            }
+
+            input_op = Box::new(ProjectOperator::new(input_op, projections, output_types));
+        }
 
         let group_columns: Vec<usize> = agg
             .group_by
@@ -3332,10 +3425,13 @@ fn resolve_expression(
             .get(name)
             .copied()
             .ok_or_else(|| Error::Internal(format!("Variable '{}' not found", name))),
-        _ => Err(Error::Internal(format!(
-            "Cannot resolve expression to column: {:?}",
-            expr
-        ))),
+        _ => {
+            // Complex expression (CASE, Binary, etc.): look up synthetic column
+            let col_name = format!("__expr_{:?}", expr);
+            variable_columns.get(&col_name).copied().ok_or_else(|| {
+                Error::Internal(format!("Cannot resolve expression to column: {:?}", expr))
+            })
+        }
     }
 }
 

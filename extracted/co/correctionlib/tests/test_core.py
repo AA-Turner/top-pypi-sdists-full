@@ -49,7 +49,7 @@ def test_evaluator():
     assert sf.version == 2
     assert sf.description == ""
 
-    with pytest.raises(RuntimeError):
+    with pytest.raises(ValueError):
         sf.evaluate(0, 1.2, 35.0, 0.01)
 
     assert sf.evaluate() == 1.234
@@ -110,21 +110,21 @@ def test_evaluator():
     assert sf.version == 2
     assert sf.description == ""
 
-    with pytest.raises(RuntimeError):
+    with pytest.raises(ValueError):
         # too many inputs
         sf.evaluate(0, 1.2, 35.0, 0.01)
 
-    with pytest.raises(RuntimeError):
+    with pytest.raises(ValueError):
         # not enough inputs
         sf.evaluate(1.2)
 
     with pytest.raises(RuntimeError):
         # wrong type
-        sf.evaluate(5)
+        sf.evaluate(5, "blah")
 
     with pytest.raises(RuntimeError):
         # wrong type
-        sf.evaluate("asdf")
+        sf.evaluate("asdf", "blah")
 
     assert sf.evaluate(12.0, "blah") == 1.1
     # Do we need pytest.approx? Maybe not
@@ -387,9 +387,7 @@ def test_tformula():
                     )
                 )
             )
-        ) + (
-            (x < v[6]) * v[7]
-        )
+        ) + ((x < v[6]) * v[7])
         assert evaluate(
             "(max(0.,1.03091-0.051154*pow(x,-0.154227))-max(0.,1.03091-0.051154*pow(208.,-0.154227)))+[7]*((-2.36997+0.413917*log(x))/x-(-2.36997+0.413917*log(208))/208)",
             [x],
@@ -397,9 +395,7 @@ def test_tformula():
         ) == (
             max(0.0, 1.03091 - 0.051154 * math.pow(x, -0.154227))
             - max(0.0, 1.03091 - 0.051154 * math.pow(208.0, -0.154227))
-        ) + v[
-            7
-        ] * (
+        ) + v[7] * (
             (-2.36997 + 0.413917 * math.log(x)) / x
             - (-2.36997 + 0.413917 * math.log(208)) / 208
         )
@@ -620,9 +616,7 @@ def test_tformula():
             + v[3] * (x - 225)
             + v[4] * ((x - 225) * (x - 225))
             + v[5] * ((x - 225) * (x - 225) * (x - 225))
-        ) * (
-            x > 225
-        )
+        ) * (x > 225)
 
     with pytest.raises(RuntimeError):
         evaluate("doesNotExist(2)", [], [])
