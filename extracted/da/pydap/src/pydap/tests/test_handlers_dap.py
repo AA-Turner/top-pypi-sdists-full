@@ -669,37 +669,26 @@ class TestUnpackDap4Data(unittest.TestCase):
         ds = dmr_to_dataset(self.unpacker.dmr)
         self.assertEqual(
             ds.variables(),
-            {"SST": {"dtype": np.dtype(">f4"), "shape": (1, 4, 4), "dims": []}},
+            {"SST": {"dtype": np.dtype("f4"), "shape": (1, 4, 4), "dims": []}},
         )
 
     def testResponse(self):
         self.assertIsInstance(self.unpacker.r, Response)
 
 
-buffer1 = bytearray(
-    b"\x04\x00\x00\x00\x00\x00\x00\x00"
-    + b"This"
-    + b"\x02\x00\x00\x00\x00\x00\x00\x00"
-    + b"is"
-    + b"\x01\x00\x00\x00\x00\x00\x00\x00"
-    + b"a"
-    + b"\x04\x00\x00\x00\x00\x00\x00\x00"
-    + b"Test"
-)
-
-buffer2 = bytearray(b"\x16\x00\x00\x00\x00\x00\x00\x00" + b"This is a string")
+buffer1 = bytearray(b"\x16\x00\x00\x00\x00\x00\x00\x00" + b"This is a string")
 
 
 @pytest.mark.parametrize(
-    "data, expected",
+    "data, expected_string, expected_stop",
     [
-        (buffer1, ["This", "is", "a", "Test"]),
-        (buffer2, ["This is a string"]),
+        (buffer1, ["This is a string"], 30),
     ],
 )
-def test_decode_utf8_string_array(data, expected):
-    result = decode_utf8_string_array(data)
-    assert result == expected
+def test_decode_utf8_string_array(data, expected_string, expected_stop):
+    result, stop = decode_utf8_string_array(data)
+    assert result == expected_string
+    assert stop == expected_stop
 
 
 def test_dap_handler_string_array():

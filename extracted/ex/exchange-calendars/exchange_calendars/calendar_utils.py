@@ -28,6 +28,7 @@ from .exchange_calendar_xdub import XDUBExchangeCalendar
 from .exchange_calendar_xdus import XDUSExchangeCalendar
 from .exchange_calendar_xeee import XEEEExchangeCalendar
 from .exchange_calendar_xetr import XETRExchangeCalendar
+from .exchange_calendar_xeur import XEURExchangeCalendar
 from .exchange_calendar_xfra import XFRAExchangeCalendar
 from .exchange_calendar_xham import XHAMExchangeCalendar
 from .exchange_calendar_xhel import XHELExchangeCalendar
@@ -60,6 +61,7 @@ from .exchange_calendar_xsau import XSAUExchangeCalendar
 from .exchange_calendar_xses import XSESExchangeCalendar
 from .exchange_calendar_xsgo import XSGOExchangeCalendar
 from .exchange_calendar_xshg import XSHGExchangeCalendar
+from .exchange_calendar_xstu import XSTUExchangeCalendar
 from .exchange_calendar_xsto import XSTOExchangeCalendar
 from .exchange_calendar_xswx import XSWXExchangeCalendar
 from .exchange_calendar_xtae import XTAEExchangeCalendar
@@ -100,6 +102,7 @@ _default_calendar_factories = {
     "XEEE": XEEEExchangeCalendar,
     "XFRA": XFRAExchangeCalendar,
     "XETR": XETRExchangeCalendar,
+    "XEUR": XEURExchangeCalendar,
     "XHAM": XHAMExchangeCalendar,
     "XHEL": XHELExchangeCalendar,
     "XHKG": XHKGExchangeCalendar,
@@ -132,6 +135,7 @@ _default_calendar_factories = {
     "XSGO": XSGOExchangeCalendar,
     "XSHG": XSHGExchangeCalendar,
     "XSTO": XSTOExchangeCalendar,
+    "XSTU": XSTUExchangeCalendar,
     "XSWX": XSWXExchangeCalendar,
     "XTAE": XTAEExchangeCalendar,
     "XTAI": XTAIExchangeCalendar,

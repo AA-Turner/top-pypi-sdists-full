@@ -10,7 +10,7 @@ def addon_disable(
     /,
     *,
     module: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Turn off this add-on
 
     :param module: Module, Module name of the add-on to disable (optional, never None)
@@ -23,7 +23,7 @@ def addon_enable(
     /,
     *,
     module: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Turn on this add-on
 
     :param module: Module, Module name of the add-on to enable (optional, never None)
@@ -36,7 +36,7 @@ def addon_expand(
     /,
     *,
     module: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Display information and preferences for this add-on
 
     :param module: Module, Module name of the add-on to expand (optional, never None)
@@ -55,7 +55,7 @@ def addon_install(
     filter_folder: bool | None = True,
     filter_python: bool | None = True,
     filter_glob: str | None = "*.py;*.zip",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Install an add-on
 
     :param overwrite: Overwrite, Remove existing add-ons with the same ID (optional)
@@ -72,7 +72,7 @@ def addon_refresh(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Scan add-on directories for new modules
 
     :return: Result of the operator call.
@@ -84,7 +84,7 @@ def addon_remove(
     /,
     *,
     module: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Delete the add-on from the file system
 
     :param module: Module, Module name of the add-on to remove (optional, never None)
@@ -97,7 +97,7 @@ def addon_show(
     /,
     *,
     module: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Show add-on preferences
 
     :param module: Module, Module name of the add-on to expand (optional, never None)
@@ -113,7 +113,7 @@ def app_template_install(
     filepath: str | None = "",
     filter_folder: bool | None = True,
     filter_glob: str | None = "*.zip",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Install an application template
 
     :param overwrite: Overwrite, Remove existing template with the same ID (optional)
@@ -156,7 +156,7 @@ def asset_library_add(
     name: str | None = "",
     remote_url: str | None = "",
     type: typing.Literal["REMOTE", "LOCAL"] | None = "REMOTE",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a directory to be used by the Asset Browser as source of assets
 
         :param directory: Directory, Directory of the file (optional, never None)
@@ -211,7 +211,7 @@ def asset_library_remove(
     /,
     *,
     index: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove a path to a .blend file, so the Asset Browser will not attempt to show it anymore
 
     :param index: Index, (in [0, inf], optional)
@@ -222,7 +222,7 @@ def associate_blend(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Use this installation for .blend files and to display thumbnails
 
     :return: Result of the operator call.
@@ -232,7 +232,7 @@ def autoexec_path_add(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add path to exclude from auto-execution
 
     :return: Result of the operator call.
@@ -244,7 +244,7 @@ def autoexec_path_remove(
     /,
     *,
     index: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove path to exclude from auto-execution
 
     :param index: Index, (in [0, inf], optional)
@@ -255,7 +255,7 @@ def clear_filter(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Clear the search filter
 
     :return: Result of the operator call.
@@ -265,7 +265,7 @@ def copy_prev(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Copy settings from previous version
 
     :return: Result of the operator call.
@@ -284,7 +284,7 @@ def extension_repo_add(
     use_custom_directory: bool | None = False,
     custom_directory: str | None = "",
     type: typing.Literal["REMOTE", "LOCAL"] | None = "REMOTE",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a new repository used to store extensions
 
         :param name: Name, Unique repository name (optional, never None)
@@ -311,7 +311,7 @@ def extension_repo_remove(
     *,
     index: int | None = 0,
     remove_files: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove an extension repository
 
     :param index: Index, (in [0, inf], optional)
@@ -325,7 +325,7 @@ def extension_url_drop(
     /,
     *,
     url: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Handle dropping an extension URL
 
     :param url: URL, Location of the extension to install (optional, never None)
@@ -338,7 +338,7 @@ def keyconfig_activate(
     /,
     *,
     filepath: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
 
     :param filepath: filepath, (optional, never None)
@@ -355,7 +355,7 @@ def keyconfig_export(
     filter_folder: bool | None = True,
     filter_text: bool | None = True,
     filter_python: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Export key configuration to a Python script
 
     :param all: All Keymaps, Write all keymaps (not just user modified) (optional)
@@ -376,7 +376,7 @@ def keyconfig_import(
     filter_text: bool | None = True,
     filter_python: bool | None = True,
     keep_original: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Import key configuration from a Python script
 
     :param filepath: filepath, (optional, never None)
@@ -391,7 +391,7 @@ def keyconfig_remove(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove key config
 
     :return: Result of the operator call.
@@ -401,7 +401,7 @@ def keyconfig_test(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Test key configuration for conflicts
 
     :return: Result of the operator call.
@@ -411,7 +411,7 @@ def keyitem_add(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add key map item
 
     :return: Result of the operator call.
@@ -423,7 +423,7 @@ def keyitem_remove(
     /,
     *,
     item_id: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove key map item
 
     :param item_id: Item Identifier, Identifier of the item to remove (in [-inf, inf], optional)
@@ -436,7 +436,7 @@ def keyitem_restore(
     /,
     *,
     item_id: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Restore key map item
 
     :param item_id: Item Identifier, Identifier of the item to restore (in [-inf, inf], optional)
@@ -449,7 +449,7 @@ def keymap_restore(
     /,
     *,
     all: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Restore key map(s)
 
     :param all: All Keymaps, Restore all keymaps to default (optional)
@@ -460,7 +460,7 @@ def reset_default_theme(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Reset to the default theme colors
 
     :return: Result of the operator call.
@@ -473,7 +473,7 @@ def script_directory_add(
     *,
     directory: str | None = "",
     filter_folder: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
 
     :param directory: directory, (optional, never None)
@@ -487,7 +487,7 @@ def script_directory_remove(
     /,
     *,
     index: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
 
     :param index: Index, Index of the script directory to remove (in [-inf, inf], optional)
@@ -498,7 +498,7 @@ def start_filter(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Start entering filter text
 
     :return: Result of the operator call.
@@ -510,7 +510,7 @@ def studiolight_copy_settings(
     /,
     *,
     index: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Copy Studio Light settings to the Studio Light editor
 
     :param index: index, (in [-inf, inf], optional)
@@ -527,7 +527,7 @@ def studiolight_install(
     filter_folder: bool | None = True,
     filter_glob: str | None = "*.png;*.jpg;*.hdr;*.exr",
     type: typing.Literal["MATCAP", "WORLD", "STUDIO"] | None = "MATCAP",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Install a user defined light
 
         :param files: File Path, (optional)
@@ -553,7 +553,7 @@ def studiolight_new(
     /,
     *,
     filename: str | None = "StudioLight",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Save custom studio light from the studio light editor settings
 
     :param filename: Name, (optional, never None)
@@ -566,7 +566,7 @@ def studiolight_uninstall(
     /,
     *,
     index: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Delete Studio Light
 
     :param index: index, (in [-inf, inf], optional)
@@ -582,7 +582,7 @@ def theme_install(
     filepath: str | None = "",
     filter_folder: bool | None = True,
     filter_glob: str | None = "*.xml",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Load and apply a Blender XML theme file
 
     :param overwrite: Overwrite, Remove existing theme file if exists (optional)
@@ -596,7 +596,7 @@ def unassociate_blend(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove this installations associations with .blend files
 
     :return: Result of the operator call.

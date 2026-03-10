@@ -14,7 +14,7 @@ use crate::{
     repo_data::gateway::PyFetchRepoDataOptions, repo_data::sparse::PySparseRepoData,
 };
 use client::PyClientWithMiddleware;
-use rattler_repodata_gateway::{DownloadReporter, JLAPReporter, Reporter};
+use rattler_repodata_gateway::{DownloadReporter, Reporter};
 
 pub mod cached_repo_data;
 pub mod client;
@@ -34,7 +34,7 @@ pub fn py_fetch_repo_data<'a>(
     fetch_options: Option<PyFetchRepoDataOptions>,
 ) -> PyResult<Bound<'a, PyAny>> {
     let mut meta_futures = Vec::new();
-    let client = client.unwrap_or(PyClientWithMiddleware::new(None, None)?);
+    let client = client.unwrap_or(PyClientWithMiddleware::new(None, None, None)?);
     let fetch_options = fetch_options.unwrap_or(PyFetchRepoDataOptions {
         inner: FetchRepoDataOptions::default(),
     });
@@ -71,7 +71,7 @@ pub fn py_fetch_repo_data<'a>(
             Ok(res) => res
                 .into_iter()
                 .map(|(cache, chan, platform)| {
-                    PySparseRepoData::new(chan, platform, cache.repo_data_json_path)
+                    PySparseRepoData::from_args(chan, platform, cache.repo_data_json_path)
                 })
                 .collect::<Result<Vec<_>, _>>(),
             Err(e) => Err(PyRattlerError::from(e).into()),
@@ -102,9 +102,6 @@ impl DownloadReporter for ProgressReporter {
 impl Reporter for ProgressReporter {
     fn download_reporter(&self) -> Option<&dyn DownloadReporter> {
         Some(self)
-    }
-    fn jlap_reporter(&self) -> Option<&dyn JLAPReporter> {
-        None
     }
 }
 

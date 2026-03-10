@@ -1529,8 +1529,8 @@ class APIExperiment(CommonExperiment):
         Create or update a view scoped to this experiment.
 
         Args:
-            view (View): A View instance. The experiment_key will be set
-                automatically.
+            view (View): A View instance. as_portable() is applied automatically
+                before creation, and the experiment_key is set to this experiment.
 
         Returns:
             View or None: The created View, or None on failure.
@@ -1551,8 +1551,9 @@ class APIExperiment(CommonExperiment):
             created = experiment.create_view(view)
             ```
         """
+        view = view.as_portable()
         view.experiment_key = self.id
-        result = self._api._client.upsert_view(self.project_id, view)
+        result = self._api._client.upsert_chart_template_view(self.project_id, view)
         if result:
             return View.from_payload_dict(result)
         return None
@@ -5634,19 +5635,15 @@ class API(object):
         workspace,
         project_name,
         include_workspace_views=False,
-        include_workspace_project_views=False,
     ):
         """
-        Get all views for a project.
+        Get all project-level views for a project.
 
         Args:
             workspace (str): The name of the workspace.
             project_name (str): The name of the project.
             include_workspace_views (bool): If True, also include views from
                 other projects in the same workspace. Default is False.
-            include_workspace_project_views (bool): If True, also include
-                per-project views saved via the UI from other projects in the
-                same workspace. Default is False.
 
         Returns:
             list: A list of View objects.
@@ -5668,11 +5665,7 @@ class API(object):
             raw = self._client.get_views(
                 project_id, include_workspace_views=include_workspace_views
             )
-            raw_ct = self._client.get_chart_template_views(
-                project_id,
-                include_workspace_views=include_workspace_project_views,
-            )
-            return [View.from_payload_dict(v) for v in raw + raw_ct]
+            return [View.from_payload_dict(v) for v in raw]
         else:
             raise ValueError(
                 "unknown project %r in workspace %r" % (project_name, workspace)
@@ -5685,7 +5678,8 @@ class API(object):
         Args:
             workspace (str): The name of the workspace.
             project_name (str): The name of the project.
-            view (View): A View instance with at least a non-empty name.
+            view (View): A View instance. as_portable() is applied automatically
+                before creation.
 
         Returns:
             View or None: The created View, or None on failure.
@@ -5707,7 +5701,7 @@ class API(object):
         project_json = self.get_project(workspace, project_name)
         if project_json:
             project_id = project_json["projectId"]
-            result = self._client.upsert_view(project_id, view)
+            result = self._client.upsert_view(project_id, view.as_portable())
             if result:
                 return View.from_payload_dict(result)
             return None

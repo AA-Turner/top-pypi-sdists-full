@@ -15,7 +15,7 @@ def edge_pan(
     max_speed: float | None = 500.0,
     delay: float | None = 1.0,
     zoom_influence: float | None = 0.0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Pan the view when the mouse is held at an edge
 
     :param inside_padding: Inside Padding, Inside distance in UI units from the edge of the region within which to start panning (in [0, 100], optional)
@@ -31,7 +31,7 @@ def ndof(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Use a 3D mouse device to pan/zoom the view
 
     :return: Result of the operator call.
@@ -44,7 +44,7 @@ def pan(
     *,
     deltax: int | None = 0,
     deltay: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Pan the view
 
     :param deltax: Delta X, (in [-inf, inf], optional)
@@ -56,7 +56,7 @@ def reset(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Reset the view
 
     :return: Result of the operator call.
@@ -70,7 +70,7 @@ def scroll_down(
     deltax: int | None = 0,
     deltay: int | None = 0,
     page: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Scroll the view down
 
     :param deltax: Delta X, (in [-inf, inf], optional)
@@ -86,7 +86,7 @@ def scroll_left(
     *,
     deltax: int | None = 0,
     deltay: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Scroll the view left
 
     :param deltax: Delta X, (in [-inf, inf], optional)
@@ -101,7 +101,7 @@ def scroll_right(
     *,
     deltax: int | None = 0,
     deltay: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Scroll the view right
 
     :param deltax: Delta X, (in [-inf, inf], optional)
@@ -117,7 +117,7 @@ def scroll_up(
     deltax: int | None = 0,
     deltay: int | None = 0,
     page: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Scroll the view up
 
     :param deltax: Delta X, (in [-inf, inf], optional)
@@ -130,7 +130,7 @@ def scroller_activate(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Scroll view by mouse click and drag
 
     :return: Result of the operator call.
@@ -146,7 +146,7 @@ def smoothview(
     ymin: int | None = 0,
     ymax: int | None = 0,
     wait_for_input: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
 
     :param xmin: X Min, (in [-inf, inf], optional)
@@ -165,7 +165,7 @@ def zoom(
     deltax: float | None = 0.0,
     deltay: float | None = 0.0,
     use_cursor_init: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Zoom in/out the view
 
     :param deltax: Delta X, (in [-inf, inf], optional)
@@ -185,7 +185,7 @@ def zoom_border(
     ymax: int | None = 0,
     wait_for_input: bool | None = True,
     zoom_out: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Zoom in the view to the nearest item contained in the border
 
     :param xmin: X Min, (in [-inf, inf], optional)
@@ -204,7 +204,7 @@ def zoom_in(
     *,
     zoomfacx: float | None = 0.0375,
     zoomfacy: float | None = 0.0375,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Zoom in the view
 
     :param zoomfacx: Zoom Factor X, (in [-inf, inf], optional)
@@ -219,7 +219,7 @@ def zoom_out(
     *,
     zoomfacx: float | None = -0.0375,
     zoomfacy: float | None = -0.0375,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Zoom out the view
 
     :param zoomfacx: Zoom Factor X, (in [-inf, inf], optional)

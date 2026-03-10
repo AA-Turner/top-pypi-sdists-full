@@ -3,7 +3,7 @@ Type annotations for route53globalresolver service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_route53globalresolver/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -448,7 +448,7 @@ class Route53GlobalResolverClient(BaseClient):
         self, **kwargs: Unpack[GetManagedFirewallDomainListInputTypeDef]
     ) -> GetManagedFirewallDomainListOutputTypeDef:
         """
-        Retrieves information about an AWS-managed firewall domain list.
+        Retrieves information about an Amazon Web Services-managed firewall domain list.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53globalresolver/client/get_managed_firewall_domain_list.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_route53globalresolver/client/#get_managed_firewall_domain_list)
@@ -551,8 +551,8 @@ class Route53GlobalResolverClient(BaseClient):
         self, **kwargs: Unpack[ListManagedFirewallDomainListsInputTypeDef]
     ) -> ListManagedFirewallDomainListsOutputTypeDef:
         """
-        Returns a paginated list of the AWS Managed DNS Lists and the categories for
-        DNS Firewall.
+        Returns a paginated list of the Amazon Web Services Managed DNS Lists and the
+        categories for DNS Firewall.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53globalresolver/client/list_managed_firewall_domain_lists.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_route53globalresolver/client/#list_managed_firewall_domain_lists)

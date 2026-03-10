@@ -62,7 +62,7 @@ def fbx(
     use_metadata: bool | None = True,
     axis_forward: typing.Literal["X", "Y", "Z", "-X", "-Y", "-Z"] | None = "-Z",
     axis_up: typing.Literal["X", "Y", "Z", "-X", "-Y", "-Z"] | None = "Y",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Write a FBX file
 
         :param filepath: File Path, Filepath used for exporting the file (optional, never None)
@@ -326,7 +326,7 @@ def gltf(
     export_extra_animations: bool | None = False,
     export_loglevel: int | None = -1,
     filter_glob: str | None = "*.glb",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Export scene as glTF 2.0 file
 
         :param filepath: File Path, Filepath used for exporting the file (optional, never None)

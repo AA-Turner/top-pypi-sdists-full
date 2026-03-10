@@ -202,12 +202,14 @@ class PrivateImageSDK(BaseSDK):
         image_uri: str,
         registry_login_secret: Optional[str] = None,
         ray_version: Optional[str] = None,
+        cloud_id: Optional[str] = None,
     ) -> str:
         image_uri_checked = ImageURI.from_str(image_uri_str=image_uri)
         return self.client.get_cluster_env_build_id_from_image_uri(
             image_uri=image_uri_checked,
             registry_login_secret=registry_login_secret,
             ray_version=ray_version,
+            cloud_id=cloud_id,
         )
 
     def register_byod_image_with_name(
@@ -216,6 +218,7 @@ class PrivateImageSDK(BaseSDK):
         name: str,
         ray_version: Optional[str] = None,
         registry_login_secret: Optional[str] = None,
+        cloud_id: Optional[str] = None,
     ) -> str:
         image_uri_checked = ImageURI.from_str(image_uri_str=image_uri_str)
         if image_uri_checked.is_cluster_env_image():
@@ -229,6 +232,7 @@ class PrivateImageSDK(BaseSDK):
             registry_login_secret=registry_login_secret,
             ray_version=ray_version,
             name=name,
+            cloud_id=cloud_id,
         )
 
         fetched_image_uri = self.get_image_uri_from_build_id(

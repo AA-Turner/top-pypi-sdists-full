@@ -14,7 +14,7 @@ def gizmo_select(
     toggle: bool | None = False,
     deselect_all: bool | None = False,
     select_passthrough: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select the currently highlighted gizmo
 
     :param extend: Extend, Extend selection instead of deselecting everything first (optional)
@@ -29,7 +29,7 @@ def gizmo_tweak(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Tweak the active gizmo
 
     :return: Result of the operator call.

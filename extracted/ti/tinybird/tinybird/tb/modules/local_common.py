@@ -71,7 +71,7 @@ def get_tinybird_local_config(config_obj: Dict[str, Any], test: bool = False, si
     """
     path = config_obj.get("path")
     config = CLIConfig.get_project_config()
-    tokens = get_local_tokens()
+    tokens = get_local_tokens(silent=silent)
     user_token = tokens["user_token"]
     admin_token = tokens["admin_token"]
     default_token = tokens["workspace_admin_token"]
@@ -143,7 +143,7 @@ def get_test_workspace_name(path: str) -> str:
     return f"Tinybird_Local_Test_{random_folder_suffix}"
 
 
-def get_local_tokens() -> Dict[str, str]:
+def get_local_tokens(silent: bool = False) -> Dict[str, str]:
     try:
         return requests.get(f"{TB_LOCAL_ADDRESS}/tokens").json()
     except Exception:
@@ -234,7 +234,7 @@ def get_local_tokens() -> Dict[str, str]:
             or os.getenv("CI")
             or os.getenv("TB_CI")
         )
-        if not is_ci:
+        if not is_ci and not silent:
             yes = click.confirm(
                 FeedbackManager.warning(message="Tinybird local is not running. Do you want to start it? [Y/n]"),
                 prompt_suffix="",

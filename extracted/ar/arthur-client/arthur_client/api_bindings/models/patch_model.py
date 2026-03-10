@@ -19,8 +19,6 @@ import json
 
 from pydantic import BaseModel, ConfigDict, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
-from arthur_client.api_bindings.models.sub_agent import SubAgent
-from arthur_client.api_bindings.models.tool import Tool
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -31,10 +29,8 @@ class PatchModel(BaseModel):
     name: Optional[StrictStr] = None
     description: Optional[StrictStr] = None
     dataset_ids: Optional[List[StrictStr]] = None
-    tools: Optional[List[Tool]] = None
-    sub_agents: Optional[List[SubAgent]] = None
     agent_id: Optional[StrictStr] = None
-    __properties: ClassVar[List[str]] = ["name", "description", "dataset_ids", "tools", "sub_agents", "agent_id"]
+    __properties: ClassVar[List[str]] = ["name", "description", "dataset_ids", "agent_id"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -75,20 +71,6 @@ class PatchModel(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
-        # override the default output from pydantic by calling `to_dict()` of each item in tools (list)
-        _items = []
-        if self.tools:
-            for _item_tools in self.tools:
-                if _item_tools:
-                    _items.append(_item_tools.to_dict())
-            _dict['tools'] = _items
-        # override the default output from pydantic by calling `to_dict()` of each item in sub_agents (list)
-        _items = []
-        if self.sub_agents:
-            for _item_sub_agents in self.sub_agents:
-                if _item_sub_agents:
-                    _items.append(_item_sub_agents.to_dict())
-            _dict['sub_agents'] = _items
         # set to None if name (nullable) is None
         # and model_fields_set contains the field
         if self.name is None and "name" in self.model_fields_set:
@@ -103,16 +85,6 @@ class PatchModel(BaseModel):
         # and model_fields_set contains the field
         if self.dataset_ids is None and "dataset_ids" in self.model_fields_set:
             _dict['dataset_ids'] = None
-
-        # set to None if tools (nullable) is None
-        # and model_fields_set contains the field
-        if self.tools is None and "tools" in self.model_fields_set:
-            _dict['tools'] = None
-
-        # set to None if sub_agents (nullable) is None
-        # and model_fields_set contains the field
-        if self.sub_agents is None and "sub_agents" in self.model_fields_set:
-            _dict['sub_agents'] = None
 
         # set to None if agent_id (nullable) is None
         # and model_fields_set contains the field
@@ -134,8 +106,6 @@ class PatchModel(BaseModel):
             "name": obj.get("name"),
             "description": obj.get("description"),
             "dataset_ids": obj.get("dataset_ids"),
-            "tools": [Tool.from_dict(_item) for _item in obj["tools"]] if obj.get("tools") is not None else None,
-            "sub_agents": [SubAgent.from_dict(_item) for _item in obj["sub_agents"]] if obj.get("sub_agents") is not None else None,
             "agent_id": obj.get("agent_id")
         })
         return _obj

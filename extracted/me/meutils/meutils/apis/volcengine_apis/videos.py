@@ -7,8 +7,7 @@
 # @WeChat       : meutils
 # @Software     : PyCharm
 # @Description  :
-import asyncio
-import os
+
 
 from meutils.pipe import *
 from meutils.io.files_utils import to_url, to_base64
@@ -393,9 +392,9 @@ if __name__ == "__main__":
 
     from meutils.apis.oneapi.tasks import get_tasks
 
-    ids = arun(get_tasks(return_ids=True))
+    # ids = arun(get_tasks(return_ids=True))
     #
-    # ids = ['cgt-20260227110253-22z6j']
+    ids = ['cgt-20260303142335-wpkkg']
     #
     arun(get_task_from_feishu(ids, tokens))
 

@@ -18,7 +18,6 @@ from tinybird.datafile.common import Datafile, DatafileKind
 from tinybird.tb.modules.datafile.fixture import FixtureExtension
 from tinybird.tb.modules.feedback_manager import FeedbackManager
 from tinybird.tb.modules.project import Project
-from tinybird.tb.modules.shell import Shell
 
 
 class WatchProjectHandler(PatternMatchingEventHandler):
@@ -33,8 +32,7 @@ class WatchProjectHandler(PatternMatchingEventHandler):
         ".env.local",
     ]
 
-    def __init__(self, shell: Shell, project: Project, config: dict[str, Any], process: Callable):
-        self.shell = shell
+    def __init__(self, project: Project, config: dict[str, Any], process: Callable):
         self.project = project
         self.config = config
         self.process = process
@@ -60,7 +58,6 @@ class WatchProjectHandler(PatternMatchingEventHandler):
     def _process(self, path: Optional[str] = None) -> None:
         click.echo(FeedbackManager.highlight(message="» Rebuilding project..."))
         self.process(watch=True, file_changed=path, diff=self.diff(path), config=self.config)
-        self.shell.reprint_prompt()
 
     def diff(self, path: Optional[str] = None) -> Optional[str]:
         if not path:
@@ -135,12 +132,11 @@ class WatchProjectHandler(PatternMatchingEventHandler):
 
 
 def watch_project(
-    shell: Shell,
     process: Callable[[bool, Optional[str], Optional[str]], None],
     project: Project,
     config: dict[str, Any],
 ) -> None:
-    event_handler = WatchProjectHandler(shell=shell, project=project, process=process, config=config)
+    event_handler = WatchProjectHandler(project=project, process=process, config=config)
     observer = Observer()
     observer.schedule(event_handler, path=str(project.path), recursive=True)
     observer.start()
@@ -219,7 +215,6 @@ class FileChangeHandler(FileSystemEventHandler):
 def watch_files(
     filenames: List[str],
     process: Callable,
-    shell: Shell,
     project: Project,
     build_ok: bool,
 ) -> None:
@@ -234,7 +229,6 @@ def watch_files(
             FeedbackManager.success(message="\n✓ ")
             + FeedbackManager.gray(message=f"Rebuild completed in {elapsed_time:.1f}s")
         )
-        shell.reprint_prompt()
 
     event_handler = FileChangeHandler(filenames, lambda f: process_wrapper(f), build_ok)
     observer = Observer()

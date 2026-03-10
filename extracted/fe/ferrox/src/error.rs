@@ -90,6 +90,20 @@ pub enum FerroxError {
     /// Invalid argument (not tied to a specific structure index).
     #[error("Invalid argument: {reason}")]
     InvalidArgument { reason: String },
+
+    /// LMDB database operation error.
+    #[cfg(feature = "lmdb")]
+    #[error("LMDB error: {reason}")]
+    LmdbError { reason: String },
+}
+
+#[cfg(feature = "lmdb")]
+impl From<heed::Error> for FerroxError {
+    fn from(err: heed::Error) -> Self {
+        FerroxError::LmdbError {
+            reason: err.to_string(),
+        }
+    }
 }
 
 /// Result type alias for ferrox operations.
@@ -284,6 +298,20 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    #[cfg(feature = "lmdb")]
+    fn test_lmdb_error_display() {
+        let err = FerroxError::LmdbError {
+            reason: "database full".to_string(),
+        };
+        let msg = err.to_string();
+        assert!(msg.contains("LMDB"), "should contain 'LMDB': {msg}");
+        assert!(
+            msg.contains("database full"),
+            "should contain reason: {msg}"
+        );
     }
 
     #[test]

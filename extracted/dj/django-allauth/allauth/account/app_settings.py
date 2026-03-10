@@ -1,6 +1,8 @@
 import warnings
 from enum import Enum
-from typing import FrozenSet, Set, Union
+
+from allauth import app_settings as allauth_settings
+from allauth.core.internal.cryptokit import UserCodeFormat
 
 
 class AppSettings:
@@ -156,7 +158,7 @@ class AppSettings:
             raise NotADirectoryError
 
     @property
-    def LOGIN_METHODS(self) -> FrozenSet[LoginMethod]:
+    def LOGIN_METHODS(self) -> frozenset[LoginMethod]:
         methods = self._setting("LOGIN_METHODS", None)
         if methods is None:
             auth_method = self._setting(
@@ -554,6 +556,16 @@ class AppSettings:
         return self._setting("LOGIN_BY_CODE_MAX_ATTEMPTS", 3)
 
     @property
+    def LOGIN_BY_CODE_MAX_RESEND_COUNT(self) -> int:
+        """
+        The maximum number of times the user can request a new login code.
+        """
+        v = self._setting("LOGIN_BY_CODE_SUPPORTS_RESEND", False)
+        if isinstance(v, bool):
+            v = 2 if v else 0
+        return v
+
+    @property
     def LOGIN_BY_CODE_TIMEOUT(self):
         return self._setting("LOGIN_BY_CODE_TIMEOUT", 3 * 60)
 
@@ -567,7 +579,7 @@ class AppSettings:
         return self._setting("LOGIN_TIMEOUT", 15 * 60)
 
     @property
-    def LOGIN_BY_CODE_REQUIRED(self) -> Union[bool, Set[str]]:
+    def LOGIN_BY_CODE_REQUIRED(self) -> bool | set[str]:
         """
         When enabled (in case of ``True``), every user logging in is
         required to input a login confirmation code sent by email.
@@ -579,6 +591,40 @@ class AppSettings:
         if isinstance(value, bool):
             return value
         return set(value)
+
+    @property
+    def LOGIN_BY_CODE_FORMAT(self) -> UserCodeFormat:
+        """
+        Controls the format of the login code.
+        """
+        return self._setting("LOGIN_BY_CODE_FORMAT", allauth_settings.USER_CODE_FORMAT)
+
+    @property
+    def PHONE_VERIFICATION_CODE_FORMAT(self) -> UserCodeFormat:
+        """
+        Controls the format of the phone verification code.
+        """
+        return self._setting(
+            "PHONE_VERIFICATION_CODE_FORMAT", allauth_settings.USER_CODE_FORMAT
+        )
+
+    @property
+    def PASSWORD_RESET_BY_CODE_FORMAT(self) -> UserCodeFormat:
+        """
+        Controls the format of the password reset code.
+        """
+        return self._setting(
+            "PASSWORD_RESET_BY_CODE_CODE_FORMAT", allauth_settings.USER_CODE_FORMAT
+        )
+
+    @property
+    def EMAIL_VERIFICATION_BY_CODE_FORMAT(self) -> UserCodeFormat:
+        """
+        Controls the format of the email verification code.
+        """
+        return self._setting(
+            "EMAIL_VERIFICATION_BY_CODE_FORMAT", allauth_settings.USER_CODE_FORMAT
+        )
 
 
 _app_settings = AppSettings("ACCOUNT_")

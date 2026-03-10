@@ -22,6 +22,9 @@ __all__ = [
     'LocationAzureBlobCustomSecretConfig',
     'LocationAzureBlobManagedSecretConfig',
     'LocationEfsEc2Config',
+    'LocationFSxOntapCmkSecretConfig',
+    'LocationFSxOntapCustomSecretConfig',
+    'LocationFSxOntapManagedSecretConfig',
     'LocationFSxOntapNfs',
     'LocationFSxOntapNfsMountOptions',
     'LocationFSxOntapProtocol',
@@ -30,6 +33,12 @@ __all__ = [
     'LocationFSxOpenZfsMountOptions',
     'LocationFSxOpenZfsNfs',
     'LocationFSxOpenZfsProtocol',
+    'LocationFSxWindowsCmkSecretConfig',
+    'LocationFSxWindowsCustomSecretConfig',
+    'LocationFSxWindowsManagedSecretConfig',
+    'LocationHdfsCmkSecretConfig',
+    'LocationHdfsCustomSecretConfig',
+    'LocationHdfsManagedSecretConfig',
     'LocationHdfsNameNode',
     'LocationHdfsQopConfiguration',
     'LocationNfsMountOptions',
@@ -86,6 +95,7 @@ class LocationAzureBlobAzureBlobSasConfiguration(dict):
                  azure_blob_sas_token: _builtins.str):
         """
         Specifies the shared access signature (SAS) that DataSync uses to access your Azure Blob Storage container.
+
         :param _builtins.str azure_blob_sas_token: Specifies the shared access signature (SAS) token, which indicates the permissions DataSync needs to access your Azure Blob Storage container.
         """
         pulumi.set(__self__, "azure_blob_sas_token", azure_blob_sas_token)
@@ -128,6 +138,7 @@ class LocationAzureBlobCmkSecretConfig(dict):
                  secret_arn: Optional[_builtins.str] = None):
         """
         Specifies configuration information for a DataSync-managed secret, such as an authentication token or set of credentials that DataSync uses to access a specific transfer location, and a customer-managed AWS KMS key.
+
         :param _builtins.str kms_key_arn: Specifies the ARN for the customer-managed AWS KMS key used to encrypt the secret specified for SecretArn. DataSync provides this key to AWS Secrets Manager.
         :param _builtins.str secret_arn: Specifies the ARN for an AWS Secrets Manager secret, managed by DataSync.
         """
@@ -182,6 +193,7 @@ class LocationAzureBlobCustomSecretConfig(dict):
                  secret_arn: _builtins.str):
         """
         Specifies configuration information for a customer-managed secret, such as an authentication token or set of credentials that DataSync uses to access a specific transfer location, and an IAM role that DataSync can assume and access the customer-managed secret.
+
         :param _builtins.str secret_access_role_arn: Specifies the ARN for the AWS Identity and Access Management role that DataSync uses to access the secret specified for SecretArn.
         :param _builtins.str secret_arn: Specifies the ARN for a customer created AWS Secrets Manager secret.
         """
@@ -231,6 +243,7 @@ class LocationAzureBlobManagedSecretConfig(dict):
                  secret_arn: _builtins.str):
         """
         Specifies configuration information for a DataSync-managed secret, such as an authentication token or set of credentials that DataSync uses to access a specific transfer location. DataSync uses the default AWS-managed KMS key to encrypt this secret in AWS Secrets Manager.
+
         :param _builtins.str secret_arn: Specifies the ARN for an AWS Secrets Manager secret.
         """
         pulumi.set(__self__, "secret_arn", secret_arn)
@@ -273,6 +286,7 @@ class LocationEfsEc2Config(dict):
                  subnet_arn: _builtins.str):
         """
         The subnet and security group that DataSync uses to access target EFS file system.
+
         :param Sequence[_builtins.str] security_group_arns: The Amazon Resource Names (ARNs) of the security groups that are configured for the Amazon EC2 resource.
         :param _builtins.str subnet_arn: The ARN of the subnet that DataSync uses to access the target EFS file system.
         """
@@ -294,6 +308,154 @@ class LocationEfsEc2Config(dict):
         The ARN of the subnet that DataSync uses to access the target EFS file system.
         """
         return pulumi.get(self, "subnet_arn")
+
+
+@pulumi.output_type
+class LocationFSxOntapCmkSecretConfig(dict):
+    """
+    Specifies configuration information for a DataSync-managed secret, such as an authentication token or set of credentials that DataSync uses to access a specific transfer location, and a customer-managed AWS KMS key.
+    """
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "kmsKeyArn":
+            suggest = "kms_key_arn"
+        elif key == "secretArn":
+            suggest = "secret_arn"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in LocationFSxOntapCmkSecretConfig. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        LocationFSxOntapCmkSecretConfig.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        LocationFSxOntapCmkSecretConfig.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 kms_key_arn: Optional[_builtins.str] = None,
+                 secret_arn: Optional[_builtins.str] = None):
+        """
+        Specifies configuration information for a DataSync-managed secret, such as an authentication token or set of credentials that DataSync uses to access a specific transfer location, and a customer-managed AWS KMS key.
+
+        :param _builtins.str kms_key_arn: Specifies the ARN for the customer-managed AWS KMS key used to encrypt the secret specified for SecretArn. DataSync provides this key to AWS Secrets Manager.
+        :param _builtins.str secret_arn: Specifies the ARN for an AWS Secrets Manager secret, managed by DataSync.
+        """
+        if kms_key_arn is not None:
+            pulumi.set(__self__, "kms_key_arn", kms_key_arn)
+        if secret_arn is not None:
+            pulumi.set(__self__, "secret_arn", secret_arn)
+
+    @_builtins.property
+    @pulumi.getter(name="kmsKeyArn")
+    def kms_key_arn(self) -> Optional[_builtins.str]:
+        """
+        Specifies the ARN for the customer-managed AWS KMS key used to encrypt the secret specified for SecretArn. DataSync provides this key to AWS Secrets Manager.
+        """
+        return pulumi.get(self, "kms_key_arn")
+
+    @_builtins.property
+    @pulumi.getter(name="secretArn")
+    def secret_arn(self) -> Optional[_builtins.str]:
+        """
+        Specifies the ARN for an AWS Secrets Manager secret, managed by DataSync.
+        """
+        return pulumi.get(self, "secret_arn")
+
+
+@pulumi.output_type
+class LocationFSxOntapCustomSecretConfig(dict):
+    """
+    Specifies configuration information for a customer-managed secret, such as an authentication token or set of credentials that DataSync uses to access a specific transfer location, and an IAM role that DataSync can assume and access the customer-managed secret.
+    """
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "secretAccessRoleArn":
+            suggest = "secret_access_role_arn"
+        elif key == "secretArn":
+            suggest = "secret_arn"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in LocationFSxOntapCustomSecretConfig. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        LocationFSxOntapCustomSecretConfig.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        LocationFSxOntapCustomSecretConfig.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 secret_access_role_arn: _builtins.str,
+                 secret_arn: _builtins.str):
+        """
+        Specifies configuration information for a customer-managed secret, such as an authentication token or set of credentials that DataSync uses to access a specific transfer location, and an IAM role that DataSync can assume and access the customer-managed secret.
+
+        :param _builtins.str secret_access_role_arn: Specifies the ARN for the AWS Identity and Access Management role that DataSync uses to access the secret specified for SecretArn.
+        :param _builtins.str secret_arn: Specifies the ARN for a customer created AWS Secrets Manager secret.
+        """
+        pulumi.set(__self__, "secret_access_role_arn", secret_access_role_arn)
+        pulumi.set(__self__, "secret_arn", secret_arn)
+
+    @_builtins.property
+    @pulumi.getter(name="secretAccessRoleArn")
+    def secret_access_role_arn(self) -> _builtins.str:
+        """
+        Specifies the ARN for the AWS Identity and Access Management role that DataSync uses to access the secret specified for SecretArn.
+        """
+        return pulumi.get(self, "secret_access_role_arn")
+
+    @_builtins.property
+    @pulumi.getter(name="secretArn")
+    def secret_arn(self) -> _builtins.str:
+        """
+        Specifies the ARN for a customer created AWS Secrets Manager secret.
+        """
+        return pulumi.get(self, "secret_arn")
+
+
+@pulumi.output_type
+class LocationFSxOntapManagedSecretConfig(dict):
+    """
+    Specifies configuration information for a DataSync-managed secret, such as an authentication token or set of credentials that DataSync uses to access a specific transfer location. DataSync uses the default AWS-managed KMS key to encrypt this secret in AWS Secrets Manager.
+    """
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "secretArn":
+            suggest = "secret_arn"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in LocationFSxOntapManagedSecretConfig. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        LocationFSxOntapManagedSecretConfig.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        LocationFSxOntapManagedSecretConfig.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 secret_arn: _builtins.str):
+        """
+        Specifies configuration information for a DataSync-managed secret, such as an authentication token or set of credentials that DataSync uses to access a specific transfer location. DataSync uses the default AWS-managed KMS key to encrypt this secret in AWS Secrets Manager.
+
+        :param _builtins.str secret_arn: Specifies the ARN for an AWS Secrets Manager secret.
+        """
+        pulumi.set(__self__, "secret_arn", secret_arn)
+
+    @_builtins.property
+    @pulumi.getter(name="secretArn")
+    def secret_arn(self) -> _builtins.str:
+        """
+        Specifies the ARN for an AWS Secrets Manager secret.
+        """
+        return pulumi.get(self, "secret_arn")
 
 
 @pulumi.output_type
@@ -322,6 +484,7 @@ class LocationFSxOntapNfs(dict):
                  mount_options: 'outputs.LocationFSxOntapNfsMountOptions'):
         """
         NFS protocol configuration for FSx ONTAP file system.
+
         :param 'LocationFSxOntapNfsMountOptions' mount_options: Specifies how DataSync can access a location using the NFS protocol.
         """
         pulumi.set(__self__, "mount_options", mount_options)
@@ -344,6 +507,7 @@ class LocationFSxOntapNfsMountOptions(dict):
                  version: Optional['LocationFSxOntapNfsMountOptionsVersion'] = None):
         """
         The NFS mount options that DataSync can use to mount your NFS share.
+
         :param 'LocationFSxOntapNfsMountOptionsVersion' version: The specific NFS version that you want DataSync to use to mount your NFS share.
         """
         if version is not None:
@@ -368,6 +532,7 @@ class LocationFSxOntapProtocol(dict):
                  smb: Optional['outputs.LocationFSxOntapSmb'] = None):
         """
         Configuration settings for NFS or SMB protocol.
+
         :param 'LocationFSxOntapNfs' nfs: Specifies the Network File System (NFS) protocol configuration that DataSync uses to access your FSx for ONTAP file system's storage virtual machine (SVM).
         :param 'LocationFSxOntapSmb' smb: Specifies the Server Message Block (SMB) protocol configuration that DataSync uses to access your FSx for ONTAP file system's SVM.
         """
@@ -403,6 +568,12 @@ class LocationFSxOntapSmb(dict):
         suggest = None
         if key == "mountOptions":
             suggest = "mount_options"
+        elif key == "cmkSecretConfig":
+            suggest = "cmk_secret_config"
+        elif key == "customSecretConfig":
+            suggest = "custom_secret_config"
+        elif key == "managedSecretConfig":
+            suggest = "managed_secret_config"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in LocationFSxOntapSmb. Access the value via the '{suggest}' property getter instead.")
@@ -417,21 +588,32 @@ class LocationFSxOntapSmb(dict):
 
     def __init__(__self__, *,
                  mount_options: 'outputs.LocationFSxOntapSmbMountOptions',
-                 password: _builtins.str,
                  user: _builtins.str,
-                 domain: Optional[_builtins.str] = None):
+                 cmk_secret_config: Optional['outputs.LocationFSxOntapCmkSecretConfig'] = None,
+                 custom_secret_config: Optional['outputs.LocationFSxOntapCustomSecretConfig'] = None,
+                 domain: Optional[_builtins.str] = None,
+                 managed_secret_config: Optional['outputs.LocationFSxOntapManagedSecretConfig'] = None,
+                 password: Optional[_builtins.str] = None):
         """
         SMB protocol configuration for FSx ONTAP file system.
+
         :param 'LocationFSxOntapSmbMountOptions' mount_options: Specifies how DataSync can access a location using the SMB protocol.
-        :param _builtins.str password: The password of the user who can mount the share and has the permissions to access files and folders in the SMB share.
         :param _builtins.str user: The user who can mount the share, has the permissions to access files and folders in the SMB share.
         :param _builtins.str domain: The name of the Windows domain that the SMB server belongs to.
+        :param _builtins.str password: The password of the user who can mount the share and has the permissions to access files and folders in the SMB share.
         """
         pulumi.set(__self__, "mount_options", mount_options)
-        pulumi.set(__self__, "password", password)
         pulumi.set(__self__, "user", user)
+        if cmk_secret_config is not None:
+            pulumi.set(__self__, "cmk_secret_config", cmk_secret_config)
+        if custom_secret_config is not None:
+            pulumi.set(__self__, "custom_secret_config", custom_secret_config)
         if domain is not None:
             pulumi.set(__self__, "domain", domain)
+        if managed_secret_config is not None:
+            pulumi.set(__self__, "managed_secret_config", managed_secret_config)
+        if password is not None:
+            pulumi.set(__self__, "password", password)
 
     @_builtins.property
     @pulumi.getter(name="mountOptions")
@@ -443,19 +625,21 @@ class LocationFSxOntapSmb(dict):
 
     @_builtins.property
     @pulumi.getter
-    def password(self) -> _builtins.str:
-        """
-        The password of the user who can mount the share and has the permissions to access files and folders in the SMB share.
-        """
-        return pulumi.get(self, "password")
-
-    @_builtins.property
-    @pulumi.getter
     def user(self) -> _builtins.str:
         """
         The user who can mount the share, has the permissions to access files and folders in the SMB share.
         """
         return pulumi.get(self, "user")
+
+    @_builtins.property
+    @pulumi.getter(name="cmkSecretConfig")
+    def cmk_secret_config(self) -> Optional['outputs.LocationFSxOntapCmkSecretConfig']:
+        return pulumi.get(self, "cmk_secret_config")
+
+    @_builtins.property
+    @pulumi.getter(name="customSecretConfig")
+    def custom_secret_config(self) -> Optional['outputs.LocationFSxOntapCustomSecretConfig']:
+        return pulumi.get(self, "custom_secret_config")
 
     @_builtins.property
     @pulumi.getter
@@ -464,6 +648,19 @@ class LocationFSxOntapSmb(dict):
         The name of the Windows domain that the SMB server belongs to.
         """
         return pulumi.get(self, "domain")
+
+    @_builtins.property
+    @pulumi.getter(name="managedSecretConfig")
+    def managed_secret_config(self) -> Optional['outputs.LocationFSxOntapManagedSecretConfig']:
+        return pulumi.get(self, "managed_secret_config")
+
+    @_builtins.property
+    @pulumi.getter
+    def password(self) -> Optional[_builtins.str]:
+        """
+        The password of the user who can mount the share and has the permissions to access files and folders in the SMB share.
+        """
+        return pulumi.get(self, "password")
 
 
 @pulumi.output_type
@@ -475,6 +672,7 @@ class LocationFSxOntapSmbMountOptions(dict):
                  version: Optional['LocationFSxOntapSmbMountOptionsVersion'] = None):
         """
         The mount options used by DataSync to access the SMB server.
+
         :param 'LocationFSxOntapSmbMountOptionsVersion' version: The specific SMB version that you want DataSync to use to mount your SMB share.
         """
         if version is not None:
@@ -498,6 +696,7 @@ class LocationFSxOpenZfsMountOptions(dict):
                  version: Optional['LocationFSxOpenZfsMountOptionsVersion'] = None):
         """
         The NFS mount options that DataSync can use to mount your NFS share.
+
         :param 'LocationFSxOpenZfsMountOptionsVersion' version: The specific NFS version that you want DataSync to use to mount your NFS share.
         """
         if version is not None:
@@ -538,6 +737,7 @@ class LocationFSxOpenZfsNfs(dict):
                  mount_options: 'outputs.LocationFSxOpenZfsMountOptions'):
         """
         FSx OpenZFS file system NFS protocol information
+
         :param 'LocationFSxOpenZfsMountOptions' mount_options: Represents the mount options that are available for DataSync to access an NFS location.
         """
         pulumi.set(__self__, "mount_options", mount_options)
@@ -560,6 +760,7 @@ class LocationFSxOpenZfsProtocol(dict):
                  nfs: Optional['outputs.LocationFSxOpenZfsNfs'] = None):
         """
         Configuration settings for an NFS or SMB protocol, currently only support NFS
+
         :param 'LocationFSxOpenZfsNfs' nfs: Represents the Network File System (NFS) protocol that DataSync uses to access your FSx for OpenZFS file system.
         """
         if nfs is not None:
@@ -575,6 +776,302 @@ class LocationFSxOpenZfsProtocol(dict):
 
 
 @pulumi.output_type
+class LocationFSxWindowsCmkSecretConfig(dict):
+    """
+    Specifies configuration information for a DataSync-managed secret, such as an authentication token or set of credentials that DataSync uses to access a specific transfer location, and a customer-managed AWS KMS key.
+    """
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "kmsKeyArn":
+            suggest = "kms_key_arn"
+        elif key == "secretArn":
+            suggest = "secret_arn"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in LocationFSxWindowsCmkSecretConfig. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        LocationFSxWindowsCmkSecretConfig.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        LocationFSxWindowsCmkSecretConfig.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 kms_key_arn: Optional[_builtins.str] = None,
+                 secret_arn: Optional[_builtins.str] = None):
+        """
+        Specifies configuration information for a DataSync-managed secret, such as an authentication token or set of credentials that DataSync uses to access a specific transfer location, and a customer-managed AWS KMS key.
+
+        :param _builtins.str kms_key_arn: Specifies the ARN for the customer-managed AWS KMS key used to encrypt the secret specified for SecretArn. DataSync provides this key to AWS Secrets Manager.
+        :param _builtins.str secret_arn: Specifies the ARN for an AWS Secrets Manager secret, managed by DataSync.
+        """
+        if kms_key_arn is not None:
+            pulumi.set(__self__, "kms_key_arn", kms_key_arn)
+        if secret_arn is not None:
+            pulumi.set(__self__, "secret_arn", secret_arn)
+
+    @_builtins.property
+    @pulumi.getter(name="kmsKeyArn")
+    def kms_key_arn(self) -> Optional[_builtins.str]:
+        """
+        Specifies the ARN for the customer-managed AWS KMS key used to encrypt the secret specified for SecretArn. DataSync provides this key to AWS Secrets Manager.
+        """
+        return pulumi.get(self, "kms_key_arn")
+
+    @_builtins.property
+    @pulumi.getter(name="secretArn")
+    def secret_arn(self) -> Optional[_builtins.str]:
+        """
+        Specifies the ARN for an AWS Secrets Manager secret, managed by DataSync.
+        """
+        return pulumi.get(self, "secret_arn")
+
+
+@pulumi.output_type
+class LocationFSxWindowsCustomSecretConfig(dict):
+    """
+    Specifies configuration information for a customer-managed secret, such as an authentication token or set of credentials that DataSync uses to access a specific transfer location, and an IAM role that DataSync can assume and access the customer-managed secret.
+    """
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "secretAccessRoleArn":
+            suggest = "secret_access_role_arn"
+        elif key == "secretArn":
+            suggest = "secret_arn"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in LocationFSxWindowsCustomSecretConfig. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        LocationFSxWindowsCustomSecretConfig.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        LocationFSxWindowsCustomSecretConfig.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 secret_access_role_arn: _builtins.str,
+                 secret_arn: _builtins.str):
+        """
+        Specifies configuration information for a customer-managed secret, such as an authentication token or set of credentials that DataSync uses to access a specific transfer location, and an IAM role that DataSync can assume and access the customer-managed secret.
+
+        :param _builtins.str secret_access_role_arn: Specifies the ARN for the AWS Identity and Access Management role that DataSync uses to access the secret specified for SecretArn.
+        :param _builtins.str secret_arn: Specifies the ARN for a customer created AWS Secrets Manager secret.
+        """
+        pulumi.set(__self__, "secret_access_role_arn", secret_access_role_arn)
+        pulumi.set(__self__, "secret_arn", secret_arn)
+
+    @_builtins.property
+    @pulumi.getter(name="secretAccessRoleArn")
+    def secret_access_role_arn(self) -> _builtins.str:
+        """
+        Specifies the ARN for the AWS Identity and Access Management role that DataSync uses to access the secret specified for SecretArn.
+        """
+        return pulumi.get(self, "secret_access_role_arn")
+
+    @_builtins.property
+    @pulumi.getter(name="secretArn")
+    def secret_arn(self) -> _builtins.str:
+        """
+        Specifies the ARN for a customer created AWS Secrets Manager secret.
+        """
+        return pulumi.get(self, "secret_arn")
+
+
+@pulumi.output_type
+class LocationFSxWindowsManagedSecretConfig(dict):
+    """
+    Specifies configuration information for a DataSync-managed secret, such as an authentication token or set of credentials that DataSync uses to access a specific transfer location. DataSync uses the default AWS-managed KMS key to encrypt this secret in AWS Secrets Manager.
+    """
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "secretArn":
+            suggest = "secret_arn"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in LocationFSxWindowsManagedSecretConfig. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        LocationFSxWindowsManagedSecretConfig.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        LocationFSxWindowsManagedSecretConfig.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 secret_arn: _builtins.str):
+        """
+        Specifies configuration information for a DataSync-managed secret, such as an authentication token or set of credentials that DataSync uses to access a specific transfer location. DataSync uses the default AWS-managed KMS key to encrypt this secret in AWS Secrets Manager.
+
+        :param _builtins.str secret_arn: Specifies the ARN for an AWS Secrets Manager secret.
+        """
+        pulumi.set(__self__, "secret_arn", secret_arn)
+
+    @_builtins.property
+    @pulumi.getter(name="secretArn")
+    def secret_arn(self) -> _builtins.str:
+        """
+        Specifies the ARN for an AWS Secrets Manager secret.
+        """
+        return pulumi.get(self, "secret_arn")
+
+
+@pulumi.output_type
+class LocationHdfsCmkSecretConfig(dict):
+    """
+    Specifies configuration information for a DataSync-managed secret, such as an authentication token or set of credentials that DataSync uses to access a specific transfer location, and a customer-managed AWS KMS key.
+    """
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "kmsKeyArn":
+            suggest = "kms_key_arn"
+        elif key == "secretArn":
+            suggest = "secret_arn"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in LocationHdfsCmkSecretConfig. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        LocationHdfsCmkSecretConfig.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        LocationHdfsCmkSecretConfig.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 kms_key_arn: Optional[_builtins.str] = None,
+                 secret_arn: Optional[_builtins.str] = None):
+        """
+        Specifies configuration information for a DataSync-managed secret, such as an authentication token or set of credentials that DataSync uses to access a specific transfer location, and a customer-managed AWS KMS key.
+
+        :param _builtins.str kms_key_arn: Specifies the ARN for the customer-managed AWS KMS key used to encrypt the secret specified for SecretArn. DataSync provides this key to AWS Secrets Manager.
+        :param _builtins.str secret_arn: Specifies the ARN for an AWS Secrets Manager secret, managed by DataSync.
+        """
+        if kms_key_arn is not None:
+            pulumi.set(__self__, "kms_key_arn", kms_key_arn)
+        if secret_arn is not None:
+            pulumi.set(__self__, "secret_arn", secret_arn)
+
+    @_builtins.property
+    @pulumi.getter(name="kmsKeyArn")
+    def kms_key_arn(self) -> Optional[_builtins.str]:
+        """
+        Specifies the ARN for the customer-managed AWS KMS key used to encrypt the secret specified for SecretArn. DataSync provides this key to AWS Secrets Manager.
+        """
+        return pulumi.get(self, "kms_key_arn")
+
+    @_builtins.property
+    @pulumi.getter(name="secretArn")
+    def secret_arn(self) -> Optional[_builtins.str]:
+        """
+        Specifies the ARN for an AWS Secrets Manager secret, managed by DataSync.
+        """
+        return pulumi.get(self, "secret_arn")
+
+
+@pulumi.output_type
+class LocationHdfsCustomSecretConfig(dict):
+    """
+    Specifies configuration information for a customer-managed secret, such as an authentication token or set of credentials that DataSync uses to access a specific transfer location, and an IAM role that DataSync can assume and access the customer-managed secret.
+    """
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "secretAccessRoleArn":
+            suggest = "secret_access_role_arn"
+        elif key == "secretArn":
+            suggest = "secret_arn"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in LocationHdfsCustomSecretConfig. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        LocationHdfsCustomSecretConfig.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        LocationHdfsCustomSecretConfig.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 secret_access_role_arn: _builtins.str,
+                 secret_arn: _builtins.str):
+        """
+        Specifies configuration information for a customer-managed secret, such as an authentication token or set of credentials that DataSync uses to access a specific transfer location, and an IAM role that DataSync can assume and access the customer-managed secret.
+
+        :param _builtins.str secret_access_role_arn: Specifies the ARN for the AWS Identity and Access Management role that DataSync uses to access the secret specified for SecretArn.
+        :param _builtins.str secret_arn: Specifies the ARN for a customer created AWS Secrets Manager secret.
+        """
+        pulumi.set(__self__, "secret_access_role_arn", secret_access_role_arn)
+        pulumi.set(__self__, "secret_arn", secret_arn)
+
+    @_builtins.property
+    @pulumi.getter(name="secretAccessRoleArn")
+    def secret_access_role_arn(self) -> _builtins.str:
+        """
+        Specifies the ARN for the AWS Identity and Access Management role that DataSync uses to access the secret specified for SecretArn.
+        """
+        return pulumi.get(self, "secret_access_role_arn")
+
+    @_builtins.property
+    @pulumi.getter(name="secretArn")
+    def secret_arn(self) -> _builtins.str:
+        """
+        Specifies the ARN for a customer created AWS Secrets Manager secret.
+        """
+        return pulumi.get(self, "secret_arn")
+
+
+@pulumi.output_type
+class LocationHdfsManagedSecretConfig(dict):
+    """
+    Specifies configuration information for a DataSync-managed secret, such as an authentication token or set of credentials that DataSync uses to access a specific transfer location. DataSync uses the default AWS-managed KMS key to encrypt this secret in AWS Secrets Manager.
+    """
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "secretArn":
+            suggest = "secret_arn"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in LocationHdfsManagedSecretConfig. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        LocationHdfsManagedSecretConfig.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        LocationHdfsManagedSecretConfig.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 secret_arn: _builtins.str):
+        """
+        Specifies configuration information for a DataSync-managed secret, such as an authentication token or set of credentials that DataSync uses to access a specific transfer location. DataSync uses the default AWS-managed KMS key to encrypt this secret in AWS Secrets Manager.
+
+        :param _builtins.str secret_arn: Specifies the ARN for an AWS Secrets Manager secret.
+        """
+        pulumi.set(__self__, "secret_arn", secret_arn)
+
+    @_builtins.property
+    @pulumi.getter(name="secretArn")
+    def secret_arn(self) -> _builtins.str:
+        """
+        Specifies the ARN for an AWS Secrets Manager secret.
+        """
+        return pulumi.get(self, "secret_arn")
+
+
+@pulumi.output_type
 class LocationHdfsNameNode(dict):
     """
     HDFS Name Node IP and port information.
@@ -584,6 +1081,7 @@ class LocationHdfsNameNode(dict):
                  port: _builtins.int):
         """
         HDFS Name Node IP and port information.
+
         :param _builtins.str hostname: The DNS name or IP address of the Name Node in the customer's on premises HDFS cluster.
         :param _builtins.int port: The port on which the Name Node is listening on for client requests.
         """
@@ -636,6 +1134,7 @@ class LocationHdfsQopConfiguration(dict):
                  rpc_protection: Optional['LocationHdfsQopConfigurationRpcProtection'] = None):
         """
         Configuration information for RPC Protection and Data Transfer Protection. These parameters can be set to AUTHENTICATION, INTEGRITY, or PRIVACY. The default value is PRIVACY.
+
         :param 'LocationHdfsQopConfigurationDataTransferProtection' data_transfer_protection: Configuration for Data Transfer Protection.
         :param 'LocationHdfsQopConfigurationRpcProtection' rpc_protection: Configuration for RPC Protection.
         """
@@ -670,6 +1169,7 @@ class LocationNfsMountOptions(dict):
                  version: Optional['LocationNfsMountOptionsVersion'] = None):
         """
         The NFS mount options that DataSync can use to mount your NFS share.
+
         :param 'LocationNfsMountOptionsVersion' version: The specific NFS version that you want DataSync to use to mount your NFS share.
         """
         if version is not None:
@@ -710,6 +1210,7 @@ class LocationNfsOnPremConfig(dict):
                  agent_arns: Sequence[_builtins.str]):
         """
         Contains a list of Amazon Resource Names (ARNs) of agents that are used to connect an NFS server.
+
         :param Sequence[_builtins.str] agent_arns: ARN(s) of the agent(s) to use for an NFS location.
         """
         pulumi.set(__self__, "agent_arns", agent_arns)
@@ -752,6 +1253,7 @@ class LocationObjectStorageCmkSecretConfig(dict):
                  secret_arn: Optional[_builtins.str] = None):
         """
         Specifies configuration information for a DataSync-managed secret, such as an authentication token or set of credentials that DataSync uses to access a specific transfer location, and a customer-managed AWS KMS key.
+
         :param _builtins.str kms_key_arn: Specifies the ARN for the customer-managed AWS KMS key used to encrypt the secret specified for SecretArn. DataSync provides this key to AWS Secrets Manager.
         :param _builtins.str secret_arn: Specifies the ARN for an AWS Secrets Manager secret, managed by DataSync.
         """
@@ -806,6 +1308,7 @@ class LocationObjectStorageCustomSecretConfig(dict):
                  secret_arn: _builtins.str):
         """
         Specifies configuration information for a customer-managed secret, such as an authentication token or set of credentials that DataSync uses to access a specific transfer location, and an IAM role that DataSync can assume and access the customer-managed secret.
+
         :param _builtins.str secret_access_role_arn: Specifies the ARN for the AWS Identity and Access Management role that DataSync uses to access the secret specified for SecretArn.
         :param _builtins.str secret_arn: Specifies the ARN for a customer created AWS Secrets Manager secret.
         """
@@ -855,6 +1358,7 @@ class LocationObjectStorageManagedSecretConfig(dict):
                  secret_arn: _builtins.str):
         """
         Specifies configuration information for a DataSync-managed secret, such as an authentication token or set of credentials that DataSync uses to access a specific transfer location. DataSync uses the default AWS-managed KMS key to encrypt this secret in AWS Secrets Manager.
+
         :param _builtins.str secret_arn: Specifies the ARN for an AWS Secrets Manager secret.
         """
         pulumi.set(__self__, "secret_arn", secret_arn)
@@ -894,6 +1398,7 @@ class LocationS3s3Config(dict):
                  bucket_access_role_arn: _builtins.str):
         """
         The Amazon Resource Name (ARN) of the AWS IAM role that is used to access an Amazon S3 bucket.
+
         :param _builtins.str bucket_access_role_arn: The ARN of the IAM role of the Amazon S3 bucket.
         """
         pulumi.set(__self__, "bucket_access_role_arn", bucket_access_role_arn)
@@ -936,6 +1441,7 @@ class LocationSmbCmkSecretConfig(dict):
                  secret_arn: Optional[_builtins.str] = None):
         """
         Specifies configuration information for a DataSync-managed secret, such as a password or set of credentials that DataSync uses to access a specific transfer location, and a customer-managed AWS KMS key.
+
         :param _builtins.str kms_key_arn: Specifies the ARN for the customer-managed AWS KMS key used to encrypt the secret specified for SecretArn. DataSync provides this key to AWS Secrets Manager.
         :param _builtins.str secret_arn: Specifies the ARN for an AWS Secrets Manager secret, managed by DataSync.
         """
@@ -990,6 +1496,7 @@ class LocationSmbCustomSecretConfig(dict):
                  secret_arn: _builtins.str):
         """
         Specifies configuration information for a customer-managed secret, such as a password or set of credentials that DataSync uses to access a specific transfer location, and an IAM role that DataSync can assume and access the customer-managed secret.
+
         :param _builtins.str secret_access_role_arn: Specifies the ARN for the AWS Identity and Access Management role that DataSync uses to access the secret specified for SecretArn.
         :param _builtins.str secret_arn: Specifies the ARN for a customer created AWS Secrets Manager secret.
         """
@@ -1039,6 +1546,7 @@ class LocationSmbManagedSecretConfig(dict):
                  secret_arn: _builtins.str):
         """
         Specifies configuration information for a DataSync-managed secret, such as a password or set of credentials that DataSync uses to access a specific transfer location. DataSync uses the default AWS-managed KMS key to encrypt this secret in AWS Secrets Manager.
+
         :param _builtins.str secret_arn: Specifies the ARN for an AWS Secrets Manager secret.
         """
         pulumi.set(__self__, "secret_arn", secret_arn)
@@ -1061,6 +1569,7 @@ class LocationSmbMountOptions(dict):
                  version: Optional['LocationSmbMountOptionsVersion'] = None):
         """
         The mount options used by DataSync to access the SMB server.
+
         :param 'LocationSmbMountOptionsVersion' version: The specific SMB version that you want DataSync to use to mount your SMB share.
         """
         if version is not None:
@@ -1104,6 +1613,7 @@ class StorageSystemServerConfiguration(dict):
                  server_port: Optional[_builtins.int] = None):
         """
         The server name and network port required to connect with the management interface of the on-premises storage system.
+
         :param _builtins.str server_hostname: The domain name or IP address of the storage system's management interface.
         :param _builtins.int server_port: The network port needed to access the system's management interface
         """
@@ -1138,6 +1648,7 @@ class StorageSystemServerCredentials(dict):
                  username: _builtins.str):
         """
         The username and password for accessing your on-premises storage system's management interface.
+
         :param _builtins.str password: The password for your storage system's management interface
         :param _builtins.str username: The username for your storage system's management interface.
         """
@@ -1188,6 +1699,7 @@ class TaskFilterRule(dict):
                  value: Optional[_builtins.str] = None):
         """
         Specifies which files folders and objects to include or exclude when transferring files from source to destination.
+
         :param 'TaskFilterRuleFilterType' filter_type: The type of filter rule to apply. AWS DataSync only supports the SIMPLE_PATTERN rule type.
         :param _builtins.str value: A single filter string that consists of the patterns to include or exclude. The patterns are delimited by "|".
         """
@@ -1224,6 +1736,7 @@ class TaskManifestConfig(dict):
                  format: Optional['TaskManifestConfigFormat'] = None):
         """
         Configures a manifest, which is a list of files or objects that you want DataSync to transfer.
+
         :param 'TaskManifestConfigSourceProperties' source: Specifies the manifest that you want DataSync to use and where it's hosted.
         :param 'TaskManifestConfigAction' action: Specifies what DataSync uses the manifest for.
         :param 'TaskManifestConfigFormat' format: Specifies the file format of your manifest.
@@ -1313,6 +1826,7 @@ class TaskManifestConfigSourceS3(dict):
                  s3_bucket_arn: Optional[_builtins.str] = None):
         """
         Specifies the S3 bucket where you're hosting the manifest that you want AWS DataSync to use.
+
         :param _builtins.str bucket_access_role_arn: Specifies the AWS Identity and Access Management (IAM) role that allows DataSync to access your manifest.
         :param _builtins.str manifest_object_path: Specifies the Amazon S3 object key of your manifest.
         :param _builtins.str manifest_object_version_id: Specifies the object version ID of the manifest that you want DataSync to use.
@@ -1420,6 +1934,7 @@ class TaskOptions(dict):
                  verify_mode: Optional['TaskOptionsVerifyMode'] = None):
         """
         Represents the options that are available to control the behavior of a StartTaskExecution operation.
+
         :param 'TaskOptionsAtime' atime: A file metadata value that shows the last time a file was accessed (that is, when the file was read or written to).
         :param _builtins.int bytes_per_second: A value that limits the bandwidth used by AWS DataSync.
         :param 'TaskOptionsGid' gid: The group ID (GID) of the file's owners.
@@ -1622,6 +2137,7 @@ class TaskReportConfig(dict):
                  report_level: Optional['TaskReportConfigReportLevel'] = None):
         """
         Specifies how you want to configure a task report, which provides detailed information about for your Datasync transfer.
+
         :param 'TaskReportConfigDestinationProperties' destination: Specifies where DataSync uploads your task report.
         :param 'TaskReportConfigOutputType' output_type: Specifies the type of task report that you want.
         :param 'TaskReportConfigObjectVersionIds' object_version_ids: Specifies whether your task report includes the new version of each object transferred into an S3 bucket, this only applies if you enable versioning on your bucket.
@@ -1727,6 +2243,7 @@ class TaskReportConfigDestinationS3(dict):
                  subdirectory: Optional[_builtins.str] = None):
         """
         Specifies the Amazon S3 bucket where DataSync uploads your task report.
+
         :param _builtins.str bucket_access_role_arn: Specifies the Amazon Resource Name (ARN) of the IAM policy that allows Datasync to upload a task report to your S3 bucket.
         :param _builtins.str s3_bucket_arn: Specifies the ARN of the S3 bucket where Datasync uploads your report.
         :param _builtins.str subdirectory: Specifies a bucket prefix for your report.
@@ -1775,6 +2292,7 @@ class TaskReportConfigOverridesProperties(dict):
                  verified: Optional['outputs.TaskReportConfigOverridesPropertiesVerifiedProperties'] = None):
         """
         Customizes the reporting level for aspects of your task report. For example, your report might generally only include errors, but you could specify that you want a list of successes and errors just for the files that Datasync attempted to delete in your destination location.
+
         :param 'TaskReportConfigOverridesPropertiesDeletedProperties' deleted: Specifies the level of reporting for the files, objects, and directories that Datasync attempted to delete in your destination location. This only applies if you configure your task to delete data in the destination that isn't in the source.
         :param 'TaskReportConfigOverridesPropertiesSkippedProperties' skipped: Specifies the level of reporting for the files, objects, and directories that Datasync attempted to skip during your transfer.
         :param 'TaskReportConfigOverridesPropertiesTransferredProperties' transferred: Specifies the level of reporting for the files, objects, and directories that Datasync attempted to transfer.
@@ -1848,6 +2366,7 @@ class TaskReportConfigOverridesPropertiesDeletedProperties(dict):
                  report_level: Optional['TaskReportConfigOverridesPropertiesDeletedPropertiesReportLevel'] = None):
         """
         Specifies the level of reporting for the files, objects, and directories that Datasync attempted to delete in your destination location. This only applies if you configure your task to delete data in the destination that isn't in the source.
+
         :param 'TaskReportConfigOverridesPropertiesDeletedPropertiesReportLevel' report_level: Specifies whether you want your task report to include only what went wrong with your transfer or a list of what succeeded and didn't.
         """
         if report_level is not None:
@@ -1888,6 +2407,7 @@ class TaskReportConfigOverridesPropertiesSkippedProperties(dict):
                  report_level: Optional['TaskReportConfigOverridesPropertiesSkippedPropertiesReportLevel'] = None):
         """
         Specifies the level of reporting for the files, objects, and directories that Datasync attempted to skip during your transfer.
+
         :param 'TaskReportConfigOverridesPropertiesSkippedPropertiesReportLevel' report_level: Specifies whether you want your task report to include only what went wrong with your transfer or a list of what succeeded and didn't.
         """
         if report_level is not None:
@@ -1928,6 +2448,7 @@ class TaskReportConfigOverridesPropertiesTransferredProperties(dict):
                  report_level: Optional['TaskReportConfigOverridesPropertiesTransferredPropertiesReportLevel'] = None):
         """
         Specifies the level of reporting for the files, objects, and directories that Datasync attempted to transfer.
+
         :param 'TaskReportConfigOverridesPropertiesTransferredPropertiesReportLevel' report_level: Specifies whether you want your task report to include only what went wrong with your transfer or a list of what succeeded and didn't.
         """
         if report_level is not None:
@@ -1968,6 +2489,7 @@ class TaskReportConfigOverridesPropertiesVerifiedProperties(dict):
                  report_level: Optional['TaskReportConfigOverridesPropertiesVerifiedPropertiesReportLevel'] = None):
         """
         Specifies the level of reporting for the files, objects, and directories that Datasync attempted to verify at the end of your transfer. This only applies if you configure your task to verify data during and after the transfer (which Datasync does by default)
+
         :param 'TaskReportConfigOverridesPropertiesVerifiedPropertiesReportLevel' report_level: Specifies whether you want your task report to include only what went wrong with your transfer or a list of what succeeded and didn't.
         """
         if report_level is not None:
@@ -2009,6 +2531,7 @@ class TaskSchedule(dict):
                  status: Optional['TaskScheduleStatus'] = None):
         """
         Specifies the schedule you want your task to use for repeated executions.
+
         :param _builtins.str schedule_expression: A cron expression that specifies when AWS DataSync initiates a scheduled transfer from a source to a destination location
         :param 'TaskScheduleStatus' status: Specifies status of a schedule.
         """

@@ -1,5 +1,6 @@
 import string
 import warnings
+from packaging.version import Version
 
 import numpy as np
 from pandas import DataFrame, Index, MultiIndex, Series, concat
@@ -28,6 +29,13 @@ from geopandas.testing import assert_geodataframe_equal
 from geopandas.tests.util import assert_geoseries_equal, geom_almost_equals, geom_equals
 from numpy.testing import assert_array_equal
 from pandas.testing import assert_frame_equal, assert_index_equal, assert_series_equal
+
+try:
+    import pointpats
+
+    POINTPATS_GE_253 = Version(pointpats.__version__) >= Version("2.5.3")
+except ImportError:
+    POINTPATS_GE_253 = False
 
 
 def assert_array_dtype_equal(a, b, *args, **kwargs):
@@ -2135,22 +2143,48 @@ class TestGeomMethods:
         )
         assert_series_equal(shapely.get_num_geometries(output), expected)
 
+    @pytest.mark.parametrize("rng", [None, 1, np.random.default_rng(seed=2)])
     @pytest.mark.parametrize("size", [10, 20, 50])
-    def test_sample_points_pointpats(self, size):
-        pytest.importorskip("pointpats")
+    @pytest.mark.parametrize("method", ["cluster_poisson", "cluster_normal"])
+    @pytest.mark.skipif(
+        not POINTPATS_GE_253, reason="Requires pointpats>=2.5.3 for rng kwarg"
+    )
+    def test_sample_points_pointpats(self, method, size, rng):
         for gs in (
             self.g1,
             self.na,
             self.a1,
         ):
-            output = gs.sample_points(size, method="cluster_poisson")
-            assert_index_equal(gs.index, output.index)
+            output1 = gs.sample_points(size, method=method, rng=rng)
+            assert_index_equal(gs.index, output1.index)
             assert (
-                len(output.explode(ignore_index=True)) == len(gs[~gs.is_empty]) * size
+                len(output1.explode(ignore_index=True)) == len(gs[~gs.is_empty]) * size
             )
+
+            if rng is not None:
+                output2 = gs.sample_points(size, method=method, rng=rng)
+                if rng == 1:
+                    assert_geoseries_equal(output1, output2)
+                else:
+                    with pytest.raises(AssertionError, match="2 out of"):
+                        assert_geoseries_equal(output1, output2)
 
         with pytest.raises(AttributeError, match="pointpats.random module has no"):
             gs.sample_points(10, method="nonexistent")
+
+    @pytest.mark.parametrize("rng", [None, 1, np.random.default_rng(seed=2)])
+    @pytest.mark.parametrize("method", ["cluster_poisson", "cluster_normal"])
+    @pytest.mark.skipif(
+        not POINTPATS_GE_253, reason="Requires pointpats>=2.5.3 for rng kwarg"
+    )
+    def test_sample_points_pointpats_array(self, method, rng):
+        output = concat([self.g1, self.g1]).sample_points(
+            [10, 15, 20, 25], method=method, rng=rng
+        )
+        expected = Series(
+            [10, 15, 20, 25], index=[0, 1, 0, 1], name="sampled_points", dtype="int32"
+        )
+        assert_series_equal(shapely.get_num_geometries(output), expected)
 
     def test_offset_curve(self):
         oc = GeoSeries([self.l1]).offset_curve(1, join_style="mitre")

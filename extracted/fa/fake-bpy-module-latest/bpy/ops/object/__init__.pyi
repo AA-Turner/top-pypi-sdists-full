@@ -11,7 +11,7 @@ def add(
     /,
     *,
     radius: float | None = 1.0,
-    type: Literal[bpy.stub_internal.rna_enums.ObjectTypeItems] | None = "EMPTY",
+    type: typing.Literal[bpy.stub_internal.rna_enums.ObjectTypeItems] | None = "EMPTY",
     enter_editmode: bool | None = False,
     align: typing.Literal["WORLD", "VIEW", "CURSOR"] | None = "WORLD",
     location: collections.abc.Sequence[float] | mathutils.Vector | None = (
@@ -25,7 +25,7 @@ def add(
         0.0,
     ),
     scale: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0, 0.0),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add an object to the scene
 
         :param radius: Radius, (in [0, inf], optional)
@@ -51,7 +51,7 @@ def add_modifier_menu(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
 
     :return: Result of the operator call.
@@ -75,7 +75,7 @@ def add_named(
     ),
     drop_x: int | None = 0,
     drop_y: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add named object
 
     :param linked: Linked, Duplicate object but not object data, linking to the original data (optional)
@@ -96,7 +96,7 @@ def align(
     align_mode: typing.Literal["OPT_1", "OPT_2", "OPT_3"] | None = "OPT_2",
     relative_to: typing.Literal["OPT_1", "OPT_2", "OPT_3", "OPT_4"] | None = "OPT_4",
     align_axis: set[typing.Literal["X", "Y", "Z"]] | None = set(),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Align objects
 
         :param bb_quality: High Quality, Enables high quality but slow calculation of the bounding box for perfect results on complex shape meshes with rotation/scale (optional)
@@ -122,7 +122,7 @@ def anim_transforms_to_deltas(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Convert object animation for normal transforms to delta transforms
 
     :return: Result of the operator call.
@@ -147,7 +147,7 @@ def armature_add(
         0.0,
     ),
     scale: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0, 0.0),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add an armature object to the scene
 
         :param radius: Radius, (in [0, inf], optional)
@@ -175,7 +175,7 @@ def assign_property_defaults(
     *,
     process_data: bool | None = True,
     process_bones: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Assign the current values of custom properties as their defaults, for use as part of the rest pose state in NLA track mixing
 
     :param process_data: Process data properties, (optional)
@@ -188,34 +188,40 @@ def bake(
     undo: bool | None = None,
     /,
     *,
-    type: Literal[bpy.stub_internal.rna_enums.BakePassTypeItems] | None = "COMBINED",
-    pass_filter: set[Literal[bpy.stub_internal.rna_enums.BakePassFilterTypeItems]]
+    type: typing.Literal[bpy.stub_internal.rna_enums.BakePassTypeItems]
+    | None = "COMBINED",
+    pass_filter: set[
+        typing.Literal[bpy.stub_internal.rna_enums.BakePassFilterTypeItems]
+    ]
     | None = set(),
     filepath: str | None = "",
     width: int | None = 512,
     height: int | None = 512,
     margin: int | None = 16,
-    margin_type: Literal[bpy.stub_internal.rna_enums.BakeMarginTypeItems]
+    margin_type: typing.Literal[bpy.stub_internal.rna_enums.BakeMarginTypeItems]
     | None = "EXTEND",
     use_selected_to_active: bool | None = False,
     max_ray_distance: float | None = 0.0,
     cage_extrusion: float | None = 0.0,
     cage_object: str | None = "",
-    normal_space: Literal[bpy.stub_internal.rna_enums.NormalSpaceItems]
+    normal_space: typing.Literal[bpy.stub_internal.rna_enums.NormalSpaceItems]
     | None = "TANGENT",
-    normal_r: Literal[bpy.stub_internal.rna_enums.NormalSwizzleItems] | None = "POS_X",
-    normal_g: Literal[bpy.stub_internal.rna_enums.NormalSwizzleItems] | None = "POS_Y",
-    normal_b: Literal[bpy.stub_internal.rna_enums.NormalSwizzleItems] | None = "POS_Z",
-    target: Literal[bpy.stub_internal.rna_enums.BakeTargetItems]
+    normal_r: typing.Literal[bpy.stub_internal.rna_enums.NormalSwizzleItems]
+    | None = "POS_X",
+    normal_g: typing.Literal[bpy.stub_internal.rna_enums.NormalSwizzleItems]
+    | None = "POS_Y",
+    normal_b: typing.Literal[bpy.stub_internal.rna_enums.NormalSwizzleItems]
+    | None = "POS_Z",
+    target: typing.Literal[bpy.stub_internal.rna_enums.BakeTargetItems]
     | None = "IMAGE_TEXTURES",
-    save_mode: Literal[bpy.stub_internal.rna_enums.BakeSaveModeItems]
+    save_mode: typing.Literal[bpy.stub_internal.rna_enums.BakeSaveModeItems]
     | None = "INTERNAL",
     use_clear: bool | None = False,
     use_cage: bool | None = False,
     use_split_materials: bool | None = False,
     use_automatic_name: bool | None = False,
     uv_layer: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Bake image textures of selected objects
 
     :param type: Type, Type of pass to bake, some of them may not be supported by the current render engine (optional)
@@ -247,7 +253,7 @@ def bake_image(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Bake image textures of selected objects
 
     :return: Result of the operator call.
@@ -271,7 +277,7 @@ def camera_add(
         0.0,
     ),
     scale: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0, 0.0),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a camera object to the scene
 
         :param enter_editmode: Enter Edit Mode, Enter edit mode when adding this object (optional)
@@ -295,7 +301,7 @@ def camera_custom_update(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Update custom camera with new parameters from the shader
 
     :return: Result of the operator call.
@@ -305,7 +311,7 @@ def clear_override_library(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Delete the selected local overrides and relink their usages to the linked data-blocks if possible, else reset them and mark them as non editable
 
     :return: Result of the operator call.
@@ -315,7 +321,7 @@ def collection_add(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add an object to a new collection
 
     :return: Result of the operator call.
@@ -343,7 +349,7 @@ def collection_external_asset_drop(
     drop_x: int | None = 0,
     drop_y: int | None = 0,
     collection: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add the dragged collection to the scene
 
         :param session_uid: Session UID, Session UID of the data-block to use by the operator (in [-inf, inf], optional)
@@ -389,7 +395,7 @@ def collection_instance_add(
     session_uid: int | None = 0,
     drop_x: int | None = 0,
     drop_y: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a collection instance
 
         :param name: Name, Collection name to add (optional, never None)
@@ -419,7 +425,7 @@ def collection_link(
     /,
     *,
     collection: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add an object to an existing collection
 
     :param collection: Collection, (optional)
@@ -430,7 +436,7 @@ def collection_objects_select(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select all objects in collection
 
     :return: Result of the operator call.
@@ -440,7 +446,7 @@ def collection_remove(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove the active object from this collection
 
     :return: Result of the operator call.
@@ -450,7 +456,7 @@ def collection_unlink(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Unlink the collection from all objects
 
     :return: Result of the operator call.
@@ -462,7 +468,7 @@ def constraint_add(
     /,
     *,
     type: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a constraint to the active object
 
     :param type: Type, (optional)
@@ -475,7 +481,7 @@ def constraint_add_with_targets(
     /,
     *,
     type: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a constraint to the active object, with target (where applicable) set to the selected objects/bones
 
     :param type: Type, (optional)
@@ -486,7 +492,7 @@ def constraints_clear(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Clear all constraints from the selected objects
 
     :return: Result of the operator call.
@@ -496,7 +502,7 @@ def constraints_copy(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Copy constraints to other selected objects
 
     :return: Result of the operator call.
@@ -514,7 +520,7 @@ def convert(
     thickness: int | None = 5,
     faces: bool | None = True,
     offset: float | None = 0.01,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Convert selected objects to another type
 
         :param target: Target, Type of object to convert to (optional)
@@ -545,7 +551,7 @@ def copy_global_transform(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Copies the matrix of the currently active object or pose bone to the clipboard. Uses world-space matrices
 
     :return: Result of the operator call.
@@ -555,7 +561,7 @@ def copy_relative_transform(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Copies the matrix of the currently active object or pose bone to the clipboard. Uses matrices relative to a specific object or the active scene camera
 
     :return: Result of the operator call.
@@ -567,7 +573,7 @@ def correctivesmooth_bind(
     /,
     *,
     modifier: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Bind base pose in Corrective Smooth modifier
 
     :param modifier: Modifier, Name of the modifier to edit (optional, never None)
@@ -591,7 +597,7 @@ def curves_empty_hair_add(
         0.0,
     ),
     scale: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0, 0.0),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add an empty curve object to the scene with the selected mesh as surface
 
         :param align: Align, The alignment of the new object (optional)
@@ -627,7 +633,7 @@ def curves_random_add(
         0.0,
     ),
     scale: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0, 0.0),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a curves object with random curves to the scene
 
         :param align: Align, The alignment of the new object (optional)
@@ -653,7 +659,7 @@ def data_instance_add(
     *,
     name: str | None = "",
     session_uid: int | None = 0,
-    type: Literal[bpy.stub_internal.rna_enums.IdTypeItems] | None = "ACTION",
+    type: typing.Literal[bpy.stub_internal.rna_enums.IdTypeItems] | None = "ACTION",
     align: typing.Literal["WORLD", "VIEW", "CURSOR"] | None = "WORLD",
     location: collections.abc.Sequence[float] | mathutils.Vector | None = (
         0.0,
@@ -668,7 +674,7 @@ def data_instance_add(
     scale: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0, 0.0),
     drop_x: int | None = 0,
     drop_y: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add an object data instance
 
         :param name: Name, Name of the data-block to use by the operator (optional, never None)
@@ -716,13 +722,13 @@ def data_transfer(
     ]
     | None = "VGROUP_WEIGHTS",
     use_create: bool | None = True,
-    vert_mapping: Literal[bpy.stub_internal.rna_enums.DtMethodVertexItems]
+    vert_mapping: typing.Literal[bpy.stub_internal.rna_enums.DtMethodVertexItems]
     | None = "NEAREST",
-    edge_mapping: Literal[bpy.stub_internal.rna_enums.DtMethodEdgeItems]
+    edge_mapping: typing.Literal[bpy.stub_internal.rna_enums.DtMethodEdgeItems]
     | None = "NEAREST",
-    loop_mapping: Literal[bpy.stub_internal.rna_enums.DtMethodLoopItems]
+    loop_mapping: typing.Literal[bpy.stub_internal.rna_enums.DtMethodLoopItems]
     | None = "NEAREST_POLYNOR",
-    poly_mapping: Literal[bpy.stub_internal.rna_enums.DtMethodPolyItems]
+    poly_mapping: typing.Literal[bpy.stub_internal.rna_enums.DtMethodPolyItems]
     | None = "NEAREST",
     use_auto_transform: bool | None = False,
     use_object_transform: bool | None = True,
@@ -730,13 +736,18 @@ def data_transfer(
     max_distance: float | None = 1.0,
     ray_radius: float | None = 0.0,
     islands_precision: float | None = 0.1,
-    layers_select_src: Literal[bpy.stub_internal.rna_enums.DtLayersSelectSrcItems]
+    layers_select_src: typing.Literal[
+        bpy.stub_internal.rna_enums.DtLayersSelectSrcItems
+    ]
     | None = "ACTIVE",
-    layers_select_dst: Literal[bpy.stub_internal.rna_enums.DtLayersSelectDstItems]
+    layers_select_dst: typing.Literal[
+        bpy.stub_internal.rna_enums.DtLayersSelectDstItems
+    ]
     | None = "ACTIVE",
-    mix_mode: Literal[bpy.stub_internal.rna_enums.DtMixModeItems] | None = "REPLACE",
+    mix_mode: typing.Literal[bpy.stub_internal.rna_enums.DtMixModeItems]
+    | None = "REPLACE",
     mix_factor: float | None = 1.0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Transfer data layer(s) (weights, edge sharp, etc.) from active to selected meshes
 
         :param use_reverse_transfer: Reverse Transfer, Transfer from selected objects to active one (optional)
@@ -822,11 +833,15 @@ def datalayout_transfer(
     ]
     | None = "",
     use_delete: bool | None = False,
-    layers_select_src: Literal[bpy.stub_internal.rna_enums.DtLayersSelectSrcItems]
+    layers_select_src: typing.Literal[
+        bpy.stub_internal.rna_enums.DtLayersSelectSrcItems
+    ]
     | None = "ACTIVE",
-    layers_select_dst: Literal[bpy.stub_internal.rna_enums.DtLayersSelectDstItems]
+    layers_select_dst: typing.Literal[
+        bpy.stub_internal.rna_enums.DtLayersSelectDstItems
+    ]
     | None = "ACTIVE",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Transfer layout of data layer(s) from active to selected meshes
 
         :param modifier: Modifier, Name of the modifier to edit (optional, never None)
@@ -883,7 +898,7 @@ def delete(
     *,
     use_global: bool | None = False,
     confirm: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Delete selected objects
 
     :param use_global: Delete Globally, Remove object from all scenes (optional)
@@ -895,7 +910,7 @@ def delete_fix_to_camera_keys(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Delete all keys that were generated by the Fix to Scene Camera operator
 
     :return: Result of the operator call.
@@ -908,7 +923,7 @@ def drop_geometry_nodes(
     *,
     session_uid: int | None = 0,
     show_datablock_in_modifier: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
 
     :param session_uid: Session UID, Session UID of the geometry node group being dropped (in [-inf, inf], optional)
@@ -923,7 +938,7 @@ def drop_named_material(
     *,
     name: str | None = "",
     session_uid: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
 
     :param name: Name, Name of the data-block to use by the operator (optional, never None)
@@ -937,9 +952,9 @@ def duplicate(
     /,
     *,
     linked: bool | None = False,
-    mode: Literal[bpy.stub_internal.rna_enums.TransformModeTypeItems]
+    mode: typing.Literal[bpy.stub_internal.rna_enums.TransformModeTypeItems]
     | None = "TRANSLATION",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Duplicate selected objects
 
     :param linked: Linked, Duplicate object but not object data, linking to the original data (optional)
@@ -954,7 +969,7 @@ def duplicate_move(
     *,
     OBJECT_OT_duplicate: dict[str, typing.Any] | None = {},
     TRANSFORM_OT_translate: dict[str, typing.Any] | None = {},
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Duplicate the selected objects and move them
 
     :param OBJECT_OT_duplicate: Duplicate Objects, Duplicate selected objects (optional, `bpy.ops.object.duplicate` keyword arguments)
@@ -969,7 +984,7 @@ def duplicate_move_linked(
     *,
     OBJECT_OT_duplicate: dict[str, typing.Any] | None = {},
     TRANSFORM_OT_translate: dict[str, typing.Any] | None = {},
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Duplicate the selected objects, but not their object data, and move them
 
     :param OBJECT_OT_duplicate: Duplicate Objects, Duplicate selected objects (optional, `bpy.ops.object.duplicate` keyword arguments)
@@ -984,7 +999,7 @@ def duplicates_make_real(
     *,
     use_base_parent: bool | None = False,
     use_hierarchy: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Make instanced objects attached to this object real
 
     :param use_base_parent: Parent, Parent newly created objects to the original instancer (optional)
@@ -996,7 +1011,7 @@ def editmode_toggle(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Toggle objects edit mode
 
     :return: Result of the operator call.
@@ -1037,7 +1052,7 @@ def effector_add(
         0.0,
     ),
     scale: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0, 0.0),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add an empty object with a physics effector to the scene
 
         :param type: Type, (optional)
@@ -1064,7 +1079,7 @@ def empty_add(
     undo: bool | None = None,
     /,
     *,
-    type: Literal[bpy.stub_internal.rna_enums.ObjectEmptyDrawtypeItems]
+    type: typing.Literal[bpy.stub_internal.rna_enums.ObjectEmptyDrawtypeItems]
     | None = "PLAIN_AXES",
     radius: float | None = 1.0,
     align: typing.Literal["WORLD", "VIEW", "CURSOR"] | None = "WORLD",
@@ -1079,7 +1094,7 @@ def empty_add(
         0.0,
     ),
     scale: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0, 0.0),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add an empty object to the scene
 
         :param type: Type, (optional)
@@ -1156,7 +1171,7 @@ def empty_image_add(
     ),
     scale: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0, 0.0),
     background: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add an empty image type to scene with data
 
         :param filepath: File Path, Path to file (optional, never None)
@@ -1239,7 +1254,7 @@ def explode_refresh(
     /,
     *,
     modifier: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Refresh data in the Explode modifier
 
     :param modifier: Modifier, Name of the modifier to edit (optional, never None)
@@ -1254,7 +1269,7 @@ def fix_to_camera(
     use_location: bool | None = True,
     use_rotation: bool | None = True,
     use_scale: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Generate new keys to fix the selected object/bone to the camera on unkeyed frames
 
     :param use_location: Location, Create Location keys when fixing to the scene camera (optional)
@@ -1267,7 +1282,7 @@ def forcefield_toggle(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Toggle objects force field
 
     :return: Result of the operator call.
@@ -1281,7 +1296,7 @@ def geometry_node_bake_delete_single(
     session_uid: int | None = 0,
     modifier_name: str | None = "",
     bake_id: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Delete baked data of a single bake node or simulation
 
     :param session_uid: Session UID, Session UID of the data-block to use by the operator (in [-inf, inf], optional)
@@ -1298,7 +1313,7 @@ def geometry_node_bake_pack_single(
     session_uid: int | None = 0,
     modifier_name: str | None = "",
     bake_id: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Pack baked data from disk into the .blend file
 
     :param session_uid: Session UID, Session UID of the data-block to use by the operator (in [-inf, inf], optional)
@@ -1315,7 +1330,7 @@ def geometry_node_bake_single(
     session_uid: int | None = 0,
     modifier_name: str | None = "",
     bake_id: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Bake a single bake node or simulation
 
     :param session_uid: Session UID, Session UID of the data-block to use by the operator (in [-inf, inf], optional)
@@ -1334,7 +1349,7 @@ def geometry_node_bake_unpack_single(
     bake_id: int | None = 0,
     method: typing.Literal["USE_LOCAL", "WRITE_LOCAL", "USE_ORIGINAL", "WRITE_ORIGINAL"]
     | None = "USE_LOCAL",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Unpack baked data from the .blend file to disk
 
     :param session_uid: Session UID, Session UID of the data-block to use by the operator (in [-inf, inf], optional)
@@ -1348,7 +1363,7 @@ def geometry_node_tree_copy_assign(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Duplicate the active geometry node group and assign it to the active modifier
 
     :return: Result of the operator call.
@@ -1361,7 +1376,7 @@ def geometry_nodes_input_attribute_toggle(
     *,
     input_name: str | None = "",
     modifier_name: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Switch between an attribute and a single value to define the data for every element
 
     :param input_name: Input Name, (optional, never None)
@@ -1375,7 +1390,7 @@ def geometry_nodes_move_to_nodes(
     /,
     *,
     use_selected_objects: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move inputs and outputs from in the modifier to a new node group
 
     :param use_selected_objects: Selected Objects, Affect all selected objects instead of just the active object (optional)
@@ -1387,7 +1402,8 @@ def grease_pencil_add(
     undo: bool | None = None,
     /,
     *,
-    type: Literal[bpy.stub_internal.rna_enums.ObjectGpencilTypeItems] | None = "EMPTY",
+    type: typing.Literal[bpy.stub_internal.rna_enums.ObjectGpencilTypeItems]
+    | None = "EMPTY",
     use_in_front: bool | None = True,
     stroke_depth_offset: float | None = 0.05,
     use_lights: bool | None = True,
@@ -1405,7 +1421,7 @@ def grease_pencil_add(
         0.0,
     ),
     scale: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0, 0.0),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a Grease Pencil object to the scene
 
         :param type: Type, (optional)
@@ -1442,7 +1458,7 @@ def grease_pencil_dash_modifier_segment_add(
     /,
     *,
     modifier: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a segment to the dash modifier
 
     :param modifier: Modifier, Name of the modifier to edit (optional, never None)
@@ -1456,7 +1472,7 @@ def grease_pencil_dash_modifier_segment_move(
     *,
     modifier: str | None = "",
     type: typing.Literal["UP", "DOWN"] | None = "UP",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move the active dash segment up or down
 
     :param modifier: Modifier, Name of the modifier to edit (optional, never None)
@@ -1471,7 +1487,7 @@ def grease_pencil_dash_modifier_segment_remove(
     *,
     modifier: str | None = "",
     index: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove the active segment from the dash modifier
 
     :param modifier: Modifier, Name of the modifier to edit (optional, never None)
@@ -1485,7 +1501,7 @@ def grease_pencil_time_modifier_segment_add(
     /,
     *,
     modifier: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a segment to the time modifier
 
     :param modifier: Modifier, Name of the modifier to edit (optional, never None)
@@ -1499,7 +1515,7 @@ def grease_pencil_time_modifier_segment_move(
     *,
     modifier: str | None = "",
     type: typing.Literal["UP", "DOWN"] | None = "UP",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move the active time segment up or down
 
     :param modifier: Modifier, Name of the modifier to edit (optional, never None)
@@ -1514,7 +1530,7 @@ def grease_pencil_time_modifier_segment_remove(
     *,
     modifier: str | None = "",
     index: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove the active segment from the time modifier
 
     :param modifier: Modifier, Name of the modifier to edit (optional, never None)
@@ -1530,7 +1546,7 @@ def hide_collection(
     collection_index: int | None = -1,
     toggle: bool | None = False,
     extend: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Show only objects in collection (Shift to extend)
 
     :param collection_index: Collection Index, Index of the collection to change visibility (in [-1, inf], optional)
@@ -1543,7 +1559,7 @@ def hide_render_clear_all(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Reveal all render objects by setting the hide render flag
 
     :return: Result of the operator call.
@@ -1555,7 +1571,7 @@ def hide_view_clear(
     /,
     *,
     select: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Reveal temporarily hidden objects
 
     :param select: Select, Select revealed objects (optional)
@@ -1568,7 +1584,7 @@ def hide_view_set(
     /,
     *,
     unselected: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Temporarily hide objects from the viewport
 
     :param unselected: Unselected, Hide unselected rather than selected objects (optional)
@@ -1579,7 +1595,7 @@ def hook_add_newob(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Hook selected vertices to a newly created object
 
     :return: Result of the operator call.
@@ -1591,7 +1607,7 @@ def hook_add_selob(
     /,
     *,
     use_bone: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Hook selected vertices to the first selected object
 
     :param use_bone: Active Bone, Assign the hook to the hook objects active bone (optional)
@@ -1604,7 +1620,7 @@ def hook_assign(
     /,
     *,
     modifier: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Assign the selected vertices to a hook
 
     :param modifier: Modifier, Modifier number to assign to (optional)
@@ -1617,7 +1633,7 @@ def hook_recenter(
     /,
     *,
     modifier: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set hook center to cursor position
 
     :param modifier: Modifier, Modifier number to assign to (optional)
@@ -1630,7 +1646,7 @@ def hook_remove(
     /,
     *,
     modifier: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove a hook from the active object
 
     :param modifier: Modifier, Modifier number to remove (optional)
@@ -1643,7 +1659,7 @@ def hook_reset(
     /,
     *,
     modifier: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Recalculate and clear offset transformation
 
     :param modifier: Modifier, Modifier number to assign to (optional)
@@ -1656,7 +1672,7 @@ def hook_select(
     /,
     *,
     modifier: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select affected vertices on mesh
 
     :param modifier: Modifier, Modifier number to remove (optional)
@@ -1667,7 +1683,7 @@ def instance_offset_from_cursor(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set offset used for collection instances based on cursor position
 
     :return: Result of the operator call.
@@ -1677,7 +1693,7 @@ def instance_offset_from_object(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set offset used for collection instances based on the active object position
 
     :return: Result of the operator call.
@@ -1687,7 +1703,7 @@ def instance_offset_to_cursor(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set cursor position to the offset used for collection instances
 
     :return: Result of the operator call.
@@ -1697,7 +1713,7 @@ def isolate_type_render(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Hide unselected render objects of same type as active by setting the hide render flag
 
     :return: Result of the operator call.
@@ -1707,7 +1723,7 @@ def join(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Join selected objects into active object
 
     :return: Result of the operator call.
@@ -1719,7 +1735,7 @@ def join_shapes(
     /,
     *,
     use_mirror: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add the vertex positions of selected objects as shape keys or update existing shape keys with matching names
 
     :param use_mirror: Mirror, Mirror the new shape key values (optional)
@@ -1730,7 +1746,7 @@ def join_uvs(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Transfer UV Maps from active to selected objects (needs matching geometry)
 
     :return: Result of the operator call.
@@ -1742,7 +1758,7 @@ def laplaciandeform_bind(
     /,
     *,
     modifier: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Bind mesh to system in laplacian deform modifier
 
     :param modifier: Modifier, Name of the modifier to edit (optional, never None)
@@ -1774,7 +1790,7 @@ def lattice_add_to_selected(
         0.0,
     ),
     scale: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0, 0.0),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a lattice and use it to deform selected objects
 
         :param fit_to_selected: Fit to Selected, Resize lattice to fit selected deformable objects (optional)
@@ -1806,7 +1822,7 @@ def light_add(
     undo: bool | None = None,
     /,
     *,
-    type: Literal[bpy.stub_internal.rna_enums.LightTypeItems] | None = "POINT",
+    type: typing.Literal[bpy.stub_internal.rna_enums.LightTypeItems] | None = "POINT",
     radius: float | None = 1.0,
     align: typing.Literal["WORLD", "VIEW", "CURSOR"] | None = "WORLD",
     location: collections.abc.Sequence[float] | mathutils.Vector | None = (
@@ -1820,7 +1836,7 @@ def light_add(
         0.0,
     ),
     scale: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0, 0.0),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a light object to the scene
 
         :param type: Type, (optional)
@@ -1845,7 +1861,7 @@ def light_linking_blocker_collection_new(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Create new light linking collection used by the active emitter
 
     :return: Result of the operator call.
@@ -1857,7 +1873,7 @@ def light_linking_blockers_link(
     /,
     *,
     link_state: typing.Literal["INCLUDE", "EXCLUDE"] | None = "INCLUDE",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Light link selected blockers to the active emitter object
 
         :param link_state: Link State, State of the shadow linking (optional)
@@ -1874,7 +1890,7 @@ def light_linking_blockers_select(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select all objects which block light from this emitter
 
     :return: Result of the operator call.
@@ -1884,7 +1900,7 @@ def light_linking_receiver_collection_new(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Create new light linking collection used by the active emitter
 
     :return: Result of the operator call.
@@ -1896,7 +1912,7 @@ def light_linking_receivers_link(
     /,
     *,
     link_state: typing.Literal["INCLUDE", "EXCLUDE"] | None = "INCLUDE",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Light link selected receivers to the active emitter object
 
         :param link_state: Link State, State of the light linking (optional)
@@ -1913,7 +1929,7 @@ def light_linking_receivers_select(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select all objects which receive light from this emitter
 
     :return: Result of the operator call.
@@ -1923,7 +1939,7 @@ def light_linking_unlink_from_collection(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove this object or collection from the light linking collection
 
     :return: Result of the operator call.
@@ -1949,7 +1965,7 @@ def lightprobe_add(
         0.0,
     ),
     scale: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0, 0.0),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a light probe object
 
         :param type: Type, (optional)
@@ -1986,7 +2002,7 @@ def lightprobe_cache_bake(
     /,
     *,
     subset: typing.Literal["ALL", "SELECTED", "ACTIVE"] | None = "ALL",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Bake irradiance volume light cache
 
         :param subset: Subset, Subset of probes to update (optional)
@@ -2008,7 +2024,7 @@ def lightprobe_cache_free(
     /,
     *,
     subset: typing.Literal["ALL", "SELECTED", "ACTIVE"] | None = "SELECTED",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Delete cached indirect lighting
 
         :param subset: Subset, Subset of probes to update (optional)
@@ -2030,7 +2046,7 @@ def lineart_bake_strokes(
     /,
     *,
     bake_all: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Bake Line Art for current Grease Pencil object
 
     :param bake_all: Bake All, Bake all Line Art modifiers (optional)
@@ -2043,7 +2059,7 @@ def lineart_clear(
     /,
     *,
     clear_all: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Clear all strokes in current Grease Pencil object
 
     :param clear_all: Clear All, Clear all Line Art modifier bakes (optional)
@@ -2058,7 +2074,7 @@ def link_to_collection(
     collection_uid: int | None = -1,
     is_new: bool | None = False,
     new_collection_name: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Link objects to a collection
 
     :param collection_uid: Collection UID, Session UID of the collection to link to (in [-1, inf], optional)
@@ -2073,7 +2089,7 @@ def location_clear(
     /,
     *,
     clear_delta: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Clear the objects location
 
     :param clear_delta: Clear Delta, Clear delta location in addition to clearing the normal location transform (optional)
@@ -2084,7 +2100,7 @@ def make_dupli_face(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Convert objects into instanced faces
 
     :return: Result of the operator call.
@@ -2109,7 +2125,7 @@ def make_links_data(
         "SHADOW_LINKING",
     ]
     | None = "OBDATA",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Transfer data from active object to selected objects
 
         :param type: Type, (optional)
@@ -2155,7 +2171,7 @@ def make_links_scene(
     /,
     *,
     scene: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Link selection to another scene
 
     :param scene: Scene, (optional)
@@ -2171,7 +2187,7 @@ def make_local(
         "SELECT_OBJECT", "SELECT_OBDATA", "SELECT_OBDATA_MATERIAL", "ALL"
     ]
     | None = "SELECT_OBJECT",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Make library linked data-blocks local to this file
 
     :param type: Type, (optional)
@@ -2184,7 +2200,7 @@ def make_override_library(
     /,
     *,
     collection: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Create a local override of the selected linked objects, and their hierarchy of dependencies
 
     :param collection: Override Collection, Session UID of the directly linked collection containing the selected object, to make an override from (in [-inf, inf], optional)
@@ -2202,7 +2218,7 @@ def make_single_user(
     material: bool | None = False,
     animation: bool | None = False,
     obdata_animation: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Make linked data local to each object
 
     :param type: Type, (optional)
@@ -2218,7 +2234,7 @@ def material_slot_add(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a new material slot
 
     :return: Result of the operator call.
@@ -2228,7 +2244,7 @@ def material_slot_assign(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Assign active material slot to selection
 
     :return: Result of the operator call.
@@ -2238,7 +2254,7 @@ def material_slot_copy(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Copy material to selected objects
 
     :return: Result of the operator call.
@@ -2248,7 +2264,7 @@ def material_slot_deselect(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Deselect by active material slot
 
     :return: Result of the operator call.
@@ -2260,7 +2276,7 @@ def material_slot_move(
     /,
     *,
     direction: typing.Literal["UP", "DOWN"] | None = "UP",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move the active material up/down in the list
 
     :param direction: Direction, Direction to move the active material towards (optional)
@@ -2271,7 +2287,7 @@ def material_slot_remove(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove the selected material slot
 
     :return: Result of the operator call.
@@ -2281,7 +2297,7 @@ def material_slot_remove_all(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove all materials
 
     :return: Result of the operator call.
@@ -2291,7 +2307,7 @@ def material_slot_remove_unused(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove unused material slots
 
     :return: Result of the operator call.
@@ -2301,7 +2317,7 @@ def material_slot_select(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select by active material slot
 
     :return: Result of the operator call.
@@ -2313,7 +2329,7 @@ def meshdeform_bind(
     /,
     *,
     modifier: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Bind mesh to cage in mesh deform modifier
 
     :param modifier: Modifier, Name of the modifier to edit (optional, never None)
@@ -2325,7 +2341,7 @@ def metaball_add(
     undo: bool | None = None,
     /,
     *,
-    type: Literal[bpy.stub_internal.rna_enums.MetaelemTypeItems] | None = "BALL",
+    type: typing.Literal[bpy.stub_internal.rna_enums.MetaelemTypeItems] | None = "BALL",
     radius: float | None = 2.0,
     enter_editmode: bool | None = False,
     align: typing.Literal["WORLD", "VIEW", "CURSOR"] | None = "WORLD",
@@ -2340,7 +2356,7 @@ def metaball_add(
         0.0,
     ),
     scale: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0, 0.0),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a metaball object to the scene
 
         :param type: Primitive, (optional)
@@ -2367,9 +2383,9 @@ def mode_set(
     undo: bool | None = None,
     /,
     *,
-    mode: Literal[bpy.stub_internal.rna_enums.ObjectModeItems] | None = "OBJECT",
+    mode: typing.Literal[bpy.stub_internal.rna_enums.ObjectModeItems] | None = "OBJECT",
     toggle: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Sets the object interaction mode
 
     :param mode: Mode, (optional)
@@ -2382,11 +2398,13 @@ def mode_set_with_submode(
     undo: bool | None = None,
     /,
     *,
-    mode: Literal[bpy.stub_internal.rna_enums.ObjectModeItems] | None = "OBJECT",
+    mode: typing.Literal[bpy.stub_internal.rna_enums.ObjectModeItems] | None = "OBJECT",
     toggle: bool | None = False,
-    mesh_select_mode: set[Literal[bpy.stub_internal.rna_enums.MeshSelectModeItems]]
+    mesh_select_mode: set[
+        typing.Literal[bpy.stub_internal.rna_enums.MeshSelectModeItems]
+    ]
     | None = set(),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Sets the object interaction mode
 
     :param mode: Mode, (optional)
@@ -2400,10 +2418,10 @@ def modifier_add(
     undo: bool | None = None,
     /,
     *,
-    type: Literal[bpy.stub_internal.rna_enums.ObjectModifierTypeItems]
+    type: typing.Literal[bpy.stub_internal.rna_enums.ObjectModifierTypeItems]
     | None = "SUBSURF",
     use_selected_objects: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a procedural operation/effect to the active object
 
     :param type: Type, (optional)
@@ -2416,13 +2434,15 @@ def modifier_add_node_group(
     undo: bool | None = None,
     /,
     *,
-    asset_library_type: Literal[bpy.stub_internal.rna_enums.AssetLibraryTypeItems]
+    asset_library_type: typing.Literal[
+        bpy.stub_internal.rna_enums.AssetLibraryTypeItems
+    ]
     | None = "LOCAL",
     asset_library_identifier: str | None = "",
     relative_asset_identifier: str | None = "",
     session_uid: int | None = 0,
     use_selected_objects: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a procedural operation/effect to the active object
 
     :param asset_library_type: Asset Library Type, (optional)
@@ -2444,7 +2464,7 @@ def modifier_apply(
     single_user: bool | None = False,
     all_keyframes: bool | None = False,
     use_selected_objects: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Apply modifier and remove from the stack
 
     :param modifier: Modifier, Name of the modifier to edit (optional, never None)
@@ -2465,7 +2485,7 @@ def modifier_apply_as_shapekey(
     modifier: str | None = "",
     report: bool | None = False,
     use_selected_objects: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Apply modifier as a new shape key and remove from the stack
 
     :param keep_modifier: Keep Modifier, Do not remove the modifier from stack (optional)
@@ -2481,7 +2501,7 @@ def modifier_convert(
     /,
     *,
     modifier: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Convert particles to a mesh object
 
     :param modifier: Modifier, Name of the modifier to edit (optional, never None)
@@ -2495,7 +2515,7 @@ def modifier_copy(
     *,
     modifier: str | None = "",
     use_selected_objects: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Duplicate modifier at the same position in the stack
 
     :param modifier: Modifier, Name of the modifier to edit (optional, never None)
@@ -2509,7 +2529,7 @@ def modifier_copy_to_selected(
     /,
     *,
     modifier: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Copy the modifier from the active object to all selected objects
 
     :param modifier: Modifier, Name of the modifier to edit (optional, never None)
@@ -2522,7 +2542,7 @@ def modifier_move_down(
     /,
     *,
     modifier: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move modifier down in the stack
 
     :param modifier: Modifier, Name of the modifier to edit (optional, never None)
@@ -2537,7 +2557,7 @@ def modifier_move_to_index(
     modifier: str | None = "",
     index: int | None = 0,
     use_selected_objects: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Change the modifiers index in the stack so it evaluates after the set number of others
 
     :param modifier: Modifier, Name of the modifier to edit (optional, never None)
@@ -2552,7 +2572,7 @@ def modifier_move_up(
     /,
     *,
     modifier: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move modifier up in the stack
 
     :param modifier: Modifier, Name of the modifier to edit (optional, never None)
@@ -2567,7 +2587,7 @@ def modifier_remove(
     modifier: str | None = "",
     report: bool | None = False,
     use_selected_objects: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove a modifier from the active object
 
     :param modifier: Modifier, Name of the modifier to edit (optional, never None)
@@ -2582,7 +2602,7 @@ def modifier_set_active(
     /,
     *,
     modifier: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Activate the modifier to use as the context
 
     :param modifier: Modifier, Name of the modifier to edit (optional, never None)
@@ -2593,7 +2613,7 @@ def modifiers_clear(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Clear all modifiers from the selected objects
 
     :return: Result of the operator call.
@@ -2603,7 +2623,7 @@ def modifiers_copy_to_selected(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Copy modifiers to other selected objects
 
     :return: Result of the operator call.
@@ -2617,7 +2637,7 @@ def move_to_collection(
     collection_uid: int | None = -1,
     is_new: bool | None = False,
     new_collection_name: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move objects to a collection
 
     :param collection_uid: Collection UID, Session UID of the collection to move to (in [-1, inf], optional)
@@ -2633,7 +2653,7 @@ def multires_base_apply(
     *,
     modifier: str | None = "",
     apply_heuristic: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Modify the base mesh to conform to the displaced mesh
 
     :param modifier: Modifier, Name of the modifier to edit (optional, never None)
@@ -2645,7 +2665,7 @@ def multires_external_pack(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Pack displacements from an external file
 
     :return: Result of the operator call.
@@ -2683,7 +2703,7 @@ def multires_external_save(
     | None = "DEFAULT",
     sort_method: str | None = "",
     modifier: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Save displacements to an external file
 
         :param filepath: File Path, Path to file (optional, never None)
@@ -2731,7 +2751,7 @@ def multires_higher_levels_delete(
     /,
     *,
     modifier: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Deletes the higher resolution mesh, potential loss of detail
 
     :param modifier: Modifier, Name of the modifier to edit (optional, never None)
@@ -2744,7 +2764,7 @@ def multires_rebuild_subdiv(
     /,
     *,
     modifier: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Rebuilds all possible subdivisions levels to generate a lower resolution base mesh
 
     :param modifier: Modifier, Name of the modifier to edit (optional, never None)
@@ -2757,7 +2777,7 @@ def multires_reshape(
     /,
     *,
     modifier: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Copy vertex coordinates from other object
 
     :param modifier: Modifier, Name of the modifier to edit (optional, never None)
@@ -2771,7 +2791,7 @@ def multires_subdivide(
     *,
     modifier: str | None = "",
     mode: typing.Literal["CATMULL_CLARK", "SIMPLE", "LINEAR"] | None = "CATMULL_CLARK",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a new level of subdivision
 
         :param modifier: Modifier, Name of the modifier to edit (optional, never None)
@@ -2794,7 +2814,7 @@ def multires_unsubdivide(
     /,
     *,
     modifier: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Rebuild a lower subdivision level of the current base mesh
 
     :param modifier: Modifier, Name of the modifier to edit (optional, never None)
@@ -2808,7 +2828,7 @@ def ocean_bake(
     *,
     modifier: str | None = "",
     free: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Bake an image sequence of ocean data
 
     :param modifier: Modifier, Name of the modifier to edit (optional, never None)
@@ -2820,7 +2840,7 @@ def origin_clear(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Clear the objects origin
 
     :return: Result of the operator call.
@@ -2840,7 +2860,7 @@ def origin_set(
     ]
     | None = "GEOMETRY_ORIGIN",
     center: typing.Literal["MEDIAN", "BOUNDS"] | None = "MEDIAN",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set the objects origin, by either moving the data, or set to center of data, or use 3D cursor
 
         :param type: Type, (optional)
@@ -2870,7 +2890,7 @@ def parent_clear(
     *,
     type: typing.Literal["CLEAR", "CLEAR_KEEP_TRANSFORM", "CLEAR_INVERSE"]
     | None = "CLEAR",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Clear the objects parenting
 
         :param type: Type, (optional)
@@ -2890,7 +2910,7 @@ def parent_inverse_apply(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Apply the objects parent inverse to its data
 
     :return: Result of the operator call.
@@ -2902,7 +2922,7 @@ def parent_no_inverse_set(
     /,
     *,
     keep_transform: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set the objects parenting without setting the inverse parent correction
 
     :param keep_transform: Keep Transform, Preserve the world transform throughout parenting (optional)
@@ -2932,7 +2952,7 @@ def parent_set(
     | None = "OBJECT",
     xmirror: bool | None = False,
     keep_transform: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set the objects parenting
 
     :param type: Type, (optional)
@@ -2945,7 +2965,7 @@ def particle_system_add(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a particle system
 
     :return: Result of the operator call.
@@ -2955,7 +2975,7 @@ def particle_system_remove(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove the selected particle system
 
     :return: Result of the operator call.
@@ -2972,7 +2992,7 @@ def paste_transform(
     mirror_axis_loc: typing.Literal["x", "y", "z"] | None = "x",
     mirror_axis_rot: typing.Literal["x", "y", "z"] | None = "z",
     use_relative: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Pastes the matrix from the clipboard to the currently active pose bone or object. Uses world-space matrices
 
         :param method: Paste Method, Update the current transform, selected keyframes, or even create new keys (optional)
@@ -2998,10 +3018,11 @@ def paths_calculate(
     undo: bool | None = None,
     /,
     *,
-    display_type: Literal[bpy.stub_internal.rna_enums.MotionpathDisplayTypeItems]
+    display_type: typing.Literal[bpy.stub_internal.rna_enums.MotionpathDisplayTypeItems]
     | None = "RANGE",
-    range: Literal[bpy.stub_internal.rna_enums.MotionpathRangeItems] | None = "SCENE",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    range: typing.Literal[bpy.stub_internal.rna_enums.MotionpathRangeItems]
+    | None = "SCENE",
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Generate motion paths for the selected objects
 
     :param display_type: Display Type, (optional)
@@ -3015,7 +3036,7 @@ def paths_clear(
     /,
     *,
     only_selected: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
 
     :param only_selected: Only Selected, Only clear motion paths of selected objects (optional)
@@ -3026,7 +3047,7 @@ def paths_update(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Recalculate motion paths for selected objects
 
     :return: Result of the operator call.
@@ -3036,7 +3057,7 @@ def paths_update_visible(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Recalculate all visible motion paths for objects and poses
 
     :return: Result of the operator call.
@@ -3059,7 +3080,7 @@ def pointcloud_random_add(
         0.0,
     ),
     scale: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0, 0.0),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a point cloud object to the scene
 
         :param align: Align, The alignment of the new object (optional)
@@ -3082,7 +3103,7 @@ def posemode_toggle(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Enable or disable posing/selecting bones
 
     :return: Result of the operator call.
@@ -3104,7 +3125,7 @@ def quadriflow_remesh(
     target_faces: int | None = 4000,
     mesh_area: float | None = -1.0,
     seed: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Create a new quad based mesh using the surface data of the current mesh. All data layers will be lost
 
         :param use_mesh_symmetry: Use Mesh Symmetry, Generates a symmetrical mesh using the mesh symmetry configuration (optional)
@@ -3142,7 +3163,7 @@ def quick_explode(
     frame_end: int | None = 10,
     velocity: float | None = 1.0,
     fade: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Make selected objects explode
 
     :param style: Explode Style, (optional)
@@ -3167,7 +3188,7 @@ def quick_fur(
     apply_hair_guides: bool | None = True,
     use_noise: bool | None = True,
     use_frizz: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a fur setup to the selected objects
 
     :param density: Density, (optional)
@@ -3186,7 +3207,7 @@ def quick_liquid(
     /,
     *,
     show_flows: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Make selected objects liquid
 
     :param show_flows: Render Liquid Objects, Keep the liquid objects visible during rendering (optional)
@@ -3200,7 +3221,7 @@ def quick_smoke(
     *,
     style: typing.Literal["SMOKE", "FIRE", "BOTH"] | None = "SMOKE",
     show_flows: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Use selected objects as smoke emitters
 
     :param style: Smoke Style, (optional)
@@ -3222,7 +3243,7 @@ def randomize_transform(
     use_scale: bool | None = True,
     scale_even: bool | None = False,
     scale: collections.abc.Sequence[float] | None = (1.0, 1.0, 1.0),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Randomize objects location, rotation, and scale
 
     :param random_seed: Random Seed, Seed value for the random generator (in [0, 10000], optional)
@@ -3241,7 +3262,7 @@ def reset_override_library(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Reset the selected local overrides to their linked references values
 
     :return: Result of the operator call.
@@ -3253,7 +3274,7 @@ def rotation_clear(
     /,
     *,
     clear_delta: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Clear the objects rotation
 
     :param clear_delta: Clear Delta, Clear delta rotation in addition to clearing the normal rotation transform (optional)
@@ -3266,7 +3287,7 @@ def scale_clear(
     /,
     *,
     clear_delta: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Clear the objects scale
 
     :param clear_delta: Clear Delta, Clear delta scale in addition to clearing the normal scale transform (optional)
@@ -3279,7 +3300,7 @@ def select_all(
     /,
     *,
     action: typing.Literal["TOGGLE", "SELECT", "DESELECT", "INVERT"] | None = "TOGGLE",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Change selection of all visible objects in scene
 
         :param action: Action, Selection action to execute (optional)
@@ -3304,8 +3325,8 @@ def select_by_type(
     /,
     *,
     extend: bool | None = False,
-    type: Literal[bpy.stub_internal.rna_enums.ObjectTypeItems] | None = "MESH",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    type: typing.Literal[bpy.stub_internal.rna_enums.ObjectTypeItems] | None = "MESH",
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select all visible objects that are of a type
 
     :param extend: Extend, Extend selection instead of deselecting everything first (optional)
@@ -3319,7 +3340,7 @@ def select_camera(
     /,
     *,
     extend: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select the active camera
 
     :param extend: Extend, Extend the selection (optional)
@@ -3346,7 +3367,7 @@ def select_grouped(
         "LIGHT_TYPE",
     ]
     | None = "CHILDREN_RECURSIVE",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select all visible objects grouped by various properties
 
         :param extend: Extend, Extend selection instead of deselecting everything first (optional)
@@ -3394,7 +3415,7 @@ def select_hierarchy(
     *,
     direction: typing.Literal["PARENT", "CHILD"] | None = "PARENT",
     extend: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select object relative to the active objects position in the hierarchy
 
     :param direction: Direction, Direction to select in the hierarchy (optional)
@@ -3406,7 +3427,7 @@ def select_less(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Deselect objects at the boundaries of parent/child relationships
 
     :return: Result of the operator call.
@@ -3422,7 +3443,7 @@ def select_linked(
         "OBDATA", "MATERIAL", "DUPGROUP", "PARTICLE", "LIBRARY", "LIBRARY_OBDATA"
     ]
     | None = "OBDATA",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select all visible objects that are linked
 
     :param extend: Extend, Extend selection instead of deselecting everything first (optional)
@@ -3436,7 +3457,7 @@ def select_mirror(
     /,
     *,
     extend: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select the mirror objects of the selected object e.g. "L.sword" and "R.sword"
 
     :param extend: Extend, Extend selection instead of deselecting everything first (optional)
@@ -3447,7 +3468,7 @@ def select_more(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select connected parent/child objects
 
     :return: Result of the operator call.
@@ -3461,7 +3482,7 @@ def select_pattern(
     pattern: str | None = "*",
     case_sensitive: bool | None = False,
     extend: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select objects matching a naming pattern
 
     :param pattern: Pattern, Name filter using *, ? and [abc] unix style wildcards (optional, never None)
@@ -3478,7 +3499,7 @@ def select_random(
     ratio: float | None = 0.5,
     seed: int | None = 0,
     action: typing.Literal["SELECT", "DESELECT"] | None = "SELECT",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select or deselect random visible objects
 
         :param ratio: Ratio, Portion of items to select randomly (in [0, 1], optional)
@@ -3499,7 +3520,7 @@ def select_same_collection(
     /,
     *,
     collection: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select object in the same collection
 
     :param collection: Collection, Name of the collection to select (optional, never None)
@@ -3513,7 +3534,7 @@ def shade_auto_smooth(
     *,
     use_auto_smooth: bool | None = True,
     angle: float | None = 0.523599,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add modifier to automatically set the sharpness of mesh edges based on the angle between the neighboring faces
 
     :param use_auto_smooth: Auto Smooth, Add modifier to set edge sharpness automatically (optional)
@@ -3527,7 +3548,7 @@ def shade_flat(
     /,
     *,
     keep_sharp_edges: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Render and display faces uniform, using face normals
 
     :param keep_sharp_edges: Keep Sharp Edges, Dont remove sharp edges, which are redundant with faces shaded smooth (optional)
@@ -3540,7 +3561,7 @@ def shade_smooth(
     /,
     *,
     keep_sharp_edges: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Render and display faces smooth, using interpolated vertex normals
 
     :param keep_sharp_edges: Keep Sharp Edges, Dont remove sharp edges. Tagged edges will remain sharp (optional)
@@ -3554,7 +3575,7 @@ def shade_smooth_by_angle(
     *,
     angle: float | None = 0.523599,
     keep_sharp_edges: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set the sharpness of mesh edges based on the angle between the neighboring faces
 
     :param angle: Angle, Maximum angle between face normals that will be considered as smooth (in [0, 3.14159], optional)
@@ -3567,9 +3588,9 @@ def shaderfx_add(
     undo: bool | None = None,
     /,
     *,
-    type: Literal[bpy.stub_internal.rna_enums.ObjectShaderfxTypeItems]
+    type: typing.Literal[bpy.stub_internal.rna_enums.ObjectShaderfxTypeItems]
     | None = "FX_BLUR",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a visual effect to the active object
 
     :param type: Type, (optional)
@@ -3582,7 +3603,7 @@ def shaderfx_copy(
     /,
     *,
     shaderfx: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Duplicate effect at the same position in the stack
 
     :param shaderfx: Shader, Name of the shaderfx to edit (optional, never None)
@@ -3595,7 +3616,7 @@ def shaderfx_move_down(
     /,
     *,
     shaderfx: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move effect down in the stack
 
     :param shaderfx: Shader, Name of the shaderfx to edit (optional, never None)
@@ -3609,7 +3630,7 @@ def shaderfx_move_to_index(
     *,
     shaderfx: str | None = "",
     index: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Change the effects position in the list so it evaluates after the set number of others
 
     :param shaderfx: Shader, Name of the shaderfx to edit (optional, never None)
@@ -3623,7 +3644,7 @@ def shaderfx_move_up(
     /,
     *,
     shaderfx: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move effect up in the stack
 
     :param shaderfx: Shader, Name of the shaderfx to edit (optional, never None)
@@ -3637,7 +3658,7 @@ def shaderfx_remove(
     *,
     shaderfx: str | None = "",
     report: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove a effect from the active Grease Pencil object
 
     :param shaderfx: Shader, Name of the shaderfx to edit (optional, never None)
@@ -3651,7 +3672,7 @@ def shape_key_add(
     /,
     *,
     from_mix: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add shape key to the object
 
     :param from_mix: From Mix, Create the new shape key from the existing mix of keys (optional)
@@ -3662,7 +3683,7 @@ def shape_key_apply_to_basis(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Apply deformations of selected shape keys to the basis key, removing them
 
     :return: Result of the operator call.
@@ -3672,7 +3693,7 @@ def shape_key_clear(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Reset the weights of all shape keys to 0 or to the closest value respecting the limits
 
     :return: Result of the operator call.
@@ -3682,7 +3703,7 @@ def shape_key_copy(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Duplicate the active shape key
 
     :return: Result of the operator call.
@@ -3694,7 +3715,7 @@ def shape_key_lock(
     /,
     *,
     action: typing.Literal["LOCK", "UNLOCK"] | None = "LOCK",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Change the lock state of all shape keys of active object
 
         :param action: Action, Lock action to execute on vertex groups (optional)
@@ -3711,7 +3732,7 @@ def shape_key_make_basis(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Make this shape key the new basis key, effectively applying it to the mesh. Note that this applies the shape key at its 100% value
 
     :return: Result of the operator call.
@@ -3723,7 +3744,7 @@ def shape_key_mirror(
     /,
     *,
     use_topology: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Mirror the current shape key along the local X axis
 
     :param use_topology: Topology Mirror, Use topology based mirroring (for when both sides of mesh have matching, unique topology) (optional)
@@ -3736,7 +3757,7 @@ def shape_key_move(
     /,
     *,
     type: typing.Literal["TOP", "UP", "DOWN", "BOTTOM"] | None = "TOP",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move selected shape keys up/down in the list
 
         :param type: Type, (optional)
@@ -3762,7 +3783,7 @@ def shape_key_remove(
     *,
     all: bool | None = False,
     apply_mix: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove shape key from the object
 
     :param all: All, Remove all shape keys (optional)
@@ -3774,7 +3795,7 @@ def shape_key_retime(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Resets the timing for absolute shape keys
 
     :return: Result of the operator call.
@@ -3787,7 +3808,7 @@ def shape_key_transfer(
     *,
     mode: typing.Literal["OFFSET", "RELATIVE_FACE", "RELATIVE_EDGE"] | None = "OFFSET",
     use_clamp: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Copy the active shape key of another selected object to this one
 
         :param mode: Transformation Mode, Relative shape positions to the new shape method (optional)
@@ -3810,7 +3831,7 @@ def simulation_nodes_cache_bake(
     /,
     *,
     selected: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Bake simulations in geometry nodes modifiers
 
     :param selected: Selected, Bake cache on all selected objects (optional)
@@ -3823,7 +3844,7 @@ def simulation_nodes_cache_calculate_to_frame(
     /,
     *,
     selected: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Calculate simulations in geometry nodes modifiers from the start to current frame
 
     :param selected: Selected, Calculate all selected objects instead of just the active object (optional)
@@ -3836,7 +3857,7 @@ def simulation_nodes_cache_delete(
     /,
     *,
     selected: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Delete cached/baked simulations in geometry nodes modifiers
 
     :param selected: Selected, Delete cache on all selected objects (optional)
@@ -3849,7 +3870,7 @@ def skin_armature_create(
     /,
     *,
     modifier: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Create an armature that parallels the skin layout
 
     :param modifier: Modifier, Name of the modifier to edit (optional, never None)
@@ -3862,7 +3883,7 @@ def skin_loose_mark_clear(
     /,
     *,
     action: typing.Literal["MARK", "CLEAR"] | None = "MARK",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Mark/clear selected vertices as loose
 
         :param action: Action, (optional)
@@ -3879,7 +3900,7 @@ def skin_radii_equalize(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Make skin radii of selected vertices equal on each axis
 
     :return: Result of the operator call.
@@ -3889,7 +3910,7 @@ def skin_root_mark(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Mark selected vertices as roots
 
     :return: Result of the operator call.
@@ -3913,7 +3934,7 @@ def speaker_add(
         0.0,
     ),
     scale: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0, 0.0),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a speaker object to the scene
 
         :param enter_editmode: Enter Edit Mode, Enter edit mode when adding this object (optional)
@@ -3941,7 +3962,7 @@ def subdivision_set(
     level: int | None = 1,
     relative: bool | None = False,
     ensure_modifier: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Sets a Subdivision Surface level (1 to 5)
 
     :param level: Level, (in [-100, 100], optional)
@@ -3956,7 +3977,7 @@ def surfacedeform_bind(
     /,
     *,
     modifier: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Bind mesh to target in surface deform modifier
 
     :param modifier: Modifier, Name of the modifier to edit (optional, never None)
@@ -3982,7 +4003,7 @@ def text_add(
         0.0,
     ),
     scale: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0, 0.0),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a text object to the scene
 
         :param radius: Radius, (in [0, inf], optional)
@@ -4009,7 +4030,7 @@ def track_clear(
     /,
     *,
     type: typing.Literal["CLEAR", "CLEAR_KEEP_TRANSFORM"] | None = "CLEAR",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Clear tracking constraint or flag from object
 
     :param type: Type, (optional)
@@ -4022,7 +4043,7 @@ def track_set(
     /,
     *,
     type: typing.Literal["DAMPTRACK", "TRACKTO", "LOCKTRACK"] | None = "DAMPTRACK",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Make the object track another object, using various methods/constraints
 
     :param type: Type, (optional)
@@ -4035,7 +4056,7 @@ def transfer_mode(
     /,
     *,
     use_flash_on_transfer: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Switches the active object and assigns the same mode to a new one under the mouse cursor, leaving the active mode in the current one
 
     :param use_flash_on_transfer: Flash On Transfer, Flash the target object when transferring the mode (optional)
@@ -4053,7 +4074,7 @@ def transform_apply(
     properties: bool | None = True,
     corrective_flip_normals: bool | None = True,
     isolate_users: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Apply the objects transformation to its data
 
     :param location: Location, (optional)
@@ -4069,7 +4090,7 @@ def transform_axis_target(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Interactively point cameras and lights to the surface under the pointer (Ctrl to translate)
 
     :return: Result of the operator call.
@@ -4092,7 +4113,7 @@ def transform_to_mouse(
     ),
     drop_x: int | None = 0,
     drop_y: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Snap selected item(s) to the mouse location
 
     :param name: Name, Object name to place (uses the active object when this and session_uid are unset) (optional, never None)
@@ -4110,7 +4131,7 @@ def transforms_to_deltas(
     *,
     mode: typing.Literal["ALL", "LOC", "ROT", "SCALE"] | None = "ALL",
     reset_values: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Convert normal object transforms to delta transforms, any existing delta transforms will be included as well
 
         :param mode: Mode, Which transforms to transfer (optional)
@@ -4134,7 +4155,7 @@ def unlink_data(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
 
     :return: Result of the operator call.
@@ -4146,7 +4167,7 @@ def update_shapes(
     /,
     *,
     use_mirror: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Update existing shape keys with the vertex positions of selected objects with matching names
 
     :param use_mirror: Mirror, Mirror the new shape key values (optional)
@@ -4157,7 +4178,7 @@ def vertex_group_add(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a new vertex group to the active object
 
     :return: Result of the operator call.
@@ -4167,7 +4188,7 @@ def vertex_group_assign(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Assign the selected vertices to the active vertex group
 
     :return: Result of the operator call.
@@ -4177,7 +4198,7 @@ def vertex_group_assign_new(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Assign the selected vertices to a new vertex group
 
     :return: Result of the operator call.
@@ -4191,7 +4212,7 @@ def vertex_group_clean(
     group_select_mode: str | None = "",
     limit: float | None = 0.0,
     keep_single: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove vertex group assignments which are not required
 
     :param group_select_mode: Subset, Define which subset of groups shall be used (optional)
@@ -4204,7 +4225,7 @@ def vertex_group_copy(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Make a copy of the active vertex group
 
     :return: Result of the operator call.
@@ -4214,7 +4235,7 @@ def vertex_group_copy_to_selected(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Replace vertex groups of selected objects by vertex groups of active object
 
     :return: Result of the operator call.
@@ -4224,7 +4245,7 @@ def vertex_group_deselect(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Deselect all selected vertices assigned to the active vertex group
 
     :return: Result of the operator call.
@@ -4238,7 +4259,7 @@ def vertex_group_invert(
     group_select_mode: str | None = "",
     auto_assign: bool | None = True,
     auto_remove: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Invert active vertex groups weights
 
     :param group_select_mode: Subset, Define which subset of groups shall be used (optional)
@@ -4255,7 +4276,7 @@ def vertex_group_levels(
     group_select_mode: str | None = "",
     offset: float | None = 0.0,
     gain: float | None = 1.0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add some offset and multiply with some gain the weights of the active vertex group
 
     :param group_select_mode: Subset, Define which subset of groups shall be used (optional)
@@ -4271,7 +4292,7 @@ def vertex_group_limit_total(
     *,
     group_select_mode: str | None = "",
     limit: int | None = 4,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Limit deform weights associated with a vertex to a specified number by removing lowest weights
 
     :param group_select_mode: Subset, Define which subset of groups shall be used (optional)
@@ -4287,7 +4308,7 @@ def vertex_group_lock(
     action: typing.Literal["TOGGLE", "LOCK", "UNLOCK", "INVERT"] | None = "TOGGLE",
     mask: typing.Literal["ALL", "SELECTED", "UNSELECTED", "INVERT_UNSELECTED"]
     | None = "ALL",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Change the lock state of all or some vertex groups of active object
 
         :param action: Action, Lock action to execute on vertex groups (optional)
@@ -4328,7 +4349,7 @@ def vertex_group_mirror(
     flip_group_names: bool | None = True,
     all_groups: bool | None = False,
     use_topology: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Mirror vertex group, flip weights and/or names, editing only selected vertices, flipping when both sides are selected otherwise copy from unselected
 
     :param mirror_weights: Mirror Weights, Mirror weights (optional)
@@ -4344,7 +4365,7 @@ def vertex_group_move(
     /,
     *,
     direction: typing.Literal["UP", "DOWN"] | None = "UP",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move the active vertex group up/down in the list
 
     :param direction: Direction, Direction to move the active vertex group towards (optional)
@@ -4355,7 +4376,7 @@ def vertex_group_normalize(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Normalize weights of the active vertex group, so that the highest ones are now 1.0
 
     :return: Result of the operator call.
@@ -4368,7 +4389,7 @@ def vertex_group_normalize_all(
     *,
     group_select_mode: str | None = "",
     lock_active: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Normalize all weights of all vertex groups, so that for each vertex, the sum of all weights is 1.0
 
     :param group_select_mode: Subset, Define which subset of groups shall be used (optional)
@@ -4383,7 +4404,7 @@ def vertex_group_quantize(
     *,
     group_select_mode: str | None = "",
     steps: int | None = 4,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set weights to a fixed number of steps
 
     :param group_select_mode: Subset, Define which subset of groups shall be used (optional)
@@ -4398,7 +4419,7 @@ def vertex_group_remove(
     *,
     all: bool | None = False,
     all_unlocked: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Delete the active or all vertex groups from the active object
 
     :param all: All, Remove all vertex groups (optional)
@@ -4413,7 +4434,7 @@ def vertex_group_remove_from(
     *,
     use_all_groups: bool | None = False,
     use_all_verts: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove the selected vertices from active or all vertex group(s)
 
     :param use_all_groups: All Groups, Remove from all groups (optional)
@@ -4425,7 +4446,7 @@ def vertex_group_select(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select all the vertices assigned to the active vertex group
 
     :return: Result of the operator call.
@@ -4437,7 +4458,7 @@ def vertex_group_set_active(
     /,
     *,
     group: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set the active vertex group
 
     :param group: Group, Vertex group to set as active (optional)
@@ -4453,7 +4474,7 @@ def vertex_group_smooth(
     factor: float | None = 0.5,
     repeat: int | None = 1,
     expand: float | None = 0.0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Smooth weights for selected vertices
 
     :param group_select_mode: Subset, Define which subset of groups shall be used (optional)
@@ -4469,7 +4490,7 @@ def vertex_group_sort(
     /,
     *,
     sort_type: typing.Literal["NAME", "BONE_HIERARCHY"] | None = "NAME",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Sort vertex groups
 
     :param sort_type: Sort Type, Sort type (optional)
@@ -4480,7 +4501,7 @@ def vertex_parent_set(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Parent selected objects to the selected vertices
 
     :return: Result of the operator call.
@@ -4490,7 +4511,7 @@ def vertex_weight_copy(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Copy weights from active to selected
 
     :return: Result of the operator call.
@@ -4502,7 +4523,7 @@ def vertex_weight_delete(
     /,
     *,
     weight_group: int | None = -1,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Delete this weight from the vertex (disabled if vertex group is locked)
 
     :param weight_group: Weight Index, Index of source weight in active vertex group (in [-1, inf], optional)
@@ -4513,7 +4534,7 @@ def vertex_weight_normalize_active_vertex(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Normalize active vertexs weights
 
     :return: Result of the operator call.
@@ -4525,7 +4546,7 @@ def vertex_weight_paste(
     /,
     *,
     weight_group: int | None = -1,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Copy this groups weight to other selected vertices (disabled if vertex group is locked)
 
     :param weight_group: Weight Index, Index of source weight in active vertex group (in [-1, inf], optional)
@@ -4538,7 +4559,7 @@ def vertex_weight_set_active(
     /,
     *,
     weight_group: int | None = -1,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set as active vertex group
 
     :param weight_group: Weight Index, Index of source weight in active vertex group (in [-1, inf], optional)
@@ -4549,7 +4570,7 @@ def visual_geometry_to_objects(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Convert geometry and instances into editable objects and collections
 
     :return: Result of the operator call.
@@ -4559,7 +4580,7 @@ def visual_transform_apply(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Apply the objects visual transformation to its data
 
     :return: Result of the operator call.
@@ -4582,7 +4603,7 @@ def volume_add(
         0.0,
     ),
     scale: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0, 0.0),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a volume object to the scene
 
         :param align: Align, The alignment of the new object (optional)
@@ -4647,7 +4668,7 @@ def volume_import(
         0.0,
     ),
     scale: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0, 0.0),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Import OpenVDB volume file
 
         :param filepath: File Path, Path to file (optional, never None)
@@ -4708,7 +4729,7 @@ def voxel_remesh(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Calculates a new manifold mesh based on the volume of the current mesh. All data layers will be lost
 
     :return: Result of the operator call.
@@ -4718,7 +4739,7 @@ def voxel_size_edit(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Modify the mesh voxel size interactively used in the voxel remesher
 
     :return: Result of the operator call.

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aws_lambda_builders
-Version: 1.62.0
+Version: 1.63.0
 Summary: Python library to compile, build & package AWS Lambda functions for several runtimes & frameworks.
 Home-page: https://github.com/awslabs/aws-lambda-builders
 Author: Amazon Web Services
@@ -41,7 +41,7 @@ Requires-Dist: parameterized==0.9.0; extra == "dev"
 Requires-Dist: pyelftools~=0.32; extra == "dev"
 Requires-Dist: black==25.11.0; python_version >= "3.9" and extra == "dev"
 Requires-Dist: black==24.8.0; python_version < "3.9" and extra == "dev"
-Requires-Dist: ruff==0.14.13; extra == "dev"
+Requires-Dist: ruff==0.15.2; extra == "dev"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

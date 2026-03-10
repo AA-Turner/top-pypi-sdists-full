@@ -6,6 +6,7 @@
 #                               |_| XML parser
 #
 # Copyright (c) 2025 Sebastian Pipping <sebastian@pipping.org>
+# Copyright (c) 2025 Atrem Borovik <polzovatellllk@gmail.com>
 # Licensed under the MIT license:
 #
 # Permission is  hereby granted,  free of charge,  to any  person obtaining
@@ -44,13 +45,13 @@ jobs:
     name: Build with WASI SDK
     runs-on: ubuntu-22.04
     steps:
-    - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6.0.1
+    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
 
     - name: Install build dependencies
       run: |-
         set -x
-        wget https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-29/wasi-sdk-29.0-x86_64-linux.deb
-        sudo apt-get install --yes ./wasi-sdk-29.0-x86_64-linux.deb
+        wget https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-30/wasi-sdk-30.0-x86_64-linux.deb
+        sudo apt-get install --yes ./wasi-sdk-30.0-x86_64-linux.deb
 
     - name: Build using WASI SDK
       run: |

@@ -96,8 +96,6 @@ class ThoughtspotView(Asset):
     OUTPUT_FROM_SPARK_JOBS: ClassVar[Any] = None
     THOUGHTSPOT_COLUMNS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "ThoughtspotView"
-
     thoughtspot_chart_type: Union[str, None, UnsetType] = UNSET
     """"""
 
@@ -488,6 +486,9 @@ def _thoughtspot_view_to_nested(
         is_incomplete=thoughtspot_view.is_incomplete,
         provenance_type=thoughtspot_view.provenance_type,
         home_id=thoughtspot_view.home_id,
+        depth=thoughtspot_view.depth,
+        immediate_upstream=thoughtspot_view.immediate_upstream,
+        immediate_downstream=thoughtspot_view.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -521,7 +522,6 @@ def _thoughtspot_view_from_nested(nested: ThoughtspotViewNested) -> ThoughtspotV
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -530,6 +530,9 @@ def _thoughtspot_view_from_nested(nested: ThoughtspotViewNested) -> ThoughtspotV
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_thoughtspot_view_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

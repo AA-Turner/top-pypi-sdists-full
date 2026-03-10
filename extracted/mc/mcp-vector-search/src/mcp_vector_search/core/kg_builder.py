@@ -168,6 +168,11 @@ class KGBuilder:
         self.kg = kg
         self.project_root = project_root
         self._entity_map: dict[str, str] = {}  # name -> chunk_id mapping
+        self._entity_name_counts: dict[
+            str, int
+        ] = {}  # name -> count (for ambiguity detection)
+        self._class_member_map: dict[str, dict[str, str]] = {}
+        # class_name -> {method_name -> chunk_id}
         self._metadata_path = (
             project_root / ".mcp-vector-search" / "knowledge_graph" / "kg_metadata.json"
         )
@@ -205,6 +210,7 @@ class KGBuilder:
         entities_created: int,
         relationships_created: int,
         build_duration_seconds: float,
+        file_hashes: dict[str, str] | None = None,
     ) -> None:
         """Save KG metadata to disk.
 
@@ -214,6 +220,8 @@ class KGBuilder:
             entities_created: Number of entities created
             relationships_created: Number of relationships created
             build_duration_seconds: Build duration in seconds
+            file_hashes: Optional mapping of file_path -> sha256 used in this build.
+                When provided, enables hash-based incremental builds.
         """
         # Ensure directory exists
         self._metadata_path.parent.mkdir(parents=True, exist_ok=True)
@@ -233,12 +241,93 @@ class KGBuilder:
             "build_duration_seconds": build_duration_seconds,
         }
 
+        if file_hashes is not None:
+            metadata["file_hashes"] = file_hashes
+
         try:
             with open(self._metadata_path, "w") as f:
                 json.dump(metadata, f, indent=2)
             logger.debug(f"Saved KG metadata to {self._metadata_path}")
         except Exception as e:
             logger.warning(f"Failed to save KG metadata: {e}")
+
+    def update_metadata_file_hashes(self, file_hashes: dict[str, str]) -> None:
+        """Patch the on-disk kg_metadata.json to store updated file hashes.
+
+        Called by the parent process after a successful incremental subprocess build
+        to record the new hashes for files that were processed or deleted.
+
+        Args:
+            file_hashes: Full current mapping of file_path -> sha256 (all indexed files).
+        """
+        self._metadata_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Load existing metadata (may not exist on first run)
+        existing: dict = {}
+        if self._metadata_path.exists():
+            try:
+                with open(self._metadata_path) as f:
+                    existing = json.load(f)
+            except Exception as e:
+                logger.warning(
+                    f"update_metadata_file_hashes: failed to load existing metadata: {e}"
+                )
+
+        existing["file_hashes"] = file_hashes
+
+        try:
+            with open(self._metadata_path, "w") as f:
+                json.dump(existing, f, indent=2)
+            logger.debug(
+                "update_metadata_file_hashes: stored %d file hashes in %s",
+                len(file_hashes),
+                self._metadata_path,
+            )
+        except Exception as e:
+            logger.warning(
+                f"update_metadata_file_hashes: failed to write metadata: {e}"
+            )
+
+    def _get_changed_files(
+        self,
+        current_hashes: dict[str, str],
+    ) -> tuple[set[str], set[str], set[str]]:
+        """Compare current file hashes to the last KG build.
+
+        Reads ``file_hashes`` from ``kg_metadata.json``.  If the field is absent
+        (first run or old build without hash tracking) all current files are
+        reported as *new* so a full build is triggered.
+
+        Args:
+            current_hashes: Mapping of file_path -> sha256 from LanceDB (all
+                currently indexed files).
+
+        Returns:
+            Tuple of (changed_files, new_files, deleted_files) — each a set of
+            file_path strings.
+            - changed_files: files present in both sets but with differing hash
+            - new_files: files in current_hashes not in the stored metadata
+            - deleted_files: files in stored metadata not in current_hashes
+        """
+        metadata = self._load_metadata()
+        if metadata is None or "file_hashes" not in metadata:
+            # No prior hash data — treat everything as new (full build)
+            return set(), set(current_hashes.keys()), set()
+
+        stored_hashes: dict[str, str] = metadata["file_hashes"]
+
+        current_set = set(current_hashes.keys())
+        stored_set = set(stored_hashes.keys())
+
+        new_files = current_set - stored_set
+        deleted_files = stored_set - current_set
+        changed_files = {
+            fp
+            for fp in current_set & stored_set
+            if current_hashes[fp] != stored_hashes[fp]
+        }
+
+        return changed_files, new_files, deleted_files
 
     def _get_processed_chunk_ids(self) -> set[str]:
         """Get set of chunk IDs from metadata.
@@ -414,6 +503,10 @@ class KGBuilder:
             "CONTAINS_SECTION": [],
             "RELATED_TO": [],
         }
+
+        # Pre-scan: build complete entity map before resolving relationships
+        # This ensures calls to later-processed entities are not silently dropped
+        self._prescan_entity_names(code_chunks)
 
         # Extract from code chunks
         start_time = time.time()
@@ -909,6 +1002,10 @@ class KGBuilder:
                 "RELATED_TO": [],
             }
 
+            # Pre-scan: build complete entity map before resolving relationships
+            # This ensures calls to later-processed entities are not silently dropped
+            self._prescan_entity_names(code_chunks)
+
             # Extract from code chunks
             for chunk in code_chunks:
                 entity, rels, modules = self._extract_code_entity(chunk)
@@ -1004,6 +1101,10 @@ class KGBuilder:
                 "RELATED_TO": [],
             }
 
+            # Pre-scan: build complete entity map before resolving relationships
+            # This ensures calls to later-processed entities are not silently dropped
+            self._prescan_entity_names(code_chunks)
+
             # Extract from code chunks
             for chunk in code_chunks:
                 entity, rels, modules = self._extract_code_entity(chunk)
@@ -1082,6 +1183,39 @@ class KGBuilder:
 
         return stats
 
+    def _prescan_entity_names(self, chunks: list["CodeChunk"]) -> None:
+        """Pre-populate entity name map and count occurrences before relationship extraction.
+
+        This must be called with ALL code chunks before any call to _extract_code_entity,
+        so that _resolve_entity has a complete map when resolving CALLS relationships.
+
+        Args:
+            chunks: All code chunks to scan
+        """
+        self._entity_map.clear()
+        self._entity_name_counts.clear()
+        self._class_member_map.clear()
+
+        for chunk in chunks:
+            chunk_id = chunk.chunk_id or chunk.id
+            name = self._get_entity_name(chunk)
+
+            # Track class members for scoped self.method() / cls.method() resolution.
+            # Done before the generic-name filter so that private methods (_foo) are
+            # still reachable via scoped resolution even if excluded from the global map.
+            if chunk.class_name and chunk.function_name:
+                if chunk.class_name not in self._class_member_map:
+                    self._class_member_map[chunk.class_name] = {}
+                self._class_member_map[chunk.class_name][chunk.function_name] = chunk_id
+
+            if self._is_generic_entity(name):
+                continue
+
+            # Count occurrences (for ambiguity detection)
+            self._entity_name_counts[name] = self._entity_name_counts.get(name, 0) + 1
+            # Last-write-wins for the map — counts tell us if it's ambiguous
+            self._entity_map[name] = chunk_id
+
     def _extract_code_entity(
         self, chunk: CodeChunk
     ) -> tuple[CodeEntity | None, dict[str, list[CodeRelationship]], list[CodeEntity]]:
@@ -1143,10 +1277,13 @@ class KGBuilder:
             name=name,
             entity_type=chunk.chunk_type,
             file_path=str(chunk.file_path),
+            commit_sha=chunk.commit_hash or "",
         )
 
         # Track entity name mapping for relationship resolution
-        self._entity_map[name] = chunk_id
+        # Pre-scan already populated this; update to ensure this chunk's id is current
+        if name not in self._entity_map or self._entity_name_counts.get(name, 0) == 1:
+            self._entity_map[name] = chunk_id
 
         relationships: dict[str, list[CodeRelationship]] = {
             "CALLS": [],
@@ -1159,7 +1296,11 @@ class KGBuilder:
         # Process function calls
         if hasattr(chunk, "calls") and chunk.calls:
             for called in chunk.calls:
-                target_id = self._resolve_entity(called)
+                # Try scoped resolution (self.method() / cls.method()) first
+                target_id = self._resolve_scoped(called, chunk.class_name)
+                if target_id is None:
+                    # Fall back to unique-name resolution
+                    target_id = self._resolve_entity(called)
                 if target_id:
                     relationships["CALLS"].append(
                         CodeRelationship(
@@ -1222,6 +1363,7 @@ class KGBuilder:
             name=name,
             entity_type=chunk.chunk_type,
             file_path=str(chunk.file_path),
+            commit_sha=chunk.commit_hash or "",
         )
 
         try:
@@ -1234,8 +1376,11 @@ class KGBuilder:
             # Process function calls
             if hasattr(chunk, "calls") and chunk.calls:
                 for called in chunk.calls:
-                    # Try to resolve target entity
-                    target_id = self._resolve_entity(called)
+                    # Try scoped resolution (self.method() / cls.method()) first
+                    target_id = self._resolve_scoped(called, chunk.class_name)
+                    if target_id is None:
+                        # Fall back to unique-name resolution
+                        target_id = self._resolve_entity(called)
 
                     if target_id:
                         rel = CodeRelationship(
@@ -1305,23 +1450,58 @@ class KGBuilder:
         except Exception as e:
             logger.debug(f"Failed to process chunk {chunk_id}: {e}")
 
+    def _resolve_scoped(self, name: str, caller_class_name: str | None) -> str | None:
+        """Resolve self.method() / cls.method() using class membership.
+
+        Args:
+            name: Raw callee name, e.g. 'self.search' or 'cls._build'
+            caller_class_name: class_name of the chunk making the call
+
+        Returns:
+            chunk_id if resolved, else None
+        """
+        if not caller_class_name:
+            return None
+        if "." not in name:
+            return None
+        base, _, method = name.partition(".")
+        if base not in ("self", "cls"):
+            return None
+        class_methods = self._class_member_map.get(caller_class_name, {})
+        return class_methods.get(method)
+
     def _resolve_entity(self, name: str) -> str | None:
         """Resolve entity name to chunk ID.
 
+        Only resolves names that are unique across the codebase — ambiguous names
+        (multiple entities sharing the same name) return None to avoid false-positive
+        CALLS edges.
+
         Args:
-            name: Entity name to resolve
+            name: Entity name to resolve (may be dotted, e.g. "module.function")
 
         Returns:
-            Chunk ID if found, None otherwise
+            Chunk ID if found and unambiguous, None otherwise
         """
         # Direct lookup
         if name in self._entity_map:
+            # Skip if multiple entities share this name — would create wrong edge
+            if self._entity_name_counts.get(name, 0) > 1:
+                logger.debug(
+                    f"Skipping ambiguous entity: '{name}' ({self._entity_name_counts[name]} occurrences)"
+                )
+                return None
             return self._entity_map[name]
 
         # Try without module prefix (e.g., "module.function" -> "function")
         if "." in name:
             short_name = name.split(".")[-1]
             if short_name in self._entity_map:
+                if self._entity_name_counts.get(short_name, 0) > 1:
+                    logger.debug(
+                        f"Skipping ambiguous short name: '{short_name}' (from '{name}')"
+                    )
+                    return None
                 return self._entity_map[short_name]
 
         return None

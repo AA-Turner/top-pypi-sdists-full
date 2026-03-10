@@ -9,7 +9,7 @@ from .models import SocialAccount
 
 
 class SignupForm(BaseSignupForm):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         self.sociallogin = kwargs.pop("sociallogin")
         initial = get_adapter().get_signup_form_initial_data(self.sociallogin)
         kwargs.update(
@@ -20,7 +20,7 @@ class SignupForm(BaseSignupForm):
                 ),
             }
         )
-        super(SignupForm, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
     def save(self, request):
         adapter = get_adapter()
@@ -28,9 +28,9 @@ class SignupForm(BaseSignupForm):
         self.custom_signup(request, user)
         return user
 
-    def validate_unique_email(self, value):
+    def validate_unique_email(self, value) -> str:
         try:
-            return super(SignupForm, self).validate_unique_email(value)
+            return super().validate_unique_email(value)
         except forms.ValidationError:
             raise get_adapter().validation_error(
                 "email_taken", self.sociallogin.provider.name
@@ -47,16 +47,16 @@ class DisconnectForm(forms.Form):
     def __init__(self, *args, **kwargs):
         self.request = kwargs.pop("request")
         self.accounts = SocialAccount.objects.filter(user=self.request.user)
-        super(DisconnectForm, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.fields["account"].queryset = self.accounts
 
     def clean(self):
-        cleaned_data = super(DisconnectForm, self).clean()
+        cleaned_data = super().clean()
         account = cleaned_data.get("account")
         if account:
             flows.connect.validate_disconnect(self.request, account)
         return cleaned_data
 
-    def save(self):
+    def save(self) -> None:
         account = self.cleaned_data["account"]
         flows.connect.disconnect(self.request, account)

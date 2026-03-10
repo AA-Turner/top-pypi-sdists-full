@@ -99,8 +99,6 @@ class MetabaseCollection(Asset):
     INPUT_TO_SPARK_JOBS: ClassVar[Any] = None
     OUTPUT_FROM_SPARK_JOBS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "MetabaseCollection"
-
     metabase_slug: Union[str, None, UnsetType] = UNSET
     """"""
 
@@ -516,6 +514,9 @@ def _metabase_collection_to_nested(
         is_incomplete=metabase_collection.is_incomplete,
         provenance_type=metabase_collection.provenance_type,
         home_id=metabase_collection.home_id,
+        depth=metabase_collection.depth,
+        immediate_upstream=metabase_collection.immediate_upstream,
+        immediate_downstream=metabase_collection.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -551,7 +552,6 @@ def _metabase_collection_from_nested(
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -560,6 +560,9 @@ def _metabase_collection_from_nested(
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_metabase_collection_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: enterprise-integrated-channels
-Version: 0.1.48
+Version: 0.1.50
 Summary: An integrated channel is an abstraction meant to represent a third-party system                 which provides an API that can be used to transmit EdX data to the third-party system.
 Home-page: https://github.com/openedx/enterprise-integrated-channels
 Author: Open edX Project
@@ -209,6 +209,18 @@ Change Log
 
 Unreleased
 **********
+
+0.1.50 – 2026-03-09
+*******************
+
+* fix: add logging and 400 response for missing sessionToken/subdomain in cornerstone view
+
+0.1.49 – 2026-03-09
+*******************
+
+* fix: send Percipio identifiers using `userid` and `orgid` payload keys
+* fix: normalize Percipio identifier values to scalar strings (not arrays)
+* docs: add Percipio webhook payload examples for completion and enrollment events
 
 0.1.48 – 2026-03-05
 *******************

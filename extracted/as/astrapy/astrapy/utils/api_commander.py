@@ -17,13 +17,25 @@ from __future__ import annotations
 import json
 import logging
 import re
+import ssl
+import weakref
+from collections.abc import Iterable, Sequence
 from decimal import Decimal
 from types import TracebackType
-from typing import Any, Dict, Iterable, Sequence, cast
+from typing import Any, cast
 
+import certifi
 import httpx
+from uuid6 import uuid7
 
 from astrapy.constants import CallerType
+from astrapy.event_observers import (
+    ObservableError,
+    ObservableRequest,
+    ObservableResponse,
+    ObservableWarning,
+    Observer,
+)
 from astrapy.exceptions import (
     DataAPIHttpException,
     DataAPIResponseException,
@@ -35,11 +47,17 @@ from astrapy.exceptions import (
     to_dataapi_timeout_exception,
     to_devopsapi_timeout_exception,
 )
+from astrapy.exceptions.error_descriptors import (
+    DataAPIErrorDescriptor,
+    DataAPIWarningDescriptor,
+)
 from astrapy.settings.defaults import (
     CHECK_DECIMAL_ESCAPING_CONSISTENCY,
     DEFAULT_REDACTED_HEADER_NAMES,
     FIXED_SECRET_PLACEHOLDER,
 )
+from astrapy.utils.meta import issue_plain_warning
+from astrapy.utils.python_version import get_python_version
 from astrapy.utils.request_tools import (
     HttpMethod,
     log_httpx_request,
@@ -53,8 +71,29 @@ from astrapy.utils.user_agents import (
 
 user_agent_astrapy = detect_astrapy_user_agent()
 
+PYTHON_VERSION_SSL_ISSUES_WARNING = (
+    "SSL connection reuse disabled due to a Python 3.12.[0-11] bug. "
+    "This may reduce performance under certain workloads. "
+    "Please upgrade to Python 3.12.12 or newer if possible."
+)
+CLIENT_SSL_CONTEXT = ssl.create_default_context(
+    cafile=certifi.where()
+)  # portable CA roots
+
 logger = logging.getLogger(__name__)
 
+# Used only for a range of Python versions where a SSL bug is detected.
+no_pooling_limits = httpx.Limits(max_keepalive_connections=0, keepalive_expiry=0)
+disable_ssl_reuse: bool
+python_version = get_python_version()
+if python_version >= (3, 12, 0) and python_version < (3, 12, 12):
+    issue_plain_warning(
+        PYTHON_VERSION_SSL_ISSUES_WARNING,
+        stacklevel=3,
+    )
+    disable_ssl_reuse = True
+else:
+    disable_ssl_reuse = False
 
 # these are a mixture from disparate alphabet, to minimize the chance
 # of a collision with user-provided actual content:
@@ -88,24 +127,42 @@ class _MarkedDecimalEncoder(json.JSONEncoder):
 
 
 class APICommander:
-    client = httpx.Client()
+    client: httpx.Client
+    async_client: httpx.AsyncClient
 
     def __init__(
         self,
         *,
         api_endpoint: str,
         path: str,
+        spawner: object | None,
         headers: dict[str, str | None] = {},
         callers: Sequence[CallerType] = [],
         redacted_header_names: Iterable[str] | None = None,
         dev_ops_api: bool = False,
+        event_observers: dict[str, Observer | None] = {},
         handle_decimals_writes: bool = False,
         handle_decimals_reads: bool = False,
     ) -> None:
-        self.async_client = httpx.AsyncClient()
+        ssl_control_headers: dict[str, str | None]
+        if disable_ssl_reuse:
+            self.client = httpx.Client(
+                limits=no_pooling_limits,
+                verify=CLIENT_SSL_CONTEXT,
+            )
+            self.async_client = httpx.AsyncClient(
+                limits=no_pooling_limits,
+                verify=CLIENT_SSL_CONTEXT,
+            )
+            ssl_control_headers = {"Connection": "close"}
+        else:
+            self.client = httpx.Client(verify=CLIENT_SSL_CONTEXT)
+            self.async_client = httpx.AsyncClient(verify=CLIENT_SSL_CONTEXT)
+            ssl_control_headers = {}
+
         self.api_endpoint = api_endpoint.rstrip("/")
         self.path = path.lstrip("/")
-        self.headers = headers
+        self.headers: dict[str, str | None] = {**ssl_control_headers, **headers}
         self.callers = callers
         self.redacted_header_names = set(redacted_header_names or [])
         self.upper_full_redacted_header_names = {
@@ -115,6 +172,12 @@ class APICommander:
             )
         }
         self.dev_ops_api = dev_ops_api
+        self.event_observers = event_observers
+        self.spawner_ref: weakref.ReferenceType[object] | None
+        if spawner:
+            self.spawner_ref = weakref.ref(spawner)
+        else:
+            self.spawner_ref = None
         self.handle_decimals_writes = handle_decimals_writes
         self.handle_decimals_reads = handle_decimals_reads
 
@@ -164,14 +227,10 @@ class APICommander:
 
     def __repr__(self) -> str:
         pieces = [
-            pc
-            for pc in (
-                f"api_endpoint={self.api_endpoint}",
-                f"path={self.path}",
-                f"callers={self.callers}",
-                f"dev_ops_api={self.dev_ops_api}",
-            )
-            if pc is not None
+            f"api_endpoint={self.api_endpoint}",
+            f"path={self.path}",
+            f"callers={self.callers}",
+            f"dev_ops_api={self.dev_ops_api}",
         ]
         inner_desc = ", ".join(pieces)
         return f"{self.__class__.__name__}({inner_desc})"
@@ -202,6 +261,11 @@ class APICommander:
     ) -> None:
         await self.async_client.aclose()
 
+    def _get_spawner(self) -> object | None:
+        if self.spawner_ref is None:
+            return None
+        return self.spawner_ref()
+
     def _copy(
         self,
         api_endpoint: str | None = None,
@@ -217,6 +281,7 @@ class APICommander:
                 api_endpoint if api_endpoint is not None else self.api_endpoint
             ),
             path=path if path is not None else self.path,
+            spawner=self._get_spawner(),
             headers=headers if headers is not None else self.headers,
             callers=callers if callers is not None else self.callers,
             redacted_header_names=(
@@ -238,6 +303,8 @@ class APICommander:
         raw_response: httpx.Response,
         raise_api_errors: bool,
         payload: dict[str, Any] | None,
+        caller_function_name: str | None,
+        request_id: str,
     ) -> dict[str, Any]:
         # try to process the httpx raw response into a JSON or throw a failure
         raw_response_json: dict[str, Any]
@@ -267,38 +334,79 @@ class APICommander:
                 },
             )
 
-        if raise_api_errors and "errors" in raw_response_json:
-            logger.warning(
-                f"APICommander about to raise from: {raw_response_json['errors']}"
-            )
-            raise self._response_exc_class.from_response(
-                command=payload,
-                raw_response=raw_response_json,
-            )
-
         # no warnings check for DevOps API (there, 'status' may contain a string)
+        dictforced_response: dict[str, Any] = (
+            raw_response_json if isinstance(raw_response_json, dict) else {}
+        )
         if not self.dev_ops_api:
-            warning_messages: list[str] = (raw_response_json.get("status") or {}).get(
-                "warnings"
-            ) or []
-            if warning_messages:
-                for warning_message in warning_messages:
-                    full_warning = f"The {self._api_description} returned a warning: {warning_message}"
+            warning_items: list[str | dict[str, Any]] = (
+                dictforced_response.get("status") or {}
+            ).get("warnings") or []
+            if warning_items:
+                warning_descriptors = [
+                    DataAPIWarningDescriptor(warning_item)
+                    for warning_item in warning_items
+                ]
+                if self.event_observers:
+                    wrn_events = [
+                        ObservableWarning(warning=warning_descriptor)
+                        for warning_descriptor in warning_descriptors
+                    ]
+                    sender = self._get_spawner()
+                    for ev_obs in self.event_observers.values():
+                        if ev_obs is not None and ev_obs.enabled:
+                            for wrn_event in wrn_events:
+                                ev_obs.receive(
+                                    wrn_event,
+                                    sender=sender,
+                                    function_name=caller_function_name,
+                                    request_id=request_id,
+                                )
+                for warning_descriptor in warning_descriptors:
+                    full_warning = (
+                        f"The {self._api_description} returned "
+                        f"a warning: {warning_descriptor}"
+                    )
                     logger.warning(full_warning)
+
+        if "errors" in dictforced_response:
+            if self.event_observers:
+                err_events = [
+                    ObservableError(error=DataAPIErrorDescriptor(err_dict))
+                    for err_dict in dictforced_response["errors"]
+                ]
+                sender = self._get_spawner()
+                for ev_obs in self.event_observers.values():
+                    if ev_obs is not None and ev_obs.enabled:
+                        for err_event in err_events:
+                            ev_obs.receive(
+                                err_event,
+                                sender=sender,
+                                function_name=caller_function_name,
+                                request_id=request_id,
+                            )
+            if raise_api_errors:
+                logger.warning(
+                    f"APICommander about to raise from: {dictforced_response['errors']}"
+                )
+                raise self._response_exc_class.from_response(
+                    command=payload,
+                    raw_response=dictforced_response,
+                )
 
         return raw_response_json
 
     @staticmethod
     def _decimal_unaware_parse_json_response(response_text: str) -> dict[str, Any]:
         return cast(
-            Dict[str, Any],
+            dict[str, Any],
             json.loads(response_text),
         )
 
     @staticmethod
     def _decimal_aware_parse_json_response(response_text: str) -> dict[str, Any]:
         return cast(
-            Dict[str, Any],
+            dict[str, Any],
             json.loads(
                 response_text,
                 parse_float=Decimal,
@@ -350,13 +458,16 @@ class APICommander:
     def raw_request(
         self,
         *,
+        caller_function_name: str | None,
+        request_id: str | None,
         http_method: str = HttpMethod.POST,
         payload: dict[str, Any] | None = None,
         additional_path: str | None = None,
         request_params: dict[str, Any] = {},
-        raise_api_errors: bool = True,
         timeout_context: _TimeoutContext | None = None,
     ) -> httpx.Response:
+        if request_id is None:
+            request_id = str(uuid7())
         request_url = self._compose_request_url(additional_path)
         _timeout_context = timeout_context or _TimeoutContext(request_ms=None)
         encoded_payload = (
@@ -371,8 +482,27 @@ class APICommander:
             redacted_request_headers=self._loggable_headers,
             encoded_payload=encoded_payload,
             timeout_context=_timeout_context,
+            caller_function_name=caller_function_name,
         )
         httpx_timeout_s = to_httpx_timeout(_timeout_context)
+        if self.event_observers:
+            req_event = ObservableRequest(
+                payload=encoded_payload,
+                http_method=http_method,
+                url=request_url,
+                query_parameters=request_params,
+                redacted_headers=self._loggable_headers,
+                dev_ops_api=self.dev_ops_api,
+            )
+            sender = self._get_spawner()
+            for ev_obs in self.event_observers.values():
+                if ev_obs is not None and ev_obs.enabled:
+                    ev_obs.receive(
+                        req_event,
+                        sender=sender,
+                        function_name=caller_function_name,
+                        request_id=request_id,
+                    )
 
         try:
             raw_response = self.client.request(
@@ -395,6 +525,19 @@ class APICommander:
                     timeout_exc, timeout_context=_timeout_context
                 )
 
+        if self.event_observers:
+            rsp_event = ObservableResponse(
+                body=raw_response.text,
+                status_code=raw_response.status_code,
+            )
+            for ev_obs in self.event_observers.values():
+                if ev_obs is not None and ev_obs.enabled:
+                    ev_obs.receive(
+                        rsp_event,
+                        sender=self._get_spawner(),
+                        function_name=caller_function_name,
+                        request_id=request_id,
+                    )
         try:
             raw_response.raise_for_status()
         except httpx.HTTPStatusError as http_exc:
@@ -405,13 +548,16 @@ class APICommander:
     async def async_raw_request(
         self,
         *,
+        caller_function_name: str | None,
+        request_id: str | None,
         http_method: str = HttpMethod.POST,
         payload: dict[str, Any] | None = None,
         additional_path: str | None = None,
         request_params: dict[str, Any] = {},
-        raise_api_errors: bool = True,
         timeout_context: _TimeoutContext | None = None,
     ) -> httpx.Response:
+        if request_id is None:
+            request_id = str(uuid7())
         request_url = self._compose_request_url(additional_path)
         _timeout_context = timeout_context or _TimeoutContext(request_ms=None)
         encoded_payload = (
@@ -426,8 +572,27 @@ class APICommander:
             redacted_request_headers=self._loggable_headers,
             encoded_payload=encoded_payload,
             timeout_context=_timeout_context,
+            caller_function_name=caller_function_name,
         )
         httpx_timeout_s = to_httpx_timeout(_timeout_context)
+        if self.event_observers:
+            req_event = ObservableRequest(
+                payload=encoded_payload,
+                http_method=http_method,
+                url=request_url,
+                query_parameters=request_params,
+                redacted_headers=self._loggable_headers,
+                dev_ops_api=self.dev_ops_api,
+            )
+            sender = self._get_spawner()
+            for ev_obs in self.event_observers.values():
+                if ev_obs is not None and ev_obs.enabled:
+                    ev_obs.receive(
+                        req_event,
+                        sender=sender,
+                        function_name=caller_function_name,
+                        request_id=request_id,
+                    )
 
         try:
             raw_response = await self.async_client.request(
@@ -450,6 +615,20 @@ class APICommander:
                     timeout_exc, timeout_context=_timeout_context
                 )
 
+        if self.event_observers:
+            rsp_event = ObservableResponse(
+                body=raw_response.text,
+                status_code=raw_response.status_code,
+            )
+            sender = self._get_spawner()
+            for ev_obs in self.event_observers.values():
+                if ev_obs is not None and ev_obs.enabled:
+                    ev_obs.receive(
+                        rsp_event,
+                        sender=sender,
+                        function_name=caller_function_name,
+                        request_id=request_id,
+                    )
         try:
             raw_response.raise_for_status()
         except httpx.HTTPStatusError as http_exc:
@@ -466,17 +645,24 @@ class APICommander:
         request_params: dict[str, Any] = {},
         raise_api_errors: bool = True,
         timeout_context: _TimeoutContext | None = None,
+        caller_function_name: str | None = None,
     ) -> dict[str, Any]:
+        request_id = str(uuid7())
         raw_response = self.raw_request(
             http_method=http_method,
             payload=payload,
             additional_path=additional_path,
             request_params=request_params,
-            raise_api_errors=raise_api_errors,
             timeout_context=timeout_context,
+            caller_function_name=caller_function_name,
+            request_id=request_id,
         )
         return self._raw_response_to_json(
-            raw_response, raise_api_errors=raise_api_errors, payload=payload
+            raw_response,
+            raise_api_errors=raise_api_errors,
+            payload=payload,
+            caller_function_name=caller_function_name,
+            request_id=request_id,
         )
 
     async def async_request(
@@ -488,15 +674,22 @@ class APICommander:
         request_params: dict[str, Any] = {},
         raise_api_errors: bool = True,
         timeout_context: _TimeoutContext | None = None,
+        caller_function_name: str | None = None,
     ) -> dict[str, Any]:
+        request_id = str(uuid7())
         raw_response = await self.async_raw_request(
             http_method=http_method,
             payload=payload,
             additional_path=additional_path,
             request_params=request_params,
-            raise_api_errors=raise_api_errors,
             timeout_context=timeout_context,
+            caller_function_name=caller_function_name,
+            request_id=request_id,
         )
         return self._raw_response_to_json(
-            raw_response, raise_api_errors=raise_api_errors, payload=payload
+            raw_response,
+            raise_api_errors=raise_api_errors,
+            payload=payload,
+            caller_function_name=caller_function_name,
+            request_id=request_id,
         )

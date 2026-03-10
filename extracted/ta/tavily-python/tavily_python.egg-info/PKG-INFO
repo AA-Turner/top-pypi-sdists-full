@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tavily-python
-Version: 0.7.22
+Version: 0.7.23
 Summary: Python wrapper for the Tavily API
 Home-page: https://github.com/tavily-ai/tavily-python
 Author: Tavily AI
@@ -25,7 +25,7 @@ Dynamic: requires-dist
 Dynamic: requires-python
 Dynamic: summary
 
-# Tavily Python Wrapper
+# Tavily Python SDK
 
 [![GitHub stars](https://img.shields.io/github/stars/tavily-ai/tavily-python?style=social)](https://github.com/tavily-ai/tavily-python/stargazers)
 [![PyPI - Downloads](https://img.shields.io/pypi/dm/tavily-python)](https://pypi.org/project/tavily-python/)
@@ -272,6 +272,53 @@ stream = tavily_client.research(
 for chunk in stream:
     print(chunk.decode('utf-8'))
 ```
+
+## Advanced: Custom Session / Client Injection
+
+For enterprise environments that proxy Tavily traffic through an API gateway (e.g., for centralized auth, logging, or policy enforcement), you can pass a pre-configured HTTP session instead of a Tavily API key.
+
+### Sync (custom `requests.Session`)
+
+```python
+import requests
+from tavily import TavilyClient
+
+# Pre-configure a session with your gateway's auth
+session = requests.Session()
+session.headers["Authorization"] = "Bearer your-gateway-token"
+session.headers["X-Subscription-Key"] = "your-subscription-key"
+
+# No Tavily API key needed — auth is handled by the session
+client = TavilyClient(
+    session=session,
+    api_base_url="https://your-gateway.com/tavily",
+)
+
+response = client.search("latest AI research")
+```
+
+### Async (custom `httpx.AsyncClient`)
+
+```python
+import httpx
+from tavily import AsyncTavilyClient
+
+# Pre-configure an async client with your gateway's auth
+custom_client = httpx.AsyncClient(
+    headers={"Authorization": "Bearer your-gateway-token"},
+    base_url="https://your-gateway.com/tavily",
+)
+
+client = AsyncTavilyClient(client=custom_client)
+
+response = await client.search("latest AI research")
+```
+
+**Key behaviors:**
+- If a custom session/client is provided, `api_key` is optional
+- Custom session headers take precedence over SDK defaults (e.g., your `Authorization` won't be overwritten)
+- Custom session proxies take precedence over SDK proxy settings
+- The SDK will **not** close externally-provided sessions — you manage the lifecycle
 
 ## Documentation
 

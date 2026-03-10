@@ -92,8 +92,6 @@ class DocumentDB(Asset):
     INPUT_TO_SPARK_JOBS: ClassVar[Any] = None
     OUTPUT_FROM_SPARK_JOBS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "DocumentDB"
-
     no_sql_schema_definition: Union[str, None, UnsetType] = msgspec.field(
         default=UNSET, name="noSQLSchemaDefinition"
     )
@@ -447,6 +445,9 @@ def _document_db_to_nested(document_db: DocumentDB) -> DocumentDBNested:
         is_incomplete=document_db.is_incomplete,
         provenance_type=document_db.provenance_type,
         home_id=document_db.home_id,
+        depth=document_db.depth,
+        immediate_upstream=document_db.immediate_upstream,
+        immediate_downstream=document_db.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -478,7 +479,6 @@ def _document_db_from_nested(nested: DocumentDBNested) -> DocumentDB:
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -487,6 +487,9 @@ def _document_db_from_nested(nested: DocumentDBNested) -> DocumentDB:
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_document_db_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

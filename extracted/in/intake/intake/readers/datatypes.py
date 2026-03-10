@@ -22,7 +22,7 @@ class BaseData(Tokenizable):
     """Prototype dataset definition"""
 
     mimetypes: str = ""  #: regex, MIME pattern to match
-    filepattern: str = ""  #: regex, file URLs to match
+    filepattern: str = ""  #: regex, file URLs to match; empty if relying on magic or contains
     structure: set[str] = set()  #: informational tags for nature of data, e.g., "array"
     magic: set[
         bytes | tuple
@@ -163,7 +163,7 @@ class DuckDB(FileData):
 class Parquet(FileData):
     """Column-optimized binary format"""
 
-    filepattern = "(parq|parquet|/$)"
+    filepattern = "(parq|parquet)"
     mimetypes = "application/(vnd.apache.parquet|parquet|x-parquet)/"
     structure = {"table", "nested"}
     magic = {b"PAR1"}
@@ -282,9 +282,10 @@ class HDF5(FileData):
 class Zarr(FileData):
     """Cloud optimised, chunked N-dimensional file format"""
 
-    filepattern = "(zarr$|/$)"  # i.e., any directory might be
+    filepattern = "(zarr$)"  # i.e., any directory might be
     structure = {"array", "hierarchy"}
-    mimetypes = "application/vnd\\+zarr"
+    mimetypes = "application/vnd[+.]zarr"
+    contains = {".zarray", ".zgroup", "zarr.json"}
 
     def __init__(
         self,
@@ -299,6 +300,34 @@ class Zarr(FileData):
         self.url = url
         self.storage_options = storage_options
         self.root = root
+        super().__init__(url=url, storage_options=storage_options, metadata=metadata)
+
+
+class IcechunkRepo(FileData):
+    # NB: this can be considered a special case of zarr stores, but there are
+    # more possible operations on a repo; you can also access these using zarr
+    # alone and specialised URLs.
+
+    structure = {"array", "hierarchy"}
+    contains = {"snapshots"}
+
+    def __init__(
+        self,
+        url,  # just the storage driver name, i.e., icechunk.*_storage
+        # https://icechunk.io/en/latest/quickstart/#create-a-new-icechunk-repository
+        # azure, gcs, in_memory, local_filesystem, r2, s3, tigris
+        storage_options: dict | None = None,  # kwargs for the store
+        root: str = "",  # location in the hierarchy
+        ref: str | None = None,  # branch/tag, if not the default
+        metadata: dict | None = None,
+    ):
+        """
+        root: if given, points to specific array/group in the hierarchy
+        """
+        self.url = url
+        self.root = root
+        self.ref = ref
+        self.storage_options = storage_options
         super().__init__(url=url, storage_options=storage_options, metadata=metadata)
 
 
@@ -389,7 +418,7 @@ class OpenDAP(Service):
     structure = {"array"}
 
 
-class SQLQuery(Service):
+class SQLQuery(BaseData):
     """Query on a database-like service"""
 
     structure = {"sequence", "table"}
@@ -581,7 +610,6 @@ class DeltalakeTable(FileData):
 
     # a directory by convention, but otherwise can't be distinguished
     contains = {"_delta_log"}
-    filepattern = "/$"
     structure = {"tabular"}
 
 
@@ -836,7 +864,7 @@ def recommend(
                 outs.add(cls)
     if url:
         poss = {}
-        if fs is not None and contents:
+        if fs is not None and fs.isdir(url):
             try:
                 allfiles = fs.ls(url, detail=False)
             except IOError:
@@ -851,11 +879,12 @@ def recommend(
                 continue
             if cls.filepattern:
                 find = re.search(cls._filepattern(), url.lower())
-                if find is None and getattr(cls, "contains", None) and allfiles:
-                    if any(a.endswith(c) for c in cls.contains for a in allfiles):
-                        poss[cls] = 0
-                if find:
+                if find and not allfiles:
+                    # not a directory or empty directory
                     poss[cls] = find.start()
+            if cls.contains and allfiles:
+                if any(re.search(c, a) for c in cls.contains for a in allfiles):
+                    poss[cls] = 0
         out.extend(sorted(poss, key=lambda x: poss[x]))
     if contents and url:
         for ext in {".gz", ".gzip", ".bzip2", "bz2", ".zstd", ".tar", ".tgz"}:

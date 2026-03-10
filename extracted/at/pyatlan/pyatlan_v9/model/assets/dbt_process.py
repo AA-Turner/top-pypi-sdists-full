@@ -139,8 +139,6 @@ class DbtProcess(Asset):
     INPUT_TO_SPARK_JOBS: ClassVar[Any] = None
     OUTPUT_FROM_SPARK_JOBS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "DbtProcess"
-
     dbt_process_job_status: Union[str, None, UnsetType] = UNSET
     """Status of the dbt process job."""
 
@@ -797,6 +795,9 @@ def _dbt_process_to_nested(dbt_process: DbtProcess) -> DbtProcessNested:
         is_incomplete=dbt_process.is_incomplete,
         provenance_type=dbt_process.provenance_type,
         home_id=dbt_process.home_id,
+        depth=dbt_process.depth,
+        immediate_upstream=dbt_process.immediate_upstream,
+        immediate_downstream=dbt_process.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -828,7 +829,6 @@ def _dbt_process_from_nested(nested: DbtProcessNested) -> DbtProcess:
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -837,6 +837,9 @@ def _dbt_process_from_nested(nested: DbtProcessNested) -> DbtProcess:
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_dbt_process_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

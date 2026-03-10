@@ -126,11 +126,12 @@ class ClinVarSearchVariants(ClinVarRESTTool):
 
         if "condition" in arguments:
             # Feature-70B-005: [disease/phenotype] is not a valid ClinVar eSearch field.
+            # Use [dis] (disease/phenotype) field tag for condition searches.
             # Quote multi-word conditions so ClinVar treats them as a phrase.
             condition = arguments["condition"].strip()
             if " " in condition and not condition.startswith('"'):
                 condition = f'"{condition}"'
-            query_parts.append(condition)
+            query_parts.append(f"{condition}[dis]")
 
         if "variant_id" in arguments:
             # Feature-70B-004: [variant_id] is not recognized by ClinVar eSearch.

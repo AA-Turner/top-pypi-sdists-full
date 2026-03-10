@@ -20,7 +20,6 @@ from ._typing import T, T1, T2, T3, T4, T5, AnyIterable
 from ._core import aiter
 from .contextlib import nullcontext
 
-
 S = TypeVar("S")
 
 
@@ -35,7 +34,7 @@ class _BorrowedAsyncIterator(AsyncGenerator[T, S]):
     __slots__ = "__wrapped__", "__anext__", "asend", "athrow", "_wrapper"
 
     # Type checker does not understand `__slot__` definitions
-    __anext__: Callable[[Any], Coroutine[Any, Any, T]]
+    __anext__: Callable[..., Coroutine[Any, Any, T]]
     asend: Any
     athrow: Any
 
@@ -49,7 +48,7 @@ class _BorrowedAsyncIterator(AsyncGenerator[T, S]):
         # An async *iterator* (e.g. `async def: yield`) must return
         # itself from __aiter__. If we do not shadow this then
         # running aiter(self).aclose closes the underlying iterator.
-        self.__anext__ = self._wrapper.__anext__  # type: ignore
+        self.__anext__ = self._wrapper.__anext__
         if hasattr(iterator, "asend"):
             self.asend = (
                 iterator.asend  # pyright: ignore[reportUnknownMemberType,reportAttributeAccessIssue]

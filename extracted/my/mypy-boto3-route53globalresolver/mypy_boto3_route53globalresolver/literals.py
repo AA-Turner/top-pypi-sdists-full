@@ -3,7 +3,7 @@ Type annotations for route53globalresolver service literal definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_route53globalresolver/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -33,6 +33,7 @@ __all__ = (
     "FirewallBlockResponseType",
     "FirewallRuleActionType",
     "FirewallRulesFailOpenTypeType",
+    "GlobalResolverIpAddressTypeType",
     "HostedZoneAssociationStatusType",
     "IpAddressTypeType",
     "ListAccessSourcesPaginatorName",
@@ -56,13 +57,14 @@ __all__ = (
 BlockOverrideDnsQueryTypeType = Literal["CNAME"]
 CRResourceStatusType = Literal["CREATING", "DELETING", "OPERATIONAL", "UPDATING"]
 ConfidenceThresholdType = Literal["HIGH", "LOW", "MEDIUM"]
-DnsAdvancedProtectionType = Literal["DGA", "DNS_TUNNELING"]
+DnsAdvancedProtectionType = Literal["DGA", "DICTIONARY_DGA", "DNS_TUNNELING"]
 DnsProtocolType = Literal["DO53", "DOH", "DOT"]
 DnsSecValidationTypeType = Literal["DISABLED", "ENABLED"]
 EdnsClientSubnetTypeType = Literal["DISABLED", "ENABLED"]
 FirewallBlockResponseType = Literal["NODATA", "NXDOMAIN", "OVERRIDE"]
 FirewallRuleActionType = Literal["ALERT", "ALLOW", "BLOCK"]
 FirewallRulesFailOpenTypeType = Literal["DISABLED", "ENABLED"]
+GlobalResolverIpAddressTypeType = Literal["DUAL_STACK", "IPV4"]
 HostedZoneAssociationStatusType = Literal["CREATING", "DELETING", "OPERATIONAL"]
 IpAddressTypeType = Literal["IPV4", "IPV6"]
 ListAccessSourcesPaginatorName = Literal["list_access_sources"]
@@ -181,6 +183,7 @@ ServiceName = Literal[
     "connectcampaigns",
     "connectcampaignsv2",
     "connectcases",
+    "connecthealth",
     "connectparticipant",
     "controlcatalog",
     "controltower",
@@ -220,16 +223,15 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
+    "elementalinference",
     "emr",
     "emr-containers",
     "emr-serverless",
     "entityresolution",
     "es",
     "events",
-    "evidently",
     "evs",
     "finspace",
     "finspace-data",
@@ -269,7 +271,6 @@ ServiceName = Literal[
     "iot-data",
     "iot-jobs-data",
     "iot-managed-integrations",
-    "iotanalytics",
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
@@ -444,6 +445,7 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signer-data",
     "signin",
     "simspaceweaver",
     "snow-device-management",
@@ -485,6 +487,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",

@@ -14,6 +14,7 @@
 # ==============================================================================
 """Ragged dot test base."""
 
+import contextvars
 import dataclasses
 import functools
 from unittest import mock
@@ -79,6 +80,23 @@ def relu(x):
   return jnp.maximum(x, 0)
 
 
+test_config = contextvars.ContextVar("config", default=None)
+
+
+class ConfigManager:
+
+  def __init__(self, config):
+    self.prev_config = None
+    self.config = config
+
+  def __enter__(self):
+    self.prev_config = test_config.get()
+    test_config.set(self.config)
+
+  def __exit__(self, exc_type, exc_value, traceback):
+    test_config.set(self.prev_config)
+
+
 # pylint: disable=missing-function-docstring
 class RaggedDotTestBase(parameterized.TestCase):
   """Base class for ragged dot op tests."""
@@ -92,7 +110,19 @@ class RaggedDotTestBase(parameterized.TestCase):
     return _dot_fn_f32(self._dot_fn)
 
   def _create_inputs(
-      self, num_groups, m, k, n, dtype, random_groups=False, std=0.1
+      self,
+      num_groups,
+      m,
+      k,
+      n,
+      dtype,
+      random_groups=False,
+      std=0.1,
+      use_as_qarray=False,
+      quant_a_dtype=None,
+      a_tile_shape=None,
+      quant_b_dtype=None,
+      b_tile_shape=None,
   ):
     rng = np.random.default_rng(sum(self._testMethodName.encode()))
     a = jnp.array(
@@ -109,6 +139,18 @@ class RaggedDotTestBase(parameterized.TestCase):
       group_sizes = jnp.array(group_sizes)
     else:
       group_sizes = jnp.array([m // num_groups] * num_groups, jnp.uint32)
+
+    def quantize(x, dtype, tile_shape):
+      tiled_axes = {i: d for i, d in enumerate(tile_shape)}
+      if use_as_qarray:
+        return quantization.AsQArray(x, dtype, tiled_axes=tiled_axes)
+      return qwix.quantize(x, dtype, tiled_axes=tiled_axes)
+
+    if a_tile_shape is not None:
+      a = quantize(a, quant_a_dtype, a_tile_shape)
+    if b_tile_shape is not None:
+      b = quantize(b, quant_b_dtype, b_tile_shape)
+
     return a, b, group_sizes
 
   def _test_simple(self, dtype):
@@ -162,32 +204,36 @@ class RaggedDotTestBase(parameterized.TestCase):
       activation,
   ):
     self._test_quantized(
-        dtype, a_tile_shape, b_tile_shape, use_as_qarray, activation
+        dtype, dtype, a_tile_shape, b_tile_shape, use_as_qarray, activation
     )
 
   def _test_quantized(
       self,
-      dtype,
+      a_dtype,
+      b_dtype,
       a_tile_shape,
       b_tile_shape,
       use_as_qarray,
-      activation,
+      activation=None,
+      # (num_groups, m, k, n)
+      task=(8, 512, 256, 512),
   ):
-    dtype = jnp.dtype(dtype)
-    num_groups, m, k, n = 8, 512, 256, 512
+    a_dtype = jnp.dtype(a_dtype)
+    b_dtype = jnp.dtype(b_dtype)
+    num_groups, m, k, n = task
     a, b, group_sizes = self._create_inputs(
-        num_groups, m, k, n, jnp.bfloat16, random_groups=True
+        num_groups,
+        m,
+        k,
+        n,
+        jnp.bfloat16,
+        random_groups=True,
+        use_as_qarray=use_as_qarray,
+        quant_a_dtype=a_dtype,
+        a_tile_shape=a_tile_shape,
+        quant_b_dtype=b_dtype,
+        b_tile_shape=b_tile_shape,
     )
-
-    def quantize(x, tile_shape):
-      tiled_axes = {i: d for i, d in enumerate(tile_shape)}
-      if use_as_qarray:
-        return quantization.AsQArray(x, dtype, tiled_axes=tiled_axes)
-      return qwix.quantize(x, dtype, tiled_axes=tiled_axes)
-
-    if a_tile_shape is not None:
-      a = quantize(a, a_tile_shape)
-    b = quantize(b, b_tile_shape)
 
     expected = ref(a, b, group_sizes, activation)
     # TODO: preferred_element_type to f32 and tighten tolerances.
@@ -201,6 +247,9 @@ class RaggedDotTestBase(parameterized.TestCase):
 
   @parameterized.parameters(None, jnp.bfloat16, jnp.float32)
   def test_preferred_element_type(self, out_type):
+    self._test_preferred_element_type(out_type)
+
+  def _test_preferred_element_type(self, out_type):
     num_groups, m, k, n = 8, 1024, 128, 256
     a, b, group_sizes = self._create_inputs(num_groups, m, k, n, jnp.bfloat16)
     expected = ref(a, b, group_sizes)
@@ -219,6 +268,9 @@ class RaggedDotTestBase(parameterized.TestCase):
       activation=(None, relu, jax.nn.tanh),
   )
   def test_vjp(self, num_groups, m, k, n, activation=None):
+    return self._test_vjp(num_groups, m, k, n, activation)
+
+  def _test_vjp(self, num_groups, m, k, n, activation=None):
     a, b, group_sizes = self._create_inputs(num_groups, m, k, n, jnp.bfloat16)
     a_ref = a.astype(jnp.float32)
     b_ref = b.astype(jnp.float32)
@@ -274,13 +326,20 @@ class RaggedDotTestBase(parameterized.TestCase):
     # Skip the test if the reference implementation fails,
     # e.g out-of-memory.
     try:
+      if isinstance(spec["lhs"], qwix.QArray):
+        # lower precision lhs requires looser tolerances
+        atol, rtol = 1, 0.5  # This is really bad!
+        if jax.default_backend() == "tpu":
+          self.skipTest("lower precision lhs not supported on TPUs.")
+      else:
+        atol, rtol = 0.01, 0.005
       expected = ref(**kwargs)
+      actual = self._dot_fn(**kwargs)
+      count = sum(spec["group_sizes"].representative_value)
+      chex.assert_trees_all_close(
+          actual[:count], expected[:count], atol=atol, rtol=rtol
+      )
     except Exception as e:  # pylint: disable=broad-exception-caught
       if "RESOURCE_EXHAUSTED: Out of memory while trying to allocate" in str(e):
         self.skipTest("Out of memory")
       raise
-    actual = self._dot_fn(**kwargs)
-    count = sum(spec["group_sizes"].representative_value)
-    chex.assert_trees_all_close(
-        actual[:count], expected[:count], atol=0.01, rtol=0.005
-    )

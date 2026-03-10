@@ -13,7 +13,6 @@ import zlib
 import hashlib
 
 from meutils.pipe import *
-from meutils.caches.redis_cache import cache
 from meutils.io.files_utils import to_bytes
 from meutils.apis.jimeng.common import get_upload_token, get_headers, BASE_URL, FEISHU_URL, check_token
 from meutils.notice.feishu import send_message_for_images

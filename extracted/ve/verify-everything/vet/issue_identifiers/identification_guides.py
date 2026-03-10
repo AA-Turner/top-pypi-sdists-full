@@ -36,6 +36,7 @@ ISSUE_IDENTIFICATION_GUIDES: tuple[IssueIdentificationGuide, ...] = (
                 "   - Configuration changes (linting, build, test settings) not requested",
                 "   - New features or options beyond the request",
                 "   - Changes to unrelated code",
+                "   - Binaries, compiled files, dependencies, or build artifacts that should not be in version control",
                 "- Look for unintended removals:",
                 "   - Removal of project-specific configuration or settings that should be preserved",
                 "   - Deletion of functionality that is still needed",
@@ -63,7 +64,7 @@ ISSUE_IDENTIFICATION_GUIDES: tuple[IssueIdentificationGuide, ...] = (
             "Inline comments are not updated even though functionality was changed by the diff.",
             "Documentation contains outdated code snippets or commands that need to be updated because of the changes made by the diff.",
         ),
-        exceptions=("TODOs that are not implemented yet are not considered a documentation mismatch.",),
+        exceptions=("TODOs/FIXMEs that are not implemented yet are not considered a documentation mismatch.",),
         additional_guide_for_agent="Look at code comments and READMEs in the diff or in existing code related to the diff.",
     ),
     IssueIdentificationGuide(
@@ -114,7 +115,7 @@ ISSUE_IDENTIFICATION_GUIDES: tuple[IssueIdentificationGuide, ...] = (
         issue_code=IssueCode.POOR_NAMING,
         guide="\n".join(
             [
-                "- File, class, function, function parameter, and constant names should follow the format and naming standards that are currently dominant in the code base (especially within the same file or folder).",
+                "- File, class, function, function parameter, and constant names should follow the format and naming standards that are currently dominant in the code base (especially within the same file or folder), or the style guide if one exists.",
                 "- In the absence of existing code, common naming standards for the given programming language should be used.",
                 "- Function names should be descriptive of what the function does. A person reading the function name without seeing its implementation should be able to get a sense of its purpose.",
                 "- If any function parameter is being mutated by the function, that fact should be made clear in the name of the parameter (e.g. by appending `_out` / `Out` to the name), unless it is clear that such name-based annotations would be against the existing naming style in the code base.",
@@ -138,7 +139,7 @@ ISSUE_IDENTIFICATION_GUIDES: tuple[IssueIdentificationGuide, ...] = (
             "New code is introduced by the diff to accomplish a certain functionality, but there is an existing function in the code base that already implements the same functionality, or could be easily generalized to accomplish the desired functionality.",
             "A file is duplicated (make exceptions for cases where duplication may be necessary such as test files).",
             "A significant amount of code is introduced which duplicates functionality from standard or well-known libraries.",
-            "Multiple functions format or build the same string or data structure in the same way without using a shared helper function.",
+            "Multiple functions format or build the same string or data structure in the same way without using a shared helper function or test fixture.",
         ),
         exceptions=(
             "Do not flag duplication between legacy and new implementations when the codebase is clearly undergoing a migration or maintaining multiple versions for compatibility.",
@@ -260,7 +261,7 @@ ISSUE_IDENTIFICATION_GUIDES: tuple[IssueIdentificationGuide, ...] = (
         issue_code=IssueCode.FAILS_SILENTLY,
         guide="Code that fails silently is code that ignores errors without reporting them.",
         examples=(
-            "The code indiscriminately captures exceptions of all types (e.g. Exception) and continues execution without taking any action to handle the error.",
+            "Overly broad exception handlers (e.g. bare 'except' or 'except Exception') that catch errors and continue execution without handling, logging, or re-raising them.",
             "The return value of a function that returns an error value in case of a failure is not checked by the caller.",
         ),
         exceptions=(

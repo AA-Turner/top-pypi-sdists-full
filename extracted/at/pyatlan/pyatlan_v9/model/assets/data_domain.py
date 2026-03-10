@@ -98,8 +98,6 @@ class DataDomain(Asset):
     INPUT_TO_SPARK_JOBS: ClassVar[Any] = None
     OUTPUT_FROM_SPARK_JOBS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "DataDomain"
-
     parent_domain_qualified_name: Union[str, None, UnsetType] = UNSET
     """Unique name of the parent domain in which this asset exists."""
 
@@ -546,6 +544,9 @@ def _data_domain_to_nested(data_domain: DataDomain) -> DataDomainNested:
         is_incomplete=data_domain.is_incomplete,
         provenance_type=data_domain.provenance_type,
         home_id=data_domain.home_id,
+        depth=data_domain.depth,
+        immediate_upstream=data_domain.immediate_upstream,
+        immediate_downstream=data_domain.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -577,7 +578,6 @@ def _data_domain_from_nested(nested: DataDomainNested) -> DataDomain:
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -586,6 +586,9 @@ def _data_domain_from_nested(nested: DataDomainNested) -> DataDomain:
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_data_domain_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

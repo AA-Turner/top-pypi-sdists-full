@@ -96,8 +96,6 @@ class Spark(Asset):
     OUTPUT_FROM_SPARK_JOBS: ClassVar[Any] = None
     SPARK_ORCHESTRATED_BY_AIRFLOW_ASSETS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "Spark"
-
     spark_run_version: Union[str, None, UnsetType] = UNSET
     """Spark Version for the Spark Job run eg. 3.4.1"""
 
@@ -490,6 +488,9 @@ def _spark_to_nested(spark: Spark) -> SparkNested:
         is_incomplete=spark.is_incomplete,
         provenance_type=spark.provenance_type,
         home_id=spark.home_id,
+        depth=spark.depth,
+        immediate_upstream=spark.immediate_upstream,
+        immediate_downstream=spark.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -519,7 +520,6 @@ def _spark_from_nested(nested: SparkNested) -> Spark:
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -528,6 +528,9 @@ def _spark_from_nested(nested: SparkNested) -> Spark:
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_spark_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

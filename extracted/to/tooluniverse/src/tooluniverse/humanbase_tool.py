@@ -26,6 +26,19 @@ class HumanBaseTool(BaseTool):
             gene_list, tissue, max_node, interaction
         )
 
+        if graph.number_of_nodes() == 0:
+            return {
+                "status": "error",
+                "error": (
+                    "HumanBase network API returned no interaction data. "
+                    "The API may be temporarily unavailable or the tissue "
+                    f"'{tissue}' may not be supported. Try "
+                    "STRING_get_interaction_partners as an alternative."
+                ),
+                "query": {"genes": gene_list, "tissue": tissue},
+                "biological_processes": bp_collection,
+            }
+
         if string_mode:
             result = self._convert_to_string(graph, bp_collection, gene_list, tissue)
             return {"status": "success", "data": result}
@@ -163,9 +176,23 @@ class HumanBaseTool(BaseTool):
         Returns
             tuple: (NetworkX Graph of interactions, list of biological processes)
         """
-        genes = self.get_entrez_ids(genes)
+        entrez_result = self.get_entrez_ids(genes)
+
+        # get_entrez_ids may return a string error message instead of a list
+        if isinstance(entrez_result, str):
+            return nx.Graph(), None
+
+        # Filter out None values (genes that could not be resolved)
+        genes = [g for g in entrez_result if g is not None]
+        if not genes:
+            return nx.Graph(), None
 
         tissue = tissue.replace(" ", "-").replace("_", "-").lower()
+
+        # HumanBase API requires giant_version parameter.
+        # Slugs ending in "-v3" use giant_version=v3; others use v1.
+        giant_version = "v3" if tissue.endswith("-v3") else "v1"
+
         interaction_types = [
             "co-expression",
             "interaction",
@@ -181,12 +208,14 @@ class HumanBaseTool(BaseTool):
         G = nx.Graph()
         bp_collection = None
 
-        network_url = f"https://hb.flatironinstitute.org/api/integrations/{tissue}/network/?datatypes={interaction}&entrez={gene_id}&node_size={max_node}"
-        edge_type_url = "https://hb.flatironinstitute.org/api/integrations/{tissue}/evidence/?limit=20&source={source}&target={target}"
+        network_url = f"https://hb.flatironinstitute.org/api/integrations/{tissue}/network/?giant_version={giant_version}&datatypes={interaction}&entrez={gene_id}&node_size={max_node}"
+        edge_type_url = "https://hb.flatironinstitute.org/api/integrations/{tissue}/evidence/?giant_version={giant_version}&limit=20&source={source}&target={target}"
 
         # Retrieve tissue-specific PPI
         try:
-            response = requests.get(network_url)
+            response = requests.get(network_url, timeout=15)
+            if response.status_code == 404:
+                return nx.Graph(), None
             response.raise_for_status()
             data = response.json()
 
@@ -210,6 +239,7 @@ class HumanBaseTool(BaseTool):
                     edge_response = requests.get(
                         edge_type_url.format(
                             tissue=tissue,
+                            giant_version=giant_version,
                             source=G.nodes[source]["entrez"],
                             target=G.nodes[target]["entrez"],
                         )

@@ -52,17 +52,11 @@ class SemanticScholarTool(BaseTool):
         sort = arguments.get("sort")
         include_abstract = bool(arguments.get("include_abstract", False))
         if not query:
-            return [
-                {
-                    "title": "Error",
-                    "abstract": None,
-                    "journal": None,
-                    "year": None,
-                    "url": None,
-                    "error": "`query` parameter is required.",
-                    "retryable": False,
-                }
-            ]
+            return {
+                "status": "error",
+                "error": "`query` parameter is required.",
+                "retryable": False,
+            }
         if limit <= 0:
             return []
         return self._search(
@@ -150,33 +144,21 @@ class SemanticScholarTool(BaseTool):
             max_attempts=3,
         )
         if response.status_code != 200:
-            return [
-                {
-                    "title": "Error",
-                    "abstract": None,
-                    "journal": None,
-                    "year": None,
-                    "url": None,
-                    "error": f"Semantic Scholar API error {response.status_code}",
-                    "reason": response.reason,
-                    "retryable": response.status_code in (408, 429, 500, 502, 503, 504),
-                    "suggestion": "Try again later or set SEMANTIC_SCHOLAR_API_KEY for higher limits.",
-                }
-            ]
+            return {
+                "status": "error",
+                "error": f"Semantic Scholar API error {response.status_code}",
+                "reason": response.reason,
+                "retryable": response.status_code in (408, 429, 500, 502, 503, 504),
+                "suggestion": "Try again later or set SEMANTIC_SCHOLAR_API_KEY for higher limits.",
+            }
         try:
             payload = response.json()
         except ValueError:
-            return [
-                {
-                    "title": "Error",
-                    "abstract": None,
-                    "journal": None,
-                    "year": None,
-                    "url": None,
-                    "error": "Semantic Scholar returned invalid JSON",
-                    "retryable": True,
-                }
-            ]
+            return {
+                "status": "error",
+                "error": "Semantic Scholar returned invalid JSON",
+                "retryable": True,
+            }
 
         results = payload.get("data", []) if isinstance(payload, dict) else []
         papers = []
@@ -192,19 +174,11 @@ class SemanticScholarTool(BaseTool):
             )
             doi_url = f"https://doi.org/{doi}" if doi else None
             title = p.get("title")
-            abstract = p.get("abstract")
-            journal = p.get("venue")
+            abstract = p.get("abstract") or None
+            journal = p.get("venue") or None
             year = p.get("year")
             url = p.get("url")
             paper_id = p.get("paperId") if isinstance(p.get("paperId"), str) else None
-
-            # Handle missing abstract
-            if not abstract:
-                abstract = None
-
-            # Handle missing journal information
-            if not journal:
-                journal = None
 
             authors = []
             raw_authors = p.get("authors", [])

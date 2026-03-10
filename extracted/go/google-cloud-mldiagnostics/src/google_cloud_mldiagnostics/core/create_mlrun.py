@@ -52,7 +52,7 @@ def initialize_mlrun(
       name: The name of the run.
       environment: The environment to use for the control plane client
         (autopush, staging, prod).
-      on_demand_xprof: Whether to start an on-demand xprof profiling server. 
+      on_demand_xprof: Whether to start an on-demand xprof profiling server.
         If enabled, the port is set to 9999.
       run_group: The run set this run belongs to.
       configs: Dictionary of configuration parameters.
@@ -102,9 +102,9 @@ def initialize_mlrun(
           " configuration, please see"
           " https://github.com/AI-Hypercomputer/google-cloud-mldiagnostics?tab=readme-ov-file#configure-gke-cluster."
       )
-    if workload_details.get("creation-timestamp"):
-      display_name = name + "-" + workload_details["creation-timestamp"]
-    name = host_utils.get_identifier(workload_details)
+    name = host_utils.get_identifier(name, workload_details)
+  else:
+    name = name + "-" + str(datetime.datetime.now().strftime("%Y%m%d%H%M%S"))
 
   # sanitize the name and use it as the MLRun name for the control plane.
   sanitized_name = host_utils.sanitize_identifier(name)
@@ -129,15 +129,27 @@ def initialize_mlrun(
   manager = global_manager.get_global_run_manager()
   manager.initialize(ml_run)
 
-  diagon_url = create_diagnostics_url(region, project, sanitized_name)
-  xprof_url = create_xprof_url(diagon_url)
+  ml_diagnostics_url = create_diagnostics_url(region, project, sanitized_name)
+  xprof_url = create_xprof_url(ml_diagnostics_url)
   logging.info("MLRun '%s' created successfully.", ml_run.display_name)
-  logging.info("Diagon URL: %s : %s", ml_run.display_name, diagon_url)
+  logging.info(
+      "ML Diagnostics URL: %s : %s",
+      ml_run.display_name,
+      ml_diagnostics_url,
+  )
   logging.info(
       "Xprof URL: %s : %s",
       ml_run.display_name,
       xprof_url,
   )
+
+  if orchestrator == "GKE":
+    gke_url = create_gke_url(region, project, sanitized_name)
+    logging.info(
+        "GKE detail view URL: %s : %s",
+        ml_run.display_name,
+        gke_url,
+    )
 
   run_phase_monitor = run_phase_utils.RunPhaseMonitor()
   run_phase_monitor.start()
@@ -222,9 +234,16 @@ def initialize_mlrun(
   return ml_run
 
 
+def create_gke_url(
+    region: str, project: str, name: str
+) -> str:
+  """Creates GKE detail view URL."""
+  return f"https://console.cloud.google.com/kubernetes/aiml/run/{region}/{name}?project={project}"
+
+
 def create_diagnostics_url(region: str, project: str, name: str) -> str:
   return f"https://console.cloud.google.com/cluster-director/diagnostics/details/{region}/{name}?project={project}"
 
 
-def create_xprof_url(diagon_url: str) -> str:
-  return diagon_url + "&pageState=(%22nav%22:(%22section%22:%22profiles%22))"
+def create_xprof_url(ml_diagnostics_url: str) -> str:
+  return ml_diagnostics_url + "&pageState=(%22nav%22:(%22section%22:%22profiles%22))"

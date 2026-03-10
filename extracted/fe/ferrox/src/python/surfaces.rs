@@ -177,19 +177,19 @@ fn find_adsorption_sites(
             "height must be finite and non-negative, got {height}"
         )));
     }
-    if let Some(cutoff) = neighbor_cutoff {
-        if !cutoff.is_finite() || cutoff <= 0.0 {
-            return Err(PyValueError::new_err(format!(
-                "neighbor_cutoff must be finite and positive, got {cutoff}"
-            )));
-        }
+    if let Some(cutoff) = neighbor_cutoff
+        && (!cutoff.is_finite() || cutoff <= 0.0)
+    {
+        return Err(PyValueError::new_err(format!(
+            "neighbor_cutoff must be finite and positive, got {cutoff}"
+        )));
     }
-    if let Some(tol) = surface_tolerance {
-        if !tol.is_finite() || tol <= 0.0 {
-            return Err(PyValueError::new_err(format!(
-                "surface_tolerance must be finite and positive, got {tol}"
-            )));
-        }
+    if let Some(tol) = surface_tolerance
+        && (!tol.is_finite() || tol <= 0.0)
+    {
+        return Err(PyValueError::new_err(format!(
+            "surface_tolerance must be finite and positive, got {tol}"
+        )));
     }
 
     let struc = parse_struct(&slab)?;

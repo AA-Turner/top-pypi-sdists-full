@@ -112,7 +112,7 @@ class Tasks(object):
                 "image": "https://replicate.delivery/pbxt/NtDCMBJNIQTOU0mZtlnlrqrPLgYvTvpCISbFIiweYPsotGY5/replicate-prediction-gn4tnddn5drme0csx1yt3jvy4c.jpeg",
                 "prompt": request.prompt,
                 "duration": int(request.seconds or 8),  # 按次
-                "last_frame": "https://replicate.delivery/pbxt/NtDCLnwTQaPfLhgaNDmLevN8QivDFS8V91M8pCwEpDNIN9uA/replicate-prediction-8m82ekaj7hrma0csx1xrkmqjhm.jpeg",
+                # "last_frame": "https://replicate.delivery/pbxt/NtDCLnwTQaPfLhgaNDmLevN8QivDFS8V91M8pCwEpDNIN9uA/replicate-prediction-8m82ekaj7hrma0csx1xrkmqjhm.jpeg",
                 "resolution": "720p",
                 "aspect_ratio": "16:9",
                 "generate_audio": True
@@ -237,6 +237,7 @@ class Tasks(object):
 if __name__ == '__main__':
     model = "wan-video/wan-2.6-i2v"
     model = "openai/sora-2"
+    model = "google/veo-3.1"
 
     request = SoraVideoRequest(
         model=model,
@@ -254,9 +255,9 @@ if __name__ == '__main__':
     )
     print(request)
 
-    # arun(Tasks().create(request))
+    arun(Tasks().create(request))
 
     # task_id = "xcpgs9mybnrmt0cw19arf8bvg8" # 失败
-    task_id = "j1txff19gxrmw0cw1a7vzsaq2m"  # 成功
-    task_id = "18w8gbaacdrmt0cw1a8b6n5ss0"
-    arun(Tasks().get(task_id))
+    # task_id = "j1txff19gxrmw0cw1a7vzsaq2m"  # 成功
+    # task_id = "cvhy8nggw5rmr0cwqhpsx7jkbw"
+    # arun(Tasks().get(task_id))

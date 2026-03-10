@@ -30,6 +30,7 @@ from plato.runtime import RuntimeConfig, VMRuntimeConfig
 from plato.v2.async_.session import Session
 from plato.vm_metrics import instrument_system_metrics, shutdown_metrics
 from plato.worlds.config import AgentConfig, DevConfig, LLMConfig, RunConfig, SessionConfig
+from plato.worlds.human_annotation import RequiresHumanAnnotation
 from plato.worlds.models import Observation, StateHistoryEntry, StepResult, WorkspaceSnapshot
 from plato.worlds.schema import get_world_schema
 from plato.worlds.workspace import Workspace
@@ -310,12 +311,14 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
     def agent(
         self,
         config: AgentConfig,
+        display_name: str | None = None,
         workspaces: list[Workspace] | None = None,
     ) -> AgentRunner:
         """Get an agent runner for the given config.
 
         Args:
             config: Agent configuration.
+            display_name: Optional logical name to surface in VM aliases and OTel traces.
             workspaces: Workspaces to mount on the agent.
                 The first workspace becomes the primary workspace.
                 Each workspace's mount_path (from WorkspaceMarker) determines
@@ -341,6 +344,7 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
         return AgentRunner(
             config,
             runtime,
+            display_name=display_name,
             workspace=primary,
             workspaces=extra,
             agent_containers=self._agent_containers,
@@ -929,18 +933,35 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
                 await self._run_loop(tracer)
             except Exception as e:
                 run_error = e
-                root_span.set_status(StatusCode.ERROR, str(e))
-                root_span.record_exception(e)
+                if isinstance(e, RequiresHumanAnnotation):
+                    self.logger.warning(
+                        "RAISING REQUIRES_HUMAN_ANNOTATION: title=%s items=%d message=%s",
+                        e.request.title,
+                        len(e.request.items),
+                        str(e),
+                    )
+                    root_span.set_attribute("plato.requires_human_annotation", True)
+                    root_span.set_attribute("plato.human_annotation.title", e.request.title)
+                    root_span.add_event(
+                        "requires_human_annotation",
+                        {
+                            "message": str(e),
+                            "items": len(e.request.items),
+                        },
+                    )
+                else:
+                    root_span.set_status(StatusCode.ERROR, str(e))
+                    root_span.record_exception(e)
 
-                # Log error as a dedicated span so it's clearly visible in traces
-                import traceback
+                    # Log error as a dedicated span so it's clearly visible in traces
+                    import traceback
 
-                with tracer.start_as_current_span("world_error") as err_span:
-                    err_span.set_status(StatusCode.ERROR, str(e))
-                    err_span.set_attribute("error.type", type(e).__name__)
-                    err_span.set_attribute("error.message", str(e))
-                    err_span.set_attribute("error.traceback", traceback.format_exc())
-                    err_span.record_exception(e)
+                    with tracer.start_as_current_span("world_error") as err_span:
+                        err_span.set_status(StatusCode.ERROR, str(e))
+                        err_span.set_attribute("error.type", type(e).__name__)
+                        err_span.set_attribute("error.message", str(e))
+                        err_span.set_attribute("error.traceback", traceback.format_exc())
+                        err_span.record_exception(e)
             finally:
                 await self.close()
                 await self._disconnect_plato_session()
@@ -1271,8 +1292,24 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
         await shutdown_metrics()
 
         is_dev = bool(self.dev and self.dev.world)
-        if not is_dev:
-            final_result = getattr(self, "_final_result", None)
+        final_result = getattr(self, "_final_result", None)
+        if run_error and isinstance(run_error, RequiresHumanAnnotation):
+            payload: dict[str, Any] = {}
+            if isinstance(final_result, dict):
+                payload.update(final_result)
+            payload.update(run_error.result_payload())
+            self.logger.warning(
+                "Completing session as needs_human_annotation: title=%s items=%d",
+                run_error.request.title,
+                len(run_error.request.items),
+            )
+            await self._complete_chronos_session(
+                "needs_human_annotation",
+                exit_code=0,
+                error_message=str(run_error),
+                result=payload,
+            )
+        elif not is_dev:
             if run_error:
                 error_msg = f"{type(run_error).__name__}: {run_error}"
                 await self._complete_chronos_session(
@@ -1283,11 +1320,24 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
                 )
             else:
                 await self._complete_chronos_session("completed", exit_code=0, result=final_result)
+        else:
+            self.logger.info(
+                "Skipping Chronos completion in dev-world mode (run_error=%s)",
+                type(run_error).__name__ if run_error else "None",
+            )
 
         shutdown_tracing()
         self._session_id = None
 
-        if run_error:
+        if run_error and not isinstance(run_error, RequiresHumanAnnotation):
             raise run_error
+
+        if isinstance(run_error, RequiresHumanAnnotation):
+            self.logger.info(
+                "World '%s' ended: requires human annotation (%s)",
+                self.name,
+                run_error.request.title,
+            )
+            return
 
         self.logger.info(f"World '{self.name}' completed after {self._step_count} steps")

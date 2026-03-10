@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: datasets
-Version: 4.6.1
+Version: 4.7.0
 Summary: HuggingFace community-driven open-source library of datasets
 Home-page: https://github.com/huggingface/datasets
 Download-URL: https://github.com/huggingface/datasets/tags
@@ -272,7 +272,7 @@ from datasets import load_dataset
 
 # Print all the available datasets
 from huggingface_hub import list_datasets
-print([dataset.id for dataset in list_datasets()])
+print([dataset.id for dataset in list_datasets(limit=20)])
 
 # Load a dataset and print the first example in the training set
 squad_dataset = load_dataset('rajpurkar/squad')

@@ -41,7 +41,6 @@ from arthur_client.api_bindings.api.projects_v1_api import ProjectsV1Api
 from arthur_client.api_bindings.api.registration_v1_api import RegistrationV1Api
 from arthur_client.api_bindings.api.roles_v1_api import RolesV1Api
 from arthur_client.api_bindings.api.tasks_v1_api import TasksV1Api
-from arthur_client.api_bindings.api.unregistered_agents_v1_api import UnregisteredAgentsV1Api
 from arthur_client.api_bindings.api.upsolve_v1_api import UpsolveV1Api
 from arthur_client.api_bindings.api.users_v1_api import UsersV1Api
 from arthur_client.api_bindings.api.webhooks_v1_api import WebhooksV1Api
@@ -116,7 +115,6 @@ from arthur_client.api_bindings.models.continuous_eval_transform_variable_mappin
 from arthur_client.api_bindings.models.create_model_link_task_job_spec import CreateModelLinkTaskJobSpec
 from arthur_client.api_bindings.models.create_model_task_job_spec import CreateModelTaskJobSpec
 from arthur_client.api_bindings.models.created_alerts import CreatedAlerts
-from arthur_client.api_bindings.models.creation_source import CreationSource
 from arthur_client.api_bindings.models.credentials import Credentials
 from arthur_client.api_bindings.models.custom_aggregation_spec_schema import CustomAggregationSpecSchema
 from arthur_client.api_bindings.models.custom_aggregation_test_result import CustomAggregationTestResult
@@ -256,7 +254,6 @@ from arthur_client.api_bindings.models.patch_organization import PatchOrganizati
 from arthur_client.api_bindings.models.patch_project import PatchProject
 from arthur_client.api_bindings.models.patch_service_account_user import PatchServiceAccountUser
 from arthur_client.api_bindings.models.patch_task_request import PatchTaskRequest
-from arthur_client.api_bindings.models.patch_unregistered_agent import PatchUnregisteredAgent
 from arthur_client.api_bindings.models.patch_unregistered_agent_request import PatchUnregisteredAgentRequest
 from arthur_client.api_bindings.models.patch_user import PatchUser
 from arthur_client.api_bindings.models.patch_webhook import PatchWebhook
@@ -319,8 +316,6 @@ from arthur_client.api_bindings.models.put_model_metrics_schedule import PutMode
 from arthur_client.api_bindings.models.put_retrieved_data import PutRetrievedData
 from arthur_client.api_bindings.models.put_task_connection_info import PutTaskConnectionInfo
 from arthur_client.api_bindings.models.put_task_state_cache_request import PutTaskStateCacheRequest
-from arthur_client.api_bindings.models.put_unregistered_agents import PutUnregisteredAgents
-from arthur_client.api_bindings.models.put_unregistered_agents_response import PutUnregisteredAgentsResponse
 from arthur_client.api_bindings.models.reasoning_effort_enum import ReasoningEffortEnum
 from arthur_client.api_bindings.models.regenerate_task_validation_key_job_spec import RegenerateTaskValidationKeyJobSpec
 from arthur_client.api_bindings.models.regex_config import RegexConfig
@@ -356,7 +351,6 @@ from arthur_client.api_bindings.models.resource_list_role import ResourceListRol
 from arthur_client.api_bindings.models.resource_list_role_binding import ResourceListRoleBinding
 from arthur_client.api_bindings.models.resource_list_sub_agent import ResourceListSubAgent
 from arthur_client.api_bindings.models.resource_list_tool import ResourceListTool
-from arthur_client.api_bindings.models.resource_list_unregistered_agent_response import ResourceListUnregisteredAgentResponse
 from arthur_client.api_bindings.models.resource_list_user import ResourceListUser
 from arthur_client.api_bindings.models.resource_list_webhook import ResourceListWebhook
 from arthur_client.api_bindings.models.resource_list_workspace import ResourceListWorkspace
@@ -397,8 +391,6 @@ from arthur_client.api_bindings.models.toxicity_config import ToxicityConfig
 from arthur_client.api_bindings.models.trace_transform_definition import TraceTransformDefinition
 from arthur_client.api_bindings.models.trace_transform_response import TraceTransformResponse
 from arthur_client.api_bindings.models.trace_transform_variable_definition import TraceTransformVariableDefinition
-from arthur_client.api_bindings.models.unregistered_agent import UnregisteredAgent
-from arthur_client.api_bindings.models.unregistered_agent_response import UnregisteredAgentResponse
 from arthur_client.api_bindings.models.update_model_task_rules_job_spec import UpdateModelTaskRulesJobSpec
 from arthur_client.api_bindings.models.upsolve_token import UpsolveToken
 from arthur_client.api_bindings.models.user import User

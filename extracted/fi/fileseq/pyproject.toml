@@ -17,7 +17,6 @@ keywords = ["vfx", "visual effects", "file sequence", "frames", "image"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
@@ -25,9 +24,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
 ]
-dependencies = [
-    "antlr4-python3-runtime==4.13.1",
-]
+dependencies = []
 
 [project.optional-dependencies]
 dev = [
@@ -48,15 +45,19 @@ Documentation = "https://fileseq.readthedocs.io/"
 Repository = "https://github.com/justinfx/fileseq"
 Issues = "https://github.com/justinfx/fileseq/issues"
 
+[tool.pylint.main]
+py-version = "3.8"
+
+[tool.setuptools]
+include-package-data = false
+
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
 fileseq = [
     "py.typed",
-    "grammar/*.g4",
     "parser/*.py",
-    "parser/*.tokens",
 ]
 
 [tool.setuptools_scm]
@@ -73,7 +74,7 @@ dependencies = [
 test = "pytest test/ -v"
 test-cov = "pytest test/ --cov=fileseq --cov-report=html"
 # Requires Java 11+ in PATH. macOS: export PATH="/opt/homebrew/opt/openjdk@21/bin:$PATH"
-generate = "python src/fileseq/grammar/generate.py"
+generate = "python scripts/generate.py"
 
 [tool.hatch.envs.docs]
 dependencies = [

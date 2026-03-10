@@ -98,8 +98,6 @@ class DataverseEntity(Asset):
     INPUT_TO_SPARK_JOBS: ClassVar[Any] = None
     OUTPUT_FROM_SPARK_JOBS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "DataverseEntity"
-
     dataverse_entity_schema_name: Union[str, None, UnsetType] = UNSET
     """Schema Name of the DataverseEntity."""
 
@@ -538,6 +536,9 @@ def _dataverse_entity_to_nested(
         is_incomplete=dataverse_entity.is_incomplete,
         provenance_type=dataverse_entity.provenance_type,
         home_id=dataverse_entity.home_id,
+        depth=dataverse_entity.depth,
+        immediate_upstream=dataverse_entity.immediate_upstream,
+        immediate_downstream=dataverse_entity.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -571,7 +572,6 @@ def _dataverse_entity_from_nested(nested: DataverseEntityNested) -> DataverseEnt
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -580,6 +580,9 @@ def _dataverse_entity_from_nested(nested: DataverseEntityNested) -> DataverseEnt
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_dataverse_entity_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

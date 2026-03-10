@@ -8,7 +8,6 @@ from typing import Any, Tuple
 import click
 
 from tinybird.tb.client import TinyB
-from tinybird.tb.modules.agent import run_agent
 from tinybird.tb.modules.cli import cli
 from tinybird.tb.modules.project import Project
 from tinybird.tb.modules.test_common import run_tests, update_test
@@ -18,25 +17,6 @@ from tinybird.tb.modules.test_common import run_tests, update_test
 @click.pass_context
 def test(ctx: click.Context) -> None:
     """Test commands."""
-
-
-@test.command(
-    name="create",
-    help="Create a test for an existing pipe",
-)
-@click.argument("name_or_filename", type=str)
-@click.option("--prompt", type=str, default="", help="Prompt to be used to create the test")
-@click.pass_context
-def test_create(ctx: click.Context, name_or_filename: str, prompt: str) -> None:
-    """
-    Create a test for an existing pipe
-    """
-    project: Project = ctx.ensure_object(dict)["project"]
-    config: dict[str, Any] = ctx.ensure_object(dict)["config"]
-    prompt = (
-        f"""Create tests for the following pipe: {name_or_filename}. Extra context: {prompt or "No extra context."}"""
-    )
-    run_agent(config, project, True, prompt=prompt, feature="tb_test_create")
 
 
 @test.command(

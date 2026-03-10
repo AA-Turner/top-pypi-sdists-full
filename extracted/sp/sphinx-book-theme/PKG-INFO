@@ -1,38 +1,9 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: sphinx-book-theme
-Version: 1.1.4
+Version: 1.2.0
 Summary: A clean book theme for scientific explanations and documentation with Sphinx
 Maintainer-Email: Executable Books Team <executablebooks@gmail.com>
-License: BSD 3-Clause License
-         
-         Copyright (c) 2020, Chris Holdgraf
-         All rights reserved.
-         
-         Redistribution and use in source and binary forms, with or without
-         modification, are permitted provided that the following conditions are met:
-         
-         1. Redistributions of source code must retain the above copyright notice, this
-            list of conditions and the following disclaimer.
-         
-         2. Redistributions in binary form must reproduce the above copyright notice,
-            this list of conditions and the following disclaimer in the documentation
-            and/or other materials provided with the distribution.
-         
-         3. Neither the name of the copyright holder nor the names of its
-            contributors may be used to endorse or promote products derived from
-            this software without specific prior written permission.
-         
-         THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-         AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-         IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-         DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-         FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-         DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-         SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-         CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-         OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-         OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-         
+License-File: LICENSE
 Classifier: Development Status :: 4 - Beta
 Classifier: Programming Language :: Python :: 3
 Classifier: Framework :: Sphinx
@@ -41,13 +12,13 @@ Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Project-URL: Repository, https://github.com/executablebooks/sphinx-book-theme
 Project-URL: Documentation, https://sphinx-book-theme.readthedocs.io/
-Requires-Python: >=3.9
-Requires-Dist: sphinx>=6.1
-Requires-Dist: pydata-sphinx-theme==0.15.4
+Requires-Python: >=3.11
+Requires-Dist: sphinx>=7.0
+Requires-Dist: pydata-sphinx-theme==0.16.1
 Provides-Extra: code-style
 Requires-Dist: pre-commit; extra == "code-style"
 Provides-Extra: doc
-Requires-Dist: ablog; extra == "doc"
+Requires-Dist: ablog>=0.11.13; extra == "doc"
 Requires-Dist: ipywidgets; extra == "doc"
 Requires-Dist: folium; extra == "doc"
 Requires-Dist: numpy; extra == "doc"
@@ -80,6 +51,9 @@ Description-Content-Type: text/markdown
 # sphinx-book-theme
 
 [![codecov][codecov-badge]][codecov-link] [![Documentation Status][rtd-badge]][rtd-link] [![PyPI][pypi-badge]][pypi-link]
+
+> [!NOTE]
+> **Maintenance Mode**: This project is currently in maintenance mode. We are accepting bug fixes as best we can, but there are not dedicated resources to review and merge. New feature development is not likely. If you're interested in becoming a maintainer and helping keep this project actively developed, please reach out by opening an issue!
 
 **An interactive book theme for Sphinx**.
 

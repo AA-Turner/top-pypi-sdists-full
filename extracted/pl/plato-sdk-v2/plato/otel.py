@@ -35,6 +35,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import traceback
 from collections.abc import Iterator
 from contextlib import contextmanager
 from typing import Literal
@@ -71,17 +72,29 @@ class OTelSpanLogHandler(logging.Handler):
     def emit(self, record: logging.LogRecord) -> None:
         """Emit a log record as an OTel span."""
         try:
+            message = record.getMessage()
+            if record.exc_info:
+                exc_type = record.exc_info[0].__name__ if record.exc_info[0] else "Exception"
+                exc_text = "".join(traceback.format_exception(*record.exc_info)).strip()
+            else:
+                exc_type = None
+                exc_text = None
             with self.tracer.start_as_current_span(f"log.{record.levelname.lower()}") as span:
                 span.set_attribute("log.level", record.levelname)
-                span.set_attribute("log.message", record.getMessage())
+                span.set_attribute("log.message", message)
                 span.set_attribute("log.logger", record.name)
                 span.set_attribute("source", "world")
-                span.set_attribute("content", record.getMessage()[:1000])
+                content = exc_text or message
+                span.set_attribute("content", content[:4000])
 
                 if record.funcName:
                     span.set_attribute("log.function", record.funcName)
                 if record.lineno:
                     span.set_attribute("log.lineno", record.lineno)
+                if exc_type is not None:
+                    span.set_attribute("log.exception_type", exc_type)
+                if exc_text is not None:
+                    span.set_attribute("log.exception", exc_text[:8000])
 
                 if record.levelno >= logging.ERROR:
                     span.set_attribute("error", True)
@@ -360,11 +373,15 @@ def session_span(
         agent_version: Agent version string
         model_name: Default model used by the agent
     """
+    display_name = os.environ.get("PLATO_AGENT_DISPLAY_NAME") or agent_name
     with tracer.start_as_current_span("session") as span:
         span.set_attribute("plato.phase", "agent")
         span.set_attribute("atif.version", "0.1.0")
-        span.set_attribute("atif.agent.name", agent_name)
+        span.set_attribute("atif.agent.name", display_name)
         span.set_attribute("atif.agent.version", agent_version)
+        span.set_attribute("plato.agent.impl_name", agent_name)
+        if display_name != agent_name:
+            span.set_attribute("plato.agent.display_name", display_name)
         if model_name is not None:
             span.set_attribute("atif.agent.model_name", model_name)
         yield span

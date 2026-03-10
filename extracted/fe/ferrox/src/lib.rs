@@ -61,6 +61,7 @@ pub(crate) mod transformations;
 pub mod analysis;
 pub mod io;
 pub mod simulation;
+pub mod units;
 
 // Re-exports for convenience
 pub use algorithms::EnumConfig;
@@ -115,6 +116,8 @@ mod _ferrox {
     #[pymodule_export]
     use crate::python::submodules::lattice;
     #[pymodule_export]
+    use crate::python::submodules::lmdb;
+    #[pymodule_export]
     use crate::python::submodules::md;
     #[pymodule_export]
     use crate::python::submodules::mp;
@@ -143,6 +146,8 @@ mod _ferrox {
     #[pymodule_export]
     use crate::python::submodules::trajectory;
     #[pymodule_export]
+    use crate::python::submodules::units;
+    #[pymodule_export]
     use crate::python::submodules::vasp;
     #[pymodule_export]
     use crate::python::submodules::xrd;
@@ -151,6 +156,7 @@ mod _ferrox {
     fn init(module: &Bound<'_, PyModule>) -> PyResult<()> {
         module.add("__version__", env!("CARGO_PKG_VERSION"))?;
         crate::python::element::register(module)?;
+        crate::python::units::register_top_level(module)?;
         Ok(())
     }
 }

@@ -1,0 +1,714 @@
+import atexit
+import os
+import shutil
+import warnings
+from abc import ABC, abstractmethod, abstractproperty
+from pathlib import Path
+from re import compile
+from tempfile import mkdtemp
+from types import TracebackType
+from typing import (
+    Sequence, Callable, TypeAlias, Self, TypeVar, Generic, cast, ClassVar, Any,
+    overload
+)
+
+from testfixtures.comparison import compare
+from testfixtures.formats import Format, JSON, YAML, TOML
+from testfixtures.utils import wrap
+from .rmtree import rmtree
+
+PathStrings: TypeAlias = str | Sequence[str] | Path
+
+P = TypeVar('P', bound=str | Path)
+
+# When Python 3.13+ becomes the minimum version, we can use PEP 696 (type parameter defaults)
+# to collapse TempDirectory and TempDir into a single class with backward-compatible
+# aliases. Use PEP 695 syntax: class TempDir[P: str | Path = str]: ...
+class _TempDir(ABC, Generic[P]):
+    """
+    A class representing a temporary directory on disk.
+
+    :param ignore: A sequence of strings containing regular expression
+                   patterns that match filenames that should be
+                   ignored by the :class:`TempDirectory` listing and
+                   checking methods.
+
+    :param create: If `True`, the temporary directory will be created
+                   as part of class instantiation.
+
+    :param path: If passed, this should be a string containing an
+                 absolute path to use as the temporary directory. When
+                 passed, :class:`TempDirectory` will not create a new
+                 directory to use.
+
+    :param encoding: A default encoding to use for :meth:`read` and
+                     :meth:`write` operations when the ``encoding`` parameter
+                     is not passed to those methods.
+
+    :param cwd: If ``True``, set the current working directory to be that of the temporary directory
+                when used as a decorator or context manager.
+    """
+
+    instances: ClassVar[set['_TempDir']] = set()
+    atexit_setup = False
+    _path: str | None = None
+
+    @property
+    @abstractmethod
+    def path(self) -> P:
+        """
+        The absolute path where data will be stored
+        """
+
+    def __init__(
+        self,
+        path: str | Path | None = None,
+        *,
+        ignore: Sequence[str] = (),
+        create: bool | None = None,
+        encoding: str | None = None,
+        cwd: bool = False,
+        formats: Sequence[Format] = (JSON, YAML, TOML),
+    ):
+        self.ignore = []
+        for regex in ignore:
+            self.ignore.append(compile(regex))
+        self._path = str(path) if path else None
+        self.encoding = encoding
+        self.cwd = cwd
+        self.original_cwd: str | None = None
+        self.dont_remove = bool(path)
+
+        # Build extension-to-format lookup
+        self.formats: dict[str, Format] = {}
+        for fmt in formats:
+            for suffix in fmt.suffixes:
+                if suffix in self.formats:
+                    raise ValueError(
+                        f"Multiple formats registered for extension '{suffix}'"
+                    )
+                self.formats[suffix.lower()] = fmt
+
+        if create or (path is None and create is None):
+            self.create()
+
+    @classmethod
+    def atexit(cls) -> None:
+        if cls.instances:
+            warnings.warn(
+                'TempDirectory instances not cleaned up by shutdown:\n'
+                '%s' % ('\n'.join(i._path for i in cls.instances if i._path))
+                )
+
+    def create(self) -> Self:
+        """
+        Create a temporary directory for this instance to use if one
+        has not already been created.
+        """
+        if self._path:
+            return self
+        self._path = mkdtemp()
+        self.instances.add(self)
+        if not self.__class__.atexit_setup:
+            atexit.register(self.atexit)
+            self.__class__.atexit_setup = True
+        if self.cwd:
+            self.original_cwd = os.getcwd()
+            os.chdir(self._path)
+        return self
+
+    def cleanup(self) -> None:
+        """
+        Delete the temporary directory and anything in it.
+        This :class:`TempDirectory` cannot be used again unless
+        :meth:`create` is called.
+        """
+        if self.cwd and self.original_cwd:
+            os.chdir(self.original_cwd)
+            self.original_cwd = None
+        if self._path and os.path.exists(self._path) and not self.dont_remove:
+            rmtree(self._path)
+            del self._path
+        if self in self.instances:
+            self.instances.remove(self)
+
+    @classmethod
+    def cleanup_all(cls) -> None:
+        """
+        Delete all temporary directories associated with all
+        :class:`TempDirectory` objects.
+        """
+        for i in tuple(cls.instances):
+            i.cleanup()
+
+    def actual(
+            self,
+            path: PathStrings | None = None,
+            recursive: bool = False,
+            files_only: bool = False,
+            followlinks: bool = False,
+    ) -> list[str]:
+        path = self._join(path)
+
+        result: list[str] = []
+        if recursive:
+            for dirpath, dirnames, filenames in os.walk(path, followlinks=followlinks):
+                dirpath = '/'.join(dirpath[len(path)+1:].split(os.sep))
+                if dirpath:
+                    dirpath += '/'
+
+                for dirname in dirnames:
+                    if not files_only:
+                        result.append(dirpath+dirname+'/')
+
+                for name in sorted(filenames):
+                    result.append(dirpath+name)
+        else:
+            for n in os.listdir(path):
+                result.append(n)
+
+        filtered = []
+        for result_path in sorted(result):
+            ignore = False
+            for regex in self.ignore:
+                if regex.search(result_path):
+                    ignore = True
+                    break
+            if ignore:
+                continue
+            filtered.append(result_path)
+        return filtered
+
+    def listdir(self, path: PathStrings | None = None, recursive: bool = False) -> None:
+        """
+        Print the contents of the specified directory.
+
+        :param path: The path to list, which can be:
+
+                     * `None`, indicating the root of the temporary
+                       directory should be listed.
+
+                     * A tuple of strings, indicating that the
+                       elements of the tuple should be used as directory
+                       names to traverse from the root of the
+                       temporary directory to find the directory to be
+                       listed.
+
+                     * A forward-slash separated string, indicating
+                       the directory or subdirectory that should be
+                       traversed to from the temporary directory and
+                       listed.
+
+        :param recursive: If `True`, the directory specified will have
+                          its subdirectories recursively listed too.
+        """
+        actual = self.actual(path, recursive)
+        if not actual:
+            print('No files or directories found.')
+        for n in actual:
+            print(n)
+
+    def compare(
+            self,
+            expected: Sequence[str],
+            path: PathStrings | None = None,
+            files_only: bool = False,
+            recursive: bool = True,
+            followlinks: bool = False,
+    ) -> None:
+        """
+        Compare the expected contents with the actual contents of the temporary
+        directory. An :class:`AssertionError` will be raised if they are not the
+        same.
+
+        :param expected: A sequence of strings containing the paths
+                         expected in the directory. These paths should
+                         be forward-slash separated and relative to
+                         the root of the temporary directory.
+
+        :param path: The path to use as the root for the comparison,
+                     relative to the root of the temporary directory.
+                     This can either be:
+
+                     * A tuple of strings, making up the relative path.
+
+                     * A forward-slash separated string.
+
+                     If it is not provided, the root of the temporary
+                     directory will be used.
+
+        :param files_only: If specified, directories will be excluded from
+                           the list of actual paths used in the comparison.
+
+        :param recursive: If ``False``, only the direct contents of
+                          the directory specified by ``path`` will be included
+                          in the actual contents used for comparison.
+
+        :param followlinks: If ``True``, symlinks and hard links
+                            will be followed when recursively building up
+                            the actual list of directory contents.
+        """
+
+        __tracebackhide__ = True
+    
+        compare(expected=sorted(expected),
+                actual=tuple(self.actual(
+                    path, recursive, files_only, followlinks
+                )),
+                recursive=False)
+
+    def _join(self, parts: PathStrings | None) -> str:
+        if self._path is None:
+            raise RuntimeError('Instantiated with create=False and .create() not called')
+
+        match parts:
+            case None:
+                return self._path
+            case str():
+                parts = parts.split('/')
+            case Path():
+                parts = parts.relative_to(self._path).parts
+
+        relative = os.sep.join(parts).rstrip(os.sep)
+        if relative.startswith(os.sep):
+            if relative.startswith(self._path):
+                return relative
+            raise ValueError(
+                'Attempt to read or write outside the temporary Directory'
+                )
+        return os.path.join(self._path, relative)
+
+    def _makedir(self, dirpath: PathStrings) -> str:
+        thepath = self._join(dirpath)
+        os.makedirs(thepath)
+        return thepath
+
+    @abstractmethod
+    def makedir(self, dirpath: PathStrings) -> P:
+        """
+        Make an empty directory at the specified path within the
+        temporary directory. Any intermediate subdirectories that do
+        not exist will also be created.
+
+        :param dirpath: The directory to create, which can be:
+
+                        * A tuple of strings.
+
+                        * A forward-slash separated string.
+
+        :returns: The absolute path of the created directory.
+        """
+
+    def _write(
+        self,
+        filepath: PathStrings,
+        data: str | bytes | Any,
+        encoding: str | None = None,
+        format: Format | None = None
+    ) -> str:
+        path = Path(self._join(filepath))
+        path.parent.mkdir(parents=True, exist_ok=True)
+
+        if format is not None:
+            data = format.render(data)
+
+        encoding = encoding or self.encoding
+        if encoding is not None:
+            if isinstance(data, bytes):
+                raise TypeError('Cannot specify encoding when data is bytes')
+            data = data.encode(encoding)
+        elif isinstance(data, str):
+            data = data.encode()
+
+        path.write_bytes(data)
+        return str(path)
+
+    @overload
+    def write(self, filepath: PathStrings, data: bytes) -> P:
+        ...
+
+    @overload
+    def write(self, filepath: PathStrings, data: str, encoding: str | None = None) -> P:
+        ...
+
+    @overload
+    def write(self, filepath: PathStrings, data: Any, encoding: str, format: Format) -> P:
+        ...
+
+    @overload
+    def write(self, filepath: PathStrings, data: Any, * , format: Format) -> P:
+        ...
+
+    @abstractmethod
+    def write(
+        self,
+        filepath: PathStrings,
+        data: str | bytes | Any,
+        encoding: str | None = None,
+        format: Format | None = None
+    ) -> P:
+        """
+        Write the supplied data to a file at the specified path within
+        the temporary directory. Any subdirectories specified that do
+        not exist will also be created.
+
+        The file will always be written in binary mode. The data supplied must
+        either be bytes or an encoding must be supplied to convert the string
+        into bytes, or a format must be supplied to serialize the data.
+
+        :param filepath: The path to the file to create, which can be:
+
+                         * A tuple of strings.
+
+                         * A forward-slash separated string.
+
+        :param data:
+
+          :class:`bytes` containing the data to be written, a :class:`str`
+          if ``encoding`` has been supplied, or any Python object if ``format``
+          has been supplied.
+
+        :param encoding: The encoding to be used for converting strings to bytes.
+                         Should not be passed if data is already bytes.
+                         When used with ``format``, this controls the encoding of the
+                         formatted string before writing to disk.
+
+        :param format: A :class:`~testfixtures.formats.Format` instance to use for
+                       serializing the data. When used with ``encoding``, the format
+                       first renders the data to a string, then that string is encoded
+                       with the specified encoding.
+
+        :returns: The absolute path of the file written.
+        """
+
+    def _find_format(self, filepath: PathStrings) -> Format:
+        match filepath:
+            case str():
+                filename = filepath
+            case Path():
+                filename = filepath.name
+            case _:
+                filename = filepath[-1]
+        suffix = os.path.splitext(filename)[-1].lower()
+        if suffix not in self.formats:
+            raise ValueError(
+                f"No format registered for extension '{suffix}'. "
+                f"Supported extensions: {sorted(self.formats.keys())}"
+            )
+        return self.formats[suffix]
+
+    @abstractmethod
+    def dump(self, filepath: PathStrings, data: Any, format: Format | None = None) -> P:
+        """
+        Serialize and write data to a file, auto-detecting format from file extension.
+
+        :param filepath: The path to write, relative to the temporary directory.
+        :param data: The Python object to serialize.
+        :param format: Optional format handler. If provided, uses this format instead
+                       of auto-detecting from file extension.
+        :returns: The full path of the file that was written.
+        """
+
+    def _clone(
+        self,
+        source: str | Path,
+        filepath: PathStrings | None = None,
+    ) -> str:
+        source_path = Path(source)
+        into_dir = (
+            (isinstance(filepath, str) and filepath.endswith('/')) or
+            (isinstance(filepath, Sequence) and not isinstance(filepath, str) and filepath[-1] == '')
+        )
+
+        if into_dir:
+            # Clone INTO directory
+            dest_path = self._join(filepath)
+            if source_path.is_dir():
+                shutil.copytree(source_path, dest_path, dirs_exist_ok=True)
+                return dest_path
+            os.makedirs(dest_path, exist_ok=True)
+            shutil.copy2(source_path, dest_path)
+            return os.path.join(dest_path, source_path.name)
+
+        # Clone AS path
+        dest_path = self._join(source_path.name if filepath is None else filepath)
+        if source_path.is_dir():
+            shutil.copytree(source_path, dest_path)
+            return dest_path
+        if parent := os.path.dirname(dest_path):
+            os.makedirs(parent, exist_ok=True)
+        shutil.copy2(source_path, dest_path)
+        return dest_path
+
+    @abstractmethod
+    def clone(self, source: str | Path, filepath: PathStrings | None = None) -> P:
+        """
+        Clone a file or directory from outside the TempDir into it.
+
+        :param source: Path to the source file or directory.
+        :param filepath: Destination within TempDir. If None, uses source's name at root.
+                         If ends with '/' or is a sequence ending with '', clones into
+                         that directory rather than as that path.
+        :returns: Absolute path of the cloned content.
+        """
+
+    def as_string(self, path: str | Sequence[str] | None = None) -> str:
+        """
+        Return the full path on disk that corresponds to the path
+        relative to the temporary directory that is passed in.
+
+        :param path: The path to the file to create, which can be:
+
+                     * A tuple of strings.
+
+                     * A forward-slash separated string.
+
+        :returns: A string containing the absolute path.
+
+        """
+        return self._join(path)
+
+    #: .. deprecated:: 7
+    #:
+    #:   Use :meth:`as_string` instead.
+    getpath = as_string
+
+    def as_path(self, path: PathStrings | None = None) -> Path:
+        """
+        Return the :class:`~pathlib.Path` that corresponds to the path
+        relative to the temporary directory that is passed in.
+
+        :param path: The path to the file to create, which can be:
+
+                     * A tuple of strings.
+
+                     * A forward-slash separated string.
+        """
+        return Path(self._join(path))
+
+    def __truediv__(self, other: str) -> Path:
+        return self.as_path() / other
+
+    @overload
+    def read(self, filepath: PathStrings) -> str | bytes:
+        ...
+
+    @overload
+    def read(self, filepath: PathStrings, encoding: str | None) -> str | bytes:
+        ...
+
+    @overload
+    def read(self, filepath: PathStrings, *, format: Format) -> Any:
+        ...
+
+    @overload
+    def read(self, filepath: PathStrings, encoding: str | None, format: Format) -> Any:
+        ...
+
+    def read(
+        self,
+        filepath: PathStrings,
+        encoding: str | None = None,
+        format: Format | None = None
+    ) -> str | bytes | Any:
+        """
+        Reads the file at the specified path within the temporary
+        directory.
+
+        The file is always read in binary mode. Bytes will be returned unless
+        an encoding is supplied, in which case a unicode string of the decoded
+        data will be returned, or a format is supplied, in which case the
+        deserialized Python object will be returned.
+
+        :param filepath: The path to the file to read, which can be:
+
+                         * A tuple of strings.
+
+                         * A forward-slash separated string.
+
+        :param encoding: The encoding used to decode bytes from the file into a string.
+                         When used with ``format``, this controls the decoding of bytes
+                         from the file before parsing.
+
+        :param format: A :class:`~testfixtures.formats.Format` instance to use for
+                       deserializing the data. When used with ``encoding``, the file bytes
+                       are first decoded with the specified encoding, then parsed by the format.
+
+        :returns:
+
+          The contents of the file as a :class:`str`, :class:`bytes`, or deserialized
+          Python object depending on the parameters provided.
+        """
+        with open(self._join(filepath), 'rb') as f:
+            data = f.read()
+
+        encoding = encoding or self.encoding
+        if encoding is not None:
+            text = data.decode(encoding)
+            if format is None:
+                return text
+            else:
+                return format.parse(text)
+
+        if format is not None:
+            return format.parse(data.decode('utf-8'))
+
+        return data
+
+    def read_text(
+        self,
+        filepath: PathStrings,
+        encoding: str | None = None,
+        errors: str | None = None
+    ) -> str:
+        """
+        Read file as text, mirroring pathlib.Path.read_text() behavior.
+
+        :param filepath: The path to the file to read.
+        :param encoding: Text encoding. Uses instance default encoding if None,
+                         then falls back to platform default (locale encoding).
+        :param errors: Error handling strategy (e.g., 'strict', 'ignore', 'replace').
+        :returns: The file contents as a string.
+        """
+        return Path(self._join(filepath)).read_text(encoding or self.encoding, errors)
+
+    def read_bytes(self, filepath: PathStrings) -> bytes:
+        """
+        Read file as bytes, mirroring pathlib.Path.read_bytes() behavior.
+
+        :param filepath: The path to the file to read.
+        :returns: The file contents as bytes.
+        """
+        return Path(self._join(filepath)).read_bytes()
+
+    def parse(self, filepath: PathStrings, format: Format | None = None) -> Any:
+        """
+        Read and deserialize a file, auto-detecting format from file extension.
+
+        :param filepath: The path to read, relative to the temporary directory.
+        :param format: Optional format handler. If provided, uses this format instead
+                       of auto-detecting from file extension.
+        :returns: The deserialized Python object.
+        """
+        return self.read(filepath, format=format or self._find_format(filepath))
+
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(
+            self,
+            exc_type: type[BaseException] | None,
+            value: BaseException | None,
+            traceback: TracebackType | None,
+    ) -> None:
+        self.cleanup()
+
+
+class TempDirectory(_TempDir[str]):
+
+    @property
+    def path(self) -> str:
+        return self._path  # type: ignore[return-value]
+
+    def makedir(self, dirpath: PathStrings) -> str:
+        return self._makedir(dirpath)
+
+    @overload
+    def write(self, filepath: PathStrings, data: bytes) -> str:
+        ...
+
+    @overload
+    def write(self, filepath: PathStrings, data: str, encoding: str | None = None) -> str:
+        ...
+
+    @overload
+    def write(self, filepath: PathStrings, data: Any, encoding: str, format: Format) -> str:
+        ...
+
+    @overload
+    def write(self, filepath: PathStrings, data: Any, * , format: Format) -> str:
+        ...
+
+    def write(
+        self,
+        filepath: PathStrings,
+        data: str | bytes | Any,
+        encoding: str | None = None,
+        format: Format | None = None
+    ) -> str:
+        return self._write(filepath, data, encoding, format)
+
+    def dump(self, filepath: PathStrings, data: Any, format: Format | None = None) -> str:
+        if format is None:
+            format = self._find_format(filepath)
+        return self._write(filepath, data, format=format)
+
+    def clone(self, source: str | Path, filepath: PathStrings | None = None) -> str:
+        return self._clone(source, filepath)
+
+
+TempDirectory.__doc__ = (
+      " .. deprecated:: 11\n    Use :class:`TempDir` instead.\n\n" + (_TempDir.__doc__ or "")
+  )
+
+
+class TempDir(_TempDir[Path]):
+
+    @property
+    def path(self) -> Path:
+        return Path(self._path)  # type: ignore[arg-type]
+
+    def makedir(self, dirpath: PathStrings) -> Path:
+        return Path(self._makedir(dirpath))
+
+    @overload
+    def write(self, filepath: PathStrings, data: bytes) -> Path:
+        ...
+
+    @overload
+    def write(self, filepath: PathStrings, data: str, encoding: str | None = None) -> Path:
+        ...
+
+    @overload
+    def write(self, filepath: PathStrings, data: Any, encoding: str, format: Format) -> Path:
+        ...
+
+    @overload
+    def write(self, filepath: PathStrings, data: Any, * , format: Format) -> Path:
+        ...
+
+    def write(
+        self,
+        filepath: PathStrings,
+        data: str | bytes | Any,
+        encoding: str | None = None,
+        format: Format | None = None
+    ) -> Path:
+        return Path(self._write(filepath, data, encoding, format))
+
+    def dump(self, filepath: PathStrings, data: Any, format: Format | None = None) -> Path:
+        return Path(self._write(filepath, data, format=format or self._find_format(filepath)))
+
+    def clone(self, source: str | Path, filepath: PathStrings | None = None) -> Path:
+        return Path(self._clone(source, filepath))
+
+
+def tempdir(
+        path: str | Path | None = None,
+        *,
+        ignore: Sequence[str] = (),
+        encoding: str | None = None,
+        cwd: bool = False,
+) -> Callable[[Callable], Callable]:
+    """
+    .. deprecated:: 11
+       Use :class:`TempDir` as a context manager, or create a `pytest fixture <https://docs.pytest.org/en/stable/how-to/fixtures.html>`_.
+
+    A decorator for making a :class:`TempDirectory` available for the
+    duration of a test function.
+
+    All arguments and parameters are passed through to the
+    :class:`TempDirectory` constructor.
+    """
+    l = TempDirectory(path, ignore=ignore, encoding=encoding, cwd=cwd, create=False)
+    return wrap(l.create, l.cleanup)

@@ -8,7 +8,7 @@ def bake_keys(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add keyframes on every frame between the selected keyframes
 
     :return: Result of the operator call.
@@ -20,7 +20,7 @@ def blend_offset(
     /,
     *,
     factor: float | None = 0.0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Shift selected keys to the value of the neighboring keys as a block
 
     :param factor: Offset Factor, Control which key to offset towards and how far (in [-inf, inf], optional)
@@ -33,7 +33,7 @@ def blend_to_default(
     /,
     *,
     factor: float | None = 0.0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Blend selected keys to their default value from their current position
 
     :param factor: Factor, How much to blend to the default value (in [-inf, inf], optional)
@@ -46,7 +46,7 @@ def blend_to_ease(
     /,
     *,
     factor: float | None = 0.0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Blends keyframes from current state to an ease-in or ease-out curve
 
     :param factor: Blend, Favor either original data or ease curve (in [-inf, inf], optional)
@@ -59,7 +59,7 @@ def blend_to_neighbor(
     /,
     *,
     factor: float | None = 0.0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Blend selected keyframes to their left or right neighbor
 
     :param factor: Blend, The blend factor with 0 being the current frame (in [-inf, inf], optional)
@@ -72,7 +72,7 @@ def breakdown(
     /,
     *,
     factor: float | None = 0.0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move selected keyframes to an inbetween position relative to adjacent keys
 
     :param factor: Factor, Favor either the left or the right key (in [-inf, inf], optional)
@@ -89,7 +89,7 @@ def butterworth_smooth(
     samples_per_frame: int | None = 1,
     blend: float | None = 1.0,
     blend_in_out: int | None = 1,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Smooth an F-Curve while maintaining the general shape of the curve
 
     :param cutoff_frequency: Frequency Cutoff (Hz), Lower values give a smoother curve (in [0, inf], optional)
@@ -107,7 +107,7 @@ def clean(
     *,
     threshold: float | None = 0.001,
     channels: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Simplify F-Curves by removing closely spaced keyframes
 
     :param threshold: Threshold, (in [0, inf], optional)
@@ -123,7 +123,7 @@ def click_insert(
     frame: float | None = 1.0,
     value: float | None = 1.0,
     extend: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Insert new keyframe at the cursor position for the active F-Curve
 
     :param frame: Frame Number, Frame to insert keyframe on (in [-inf, inf], optional)
@@ -145,7 +145,7 @@ def clickselect(
     deselect_all: bool | None = False,
     column: bool | None = False,
     curves: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select keyframes by clicking on them
 
     :param wait_to_deselect_others: Wait to Deselect Others, (optional)
@@ -163,7 +163,7 @@ def copy(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Copy selected keyframes to the internal clipboard
 
     :return: Result of the operator call.
@@ -176,7 +176,7 @@ def cursor_set(
     *,
     frame: float | None = 0.0,
     value: float | None = 0.0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Interactively set the current frame and value cursor
 
     :param frame: Frame, (in [-1.04857e+06, 1.04857e+06], optional)
@@ -192,7 +192,7 @@ def decimate(
     mode: typing.Literal["RATIO", "ERROR"] | None = "RATIO",
     factor: float | None = 0.333333,
     remove_error_margin: float | None = 0.0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Decimate F-Curves by removing keyframes that influence the curve shape the least
 
         :param mode: Mode, Which mode to use for decimation (optional)
@@ -213,7 +213,7 @@ def delete(
     /,
     *,
     confirm: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove all selected keyframes
 
     :param confirm: Confirm, Prompt for confirmation (optional)
@@ -224,7 +224,7 @@ def driver_delete_invalid(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Delete all visible drivers considered invalid
 
     :return: Result of the operator call.
@@ -234,7 +234,7 @@ def driver_variables_copy(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Copy the driver variables of the active driver
 
     :return: Result of the operator call.
@@ -246,7 +246,7 @@ def driver_variables_paste(
     /,
     *,
     replace: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add copied driver variables to the active driver
 
     :param replace: Replace Existing, Replace existing driver variables, instead of just appending to the end of the existing list (optional)
@@ -258,9 +258,9 @@ def duplicate(
     undo: bool | None = None,
     /,
     *,
-    mode: Literal[bpy.stub_internal.rna_enums.TransformModeTypeItems]
+    mode: typing.Literal[bpy.stub_internal.rna_enums.TransformModeTypeItems]
     | None = "TRANSLATION",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Make a copy of all selected keyframes
 
     :param mode: Mode, (optional)
@@ -274,7 +274,7 @@ def duplicate_move(
     *,
     GRAPH_OT_duplicate: dict[str, typing.Any] | None = {},
     TRANSFORM_OT_translate: dict[str, typing.Any] | None = {},
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Make a copy of all selected keyframes and move them
 
     :param GRAPH_OT_duplicate: Duplicate Keyframes, Make a copy of all selected keyframes (optional, `bpy.ops.graph.duplicate` keyword arguments)
@@ -289,7 +289,7 @@ def ease(
     *,
     factor: float | None = 0.0,
     sharpness: float | None = 2.0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Align keyframes on a ease-in or ease-out curve
 
     :param factor: Curve Bend, Defines if the keys should be aligned on an ease-in or ease-out curve (in [-inf, inf], optional)
@@ -302,9 +302,9 @@ def easing_type(
     undo: bool | None = None,
     /,
     *,
-    type: Literal[bpy.stub_internal.rna_enums.BeztripleInterpolationEasingItems]
+    type: typing.Literal[bpy.stub_internal.rna_enums.BeztripleInterpolationEasingItems]
     | None = "AUTO",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set easing type for the F-Curve segments starting from the selected keyframes
 
     :param type: Type, (optional)
@@ -319,7 +319,7 @@ def equalize_handles(
     side: typing.Literal["LEFT", "RIGHT", "BOTH"] | None = "LEFT",
     handle_length: float | None = 5.0,
     flatten: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Ensure selected keyframes handles have equal length, optionally making them horizontal. Automatic, Automatic Clamped, or Vector handle types will be converted to Aligned
 
         :param side: Side, Side of the keyframes Bézier handles to affect (optional)
@@ -341,7 +341,7 @@ def euler_filter(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Fix large jumps and flips in the selected Euler Rotation F-Curves arising from rotation values being clipped when baking physics
 
     :return: Result of the operator call.
@@ -354,7 +354,7 @@ def extrapolation_type(
     *,
     type: typing.Literal["CONSTANT", "LINEAR", "MAKE_CYCLIC", "CLEAR_CYCLIC"]
     | None = "CONSTANT",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set extrapolation mode for selected F-Curves
 
         :param type: Type, (optional)
@@ -378,9 +378,10 @@ def fmodifier_add(
     undo: bool | None = None,
     /,
     *,
-    type: Literal[bpy.stub_internal.rna_enums.FmodifierTypeItems] | None = "NULL",
+    type: typing.Literal[bpy.stub_internal.rna_enums.FmodifierTypeItems]
+    | None = "NULL",
     only_active: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add F-Modifier to the active/selected F-Curves
 
     :param type: Type, (optional)
@@ -392,7 +393,7 @@ def fmodifier_copy(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Copy the F-Modifier(s) of the active F-Curve
 
     :return: Result of the operator call.
@@ -405,7 +406,7 @@ def fmodifier_paste(
     *,
     only_active: bool | None = False,
     replace: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add copied F-Modifiers to the selected F-Curves
 
     :param only_active: Only Active, Only paste F-Modifiers on active F-Curve (optional)
@@ -417,7 +418,7 @@ def frame_jump(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Place the cursor on the midpoint of selected keyframes
 
     :return: Result of the operator call.
@@ -431,7 +432,7 @@ def gaussian_smooth(
     factor: float | None = 1.0,
     sigma: float | None = 0.33,
     filter_width: int | None = 6,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Smooth the curve using a Gaussian filter
 
     :param factor: Factor, How much to blend to the default value (in [0, inf], optional)
@@ -444,7 +445,7 @@ def ghost_curves_clear(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Clear F-Curve snapshots (Ghosts) for active Graph Editor
 
     :return: Result of the operator call.
@@ -454,7 +455,7 @@ def ghost_curves_create(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Create snapshot (Ghosts) of selected F-Curves as background aid for active Graph Editor
 
     :return: Result of the operator call.
@@ -465,8 +466,9 @@ def handle_type(
     undo: bool | None = None,
     /,
     *,
-    type: Literal[bpy.stub_internal.rna_enums.KeyframeHandleTypeItems] | None = "FREE",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    type: typing.Literal[bpy.stub_internal.rna_enums.KeyframeHandleTypeItems]
+    | None = "FREE",
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set type of handle for selected keyframes
 
     :param type: Type, (optional)
@@ -479,7 +481,7 @@ def hide(
     /,
     *,
     unselected: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Hide selected curves from Graph Editor view
 
     :param unselected: Unselected, Hide unselected rather than selected curves (optional)
@@ -491,9 +493,9 @@ def interpolation_type(
     undo: bool | None = None,
     /,
     *,
-    type: Literal[bpy.stub_internal.rna_enums.BeztripleInterpolationModeItems]
+    type: typing.Literal[bpy.stub_internal.rna_enums.BeztripleInterpolationModeItems]
     | None = "CONSTANT",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set interpolation mode for the F-Curve segments starting from the selected keyframes
 
     :param type: Type, (optional)
@@ -507,7 +509,7 @@ def keyframe_insert(
     *,
     type: typing.Literal["ALL", "SEL", "ACTIVE", "CURSOR_ACTIVE", "CURSOR_SEL"]
     | None = "ALL",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Insert keyframes for the specified channels
 
         :param type: Type, (optional)
@@ -535,7 +537,7 @@ def keyframe_jump(
     /,
     *,
     next: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Jump to previous/next keyframe
 
     :param next: Next Keyframe, (optional)
@@ -546,7 +548,7 @@ def keys_to_samples(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Convert selected channels to an uneditable set of samples to save storage space
 
     :return: Result of the operator call.
@@ -558,7 +560,7 @@ def match_slope(
     /,
     *,
     factor: float | None = 0.0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Blend selected keys to the slope of neighboring ones
 
     :param factor: Factor, Defines which keys to use as slope and how much to blend towards them (in [-inf, inf], optional)
@@ -571,7 +573,7 @@ def mirror(
     /,
     *,
     type: typing.Literal["CFRA", "VALUE", "YAXIS", "XAXIS", "MARKER"] | None = "CFRA",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Flip selected keyframes over the selected mirror line
 
         :param type: Type, (optional)
@@ -598,13 +600,16 @@ def paste(
     undo: bool | None = None,
     /,
     *,
-    offset: Literal[bpy.stub_internal.rna_enums.KeyframePasteOffsetItems]
+    offset: typing.Literal[bpy.stub_internal.rna_enums.KeyframePasteOffsetItems]
     | None = "START",
-    value_offset: Literal[bpy.stub_internal.rna_enums.KeyframePasteOffsetValueItems]
+    value_offset: typing.Literal[
+        bpy.stub_internal.rna_enums.KeyframePasteOffsetValueItems
+    ]
     | None = "NONE",
-    merge: Literal[bpy.stub_internal.rna_enums.KeyframePasteMergeItems] | None = "MIX",
+    merge: typing.Literal[bpy.stub_internal.rna_enums.KeyframePasteMergeItems]
+    | None = "MIX",
     flipped: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Paste keyframes from the internal clipboard for the selected channels, starting on the current frame
 
     :param offset: Frame Offset, Paste time offset of keys (optional)
@@ -618,7 +623,7 @@ def previewrange_set(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set Preview Range based on range of selected keyframes
 
     :return: Result of the operator call.
@@ -630,7 +635,7 @@ def push_pull(
     /,
     *,
     factor: float | None = 1.0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Exaggerate or minimize the value of the selected keys
 
     :param factor: Factor, Control how far to push or pull the keys (in [-inf, inf], optional)
@@ -643,7 +648,7 @@ def reveal(
     /,
     *,
     select: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Make previously hidden curves visible again in Graph Editor view
 
     :param select: Select, (optional)
@@ -654,7 +659,7 @@ def samples_to_keys(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Convert selected channels from samples to keyframes
 
     :return: Result of the operator call.
@@ -666,7 +671,7 @@ def scale_average(
     /,
     *,
     factor: float | None = 1.0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Scale selected key values by their combined average
 
     :param factor: Scale Factor, The scale factor applied to the curve segments (in [-inf, inf], optional)
@@ -680,7 +685,7 @@ def scale_from_neighbor(
     *,
     factor: float | None = 0.0,
     anchor: typing.Literal["LEFT", "RIGHT"] | None = "LEFT",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Increase or decrease the value of selected keys in relationship to the neighboring one
 
     :param factor: Factor, The factor to scale keys with (in [-inf, inf], optional)
@@ -694,7 +699,7 @@ def select_all(
     /,
     *,
     action: typing.Literal["TOGGLE", "SELECT", "DESELECT", "INVERT"] | None = "TOGGLE",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Toggle selection of all keyframes
 
         :param action: Action, Selection action to execute (optional)
@@ -728,7 +733,7 @@ def select_box(
     ymax: int | None = 0,
     wait_for_input: bool | None = True,
     mode: typing.Literal["SET", "ADD", "SUB"] | None = "SET",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select all keyframes within the specified region
 
         :param axis_range: Axis Range, (optional)
@@ -765,7 +770,7 @@ def select_circle(
     mode: typing.Literal["SET", "ADD", "SUB"] | None = "SET",
     include_handles: bool | None = True,
     use_curve_selection: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select keyframe points using circle selection
 
         :param x: X, (in [-inf, inf], optional)
@@ -794,7 +799,7 @@ def select_column(
     *,
     mode: typing.Literal["KEYS", "CFRA", "MARKERS_COLUMN", "MARKERS_BETWEEN"]
     | None = "KEYS",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select all keyframes on the specified frame(s)
 
     :param mode: Mode, (optional)
@@ -809,7 +814,7 @@ def select_key_handles(
     left_handle_action: typing.Literal["SELECT", "DESELECT", "KEEP"] | None = "SELECT",
     right_handle_action: typing.Literal["SELECT", "DESELECT", "KEEP"] | None = "SELECT",
     key_action: typing.Literal["SELECT", "DESELECT", "KEEP"] | None = "KEEP",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """For selected keyframes, select/deselect any combination of the key itself and its handles
 
         :param left_handle_action: Left Handle, Effect on the left handle (optional)
@@ -857,7 +862,7 @@ def select_lasso(
     mode: typing.Literal["SET", "ADD", "SUB"] | None = "SET",
     include_handles: bool | None = True,
     use_curve_selection: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select keyframe points using lasso selection
 
         :param path: Path, (optional)
@@ -886,7 +891,7 @@ def select_leftright(
     *,
     mode: typing.Literal["CHECK", "LEFT", "RIGHT"] | None = "CHECK",
     extend: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select keyframes to the left or the right of the current frame
 
     :param mode: Mode, (optional)
@@ -898,7 +903,7 @@ def select_less(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Deselect keyframes on ends of selection islands
 
     :return: Result of the operator call.
@@ -908,7 +913,7 @@ def select_linked(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select keyframes occurring in the same F-Curves as selected ones
 
     :return: Result of the operator call.
@@ -918,7 +923,7 @@ def select_more(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select keyframes beside already selected ones
 
     :return: Result of the operator call.
@@ -931,7 +936,7 @@ def shear(
     *,
     factor: float | None = 0.0,
     direction: typing.Literal["FROM_LEFT", "FROM_RIGHT"] | None = "FROM_LEFT",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Affect the value of the keys linearly, keeping the same relationship between them using either the left or the right key as reference
 
         :param factor: Shear Factor, The amount of shear to apply (in [-inf, inf], optional)
@@ -949,7 +954,7 @@ def smooth(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Apply weighted moving means to make selected F-Curves less bumpy
 
     :return: Result of the operator call.
@@ -969,7 +974,7 @@ def snap(
         "HORIZONTAL",
     ]
     | None = "CFRA",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Snap selected keyframes to the chosen times/values
 
         :param type: Type, (optional)
@@ -998,7 +1003,7 @@ def snap_cursor_value(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Place the cursor value on the average value of selected keyframes
 
     :return: Result of the operator call.
@@ -1044,7 +1049,7 @@ def sound_to_samples(
     use_additive: bool | None = False,
     use_square: bool | None = False,
     sthreshold: float | None = 0.1,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Bakes a sound wave to samples on selected channels
 
         :param filepath: File Path, Path to file (optional, never None)
@@ -1100,7 +1105,7 @@ def time_offset(
     /,
     *,
     frame_offset: float | None = 0.0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Shifts the value of selected keys in time
 
     :param frame_offset: Frame Offset, How far in frames to offset the animation (in [-inf, inf], optional)
@@ -1113,7 +1118,7 @@ def view_all(
     /,
     *,
     include_handles: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Reset viewable area to show full keyframe range
 
     :param include_handles: Include Handles, Include handles of keyframes when calculating extents (optional)
@@ -1124,7 +1129,7 @@ def view_frame(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move the view to the current frame
 
     :return: Result of the operator call.
@@ -1136,7 +1141,7 @@ def view_selected(
     /,
     *,
     include_handles: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Reset viewable area to show selected keyframe range
 
     :param include_handles: Include Handles, Include handles of keyframes when calculating extents (optional)

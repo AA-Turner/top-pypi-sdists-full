@@ -28,6 +28,8 @@ def option(token: Optional[str] = None):
         "https://api.ffire.cc/api/option/",
         "https://api.oneapis.cn/api/option/",
 
+        # "https://chatfire.cn/api/option/"
+
     ]
 
     token = token or os.getenv("CHATFIRE_ONEAPI_TOKEN")
@@ -84,7 +86,7 @@ def option(token: Optional[str] = None):
     for url in urls:
         for payload in payloads:
             response = requests.request("PUT", url, headers=headers, json=payload)
-            logger.debug(response.json())
+            logger.debug(response.text)
 
 
 def add_channel(

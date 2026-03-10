@@ -93,8 +93,6 @@ class CogniteSequence(Asset):
     INPUT_TO_SPARK_JOBS: ClassVar[Any] = None
     OUTPUT_FROM_SPARK_JOBS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "CogniteSequence"
-
     input_to_airflow_tasks: Union[List[RelatedAirflowTask], None, UnsetType] = UNSET
     """Tasks to which this asset provides input."""
 
@@ -460,6 +458,9 @@ def _cognite_sequence_to_nested(
         is_incomplete=cognite_sequence.is_incomplete,
         provenance_type=cognite_sequence.provenance_type,
         home_id=cognite_sequence.home_id,
+        depth=cognite_sequence.depth,
+        immediate_upstream=cognite_sequence.immediate_upstream,
+        immediate_downstream=cognite_sequence.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -493,7 +494,6 @@ def _cognite_sequence_from_nested(nested: CogniteSequenceNested) -> CogniteSeque
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -502,6 +502,9 @@ def _cognite_sequence_from_nested(nested: CogniteSequenceNested) -> CogniteSeque
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_cognite_sequence_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

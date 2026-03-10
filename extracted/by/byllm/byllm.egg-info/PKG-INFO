@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: byllm
-Version: 0.5.4
+Version: 0.5.5
 Summary: byLLM Provides Easy to use APIs for different LLM Providers to be used with Jaseci's Jaclang Programming Language.
 Author-email: Jason Mars <jason@mars.ninja>
 Maintainer-email: Jason Mars <jason@mars.ninja>

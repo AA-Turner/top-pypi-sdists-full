@@ -151,6 +151,15 @@ class BaseTool:
         else:
             return False, "Invalid JSON string of function call"
 
+    def get_schema_const_operation(self) -> str:
+        """Return the const operation value from the tool's parameter schema, or empty string."""
+        return (
+            self.tool_config.get("parameter", {})
+            .get("properties", {})
+            .get("operation", {})
+            .get("const", "")
+        )
+
     def get_required_parameters(self):
         """
         Retrieve required parameters from the endpoint definition.

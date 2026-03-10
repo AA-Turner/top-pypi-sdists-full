@@ -1,22 +1,31 @@
 name: Run base integration tests on Astra DB
 
 on:
-  push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
+  workflow_call:
+    inputs:
+      coverage_prefix:
+        description: "Code coverage file base name"
+        type: string
+        required: true
+      sha:
+        description: "Commit SHA of the code being tested"
+        type: string
+        required: true
+    secrets:
+      ASTRA_DB_APPLICATION_TOKEN:
+        required: true
+      ASTRA_DB_API_ENDPOINT:
+        required: true
+      HEADER_EMBEDDING_API_KEY_OPENAI:
+        required: true
 
 jobs:
   test:
     env:
-      # basic secrets
       ASTRA_DB_APPLICATION_TOKEN: ${{ secrets.ASTRA_DB_APPLICATION_TOKEN }}
       ASTRA_DB_API_ENDPOINT: ${{ secrets.ASTRA_DB_API_ENDPOINT }}
-      ASTRA_DB_KEYSPACE: ${{ secrets.ASTRA_DB_KEYSPACE }}
-      ASTRA_DB_SECONDARY_KEYSPACE: ${{ secrets.ASTRA_DB_SECONDARY_KEYSPACE }}
       HEADER_EMBEDDING_API_KEY_OPENAI: ${{ secrets.HEADER_EMBEDDING_API_KEY_OPENAI }}
+      LEGACY_INSERTMANY_BEHAVIOUR_PRE2193: ${{ secrets.LEGACY_INSERTMANY_BEHAVIOUR_PRE2193 }}
     runs-on: ubuntu-latest
 
     steps:
@@ -26,7 +35,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v2
       with:
-        python-version: 3.11
+        python-version: 3.12
 
     - name: Install dependencies
       run: |
@@ -36,4 +45,12 @@ jobs:
 
     - name: Run pytest
       run: |
-        uv run pytest tests/base/integration
+        uv run pytest --cov=astrapy/ tests/base/integration -vv
+
+    - name: Upload coverage data (unique per commit)
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ inputs.coverage_prefix }}-${{ inputs.sha }}
+        path: .coverage
+        retention-days: 1
+        include-hidden-files: true

@@ -1,6 +1,7 @@
 """Tests for the dashboard backend API endpoints."""
 
 import asyncio
+from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Any, NoReturn
 
@@ -127,7 +128,7 @@ def test_ensure_writable_config_path_seeds_from_template(
     template_config.write_text("agents: {}\nmodels: {}\n", encoding="utf-8")
 
     monkeypatch.setattr(constants, "CONFIG_PATH", writable_config)
-    monkeypatch.setattr(constants, "CONFIG_TEMPLATE_PATH", template_config)
+    monkeypatch.setattr(constants, "_CONFIG_TEMPLATE_PATH", template_config)
 
     assert constants.ensure_writable_config_path() is True
     assert writable_config.read_text(encoding="utf-8") == template_config.read_text(encoding="utf-8")
@@ -150,6 +151,32 @@ def test_api_lifespan_syncs_env_credentials_on_startup(monkeypatch: pytest.Monke
 
     assert sync_calls == ["sync"]
     assert watch_calls == ["watch"]
+
+
+@pytest.mark.asyncio
+async def test_watch_config_uses_single_file_watcher(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Config watching should target the config file itself, not the whole runtime directory."""
+    watched_paths: list[Path] = []
+    stop_event = asyncio.Event()
+    config_path = tmp_path / "config.yaml"
+
+    async def _fake_watch_file(
+        file_path: Path,
+        callback: Callable[[], Awaitable[object]],
+        stop_event: asyncio.Event | None = None,
+    ) -> None:
+        watched_paths.append(file_path)
+        assert stop_event is not None
+        await callback()
+        stop_event.set()
+
+    monkeypatch.setattr(main, "CONFIG_PATH", config_path)
+    monkeypatch.setattr(main, "watch_file", _fake_watch_file)
+    monkeypatch.setattr(main, "_load_config_from_file", lambda: watched_paths.append(Path("loaded")))
+
+    await main._watch_config(stop_event)
+
+    assert watched_paths == [config_path, Path("loaded")]
 
 
 def test_health_check(test_client: TestClient) -> None:

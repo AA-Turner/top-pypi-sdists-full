@@ -1,4 +1,3 @@
-import threading
 import time
 from copy import deepcopy
 from functools import partial
@@ -17,10 +16,9 @@ from tinybird.tb.modules.build_common import process
 from tinybird.tb.modules.cli import cli
 from tinybird.tb.modules.config import CLIConfig
 from tinybird.tb.modules.datafile.playground import folder_playground
-from tinybird.tb.modules.dev_server import BuildStatus, start_server
 from tinybird.tb.modules.feedback_manager import FeedbackManager
 from tinybird.tb.modules.project import Project
-from tinybird.tb.modules.shell import Shell, print_table_formatted
+from tinybird.tb.modules.query_output import print_table_formatted
 from tinybird.tb.modules.watch import watch_files, watch_project
 
 
@@ -68,7 +66,6 @@ def build(ctx: click.Context, watch: bool, with_connections: bool) -> None:
     if watch:
         run_watch(
             project=project,
-            tb_client=tb_client,
             config=config,
             process=partial(
                 process,
@@ -83,15 +80,13 @@ def build(ctx: click.Context, watch: bool, with_connections: bool) -> None:
 
 
 @cli.command("dev", help="Build the project server side and watch for changes.")
-@click.option("--data-origin", type=str, default="", help="Data origin: local or cloud")
-@click.option("--ui/--skip-ui", is_flag=True, default=True, help="Connect your local project to Tinybird UI")
 @click.option(
     "--with-connections/--no-connections",
     default=None,
     help="Create data linkers for connection datasources (S3, Kafka, GCS). Defaults to true for branches.",
 )
 @click.pass_context
-def dev(ctx: click.Context, data_origin: str, ui: bool, with_connections: Optional[bool]) -> None:
+def dev(ctx: click.Context, with_connections: Optional[bool]) -> None:
     obj: Dict[str, Any] = ctx.ensure_object(dict)
     branch: Optional[str] = ctx.ensure_object(dict)["branch"]
     is_branch = bool(branch)
@@ -103,26 +98,9 @@ def dev(ctx: click.Context, data_origin: str, ui: bool, with_connections: Option
     if obj["env"] == "cloud" and not is_branch:
         raise click.ClickException(FeedbackManager.error_build_only_supported_in_local())
 
-    if data_origin == "cloud":
-        click.echo(
-            FeedbackManager.warning(
-                message="--data-origin=cloud is deprecated and will be removed in a future version. Create an branch and use `tb --branch <branch_name> dev`"
-            )
-        )
-        return dev_cloud(ctx)
-
     project: Project = ctx.ensure_object(dict)["project"]
     tb_client: TinyB = ctx.ensure_object(dict)["client"]
     config: Dict[str, Any] = ctx.ensure_object(dict)["config"]
-
-    build_status = BuildStatus()
-    if ui:
-        server_thread = threading.Thread(
-            target=start_server, args=(project, tb_client, process, build_status, branch), daemon=True
-        )
-        server_thread.start()
-        # Wait for the server to start
-        time.sleep(0.5)
 
     click.echo(FeedbackManager.highlight_building_project())
     process(
@@ -130,20 +108,16 @@ def dev(ctx: click.Context, data_origin: str, ui: bool, with_connections: Option
         tb_client=tb_client,
         watch=True,
         config=config,
-        build_status=build_status,
         is_branch=is_branch,
         with_connections=with_connections,
     )
     run_watch(
         project=project,
-        tb_client=tb_client,
         config=config,
-        branch=branch,
         process=partial(
             process,
             project=project,
             tb_client=tb_client,
-            build_status=build_status,
             config=config,
             is_branch=is_branch,
             with_connections=with_connections,
@@ -151,18 +125,9 @@ def dev(ctx: click.Context, data_origin: str, ui: bool, with_connections: Option
     )
 
 
-def run_watch(
-    project: Project, tb_client: TinyB, process: Callable, config: dict[str, Any], branch: Optional[str] = None
-) -> None:
-    shell = Shell(project=project, tb_client=tb_client, branch=branch)
+def run_watch(project: Project, process: Callable, config: dict[str, Any]) -> None:
     click.echo(FeedbackManager.gray(message="\nWatching for changes..."))
-    watcher_thread = threading.Thread(
-        target=watch_project,
-        args=(shell, process, project, config),
-        daemon=True,
-    )
-    watcher_thread.start()
-    shell.run()
+    watch_project(process=process, project=project, config=config)
 
 
 def is_vendor(f: Path) -> bool:
@@ -244,13 +209,8 @@ def dev_cloud(
 
     build_ok = build_once(filenames)
 
-    shell = Shell(project=project, tb_client=tb_client, playground=True)
     click.echo(FeedbackManager.gray(message="\nWatching for changes..."))
-    watcher_thread = threading.Thread(
-        target=watch_files, args=(filenames, process, shell, project, build_ok), daemon=True
-    )
-    watcher_thread.start()
-    shell.run()
+    watch_files(filenames=filenames, process=process, project=project, build_ok=build_ok)
 
 
 def build_and_print_resource(config: CLIConfig, tb_client: TinyB, filename: str):

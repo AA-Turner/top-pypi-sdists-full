@@ -150,6 +150,7 @@ class PrivateWorkspaceSDK(WorkloadSDK):
                 image_uri=config.image_uri,
                 registry_login_secret=config.registry_login_secret,
                 ray_version=config.ray_version,
+                cloud_id=cloud_id,
             )
 
         dynamic_requirements = None
@@ -762,6 +763,7 @@ class PrivateWorkspaceSDK(WorkloadSDK):
                 image_uri=config.image_uri,
                 registry_login_secret=config.registry_login_secret,
                 ray_version=config.ray_version,
+                cloud_id=workspace.cloud_id,
             )
 
         dynamic_requirements = None

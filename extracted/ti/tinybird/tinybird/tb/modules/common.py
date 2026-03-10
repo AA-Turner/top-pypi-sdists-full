@@ -74,27 +74,12 @@ _PATTERN_AWS_ARN = re.compile(r"arn:aws:iam::(\d+):root")
 SUPPORTED_FORMATS = ["csv", "ndjson", "json", "parquet"]
 OLDEST_ROLLBACK = "oldest_rollback"
 MAIN_BRANCH = "main"
-PROMPT_AI_DEPRECATION_WARNING = (
-    "Tinybird Code and `--prompt` commands are now deprecated and will be removed in the next major release.\n"
-    "You can instead bring the best of Tinybird Code to your preferred coding agent with skills. Run: npx skills add @tinybirdco/tinybird-agent-skills\n"
-)
 
 
 def obfuscate_token(value: Optional[str]) -> Optional[str]:
     if not value:
         return None
     return f"{value[:4]}...{value[-8:]}"
-
-
-def warn_prompt_ai_deprecation() -> None:
-    ctx = click.get_current_context(silent=True)
-    if ctx:
-        root_ctx = ctx.find_root()
-        root_obj = root_ctx.ensure_object(dict)
-        if root_obj.get("_prompt_ai_deprecation_warned"):
-            return
-        root_obj["_prompt_ai_deprecation_warned"] = True
-    click.echo(FeedbackManager.warning(message=PROMPT_AI_DEPRECATION_WARNING))
 
 
 def gather_with_concurrency(n, *tasks):
@@ -369,7 +354,13 @@ def getenv_bool(key: str, default: bool) -> bool:
     return v.lower() == "true" or v == "1"
 
 
-def _get_tb_client(token: str, host: str, staging: bool = False, branch: Optional[str] = None) -> TinyB:
+def _get_tb_client(
+    token: str,
+    host: str,
+    staging: bool = False,
+    branch: Optional[str] = None,
+    create_branch_if_missing: bool = False,
+) -> TinyB:
     disable_ssl: bool = getenv_bool("TB_DISABLE_SSL_CHECKS", False)
     cloud_client = TinyB(
         token,
@@ -385,6 +376,22 @@ def _get_tb_client(token: str, host: str, staging: bool = False, branch: Optiona
 
     workspaces = cloud_client.user_workspaces_and_branches(version="v1")
     workspace = next((w for w in workspaces.get("workspaces", []) if w.get("name") == branch), None)
+    if not workspace and create_branch_if_missing:
+        response = cloud_client.create_workspace_branch(
+            branch_name=branch,
+            last_partition=False,
+            all=False,
+            ignore_datasources=None,
+        )
+        job_data = response.get("job") if isinstance(response, dict) else None
+        if isinstance(job_data, dict):
+            job_id = job_data.get("job_id") or job_data.get("id")
+            if isinstance(job_id, str):
+                cloud_client.wait_for_job(job_id)
+
+        workspaces = cloud_client.user_workspaces_and_branches(version="v1")
+        workspace = next((w for w in workspaces.get("workspaces", []) if w.get("name") == branch), None)
+
     if not workspace:
         raise CLIException(FeedbackManager.error_exception(error=f"Branch {branch} not found"))
 

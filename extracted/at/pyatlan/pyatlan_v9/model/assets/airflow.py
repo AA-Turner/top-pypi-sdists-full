@@ -99,8 +99,6 @@ class Airflow(Asset):
     OUTPUT_FROM_SPARK_JOBS: ClassVar[Any] = None
     SPARK_ORCHESTRATED_ASSETS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "Airflow"
-
     airflow_tags: Union[List[str], None, UnsetType] = UNSET
     """Tags assigned to the asset in Airflow."""
 
@@ -513,6 +511,9 @@ def _airflow_to_nested(airflow: Airflow) -> AirflowNested:
         is_incomplete=airflow.is_incomplete,
         provenance_type=airflow.provenance_type,
         home_id=airflow.home_id,
+        depth=airflow.depth,
+        immediate_upstream=airflow.immediate_upstream,
+        immediate_downstream=airflow.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -542,7 +543,6 @@ def _airflow_from_nested(nested: AirflowNested) -> Airflow:
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -551,6 +551,9 @@ def _airflow_from_nested(nested: AirflowNested) -> Airflow:
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_airflow_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

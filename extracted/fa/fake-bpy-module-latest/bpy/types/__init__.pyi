@@ -2098,7 +2098,7 @@ class ActionSlots(bpy_prop_collection, bpy_prop):
 
     def new(
         self,
-        id_type: Literal[bpy.stub_internal.rna_enums.IdTypeItems] | None,
+        id_type: typing.Literal[bpy.stub_internal.rna_enums.IdTypeItems] | None,
         name: str | None,
     ) -> ActionSlot:
         """Add a slot to the Action
@@ -2764,8 +2764,8 @@ class AttributeGroupCurves(bpy_prop_collection, bpy_prop):
     def new(
         self,
         name: str | None,
-        type: Literal[bpy.stub_internal.rna_enums.AttributeTypeItems] | None,
-        domain: Literal[bpy.stub_internal.rna_enums.AttributeDomainItems] | None,
+        type: typing.Literal[bpy.stub_internal.rna_enums.AttributeTypeItems] | None,
+        domain: typing.Literal[bpy.stub_internal.rna_enums.AttributeDomainItems] | None,
     ) -> Attribute:
         """Add attribute to geometry
 
@@ -2782,7 +2782,8 @@ class AttributeGroupCurves(bpy_prop_collection, bpy_prop):
         """
 
     def domain_size(
-        self, domain: Literal[bpy.stub_internal.rna_enums.AttributeDomainItems] | None
+        self,
+        domain: typing.Literal[bpy.stub_internal.rna_enums.AttributeDomainItems] | None,
     ) -> int:
         """Get the size of a given domain
 
@@ -2830,8 +2831,8 @@ class AttributeGroupGreasePencil(bpy_prop_collection, bpy_prop):
     def new(
         self,
         name: str | None,
-        type: Literal[bpy.stub_internal.rna_enums.AttributeTypeItems] | None,
-        domain: Literal[bpy.stub_internal.rna_enums.AttributeDomainItems] | None,
+        type: typing.Literal[bpy.stub_internal.rna_enums.AttributeTypeItems] | None,
+        domain: typing.Literal[bpy.stub_internal.rna_enums.AttributeDomainItems] | None,
     ) -> Attribute:
         """Add attribute to geometry
 
@@ -2848,7 +2849,8 @@ class AttributeGroupGreasePencil(bpy_prop_collection, bpy_prop):
         """
 
     def domain_size(
-        self, domain: Literal[bpy.stub_internal.rna_enums.AttributeDomainItems] | None
+        self,
+        domain: typing.Literal[bpy.stub_internal.rna_enums.AttributeDomainItems] | None,
     ) -> int:
         """Get the size of a given domain
 
@@ -2896,8 +2898,8 @@ class AttributeGroupGreasePencilDrawing(bpy_prop_collection, bpy_prop):
     def new(
         self,
         name: str | None,
-        type: Literal[bpy.stub_internal.rna_enums.AttributeTypeItems] | None,
-        domain: Literal[bpy.stub_internal.rna_enums.AttributeDomainItems] | None,
+        type: typing.Literal[bpy.stub_internal.rna_enums.AttributeTypeItems] | None,
+        domain: typing.Literal[bpy.stub_internal.rna_enums.AttributeDomainItems] | None,
     ) -> Attribute:
         """Add attribute to geometry
 
@@ -2914,7 +2916,8 @@ class AttributeGroupGreasePencilDrawing(bpy_prop_collection, bpy_prop):
         """
 
     def domain_size(
-        self, domain: Literal[bpy.stub_internal.rna_enums.AttributeDomainItems] | None
+        self,
+        domain: typing.Literal[bpy.stub_internal.rna_enums.AttributeDomainItems] | None,
     ) -> int:
         """Get the size of a given domain
 
@@ -2977,8 +2980,8 @@ class AttributeGroupMesh(bpy_prop_collection, bpy_prop):
     def new(
         self,
         name: str | None,
-        type: Literal[bpy.stub_internal.rna_enums.AttributeTypeItems] | None,
-        domain: Literal[bpy.stub_internal.rna_enums.AttributeDomainItems] | None,
+        type: typing.Literal[bpy.stub_internal.rna_enums.AttributeTypeItems] | None,
+        domain: typing.Literal[bpy.stub_internal.rna_enums.AttributeDomainItems] | None,
     ) -> Attribute:
         """Add attribute to geometry
 
@@ -2995,7 +2998,8 @@ class AttributeGroupMesh(bpy_prop_collection, bpy_prop):
         """
 
     def domain_size(
-        self, domain: Literal[bpy.stub_internal.rna_enums.AttributeDomainItems] | None
+        self,
+        domain: typing.Literal[bpy.stub_internal.rna_enums.AttributeDomainItems] | None,
     ) -> int:
         """Get the size of a given domain
 
@@ -3043,8 +3047,8 @@ class AttributeGroupPointCloud(bpy_prop_collection, bpy_prop):
     def new(
         self,
         name: str | None,
-        type: Literal[bpy.stub_internal.rna_enums.AttributeTypeItems] | None,
-        domain: Literal[bpy.stub_internal.rna_enums.AttributeDomainItems] | None,
+        type: typing.Literal[bpy.stub_internal.rna_enums.AttributeTypeItems] | None,
+        domain: typing.Literal[bpy.stub_internal.rna_enums.AttributeDomainItems] | None,
     ) -> Attribute:
         """Add attribute to geometry
 
@@ -3061,7 +3065,8 @@ class AttributeGroupPointCloud(bpy_prop_collection, bpy_prop):
         """
 
     def domain_size(
-        self, domain: Literal[bpy.stub_internal.rna_enums.AttributeDomainItems] | None
+        self,
+        domain: typing.Literal[bpy.stub_internal.rna_enums.AttributeDomainItems] | None,
     ) -> int:
         """Get the size of a given domain
 
@@ -3284,7 +3289,7 @@ class BlendDataBrushes(bpy_prop_collection, bpy_prop):
         self,
         name: str | None,
         *,
-        mode: Literal[bpy.stub_internal.rna_enums.ObjectModeItems]
+        mode: typing.Literal[bpy.stub_internal.rna_enums.ObjectModeItems]
         | None = "TEXTURE_PAINT",
     ) -> Brush:
         """Add a new brush to the main database
@@ -3513,7 +3518,7 @@ class BlendDataCurves(bpy_prop_collection, bpy_prop):
     def new(
         self,
         name: str | None,
-        type: Literal[bpy.stub_internal.rna_enums.ObjectTypeCurveItems] | None,
+        type: typing.Literal[bpy.stub_internal.rna_enums.ObjectTypeCurveItems] | None,
     ) -> Curve:
         """Add a new curve to the main database
 
@@ -4024,7 +4029,7 @@ class BlendDataLights(bpy_prop_collection, bpy_prop):
     def new(
         self,
         name: str | None,
-        type: Literal[bpy.stub_internal.rna_enums.LightTypeItems] | None,
+        type: typing.Literal[bpy.stub_internal.rna_enums.LightTypeItems] | None,
     ) -> Light:
         """Add a new light to the main database
 
@@ -4840,7 +4845,7 @@ class BlendDataProbes(bpy_prop_collection, bpy_prop):
     def new(
         self,
         name: str | None,
-        type: Literal[bpy.stub_internal.rna_enums.LightprobesTypeItems] | None,
+        type: typing.Literal[bpy.stub_internal.rna_enums.LightprobesTypeItems] | None,
     ) -> LightProbe:
         """Add a new light probe to the main database
 
@@ -5184,7 +5189,7 @@ class BlendDataTextures(bpy_prop_collection, bpy_prop):
     def new(
         self,
         name: str | None,
-        type: Literal[bpy.stub_internal.rna_enums.TextureTypeItems] | None,
+        type: typing.Literal[bpy.stub_internal.rna_enums.TextureTypeItems] | None,
     ) -> Texture:
         """Add a new texture to the main database
 
@@ -6148,7 +6153,9 @@ class FCurveKeyframePoints(bpy_prop_collection, bpy_prop):
         value: float | None,
         *,
         options: set[typing.Literal["REPLACE", "NEEDED", "FAST"]] | None = set(),
-        keyframe_type: Literal[bpy.stub_internal.rna_enums.BeztripleKeyframeTypeItems]
+        keyframe_type: typing.Literal[
+            bpy.stub_internal.rna_enums.BeztripleKeyframeTypeItems
+        ]
         | None = "KEYFRAME",
     ) -> Keyframe:
         """Add a keyframe point to a F-Curve
@@ -6229,7 +6236,8 @@ class FCurveModifiers(bpy_prop_collection, bpy_prop):
     """ Active F-Curve Modifier"""
 
     def new(
-        self, type: Literal[bpy.stub_internal.rna_enums.FmodifierTypeItems] | None
+        self,
+        type: typing.Literal[bpy.stub_internal.rna_enums.FmodifierTypeItems] | None,
     ) -> FModifier:
         """Add a constraint to this object
 
@@ -6363,7 +6371,7 @@ class GeometryNodeFieldToGridItems(bpy_prop_collection, bpy_prop):
 
     def new(
         self,
-        socket_type: Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
+        socket_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
         | None,
         name: str | None,
     ) -> GeometryNodeFieldToGridItem:
@@ -6423,7 +6431,7 @@ class GeometryNodeFieldToListItems(bpy_prop_collection, bpy_prop):
 
     def new(
         self,
-        socket_type: Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
+        socket_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
         | None,
         name: str | None,
     ) -> GeometryNodeFieldToListItem:
@@ -7056,16 +7064,12 @@ class KeyConfigurations(bpy_prop_collection, bpy_prop):
         self,
         idname: str | None,
         *,
-        context: Literal[bpy.stub_internal.rna_enums.OperatorContextItems]
+        context: typing.Literal[bpy.stub_internal.rna_enums.OperatorContextItems]
         | None = "INVOKE_DEFAULT",
         properties: OperatorProperties | None = None,
-        include: set[Literal[bpy.stub_internal.rna_enums.EventTypeMaskItems]] | None = {
-            "ACTIONZONE",
-            "KEYBOARD",
-            "MOUSE",
-            "NDOF",
-        },
-        exclude: set[Literal[bpy.stub_internal.rna_enums.EventTypeMaskItems]]
+        include: set[typing.Literal[bpy.stub_internal.rna_enums.EventTypeMaskItems]]
+        | None = {"ACTIONZONE", "KEYBOARD", "MOUSE", "NDOF"},
+        exclude: set[typing.Literal[bpy.stub_internal.rna_enums.EventTypeMaskItems]]
         | None = set(),
     ) -> tuple[KeyMap, KeyMapItem]:
         """find_item_from_operator
@@ -7120,8 +7124,8 @@ class KeyMapItems(bpy_prop_collection, bpy_prop):
     def new(
         self,
         idname: str | None,
-        type: Literal[bpy.stub_internal.rna_enums.EventTypeItems] | None,
-        value: Literal[bpy.stub_internal.rna_enums.EventValueItems] | None,
+        type: typing.Literal[bpy.stub_internal.rna_enums.EventTypeItems] | None,
+        value: typing.Literal[bpy.stub_internal.rna_enums.EventValueItems] | None,
         *,
         any: bool | None = False,
         shift: int | None = 0,
@@ -7129,9 +7133,9 @@ class KeyMapItems(bpy_prop_collection, bpy_prop):
         alt: int | None = 0,
         oskey: int | None = 0,
         hyper: int | None = 0,
-        key_modifier: Literal[bpy.stub_internal.rna_enums.EventTypeItems]
+        key_modifier: typing.Literal[bpy.stub_internal.rna_enums.EventTypeItems]
         | None = "NONE",
-        direction: Literal[bpy.stub_internal.rna_enums.EventDirectionItems]
+        direction: typing.Literal[bpy.stub_internal.rna_enums.EventDirectionItems]
         | None = "ANY",
         repeat: bool | None = False,
         head: bool | None = False,
@@ -7157,8 +7161,8 @@ class KeyMapItems(bpy_prop_collection, bpy_prop):
     def new_modal(
         self,
         propvalue: str | None,
-        type: Literal[bpy.stub_internal.rna_enums.EventTypeItems] | None,
-        value: Literal[bpy.stub_internal.rna_enums.EventValueItems] | None,
+        type: typing.Literal[bpy.stub_internal.rna_enums.EventTypeItems] | None,
+        value: typing.Literal[bpy.stub_internal.rna_enums.EventValueItems] | None,
         *,
         any: bool | None = False,
         shift: int | None = 0,
@@ -7166,9 +7170,9 @@ class KeyMapItems(bpy_prop_collection, bpy_prop):
         alt: int | None = 0,
         oskey: int | None = 0,
         hyper: int | None = 0,
-        key_modifier: Literal[bpy.stub_internal.rna_enums.EventTypeItems]
+        key_modifier: typing.Literal[bpy.stub_internal.rna_enums.EventTypeItems]
         | None = "NONE",
-        direction: Literal[bpy.stub_internal.rna_enums.EventDirectionItems]
+        direction: typing.Literal[bpy.stub_internal.rna_enums.EventDirectionItems]
         | None = "ANY",
         repeat: bool | None = False,
     ) -> KeyMapItem:
@@ -7217,13 +7221,9 @@ class KeyMapItems(bpy_prop_collection, bpy_prop):
         idname: str | None,
         *,
         properties: OperatorProperties | None = None,
-        include: set[Literal[bpy.stub_internal.rna_enums.EventTypeMaskItems]] | None = {
-            "ACTIONZONE",
-            "KEYBOARD",
-            "MOUSE",
-            "NDOF",
-        },
-        exclude: set[Literal[bpy.stub_internal.rna_enums.EventTypeMaskItems]]
+        include: set[typing.Literal[bpy.stub_internal.rna_enums.EventTypeMaskItems]]
+        | None = {"ACTIONZONE", "KEYBOARD", "MOUSE", "NDOF"},
+        exclude: set[typing.Literal[bpy.stub_internal.rna_enums.EventTypeMaskItems]]
         | None = set(),
     ) -> KeyMapItem:
         """find_from_operator
@@ -7285,9 +7285,9 @@ class KeyMaps(bpy_prop_collection, bpy_prop):
         self,
         name: str | None,
         *,
-        space_type: Literal[bpy.stub_internal.rna_enums.SpaceTypeItems]
+        space_type: typing.Literal[bpy.stub_internal.rna_enums.SpaceTypeItems]
         | None = "EMPTY",
-        region_type: Literal[bpy.stub_internal.rna_enums.RegionTypeItems]
+        region_type: typing.Literal[bpy.stub_internal.rna_enums.RegionTypeItems]
         | None = "WINDOW",
         modal: bool | None = False,
         tool: bool | None = False,
@@ -7315,9 +7315,9 @@ class KeyMaps(bpy_prop_collection, bpy_prop):
         self,
         name: str | None,
         *,
-        space_type: Literal[bpy.stub_internal.rna_enums.SpaceTypeItems]
+        space_type: typing.Literal[bpy.stub_internal.rna_enums.SpaceTypeItems]
         | None = "EMPTY",
-        region_type: Literal[bpy.stub_internal.rna_enums.RegionTypeItems]
+        region_type: typing.Literal[bpy.stub_internal.rna_enums.RegionTypeItems]
         | None = "WINDOW",
     ) -> KeyMap:
         """find
@@ -7385,7 +7385,9 @@ class KeyingSetPaths(bpy_prop_collection, bpy_prop):
         data_path: str | None,
         *,
         index: int | None = -1,
-        group_method: Literal[bpy.stub_internal.rna_enums.KeyingsetPathGroupingItems]
+        group_method: typing.Literal[
+            bpy.stub_internal.rna_enums.KeyingsetPathGroupingItems
+        ]
         | None = "KEYINGSET",
         group_name: str | None = "",
     ) -> KeyingSetPath:
@@ -7607,7 +7609,9 @@ class LineStyleAlphaModifiers(bpy_prop_collection, bpy_prop):
     def new(
         self,
         name: str | None,
-        type: Literal[bpy.stub_internal.rna_enums.LinestyleAlphaModifierTypeItems]
+        type: typing.Literal[
+            bpy.stub_internal.rna_enums.LinestyleAlphaModifierTypeItems
+        ]
         | None,
     ) -> LineStyleAlphaModifier:
         """Add a alpha modifier to line style
@@ -7657,7 +7661,9 @@ class LineStyleColorModifiers(bpy_prop_collection, bpy_prop):
     def new(
         self,
         name: str | None,
-        type: Literal[bpy.stub_internal.rna_enums.LinestyleColorModifierTypeItems]
+        type: typing.Literal[
+            bpy.stub_internal.rna_enums.LinestyleColorModifierTypeItems
+        ]
         | None,
     ) -> LineStyleColorModifier:
         """Add a color modifier to line style
@@ -7707,7 +7713,9 @@ class LineStyleGeometryModifiers(bpy_prop_collection, bpy_prop):
     def new(
         self,
         name: str | None,
-        type: Literal[bpy.stub_internal.rna_enums.LinestyleGeometryModifierTypeItems]
+        type: typing.Literal[
+            bpy.stub_internal.rna_enums.LinestyleGeometryModifierTypeItems
+        ]
         | None,
     ) -> LineStyleGeometryModifier:
         """Add a geometry modifier to line style
@@ -7810,7 +7818,9 @@ class LineStyleThicknessModifiers(bpy_prop_collection, bpy_prop):
     def new(
         self,
         name: str | None,
-        type: Literal[bpy.stub_internal.rna_enums.LinestyleThicknessModifierTypeItems]
+        type: typing.Literal[
+            bpy.stub_internal.rna_enums.LinestyleThicknessModifierTypeItems
+        ]
         | None,
     ) -> LineStyleThicknessModifier:
         """Add a thickness modifier to line style
@@ -8290,7 +8300,8 @@ class MetaBallElements(bpy_prop_collection, bpy_prop):
     def new(
         self,
         *,
-        type: Literal[bpy.stub_internal.rna_enums.MetaelemTypeItems] | None = "BALL",
+        type: typing.Literal[bpy.stub_internal.rna_enums.MetaelemTypeItems]
+        | None = "BALL",
     ) -> MetaElement:
         """Add a new element to the metaball
 
@@ -8834,7 +8845,7 @@ class NlaTracks(bpy_prop_collection, bpy_prop):
 class NodeClosureInputItems(bpy_prop_collection, bpy_prop):
     def new(
         self,
-        socket_type: Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
+        socket_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
         | None,
         name: str | None,
     ) -> NodeClosureInputItem:
@@ -8892,7 +8903,7 @@ class NodeClosureInputItems(bpy_prop_collection, bpy_prop):
 class NodeClosureOutputItems(bpy_prop_collection, bpy_prop):
     def new(
         self,
-        socket_type: Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
+        socket_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
         | None,
         name: str | None,
     ) -> NodeClosureOutputItem:
@@ -8952,7 +8963,7 @@ class NodeCombineBundleItems(bpy_prop_collection, bpy_prop):
 
     def new(
         self,
-        socket_type: Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
+        socket_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
         | None,
         name: str | None,
     ) -> NodeCombineBundleItem:
@@ -9012,7 +9023,7 @@ class NodeCompositorFileOutputItems(bpy_prop_collection, bpy_prop):
 
     def new(
         self,
-        socket_type: Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
+        socket_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
         | None,
         name: str | None,
     ) -> NodeCompositorFileOutputItem:
@@ -9070,7 +9081,7 @@ class NodeCompositorFileOutputItems(bpy_prop_collection, bpy_prop):
 class NodeEvaluateClosureInputItems(bpy_prop_collection, bpy_prop):
     def new(
         self,
-        socket_type: Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
+        socket_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
         | None,
         name: str | None,
     ) -> NodeEvaluateClosureInputItem:
@@ -9128,7 +9139,7 @@ class NodeEvaluateClosureInputItems(bpy_prop_collection, bpy_prop):
 class NodeEvaluateClosureOutputItems(bpy_prop_collection, bpy_prop):
     def new(
         self,
-        socket_type: Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
+        socket_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
         | None,
         name: str | None,
     ) -> NodeEvaluateClosureOutputItem:
@@ -9188,7 +9199,7 @@ class NodeFunctionFormatStringItems(bpy_prop_collection, bpy_prop):
 
     def new(
         self,
-        socket_type: Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
+        socket_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
         | None,
         name: str | None,
     ) -> NodeFunctionFormatStringItem:
@@ -9248,7 +9259,7 @@ class NodeGeometryBakeItems(bpy_prop_collection, bpy_prop):
 
     def new(
         self,
-        socket_type: Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
+        socket_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
         | None,
         name: str | None,
     ) -> NodeGeometryBakeItem:
@@ -9308,7 +9319,7 @@ class NodeGeometryCaptureAttributeItems(bpy_prop_collection, bpy_prop):
 
     def new(
         self,
-        socket_type: Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
+        socket_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
         | None,
         name: str | None,
     ) -> NodeGeometryCaptureAttributeItem:
@@ -9368,7 +9379,7 @@ class NodeGeometryForeachGeometryElementGenerationItems(bpy_prop_collection, bpy
 
     def new(
         self,
-        socket_type: Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
+        socket_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
         | None,
         name: str | None,
     ) -> ForeachGeometryElementGenerationItem:
@@ -9428,7 +9439,7 @@ class NodeGeometryForeachGeometryElementInputItems(bpy_prop_collection, bpy_prop
 
     def new(
         self,
-        socket_type: Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
+        socket_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
         | None,
         name: str | None,
     ) -> ForeachGeometryElementInputItem:
@@ -9488,7 +9499,7 @@ class NodeGeometryForeachGeometryElementMainItems(bpy_prop_collection, bpy_prop)
 
     def new(
         self,
-        socket_type: Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
+        socket_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
         | None,
         name: str | None,
     ) -> ForeachGeometryElementMainItem:
@@ -9548,7 +9559,7 @@ class NodeGeometryRepeatOutputItems(bpy_prop_collection, bpy_prop):
 
     def new(
         self,
-        socket_type: Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
+        socket_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
         | None,
         name: str | None,
     ) -> RepeatItem:
@@ -9608,7 +9619,7 @@ class NodeGeometrySimulationOutputItems(bpy_prop_collection, bpy_prop):
 
     def new(
         self,
-        socket_type: Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
+        socket_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
         | None,
         name: str | None,
     ) -> SimulationStateItem:
@@ -9668,7 +9679,7 @@ class NodeGeometryViewerItems(bpy_prop_collection, bpy_prop):
 
     def new(
         self,
-        socket_type: Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
+        socket_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
         | None,
         name: str | None,
     ) -> NodeGeometryViewerItem:
@@ -10020,7 +10031,7 @@ class NodeSeparateBundleItems(bpy_prop_collection, bpy_prop):
 
     def new(
         self,
-        socket_type: Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
+        socket_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
         | None,
         name: str | None,
     ) -> NodeSeparateBundleItem:
@@ -10228,7 +10239,8 @@ class ObjectConstraints(bpy_prop_collection, bpy_prop):
     """ Active Object constraint"""
 
     def new(
-        self, type: Literal[bpy.stub_internal.rna_enums.ConstraintTypeItems] | None
+        self,
+        type: typing.Literal[bpy.stub_internal.rna_enums.ConstraintTypeItems] | None,
     ) -> Constraint:
         """Add a new constraint to this object
 
@@ -10296,7 +10308,8 @@ class ObjectModifiers(bpy_prop_collection, bpy_prop):
     def new(
         self,
         name: str | None,
-        type: Literal[bpy.stub_internal.rna_enums.ObjectModifierTypeItems] | None,
+        type: typing.Literal[bpy.stub_internal.rna_enums.ObjectModifierTypeItems]
+        | None,
     ) -> Modifier:
         """Add a new modifier
 
@@ -10355,7 +10368,8 @@ class ObjectShaderFx(bpy_prop_collection, bpy_prop):
     def new(
         self,
         name: str | None,
-        type: Literal[bpy.stub_internal.rna_enums.ObjectShaderfxTypeItems] | None,
+        type: typing.Literal[bpy.stub_internal.rna_enums.ObjectShaderfxTypeItems]
+        | None,
     ) -> ShaderFx:
         """Add a new shader fx
 
@@ -10625,7 +10639,8 @@ class PoseBoneConstraints(bpy_prop_collection, bpy_prop):
     """ Active PoseChannel constraint"""
 
     def new(
-        self, type: Literal[bpy.stub_internal.rna_enums.ConstraintTypeItems] | None
+        self,
+        type: typing.Literal[bpy.stub_internal.rna_enums.ConstraintTypeItems] | None,
     ) -> Constraint:
         """Add a constraint to this object
 
@@ -11143,7 +11158,7 @@ class StripModifiers(bpy_prop_collection, bpy_prop):
     def new(
         self,
         name: str | None,
-        type: Literal[bpy.stub_internal.rna_enums.StripModifierTypeItems] | None,
+        type: typing.Literal[bpy.stub_internal.rna_enums.StripModifierTypeItems] | None,
     ) -> StripModifier:
         """Add a new modifier
 
@@ -11247,7 +11262,7 @@ class StripsMeta(bpy_prop_collection, bpy_prop):
         channel: int | None,
         frame_start: int | None,
         *,
-        fit_method: Literal[bpy.stub_internal.rna_enums.StripScaleMethodItems]
+        fit_method: typing.Literal[bpy.stub_internal.rna_enums.StripScaleMethodItems]
         | None = "ORIGINAL",
     ) -> Strip:
         """Add a new image strip
@@ -11267,7 +11282,7 @@ class StripsMeta(bpy_prop_collection, bpy_prop):
         channel: int | None,
         frame_start: int | None,
         *,
-        fit_method: Literal[bpy.stub_internal.rna_enums.StripScaleMethodItems]
+        fit_method: typing.Literal[bpy.stub_internal.rna_enums.StripScaleMethodItems]
         | None = "ORIGINAL",
     ) -> Strip:
         """Add a new movie strip
@@ -11492,7 +11507,7 @@ class StripsTopLevel(bpy_prop_collection, bpy_prop):
         channel: int | None,
         frame_start: int | None,
         *,
-        fit_method: Literal[bpy.stub_internal.rna_enums.StripScaleMethodItems]
+        fit_method: typing.Literal[bpy.stub_internal.rna_enums.StripScaleMethodItems]
         | None = "ORIGINAL",
     ) -> Strip:
         """Add a new image strip
@@ -11512,7 +11527,7 @@ class StripsTopLevel(bpy_prop_collection, bpy_prop):
         channel: int | None,
         frame_start: int | None,
         *,
-        fit_method: Literal[bpy.stub_internal.rna_enums.StripScaleMethodItems]
+        fit_method: typing.Literal[bpy.stub_internal.rna_enums.StripScaleMethodItems]
         | None = "ORIGINAL",
     ) -> Strip:
         """Add a new movie strip
@@ -12513,7 +12528,7 @@ class wmOwnerIDs(bpy_prop_collection, bpy_prop):
 class wmTools(bpy_prop_collection, bpy_prop):
     def from_space_view3d_mode(
         self,
-        mode: Literal[bpy.stub_internal.rna_enums.ContextModeItems] | None,
+        mode: typing.Literal[bpy.stub_internal.rna_enums.ContextModeItems] | None,
         *,
         create: bool | None = False,
     ) -> WorkSpaceTool:
@@ -12526,7 +12541,7 @@ class wmTools(bpy_prop_collection, bpy_prop):
 
     def from_space_image_mode(
         self,
-        mode: Literal[bpy.stub_internal.rna_enums.SpaceImageModeAllItems] | None,
+        mode: typing.Literal[bpy.stub_internal.rna_enums.SpaceImageModeAllItems] | None,
         *,
         create: bool | None = False,
     ) -> WorkSpaceTool:
@@ -12546,7 +12561,8 @@ class wmTools(bpy_prop_collection, bpy_prop):
 
     def from_space_sequencer(
         self,
-        mode: Literal[bpy.stub_internal.rna_enums.SpaceSequencerViewTypeItems] | None,
+        mode: typing.Literal[bpy.stub_internal.rna_enums.SpaceSequencerViewTypeItems]
+        | None,
         *,
         create: bool | None = False,
     ) -> WorkSpaceTool:
@@ -12914,7 +12930,7 @@ class ActionGroup(bpy_struct):
     channels: typing.Any
     """ F-Curves in this group (default None, readonly)"""
 
-    color_set: Literal[bpy.stub_internal.rna_enums.ColorSetsItems]
+    color_set: typing.Literal[bpy.stub_internal.rna_enums.ColorSetsItems]
     """ Custom color set to use (default 'DEFAULT')"""
 
     colors: ThemeBoneColorSet | None
@@ -13595,7 +13611,9 @@ class AnimViz(bpy_struct):
 class AnimVizMotionPaths(bpy_struct):
     """Motion Path settings for animation visualization"""
 
-    bake_location: Literal[bpy.stub_internal.rna_enums.MotionpathBakeLocationItems]
+    bake_location: typing.Literal[
+        bpy.stub_internal.rna_enums.MotionpathBakeLocationItems
+    ]
     """ When calculating Bone Paths, use Head or Tips (default 'TAILS')"""
 
     frame_after: int
@@ -13616,7 +13634,7 @@ class AnimVizMotionPaths(bpy_struct):
     has_motion_paths: bool
     """ Are there any bone paths that will need updating (read-only) (default False, readonly)"""
 
-    range: Literal[bpy.stub_internal.rna_enums.MotionpathRangeItems]
+    range: typing.Literal[bpy.stub_internal.rna_enums.MotionpathRangeItems]
     """ Type of range to calculate for Motion Paths (default 'SCENE')"""
 
     show_frame_numbers: bool
@@ -13631,7 +13649,7 @@ class AnimVizMotionPaths(bpy_struct):
     show_keyframe_numbers: bool
     """ Show frame numbers of Keyframes on Motion Paths (default False)"""
 
-    type: Literal[bpy.stub_internal.rna_enums.MotionpathDisplayTypeItems]
+    type: typing.Literal[bpy.stub_internal.rna_enums.MotionpathDisplayTypeItems]
     """ Type of range to show for Motion Paths (default 'RANGE')"""
 
     use_camera_space_bake: bool
@@ -13944,7 +13962,7 @@ class Area(bpy_struct):
     spaces: typing.Any
     """ Spaces contained in this area, the first being the active space (NOTE: Useful for example to restore a previously used 3D view space in a certain area to get the old view orientation) (default None, readonly)"""
 
-    type: Literal[bpy.stub_internal.rna_enums.SpaceTypeItems]
+    type: typing.Literal[bpy.stub_internal.rna_enums.SpaceTypeItems]
     """ Current editor type for this area (default 'VIEW_3D')"""
 
     ui_type: str
@@ -14429,7 +14447,7 @@ class AssetRepresentation(bpy_struct):
     full_path: str
     """ Absolute path to the .blend file containing this asset extended with the path of the asset inside the file (default "", readonly, never None)"""
 
-    id_type: Literal[bpy.stub_internal.rna_enums.IdTypeItems]
+    id_type: typing.Literal[bpy.stub_internal.rna_enums.IdTypeItems]
     """ The type of the data-block, if the asset represents one ('NONE' otherwise) (default 'ACTION', readonly)"""
 
     is_online: bool
@@ -14500,7 +14518,7 @@ class AssetShelf(bpy_struct):
     ]
     """ Options for this asset shelf type (default set())"""
 
-    bl_space_type: Literal[bpy.stub_internal.rna_enums.SpaceTypeItems]
+    bl_space_type: typing.Literal[bpy.stub_internal.rna_enums.SpaceTypeItems]
     """ The space where the asset shelf will show up in. Ignored for popup asset shelves which can be displayed in any space. (default 'EMPTY')"""
 
     filter_action: bool
@@ -14759,10 +14777,10 @@ class AssetWeakReference(bpy_struct):
 class Attribute(bpy_struct):
     """Geometry attribute"""
 
-    data_type: Literal[bpy.stub_internal.rna_enums.AttributeTypeItems]
+    data_type: typing.Literal[bpy.stub_internal.rna_enums.AttributeTypeItems]
     """ Type of data stored in attribute (default 'FLOAT', readonly)"""
 
-    domain: Literal[bpy.stub_internal.rna_enums.AttributeDomainItems]
+    domain: typing.Literal[bpy.stub_internal.rna_enums.AttributeDomainItems]
     """ Domain of the Attribute (default 'POINT', readonly)"""
 
     is_internal: bool
@@ -14774,7 +14792,7 @@ class Attribute(bpy_struct):
     name: str
     """ Name of the Attribute (default "", never None)"""
 
-    storage_type: Literal[bpy.stub_internal.rna_enums.AttrStorageTypeItems]
+    storage_type: typing.Literal[bpy.stub_internal.rna_enums.AttrStorageTypeItems]
     """ Method used to store the data (default 'ARRAY', readonly)"""
 
     @classmethod
@@ -14829,31 +14847,33 @@ class BakeSettings(bpy_struct):
     margin: int
     """ Extends the baked result as a post process filter (in [0, 32767], default 16)"""
 
-    margin_type: Literal[bpy.stub_internal.rna_enums.BakeMarginTypeItems]
+    margin_type: typing.Literal[bpy.stub_internal.rna_enums.BakeMarginTypeItems]
     """ Algorithm to extend the baked result (default 'ADJACENT_FACES')"""
 
     max_ray_distance: float
     """ The maximum ray distance for matching points between the active and selected objects. If zero, there is no limit. (in [0, inf], default 0.0)"""
 
-    normal_b: Literal[bpy.stub_internal.rna_enums.NormalSwizzleItems]
+    normal_b: typing.Literal[bpy.stub_internal.rna_enums.NormalSwizzleItems]
     """ Axis to bake in blue channel (default 'POS_X')"""
 
-    normal_g: Literal[bpy.stub_internal.rna_enums.NormalSwizzleItems]
+    normal_g: typing.Literal[bpy.stub_internal.rna_enums.NormalSwizzleItems]
     """ Axis to bake in green channel (default 'POS_X')"""
 
-    normal_r: Literal[bpy.stub_internal.rna_enums.NormalSwizzleItems]
+    normal_r: typing.Literal[bpy.stub_internal.rna_enums.NormalSwizzleItems]
     """ Axis to bake in red channel (default 'POS_X')"""
 
-    normal_space: Literal[bpy.stub_internal.rna_enums.NormalSpaceItems]
+    normal_space: typing.Literal[bpy.stub_internal.rna_enums.NormalSpaceItems]
     """ Choose normal space for baking (default 'TANGENT')"""
 
-    pass_filter: set[Literal[bpy.stub_internal.rna_enums.BakePassFilterTypeItems]]
+    pass_filter: set[
+        typing.Literal[bpy.stub_internal.rna_enums.BakePassFilterTypeItems]
+    ]
     """ Passes to include in the active baking pass (default {'COLOR', 'DIFFUSE', 'DIRECT', 'EMIT', 'GLOSSY', 'INDIRECT', 'TRANSMISSION'}, readonly)"""
 
-    save_mode: Literal[bpy.stub_internal.rna_enums.BakeSaveModeItems]
+    save_mode: typing.Literal[bpy.stub_internal.rna_enums.BakeSaveModeItems]
     """ Where to save baked image textures (default 'INTERNAL')"""
 
-    target: Literal[bpy.stub_internal.rna_enums.BakeTargetItems]
+    target: typing.Literal[bpy.stub_internal.rna_enums.BakeTargetItems]
     """ Where to output the baked map (default 'IMAGE_TEXTURES')"""
 
     type: typing.Literal["NORMALS", "DISPLACEMENT", "VECTOR_DISPLACEMENT"]
@@ -15459,7 +15479,7 @@ class BlendImportContextItem(bpy_struct):
     id: ID | None
     """ The imported ID. None until it has been linked or appended. May be the same as reusable_local_id when appended (readonly)"""
 
-    id_type: Literal[bpy.stub_internal.rna_enums.IdTypeItems]
+    id_type: typing.Literal[bpy.stub_internal.rna_enums.IdTypeItems]
     """ ID type of the item (default 'ACTION', readonly)"""
 
     import_info: set[
@@ -15637,7 +15657,7 @@ class BoidRule(bpy_struct):
     name: str
     """ Boid rule name (default "", never None)"""
 
-    type: Literal[bpy.stub_internal.rna_enums.BoidruleTypeItems]
+    type: typing.Literal[bpy.stub_internal.rna_enums.BoidruleTypeItems]
     """ (default 'GOAL', readonly)"""
 
     use_in_air: bool
@@ -16895,7 +16915,7 @@ class Brush(ID, bpy_struct):
     curve_distance_falloff: CurveMapping | None
     """ Editable falloff curve (readonly, never None)"""
 
-    curve_distance_falloff_preset: Literal[
+    curve_distance_falloff_preset: typing.Literal[
         bpy.stub_internal.rna_enums.BrushCurvePresetItems
     ]
     """ (default 'CUSTOM')"""
@@ -16918,7 +16938,7 @@ class Brush(ID, bpy_struct):
     curve_strength: CurveMapping | None
     """ Curve used to map pressure to brush strength (readonly)"""
 
-    curves_sculpt_brush_type: Literal[
+    curves_sculpt_brush_type: typing.Literal[
         bpy.stub_internal.rna_enums.BrushCurvesSculptBrushTypeItems
     ]
     """ (default 'COMB')"""
@@ -16964,10 +16984,12 @@ class Brush(ID, bpy_struct):
     flow: float
     """ Amount of paint that is applied per stroke sample (in [0, 1], default 0.0)"""
 
-    gpencil_brush_type: Literal[bpy.stub_internal.rna_enums.BrushGpencilTypesItems]
+    gpencil_brush_type: typing.Literal[
+        bpy.stub_internal.rna_enums.BrushGpencilTypesItems
+    ]
     """ (default 'DRAW')"""
 
-    gpencil_sculpt_brush_type: Literal[
+    gpencil_sculpt_brush_type: typing.Literal[
         bpy.stub_internal.rna_enums.BrushGpencilSculptTypesItems
     ]
     """ (default 'SMOOTH')"""
@@ -16975,12 +16997,12 @@ class Brush(ID, bpy_struct):
     gpencil_settings: BrushGpencilSettings | None
     """ (readonly)"""
 
-    gpencil_vertex_brush_type: Literal[
+    gpencil_vertex_brush_type: typing.Literal[
         bpy.stub_internal.rna_enums.BrushGpencilVertexTypesItems
     ]
     """ (default 'DRAW')"""
 
-    gpencil_weight_brush_type: Literal[
+    gpencil_weight_brush_type: typing.Literal[
         bpy.stub_internal.rna_enums.BrushGpencilWeightTypesItems
     ]
     """ (default 'WEIGHT')"""
@@ -17009,7 +17031,9 @@ class Brush(ID, bpy_struct):
     hue_jitter: float
     """ Color jitter effect on hue (in [0, 1], default 0.0)"""
 
-    image_brush_type: Literal[bpy.stub_internal.rna_enums.BrushImageBrushTypeItems]
+    image_brush_type: typing.Literal[
+        bpy.stub_internal.rna_enums.BrushImageBrushTypeItems
+    ]
     """ (default 'DRAW')"""
 
     image_paint_capabilities: BrushCapabilitiesImagePaint | None
@@ -17120,7 +17144,9 @@ class Brush(ID, bpy_struct):
     saturation_jitter: float
     """ Color jitter effect on saturation (in [0, 1], default 0.0)"""
 
-    sculpt_brush_type: Literal[bpy.stub_internal.rna_enums.BrushSculptBrushTypeItems]
+    sculpt_brush_type: typing.Literal[
+        bpy.stub_internal.rna_enums.BrushSculptBrushTypeItems
+    ]
     """ (default 'DRAW')"""
 
     sculpt_capabilities: BrushCapabilitiesSculpt | None
@@ -17426,7 +17452,9 @@ class Brush(ID, bpy_struct):
     value_jitter: float
     """ Color jitter effect on value (in [0, 1], default 0.0)"""
 
-    vertex_brush_type: Literal[bpy.stub_internal.rna_enums.BrushVertexBrushTypeItems]
+    vertex_brush_type: typing.Literal[
+        bpy.stub_internal.rna_enums.BrushVertexBrushTypeItems
+    ]
     """ (default 'DRAW')"""
 
     vertex_paint_capabilities: BrushCapabilitiesVertexPaint | None
@@ -17435,7 +17463,9 @@ class Brush(ID, bpy_struct):
     weight: float
     """ Vertex weight when brush is applied (in [0, 1], default 1.0)"""
 
-    weight_brush_type: Literal[bpy.stub_internal.rna_enums.BrushWeightBrushTypeItems]
+    weight_brush_type: typing.Literal[
+        bpy.stub_internal.rna_enums.BrushWeightBrushTypeItems
+    ]
     """ (default 'DRAW')"""
 
     weight_paint_capabilities: BrushCapabilitiesWeightPaint | None
@@ -18470,7 +18500,7 @@ class CacheFile(ID, bpy_struct):
     filepath: str
     """ Path to external displacements file (default "", never None, blend relative // prefix supported)"""
 
-    forward_axis: Literal[bpy.stub_internal.rna_enums.ObjectAxisItems]
+    forward_axis: typing.Literal[bpy.stub_internal.rna_enums.ObjectAxisItems]
     """ (default 'POS_X')"""
 
     frame: float
@@ -18494,13 +18524,13 @@ class CacheFile(ID, bpy_struct):
     scale: float
     """ Value by which to enlarge or shrink the object with respect to the world's origin (only applicable through a Transform Cache constraint) (in [0.0001, 1000], default 1.0)"""
 
-    up_axis: Literal[bpy.stub_internal.rna_enums.ObjectAxisItems]
+    up_axis: typing.Literal[bpy.stub_internal.rna_enums.ObjectAxisItems]
     """ (default 'POS_X')"""
 
     velocity_name: str
     """ Name of the Alembic attribute used for generating motion blur data (default "", never None)"""
 
-    velocity_unit: Literal[bpy.stub_internal.rna_enums.VelocityUnitItems]
+    velocity_unit: typing.Literal[bpy.stub_internal.rna_enums.VelocityUnitItems]
     """ Define how the velocity vectors are interpreted with regard to time, 'frame' means the delta time is 1 frame, 'second' means the delta time is 1 / FPS (default 'FRAME')"""
 
     @classmethod
@@ -19738,7 +19768,7 @@ class Collection(ID, bpy_struct):
     collection_objects: typing.Any
     """ Objects of the collection with their parent-collection-specific settings (default None, readonly)"""
 
-    color_tag: Literal[bpy.stub_internal.rna_enums.CollectionColorItems]
+    color_tag: typing.Literal[bpy.stub_internal.rna_enums.CollectionColorItems]
     """ Color tag for a collection (default 'COLOR_01')"""
 
     exporters: typing.Any
@@ -20185,7 +20215,7 @@ class ColorManagedInputColorspaceSettings(bpy_struct):
     is_data: bool
     """ Treat image as non-color data without color management, like normal or displacement maps (default False)"""
 
-    name: Literal[bpy.stub_internal.rna_enums.ColorSpaceConvertDefaultItems]
+    name: typing.Literal[bpy.stub_internal.rna_enums.ColorSpaceConvertDefaultItems]
     """ Color space in the image file, to convert to and from when saving and loading the image (default 'NONE')"""
 
     @classmethod
@@ -20219,7 +20249,7 @@ class ColorManagedInputColorspaceSettings(bpy_struct):
 class ColorManagedSequencerColorspaceSettings(bpy_struct):
     """Input color space settings"""
 
-    name: Literal[bpy.stub_internal.rna_enums.ColorSpaceConvertDefaultItems]
+    name: typing.Literal[bpy.stub_internal.rna_enums.ColorSpaceConvertDefaultItems]
     """ Color space that the sequencer operates in (default 'NONE')"""
 
     @classmethod
@@ -21438,10 +21468,14 @@ class CompositorNodeCombineColor(CompositorNode, NodeInternal, Node, bpy_struct)
 class CompositorNodeConvertColorSpace(CompositorNode, NodeInternal, Node, bpy_struct):
     """Convert between color spaces"""
 
-    from_color_space: Literal[bpy.stub_internal.rna_enums.ColorSpaceConvertDefaultItems]
+    from_color_space: typing.Literal[
+        bpy.stub_internal.rna_enums.ColorSpaceConvertDefaultItems
+    ]
     """ Color space of the input image (default 'NONE')"""
 
-    to_color_space: Literal[bpy.stub_internal.rna_enums.ColorSpaceConvertDefaultItems]
+    to_color_space: typing.Literal[
+        bpy.stub_internal.rna_enums.ColorSpaceConvertDefaultItems
+    ]
     """ Color space of the output image (default 'NONE')"""
 
     @classmethod
@@ -25715,7 +25749,7 @@ class Constraint(bpy_struct):
     ]
     """ Space that target is evaluated in (default 'WORLD')"""
 
-    type: Literal[bpy.stub_internal.rna_enums.ConstraintTypeItems]
+    type: typing.Literal[bpy.stub_internal.rna_enums.ConstraintTypeItems]
     """ (default 'CAMERA_SOLVER', readonly)"""
 
     @classmethod
@@ -25847,7 +25881,7 @@ class Context(bpy_struct):
     layer_collection: LayerCollection | None
     """ (readonly)"""
 
-    mode: Literal[bpy.stub_internal.rna_enums.ContextModeItems]
+    mode: typing.Literal[bpy.stub_internal.rna_enums.ContextModeItems]
     """ (default 'EDIT_MESH', readonly)"""
 
     preferences: Preferences | None
@@ -26836,7 +26870,7 @@ class CurvePaintSettings(bpy_struct):
     error_threshold: int
     """ Allow deviation for a smoother, less precise line (in [1, 100], default 8)"""
 
-    fit_method: Literal[bpy.stub_internal.rna_enums.CurveFitMethodItems]
+    fit_method: typing.Literal[bpy.stub_internal.rna_enums.CurveFitMethodItems]
     """ Curve fitting method (default 'REFIT')"""
 
     radius_max: float
@@ -27124,7 +27158,9 @@ class Curves(ID, bpy_struct):
     position_data: typing.Any
     """ (default None, readonly)"""
 
-    selection_domain: Literal[bpy.stub_internal.rna_enums.AttributeCurvesDomainItems]
+    selection_domain: typing.Literal[
+        bpy.stub_internal.rna_enums.AttributeCurvesDomainItems
+    ]
     """ (default 'POINT')"""
 
     surface: Object | None
@@ -27183,7 +27219,7 @@ class Curves(ID, bpy_struct):
     def set_types(
         self,
         *,
-        type: Literal[bpy.stub_internal.rna_enums.CurvesTypeItems]
+        type: typing.Literal[bpy.stub_internal.rna_enums.CurvesTypeItems]
         | None = "CATMULL_ROM",
         indices: collections.abc.Sequence[int] | None = (0),
     ) -> None:
@@ -27426,7 +27462,7 @@ class DataTransferModifier(Modifier, bpy_struct):
     ]
     """ Which vertex data layers to transfer (default set())"""
 
-    edge_mapping: Literal[bpy.stub_internal.rna_enums.DtMethodEdgeItems]
+    edge_mapping: typing.Literal[bpy.stub_internal.rna_enums.DtMethodEdgeItems]
     """ Method used to map source edges to destination ones (default 'NEAREST')"""
 
     invert_vertex_group: bool
@@ -27435,43 +27471,47 @@ class DataTransferModifier(Modifier, bpy_struct):
     islands_precision: float
     """ Factor controlling precision of islands handling (typically, 0.1 should be enough, higher values can make things really slow) (in [0, 1], default 0.0)"""
 
-    layers_uv_select_dst: Literal[bpy.stub_internal.rna_enums.DtLayersSelectDstItems]
-    """ How to match source and destination layers (default 'NAME')"""
-
-    layers_uv_select_src: Literal[bpy.stub_internal.rna_enums.DtLayersSelectSrcItems]
-    """ Which layers to transfer, in case of multi-layers types (default 'ALL')"""
-
-    layers_vcol_loop_select_dst: Literal[
+    layers_uv_select_dst: typing.Literal[
         bpy.stub_internal.rna_enums.DtLayersSelectDstItems
     ]
     """ How to match source and destination layers (default 'NAME')"""
 
-    layers_vcol_loop_select_src: Literal[
+    layers_uv_select_src: typing.Literal[
         bpy.stub_internal.rna_enums.DtLayersSelectSrcItems
     ]
     """ Which layers to transfer, in case of multi-layers types (default 'ALL')"""
 
-    layers_vcol_vert_select_dst: Literal[
+    layers_vcol_loop_select_dst: typing.Literal[
         bpy.stub_internal.rna_enums.DtLayersSelectDstItems
     ]
     """ How to match source and destination layers (default 'NAME')"""
 
-    layers_vcol_vert_select_src: Literal[
+    layers_vcol_loop_select_src: typing.Literal[
         bpy.stub_internal.rna_enums.DtLayersSelectSrcItems
     ]
     """ Which layers to transfer, in case of multi-layers types (default 'ALL')"""
 
-    layers_vgroup_select_dst: Literal[
+    layers_vcol_vert_select_dst: typing.Literal[
         bpy.stub_internal.rna_enums.DtLayersSelectDstItems
     ]
     """ How to match source and destination layers (default 'NAME')"""
 
-    layers_vgroup_select_src: Literal[
+    layers_vcol_vert_select_src: typing.Literal[
         bpy.stub_internal.rna_enums.DtLayersSelectSrcItems
     ]
     """ Which layers to transfer, in case of multi-layers types (default 'ALL')"""
 
-    loop_mapping: Literal[bpy.stub_internal.rna_enums.DtMethodLoopItems]
+    layers_vgroup_select_dst: typing.Literal[
+        bpy.stub_internal.rna_enums.DtLayersSelectDstItems
+    ]
+    """ How to match source and destination layers (default 'NAME')"""
+
+    layers_vgroup_select_src: typing.Literal[
+        bpy.stub_internal.rna_enums.DtLayersSelectSrcItems
+    ]
+    """ Which layers to transfer, in case of multi-layers types (default 'ALL')"""
+
+    loop_mapping: typing.Literal[bpy.stub_internal.rna_enums.DtMethodLoopItems]
     """ Method used to map source faces' corners to destination ones (default 'NEAREST_POLYNOR')"""
 
     max_distance: float
@@ -27480,13 +27520,13 @@ class DataTransferModifier(Modifier, bpy_struct):
     mix_factor: float
     """ Factor to use when applying data to destination (exact behavior depends on mix mode, multiplied with weights from vertex group when defined) (in [0, 1], default 0.0)"""
 
-    mix_mode: Literal[bpy.stub_internal.rna_enums.DtMixModeItems]
+    mix_mode: typing.Literal[bpy.stub_internal.rna_enums.DtMixModeItems]
     """ How to affect destination elements with source values (default 'REPLACE')"""
 
     object: Object | None
     """ Object to transfer data from"""
 
-    poly_mapping: Literal[bpy.stub_internal.rna_enums.DtMethodPolyItems]
+    poly_mapping: typing.Literal[bpy.stub_internal.rna_enums.DtMethodPolyItems]
     """ Method used to map source faces to destination ones (default 'NEAREST')"""
 
     ray_radius: float
@@ -27510,7 +27550,7 @@ class DataTransferModifier(Modifier, bpy_struct):
     use_vert_data: bool
     """ Enable vertex data transfer (default False)"""
 
-    vert_mapping: Literal[bpy.stub_internal.rna_enums.DtMethodVertexItems]
+    vert_mapping: typing.Literal[bpy.stub_internal.rna_enums.DtMethodVertexItems]
     """ Method used to map source vertices to destination ones (default 'NEAREST')"""
 
     vertex_group: str
@@ -27553,7 +27593,7 @@ class DecimateModifier(Modifier, bpy_struct):
     decimate_type: typing.Literal["COLLAPSE", "UNSUBDIV", "DISSOLVE"]
     """ (default 'COLLAPSE')"""
 
-    delimit: set[Literal[bpy.stub_internal.rna_enums.MeshDelimitModeItems]]
+    delimit: set[typing.Literal[bpy.stub_internal.rna_enums.MeshDelimitModeItems]]
     """ Limit merging geometry (default set())"""
 
     face_count: int
@@ -27568,7 +27608,7 @@ class DecimateModifier(Modifier, bpy_struct):
     ratio: float
     """ Ratio of triangles to reduce to (collapse only) (in [0, 1], default 1.0)"""
 
-    symmetry_axis: Literal[bpy.stub_internal.rna_enums.AxisXyzItems]
+    symmetry_axis: typing.Literal[bpy.stub_internal.rna_enums.AxisXyzItems]
     """ Axis of symmetry (default 'X')"""
 
     use_collapse_triangulate: bool
@@ -27678,7 +27718,7 @@ class Depsgraph(bpy_struct):
         """
 
     def id_type_updated(
-        self, id_type: Literal[bpy.stub_internal.rna_enums.IdTypeItems] | None
+        self, id_type: typing.Literal[bpy.stub_internal.rna_enums.IdTypeItems] | None
     ) -> bool:
         """id_type_updated
 
@@ -28225,13 +28265,15 @@ class DriverTarget(bpy_struct):
     id: ID | None
     """ ID-block that the specific property used can be found from (id_type property must be set first)"""
 
-    id_type: Literal[bpy.stub_internal.rna_enums.IdTypeItems]
+    id_type: typing.Literal[bpy.stub_internal.rna_enums.IdTypeItems]
     """ Type of ID-block that can be used (default 'OBJECT')"""
 
     is_fallback_used: bool
     """ Indicates that the most recent variable evaluation used the fallback value (default False, readonly)"""
 
-    rotation_mode: Literal[bpy.stub_internal.rna_enums.DriverTargetRotationModeItems]
+    rotation_mode: typing.Literal[
+        bpy.stub_internal.rna_enums.DriverTargetRotationModeItems
+    ]
     """ Mode for calculating rotation channel values (default 'AUTO')"""
 
     transform_space: typing.Literal["WORLD_SPACE", "TRANSFORM_SPACE", "LOCAL_SPACE"]
@@ -28488,7 +28530,7 @@ class DynamicPaintModifier(Modifier, bpy_struct):
     canvas_settings: DynamicPaintCanvasSettings | None
     """ (readonly)"""
 
-    ui_type: Literal[bpy.stub_internal.rna_enums.PropDynamicpaintTypeItems]
+    ui_type: typing.Literal[bpy.stub_internal.rna_enums.PropDynamicpaintTypeItems]
     """ (default 'CANVAS')"""
 
     @classmethod
@@ -29319,7 +29361,7 @@ class EnumPropertyItem(bpy_struct):
     description: str
     """ Description of the item's purpose (default "", readonly, never None)"""
 
-    icon: Literal[bpy.stub_internal.rna_enums.IconItems]
+    icon: typing.Literal[bpy.stub_internal.rna_enums.IconItems]
     """ Icon of the item (default 'NONE', readonly)"""
 
     identifier: str
@@ -29409,7 +29451,7 @@ class Event(bpy_struct):
     ctrl: bool
     """ True when the Ctrl key is held (default False, readonly)"""
 
-    direction: Literal[bpy.stub_internal.rna_enums.EventDirectionItems]
+    direction: typing.Literal[bpy.stub_internal.rna_enums.EventDirectionItems]
     """ The direction (only applies to drag events) (default 'ANY', readonly)"""
 
     hyper: bool
@@ -29466,19 +29508,19 @@ class Event(bpy_struct):
     tilt: mathutils.Vector
     """ The pressure of the tablet or zeroes if no tablet present (array of 2 items, in [-inf, inf], default (0.0, 0.0), readonly)"""
 
-    type: Literal[bpy.stub_internal.rna_enums.EventTypeItems]
+    type: typing.Literal[bpy.stub_internal.rna_enums.EventTypeItems]
     """ (default 'NONE', readonly)"""
 
-    type_prev: Literal[bpy.stub_internal.rna_enums.EventTypeItems]
+    type_prev: typing.Literal[bpy.stub_internal.rna_enums.EventTypeItems]
     """ (default 'NONE', readonly)"""
 
     unicode: str
     """ Single unicode character for this event (default "", readonly, never None)"""
 
-    value: Literal[bpy.stub_internal.rna_enums.EventValueItems]
+    value: typing.Literal[bpy.stub_internal.rna_enums.EventValueItems]
     """ The type of event, only applies to some (default 'NOTHING', readonly)"""
 
-    value_prev: Literal[bpy.stub_internal.rna_enums.EventValueItems]
+    value_prev: typing.Literal[bpy.stub_internal.rna_enums.EventValueItems]
     """ The type of event, only applies to some (default 'NOTHING', readonly)"""
 
     xr: XrEventData | None
@@ -29576,7 +29618,7 @@ class FCurve(bpy_struct):
     array_index: int
     """ Index to the specific property affected by F-Curve if applicable (in [0, inf], default 0)"""
 
-    auto_smoothing: Literal[bpy.stub_internal.rna_enums.FcurveAutoSmoothingItems]
+    auto_smoothing: typing.Literal[bpy.stub_internal.rna_enums.FcurveAutoSmoothingItems]
     """ Algorithm used to compute automatic handles (default 'NONE')"""
 
     color: mathutils.Color
@@ -29981,7 +30023,7 @@ class FModifier(bpy_struct):
     show_expanded: bool
     """ F-Curve Modifier's panel is expanded in UI (default False)"""
 
-    type: Literal[bpy.stub_internal.rna_enums.FmodifierTypeItems]
+    type: typing.Literal[bpy.stub_internal.rna_enums.FmodifierTypeItems]
     """ F-Curve Modifier Type (default 'NULL', readonly)"""
 
     use_influence: bool
@@ -30471,7 +30513,7 @@ class FieldSettings(bpy_struct):
     guide_kink_amplitude: float
     """ The amplitude of the offset (in [0, 10], default 0.0)"""
 
-    guide_kink_axis: Literal[bpy.stub_internal.rna_enums.AxisXyzItems]
+    guide_kink_axis: typing.Literal[bpy.stub_internal.rna_enums.AxisXyzItems]
     """ Which axis to use for offset (default 'X')"""
 
     guide_kink_frequency: float
@@ -31169,7 +31211,7 @@ class FileSelectParams(bpy_struct):
     show_hidden: bool
     """ Show hidden dot files (default True)"""
 
-    sort_method: Literal[bpy.stub_internal.rna_enums.FileselectParamsSortItems]
+    sort_method: typing.Literal[bpy.stub_internal.rna_enums.FileselectParamsSortItems]
     """ (default 'FILE_SORT_ALPHA')"""
 
     title: str
@@ -32660,13 +32702,13 @@ class ForeachGeometryElementGenerationItem(bpy_struct):
     color: typing.Any
     """ Color of the corresponding socket type in the node editor (array of 4 items, in [0, inf], default (0.0, 0.0, 0.0, 0.0), readonly)"""
 
-    domain: Literal[bpy.stub_internal.rna_enums.AttributeDomainItems]
+    domain: typing.Literal[bpy.stub_internal.rna_enums.AttributeDomainItems]
     """ Domain that the field is evaluated on (default 'POINT')"""
 
     name: str
     """ (default "", never None)"""
 
-    socket_type: Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
+    socket_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
     """ (default 'FLOAT')"""
 
     @classmethod
@@ -32704,7 +32746,7 @@ class ForeachGeometryElementInputItem(bpy_struct):
     name: str
     """ (default "", never None)"""
 
-    socket_type: Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
+    socket_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
     """ (default 'FLOAT')"""
 
     @classmethod
@@ -32742,7 +32784,7 @@ class ForeachGeometryElementMainItem(bpy_struct):
     name: str
     """ (default "", never None)"""
 
-    socket_type: Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
+    socket_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
     """ (default 'FLOAT')"""
 
     @classmethod
@@ -33620,7 +33662,7 @@ class FunctionNodeBitMath(FunctionNode, NodeInternal, Node, bpy_struct):
 class FunctionNodeBooleanMath(FunctionNode, NodeInternal, Node, bpy_struct):
     """Perform a logical operation on the given boolean inputs"""
 
-    operation: Literal[bpy.stub_internal.rna_enums.NodeBooleanMathItems]
+    operation: typing.Literal[bpy.stub_internal.rna_enums.NodeBooleanMathItems]
     """ (default 'AND')"""
 
     @classmethod
@@ -33677,7 +33719,7 @@ class FunctionNodeBooleanMath(FunctionNode, NodeInternal, Node, bpy_struct):
 class FunctionNodeCombineColor(FunctionNode, NodeInternal, Node, bpy_struct):
     """Combine four channels into a single color, based on a particular color model"""
 
-    mode: Literal[bpy.stub_internal.rna_enums.NodeCombsepColorItems]
+    mode: typing.Literal[bpy.stub_internal.rna_enums.NodeCombsepColorItems]
     """ Mode of color processing (default 'RGB')"""
 
     @classmethod
@@ -33842,13 +33884,13 @@ class FunctionNodeCombineTransform(FunctionNode, NodeInternal, Node, bpy_struct)
 class FunctionNodeCompare(FunctionNode, NodeInternal, Node, bpy_struct):
     """Perform a comparison operation on the two given inputs"""
 
-    data_type: Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
+    data_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
     """ (default 'FLOAT')"""
 
     mode: typing.Literal["ELEMENT", "LENGTH", "AVERAGE", "DOT_PRODUCT", "DIRECTION"]
     """ (default 'ELEMENT')"""
 
-    operation: Literal[bpy.stub_internal.rna_enums.NodeCompareOperationItems]
+    operation: typing.Literal[bpy.stub_internal.rna_enums.NodeCompareOperationItems]
     """ (default 'EQUAL')"""
 
     @classmethod
@@ -34013,7 +34055,7 @@ class FunctionNodeFindInString(FunctionNode, NodeInternal, Node, bpy_struct):
 class FunctionNodeFloatToInt(FunctionNode, NodeInternal, Node, bpy_struct):
     """Convert the given floating-point number to an integer, with a choice of methods"""
 
-    rounding_mode: Literal[bpy.stub_internal.rna_enums.NodeFloatToIntItems]
+    rounding_mode: typing.Literal[bpy.stub_internal.rna_enums.NodeFloatToIntItems]
     """ Method used to convert the float to an integer (default 'ROUND')"""
 
     @classmethod
@@ -34130,7 +34172,7 @@ class FunctionNodeFormatString(FunctionNode, NodeInternal, Node, bpy_struct):
 class FunctionNodeHashValue(FunctionNode, NodeInternal, Node, bpy_struct):
     """Generate a randomized integer using the given input value as a seed"""
 
-    data_type: Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
+    data_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
     """ (default 'INT')"""
 
     @classmethod
@@ -34643,7 +34685,7 @@ class FunctionNodeInputVector(FunctionNode, NodeInternal, Node, bpy_struct):
 class FunctionNodeIntegerMath(FunctionNode, NodeInternal, Node, bpy_struct):
     """Perform various math operations on the given integer inputs"""
 
-    operation: Literal[bpy.stub_internal.rna_enums.NodeIntegerMathItems]
+    operation: typing.Literal[bpy.stub_internal.rna_enums.NodeIntegerMathItems]
     """ (default 'ADD')"""
 
     @classmethod
@@ -35132,7 +35174,7 @@ class FunctionNodeQuaternionToRotation(FunctionNode, NodeInternal, Node, bpy_str
 class FunctionNodeRandomValue(FunctionNode, NodeInternal, Node, bpy_struct):
     """Output a randomized value"""
 
-    data_type: Literal[bpy.stub_internal.rna_enums.AttributeTypeItems]
+    data_type: typing.Literal[bpy.stub_internal.rna_enums.AttributeTypeItems]
     """ Type of data stored in attribute (default 'FLOAT')"""
 
     @classmethod
@@ -35576,7 +35618,7 @@ class FunctionNodeRotationToQuaternion(FunctionNode, NodeInternal, Node, bpy_str
 class FunctionNodeSeparateColor(FunctionNode, NodeInternal, Node, bpy_struct):
     """Split a color into separate channels, based on a particular color model"""
 
-    mode: Literal[bpy.stub_internal.rna_enums.NodeCombsepColorItems]
+    mode: typing.Literal[bpy.stub_internal.rna_enums.NodeCombsepColorItems]
     """ Mode of color processing (default 'RGB')"""
 
     @classmethod
@@ -36681,7 +36723,7 @@ class GeometryNodeAccumulateField(GeometryNode, NodeInternal, Node, bpy_struct):
     data_type: typing.Literal["FLOAT", "INT", "FLOAT_VECTOR", "TRANSFORM"]
     """ Type of data that is accumulated (default 'FLOAT')"""
 
-    domain: Literal[bpy.stub_internal.rna_enums.AttributeDomainItems]
+    domain: typing.Literal[bpy.stub_internal.rna_enums.AttributeDomainItems]
     """ (default 'POINT')"""
 
     @classmethod
@@ -36738,7 +36780,7 @@ class GeometryNodeAccumulateField(GeometryNode, NodeInternal, Node, bpy_struct):
 class GeometryNodeAttributeDomainSize(GeometryNode, NodeInternal, Node, bpy_struct):
     """Retrieve the number of elements in a geometry for each attribute domain"""
 
-    component: Literal[bpy.stub_internal.rna_enums.GeometryComponentTypeItems]
+    component: typing.Literal[bpy.stub_internal.rna_enums.GeometryComponentTypeItems]
     """ (default 'MESH')"""
 
     @classmethod
@@ -36795,10 +36837,10 @@ class GeometryNodeAttributeDomainSize(GeometryNode, NodeInternal, Node, bpy_stru
 class GeometryNodeAttributeStatistic(GeometryNode, NodeInternal, Node, bpy_struct):
     """Calculate statistics about a data set from a field evaluated on a geometry"""
 
-    data_type: Literal[bpy.stub_internal.rna_enums.AttributeTypeItems]
+    data_type: typing.Literal[bpy.stub_internal.rna_enums.AttributeTypeItems]
     """ The data type the attribute is converted to before calculating the results (default 'FLOAT')"""
 
-    domain: Literal[bpy.stub_internal.rna_enums.AttributeDomainItems]
+    domain: typing.Literal[bpy.stub_internal.rna_enums.AttributeDomainItems]
     """ Which domain to read the data from (default 'POINT')"""
 
     @classmethod
@@ -36918,7 +36960,7 @@ class GeometryNodeBake(GeometryNode, NodeInternal, Node, bpy_struct):
 class GeometryNodeBlurAttribute(GeometryNode, NodeInternal, Node, bpy_struct):
     """Mix attribute values of neighboring elements"""
 
-    data_type: Literal[bpy.stub_internal.rna_enums.AttributeTypeItems]
+    data_type: typing.Literal[bpy.stub_internal.rna_enums.AttributeTypeItems]
     """ (default 'FLOAT')"""
 
     @classmethod
@@ -37149,7 +37191,7 @@ class GeometryNodeCaptureAttribute(GeometryNode, NodeInternal, Node, bpy_struct)
     capture_items: typing.Any
     """ (default None, readonly)"""
 
-    domain: Literal[bpy.stub_internal.rna_enums.AttributeDomainItems]
+    domain: typing.Literal[bpy.stub_internal.rna_enums.AttributeDomainItems]
     """ Which domain to store the data in (default 'POINT')"""
 
     @classmethod
@@ -37703,7 +37745,9 @@ class GeometryNodeCurveHandleTypeSelection(
     handle_type: typing.Literal["FREE", "AUTO", "VECTOR", "ALIGN"]
     """ (default 'FREE')"""
 
-    mode: set[Literal[bpy.stub_internal.rna_enums.NodeGeometryCurveHandleSideItems]]
+    mode: set[
+        typing.Literal[bpy.stub_internal.rna_enums.NodeGeometryCurveHandleSideItems]
+    ]
     """ Whether to check the type of left and right handles (default set())"""
 
     @classmethod
@@ -38157,7 +38201,9 @@ class GeometryNodeCurveSetHandles(GeometryNode, NodeInternal, Node, bpy_struct):
     handle_type: typing.Literal["FREE", "AUTO", "VECTOR", "ALIGN"]
     """ (default 'FREE')"""
 
-    mode: set[Literal[bpy.stub_internal.rna_enums.NodeGeometryCurveHandleSideItems]]
+    mode: set[
+        typing.Literal[bpy.stub_internal.rna_enums.NodeGeometryCurveHandleSideItems]
+    ]
     """ Whether to update left and right handles (default set())"""
 
     @classmethod
@@ -38268,7 +38314,7 @@ class GeometryNodeCurveSpiral(GeometryNode, NodeInternal, Node, bpy_struct):
 class GeometryNodeCurveSplineType(GeometryNode, NodeInternal, Node, bpy_struct):
     """Change the type of curves"""
 
-    spline_type: Literal[bpy.stub_internal.rna_enums.CurvesTypeItems]
+    spline_type: typing.Literal[bpy.stub_internal.rna_enums.CurvesTypeItems]
     """ The curve type to change the selected curves to (default 'POLY')"""
 
     @classmethod
@@ -38631,7 +38677,9 @@ class GeometryNodeDeformCurvesOnSurface(GeometryNode, NodeInternal, Node, bpy_st
 class GeometryNodeDeleteGeometry(GeometryNode, NodeInternal, Node, bpy_struct):
     """Remove selected elements of a geometry"""
 
-    domain: Literal[bpy.stub_internal.rna_enums.AttributeDomainWithoutCornerItems]
+    domain: typing.Literal[
+        bpy.stub_internal.rna_enums.AttributeDomainWithoutCornerItems
+    ]
     """ Which domain to delete in (default 'POINT')"""
 
     mode: typing.Literal["ALL", "EDGE_FACE", "ONLY_FACE"]
@@ -39356,10 +39404,10 @@ class GeometryNodeFaceOfCorner(GeometryNode, NodeInternal, Node, bpy_struct):
 class GeometryNodeFieldAtIndex(GeometryNode, NodeInternal, Node, bpy_struct):
     """Retrieve data of other elements in the contexts geometry"""
 
-    data_type: Literal[bpy.stub_internal.rna_enums.AttributeTypeItems]
+    data_type: typing.Literal[bpy.stub_internal.rna_enums.AttributeTypeItems]
     """ (default 'FLOAT')"""
 
-    domain: Literal[bpy.stub_internal.rna_enums.AttributeDomainItems]
+    domain: typing.Literal[bpy.stub_internal.rna_enums.AttributeDomainItems]
     """ Domain the field is evaluated in (default 'POINT')"""
 
     @classmethod
@@ -39419,7 +39467,7 @@ class GeometryNodeFieldAverage(GeometryNode, NodeInternal, Node, bpy_struct):
     data_type: typing.Literal["FLOAT", "FLOAT_VECTOR"]
     """ Type of data the outputs are calculated from (default 'FLOAT')"""
 
-    domain: Literal[bpy.stub_internal.rna_enums.AttributeDomainItems]
+    domain: typing.Literal[bpy.stub_internal.rna_enums.AttributeDomainItems]
     """ (default 'POINT')"""
 
     @classmethod
@@ -39479,7 +39527,7 @@ class GeometryNodeFieldMinAndMax(GeometryNode, NodeInternal, Node, bpy_struct):
     data_type: typing.Literal["FLOAT", "INT", "FLOAT_VECTOR"]
     """ Type of data the outputs are calculated from (default 'FLOAT')"""
 
-    domain: Literal[bpy.stub_internal.rna_enums.AttributeDomainItems]
+    domain: typing.Literal[bpy.stub_internal.rna_enums.AttributeDomainItems]
     """ (default 'POINT')"""
 
     @classmethod
@@ -39536,10 +39584,10 @@ class GeometryNodeFieldMinAndMax(GeometryNode, NodeInternal, Node, bpy_struct):
 class GeometryNodeFieldOnDomain(GeometryNode, NodeInternal, Node, bpy_struct):
     """Retrieve values from a field on a different domain besides the domain from the context"""
 
-    data_type: Literal[bpy.stub_internal.rna_enums.AttributeTypeItems]
+    data_type: typing.Literal[bpy.stub_internal.rna_enums.AttributeTypeItems]
     """ (default 'FLOAT')"""
 
-    domain: Literal[bpy.stub_internal.rna_enums.AttributeDomainItems]
+    domain: typing.Literal[bpy.stub_internal.rna_enums.AttributeDomainItems]
     """ Domain the field is evaluated in (default 'POINT')"""
 
     @classmethod
@@ -39602,7 +39650,7 @@ class GeometryNodeFieldToGrid(GeometryNode, NodeInternal, Node, bpy_struct):
     active_item: RepeatItem | None
     """ Index of the active item"""
 
-    data_type: Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
+    data_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
     """ Data type for topology grid (default 'FLOAT')"""
 
     grid_items: typing.Any
@@ -39663,7 +39711,7 @@ class GeometryNodeFieldToGridItem(bpy_struct):
     color: typing.Any
     """ Color of the corresponding socket type in the node editor (array of 4 items, in [0, inf], default (0.0, 0.0, 0.0, 0.0), readonly)"""
 
-    data_type: Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
+    data_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
     """ (default 'FLOAT')"""
 
     identifier: int
@@ -39773,7 +39821,7 @@ class GeometryNodeFieldToListItem(bpy_struct):
     name: str
     """ (default "", never None)"""
 
-    socket_type: Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
+    socket_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
     """ (default 'FLOAT')"""
 
     @classmethod
@@ -39810,7 +39858,7 @@ class GeometryNodeFieldVariance(GeometryNode, NodeInternal, Node, bpy_struct):
     data_type: typing.Literal["FLOAT", "FLOAT_VECTOR"]
     """ Type of data the outputs are calculated from (default 'FLOAT')"""
 
-    domain: Literal[bpy.stub_internal.rna_enums.AttributeDomainItems]
+    domain: typing.Literal[bpy.stub_internal.rna_enums.AttributeDomainItems]
     """ (default 'POINT')"""
 
     @classmethod
@@ -40102,7 +40150,7 @@ class GeometryNodeForeachGeometryElementOutput(
     active_main_index: int | None
     """ Index of the active item (in [0, inf], default 0)"""
 
-    domain: Literal[bpy.stub_internal.rna_enums.AttributeDomainItems]
+    domain: typing.Literal[bpy.stub_internal.rna_enums.AttributeDomainItems]
     """ Geometry domain that is iterated over (default 'POINT')"""
 
     generation_items: typing.Any
@@ -40279,7 +40327,7 @@ class GeometryNodeGetGeometryBundle(GeometryNode, NodeInternal, Node, bpy_struct
 class GeometryNodeGetNamedGrid(GeometryNode, NodeInternal, Node, bpy_struct):
     """Get volume grid from a volume geometry with the specified name"""
 
-    data_type: Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
+    data_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
     """ Node socket data type (default 'FLOAT')"""
 
     @classmethod
@@ -40336,7 +40384,7 @@ class GeometryNodeGetNamedGrid(GeometryNode, NodeInternal, Node, bpy_struct):
 class GeometryNodeGizmoDial(GeometryNode, NodeInternal, Node, bpy_struct):
     """Show a dial gizmo in the viewport for a value"""
 
-    color_id: Literal[bpy.stub_internal.rna_enums.GeometryNodesGizmoColorItems]
+    color_id: typing.Literal[bpy.stub_internal.rna_enums.GeometryNodesGizmoColorItems]
     """ (default 'PRIMARY')"""
 
     @classmethod
@@ -40393,10 +40441,10 @@ class GeometryNodeGizmoDial(GeometryNode, NodeInternal, Node, bpy_struct):
 class GeometryNodeGizmoLinear(GeometryNode, NodeInternal, Node, bpy_struct):
     """Show a linear gizmo in the viewport for a value"""
 
-    color_id: Literal[bpy.stub_internal.rna_enums.GeometryNodesGizmoColorItems]
+    color_id: typing.Literal[bpy.stub_internal.rna_enums.GeometryNodesGizmoColorItems]
     """ (default 'PRIMARY')"""
 
-    draw_style: Literal[
+    draw_style: typing.Literal[
         bpy.stub_internal.rna_enums.GeometryNodesLinearGizmoDrawStyleItems
     ]
     """ (default 'ARROW')"""
@@ -40590,7 +40638,7 @@ class GeometryNodeGreasePencilToCurves(GeometryNode, NodeInternal, Node, bpy_str
 class GeometryNodeGridAdvect(GeometryNode, NodeInternal, Node, bpy_struct):
     """Move grid values through a velocity field using numerical integration. Supports multiple integration schemes for different accuracy and performance trade-offs"""
 
-    data_type: Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
+    data_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
     """ Node socket data type (default 'FLOAT')"""
 
     @classmethod
@@ -40647,7 +40695,7 @@ class GeometryNodeGridAdvect(GeometryNode, NodeInternal, Node, bpy_struct):
 class GeometryNodeGridClip(GeometryNode, NodeInternal, Node, bpy_struct):
     """Deactivate grid voxels outside minimum and maximum coordinates, setting them to the background value."""
 
-    data_type: Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
+    data_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
     """ Node socket data type (default 'FLOAT')"""
 
     @classmethod
@@ -40758,7 +40806,7 @@ class GeometryNodeGridCurl(GeometryNode, NodeInternal, Node, bpy_struct):
 class GeometryNodeGridDilateAndErode(GeometryNode, NodeInternal, Node, bpy_struct):
     """Dilate or erode the active regions of a grid. This changes which voxels are active but does not change their values."""
 
-    data_type: Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
+    data_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
     """ Node socket data type (default 'FLOAT')"""
 
     @classmethod
@@ -40923,7 +40971,7 @@ class GeometryNodeGridGradient(GeometryNode, NodeInternal, Node, bpy_struct):
 class GeometryNodeGridInfo(GeometryNode, NodeInternal, Node, bpy_struct):
     """Retrieve information about a volume grid"""
 
-    data_type: Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
+    data_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
     """ Node socket data type (default 'FLOAT')"""
 
     @classmethod
@@ -41034,7 +41082,7 @@ class GeometryNodeGridLaplacian(GeometryNode, NodeInternal, Node, bpy_struct):
 class GeometryNodeGridMean(GeometryNode, NodeInternal, Node, bpy_struct):
     """Apply mean (box) filter smoothing to a voxel. The mean value from surrounding voxels in a box-shape defined by the radius replaces the voxel value."""
 
-    data_type: Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
+    data_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
     """ Node socket data type (default 'FLOAT')"""
 
     @classmethod
@@ -41091,7 +41139,7 @@ class GeometryNodeGridMean(GeometryNode, NodeInternal, Node, bpy_struct):
 class GeometryNodeGridMedian(GeometryNode, NodeInternal, Node, bpy_struct):
     """Apply median (box) filter smoothing to a voxel. The median value from surrounding voxels in a box-shape defined by the radius replaces the voxel value."""
 
-    data_type: Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
+    data_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
     """ Node socket data type (default 'FLOAT')"""
 
     @classmethod
@@ -41148,7 +41196,7 @@ class GeometryNodeGridMedian(GeometryNode, NodeInternal, Node, bpy_struct):
 class GeometryNodeGridPrune(GeometryNode, NodeInternal, Node, bpy_struct):
     """Make the storage of a volume grid more efficient by collapsing data into tiles or inner nodes"""
 
-    data_type: Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
+    data_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
     """ Node socket data type (default 'FLOAT')"""
 
     @classmethod
@@ -41259,7 +41307,7 @@ class GeometryNodeGridToMesh(GeometryNode, NodeInternal, Node, bpy_struct):
 class GeometryNodeGridToPoints(GeometryNode, NodeInternal, Node, bpy_struct):
     """Generate a point cloud from a volume grids active voxels"""
 
-    data_type: Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
+    data_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
     """ Node socket data type (default 'FLOAT')"""
 
     @classmethod
@@ -41316,7 +41364,7 @@ class GeometryNodeGridToPoints(GeometryNode, NodeInternal, Node, bpy_struct):
 class GeometryNodeGridVoxelize(GeometryNode, NodeInternal, Node, bpy_struct):
     """Remove sparseness from a volume grid by making the active tiles into voxels"""
 
-    data_type: Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
+    data_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
     """ Node socket data type (default 'FLOAT')"""
 
     @classmethod
@@ -41919,7 +41967,7 @@ class GeometryNodeIndexOfNearest(GeometryNode, NodeInternal, Node, bpy_struct):
 class GeometryNodeIndexSwitch(GeometryNode, NodeInternal, Node, bpy_struct):
     """Choose between an arbitrary number of values with an index"""
 
-    data_type: Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
+    data_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
     """ (default 'GEOMETRY')"""
 
     index_switch_items: typing.Any
@@ -43179,7 +43227,7 @@ class GeometryNodeInputMeshVertexNeighbors(
 class GeometryNodeInputNamedAttribute(GeometryNode, NodeInternal, Node, bpy_struct):
     """Retrieve the data of a specified attribute"""
 
-    data_type: Literal[bpy.stub_internal.rna_enums.AttributeTypeItems]
+    data_type: typing.Literal[bpy.stub_internal.rna_enums.AttributeTypeItems]
     """ The data type used to read the attribute values (default 'FLOAT')"""
 
     @classmethod
@@ -44217,10 +44265,12 @@ class GeometryNodeJoinGeometry(GeometryNode, NodeInternal, Node, bpy_struct):
 class GeometryNodeListGetItem(GeometryNode, NodeInternal, Node, bpy_struct):
     """Retrieve a value from a list"""
 
-    socket_type: Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
+    socket_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
     """ Value may be implicitly converted if the type does not match (default 'FLOAT')"""
 
-    structure_type: Literal[bpy.stub_internal.rna_enums.NodeSocketStructureTypeItems]
+    structure_type: typing.Literal[
+        bpy.stub_internal.rna_enums.NodeSocketStructureTypeItems
+    ]
     """ What kind of higher order types are expected to flow through this socket (default 'AUTO')"""
 
     @classmethod
@@ -44277,7 +44327,7 @@ class GeometryNodeListGetItem(GeometryNode, NodeInternal, Node, bpy_struct):
 class GeometryNodeListLength(GeometryNode, NodeInternal, Node, bpy_struct):
     """Count how many items are in a given list"""
 
-    data_type: Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
+    data_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
     """ (default 'GEOMETRY')"""
 
     @classmethod
@@ -44394,7 +44444,7 @@ class GeometryNodeMenuSwitch(GeometryNode, NodeInternal, Node, bpy_struct):
     active_item: NodeEnumItem | None
     """ Active item"""
 
-    data_type: Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
+    data_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
     """ (default 'GEOMETRY')"""
 
     enum_definition: Node | None
@@ -44628,7 +44678,9 @@ class GeometryNodeMeshBoolean(GeometryNode, NodeInternal, Node, bpy_struct):
 class GeometryNodeMeshCircle(GeometryNode, NodeInternal, Node, bpy_struct):
     """Generate a circular ring of edges"""
 
-    fill_type: Literal[bpy.stub_internal.rna_enums.NodeGeometryMeshCircleFillTypeItems]
+    fill_type: typing.Literal[
+        bpy.stub_internal.rna_enums.NodeGeometryMeshCircleFillTypeItems
+    ]
     """ (default 'NONE')"""
 
     @classmethod
@@ -44685,7 +44737,9 @@ class GeometryNodeMeshCircle(GeometryNode, NodeInternal, Node, bpy_struct):
 class GeometryNodeMeshCone(GeometryNode, NodeInternal, Node, bpy_struct):
     """Generate a cone mesh"""
 
-    fill_type: Literal[bpy.stub_internal.rna_enums.NodeGeometryMeshCircleFillTypeItems]
+    fill_type: typing.Literal[
+        bpy.stub_internal.rna_enums.NodeGeometryMeshCircleFillTypeItems
+    ]
     """ (default 'NGON')"""
 
     @classmethod
@@ -44796,7 +44850,9 @@ class GeometryNodeMeshCube(GeometryNode, NodeInternal, Node, bpy_struct):
 class GeometryNodeMeshCylinder(GeometryNode, NodeInternal, Node, bpy_struct):
     """Generate a cylinder mesh"""
 
-    fill_type: Literal[bpy.stub_internal.rna_enums.NodeGeometryMeshCircleFillTypeItems]
+    fill_type: typing.Literal[
+        bpy.stub_internal.rna_enums.NodeGeometryMeshCircleFillTypeItems
+    ]
     """ (default 'NGON')"""
 
     @classmethod
@@ -45951,7 +46007,7 @@ class GeometryNodeProximity(GeometryNode, NodeInternal, Node, bpy_struct):
 class GeometryNodeRaycast(GeometryNode, NodeInternal, Node, bpy_struct):
     """Cast rays from the context geometry onto a target geometry, and retrieve information from each hit point"""
 
-    data_type: Literal[bpy.stub_internal.rna_enums.AttributeTypeItems]
+    data_type: typing.Literal[bpy.stub_internal.rna_enums.AttributeTypeItems]
     """ Type of data stored in attribute (default 'FLOAT')"""
 
     @classmethod
@@ -46845,7 +46901,7 @@ class GeometryNodeSDFGridOffset(GeometryNode, NodeInternal, Node, bpy_struct):
 class GeometryNodeSampleCurve(GeometryNode, NodeInternal, Node, bpy_struct):
     """Retrieve data from a point on a curve at a certain distance from its start"""
 
-    data_type: Literal[bpy.stub_internal.rna_enums.AttributeTypeItems]
+    data_type: typing.Literal[bpy.stub_internal.rna_enums.AttributeTypeItems]
     """ (default 'FLOAT')"""
 
     mode: typing.Literal["FACTOR", "LENGTH"]
@@ -46908,7 +46964,7 @@ class GeometryNodeSampleCurve(GeometryNode, NodeInternal, Node, bpy_struct):
 class GeometryNodeSampleGrid(GeometryNode, NodeInternal, Node, bpy_struct):
     """Retrieve values from the specified volume grid"""
 
-    data_type: Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
+    data_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
     """ Node socket data type (default 'FLOAT')"""
 
     @classmethod
@@ -46965,7 +47021,7 @@ class GeometryNodeSampleGrid(GeometryNode, NodeInternal, Node, bpy_struct):
 class GeometryNodeSampleGridIndex(GeometryNode, NodeInternal, Node, bpy_struct):
     """Retrieve volume grid values at specific voxels"""
 
-    data_type: Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
+    data_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
     """ Node socket data type (default 'FLOAT')"""
 
     @classmethod
@@ -47025,10 +47081,10 @@ class GeometryNodeSampleIndex(GeometryNode, NodeInternal, Node, bpy_struct):
     clamp: bool
     """ Clamp the indices to the size of the attribute domain instead of outputting a default value for invalid indices (default False)"""
 
-    data_type: Literal[bpy.stub_internal.rna_enums.AttributeTypeItems]
+    data_type: typing.Literal[bpy.stub_internal.rna_enums.AttributeTypeItems]
     """ (default 'FLOAT')"""
 
-    domain: Literal[bpy.stub_internal.rna_enums.AttributeDomainItems]
+    domain: typing.Literal[bpy.stub_internal.rna_enums.AttributeDomainItems]
     """ (default 'POINT')"""
 
     @classmethod
@@ -47085,7 +47141,7 @@ class GeometryNodeSampleIndex(GeometryNode, NodeInternal, Node, bpy_struct):
 class GeometryNodeSampleNearest(GeometryNode, NodeInternal, Node, bpy_struct):
     """Find the element of a geometry closest to a position. Similar to the "Index of Nearest" node"""
 
-    domain: Literal[bpy.stub_internal.rna_enums.AttributeDomainOnlyMeshItems]
+    domain: typing.Literal[bpy.stub_internal.rna_enums.AttributeDomainOnlyMeshItems]
     """ (default 'POINT')"""
 
     @classmethod
@@ -47142,7 +47198,7 @@ class GeometryNodeSampleNearest(GeometryNode, NodeInternal, Node, bpy_struct):
 class GeometryNodeSampleNearestSurface(GeometryNode, NodeInternal, Node, bpy_struct):
     """Calculate the interpolated value of a mesh attribute on the closest point of its surface"""
 
-    data_type: Literal[bpy.stub_internal.rna_enums.AttributeTypeItems]
+    data_type: typing.Literal[bpy.stub_internal.rna_enums.AttributeTypeItems]
     """ (default 'FLOAT')"""
 
     @classmethod
@@ -47199,7 +47255,7 @@ class GeometryNodeSampleNearestSurface(GeometryNode, NodeInternal, Node, bpy_str
 class GeometryNodeSampleUVSurface(GeometryNode, NodeInternal, Node, bpy_struct):
     """Calculate the interpolated values of a mesh attribute at a UV coordinate"""
 
-    data_type: Literal[bpy.stub_internal.rna_enums.AttributeTypeItems]
+    data_type: typing.Literal[bpy.stub_internal.rna_enums.AttributeTypeItems]
     """ (default 'FLOAT')"""
 
     @classmethod
@@ -47475,7 +47531,9 @@ class GeometryNodeSeparateComponents(GeometryNode, NodeInternal, Node, bpy_struc
 class GeometryNodeSeparateGeometry(GeometryNode, NodeInternal, Node, bpy_struct):
     """Split a geometry into two geometry outputs based on a selection"""
 
-    domain: Literal[bpy.stub_internal.rna_enums.AttributeDomainWithoutCornerItems]
+    domain: typing.Literal[
+        bpy.stub_internal.rna_enums.AttributeDomainWithoutCornerItems
+    ]
     """ Which domain to separate on (default 'POINT')"""
 
     @classmethod
@@ -47532,7 +47590,7 @@ class GeometryNodeSeparateGeometry(GeometryNode, NodeInternal, Node, bpy_struct)
 class GeometryNodeSetCurveHandlePositions(GeometryNode, NodeInternal, Node, bpy_struct):
     """Set the positions for the handles of Bézier curves"""
 
-    mode: Literal[bpy.stub_internal.rna_enums.NodeGeometryCurveHandleSideItems]
+    mode: typing.Literal[bpy.stub_internal.rna_enums.NodeGeometryCurveHandleSideItems]
     """ Whether to update left and right handles (default 'LEFT')"""
 
     @classmethod
@@ -47916,7 +47974,7 @@ class GeometryNodeSetGreasePencilColor(GeometryNode, NodeInternal, Node, bpy_str
 class GeometryNodeSetGreasePencilDepth(GeometryNode, NodeInternal, Node, bpy_struct):
     """Set the Grease Pencil depth order to use"""
 
-    depth_order: Literal[bpy.stub_internal.rna_enums.StrokeDepthOrderItems]
+    depth_order: typing.Literal[bpy.stub_internal.rna_enums.StrokeDepthOrderItems]
     """ (default '2D')"""
 
     @classmethod
@@ -48027,7 +48085,7 @@ class GeometryNodeSetGreasePencilSoftness(GeometryNode, NodeInternal, Node, bpy_
 class GeometryNodeSetGridBackground(GeometryNode, NodeInternal, Node, bpy_struct):
     """Set the background value used for inactive voxels and tiles"""
 
-    data_type: Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
+    data_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
     """ Node socket data type (default 'FLOAT')"""
 
     @classmethod
@@ -48084,7 +48142,7 @@ class GeometryNodeSetGridBackground(GeometryNode, NodeInternal, Node, bpy_struct
 class GeometryNodeSetGridTransform(GeometryNode, NodeInternal, Node, bpy_struct):
     """Set the transform for the grid from index space into object space."""
 
-    data_type: Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
+    data_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
     """ Node socket data type (default 'FLOAT')"""
 
     @classmethod
@@ -48357,7 +48415,9 @@ class GeometryNodeSetMaterialIndex(GeometryNode, NodeInternal, Node, bpy_struct)
 class GeometryNodeSetMeshNormal(GeometryNode, NodeInternal, Node, bpy_struct):
     """Store a normal vector for each mesh element"""
 
-    domain: Literal[bpy.stub_internal.rna_enums.AttributeDomainOnlyMeshNoEdgeItems]
+    domain: typing.Literal[
+        bpy.stub_internal.rna_enums.AttributeDomainOnlyMeshNoEdgeItems
+    ]
     """ Attribute domain to store free custom normals (default 'POINT')"""
 
     mode: typing.Literal["SHARPNESS", "FREE", "TANGENT_SPACE"]
@@ -48579,7 +48639,7 @@ class GeometryNodeSetPosition(GeometryNode, NodeInternal, Node, bpy_struct):
 class GeometryNodeSetShadeSmooth(GeometryNode, NodeInternal, Node, bpy_struct):
     """Control the smoothness of mesh normals around each face by changing the "shade smooth" attribute"""
 
-    domain: Literal[bpy.stub_internal.rna_enums.AttributeDomainEdgeFaceItems]
+    domain: typing.Literal[bpy.stub_internal.rna_enums.AttributeDomainEdgeFaceItems]
     """ (default 'EDGE')"""
 
     @classmethod
@@ -49090,7 +49150,9 @@ class GeometryNodeSplitEdges(GeometryNode, NodeInternal, Node, bpy_struct):
 class GeometryNodeSplitToInstances(GeometryNode, NodeInternal, Node, bpy_struct):
     """Create separate geometries containing the elements from the same group"""
 
-    domain: Literal[bpy.stub_internal.rna_enums.AttributeDomainWithoutCornerItems]
+    domain: typing.Literal[
+        bpy.stub_internal.rna_enums.AttributeDomainWithoutCornerItems
+    ]
     """ Attribute domain for the Selection and Group ID inputs (default 'POINT')"""
 
     @classmethod
@@ -49147,10 +49209,10 @@ class GeometryNodeSplitToInstances(GeometryNode, NodeInternal, Node, bpy_struct)
 class GeometryNodeStoreNamedAttribute(GeometryNode, NodeInternal, Node, bpy_struct):
     """Store the result of a field on a geometry as an attribute with the specified name"""
 
-    data_type: Literal[bpy.stub_internal.rna_enums.AttributeTypeItems]
+    data_type: typing.Literal[bpy.stub_internal.rna_enums.AttributeTypeItems]
     """ Type of data stored in attribute (default 'FLOAT')"""
 
-    domain: Literal[bpy.stub_internal.rna_enums.AttributeDomainItems]
+    domain: typing.Literal[bpy.stub_internal.rna_enums.AttributeDomainItems]
     """ Which domain to store the data in (default 'POINT')"""
 
     @classmethod
@@ -49207,7 +49269,7 @@ class GeometryNodeStoreNamedAttribute(GeometryNode, NodeInternal, Node, bpy_stru
 class GeometryNodeStoreNamedGrid(GeometryNode, NodeInternal, Node, bpy_struct):
     """Store grid data in a volume geometry with the specified name"""
 
-    data_type: Literal[bpy.stub_internal.rna_enums.VolumeGridDataTypeItems]
+    data_type: typing.Literal[bpy.stub_internal.rna_enums.VolumeGridDataTypeItems]
     """ Type of grid data (default 'FLOAT')"""
 
     @classmethod
@@ -49534,7 +49596,7 @@ class GeometryNodeSubdivisionSurface(GeometryNode, NodeInternal, Node, bpy_struc
 class GeometryNodeSwitch(GeometryNode, NodeInternal, Node, bpy_struct):
     """Switch between two inputs"""
 
-    input_type: Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
+    input_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
     """ (default 'GEOMETRY')"""
 
     @classmethod
@@ -49918,7 +49980,9 @@ class GeometryNodeToolSetFaceSet(GeometryNode, NodeInternal, Node, bpy_struct):
 class GeometryNodeToolSetSelection(GeometryNode, NodeInternal, Node, bpy_struct):
     """Set selection of the edited geometry, for tool execution"""
 
-    domain: Literal[bpy.stub_internal.rna_enums.AttributeDomainPointEdgeFaceCurveItems]
+    domain: typing.Literal[
+        bpy.stub_internal.rna_enums.AttributeDomainPointEdgeFaceCurveItems
+    ]
     """ (default 'POINT')"""
 
     selection_type: typing.Literal["BOOLEAN", "FLOAT"]
@@ -50487,7 +50551,7 @@ class GeometryNodeViewer(GeometryNode, NodeInternal, Node, bpy_struct):
     """ Index of the active item (in [0, inf], default 0)"""
 
     active_item: NodeGeometryViewerItem | None
-    domain: Literal[bpy.stub_internal.rna_enums.AttributeDomainWithAutoItems]
+    domain: typing.Literal[bpy.stub_internal.rna_enums.AttributeDomainWithAutoItems]
     """ Domain to evaluate fields on (default 'POINT')"""
 
     ui_shortcut: int
@@ -50712,7 +50776,7 @@ class GeometryNodeVolumeToMesh(GeometryNode, NodeInternal, Node, bpy_struct):
 class GeometryNodeWarning(GeometryNode, NodeInternal, Node, bpy_struct):
     """Create custom warnings in node groups"""
 
-    warning_type: Literal[bpy.stub_internal.rna_enums.NodeWarningTypeItems]
+    warning_type: typing.Literal[bpy.stub_internal.rna_enums.NodeWarningTypeItems]
     """ (default 'ERROR')"""
 
     @classmethod
@@ -50890,7 +50954,7 @@ class Gizmo(bpy_struct):
         context: Context,
         event: Event | None,
         tweak: set[typing.Literal["PRECISE", "SNAP"]] | None,
-    ) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
         """
 
         :param context: (never None)
@@ -50902,7 +50966,7 @@ class Gizmo(bpy_struct):
     def setup(self) -> None: ...
     def invoke(
         self, context: Context, event: Event | None
-    ) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
         """
 
         :param context: (never None)
@@ -50938,7 +51002,8 @@ class Gizmo(bpy_struct):
         | mathutils.Matrix
         | None,
         *,
-        axis: Literal[bpy.stub_internal.rna_enums.ObjectAxisItems] | None = "POS_Z",
+        axis: typing.Literal[bpy.stub_internal.rna_enums.ObjectAxisItems]
+        | None = "POS_Z",
         select_id: int | None = -1,
     ) -> None:
         """Draw a box
@@ -50954,7 +51019,8 @@ class Gizmo(bpy_struct):
         | mathutils.Matrix
         | None,
         *,
-        axis: Literal[bpy.stub_internal.rna_enums.ObjectAxisItems] | None = "POS_Z",
+        axis: typing.Literal[bpy.stub_internal.rna_enums.ObjectAxisItems]
+        | None = "POS_Z",
         select_id: int | None = -1,
     ) -> None:
         """Draw a box
@@ -51118,10 +51184,10 @@ class GizmoGroup(bpy_struct):
     bl_owner_id: str
     """ (default "", never None)"""
 
-    bl_region_type: Literal[bpy.stub_internal.rna_enums.RegionTypeItems]
+    bl_region_type: typing.Literal[bpy.stub_internal.rna_enums.RegionTypeItems]
     """ The region where the panel is going to be used in (default 'WINDOW')"""
 
-    bl_space_type: Literal[bpy.stub_internal.rna_enums.SpaceTypeItems]
+    bl_space_type: typing.Literal[bpy.stub_internal.rna_enums.SpaceTypeItems]
     """ The space where the panel is going to be used in (default 'EMPTY')"""
 
     gizmos: typing.Any
@@ -51500,7 +51566,9 @@ class GreasePencil(ID, bpy_struct):
     root_nodes: typing.Any
     """ The root nodes of the layer tree. Ordered by stack order, meaning the first node is the bottom most node in the layer tree. (default None, readonly)"""
 
-    stroke_depth_order: Literal[bpy.stub_internal.rna_enums.StrokeDepthOrderItems]
+    stroke_depth_order: typing.Literal[
+        bpy.stub_internal.rna_enums.StrokeDepthOrderItems
+    ]
     """ Defines how the strokes are ordered in 3D space (for objects not displayed 'In Front') (default '2D')"""
 
     use_autolock_layers: bool
@@ -52112,7 +52180,7 @@ class GreasePencilDrawing(bpy_struct):
     def set_types(
         self,
         *,
-        type: Literal[bpy.stub_internal.rna_enums.CurvesTypeItems]
+        type: typing.Literal[bpy.stub_internal.rna_enums.CurvesTypeItems]
         | None = "CATMULL_ROM",
         indices: collections.abc.Sequence[int] | None = (0),
     ) -> None:
@@ -53646,7 +53714,7 @@ class GreasePencilShrinkwrapModifier(Modifier, bpy_struct):
     auxiliary_target: Object | None
     """ Additional mesh target to shrink to"""
 
-    cull_face: Literal[bpy.stub_internal.rna_enums.ShrinkwrapFaceCullItems]
+    cull_face: typing.Literal[bpy.stub_internal.rna_enums.ShrinkwrapFaceCullItems]
     """ Stop vertices from projecting to a face on the target when facing towards/away (default 'OFF')"""
 
     invert_layer_filter: bool
@@ -53727,10 +53795,10 @@ class GreasePencilShrinkwrapModifier(Modifier, bpy_struct):
     vertex_group_name: str
     """ Vertex group name for modulating the deform (default "", never None)"""
 
-    wrap_method: Literal[bpy.stub_internal.rna_enums.ShrinkwrapTypeItems]
+    wrap_method: typing.Literal[bpy.stub_internal.rna_enums.ShrinkwrapTypeItems]
     """ (default 'NEAREST_SURFACEPOINT')"""
 
-    wrap_mode: Literal[bpy.stub_internal.rna_enums.ModifierShrinkwrapModeItems]
+    wrap_mode: typing.Literal[bpy.stub_internal.rna_enums.ModifierShrinkwrapModeItems]
     """ Select how vertices are constrained to the target surface (default 'ON_SURFACE')"""
 
     @classmethod
@@ -54726,10 +54794,10 @@ class Header(bpy_struct):
     bl_idname: str
     """ If this is set, the header gets a custom ID, otherwise it takes the name of the class used to define the header; for example, if the class name is "OBJECT_HT_hello", and bl_idname is not set by the script, then bl_idname = "OBJECT_HT_hello" (default "", never None)"""
 
-    bl_region_type: Literal[bpy.stub_internal.rna_enums.RegionTypeItems]
+    bl_region_type: typing.Literal[bpy.stub_internal.rna_enums.RegionTypeItems]
     """ The region where the header is going to be used in (defaults to header region) (default 'HEADER')"""
 
-    bl_space_type: Literal[bpy.stub_internal.rna_enums.SpaceTypeItems]
+    bl_space_type: typing.Literal[bpy.stub_internal.rna_enums.SpaceTypeItems]
     """ The space where the header is going to be used in (default 'EMPTY')"""
 
     layout: UILayout | None
@@ -55021,7 +55089,7 @@ class ID(bpy_struct):
     asset_data: AssetMetaData | None
     """ Additional data for an asset data-block"""
 
-    id_type: Literal[bpy.stub_internal.rna_enums.IdTypeItems]
+    id_type: typing.Literal[bpy.stub_internal.rna_enums.IdTypeItems]
     """ Type identifier of this data-block (default 'ACTION', readonly)"""
 
     is_editable: bool
@@ -55831,7 +55899,7 @@ class Image(ID, bpy_struct):
     display_aspect: mathutils.Vector
     """ Display Aspect for this image, does not affect rendering (array of 2 items, in [0.1, inf], default (1.0, 1.0))"""
 
-    file_format: Literal[bpy.stub_internal.rna_enums.ImageTypeAllItems]
+    file_format: typing.Literal[bpy.stub_internal.rna_enums.ImageTypeAllItems]
     """ Format used for re-saving this file (default 'TARGA')"""
 
     filepath: str
@@ -55849,7 +55917,7 @@ class Image(ID, bpy_struct):
     generated_height: int
     """ Generated image height (in [1, 65536], default 1024)"""
 
-    generated_type: Literal[bpy.stub_internal.rna_enums.ImageGeneratedTypeItems]
+    generated_type: typing.Literal[bpy.stub_internal.rna_enums.ImageGeneratedTypeItems]
     """ Generated image type (default 'UV_GRID')"""
 
     generated_width: int
@@ -55920,7 +55988,7 @@ class Image(ID, bpy_struct):
     use_view_as_render: bool
     """ Apply render part of display transformation when displaying this image on the screen (default False)"""
 
-    views_format: Literal[bpy.stub_internal.rna_enums.ViewsFormatItems]
+    views_format: typing.Literal[bpy.stub_internal.rna_enums.ViewsFormatItems]
     """ Mode to load image views (default 'INDIVIDUAL')"""
 
     def save_render(
@@ -55961,7 +56029,7 @@ class Image(ID, bpy_struct):
     def unpack(
         self,
         *,
-        method: Literal[bpy.stub_internal.rna_enums.UnpackMethodItems]
+        method: typing.Literal[bpy.stub_internal.rna_enums.UnpackMethodItems]
         | None = "USE_LOCAL",
     ) -> None:
         """Save an image packed in the .blend file to disk
@@ -56074,13 +56142,13 @@ class ImageFormatSettings(bpy_struct):
     cineon_white: int
     """ Log conversion reference whitepoint (in [0, 1024], default 0)"""
 
-    color_depth: Literal[bpy.stub_internal.rna_enums.ImageColorDepthItems]
+    color_depth: typing.Literal[bpy.stub_internal.rna_enums.ImageColorDepthItems]
     """ Bit depth per channel (default '8')"""
 
     color_management: typing.Literal["FOLLOW_SCENE", "OVERRIDE"]
     """ Which color management settings to use for file saving (default 'FOLLOW_SCENE')"""
 
-    color_mode: Literal[bpy.stub_internal.rna_enums.ImageColorModeItems]
+    color_mode: typing.Literal[bpy.stub_internal.rna_enums.ImageColorModeItems]
     """ Choose BW for saving grayscale images, RGB for saving red, green and blue channels, and RGBA for saving red, green, blue and alpha channels (default 'RGBA')"""
 
     compression: int
@@ -56089,10 +56157,10 @@ class ImageFormatSettings(bpy_struct):
     display_settings: ColorManagedDisplaySettings | None
     """ Settings of device saved image would be displayed on (readonly)"""
 
-    exr_codec: Literal[bpy.stub_internal.rna_enums.ExrCodecItems]
+    exr_codec: typing.Literal[bpy.stub_internal.rna_enums.ExrCodecItems]
     """ Compression codec settings for OpenEXR (default 'NONE')"""
 
-    file_format: Literal[bpy.stub_internal.rna_enums.ImageTypeAllItems]
+    file_format: typing.Literal[bpy.stub_internal.rna_enums.ImageTypeAllItems]
     """ File format to save the rendered images as (default 'PNG')"""
 
     has_linear_colorspace: bool
@@ -56137,7 +56205,7 @@ class ImageFormatSettings(bpy_struct):
     view_settings: ColorManagedViewSettings | None
     """ Color management settings applied on image before saving (readonly)"""
 
-    views_format: Literal[bpy.stub_internal.rna_enums.ViewsFormatMultiviewItems]
+    views_format: typing.Literal[bpy.stub_internal.rna_enums.ViewsFormatMultiviewItems]
     """ Format of multiview media (default 'INDIVIDUAL')"""
 
     @classmethod
@@ -56451,7 +56519,7 @@ class ImageStrip(Strip, bpy_struct):
     use_reverse_frames: bool
     """ Reverse frame order (default False)"""
 
-    views_format: Literal[bpy.stub_internal.rna_enums.ViewsFormatItems]
+    views_format: typing.Literal[bpy.stub_internal.rna_enums.ViewsFormatItems]
     """ Mode to load image views (default 'INDIVIDUAL')"""
 
     @classmethod
@@ -57095,7 +57163,7 @@ class KeyMap(bpy_struct):
     name: str
     """ Name of the key map (default "", readonly, never None)"""
 
-    region_type: Literal[bpy.stub_internal.rna_enums.RegionTypeItems]
+    region_type: typing.Literal[bpy.stub_internal.rna_enums.RegionTypeItems]
     """ Optional region type keymap is associated with (default 'WINDOW', readonly)"""
 
     show_expanded_children: bool
@@ -57104,7 +57172,7 @@ class KeyMap(bpy_struct):
     show_expanded_items: bool
     """ Expanded in the user interface (default False)"""
 
-    space_type: Literal[bpy.stub_internal.rna_enums.SpaceTypeItems]
+    space_type: typing.Literal[bpy.stub_internal.rna_enums.SpaceTypeItems]
     """ Optional space type keymap is associated with (default 'EMPTY', readonly)"""
 
     def active(self) -> typing_extensions.Self:
@@ -57171,7 +57239,7 @@ class KeyMapItem(bpy_struct):
     ctrl_ui: bool
     """ Control key pressed (default False)"""
 
-    direction: Literal[bpy.stub_internal.rna_enums.EventDirectionItems]
+    direction: typing.Literal[bpy.stub_internal.rna_enums.EventDirectionItems]
     """ The direction (only applies to drag events) (default 'ANY')"""
 
     hyper: int
@@ -57192,7 +57260,7 @@ class KeyMapItem(bpy_struct):
     is_user_modified: bool
     """ Is this keymap item modified by the user (default False, readonly)"""
 
-    key_modifier: Literal[bpy.stub_internal.rna_enums.EventTypeItems]
+    key_modifier: typing.Literal[bpy.stub_internal.rna_enums.EventTypeItems]
     """ Regular key pressed as a modifier (default 'NONE')"""
 
     map_type: typing.Literal["KEYBOARD", "MOUSE", "NDOF", "TEXTINPUT", "TIMER"]
@@ -57210,7 +57278,7 @@ class KeyMapItem(bpy_struct):
     properties: OperatorProperties | None
     """ Properties to set when the operator is called (readonly)"""
 
-    propvalue: Literal[bpy.stub_internal.rna_enums.KeymapPropvalueItems]
+    propvalue: typing.Literal[bpy.stub_internal.rna_enums.KeymapPropvalueItems]
     """ The value this event translates to in a modal keymap (default 'NONE')"""
 
     repeat: bool
@@ -57225,10 +57293,10 @@ class KeyMapItem(bpy_struct):
     show_expanded: bool
     """ Show key map event and property details in the user interface (default False)"""
 
-    type: Literal[bpy.stub_internal.rna_enums.EventTypeItems]
+    type: typing.Literal[bpy.stub_internal.rna_enums.EventTypeItems]
     """ Type of event (default 'NONE')"""
 
-    value: Literal[bpy.stub_internal.rna_enums.EventValueItems]
+    value: typing.Literal[bpy.stub_internal.rna_enums.EventValueItems]
     """ (default 'NOTHING')"""
 
     def compare(self, item: typing_extensions.Self | None) -> bool:
@@ -57288,22 +57356,30 @@ class Keyframe(bpy_struct):
     co_ui: mathutils.Vector
     """ Coordinates of the control point. Note: Changing this value also updates the handles similar to using the graph editor transform operator (array of 2 items, in [-inf, inf], default (0.0, 0.0))"""
 
-    easing: Literal[bpy.stub_internal.rna_enums.BeztripleInterpolationEasingItems]
+    easing: typing.Literal[
+        bpy.stub_internal.rna_enums.BeztripleInterpolationEasingItems
+    ]
     """ Which ends of the segment between this and the next keyframe easing interpolation is applied to (default 'AUTO')"""
 
     handle_left: mathutils.Vector
     """ Coordinates of the left handle (before the control point) (array of 2 items, in [-inf, inf], default (0.0, 0.0))"""
 
-    handle_left_type: Literal[bpy.stub_internal.rna_enums.KeyframeHandleTypeItems]
+    handle_left_type: typing.Literal[
+        bpy.stub_internal.rna_enums.KeyframeHandleTypeItems
+    ]
     """ Handle types (default 'FREE')"""
 
     handle_right: mathutils.Vector
     """ Coordinates of the right handle (after the control point) (array of 2 items, in [-inf, inf], default (0.0, 0.0))"""
 
-    handle_right_type: Literal[bpy.stub_internal.rna_enums.KeyframeHandleTypeItems]
+    handle_right_type: typing.Literal[
+        bpy.stub_internal.rna_enums.KeyframeHandleTypeItems
+    ]
     """ Handle types (default 'FREE')"""
 
-    interpolation: Literal[bpy.stub_internal.rna_enums.BeztripleInterpolationModeItems]
+    interpolation: typing.Literal[
+        bpy.stub_internal.rna_enums.BeztripleInterpolationModeItems
+    ]
     """ Interpolation method to use for segment of the F-Curve from this Keyframe until the next Keyframe (default 'CONSTANT')"""
 
     period: float
@@ -57318,7 +57394,7 @@ class Keyframe(bpy_struct):
     select_right_handle: bool
     """ Right handle selection status (default False)"""
 
-    type: Literal[bpy.stub_internal.rna_enums.BeztripleKeyframeTypeItems]
+    type: typing.Literal[bpy.stub_internal.rna_enums.BeztripleKeyframeTypeItems]
     """ Type of keyframe (for visual purposes only) (default 'KEYFRAME')"""
 
     @classmethod
@@ -57425,7 +57501,7 @@ class KeyingSetInfo(bpy_struct):
     bl_label: str
     """ (default "", never None)"""
 
-    bl_options: set[Literal[bpy.stub_internal.rna_enums.KeyingFlagItems]]
+    bl_options: set[typing.Literal[bpy.stub_internal.rna_enums.KeyingFlagItems]]
     """ Keying Set options to use when inserting keyframes (default set())"""
 
     def poll(self, context: Context) -> bool:
@@ -57492,13 +57568,13 @@ class KeyingSetPath(bpy_struct):
     group: str
     """ Name of Action Group to assign setting(s) for this path to (default "", never None)"""
 
-    group_method: Literal[bpy.stub_internal.rna_enums.KeyingsetPathGroupingItems]
+    group_method: typing.Literal[bpy.stub_internal.rna_enums.KeyingsetPathGroupingItems]
     """ Method used to define which Group-name to use (default 'NAMED')"""
 
     id: ID | None
     """ ID-Block that keyframes for Keying Set should be added to (for Absolute Keying Sets only)"""
 
-    id_type: Literal[bpy.stub_internal.rna_enums.IdTypeItems]
+    id_type: typing.Literal[bpy.stub_internal.rna_enums.IdTypeItems]
     """ Type of ID-block that can be used (default 'OBJECT')"""
 
     use_entire_array: bool
@@ -58188,7 +58264,7 @@ class Light(ID, bpy_struct):
     transmission_factor: float
     """ Transmission light multiplier (in [0, inf], default 1.0)"""
 
-    type: Literal[bpy.stub_internal.rna_enums.LightTypeItems]
+    type: typing.Literal[bpy.stub_internal.rna_enums.LightTypeItems]
     """ Type of light (default 'POINT')"""
 
     use_custom_distance: bool
@@ -58865,7 +58941,7 @@ class LineStyleAlphaModifier_AlongStroke(
     mapping: typing.Literal["LINEAR", "CURVE"]
     """ Select the mapping type (default 'LINEAR')"""
 
-    type: Literal[bpy.stub_internal.rna_enums.LinestyleAlphaModifierTypeItems]
+    type: typing.Literal[bpy.stub_internal.rna_enums.LinestyleAlphaModifierTypeItems]
     """ Type of the modifier (default 'ALONG_STROKE', readonly)"""
 
     use: bool
@@ -58937,7 +59013,7 @@ class LineStyleAlphaModifier_CreaseAngle(
     mapping: typing.Literal["LINEAR", "CURVE"]
     """ Select the mapping type (default 'LINEAR')"""
 
-    type: Literal[bpy.stub_internal.rna_enums.LinestyleAlphaModifierTypeItems]
+    type: typing.Literal[bpy.stub_internal.rna_enums.LinestyleAlphaModifierTypeItems]
     """ Type of the modifier (default 'ALONG_STROKE', readonly)"""
 
     use: bool
@@ -59009,7 +59085,7 @@ class LineStyleAlphaModifier_Curvature_3D(
     mapping: typing.Literal["LINEAR", "CURVE"]
     """ Select the mapping type (default 'LINEAR')"""
 
-    type: Literal[bpy.stub_internal.rna_enums.LinestyleAlphaModifierTypeItems]
+    type: typing.Literal[bpy.stub_internal.rna_enums.LinestyleAlphaModifierTypeItems]
     """ Type of the modifier (default 'ALONG_STROKE', readonly)"""
 
     use: bool
@@ -59081,7 +59157,7 @@ class LineStyleAlphaModifier_DistanceFromCamera(
     range_min: float
     """ Lower bound of the input range the mapping is applied (in [-inf, inf], default 0.0)"""
 
-    type: Literal[bpy.stub_internal.rna_enums.LinestyleAlphaModifierTypeItems]
+    type: typing.Literal[bpy.stub_internal.rna_enums.LinestyleAlphaModifierTypeItems]
     """ Type of the modifier (default 'ALONG_STROKE', readonly)"""
 
     use: bool
@@ -59156,7 +59232,7 @@ class LineStyleAlphaModifier_DistanceFromObject(
     target: Object | None
     """ Target object from which the distance is measured"""
 
-    type: Literal[bpy.stub_internal.rna_enums.LinestyleAlphaModifierTypeItems]
+    type: typing.Literal[bpy.stub_internal.rna_enums.LinestyleAlphaModifierTypeItems]
     """ Type of the modifier (default 'ALONG_STROKE', readonly)"""
 
     use: bool
@@ -59241,7 +59317,7 @@ class LineStyleAlphaModifier_Material(
     ]
     """ Specify which material attribute is used (default 'LINE')"""
 
-    type: Literal[bpy.stub_internal.rna_enums.LinestyleAlphaModifierTypeItems]
+    type: typing.Literal[bpy.stub_internal.rna_enums.LinestyleAlphaModifierTypeItems]
     """ Type of the modifier (default 'ALONG_STROKE', readonly)"""
 
     use: bool
@@ -59316,7 +59392,7 @@ class LineStyleAlphaModifier_Noise(
     seed: int
     """ Seed for the noise generation (in [1, 32767], default 0)"""
 
-    type: Literal[bpy.stub_internal.rna_enums.LinestyleAlphaModifierTypeItems]
+    type: typing.Literal[bpy.stub_internal.rna_enums.LinestyleAlphaModifierTypeItems]
     """ Type of the modifier (default 'ALONG_STROKE', readonly)"""
 
     use: bool
@@ -59382,7 +59458,7 @@ class LineStyleAlphaModifier_Tangent(
     mapping: typing.Literal["LINEAR", "CURVE"]
     """ Select the mapping type (default 'LINEAR')"""
 
-    type: Literal[bpy.stub_internal.rna_enums.LinestyleAlphaModifierTypeItems]
+    type: typing.Literal[bpy.stub_internal.rna_enums.LinestyleAlphaModifierTypeItems]
     """ Type of the modifier (default 'ALONG_STROKE', readonly)"""
 
     use: bool
@@ -59455,7 +59531,7 @@ class LineStyleColorModifier_AlongStroke(
 ):
     """Change line color along stroke"""
 
-    blend: Literal[bpy.stub_internal.rna_enums.RampBlendItems]
+    blend: typing.Literal[bpy.stub_internal.rna_enums.RampBlendItems]
     """ Specify how the modifier value is blended into the base value (default 'MIX')"""
 
     color_ramp: ColorRamp | None
@@ -59467,7 +59543,7 @@ class LineStyleColorModifier_AlongStroke(
     influence: float
     """ Influence factor by which the modifier changes the property (in [0, 1], default 0.0)"""
 
-    type: Literal[bpy.stub_internal.rna_enums.LinestyleColorModifierTypeItems]
+    type: typing.Literal[bpy.stub_internal.rna_enums.LinestyleColorModifierTypeItems]
     """ Type of the modifier (default 'ALONG_STROKE', readonly)"""
 
     use: bool
@@ -59512,7 +59588,7 @@ class LineStyleColorModifier_CreaseAngle(
     angle_min: float
     """ Minimum angle to modify thickness (in [-inf, inf], default 0.0)"""
 
-    blend: Literal[bpy.stub_internal.rna_enums.RampBlendItems]
+    blend: typing.Literal[bpy.stub_internal.rna_enums.RampBlendItems]
     """ Specify how the modifier value is blended into the base value (default 'MIX')"""
 
     color_ramp: ColorRamp | None
@@ -59524,7 +59600,7 @@ class LineStyleColorModifier_CreaseAngle(
     influence: float
     """ Influence factor by which the modifier changes the property (in [0, 1], default 0.0)"""
 
-    type: Literal[bpy.stub_internal.rna_enums.LinestyleColorModifierTypeItems]
+    type: typing.Literal[bpy.stub_internal.rna_enums.LinestyleColorModifierTypeItems]
     """ Type of the modifier (default 'ALONG_STROKE', readonly)"""
 
     use: bool
@@ -59563,7 +59639,7 @@ class LineStyleColorModifier_Curvature_3D(
 ):
     """Change line color based on the radial curvature of 3D mesh surfaces"""
 
-    blend: Literal[bpy.stub_internal.rna_enums.RampBlendItems]
+    blend: typing.Literal[bpy.stub_internal.rna_enums.RampBlendItems]
     """ Specify how the modifier value is blended into the base value (default 'MIX')"""
 
     color_ramp: ColorRamp | None
@@ -59581,7 +59657,7 @@ class LineStyleColorModifier_Curvature_3D(
     influence: float
     """ Influence factor by which the modifier changes the property (in [0, 1], default 0.0)"""
 
-    type: Literal[bpy.stub_internal.rna_enums.LinestyleColorModifierTypeItems]
+    type: typing.Literal[bpy.stub_internal.rna_enums.LinestyleColorModifierTypeItems]
     """ Type of the modifier (default 'ALONG_STROKE', readonly)"""
 
     use: bool
@@ -59620,7 +59696,7 @@ class LineStyleColorModifier_DistanceFromCamera(
 ):
     """Change line color based on the distance from the camera"""
 
-    blend: Literal[bpy.stub_internal.rna_enums.RampBlendItems]
+    blend: typing.Literal[bpy.stub_internal.rna_enums.RampBlendItems]
     """ Specify how the modifier value is blended into the base value (default 'MIX')"""
 
     color_ramp: ColorRamp | None
@@ -59638,7 +59714,7 @@ class LineStyleColorModifier_DistanceFromCamera(
     range_min: float
     """ Lower bound of the input range the mapping is applied (in [-inf, inf], default 0.0)"""
 
-    type: Literal[bpy.stub_internal.rna_enums.LinestyleColorModifierTypeItems]
+    type: typing.Literal[bpy.stub_internal.rna_enums.LinestyleColorModifierTypeItems]
     """ Type of the modifier (default 'ALONG_STROKE', readonly)"""
 
     use: bool
@@ -59677,7 +59753,7 @@ class LineStyleColorModifier_DistanceFromObject(
 ):
     """Change line color based on the distance from an object"""
 
-    blend: Literal[bpy.stub_internal.rna_enums.RampBlendItems]
+    blend: typing.Literal[bpy.stub_internal.rna_enums.RampBlendItems]
     """ Specify how the modifier value is blended into the base value (default 'MIX')"""
 
     color_ramp: ColorRamp | None
@@ -59698,7 +59774,7 @@ class LineStyleColorModifier_DistanceFromObject(
     target: Object | None
     """ Target object from which the distance is measured"""
 
-    type: Literal[bpy.stub_internal.rna_enums.LinestyleColorModifierTypeItems]
+    type: typing.Literal[bpy.stub_internal.rna_enums.LinestyleColorModifierTypeItems]
     """ Type of the modifier (default 'ALONG_STROKE', readonly)"""
 
     use: bool
@@ -59737,7 +59813,7 @@ class LineStyleColorModifier_Material(
 ):
     """Change line color based on a material attribute"""
 
-    blend: Literal[bpy.stub_internal.rna_enums.RampBlendItems]
+    blend: typing.Literal[bpy.stub_internal.rna_enums.RampBlendItems]
     """ Specify how the modifier value is blended into the base value (default 'MIX')"""
 
     color_ramp: ColorRamp | None
@@ -59768,7 +59844,7 @@ class LineStyleColorModifier_Material(
     ]
     """ Specify which material attribute is used (default 'LINE')"""
 
-    type: Literal[bpy.stub_internal.rna_enums.LinestyleColorModifierTypeItems]
+    type: typing.Literal[bpy.stub_internal.rna_enums.LinestyleColorModifierTypeItems]
     """ Type of the modifier (default 'ALONG_STROKE', readonly)"""
 
     use: bool
@@ -59813,7 +59889,7 @@ class LineStyleColorModifier_Noise(
     amplitude: float
     """ Amplitude of the noise (in [-inf, inf], default 0.0)"""
 
-    blend: Literal[bpy.stub_internal.rna_enums.RampBlendItems]
+    blend: typing.Literal[bpy.stub_internal.rna_enums.RampBlendItems]
     """ Specify how the modifier value is blended into the base value (default 'MIX')"""
 
     color_ramp: ColorRamp | None
@@ -59831,7 +59907,7 @@ class LineStyleColorModifier_Noise(
     seed: int
     """ Seed for the noise generation (in [1, 32767], default 0)"""
 
-    type: Literal[bpy.stub_internal.rna_enums.LinestyleColorModifierTypeItems]
+    type: typing.Literal[bpy.stub_internal.rna_enums.LinestyleColorModifierTypeItems]
     """ Type of the modifier (default 'ALONG_STROKE', readonly)"""
 
     use: bool
@@ -59870,7 +59946,7 @@ class LineStyleColorModifier_Tangent(
 ):
     """Change line color based on the direction of a stroke"""
 
-    blend: Literal[bpy.stub_internal.rna_enums.RampBlendItems]
+    blend: typing.Literal[bpy.stub_internal.rna_enums.RampBlendItems]
     """ Specify how the modifier value is blended into the base value (default 'MIX')"""
 
     color_ramp: ColorRamp | None
@@ -59882,7 +59958,7 @@ class LineStyleColorModifier_Tangent(
     influence: float
     """ Influence factor by which the modifier changes the property (in [0, 1], default 0.0)"""
 
-    type: Literal[bpy.stub_internal.rna_enums.LinestyleColorModifierTypeItems]
+    type: typing.Literal[bpy.stub_internal.rna_enums.LinestyleColorModifierTypeItems]
     """ Type of the modifier (default 'ALONG_STROKE', readonly)"""
 
     use: bool
@@ -59964,7 +60040,7 @@ class LineStyleGeometryModifier_2DOffset(
     start: float
     """ Displacement that is applied from the beginning of the stroke (in [-inf, inf], default 0.0)"""
 
-    type: Literal[bpy.stub_internal.rna_enums.LinestyleGeometryModifierTypeItems]
+    type: typing.Literal[bpy.stub_internal.rna_enums.LinestyleGeometryModifierTypeItems]
     """ Type of the modifier (default '2D_OFFSET', readonly)"""
 
     use: bool
@@ -60033,7 +60109,7 @@ class LineStyleGeometryModifier_2DTransform(
     scale_y: float
     """ Scaling factor that is applied along the Y axis (in [-inf, inf], default 0.0)"""
 
-    type: Literal[bpy.stub_internal.rna_enums.LinestyleGeometryModifierTypeItems]
+    type: typing.Literal[bpy.stub_internal.rna_enums.LinestyleGeometryModifierTypeItems]
     """ Type of the modifier (default '2D_OFFSET', readonly)"""
 
     use: bool
@@ -60078,7 +60154,7 @@ class LineStyleGeometryModifier_BackboneStretcher(
     expanded: bool
     """ True if the modifier tab is expanded (default False)"""
 
-    type: Literal[bpy.stub_internal.rna_enums.LinestyleGeometryModifierTypeItems]
+    type: typing.Literal[bpy.stub_internal.rna_enums.LinestyleGeometryModifierTypeItems]
     """ Type of the modifier (default '2D_OFFSET', readonly)"""
 
     use: bool
@@ -60123,7 +60199,7 @@ class LineStyleGeometryModifier_BezierCurve(
     expanded: bool
     """ True if the modifier tab is expanded (default False)"""
 
-    type: Literal[bpy.stub_internal.rna_enums.LinestyleGeometryModifierTypeItems]
+    type: typing.Literal[bpy.stub_internal.rna_enums.LinestyleGeometryModifierTypeItems]
     """ Type of the modifier (default '2D_OFFSET', readonly)"""
 
     use: bool
@@ -60183,7 +60259,7 @@ class LineStyleGeometryModifier_Blueprint(
     shape: typing.Literal["CIRCLES", "ELLIPSES", "SQUARES"]
     """ Select the shape of blueprint contour strokes (default 'CIRCLES')"""
 
-    type: Literal[bpy.stub_internal.rna_enums.LinestyleGeometryModifierTypeItems]
+    type: typing.Literal[bpy.stub_internal.rna_enums.LinestyleGeometryModifierTypeItems]
     """ Type of the modifier (default '2D_OFFSET', readonly)"""
 
     use: bool
@@ -60228,7 +60304,7 @@ class LineStyleGeometryModifier_GuidingLines(
     offset: float
     """ Displacement that is applied to the main direction line along its normal (in [-inf, inf], default 0.0)"""
 
-    type: Literal[bpy.stub_internal.rna_enums.LinestyleGeometryModifierTypeItems]
+    type: typing.Literal[bpy.stub_internal.rna_enums.LinestyleGeometryModifierTypeItems]
     """ Type of the modifier (default '2D_OFFSET', readonly)"""
 
     use: bool
@@ -60285,7 +60361,7 @@ class LineStyleGeometryModifier_PerlinNoise1D(
     seed: int
     """ Seed for random number generation (if negative, time is used as a seed instead) (in [-inf, inf], default 0)"""
 
-    type: Literal[bpy.stub_internal.rna_enums.LinestyleGeometryModifierTypeItems]
+    type: typing.Literal[bpy.stub_internal.rna_enums.LinestyleGeometryModifierTypeItems]
     """ Type of the modifier (default '2D_OFFSET', readonly)"""
 
     use: bool
@@ -60342,7 +60418,7 @@ class LineStyleGeometryModifier_PerlinNoise2D(
     seed: int
     """ Seed for random number generation (if negative, time is used as a seed instead) (in [-inf, inf], default 0)"""
 
-    type: Literal[bpy.stub_internal.rna_enums.LinestyleGeometryModifierTypeItems]
+    type: typing.Literal[bpy.stub_internal.rna_enums.LinestyleGeometryModifierTypeItems]
     """ Type of the modifier (default '2D_OFFSET', readonly)"""
 
     use: bool
@@ -60387,7 +60463,7 @@ class LineStyleGeometryModifier_Polygonalization(
     expanded: bool
     """ True if the modifier tab is expanded (default False)"""
 
-    type: Literal[bpy.stub_internal.rna_enums.LinestyleGeometryModifierTypeItems]
+    type: typing.Literal[bpy.stub_internal.rna_enums.LinestyleGeometryModifierTypeItems]
     """ Type of the modifier (default '2D_OFFSET', readonly)"""
 
     use: bool
@@ -60432,7 +60508,7 @@ class LineStyleGeometryModifier_Sampling(
     sampling: float
     """ New sampling value to be used for subsequent modifiers (in [0, 10000], default 0.0)"""
 
-    type: Literal[bpy.stub_internal.rna_enums.LinestyleGeometryModifierTypeItems]
+    type: typing.Literal[bpy.stub_internal.rna_enums.LinestyleGeometryModifierTypeItems]
     """ Type of the modifier (default '2D_OFFSET', readonly)"""
 
     use: bool
@@ -60477,7 +60553,7 @@ class LineStyleGeometryModifier_Simplification(
     tolerance: float
     """ Distance below which segments will be merged (in [-inf, inf], default 0.0)"""
 
-    type: Literal[bpy.stub_internal.rna_enums.LinestyleGeometryModifierTypeItems]
+    type: typing.Literal[bpy.stub_internal.rna_enums.LinestyleGeometryModifierTypeItems]
     """ Type of the modifier (default '2D_OFFSET', readonly)"""
 
     use: bool
@@ -60525,7 +60601,7 @@ class LineStyleGeometryModifier_SinusDisplacement(
     phase: float
     """ Phase of the sinus displacement (in [-inf, inf], default 0.0)"""
 
-    type: Literal[bpy.stub_internal.rna_enums.LinestyleGeometryModifierTypeItems]
+    type: typing.Literal[bpy.stub_internal.rna_enums.LinestyleGeometryModifierTypeItems]
     """ Type of the modifier (default '2D_OFFSET', readonly)"""
 
     use: bool
@@ -60582,7 +60658,7 @@ class LineStyleGeometryModifier_SpatialNoise(
     smooth: bool
     """ If true, the spatial noise is smooth (default False)"""
 
-    type: Literal[bpy.stub_internal.rna_enums.LinestyleGeometryModifierTypeItems]
+    type: typing.Literal[bpy.stub_internal.rna_enums.LinestyleGeometryModifierTypeItems]
     """ Type of the modifier (default '2D_OFFSET', readonly)"""
 
     use: bool
@@ -60630,7 +60706,7 @@ class LineStyleGeometryModifier_TipRemover(
     tip_length: float
     """ Length of tips to be removed (in [-inf, inf], default 0.0)"""
 
-    type: Literal[bpy.stub_internal.rna_enums.LinestyleGeometryModifierTypeItems]
+    type: typing.Literal[bpy.stub_internal.rna_enums.LinestyleGeometryModifierTypeItems]
     """ Type of the modifier (default '2D_OFFSET', readonly)"""
 
     use: bool
@@ -60819,7 +60895,9 @@ class LineStyleThicknessModifier_AlongStroke(
     mapping: typing.Literal["LINEAR", "CURVE"]
     """ Select the mapping type (default 'LINEAR')"""
 
-    type: Literal[bpy.stub_internal.rna_enums.LinestyleThicknessModifierTypeItems]
+    type: typing.Literal[
+        bpy.stub_internal.rna_enums.LinestyleThicknessModifierTypeItems
+    ]
     """ Type of the modifier (default 'ALONG_STROKE', readonly)"""
 
     use: bool
@@ -60891,7 +60969,9 @@ class LineStyleThicknessModifier_Calligraphy(
     thickness_min: float
     """ Minimum thickness in the direction perpendicular to the main direction (in [0, 10000], default 0.0)"""
 
-    type: Literal[bpy.stub_internal.rna_enums.LinestyleThicknessModifierTypeItems]
+    type: typing.Literal[
+        bpy.stub_internal.rna_enums.LinestyleThicknessModifierTypeItems
+    ]
     """ Type of the modifier (default 'ALONG_STROKE', readonly)"""
 
     use: bool
@@ -60969,7 +61049,9 @@ class LineStyleThicknessModifier_CreaseAngle(
     thickness_min: float
     """ Minimum thickness (in [0, 10000], default 0.0)"""
 
-    type: Literal[bpy.stub_internal.rna_enums.LinestyleThicknessModifierTypeItems]
+    type: typing.Literal[
+        bpy.stub_internal.rna_enums.LinestyleThicknessModifierTypeItems
+    ]
     """ Type of the modifier (default 'ALONG_STROKE', readonly)"""
 
     use: bool
@@ -61047,7 +61129,9 @@ class LineStyleThicknessModifier_Curvature_3D(
     thickness_min: float
     """ Minimum thickness (in [0, 10000], default 0.0)"""
 
-    type: Literal[bpy.stub_internal.rna_enums.LinestyleThicknessModifierTypeItems]
+    type: typing.Literal[
+        bpy.stub_internal.rna_enums.LinestyleThicknessModifierTypeItems
+    ]
     """ Type of the modifier (default 'ALONG_STROKE', readonly)"""
 
     use: bool
@@ -61119,7 +61203,9 @@ class LineStyleThicknessModifier_DistanceFromCamera(
     range_min: float
     """ Lower bound of the input range the mapping is applied (in [-inf, inf], default 0.0)"""
 
-    type: Literal[bpy.stub_internal.rna_enums.LinestyleThicknessModifierTypeItems]
+    type: typing.Literal[
+        bpy.stub_internal.rna_enums.LinestyleThicknessModifierTypeItems
+    ]
     """ Type of the modifier (default 'ALONG_STROKE', readonly)"""
 
     use: bool
@@ -61200,7 +61286,9 @@ class LineStyleThicknessModifier_DistanceFromObject(
     target: Object | None
     """ Target object from which the distance is measured"""
 
-    type: Literal[bpy.stub_internal.rna_enums.LinestyleThicknessModifierTypeItems]
+    type: typing.Literal[
+        bpy.stub_internal.rna_enums.LinestyleThicknessModifierTypeItems
+    ]
     """ Type of the modifier (default 'ALONG_STROKE', readonly)"""
 
     use: bool
@@ -61291,7 +61379,9 @@ class LineStyleThicknessModifier_Material(
     ]
     """ Specify which material attribute is used (default 'LINE')"""
 
-    type: Literal[bpy.stub_internal.rna_enums.LinestyleThicknessModifierTypeItems]
+    type: typing.Literal[
+        bpy.stub_internal.rna_enums.LinestyleThicknessModifierTypeItems
+    ]
     """ Type of the modifier (default 'ALONG_STROKE', readonly)"""
 
     use: bool
@@ -61363,7 +61453,9 @@ class LineStyleThicknessModifier_Noise(
     seed: int
     """ Seed for the noise generation (in [1, 32767], default 0)"""
 
-    type: Literal[bpy.stub_internal.rna_enums.LinestyleThicknessModifierTypeItems]
+    type: typing.Literal[
+        bpy.stub_internal.rna_enums.LinestyleThicknessModifierTypeItems
+    ]
     """ Type of the modifier (default 'ALONG_STROKE', readonly)"""
 
     use: bool
@@ -61438,7 +61530,9 @@ class LineStyleThicknessModifier_Tangent(
     thickness_min: float
     """ Minimum thickness (in [0, 10000], default 0.0)"""
 
-    type: Literal[bpy.stub_internal.rna_enums.LinestyleThicknessModifierTypeItems]
+    type: typing.Literal[
+        bpy.stub_internal.rna_enums.LinestyleThicknessModifierTypeItems
+    ]
     """ Type of the modifier (default 'ALONG_STROKE', readonly)"""
 
     use: bool
@@ -61919,7 +62013,7 @@ class MESH_UL_vgroups(UIList, bpy_struct):
 class Macro(bpy_struct):
     """Storage of a macro operator being executed, or registered after execution"""
 
-    bl_cursor_pending: Literal[bpy.stub_internal.rna_enums.WindowCursorItems]
+    bl_cursor_pending: typing.Literal[bpy.stub_internal.rna_enums.WindowCursorItems]
     """ Cursor to use when waiting for the user to select a location to activate the operator (when bl_options has DEPENDS_ON_CURSOR set) (default 'DEFAULT')"""
 
     bl_description: str
@@ -61931,7 +62025,7 @@ class Macro(bpy_struct):
     bl_label: str
     """ (default "", never None)"""
 
-    bl_options: set[Literal[bpy.stub_internal.rna_enums.OperatorTypeFlagItems]]
+    bl_options: set[typing.Literal[bpy.stub_internal.rna_enums.OperatorTypeFlagItems]]
     """ Options for this operator type (default set())"""
 
     bl_translation_context: str
@@ -61951,7 +62045,7 @@ class Macro(bpy_struct):
 
     def report(
         self,
-        type: set[Literal[bpy.stub_internal.rna_enums.WmReportItems]] | None,
+        type: set[typing.Literal[bpy.stub_internal.rna_enums.WmReportItems]] | None,
         message: str | None,
     ) -> None:
         """report
@@ -62230,7 +62324,9 @@ class MaskLayer(bpy_struct):
     ]
     """ Method of blending mask layers (default 'ADD')"""
 
-    falloff: Literal[bpy.stub_internal.rna_enums.ProportionalFalloffCurveOnlyItems]
+    falloff: typing.Literal[
+        bpy.stub_internal.rna_enums.ProportionalFalloffCurveOnlyItems
+    ]
     """ Falloff type of the feather (default 'SMOOTH')"""
 
     hide: bool
@@ -63541,7 +63637,7 @@ class MeshCacheModifier(Modifier, bpy_struct):
     flip_axis: typing.Any
     """ (array of 3 items, default (False, False, False))"""
 
-    forward_axis: Literal[bpy.stub_internal.rna_enums.ObjectAxisItems]
+    forward_axis: typing.Literal[bpy.stub_internal.rna_enums.ObjectAxisItems]
     """ (default 'POS_Y')"""
 
     frame_scale: float
@@ -63562,7 +63658,7 @@ class MeshCacheModifier(Modifier, bpy_struct):
     time_mode: typing.Literal["FRAME", "TIME", "FACTOR"]
     """ Method to control playback time (default 'FRAME')"""
 
-    up_axis: Literal[bpy.stub_internal.rna_enums.ObjectAxisItems]
+    up_axis: typing.Literal[bpy.stub_internal.rna_enums.ObjectAxisItems]
     """ (default 'POS_Z')"""
 
     vertex_group: str
@@ -64128,7 +64224,7 @@ class MeshStatVis(bpy_struct):
     distort_min: float
     """ Minimum angle to display (in [0, 3.14159], default 0.0872665)"""
 
-    overhang_axis: Literal[bpy.stub_internal.rna_enums.ObjectAxisItems]
+    overhang_axis: typing.Literal[bpy.stub_internal.rna_enums.ObjectAxisItems]
     """ (default 'NEG_Z')"""
 
     overhang_max: float
@@ -64486,7 +64582,7 @@ class MetaElement(bpy_struct):
     stiffness: float
     """ Stiffness defines how much of the element to fill (in [0, 10], default 0.0)"""
 
-    type: Literal[bpy.stub_internal.rna_enums.MetaelemTypeItems]
+    type: typing.Literal[bpy.stub_internal.rna_enums.MetaelemTypeItems]
     """ Metaball type (default 'BALL')"""
 
     use_negative: bool
@@ -64732,7 +64828,7 @@ class Modifier(bpy_struct):
     show_viewport: bool
     """ Display modifier in viewport (default False)"""
 
-    type: Literal[bpy.stub_internal.rna_enums.ObjectModifierTypeItems]
+    type: typing.Literal[bpy.stub_internal.rna_enums.ObjectModifierTypeItems]
     """ (default 'GREASE_PENCIL_VERTEX_WEIGHT_PROXIMITY', readonly)"""
 
     use_apply_on_spline: bool
@@ -65336,7 +65432,7 @@ class MovieStrip(Strip, bpy_struct):
     use_reverse_frames: bool
     """ Reverse frame order (default False)"""
 
-    views_format: Literal[bpy.stub_internal.rna_enums.ViewsFormatItems]
+    views_format: typing.Literal[bpy.stub_internal.rna_enums.ViewsFormatItems]
     """ Mode to load movie views (default 'INDIVIDUAL')"""
 
     def reload_if_needed(self) -> bool:
@@ -66232,7 +66328,9 @@ class MultiplyStrip(EffectStrip, Strip, bpy_struct):
 class MultiresModifier(Modifier, bpy_struct):
     """Multiresolution mesh modifier"""
 
-    boundary_smooth: Literal[bpy.stub_internal.rna_enums.SubdivisionBoundarySmoothItems]
+    boundary_smooth: typing.Literal[
+        bpy.stub_internal.rna_enums.SubdivisionBoundarySmoothItems
+    ]
     """ Controls how open boundaries are smoothed (default 'ALL')"""
 
     filepath: str
@@ -66268,7 +66366,7 @@ class MultiresModifier(Modifier, bpy_struct):
     use_sculpt_base_mesh: bool
     """ Make Sculpt Mode tools deform the base mesh while previewing the displacement of higher subdivision levels (default False)"""
 
-    uv_smooth: Literal[bpy.stub_internal.rna_enums.SubdivisionUvSmoothItems]
+    uv_smooth: typing.Literal[bpy.stub_internal.rna_enums.SubdivisionUvSmoothItems]
     """ Controls how smoothing is applied to UVs (default 'PRESERVE_BOUNDARIES')"""
 
     @classmethod
@@ -66690,7 +66788,7 @@ class Node(bpy_struct):
     bl_height_min: float
     """ When changing the node's size, it has at least this height (mostly unused, see Height) (in [0, inf], default 0.0)"""
 
-    bl_icon: Literal[bpy.stub_internal.rna_enums.IconItems]
+    bl_icon: typing.Literal[bpy.stub_internal.rna_enums.IconItems]
     """ The node icon (default 'NODE')"""
 
     bl_idname: str
@@ -66985,10 +67083,12 @@ class NodeClosureInputItem(bpy_struct):
     name: str
     """ (default "", never None)"""
 
-    socket_type: Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
+    socket_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
     """ (default 'FLOAT')"""
 
-    structure_type: Literal[bpy.stub_internal.rna_enums.NodeSocketStructureTypeItems]
+    structure_type: typing.Literal[
+        bpy.stub_internal.rna_enums.NodeSocketStructureTypeItems
+    ]
     """ What kind of higher order types are expected to flow through this socket (default 'AUTO')"""
 
     @classmethod
@@ -67093,10 +67193,12 @@ class NodeClosureOutputItem(bpy_struct):
     name: str
     """ (default "", never None)"""
 
-    socket_type: Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
+    socket_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
     """ (default 'FLOAT')"""
 
-    structure_type: Literal[bpy.stub_internal.rna_enums.NodeSocketStructureTypeItems]
+    structure_type: typing.Literal[
+        bpy.stub_internal.rna_enums.NodeSocketStructureTypeItems
+    ]
     """ What kind of higher order types are expected to flow through this socket (default 'AUTO')"""
 
     @classmethod
@@ -67197,10 +67299,12 @@ class NodeCombineBundleItem(bpy_struct):
     name: str
     """ (default "", never None)"""
 
-    socket_type: Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
+    socket_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
     """ (default 'FLOAT')"""
 
-    structure_type: Literal[bpy.stub_internal.rna_enums.NodeSocketStructureTypeItems]
+    structure_type: typing.Literal[
+        bpy.stub_internal.rna_enums.NodeSocketStructureTypeItems
+    ]
     """ What kind of higher order types are expected to flow through this socket (default 'AUTO')"""
 
     @classmethod
@@ -67247,7 +67351,7 @@ class NodeCompositorFileOutputItem(bpy_struct):
     save_as_render: bool
     """ Apply render part of display transform when saving byte image (default False)"""
 
-    socket_type: Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
+    socket_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
     """ (default 'FLOAT')"""
 
     vector_socket_dimensions: int
@@ -67317,7 +67421,7 @@ class NodeCustomGroup(Node, bpy_struct):
 class NodeEnableOutput(NodeInternal, Node, bpy_struct):
     """Either pass through the input value or output the fallback value"""
 
-    data_type: Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
+    data_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
     """ (default 'FLOAT')"""
 
     @classmethod
@@ -67482,10 +67586,12 @@ class NodeEvaluateClosureInputItem(bpy_struct):
     name: str
     """ (default "", never None)"""
 
-    socket_type: Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
+    socket_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
     """ (default 'FLOAT')"""
 
-    structure_type: Literal[bpy.stub_internal.rna_enums.NodeSocketStructureTypeItems]
+    structure_type: typing.Literal[
+        bpy.stub_internal.rna_enums.NodeSocketStructureTypeItems
+    ]
     """ What kind of higher order types are expected to flow through this socket (default 'AUTO')"""
 
     @classmethod
@@ -67523,10 +67629,12 @@ class NodeEvaluateClosureOutputItem(bpy_struct):
     name: str
     """ (default "", never None)"""
 
-    socket_type: Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
+    socket_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
     """ (default 'FLOAT')"""
 
-    structure_type: Literal[bpy.stub_internal.rna_enums.NodeSocketStructureTypeItems]
+    structure_type: typing.Literal[
+        bpy.stub_internal.rna_enums.NodeSocketStructureTypeItems
+    ]
     """ What kind of higher order types are expected to flow through this socket (default 'AUTO')"""
 
     @classmethod
@@ -67626,7 +67734,7 @@ class NodeFunctionFormatStringItem(bpy_struct):
     name: str
     """ (default "", never None)"""
 
-    socket_type: Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
+    socket_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
     """ (default 'FLOAT')"""
 
     @classmethod
@@ -67658,7 +67766,7 @@ class NodeFunctionFormatStringItem(bpy_struct):
         """
 
 class NodeGeometryBakeItem(bpy_struct):
-    attribute_domain: Literal[bpy.stub_internal.rna_enums.AttributeDomainItems]
+    attribute_domain: typing.Literal[bpy.stub_internal.rna_enums.AttributeDomainItems]
     """ Attribute domain where the attribute is stored in the baked data (default 'POINT')"""
 
     color: typing.Any
@@ -67670,7 +67778,7 @@ class NodeGeometryBakeItem(bpy_struct):
     name: str
     """ (default "", never None)"""
 
-    socket_type: Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
+    socket_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
     """ (default 'FLOAT')"""
 
     @classmethod
@@ -67705,7 +67813,7 @@ class NodeGeometryCaptureAttributeItem(bpy_struct):
     color: typing.Any
     """ Color of the corresponding socket type in the node editor (array of 4 items, in [0, inf], default (0.0, 0.0, 0.0, 0.0), readonly)"""
 
-    data_type: Literal[bpy.stub_internal.rna_enums.AttributeTypeItems]
+    data_type: typing.Literal[bpy.stub_internal.rna_enums.AttributeTypeItems]
     """ (default 'FLOAT')"""
 
     name: str
@@ -67749,7 +67857,7 @@ class NodeGeometryViewerItem(bpy_struct):
     name: str
     """ (default "", never None)"""
 
-    socket_type: Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
+    socket_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
     """ (default 'FLOAT')"""
 
     @classmethod
@@ -67783,10 +67891,12 @@ class NodeGeometryViewerItem(bpy_struct):
 class NodeGetBundleItem(NodeInternal, Node, bpy_struct):
     """Retrieve a bundle item by path."""
 
-    socket_type: Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
+    socket_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
     """ Value may be implicitly converted if the type does not match (default 'FLOAT')"""
 
-    structure_type: Literal[bpy.stub_internal.rna_enums.NodeSocketStructureTypeItems]
+    structure_type: typing.Literal[
+        bpy.stub_internal.rna_enums.NodeSocketStructureTypeItems
+    ]
     """ What kind of higher order types are expected to flow through this socket (default 'AUTO')"""
 
     @classmethod
@@ -68008,7 +68118,7 @@ class NodeGroupOutput(NodeInternal, Node, bpy_struct):
 class NodeImplicitConversion(NodeInternal, Node, bpy_struct):
     """Implicitly convert the input value to a fixed socket type"""
 
-    data_type: Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
+    data_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
     """ (default 'FLOAT')"""
 
     socket_idname: str
@@ -68166,7 +68276,7 @@ class NodeInternalSocketTemplate(bpy_struct):
     name: str
     """ Name of the socket (default "", readonly, never None)"""
 
-    type: Literal[bpy.stub_internal.rna_enums.NodeSocketTypeItems]
+    type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketTypeItems]
     """ Data type of the socket (default 'VALUE', readonly)"""
 
     @classmethod
@@ -68439,10 +68549,12 @@ class NodeSeparateBundleItem(bpy_struct):
     name: str
     """ (default "", never None)"""
 
-    socket_type: Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
+    socket_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
     """ (default 'FLOAT')"""
 
-    structure_type: Literal[bpy.stub_internal.rna_enums.NodeSocketStructureTypeItems]
+    structure_type: typing.Literal[
+        bpy.stub_internal.rna_enums.NodeSocketStructureTypeItems
+    ]
     """ What kind of higher order types are expected to flow through this socket (default 'AUTO')"""
 
     @classmethod
@@ -68513,7 +68625,7 @@ class NodeSocket(bpy_struct):
     identifier: str
     """ Unique identifier for mapping sockets (default "", readonly, never None)"""
 
-    inferred_structure_type: Literal[
+    inferred_structure_type: typing.Literal[
         bpy.stub_internal.rna_enums.NodeSocketStructureTypeItems
     ]
     """ Best known structure type of the socket. This may not match the socket shape, e.g. for unlinked input sockets (default 'AUTO', readonly)"""
@@ -68557,7 +68669,7 @@ class NodeSocket(bpy_struct):
     show_expanded: bool
     """ Socket links are expanded in the user interface (default True)"""
 
-    type: Literal[bpy.stub_internal.rna_enums.NodeSocketTypeItems]
+    type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketTypeItems]
     """ Data type (default 'VALUE')"""
 
     links: NodeLinks | None
@@ -71060,10 +71172,12 @@ class NodeSocketVirtual(NodeSocketStandard, NodeSocket, bpy_struct):
 class NodeStoreBundleItem(NodeInternal, Node, bpy_struct):
     """Store a bundle item by path and data type."""
 
-    socket_type: Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
+    socket_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
     """ (default 'FLOAT')"""
 
-    structure_type: Literal[bpy.stub_internal.rna_enums.NodeSocketStructureTypeItems]
+    structure_type: typing.Literal[
+        bpy.stub_internal.rna_enums.NodeSocketStructureTypeItems
+    ]
     """ What kind of higher order types are expected to flow through this socket (default 'AUTO')"""
 
     @classmethod
@@ -71129,7 +71243,7 @@ class NodeTree(ID, bpy_struct):
     bl_description: str
     """ (default "", never None)"""
 
-    bl_icon: Literal[bpy.stub_internal.rna_enums.IconItems]
+    bl_icon: typing.Literal[bpy.stub_internal.rna_enums.IconItems]
     """ The node tree icon (default 'NODETREE')"""
 
     bl_idname: str
@@ -71391,7 +71505,9 @@ class NodeTreeInterfaceItem(bpy_struct):
     index: int
     """ Global index of the item among all items in the interface (in [-1, inf], default 0, readonly)"""
 
-    item_type: Literal[bpy.stub_internal.rna_enums.NodeTreeInterfaceItemTypeItems]
+    item_type: typing.Literal[
+        bpy.stub_internal.rna_enums.NodeTreeInterfaceItemTypeItems
+    ]
     """ Type of interface item (default 'PANEL', readonly)"""
 
     parent: NodeTreeInterfacePanel | None
@@ -71480,7 +71596,7 @@ class NodeTreeInterfacePanel(NodeTreeInterfaceItem, bpy_struct):
 class NodeTreeInterfaceSocket(NodeTreeInterfaceItem, bpy_struct):
     """Declaration of a node socket"""
 
-    attribute_domain: Literal[bpy.stub_internal.rna_enums.AttributeDomainItems]
+    attribute_domain: typing.Literal[bpy.stub_internal.rna_enums.AttributeDomainItems]
     """ Attribute domain used by the geometry nodes modifier to create an attribute output (default 'POINT')"""
 
     bl_socket_idname: str
@@ -71544,7 +71660,9 @@ Deprecated. Will be remove in 5.0.(default False)"""
     socket_type: typing.Literal["DEFAULT"]
     """ Type of the socket generated by this interface item (default 'DEFAULT')"""
 
-    structure_type: Literal[bpy.stub_internal.rna_enums.NodeSocketStructureTypeItems]
+    structure_type: typing.Literal[
+        bpy.stub_internal.rna_enums.NodeSocketStructureTypeItems
+    ]
     """ What kind of higher order types are expected to flow through this socket (default 'AUTO')"""
 
     def bl_system_properties_get(
@@ -75979,7 +76097,7 @@ class NodesModifierDataBlock(bpy_struct):
     id_name: str
     """ Name that is mapped to the referenced data-block (default "", readonly, never None)"""
 
-    id_type: Literal[bpy.stub_internal.rna_enums.IdTypeItems]
+    id_type: typing.Literal[bpy.stub_internal.rna_enums.IdTypeItems]
     """ (default 'ACTION', readonly)"""
 
     lib_name: str
@@ -76051,7 +76169,7 @@ class NodesModifierWarning(bpy_struct):
     message: str
     """ (default "", readonly, never None)"""
 
-    type: Literal[bpy.stub_internal.rna_enums.NodeWarningTypeItems]
+    type: typing.Literal[bpy.stub_internal.rna_enums.NodeWarningTypeItems]
     """ (default 'ERROR', readonly)"""
 
     @classmethod
@@ -76222,7 +76340,24 @@ class Object(ID, bpy_struct):
     cycles: typing.Any
     """ Cycles object settings (readonly)"""
 
-    data: Armature | Camera | Curve | Curves | GreasePencil | Lattice | Light | LightProbe | Mesh | MetaBall | PointCloud | Speaker | SurfaceCurve | TextCurve | Volume | None
+    data: (
+        Armature
+        | Camera
+        | Curve
+        | Curves
+        | GreasePencil
+        | Lattice
+        | Light
+        | LightProbe
+        | Mesh
+        | MetaBall
+        | PointCloud
+        | Speaker
+        | SurfaceCurve
+        | TextCurve
+        | Volume
+        | None
+    )
     delta_location: mathutils.Vector
     """ Extra translation added to the location of the object (array of 3 items, in [-inf, inf], default (0.0, 0.0, 0.0))"""
 
@@ -76251,7 +76386,9 @@ Warning: Assigning to it or its members multiple consecutive times will not work
     empty_display_size: float
     """ Size of display for empties in the viewport (in [0.0001, 1000], default 1.0)"""
 
-    empty_display_type: Literal[bpy.stub_internal.rna_enums.ObjectEmptyDrawtypeItems]
+    empty_display_type: typing.Literal[
+        bpy.stub_internal.rna_enums.ObjectEmptyDrawtypeItems
+    ]
     """ Viewport display style for empties (default 'PLAIN_AXES')"""
 
     empty_image_depth: typing.Literal["DEFAULT", "FRONT", "BACK"]
@@ -76357,7 +76494,7 @@ Warning: Only takes into account object parenting, so e.g. in case of bone paren
     matrix_world: mathutils.Matrix
     """ Worldspace transformation matrix (multi-dimensional array of 4 * 4 items, in [-inf, inf], default ((0.0, 0.0, 0.0, 0.0), (0.0, 0.0, 0.0, 0.0), (0.0, 0.0, 0.0, 0.0), (0.0, 0.0, 0.0, 0.0)))"""
 
-    mode: Literal[bpy.stub_internal.rna_enums.ObjectModeItems]
+    mode: typing.Literal[bpy.stub_internal.rna_enums.ObjectModeItems]
     """ Object interaction mode (default 'OBJECT', readonly)"""
 
     modifiers: typing.Any
@@ -76401,7 +76538,7 @@ Warning: Only takes into account object parenting, so e.g. in case of bone paren
     rotation_euler: mathutils.Euler
     """ Rotation in Eulers (array of 3 items, in [-inf, inf], default (0.0, 0.0, 0.0))"""
 
-    rotation_mode: Literal[bpy.stub_internal.rna_enums.ObjectRotationModeItems]
+    rotation_mode: typing.Literal[bpy.stub_internal.rna_enums.ObjectRotationModeItems]
     """ The kind of rotation to apply, values from other rotation modes are not used (default 'XYZ')"""
 
     rotation_quaternion: mathutils.Quaternion
@@ -76470,10 +76607,10 @@ Warning: Only takes into account object parenting, so e.g. in case of bone paren
     soft_body: SoftBodySettings | None
     """ Settings for soft body simulation (readonly)"""
 
-    track_axis: Literal[bpy.stub_internal.rna_enums.ObjectAxisItems]
+    track_axis: typing.Literal[bpy.stub_internal.rna_enums.ObjectAxisItems]
     """ Axis that points in the 'forward' direction (applies to Instance Vertices when Align to Vertex Normal is enabled) (default 'POS_X')"""
 
-    type: Literal[bpy.stub_internal.rna_enums.ObjectTypeItems]
+    type: typing.Literal[bpy.stub_internal.rna_enums.ObjectTypeItems]
     """ Type of object (default 'EMPTY', readonly)"""
 
     up_axis: typing.Literal["X", "Y", "Z"]
@@ -77276,7 +77413,7 @@ class OceanModifier(Modifier, bpy_struct):
 class Operator(bpy_struct):
     """Storage of an operator being executed, or registered after execution"""
 
-    bl_cursor_pending: Literal[bpy.stub_internal.rna_enums.WindowCursorItems]
+    bl_cursor_pending: typing.Literal[bpy.stub_internal.rna_enums.WindowCursorItems]
     """ Cursor to use when waiting for the user to select a location to activate the operator (when bl_options has DEPENDS_ON_CURSOR set) (default 'DEFAULT')"""
 
     bl_description: str
@@ -77288,7 +77425,7 @@ class Operator(bpy_struct):
     bl_label: str
     """ (default "", never None)"""
 
-    bl_options: set[Literal[bpy.stub_internal.rna_enums.OperatorTypeFlagItems]]
+    bl_options: set[typing.Literal[bpy.stub_internal.rna_enums.OperatorTypeFlagItems]]
     """ Options for this operator type (default set())"""
 
     bl_translation_context: str
@@ -77324,7 +77461,7 @@ expanding an operator into a menu."""
 
     def report(
         self,
-        type: set[Literal[bpy.stub_internal.rna_enums.WmReportItems]] | None,
+        type: set[typing.Literal[bpy.stub_internal.rna_enums.WmReportItems]] | None,
         message: str | None,
     ) -> None:
         """report
@@ -77349,7 +77486,7 @@ expanding an operator into a menu."""
 
     def execute(
         self, context: Context
-    ) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
         """Execute the operator
 
         :param context: (never None)
@@ -77365,7 +77502,7 @@ expanding an operator into a menu."""
 
     def invoke(
         self, context: Context, event: Event | None
-    ) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
         """Invoke the operator
 
         :param context: (never None)
@@ -77375,7 +77512,7 @@ expanding an operator into a menu."""
 
     def modal(
         self, context: Context, event: Event | None
-    ) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
         """Modal operator function
 
         :param context: (never None)
@@ -78239,10 +78376,10 @@ class Panel(bpy_struct):
     bl_parent_id: str
     """ If this is set, the panel becomes a sub-panel (default "", never None)"""
 
-    bl_region_type: Literal[bpy.stub_internal.rna_enums.RegionTypeItems]
+    bl_region_type: typing.Literal[bpy.stub_internal.rna_enums.RegionTypeItems]
     """ The region where the panel is going to be used in (default 'WINDOW')"""
 
-    bl_space_type: Literal[bpy.stub_internal.rna_enums.SpaceTypeItems]
+    bl_space_type: typing.Literal[bpy.stub_internal.rna_enums.SpaceTypeItems]
     """ The space where the panel is going to be used in (default 'EMPTY')"""
 
     bl_translation_context: str
@@ -78693,7 +78830,7 @@ class ParticleHairKey(bpy_struct):
 class ParticleInstanceModifier(Modifier, bpy_struct):
     """Particle system instancing modifier"""
 
-    axis: Literal[bpy.stub_internal.rna_enums.AxisXyzItems]
+    axis: typing.Literal[bpy.stub_internal.rna_enums.AxisXyzItems]
     """ Pole axis for rotation (default 'Z')"""
 
     index_layer_name: str
@@ -79053,7 +79190,7 @@ class ParticleSettings(ID, bpy_struct):
     kink_amplitude_random: float
     """ Random variation of the amplitude (in [0, 1], default 0.0)"""
 
-    kink_axis: Literal[bpy.stub_internal.rna_enums.AxisXyzItems]
+    kink_axis: typing.Literal[bpy.stub_internal.rna_enums.AxisXyzItems]
     """ Which axis to use for offset (default 'Z')"""
 
     kink_axis_random: float
@@ -80564,7 +80701,7 @@ class PoseBone(bpy_struct):
     rotation_euler: mathutils.Euler
     """ Rotation in Eulers (array of 3 items, in [-inf, inf], default (0.0, 0.0, 0.0))"""
 
-    rotation_mode: Literal[bpy.stub_internal.rna_enums.ObjectRotationModeItems]
+    rotation_mode: typing.Literal[bpy.stub_internal.rna_enums.ObjectRotationModeItems]
     """ The kind of rotation to apply, values from other rotation modes are not used (default 'QUATERNION')"""
 
     rotation_quaternion: mathutils.Quaternion
@@ -80743,7 +80880,9 @@ Utility function for (tail - head)(readonly)"""
 class Preferences(bpy_struct):
     """Global preferences"""
 
-    active_section: Literal[bpy.stub_internal.rna_enums.PreferenceSectionItems] | None
+    active_section: (
+        typing.Literal[bpy.stub_internal.rna_enums.PreferenceSectionItems] | None
+    )
     """ Preferences (default 'INTERFACE')"""
 
     addons: typing.Any
@@ -80886,7 +81025,7 @@ class PreferencesEdit(bpy_struct):
     connect_strips_by_default: bool
     """ Connect newly added movie strips by default if they have multiple channels (default True)"""
 
-    fcurve_new_auto_smoothing: Literal[
+    fcurve_new_auto_smoothing: typing.Literal[
         bpy.stub_internal.rna_enums.FcurveAutoSmoothingItems
     ]
     """ Auto Handle Smoothing mode used for newly added F-Curves (default 'CONT_ACCEL')"""
@@ -80911,12 +81050,12 @@ class PreferencesEdit(bpy_struct):
     ]
     """ Which channels to insert keys at when no keying set is active (default {'CUSTOM_PROPS', 'LOCATION', 'ROTATION', 'SCALE'})"""
 
-    keyframe_new_handle_type: Literal[
+    keyframe_new_handle_type: typing.Literal[
         bpy.stub_internal.rna_enums.KeyframeHandleTypeItems
     ]
     """ Handle type for handles of new keyframes (default 'AUTO_CLAMPED')"""
 
-    keyframe_new_interpolation_type: Literal[
+    keyframe_new_interpolation_type: typing.Literal[
         bpy.stub_internal.rna_enums.BeztripleInterpolationModeItems
     ]
     """ Interpolation mode used for first keyframe on newly added F-Curves (subsequent keyframes take interpolation from preceding keyframe) (default 'BEZIER')"""
@@ -81365,7 +81504,7 @@ class PreferencesInput(bpy_struct):
     move_threshold: int
     """ Number of pixels to before the cursor is considered to have moved (used for cycling selected items on successive clicks) (in [0, 255], default 2)"""
 
-    navigation_mode: Literal[bpy.stub_internal.rna_enums.NavigationModeItems]
+    navigation_mode: typing.Literal[bpy.stub_internal.rna_enums.NavigationModeItems]
     """ Which method to use for viewport navigation (default 'WALK')"""
 
     ndof_deadzone: float
@@ -82170,7 +82309,7 @@ class Property(bpy_struct):
     description: str
     """ Description of the property for tooltips (default "", readonly, never None)"""
 
-    icon: Literal[bpy.stub_internal.rna_enums.IconItems]
+    icon: typing.Literal[bpy.stub_internal.rna_enums.IconItems]
     """ Icon of the item (default 'NONE', readonly)"""
 
     identifier: str
@@ -82239,7 +82378,7 @@ class Property(bpy_struct):
     srna: Struct | None
     """ Struct definition used for properties assigned to this item (readonly)"""
 
-    subtype: Literal[bpy.stub_internal.rna_enums.PropertySubtypeItems]
+    subtype: typing.Literal[bpy.stub_internal.rna_enums.PropertySubtypeItems]
     """ Semantic interpretation of the property (default 'NONE', readonly)"""
 
     tags: set[str]
@@ -82248,10 +82387,10 @@ class Property(bpy_struct):
     translation_context: str
     """ Translation context of the property's name (default "", readonly, never None)"""
 
-    type: Literal[bpy.stub_internal.rna_enums.PropertyTypeItems]
+    type: typing.Literal[bpy.stub_internal.rna_enums.PropertyTypeItems]
     """ Data type of the property (default 'BOOLEAN', readonly)"""
 
-    unit: Literal[bpy.stub_internal.rna_enums.PropertyUnitItems]
+    unit: typing.Literal[bpy.stub_internal.rna_enums.PropertyUnitItems]
     """ Type of units for this property (default 'NONE', readonly)"""
 
     @classmethod
@@ -82598,9 +82737,9 @@ class ReadOnlyInteger(bpy_struct):
 class Region(bpy_struct):
     """Region in a subdivided screen area"""
 
-    active_panel_category: Literal[
-        bpy.stub_internal.rna_enums.RegionPanelCategoryItems
-    ] | None
+    active_panel_category: (
+        typing.Literal[bpy.stub_internal.rna_enums.RegionPanelCategoryItems] | None
+    )
     """ The current active panel category, may be Null if the region does not support this feature (NOTE: these categories are generated at runtime, so list may be empty at initialization, before any drawing took place) (default 'UNSUPPORTED')"""
 
     alignment: typing.Literal[
@@ -82622,7 +82761,7 @@ class Region(bpy_struct):
     height: int
     """ Region height (in [0, 32767], default 0, readonly)"""
 
-    type: Literal[bpy.stub_internal.rna_enums.RegionTypeItems]
+    type: typing.Literal[bpy.stub_internal.rna_enums.RegionTypeItems]
     """ Type of this region (default 'WINDOW', readonly)"""
 
     view2d: View2D | None
@@ -82906,7 +83045,7 @@ class RenderEngine(bpy_struct):
         self,
         depsgraph: Depsgraph | None,
         object: Object | None,
-        pass_type: Literal[bpy.stub_internal.rna_enums.BakePassTypeItems] | None,
+        pass_type: typing.Literal[bpy.stub_internal.rna_enums.BakePassTypeItems] | None,
         pass_filter: int | None,
         width: int | None,
         height: int | None,
@@ -83111,7 +83250,7 @@ class RenderEngine(bpy_struct):
 
     def report(
         self,
-        type: set[Literal[bpy.stub_internal.rna_enums.WmReportItems]] | None,
+        type: set[typing.Literal[bpy.stub_internal.rna_enums.WmReportItems]] | None,
         message: str | None,
     ) -> None:
         """Report info, warning or error messages
@@ -83589,7 +83728,7 @@ class RenderSettings(bpy_struct):
     save_output: bool
     """ Write frames to disk for animation renders (default True)"""
 
-    sequencer_gl_preview: Literal[bpy.stub_internal.rna_enums.ShadingTypeItems]
+    sequencer_gl_preview: typing.Literal[bpy.stub_internal.rna_enums.ShadingTypeItems]
     """ Display method used in the sequencer view (default 'SOLID')"""
 
     simplify_child_particles: float
@@ -83882,7 +84021,7 @@ class RepeatItem(bpy_struct):
     name: str
     """ (default "", never None)"""
 
-    socket_type: Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
+    socket_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
     """ (default 'FLOAT')"""
 
     @classmethod
@@ -84090,7 +84229,7 @@ class RigidBodyConstraint(bpy_struct):
     spring_type: typing.Literal["SPRING1", "SPRING2"]
     """ Which implementation of spring to use (default 'SPRING1')"""
 
-    type: Literal[bpy.stub_internal.rna_enums.RigidbodyConstraintTypeItems]
+    type: typing.Literal[bpy.stub_internal.rna_enums.RigidbodyConstraintTypeItems]
     """ Type of Rigid Body Constraint (default 'POINT')"""
 
     use_breaking: bool
@@ -84181,7 +84320,9 @@ class RigidBodyObject(bpy_struct):
     collision_margin: float
     """ Threshold of distance near surface where collisions are still considered (best results when non-zero) (in [0, 1], default 0.04)"""
 
-    collision_shape: Literal[bpy.stub_internal.rna_enums.RigidbodyObjectShapeItems]
+    collision_shape: typing.Literal[
+        bpy.stub_internal.rna_enums.RigidbodyObjectShapeItems
+    ]
     """ Collision Shape of object in Rigid Body Simulations (default 'BOX')"""
 
     deactivate_angular_velocity: float
@@ -84211,7 +84352,7 @@ class RigidBodyObject(bpy_struct):
     restitution: float
     """ Tendency of object to bounce after colliding with another (0 = stays still, 1 = perfectly elastic) (in [0, inf], default 0.0)"""
 
-    type: Literal[bpy.stub_internal.rna_enums.RigidbodyObjectTypeItems]
+    type: typing.Literal[bpy.stub_internal.rna_enums.RigidbodyObjectTypeItems]
     """ Role of object in Rigid Body Simulations (default 'ACTIVE')"""
 
     use_deactivation: bool
@@ -85515,7 +85656,7 @@ class ScrewModifier(Modifier, bpy_struct):
     angle: float
     """ Angle of revolution (in [-inf, inf], default 6.28319)"""
 
-    axis: Literal[bpy.stub_internal.rna_enums.AxisXyzItems]
+    axis: typing.Literal[bpy.stub_internal.rna_enums.AxisXyzItems]
     """ Screw axis (default 'Z')"""
 
     iterations: int
@@ -85678,7 +85819,9 @@ class Sculpt(Paint, bpy_struct):
     lock_z: bool
     """ Disallow changes to the Z axis of vertices (default False)"""
 
-    symmetrize_direction: Literal[bpy.stub_internal.rna_enums.SymmetrizeDirectionItems]
+    symmetrize_direction: typing.Literal[
+        bpy.stub_internal.rna_enums.SymmetrizeDirectionItems
+    ]
     """ Source and destination for symmetrize operator (default 'NEGATIVE_X')"""
 
     transform_mode: typing.Literal["ALL_VERTICES", "RADIUS_ELASTIC"]
@@ -86154,7 +86297,7 @@ class SequencerTonemapModifierData(StripModifier, bpy_struct):
         """
 
 class SequencerToolSettings(bpy_struct):
-    fit_method: Literal[bpy.stub_internal.rna_enums.StripScaleMethodItems]
+    fit_method: typing.Literal[bpy.stub_internal.rna_enums.StripScaleMethodItems]
     """ Scale fit method (default 'FIT')"""
 
     overlap_mode: typing.Literal["EXPAND", "OVERWRITE", "SHUFFLE"]
@@ -86248,7 +86391,7 @@ class ShaderFx(bpy_struct):
     show_viewport: bool
     """ Display effect in viewport (default False)"""
 
-    type: Literal[bpy.stub_internal.rna_enums.ObjectShaderfxTypeItems]
+    type: typing.Literal[bpy.stub_internal.rna_enums.ObjectShaderfxTypeItems]
     """ (default 'FX_BLUR', readonly)"""
 
     @classmethod
@@ -87992,7 +88135,7 @@ class ShaderNodeCameraData(ShaderNode, NodeInternal, Node, bpy_struct):
 class ShaderNodeClamp(ShaderNode, NodeInternal, Node, bpy_struct):
     """Clamp a value between a minimum and a maximum"""
 
-    clamp_type: Literal[bpy.stub_internal.rna_enums.NodeClampItems]
+    clamp_type: typing.Literal[bpy.stub_internal.rna_enums.NodeClampItems]
     """ (default 'MINMAX')"""
 
     @classmethod
@@ -88049,7 +88192,7 @@ class ShaderNodeClamp(ShaderNode, NodeInternal, Node, bpy_struct):
 class ShaderNodeCombineColor(ShaderNode, NodeInternal, Node, bpy_struct):
     """Create a color from individual components using multiple models"""
 
-    mode: Literal[bpy.stub_internal.rna_enums.NodeCombsepColorItems]
+    mode: typing.Literal[bpy.stub_internal.rna_enums.NodeCombsepColorItems]
     """ Mode of color processing (default 'RGB')"""
 
     @classmethod
@@ -88969,7 +89112,7 @@ class ShaderNodeMapRange(ShaderNode, NodeInternal, Node, bpy_struct):
     data_type: typing.Literal["FLOAT", "FLOAT_VECTOR"]
     """ (default 'FLOAT')"""
 
-    interpolation_type: Literal[bpy.stub_internal.rna_enums.NodeMapRangeItems]
+    interpolation_type: typing.Literal[bpy.stub_internal.rna_enums.NodeMapRangeItems]
     """ (default 'LINEAR')"""
 
     @classmethod
@@ -89026,7 +89169,7 @@ class ShaderNodeMapRange(ShaderNode, NodeInternal, Node, bpy_struct):
 class ShaderNodeMapping(ShaderNode, NodeInternal, Node, bpy_struct):
     """Transform the input vector by applying translation, rotation, and scale"""
 
-    vector_type: Literal[bpy.stub_internal.rna_enums.MappingTypeItems]
+    vector_type: typing.Literal[bpy.stub_internal.rna_enums.MappingTypeItems]
     """ Type of vector that the mapping transforms (default 'POINT')"""
 
     @classmethod
@@ -89083,7 +89226,7 @@ class ShaderNodeMapping(ShaderNode, NodeInternal, Node, bpy_struct):
 class ShaderNodeMath(ShaderNode, NodeInternal, Node, bpy_struct):
     """Perform math operations"""
 
-    operation: Literal[bpy.stub_internal.rna_enums.NodeMathItems]
+    operation: typing.Literal[bpy.stub_internal.rna_enums.NodeMathItems]
     """ (default 'ADD')"""
 
     use_clamp: bool
@@ -89143,7 +89286,7 @@ class ShaderNodeMath(ShaderNode, NodeInternal, Node, bpy_struct):
 class ShaderNodeMix(ShaderNode, NodeInternal, Node, bpy_struct):
     """Mix values by a factor"""
 
-    blend_type: Literal[bpy.stub_internal.rna_enums.RampBlendItems]
+    blend_type: typing.Literal[bpy.stub_internal.rna_enums.RampBlendItems]
     """ (default 'MIX')"""
 
     clamp_factor: bool
@@ -89212,7 +89355,7 @@ class ShaderNodeMix(ShaderNode, NodeInternal, Node, bpy_struct):
 class ShaderNodeMixRGB(ShaderNode, NodeInternal, Node, bpy_struct):
     """Mix two input colors"""
 
-    blend_type: Literal[bpy.stub_internal.rna_enums.RampBlendItems]
+    blend_type: typing.Literal[bpy.stub_internal.rna_enums.RampBlendItems]
     """ (default 'MIX')"""
 
     use_alpha: bool
@@ -89678,7 +89821,7 @@ class ShaderNodeOutputLight(ShaderNode, NodeInternal, Node, bpy_struct):
 class ShaderNodeOutputLineStyle(ShaderNode, NodeInternal, Node, bpy_struct):
     """Control the mixing of texture information into the base color of line styles"""
 
-    blend_type: Literal[bpy.stub_internal.rna_enums.RampBlendItems]
+    blend_type: typing.Literal[bpy.stub_internal.rna_enums.RampBlendItems]
     """ (default 'MIX')"""
 
     is_active_output: bool
@@ -90328,7 +90471,7 @@ class ShaderNodeScript(ShaderNode, NodeInternal, Node, bpy_struct):
 class ShaderNodeSeparateColor(ShaderNode, NodeInternal, Node, bpy_struct):
     """Split a color into its individual components using multiple models"""
 
-    mode: Literal[bpy.stub_internal.rna_enums.NodeCombsepColorItems]
+    mode: typing.Literal[bpy.stub_internal.rna_enums.NodeCombsepColorItems]
     """ Mode of color processing (default 'RGB')"""
 
     @classmethod
@@ -92044,7 +92187,7 @@ class ShaderNodeVectorDisplacement(ShaderNode, NodeInternal, Node, bpy_struct):
 class ShaderNodeVectorMath(ShaderNode, NodeInternal, Node, bpy_struct):
     """Perform vector math operation"""
 
-    operation: Literal[bpy.stub_internal.rna_enums.NodeVecMathItems]
+    operation: typing.Literal[bpy.stub_internal.rna_enums.NodeVecMathItems]
     """ (default 'ADD')"""
 
     @classmethod
@@ -92960,7 +93103,7 @@ class ShrinkwrapConstraint(Constraint, bpy_struct):
     distance: float
     """ Distance to Target (in [0, inf], default 0.0)"""
 
-    project_axis: Literal[bpy.stub_internal.rna_enums.ObjectAxisItems]
+    project_axis: typing.Literal[bpy.stub_internal.rna_enums.ObjectAxisItems]
     """ Axis constrain to (default 'POS_X')"""
 
     project_axis_space: typing.Literal[
@@ -92998,7 +93141,7 @@ class ShrinkwrapConstraint(Constraint, bpy_struct):
     use_track_normal: bool
     """ Align the specified axis to the surface normal (default False)"""
 
-    wrap_mode: Literal[bpy.stub_internal.rna_enums.ModifierShrinkwrapModeItems]
+    wrap_mode: typing.Literal[bpy.stub_internal.rna_enums.ModifierShrinkwrapModeItems]
     """ Select how to constrain the object to the target surface (default 'ON_SURFACE')"""
 
     @classmethod
@@ -93035,7 +93178,7 @@ class ShrinkwrapModifier(Modifier, bpy_struct):
     auxiliary_target: Object | None
     """ Additional mesh target to shrink to"""
 
-    cull_face: Literal[bpy.stub_internal.rna_enums.ShrinkwrapFaceCullItems]
+    cull_face: typing.Literal[bpy.stub_internal.rna_enums.ShrinkwrapFaceCullItems]
     """ Stop vertices from projecting to a face on the target when facing towards/away (default 'OFF')"""
 
     invert_vertex_group: bool
@@ -93074,10 +93217,10 @@ class ShrinkwrapModifier(Modifier, bpy_struct):
     vertex_group: str
     """ Vertex group name (default "", never None)"""
 
-    wrap_method: Literal[bpy.stub_internal.rna_enums.ShrinkwrapTypeItems]
+    wrap_method: typing.Literal[bpy.stub_internal.rna_enums.ShrinkwrapTypeItems]
     """ (default 'NEAREST_SURFACEPOINT')"""
 
-    wrap_mode: Literal[bpy.stub_internal.rna_enums.ModifierShrinkwrapModeItems]
+    wrap_mode: typing.Literal[bpy.stub_internal.rna_enums.ModifierShrinkwrapModeItems]
     """ Select how vertices are constrained to the target surface (default 'ON_SURFACE')"""
 
     @classmethod
@@ -93114,7 +93257,7 @@ class SimpleDeformModifier(Modifier, bpy_struct):
     angle: float
     """ Angle of deformation (in [-inf, inf], default 0.785398)"""
 
-    deform_axis: Literal[bpy.stub_internal.rna_enums.AxisXyzItems]
+    deform_axis: typing.Literal[bpy.stub_internal.rna_enums.AxisXyzItems]
     """ Deform around local axis (default 'X')"""
 
     deform_method: typing.Literal["TWIST", "BEND", "TAPER", "STRETCH"]
@@ -93173,7 +93316,7 @@ class SimpleDeformModifier(Modifier, bpy_struct):
         """
 
 class SimulationStateItem(bpy_struct):
-    attribute_domain: Literal[bpy.stub_internal.rna_enums.AttributeDomainItems]
+    attribute_domain: typing.Literal[bpy.stub_internal.rna_enums.AttributeDomainItems]
     """ Attribute domain where the attribute is stored in the simulation state (default 'POINT')"""
 
     color: typing.Any
@@ -93182,7 +93325,7 @@ class SimulationStateItem(bpy_struct):
     name: str
     """ (default "", never None)"""
 
-    socket_type: Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
+    socket_type: typing.Literal[bpy.stub_internal.rna_enums.NodeSocketDataTypeItems]
     """ (default 'FLOAT')"""
 
     @classmethod
@@ -93689,7 +93832,7 @@ class Sound(ID, bpy_struct):
     def unpack(
         self,
         *,
-        method: Literal[bpy.stub_internal.rna_enums.UnpackMethodItems]
+        method: typing.Literal[bpy.stub_internal.rna_enums.UnpackMethodItems]
         | None = "USE_LOCAL",
     ) -> None:
         """Unpack the sound to the samples filename
@@ -93845,7 +93988,7 @@ class Space(bpy_struct):
     show_region_header: bool
     """ (default False)"""
 
-    type: Literal[bpy.stub_internal.rna_enums.SpaceTypeItems]
+    type: typing.Literal[bpy.stub_internal.rna_enums.SpaceTypeItems]
     """ Space data type (default 'EMPTY', readonly)"""
 
     @classmethod
@@ -93939,7 +94082,7 @@ class SpaceClipEditor(Space, bpy_struct):
     mask_overlay_mode: typing.Literal["ALPHACHANNEL", "COMBINED"]
     """ Overlay mode of rasterized mask (default 'ALPHACHANNEL')"""
 
-    mode: Literal[bpy.stub_internal.rna_enums.ClipEditorModeItems]
+    mode: typing.Literal[bpy.stub_internal.rna_enums.ClipEditorModeItems]
     """ Editing context being displayed (default 'TRACKING')"""
 
     overlay: SpaceClipOverlay | None
@@ -94422,7 +94565,7 @@ class SpaceFileBrowser(Space, bpy_struct):
     bookmarks_active: int
     """ Index of active bookmark (-1 if none) (in [-32768, 32767], default 0)"""
 
-    browse_mode: Literal[bpy.stub_internal.rna_enums.SpaceFileBrowseModeItems]
+    browse_mode: typing.Literal[bpy.stub_internal.rna_enums.SpaceFileBrowseModeItems]
     """ Type of the File Editor view (regular file browsing or asset browsing) (default 'FILES')"""
 
     operator: Operator | None
@@ -94549,7 +94692,7 @@ class SpaceGraphEditor(Space, bpy_struct):
     has_ghost_curves: bool
     """ Graph Editor instance has some ghost curves stored (default False, readonly)"""
 
-    mode: Literal[bpy.stub_internal.rna_enums.SpaceGraphModeItems]
+    mode: typing.Literal[bpy.stub_internal.rna_enums.SpaceGraphModeItems]
     """ Editing context being displayed (default 'FCURVES')"""
 
     pivot_point: typing.Literal["BOUNDING_BOX_CENTER", "CURSOR", "INDIVIDUAL_ORIGINS"]
@@ -94693,7 +94836,7 @@ class SpaceImageEditor(Space, bpy_struct):
     mask_overlay_mode: typing.Literal["ALPHACHANNEL", "COMBINED"]
     """ Overlay mode of rasterized mask (default 'ALPHACHANNEL')"""
 
-    mode: Literal[bpy.stub_internal.rna_enums.SpaceImageModeAllItems]
+    mode: typing.Literal[bpy.stub_internal.rna_enums.SpaceImageModeAllItems]
     """ Editing context being displayed (default 'VIEW')"""
 
     overlay: SpaceImageOverlay | None
@@ -95271,7 +95414,7 @@ class SpaceOutliner(Space, bpy_struct):
     ]
     """ Type of information to display (default 'SCENES')"""
 
-    filter_id_type: Literal[bpy.stub_internal.rna_enums.IdTypeItems]
+    filter_id_type: typing.Literal[bpy.stub_internal.rna_enums.IdTypeItems]
     """ Data-block type to show (default 'ACTION')"""
 
     filter_invert: bool
@@ -95753,7 +95896,7 @@ class SpaceSequenceEditor(Space, bpy_struct):
     use_zoom_to_fit: bool
     """ Automatically zoom preview image to make it fully fit the region (default False)"""
 
-    view_type: Literal[bpy.stub_internal.rna_enums.SpaceSequencerViewTypeItems]
+    view_type: typing.Literal[bpy.stub_internal.rna_enums.SpaceSequencerViewTypeItems]
     """ Type of the Sequencer view (sequencer, preview or both) (default 'SEQUENCER')"""
 
     zoom_percentage: float
@@ -95820,10 +95963,10 @@ class SpaceSequenceEditor(Space, bpy_struct):
 class SpaceSpreadsheet(Space, bpy_struct):
     """Spreadsheet space data"""
 
-    attribute_domain: Literal[bpy.stub_internal.rna_enums.AttributeDomainItems]
+    attribute_domain: typing.Literal[bpy.stub_internal.rna_enums.AttributeDomainItems]
     """ Attribute domain to display (default 'POINT')"""
 
-    geometry_component_type: Literal[
+    geometry_component_type: typing.Literal[
         bpy.stub_internal.rna_enums.GeometryComponentTypeItems
     ]
     """ Part of the geometry to display data from (default 'MESH')"""
@@ -97126,10 +97269,10 @@ class SpreadsheetTableID(bpy_struct):
         """
 
 class SpreadsheetTableIDGeometry(SpreadsheetTableID, bpy_struct):
-    attribute_domain: Literal[bpy.stub_internal.rna_enums.AttributeDomainItems]
+    attribute_domain: typing.Literal[bpy.stub_internal.rna_enums.AttributeDomainItems]
     """ Attribute domain to display (default 'POINT', readonly)"""
 
-    geometry_component_type: Literal[
+    geometry_component_type: typing.Literal[
         bpy.stub_internal.rna_enums.GeometryComponentTypeItems
     ]
     """ Part of the geometry to display data from (default 'MESH', readonly)"""
@@ -97177,13 +97320,15 @@ class SpreadsheetTableIDGeometry(SpreadsheetTableID, bpy_struct):
 class Stereo3dDisplay(bpy_struct):
     """Settings for stereo 3D display"""
 
-    anaglyph_type: Literal[bpy.stub_internal.rna_enums.Stereo3DAnaglyphTypeItems]
+    anaglyph_type: typing.Literal[bpy.stub_internal.rna_enums.Stereo3DAnaglyphTypeItems]
     """ (default 'RED_CYAN')"""
 
-    display_mode: Literal[bpy.stub_internal.rna_enums.Stereo3DDisplayItems]
+    display_mode: typing.Literal[bpy.stub_internal.rna_enums.Stereo3DDisplayItems]
     """ (default 'ANAGLYPH')"""
 
-    interlace_type: Literal[bpy.stub_internal.rna_enums.Stereo3DInterlaceTypeItems]
+    interlace_type: typing.Literal[
+        bpy.stub_internal.rna_enums.Stereo3DInterlaceTypeItems
+    ]
     """ (default 'ROW_INTERLEAVED')"""
 
     use_interlace_swap: bool
@@ -97223,13 +97368,15 @@ class Stereo3dDisplay(bpy_struct):
 class Stereo3dFormat(bpy_struct):
     """Settings for stereo output"""
 
-    anaglyph_type: Literal[bpy.stub_internal.rna_enums.Stereo3DAnaglyphTypeItems]
+    anaglyph_type: typing.Literal[bpy.stub_internal.rna_enums.Stereo3DAnaglyphTypeItems]
     """ (default 'RED_CYAN')"""
 
     display_mode: typing.Literal["ANAGLYPH", "INTERLACE", "SIDEBYSIDE", "TOPBOTTOM"]
     """ (default 'ANAGLYPH')"""
 
-    interlace_type: Literal[bpy.stub_internal.rna_enums.Stereo3DInterlaceTypeItems]
+    interlace_type: typing.Literal[
+        bpy.stub_internal.rna_enums.Stereo3DInterlaceTypeItems
+    ]
     """ (default 'ROW_INTERLEAVED')"""
 
     use_interlace_swap: bool
@@ -97483,7 +97630,7 @@ class Strip(bpy_struct):
     channel: int
     """ Vertical position of the strip (in [1, 128], default 0)"""
 
-    color_tag: Literal[bpy.stub_internal.rna_enums.StripColorItems]
+    color_tag: typing.Literal[bpy.stub_internal.rna_enums.StripColorItems]
     """ Color tag for a strip (default 'COLOR_01')"""
 
     connections: typing.Any
@@ -97895,7 +98042,7 @@ class StripModifier(bpy_struct):
     show_expanded: bool
     """ Mute expanded settings for the modifier (default False)"""
 
-    type: Literal[bpy.stub_internal.rna_enums.StripModifierTypeItems]
+    type: typing.Literal[bpy.stub_internal.rna_enums.StripModifierTypeItems]
     """ (default 'BRIGHT_CONTRAST', readonly)"""
 
     @classmethod
@@ -98238,7 +98385,9 @@ class SubsurfModifier(Modifier, bpy_struct):
     adaptive_space: typing.Literal["PIXEL", "OBJECT"]
     """ How to adaptively subdivide the mesh (default 'PIXEL')"""
 
-    boundary_smooth: Literal[bpy.stub_internal.rna_enums.SubdivisionBoundarySmoothItems]
+    boundary_smooth: typing.Literal[
+        bpy.stub_internal.rna_enums.SubdivisionBoundarySmoothItems
+    ]
     """ Controls how open boundaries are smoothed (default 'ALL')"""
 
     levels: int
@@ -98274,7 +98423,7 @@ class SubsurfModifier(Modifier, bpy_struct):
     use_limit_surface: bool
     """ Place vertices at the surface that would be produced with infinite levels of subdivision (smoothest possible shape) (default True)"""
 
-    uv_smooth: Literal[bpy.stub_internal.rna_enums.SubdivisionUvSmoothItems]
+    uv_smooth: typing.Literal[bpy.stub_internal.rna_enums.SubdivisionUvSmoothItems]
     """ Controls how smoothing is applied to UVs (default 'PRESERVE_BOUNDARIES')"""
 
     @classmethod
@@ -98671,7 +98820,7 @@ class TexMapping(bpy_struct):
     use_min: bool
     """ Whether to use minimum clipping value (default False)"""
 
-    vector_type: Literal[bpy.stub_internal.rna_enums.MappingTypeItems]
+    vector_type: typing.Literal[bpy.stub_internal.rna_enums.MappingTypeItems]
     """ Type of vector that the mapping transforms (default 'POINT')"""
 
     @classmethod
@@ -99272,7 +99421,7 @@ class Texture(ID, bpy_struct):
     saturation: float
     """ Adjust the saturation of colors in the texture (in [0, 2], default 1.0)"""
 
-    type: Literal[bpy.stub_internal.rna_enums.TextureTypeItems]
+    type: typing.Literal[bpy.stub_internal.rna_enums.TextureTypeItems]
     """ (default 'IMAGE')"""
 
     use_clamp: bool
@@ -99528,7 +99677,7 @@ class TextureNodeChecker(TextureNode, NodeInternal, Node, bpy_struct):
         """
 
 class TextureNodeCombineColor(TextureNode, NodeInternal, Node, bpy_struct):
-    mode: Literal[bpy.stub_internal.rna_enums.NodeCombsepColorItems]
+    mode: typing.Literal[bpy.stub_internal.rna_enums.NodeCombsepColorItems]
     """ Mode of color processing (default 'RGB')"""
 
     @classmethod
@@ -100115,7 +100264,7 @@ class TextureNodeInvert(TextureNode, NodeInternal, Node, bpy_struct):
         """
 
 class TextureNodeMath(TextureNode, NodeInternal, Node, bpy_struct):
-    operation: Literal[bpy.stub_internal.rna_enums.NodeMathItems]
+    operation: typing.Literal[bpy.stub_internal.rna_enums.NodeMathItems]
     """ (default 'ADD')"""
 
     use_clamp: bool
@@ -100173,7 +100322,7 @@ class TextureNodeMath(TextureNode, NodeInternal, Node, bpy_struct):
         """
 
 class TextureNodeMixRGB(TextureNode, NodeInternal, Node, bpy_struct):
-    blend_type: Literal[bpy.stub_internal.rna_enums.RampBlendItems]
+    blend_type: typing.Literal[bpy.stub_internal.rna_enums.RampBlendItems]
     """ (default 'MIX')"""
 
     use_alpha: bool
@@ -100445,7 +100594,7 @@ class TextureNodeScale(TextureNode, NodeInternal, Node, bpy_struct):
         """
 
 class TextureNodeSeparateColor(TextureNode, NodeInternal, Node, bpy_struct):
-    mode: Literal[bpy.stub_internal.rna_enums.NodeCombsepColorItems]
+    mode: typing.Literal[bpy.stub_internal.rna_enums.NodeCombsepColorItems]
     """ Mode of color processing (default 'RGB')"""
 
     @classmethod
@@ -104040,7 +104189,7 @@ class ToolSettings(bpy_struct):
     gpencil_sculpt_paint: GpSculptPaint | None
     """ (readonly)"""
 
-    gpencil_selectmode_edit: Literal[
+    gpencil_selectmode_edit: typing.Literal[
         bpy.stub_internal.rna_enums.GreasePencilSelectmodeItems
     ]
     """ (default 'POINT')"""
@@ -104065,7 +104214,9 @@ class ToolSettings(bpy_struct):
     image_paint: ImagePaint | None
     """ (readonly)"""
 
-    keyframe_type: Literal[bpy.stub_internal.rna_enums.BeztripleKeyframeTypeItems]
+    keyframe_type: typing.Literal[
+        bpy.stub_internal.rna_enums.BeztripleKeyframeTypeItems
+    ]
     """ Type of keyframes to create when inserting keyframes (default 'KEYFRAME')"""
 
     lock_markers: bool
@@ -104086,7 +104237,7 @@ class ToolSettings(bpy_struct):
     particle_edit: ParticleEdit | None
     """ (readonly)"""
 
-    plane_axis: Literal[bpy.stub_internal.rna_enums.AxisXyzItems]
+    plane_axis: typing.Literal[bpy.stub_internal.rna_enums.AxisXyzItems]
     """ The axis used for placing the base region (default 'Z')"""
 
     plane_axis_auto: bool
@@ -104104,7 +104255,7 @@ class ToolSettings(bpy_struct):
     proportional_distance: float
     """ Display size for proportional editing circle (in [1e-05, 5000], default 1.0)"""
 
-    proportional_edit_falloff: Literal[
+    proportional_edit_falloff: typing.Literal[
         bpy.stub_internal.rna_enums.ProportionalFalloffItems
     ]
     """ Falloff type for proportional editing mode (default 'SMOOTH')"""
@@ -104133,10 +104284,12 @@ class ToolSettings(bpy_struct):
     snap_angle_increment_3d_precision: float
     """ Precision angle used for rotation increments in 3D editors (in [0, 3.14159], default 0.0174533)"""
 
-    snap_anim_element: Literal[bpy.stub_internal.rna_enums.SnapAnimationElementItems]
+    snap_anim_element: typing.Literal[
+        bpy.stub_internal.rna_enums.SnapAnimationElementItems
+    ]
     """ Type of element to snap to (default 'FRAME')"""
 
-    snap_elements: set[Literal[bpy.stub_internal.rna_enums.SnapElementItems]]
+    snap_elements: set[typing.Literal[bpy.stub_internal.rna_enums.SnapElementItems]]
     """ Type of element to snap to (default {'INCREMENT'})"""
 
     snap_elements_base: set[
@@ -104174,7 +104327,7 @@ class ToolSettings(bpy_struct):
     snap_playhead_second_step: int
     """ At which interval to snap to seconds (in [1, 32768], default 1)"""
 
-    snap_target: Literal[bpy.stub_internal.rna_enums.SnapSourceItems]
+    snap_target: typing.Literal[bpy.stub_internal.rna_enums.SnapSourceItems]
     """ Which part to snap onto the target (default 'CLOSEST')"""
 
     snap_uv_element: set[typing.Literal["INCREMENT", "GRID", "VERTEX"]]
@@ -104384,7 +104537,7 @@ class ToolSettings(bpy_struct):
     uv_sculpt_lock_borders: bool
     """ Disable editing of boundary edges (default False)"""
 
-    uv_select_mode: Literal[bpy.stub_internal.rna_enums.MeshSelectModeUvItems]
+    uv_select_mode: typing.Literal[bpy.stub_internal.rna_enums.MeshSelectModeUvItems]
     """ UV selection and display mode (default 'VERTEX')"""
 
     uv_sticky_select_mode: typing.Literal[
@@ -104589,7 +104742,7 @@ class TransformConstraint(Constraint, bpy_struct):
     from_min_z_scale: float
     """ Bottom range of Z axis source motion (in [-inf, inf], default 0.0)"""
 
-    from_rotation_mode: Literal[
+    from_rotation_mode: typing.Literal[
         bpy.stub_internal.rna_enums.DriverTargetRotationModeItems
     ]
     """ Specify the type of rotation channels to use (default 'AUTO')"""
@@ -104600,13 +104753,13 @@ class TransformConstraint(Constraint, bpy_struct):
     map_to: typing.Literal["LOCATION", "ROTATION", "SCALE"]
     """ The transformation type to affect on the constrained object (default 'LOCATION')"""
 
-    map_to_x_from: Literal[bpy.stub_internal.rna_enums.AxisXyzItems]
+    map_to_x_from: typing.Literal[bpy.stub_internal.rna_enums.AxisXyzItems]
     """ The source axis constrained object's X axis uses (default 'X')"""
 
-    map_to_y_from: Literal[bpy.stub_internal.rna_enums.AxisXyzItems]
+    map_to_y_from: typing.Literal[bpy.stub_internal.rna_enums.AxisXyzItems]
     """ The source axis constrained object's Y axis uses (default 'X')"""
 
-    map_to_z_from: Literal[bpy.stub_internal.rna_enums.AxisXyzItems]
+    map_to_z_from: typing.Literal[bpy.stub_internal.rna_enums.AxisXyzItems]
     """ The source axis constrained object's Z axis uses (default 'X')"""
 
     mix_mode: typing.Literal["REPLACE", "ADD"]
@@ -104751,7 +104904,7 @@ class TransformOrientationSlot(bpy_struct):
     custom_orientation: TransformOrientation | None
     """ (readonly)"""
 
-    type: Literal[bpy.stub_internal.rna_enums.TransformOrientationItems]
+    type: typing.Literal[bpy.stub_internal.rna_enums.TransformOrientationItems]
     """ Transformation orientation (default 'GLOBAL')"""
 
     use: bool
@@ -104795,10 +104948,14 @@ Warning: Depending on chosen triangulation method, shading may not be fully pres
     min_vertices: int
     """ Triangulate only polygons with vertex count greater than or equal to this number (in [4, inf], default 4)"""
 
-    ngon_method: Literal[bpy.stub_internal.rna_enums.ModifierTriangulateNgonMethodItems]
+    ngon_method: typing.Literal[
+        bpy.stub_internal.rna_enums.ModifierTriangulateNgonMethodItems
+    ]
     """ Method for splitting the n-gons into triangles (default 'BEAUTY')"""
 
-    quad_method: Literal[bpy.stub_internal.rna_enums.ModifierTriangulateQuadMethodItems]
+    quad_method: typing.Literal[
+        bpy.stub_internal.rna_enums.ModifierTriangulateQuadMethodItems
+    ]
     """ Method for splitting the quads into triangles (default 'SHORTEST_DIAGONAL')"""
 
     @classmethod
@@ -104841,7 +104998,7 @@ class UDIMTile(bpy_struct):
     generated_height: int
     """ Generated image height (in [1, 65536], default 0)"""
 
-    generated_type: Literal[bpy.stub_internal.rna_enums.ImageGeneratedTypeItems]
+    generated_type: typing.Literal[bpy.stub_internal.rna_enums.ImageGeneratedTypeItems]
     """ Generated image type (default 'BLANK')"""
 
     generated_width: int
@@ -104919,7 +105076,7 @@ class UILayout(bpy_struct):
     enabled: bool
     """ When false, this (sub)layout is grayed out (default False)"""
 
-    operator_context: Literal[bpy.stub_internal.rna_enums.OperatorContextItems]
+    operator_context: typing.Literal[bpy.stub_internal.rna_enums.OperatorContextItems]
     """ Typically set to 'INVOKE_REGION_WIN', except some cases in `bpy.types.Menu` when it's set to 'EXEC_REGION_WIN'. (default 'INVOKE_DEFAULT')"""
 
     scale_x: float
@@ -105101,7 +105258,7 @@ class UILayout(bpy_struct):
         text: str | None = "",
         text_ctxt: str | None = "",
         translate: bool | None = True,
-        icon: Literal[bpy.stub_internal.rna_enums.IconItems] | None = "NONE",
+        icon: typing.Literal[bpy.stub_internal.rna_enums.IconItems] | None = "NONE",
         placeholder: str | None = "",
         expand: bool | None = False,
         slider: bool | None = False,
@@ -105150,7 +105307,7 @@ class UILayout(bpy_struct):
         text: str | None = "",
         text_ctxt: str | None = "",
         translate: bool | None = True,
-        icon: Literal[bpy.stub_internal.rna_enums.IconItems] | None = "NONE",
+        icon: typing.Literal[bpy.stub_internal.rna_enums.IconItems] | None = "NONE",
     ) -> None:
         """prop_menu_enum
 
@@ -105170,7 +105327,7 @@ class UILayout(bpy_struct):
         text: str | None = "",
         text_ctxt: str | None = "",
         translate: bool | None = True,
-        icon: Literal[bpy.stub_internal.rna_enums.IconItems] | None = "NONE",
+        icon: typing.Literal[bpy.stub_internal.rna_enums.IconItems] | None = "NONE",
         icon_only: bool | None = False,
         panel: str | None = None,
     ) -> None:
@@ -105194,7 +105351,7 @@ class UILayout(bpy_struct):
         text: str | None = "",
         text_ctxt: str | None = "",
         translate: bool | None = True,
-        icon: Literal[bpy.stub_internal.rna_enums.IconItems] | None = "NONE",
+        icon: typing.Literal[bpy.stub_internal.rna_enums.IconItems] | None = "NONE",
         icon_only: bool | None = False,
         menu: str | None = None,
     ) -> None:
@@ -105239,7 +105396,7 @@ class UILayout(bpy_struct):
         text: str | None = "",
         text_ctxt: str | None = "",
         translate: bool | None = True,
-        icon: Literal[bpy.stub_internal.rna_enums.IconItems] | None = "NONE",
+        icon: typing.Literal[bpy.stub_internal.rna_enums.IconItems] | None = "NONE",
     ) -> None:
         """prop_enum
 
@@ -105262,7 +105419,7 @@ class UILayout(bpy_struct):
         text: str | None = "",
         text_ctxt: str | None = "",
         translate: bool | None = True,
-        icon: Literal[bpy.stub_internal.rna_enums.IconItems] | None = "NONE",
+        icon: typing.Literal[bpy.stub_internal.rna_enums.IconItems] | None = "NONE",
         results_are_suggestions: bool | None = False,
         item_search_property: str | None = "",
     ) -> None:
@@ -105297,7 +105454,7 @@ class UILayout(bpy_struct):
         text: str | None = "",
         text_ctxt: str | None = "",
         translate: bool | None = True,
-        icon: Literal[bpy.stub_internal.rna_enums.IconItems] | None = "NONE",
+        icon: typing.Literal[bpy.stub_internal.rna_enums.IconItems] | None = "NONE",
         emboss: bool | None = True,
         depress: bool | None = False,
         icon_value: int | None = 0,
@@ -105324,7 +105481,7 @@ class UILayout(bpy_struct):
         text: str | None = "",
         text_ctxt: str | None = "",
         translate: bool | None = True,
-        icon: Literal[bpy.stub_internal.rna_enums.IconItems] | None = "NONE",
+        icon: typing.Literal[bpy.stub_internal.rna_enums.IconItems] | None = "NONE",
         emboss: bool | None = True,
         depress: bool | None = False,
         icon_value: int | None = 0,
@@ -105366,7 +105523,7 @@ class UILayout(bpy_struct):
         text: str | None = "",
         text_ctxt: str | None = "",
         translate: bool | None = True,
-        icon: Literal[bpy.stub_internal.rna_enums.IconItems] | None = "NONE",
+        icon: typing.Literal[bpy.stub_internal.rna_enums.IconItems] | None = "NONE",
     ) -> OperatorProperties:
         """operator_menu_enum
 
@@ -105385,7 +105542,7 @@ class UILayout(bpy_struct):
         text: str | None = "",
         text_ctxt: str | None = "",
         translate: bool | None = True,
-        icon: Literal[bpy.stub_internal.rna_enums.IconItems] | None = "NONE",
+        icon: typing.Literal[bpy.stub_internal.rna_enums.IconItems] | None = "NONE",
         icon_value: int | None = 0,
     ) -> None:
         """Item. Displays text and/or icon in the layout.
@@ -105404,7 +105561,7 @@ class UILayout(bpy_struct):
         text: str | None = "",
         text_ctxt: str | None = "",
         translate: bool | None = True,
-        icon: Literal[bpy.stub_internal.rna_enums.IconItems] | None = "NONE",
+        icon: typing.Literal[bpy.stub_internal.rna_enums.IconItems] | None = "NONE",
         icon_value: int | None = 0,
     ) -> None:
         """menu
@@ -105430,7 +105587,7 @@ class UILayout(bpy_struct):
         text: str | None = "",
         text_ctxt: str | None = "",
         translate: bool | None = True,
-        icon: Literal[bpy.stub_internal.rna_enums.IconItems] | None = "NONE",
+        icon: typing.Literal[bpy.stub_internal.rna_enums.IconItems] | None = "NONE",
         icon_value: int | None = 0,
         direction: typing.Literal["VERTICAL", "HORIZONTAL"] | None = "VERTICAL",
     ) -> None:
@@ -105453,8 +105610,8 @@ class UILayout(bpy_struct):
 
     def popover_group(
         self,
-        space_type: Literal[bpy.stub_internal.rna_enums.SpaceTypeItems] | None,
-        region_type: Literal[bpy.stub_internal.rna_enums.RegionTypeItems] | None,
+        space_type: typing.Literal[bpy.stub_internal.rna_enums.SpaceTypeItems] | None,
+        region_type: typing.Literal[bpy.stub_internal.rna_enums.RegionTypeItems] | None,
         context: str | None,
         category: str | None,
     ) -> None:
@@ -105557,7 +105714,7 @@ class UILayout(bpy_struct):
         self,
         data: typing.Any | None,
         property: str | None,
-        id_type: Literal[bpy.stub_internal.rna_enums.IdTypeItems] | None,
+        id_type: typing.Literal[bpy.stub_internal.rna_enums.IdTypeItems] | None,
     ) -> None:
         """Template ID search menu button for session_uid Int properties
 
@@ -106058,7 +106215,7 @@ class UILayout(bpy_struct):
         item_dyntip_propname: str | None = "",
         rows: int | None = 5,
         maxrows: int | None = 5,
-        type: Literal[bpy.stub_internal.rna_enums.UilistLayoutTypeItems]
+        type: typing.Literal[bpy.stub_internal.rna_enums.UilistLayoutTypeItems]
         | None = "DEFAULT",
         columns: int | None = 9,
         sort_reverse: bool | None = False,
@@ -106315,7 +106472,7 @@ class UILayout(bpy_struct):
         asset_shelf: str | None,
         *,
         name: str | None = "",
-        icon: Literal[bpy.stub_internal.rna_enums.IconItems] | None = "NONE",
+        icon: typing.Literal[bpy.stub_internal.rna_enums.IconItems] | None = "NONE",
         icon_value: int | None = 0,
     ) -> None:
         """Create a button to open an asset shelf in a popover
@@ -106333,7 +106490,7 @@ class UILayout(bpy_struct):
         text: str | None = "",
         text_ctxt: str | None = "",
         translate: bool | None = True,
-        icon: Literal[bpy.stub_internal.rna_enums.IconItems] | None = "NONE",
+        icon: typing.Literal[bpy.stub_internal.rna_enums.IconItems] | None = "NONE",
         cancel_text: str | None = "",
         cancel_default: bool | None = False,
     ) -> OperatorProperties:
@@ -106395,7 +106552,7 @@ class UIList(bpy_struct):
     filter_name: str
     """ Only show items matching this name (use '*' as wildcard) (default "", never None)"""
 
-    layout_type: Literal[bpy.stub_internal.rna_enums.UilistLayoutTypeItems]
+    layout_type: typing.Literal[bpy.stub_internal.rna_enums.UilistLayoutTypeItems]
     """ (default 'DEFAULT', readonly)"""
 
     list_id: str
@@ -106939,10 +107096,10 @@ class UVProjector(bpy_struct):
 class UVWarpModifier(Modifier, bpy_struct):
     """Add target position to UV coordinates"""
 
-    axis_u: Literal[bpy.stub_internal.rna_enums.AxisXyzItems]
+    axis_u: typing.Literal[bpy.stub_internal.rna_enums.AxisXyzItems]
     """ Pole axis for rotation (default 'X')"""
 
-    axis_v: Literal[bpy.stub_internal.rna_enums.AxisXyzItems]
+    axis_v: typing.Literal[bpy.stub_internal.rna_enums.AxisXyzItems]
     """ Pole axis for rotation (default 'Y')"""
 
     bone_from: str
@@ -107362,7 +107519,7 @@ class UvSculpt(bpy_struct):
     curve_distance_falloff: CurveMapping | None
     """ (readonly)"""
 
-    curve_distance_falloff_preset: Literal[
+    curve_distance_falloff_preset: typing.Literal[
         bpy.stub_internal.rna_enums.BrushCurvePresetItems
     ]
     """ (default 'CUSTOM')"""
@@ -108236,7 +108393,7 @@ class VectorFont(ID, bpy_struct):
     def unpack(
         self,
         *,
-        method: Literal[bpy.stub_internal.rna_enums.UnpackMethodItems]
+        method: typing.Literal[bpy.stub_internal.rna_enums.UnpackMethodItems]
         | None = "USE_LOCAL",
     ) -> None:
         """Unpack the font to the samples filename
@@ -108768,7 +108925,7 @@ class View3DCursor(bpy_struct):
     rotation_euler: mathutils.Euler
     """ 3D rotation (array of 3 items, in [-inf, inf], default (0.0, 0.0, 0.0))"""
 
-    rotation_mode: Literal[bpy.stub_internal.rna_enums.ObjectRotationModeItems]
+    rotation_mode: typing.Literal[bpy.stub_internal.rna_enums.ObjectRotationModeItems]
     """ The kind of rotation to apply, values from other rotation modes are not used (default 'XYZ')"""
 
     rotation_quaternion: mathutils.Quaternion
@@ -109229,7 +109386,7 @@ class View3DShading(bpy_struct):
     studiolight_rotate_z: float
     """ Rotation of the studiolight around the Z-Axis (in [-3.14159, 3.14159], default 0.0)"""
 
-    type: Literal[bpy.stub_internal.rna_enums.ShadingTypeItems]
+    type: typing.Literal[bpy.stub_internal.rna_enums.ShadingTypeItems]
     """ Method to display/shade objects in the 3D View (default 'SOLID')"""
 
     use_compositor: typing.Literal["DISABLED", "CAMERA", "ALWAYS"]
@@ -109726,7 +109883,7 @@ class Volume(ID, bpy_struct):
     velocity_scale: float
     """ Factor to control the amount of motion blur (in [0, inf], default 1.0)"""
 
-    velocity_unit: Literal[bpy.stub_internal.rna_enums.VelocityUnitItems]
+    velocity_unit: typing.Literal[bpy.stub_internal.rna_enums.VelocityUnitItems]
     """ Define how the velocity vectors are interpreted with regard to time, 'frame' means the delta time is 1 frame, 'second' means the delta time is 1 / FPS (default 'FRAME')"""
 
     velocity_x_grid: str
@@ -109869,7 +110026,7 @@ class VolumeGrid(bpy_struct):
     channels: int
     """ Number of dimensions of the grid data type (in [0, inf], default 0, readonly)"""
 
-    data_type: Literal[bpy.stub_internal.rna_enums.VolumeGridDataTypeItems]
+    data_type: typing.Literal[bpy.stub_internal.rna_enums.VolumeGridDataTypeItems]
     """ Data type of voxel values (default 'UNKNOWN', readonly)"""
 
     is_loaded: bool
@@ -110577,7 +110734,8 @@ class Window(bpy_struct):
         """
 
     def cursor_set(
-        self, cursor: Literal[bpy.stub_internal.rna_enums.WindowCursorItems] | None
+        self,
+        cursor: typing.Literal[bpy.stub_internal.rna_enums.WindowCursorItems] | None,
     ) -> None:
         """Set the cursor
 
@@ -110585,7 +110743,8 @@ class Window(bpy_struct):
         """
 
     def cursor_modal_set(
-        self, cursor: Literal[bpy.stub_internal.rna_enums.WindowCursorItems] | None
+        self,
+        cursor: typing.Literal[bpy.stub_internal.rna_enums.WindowCursorItems] | None,
     ) -> None:
         """Set the cursor, so the previous cursor can be restored
 
@@ -110597,8 +110756,8 @@ class Window(bpy_struct):
 
     def event_simulate(
         self,
-        type: Literal[bpy.stub_internal.rna_enums.EventTypeItems] | None,
-        value: Literal[bpy.stub_internal.rna_enums.EventValueItems] | None,
+        type: typing.Literal[bpy.stub_internal.rna_enums.EventTypeItems] | None,
+        value: typing.Literal[bpy.stub_internal.rna_enums.EventValueItems] | None,
         *,
         unicode: str | None = "",
         x: int | None = 0,
@@ -110794,7 +110953,7 @@ class WindowManager(ID, bpy_struct):
     @classmethod
     def invoke_props_popup(
         cls, operator: Operator | None, event: Event | None
-    ) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
         """Operator popup invoke (show operator properties and execute it automatically on changes)
 
         :param operator: Operator to call
@@ -110813,7 +110972,7 @@ class WindowManager(ID, bpy_struct):
         cancel_default: bool | None = False,
         text_ctxt: str | None = "",
         translate: bool | None = True,
-    ) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
         """Operator dialog (non-autoexec popup) invoke (show operator properties and only execute it on click on OK button)
 
         :param operator: Operator to call
@@ -110836,7 +110995,7 @@ class WindowManager(ID, bpy_struct):
     @classmethod
     def invoke_popup(
         cls, operator: Operator | None, *, width: int | None = 300
-    ) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
         """Operator popup invoke (only shows operators properties, without executing it)
 
         :param operator: Operator to call
@@ -110857,7 +111016,7 @@ class WindowManager(ID, bpy_struct):
         | None = "NONE",
         text_ctxt: str | None = "",
         translate: bool | None = True,
-    ) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
         """Operator confirmation popup (only to let user confirm the execution, no operator properties shown)
 
         :param operator: Operator to call
@@ -110876,7 +111035,7 @@ class WindowManager(ID, bpy_struct):
         cls,
         title: str | None,
         *,
-        icon: Literal[bpy.stub_internal.rna_enums.IconItems] | None = "NONE",
+        icon: typing.Literal[bpy.stub_internal.rna_enums.IconItems] | None = "NONE",
     ) -> UIPopupMenu:
         """popmenu_begin__internal
 
@@ -110918,7 +111077,7 @@ class WindowManager(ID, bpy_struct):
         cls,
         title: str | None,
         *,
-        icon: Literal[bpy.stub_internal.rna_enums.IconItems] | None = "NONE",
+        icon: typing.Literal[bpy.stub_internal.rna_enums.IconItems] | None = "NONE",
         event: Event | None = None,
     ) -> UIPieMenu:
         """piemenu_begin__internal
@@ -111301,7 +111460,7 @@ class WorkSpace(ID, bpy_struct):
     asset_library_reference: typing.Literal["ALL", "LOCAL", "ESSENTIALS", "CUSTOM"]
     """ Active asset library to show in the UI, not used by the Asset Browser (which has its own active asset library) (default 'ALL')"""
 
-    object_mode: Literal[bpy.stub_internal.rna_enums.WorkspaceObjectModeItems]
+    object_mode: typing.Literal[bpy.stub_internal.rna_enums.WorkspaceObjectModeItems]
     """ Switch to this object mode when activating the workspace (default 'OBJECT')"""
 
     owner_ids: typing.Any
@@ -111384,7 +111543,7 @@ class WorkSpaceTool(bpy_struct):
     mode: typing.Literal["DEFAULT"]
     """ (default 'DEFAULT', readonly)"""
 
-    space_type: Literal[bpy.stub_internal.rna_enums.SpaceTypeItems]
+    space_type: typing.Literal[bpy.stub_internal.rna_enums.SpaceTypeItems]
     """ (default 'EMPTY', readonly)"""
 
     use_brushes: bool
@@ -111400,7 +111559,7 @@ class WorkSpaceTool(bpy_struct):
         self,
         idname: str | None,
         *,
-        cursor: Literal[bpy.stub_internal.rna_enums.WindowCursorItems]
+        cursor: typing.Literal[bpy.stub_internal.rna_enums.WindowCursorItems]
         | None = "DEFAULT",
         keymap: str | None = "",
         gizmo_group: str | None = "",
@@ -112586,25 +112745,37 @@ ANIM_OT_keying_set_export: bl_operators.anim.ANIM_OT_keying_set_export
 
 ANIM_OT_slot_new_for_id: bl_operators.anim.ANIM_OT_slot_new_for_id
 
-ANIM_OT_slot_unassign_from_constraint: bl_operators.anim.ANIM_OT_slot_unassign_from_constraint
+ANIM_OT_slot_unassign_from_constraint: (
+    bl_operators.anim.ANIM_OT_slot_unassign_from_constraint
+)
 
 ANIM_OT_slot_unassign_from_id: bl_operators.anim.ANIM_OT_slot_unassign_from_id
 
-ANIM_OT_slot_unassign_from_nla_strip: bl_operators.anim.ANIM_OT_slot_unassign_from_nla_strip
+ANIM_OT_slot_unassign_from_nla_strip: (
+    bl_operators.anim.ANIM_OT_slot_unassign_from_nla_strip
+)
 
 ANIM_OT_version_bone_hide_property: bl_operators.anim.ANIM_OT_version_bone_hide_property
 
-ARMATURE_MT_collection_context_menu: bl_ui.properties_data_armature.ARMATURE_MT_collection_context_menu
+ARMATURE_MT_collection_context_menu: (
+    bl_ui.properties_data_armature.ARMATURE_MT_collection_context_menu
+)
 
-ARMATURE_MT_collection_tree_context_menu: bl_ui.properties_data_armature.ARMATURE_MT_collection_tree_context_menu
+ARMATURE_MT_collection_tree_context_menu: (
+    bl_ui.properties_data_armature.ARMATURE_MT_collection_tree_context_menu
+)
 
-ARMATURE_OT_collection_remove_unused: bl_operators.anim.ARMATURE_OT_collection_remove_unused
+ARMATURE_OT_collection_remove_unused: (
+    bl_operators.anim.ARMATURE_OT_collection_remove_unused
+)
 
 ARMATURE_OT_collection_show_all: bl_operators.anim.ARMATURE_OT_collection_show_all
 
 ARMATURE_OT_collection_unsolo_all: bl_operators.anim.ARMATURE_OT_collection_unsolo_all
 
-ARMATURE_OT_copy_bone_color_to_selected: bl_operators.anim.ARMATURE_OT_copy_bone_color_to_selected
+ARMATURE_OT_copy_bone_color_to_selected: (
+    bl_operators.anim.ARMATURE_OT_copy_bone_color_to_selected
+)
 
 ASSETBROWSER_MT_catalog: bl_ui.space_filebrowser.ASSETBROWSER_MT_catalog
 
@@ -112612,7 +112783,9 @@ ASSETBROWSER_MT_context_menu: bl_ui.space_filebrowser.ASSETBROWSER_MT_context_me
 
 ASSETBROWSER_MT_editor_menus: bl_ui.space_filebrowser.ASSETBROWSER_MT_editor_menus
 
-ASSETBROWSER_MT_metadata_preview_menu: bl_ui.space_filebrowser.ASSETBROWSER_MT_metadata_preview_menu
+ASSETBROWSER_MT_metadata_preview_menu: (
+    bl_ui.space_filebrowser.ASSETBROWSER_MT_metadata_preview_menu
+)
 
 ASSETBROWSER_MT_select: bl_ui.space_filebrowser.ASSETBROWSER_MT_select
 
@@ -112626,7 +112799,9 @@ ASSETBROWSER_PT_import_settings: bl_ui.space_filebrowser.ASSETBROWSER_PT_import_
 
 ASSETBROWSER_PT_metadata: bl_ui.space_filebrowser.ASSETBROWSER_PT_metadata
 
-ASSETBROWSER_PT_metadata_preview: bl_ui.space_filebrowser.ASSETBROWSER_PT_metadata_preview
+ASSETBROWSER_PT_metadata_preview: (
+    bl_ui.space_filebrowser.ASSETBROWSER_PT_metadata_preview
+)
 
 ASSETBROWSER_PT_metadata_tags: bl_ui.space_filebrowser.ASSETBROWSER_PT_metadata_tags
 
@@ -112636,7 +112811,9 @@ ASSETSHELF_PT_display: bl_ui.asset_shelf.ASSETSHELF_PT_display
 
 ASSETSHELF_PT_filter: bl_ui.asset_shelf.ASSETSHELF_PT_filter
 
-ASSET_OT_open_containing_blend_file: bl_operators.assets.ASSET_OT_open_containing_blend_file
+ASSET_OT_open_containing_blend_file: (
+    bl_operators.assets.ASSET_OT_open_containing_blend_file
+)
 
 ASSET_OT_tag_add: bl_operators.assets.ASSET_OT_tag_add
 
@@ -112644,15 +112821,23 @@ ASSET_OT_tag_remove: bl_operators.assets.ASSET_OT_tag_remove
 
 BONE_PT_bActionConstraint: bl_ui.properties_constraint.BONE_PT_bActionConstraint
 
-BONE_PT_bActionConstraint_action: bl_ui.properties_constraint.BONE_PT_bActionConstraint_action
+BONE_PT_bActionConstraint_action: (
+    bl_ui.properties_constraint.BONE_PT_bActionConstraint_action
+)
 
-BONE_PT_bActionConstraint_target: bl_ui.properties_constraint.BONE_PT_bActionConstraint_target
+BONE_PT_bActionConstraint_target: (
+    bl_ui.properties_constraint.BONE_PT_bActionConstraint_target
+)
 
 BONE_PT_bArmatureConstraint: bl_ui.properties_constraint.BONE_PT_bArmatureConstraint
 
-BONE_PT_bArmatureConstraint_bones: bl_ui.properties_constraint.BONE_PT_bArmatureConstraint_bones
+BONE_PT_bArmatureConstraint_bones: (
+    bl_ui.properties_constraint.BONE_PT_bArmatureConstraint_bones
+)
 
-BONE_PT_bCameraSolverConstraint: bl_ui.properties_constraint.BONE_PT_bCameraSolverConstraint
+BONE_PT_bCameraSolverConstraint: (
+    bl_ui.properties_constraint.BONE_PT_bCameraSolverConstraint
+)
 
 BONE_PT_bChildOfConstraint: bl_ui.properties_constraint.BONE_PT_bChildOfConstraint
 
@@ -112664,9 +112849,13 @@ BONE_PT_bDistLimitConstraint: bl_ui.properties_constraint.BONE_PT_bDistLimitCons
 
 BONE_PT_bFollowPathConstraint: bl_ui.properties_constraint.BONE_PT_bFollowPathConstraint
 
-BONE_PT_bFollowTrackConstraint: bl_ui.properties_constraint.BONE_PT_bFollowTrackConstraint
+BONE_PT_bFollowTrackConstraint: (
+    bl_ui.properties_constraint.BONE_PT_bFollowTrackConstraint
+)
 
-BONE_PT_bGeometryAttributeConstraint: bl_ui.properties_constraint.BONE_PT_bGeometryAttributeConstraint
+BONE_PT_bGeometryAttributeConstraint: (
+    bl_ui.properties_constraint.BONE_PT_bGeometryAttributeConstraint
+)
 
 BONE_PT_bKinematicConstraint: bl_ui.properties_constraint.BONE_PT_bKinematicConstraint
 
@@ -112678,7 +112867,9 @@ BONE_PT_bLockTrackConstraint: bl_ui.properties_constraint.BONE_PT_bLockTrackCons
 
 BONE_PT_bMinMaxConstraint: bl_ui.properties_constraint.BONE_PT_bMinMaxConstraint
 
-BONE_PT_bObjectSolverConstraint: bl_ui.properties_constraint.BONE_PT_bObjectSolverConstraint
+BONE_PT_bObjectSolverConstraint: (
+    bl_ui.properties_constraint.BONE_PT_bObjectSolverConstraint
+)
 
 BONE_PT_bPivotConstraint: bl_ui.properties_constraint.BONE_PT_bPivotConstraint
 
@@ -112696,9 +112887,13 @@ BONE_PT_bSizeLimitConstraint: bl_ui.properties_constraint.BONE_PT_bSizeLimitCons
 
 BONE_PT_bSplineIKConstraint: bl_ui.properties_constraint.BONE_PT_bSplineIKConstraint
 
-BONE_PT_bSplineIKConstraint_chain_scaling: bl_ui.properties_constraint.BONE_PT_bSplineIKConstraint_chain_scaling
+BONE_PT_bSplineIKConstraint_chain_scaling: (
+    bl_ui.properties_constraint.BONE_PT_bSplineIKConstraint_chain_scaling
+)
 
-BONE_PT_bSplineIKConstraint_fitting: bl_ui.properties_constraint.BONE_PT_bSplineIKConstraint_fitting
+BONE_PT_bSplineIKConstraint_fitting: (
+    bl_ui.properties_constraint.BONE_PT_bSplineIKConstraint_fitting
+)
 
 BONE_PT_bStretchToConstraint: bl_ui.properties_constraint.BONE_PT_bStretchToConstraint
 
@@ -112706,19 +112901,31 @@ BONE_PT_bTrackToConstraint: bl_ui.properties_constraint.BONE_PT_bTrackToConstrai
 
 BONE_PT_bTransLikeConstraint: bl_ui.properties_constraint.BONE_PT_bTransLikeConstraint
 
-BONE_PT_bTransformCacheConstraint: bl_ui.properties_constraint.BONE_PT_bTransformCacheConstraint
+BONE_PT_bTransformCacheConstraint: (
+    bl_ui.properties_constraint.BONE_PT_bTransformCacheConstraint
+)
 
-BONE_PT_bTransformCacheConstraint_layers: bl_ui.properties_constraint.BONE_PT_bTransformCacheConstraint_layers
+BONE_PT_bTransformCacheConstraint_layers: (
+    bl_ui.properties_constraint.BONE_PT_bTransformCacheConstraint_layers
+)
 
-BONE_PT_bTransformCacheConstraint_time: bl_ui.properties_constraint.BONE_PT_bTransformCacheConstraint_time
+BONE_PT_bTransformCacheConstraint_time: (
+    bl_ui.properties_constraint.BONE_PT_bTransformCacheConstraint_time
+)
 
-BONE_PT_bTransformCacheConstraint_velocity: bl_ui.properties_constraint.BONE_PT_bTransformCacheConstraint_velocity
+BONE_PT_bTransformCacheConstraint_velocity: (
+    bl_ui.properties_constraint.BONE_PT_bTransformCacheConstraint_velocity
+)
 
 BONE_PT_bTransformConstraint: bl_ui.properties_constraint.BONE_PT_bTransformConstraint
 
-BONE_PT_bTransformConstraint_from: bl_ui.properties_constraint.BONE_PT_bTransformConstraint_from
+BONE_PT_bTransformConstraint_from: (
+    bl_ui.properties_constraint.BONE_PT_bTransformConstraint_from
+)
 
-BONE_PT_bTransformConstraint_to: bl_ui.properties_constraint.BONE_PT_bTransformConstraint_to
+BONE_PT_bTransformConstraint_to: (
+    bl_ui.properties_constraint.BONE_PT_bTransformConstraint_to
+)
 
 BONE_PT_collections: bl_ui.properties_data_bone.BONE_PT_collections
 
@@ -112756,7 +112963,9 @@ CLIP_MT_masking_editor_menus: bl_ui.space_clip.CLIP_MT_masking_editor_menus
 
 CLIP_MT_pivot_pie: bl_ui.space_clip.CLIP_MT_pivot_pie
 
-CLIP_MT_plane_track_image_context_menu: bl_ui.space_clip.CLIP_MT_plane_track_image_context_menu
+CLIP_MT_plane_track_image_context_menu: (
+    bl_ui.space_clip.CLIP_MT_plane_track_image_context_menu
+)
 
 CLIP_MT_proxy: bl_ui.space_clip.CLIP_MT_proxy
 
@@ -112774,7 +112983,9 @@ CLIP_MT_solving_pie: bl_ui.space_clip.CLIP_MT_solving_pie
 
 CLIP_MT_stabilize_2d_context_menu: bl_ui.space_clip.CLIP_MT_stabilize_2d_context_menu
 
-CLIP_MT_stabilize_2d_rotation_context_menu: bl_ui.space_clip.CLIP_MT_stabilize_2d_rotation_context_menu
+CLIP_MT_stabilize_2d_rotation_context_menu: (
+    bl_ui.space_clip.CLIP_MT_stabilize_2d_rotation_context_menu
+)
 
 CLIP_MT_track: bl_ui.space_clip.CLIP_MT_track
 
@@ -112920,17 +113131,25 @@ CLOTH_PT_presets: bl_ui.properties_physics_cloth.CLOTH_PT_presets
 
 COLLECTION_MT_context_menu: bl_ui.properties_object.COLLECTION_MT_context_menu
 
-COLLECTION_MT_context_menu_instance_offset: bl_ui.properties_collection.COLLECTION_MT_context_menu_instance_offset
+COLLECTION_MT_context_menu_instance_offset: (
+    bl_ui.properties_collection.COLLECTION_MT_context_menu_instance_offset
+)
 
-COLLECTION_PT_collection_custom_props: bl_ui.properties_collection.COLLECTION_PT_collection_custom_props
+COLLECTION_PT_collection_custom_props: (
+    bl_ui.properties_collection.COLLECTION_PT_collection_custom_props
+)
 
-COLLECTION_PT_collection_flags: bl_ui.properties_collection.COLLECTION_PT_collection_flags
+COLLECTION_PT_collection_flags: (
+    bl_ui.properties_collection.COLLECTION_PT_collection_flags
+)
 
 COLLECTION_PT_exporters: bl_ui.properties_collection.COLLECTION_PT_exporters
 
 COLLECTION_PT_instancing: bl_ui.properties_collection.COLLECTION_PT_instancing
 
-COLLECTION_PT_lineart_collection: bl_ui.properties_collection.COLLECTION_PT_lineart_collection
+COLLECTION_PT_lineart_collection: (
+    bl_ui.properties_collection.COLLECTION_PT_lineart_collection
+)
 
 COLLECTION_PT_viewlayer_flags: bl_ui.properties_collection.COLLECTION_PT_viewlayer_flags
 
@@ -112948,15 +113167,21 @@ CONSOLE_MT_view: bl_ui.space_console.CONSOLE_MT_view
 
 CONSTRAINT_OT_add_target: bl_operators.constraint.CONSTRAINT_OT_add_target
 
-CONSTRAINT_OT_disable_keep_transform: bl_operators.constraint.CONSTRAINT_OT_disable_keep_transform
+CONSTRAINT_OT_disable_keep_transform: (
+    bl_operators.constraint.CONSTRAINT_OT_disable_keep_transform
+)
 
-CONSTRAINT_OT_normalize_target_weights: bl_operators.constraint.CONSTRAINT_OT_normalize_target_weights
+CONSTRAINT_OT_normalize_target_weights: (
+    bl_operators.constraint.CONSTRAINT_OT_normalize_target_weights
+)
 
 CONSTRAINT_OT_remove_target: bl_operators.constraint.CONSTRAINT_OT_remove_target
 
 CURVES_MT_add_attribute: bl_ui.properties_data_curves.CURVES_MT_add_attribute
 
-CURVES_MT_attribute_context_menu: bl_ui.properties_data_curves.CURVES_MT_attribute_context_menu
+CURVES_MT_attribute_context_menu: (
+    bl_ui.properties_data_curves.CURVES_MT_attribute_context_menu
+)
 
 CURVES_UL_attributes: bl_ui.properties_data_curves.CURVES_UL_attributes
 
@@ -112978,11 +113203,15 @@ DATA_PT_camera: bl_ui.properties_data_camera.DATA_PT_camera
 
 DATA_PT_camera_animation: bl_ui.properties_data_camera.DATA_PT_camera_animation
 
-DATA_PT_camera_background_image: bl_ui.properties_data_camera.DATA_PT_camera_background_image
+DATA_PT_camera_background_image: (
+    bl_ui.properties_data_camera.DATA_PT_camera_background_image
+)
 
 DATA_PT_camera_display: bl_ui.properties_data_camera.DATA_PT_camera_display
 
-DATA_PT_camera_display_composition_guides: bl_ui.properties_data_camera.DATA_PT_camera_display_composition_guides
+DATA_PT_camera_display_composition_guides: (
+    bl_ui.properties_data_camera.DATA_PT_camera_display_composition_guides
+)
 
 DATA_PT_camera_dof: bl_ui.properties_data_camera.DATA_PT_camera_dof
 
@@ -112990,7 +113219,9 @@ DATA_PT_camera_dof_aperture: bl_ui.properties_data_camera.DATA_PT_camera_dof_ape
 
 DATA_PT_camera_safe_areas: bl_ui.properties_data_camera.DATA_PT_camera_safe_areas
 
-DATA_PT_camera_safe_areas_center_cut: bl_ui.properties_data_camera.DATA_PT_camera_safe_areas_center_cut
+DATA_PT_camera_safe_areas_center_cut: (
+    bl_ui.properties_data_camera.DATA_PT_camera_safe_areas_center_cut
+)
 
 DATA_PT_camera_stereoscopy: bl_ui.properties_data_camera.DATA_PT_camera_stereoscopy
 
@@ -113004,7 +113235,9 @@ DATA_PT_context_curve: bl_ui.properties_data_curve.DATA_PT_context_curve
 
 DATA_PT_context_curves: bl_ui.properties_data_curves.DATA_PT_context_curves
 
-DATA_PT_context_grease_pencil: bl_ui.properties_data_grease_pencil.DATA_PT_context_grease_pencil
+DATA_PT_context_grease_pencil: (
+    bl_ui.properties_data_grease_pencil.DATA_PT_context_grease_pencil
+)
 
 DATA_PT_context_lattice: bl_ui.properties_data_lattice.DATA_PT_context_lattice
 
@@ -113046,9 +113279,13 @@ DATA_PT_custom_props_light: bl_ui.properties_data_light.DATA_PT_custom_props_lig
 
 DATA_PT_custom_props_mesh: bl_ui.properties_data_mesh.DATA_PT_custom_props_mesh
 
-DATA_PT_custom_props_metaball: bl_ui.properties_data_metaball.DATA_PT_custom_props_metaball
+DATA_PT_custom_props_metaball: (
+    bl_ui.properties_data_metaball.DATA_PT_custom_props_metaball
+)
 
-DATA_PT_custom_props_pointcloud: bl_ui.properties_data_pointcloud.DATA_PT_custom_props_pointcloud
+DATA_PT_custom_props_pointcloud: (
+    bl_ui.properties_data_pointcloud.DATA_PT_custom_props_pointcloud
+)
 
 DATA_PT_custom_props_speaker: bl_ui.properties_data_speaker.DATA_PT_custom_props_speaker
 
@@ -113072,35 +113309,63 @@ DATA_PT_geometry_curve: bl_ui.properties_data_curve.DATA_PT_geometry_curve
 
 DATA_PT_geometry_curve_bevel: bl_ui.properties_data_curve.DATA_PT_geometry_curve_bevel
 
-DATA_PT_geometry_curve_start_end: bl_ui.properties_data_curve.DATA_PT_geometry_curve_start_end
+DATA_PT_geometry_curve_start_end: (
+    bl_ui.properties_data_curve.DATA_PT_geometry_curve_start_end
+)
 
-DATA_PT_grease_pencil_animation: bl_ui.properties_data_grease_pencil.DATA_PT_grease_pencil_animation
+DATA_PT_grease_pencil_animation: (
+    bl_ui.properties_data_grease_pencil.DATA_PT_grease_pencil_animation
+)
 
-DATA_PT_grease_pencil_attributes: bl_ui.properties_data_grease_pencil.DATA_PT_grease_pencil_attributes
+DATA_PT_grease_pencil_attributes: (
+    bl_ui.properties_data_grease_pencil.DATA_PT_grease_pencil_attributes
+)
 
-DATA_PT_grease_pencil_custom_props: bl_ui.properties_data_grease_pencil.DATA_PT_grease_pencil_custom_props
+DATA_PT_grease_pencil_custom_props: (
+    bl_ui.properties_data_grease_pencil.DATA_PT_grease_pencil_custom_props
+)
 
-DATA_PT_grease_pencil_layer_adjustments: bl_ui.properties_data_grease_pencil.DATA_PT_grease_pencil_layer_adjustments
+DATA_PT_grease_pencil_layer_adjustments: (
+    bl_ui.properties_data_grease_pencil.DATA_PT_grease_pencil_layer_adjustments
+)
 
-DATA_PT_grease_pencil_layer_display: bl_ui.properties_data_grease_pencil.DATA_PT_grease_pencil_layer_display
+DATA_PT_grease_pencil_layer_display: (
+    bl_ui.properties_data_grease_pencil.DATA_PT_grease_pencil_layer_display
+)
 
-DATA_PT_grease_pencil_layer_group_display: bl_ui.properties_data_grease_pencil.DATA_PT_grease_pencil_layer_group_display
+DATA_PT_grease_pencil_layer_group_display: (
+    bl_ui.properties_data_grease_pencil.DATA_PT_grease_pencil_layer_group_display
+)
 
-DATA_PT_grease_pencil_layer_masks: bl_ui.properties_data_grease_pencil.DATA_PT_grease_pencil_layer_masks
+DATA_PT_grease_pencil_layer_masks: (
+    bl_ui.properties_data_grease_pencil.DATA_PT_grease_pencil_layer_masks
+)
 
-DATA_PT_grease_pencil_layer_relations: bl_ui.properties_data_grease_pencil.DATA_PT_grease_pencil_layer_relations
+DATA_PT_grease_pencil_layer_relations: (
+    bl_ui.properties_data_grease_pencil.DATA_PT_grease_pencil_layer_relations
+)
 
-DATA_PT_grease_pencil_layer_transform: bl_ui.properties_data_grease_pencil.DATA_PT_grease_pencil_layer_transform
+DATA_PT_grease_pencil_layer_transform: (
+    bl_ui.properties_data_grease_pencil.DATA_PT_grease_pencil_layer_transform
+)
 
-DATA_PT_grease_pencil_layers: bl_ui.properties_data_grease_pencil.DATA_PT_grease_pencil_layers
+DATA_PT_grease_pencil_layers: (
+    bl_ui.properties_data_grease_pencil.DATA_PT_grease_pencil_layers
+)
 
-DATA_PT_grease_pencil_onion_skinning: bl_ui.properties_data_grease_pencil.DATA_PT_grease_pencil_onion_skinning
+DATA_PT_grease_pencil_onion_skinning: (
+    bl_ui.properties_data_grease_pencil.DATA_PT_grease_pencil_onion_skinning
+)
 
 DATA_PT_grease_pencil_onion_skinning_custom_colors: bl_ui.properties_data_grease_pencil.DATA_PT_grease_pencil_onion_skinning_custom_colors
 
-DATA_PT_grease_pencil_onion_skinning_display: bl_ui.properties_data_grease_pencil.DATA_PT_grease_pencil_onion_skinning_display
+DATA_PT_grease_pencil_onion_skinning_display: (
+    bl_ui.properties_data_grease_pencil.DATA_PT_grease_pencil_onion_skinning_display
+)
 
-DATA_PT_grease_pencil_settings: bl_ui.properties_data_grease_pencil.DATA_PT_grease_pencil_settings
+DATA_PT_grease_pencil_settings: (
+    bl_ui.properties_data_grease_pencil.DATA_PT_grease_pencil_settings
+)
 
 DATA_PT_iksolver_itasc: bl_ui.properties_data_armature.DATA_PT_iksolver_itasc
 
@@ -113116,29 +113381,45 @@ DATA_PT_light_animation: bl_ui.properties_data_light.DATA_PT_light_animation
 
 DATA_PT_lightprobe: bl_ui.properties_data_lightprobe.DATA_PT_lightprobe
 
-DATA_PT_lightprobe_animation: bl_ui.properties_data_lightprobe.DATA_PT_lightprobe_animation
+DATA_PT_lightprobe_animation: (
+    bl_ui.properties_data_lightprobe.DATA_PT_lightprobe_animation
+)
 
 DATA_PT_lightprobe_bake: bl_ui.properties_data_lightprobe.DATA_PT_lightprobe_bake
 
-DATA_PT_lightprobe_bake_capture: bl_ui.properties_data_lightprobe.DATA_PT_lightprobe_bake_capture
+DATA_PT_lightprobe_bake_capture: (
+    bl_ui.properties_data_lightprobe.DATA_PT_lightprobe_bake_capture
+)
 
-DATA_PT_lightprobe_bake_clamping: bl_ui.properties_data_lightprobe.DATA_PT_lightprobe_bake_clamping
+DATA_PT_lightprobe_bake_clamping: (
+    bl_ui.properties_data_lightprobe.DATA_PT_lightprobe_bake_clamping
+)
 
-DATA_PT_lightprobe_bake_offset: bl_ui.properties_data_lightprobe.DATA_PT_lightprobe_bake_offset
+DATA_PT_lightprobe_bake_offset: (
+    bl_ui.properties_data_lightprobe.DATA_PT_lightprobe_bake_offset
+)
 
-DATA_PT_lightprobe_bake_resolution: bl_ui.properties_data_lightprobe.DATA_PT_lightprobe_bake_resolution
+DATA_PT_lightprobe_bake_resolution: (
+    bl_ui.properties_data_lightprobe.DATA_PT_lightprobe_bake_resolution
+)
 
 DATA_PT_lightprobe_capture: bl_ui.properties_data_lightprobe.DATA_PT_lightprobe_capture
 
 DATA_PT_lightprobe_display: bl_ui.properties_data_lightprobe.DATA_PT_lightprobe_display
 
-DATA_PT_lightprobe_display_eevee: bl_ui.properties_data_lightprobe.DATA_PT_lightprobe_display_eevee
+DATA_PT_lightprobe_display_eevee: (
+    bl_ui.properties_data_lightprobe.DATA_PT_lightprobe_display_eevee
+)
 
 DATA_PT_lightprobe_eevee: bl_ui.properties_data_lightprobe.DATA_PT_lightprobe_eevee
 
-DATA_PT_lightprobe_parallax: bl_ui.properties_data_lightprobe.DATA_PT_lightprobe_parallax
+DATA_PT_lightprobe_parallax: (
+    bl_ui.properties_data_lightprobe.DATA_PT_lightprobe_parallax
+)
 
-DATA_PT_lightprobe_visibility: bl_ui.properties_data_lightprobe.DATA_PT_lightprobe_visibility
+DATA_PT_lightprobe_visibility: (
+    bl_ui.properties_data_lightprobe.DATA_PT_lightprobe_visibility
+)
 
 DATA_PT_mball_texture_space: bl_ui.properties_data_metaball.DATA_PT_mball_texture_space
 
@@ -113156,7 +113437,9 @@ DATA_PT_modifiers: bl_ui.properties_data_modifier.DATA_PT_modifiers
 
 DATA_PT_motion_paths: bl_ui.properties_data_armature.DATA_PT_motion_paths
 
-DATA_PT_motion_paths_display: bl_ui.properties_data_armature.DATA_PT_motion_paths_display
+DATA_PT_motion_paths_display: (
+    bl_ui.properties_data_armature.DATA_PT_motion_paths_display
+)
 
 DATA_PT_paragraph: bl_ui.properties_data_curve.DATA_PT_paragraph
 
@@ -113166,7 +113449,9 @@ DATA_PT_paragraph_spacing: bl_ui.properties_data_curve.DATA_PT_paragraph_spacing
 
 DATA_PT_pathanim: bl_ui.properties_data_curve.DATA_PT_pathanim
 
-DATA_PT_pointcloud_attributes: bl_ui.properties_data_pointcloud.DATA_PT_pointcloud_attributes
+DATA_PT_pointcloud_attributes: (
+    bl_ui.properties_data_pointcloud.DATA_PT_pointcloud_attributes
+)
 
 DATA_PT_pose: bl_ui.properties_data_armature.DATA_PT_pose
 
@@ -113204,9 +113489,13 @@ DATA_PT_volume_grids: bl_ui.properties_data_volume.DATA_PT_volume_grids
 
 DATA_PT_volume_render: bl_ui.properties_data_volume.DATA_PT_volume_render
 
-DATA_PT_volume_viewport_display: bl_ui.properties_data_volume.DATA_PT_volume_viewport_display
+DATA_PT_volume_viewport_display: (
+    bl_ui.properties_data_volume.DATA_PT_volume_viewport_display
+)
 
-DATA_PT_volume_viewport_display_slicing: bl_ui.properties_data_volume.DATA_PT_volume_viewport_display_slicing
+DATA_PT_volume_viewport_display_slicing: (
+    bl_ui.properties_data_volume.DATA_PT_volume_viewport_display_slicing
+)
 
 DATA_UL_bone_collections: bl_ui.properties_data_armature.DATA_UL_bone_collections
 
@@ -113220,7 +113509,9 @@ DOPESHEET_MT_cache: bl_ui.space_dopesheet.DOPESHEET_MT_cache
 
 DOPESHEET_MT_channel: bl_ui.space_dopesheet.DOPESHEET_MT_channel
 
-DOPESHEET_MT_channel_context_menu: bl_ui.space_dopesheet.DOPESHEET_MT_channel_context_menu
+DOPESHEET_MT_channel_context_menu: (
+    bl_ui.space_dopesheet.DOPESHEET_MT_channel_context_menu
+)
 
 DOPESHEET_MT_context_menu: bl_ui.space_dopesheet.DOPESHEET_MT_context_menu
 
@@ -113256,15 +113547,25 @@ DOPESHEET_PT_dopesheet_overlay: bl_ui.space_dopesheet.DOPESHEET_PT_dopesheet_ove
 
 DOPESHEET_PT_filters: bl_ui.space_dopesheet.DOPESHEET_PT_filters
 
-DOPESHEET_PT_grease_pencil_layer_adjustments: bl_ui.space_dopesheet.DOPESHEET_PT_grease_pencil_layer_adjustments
+DOPESHEET_PT_grease_pencil_layer_adjustments: (
+    bl_ui.space_dopesheet.DOPESHEET_PT_grease_pencil_layer_adjustments
+)
 
-DOPESHEET_PT_grease_pencil_layer_display: bl_ui.space_dopesheet.DOPESHEET_PT_grease_pencil_layer_display
+DOPESHEET_PT_grease_pencil_layer_display: (
+    bl_ui.space_dopesheet.DOPESHEET_PT_grease_pencil_layer_display
+)
 
-DOPESHEET_PT_grease_pencil_layer_masks: bl_ui.space_dopesheet.DOPESHEET_PT_grease_pencil_layer_masks
+DOPESHEET_PT_grease_pencil_layer_masks: (
+    bl_ui.space_dopesheet.DOPESHEET_PT_grease_pencil_layer_masks
+)
 
-DOPESHEET_PT_grease_pencil_layer_relations: bl_ui.space_dopesheet.DOPESHEET_PT_grease_pencil_layer_relations
+DOPESHEET_PT_grease_pencil_layer_relations: (
+    bl_ui.space_dopesheet.DOPESHEET_PT_grease_pencil_layer_relations
+)
 
-DOPESHEET_PT_grease_pencil_layer_transform: bl_ui.space_dopesheet.DOPESHEET_PT_grease_pencil_layer_transform
+DOPESHEET_PT_grease_pencil_layer_transform: (
+    bl_ui.space_dopesheet.DOPESHEET_PT_grease_pencil_layer_transform
+)
 
 DOPESHEET_PT_grease_pencil_mode: bl_ui.space_dopesheet.DOPESHEET_PT_grease_pencil_mode
 
@@ -113274,21 +113575,29 @@ DOPESHEET_PT_proportional_edit: bl_ui.space_dopesheet.DOPESHEET_PT_proportional_
 
 DOPESHEET_PT_snapping: bl_ui.space_dopesheet.DOPESHEET_PT_snapping
 
-EEVEE_MATERIAL_PT_context_material: bl_ui.properties_material.EEVEE_MATERIAL_PT_context_material
+EEVEE_MATERIAL_PT_context_material: (
+    bl_ui.properties_material.EEVEE_MATERIAL_PT_context_material
+)
 
 EEVEE_MATERIAL_PT_displacement: bl_ui.properties_material.EEVEE_MATERIAL_PT_displacement
 
 EEVEE_MATERIAL_PT_settings: bl_ui.properties_material.EEVEE_MATERIAL_PT_settings
 
-EEVEE_MATERIAL_PT_settings_surface: bl_ui.properties_material.EEVEE_MATERIAL_PT_settings_surface
+EEVEE_MATERIAL_PT_settings_surface: (
+    bl_ui.properties_material.EEVEE_MATERIAL_PT_settings_surface
+)
 
-EEVEE_MATERIAL_PT_settings_volume: bl_ui.properties_material.EEVEE_MATERIAL_PT_settings_volume
+EEVEE_MATERIAL_PT_settings_volume: (
+    bl_ui.properties_material.EEVEE_MATERIAL_PT_settings_volume
+)
 
 EEVEE_MATERIAL_PT_surface: bl_ui.properties_material.EEVEE_MATERIAL_PT_surface
 
 EEVEE_MATERIAL_PT_thickness: bl_ui.properties_material.EEVEE_MATERIAL_PT_thickness
 
-EEVEE_MATERIAL_PT_viewport_settings: bl_ui.properties_material.EEVEE_MATERIAL_PT_viewport_settings
+EEVEE_MATERIAL_PT_viewport_settings: (
+    bl_ui.properties_material.EEVEE_MATERIAL_PT_viewport_settings
+)
 
 EEVEE_MATERIAL_PT_volume: bl_ui.properties_material.EEVEE_MATERIAL_PT_volume
 
@@ -113308,9 +113617,13 @@ EEVEE_WORLD_PT_volume: bl_ui.properties_world.EEVEE_WORLD_PT_volume
 
 FILEBROWSER_HT_header: bl_ui.space_filebrowser.FILEBROWSER_HT_header
 
-FILEBROWSER_MT_bookmarks_context_menu: bl_ui.space_filebrowser.FILEBROWSER_MT_bookmarks_context_menu
+FILEBROWSER_MT_bookmarks_context_menu: (
+    bl_ui.space_filebrowser.FILEBROWSER_MT_bookmarks_context_menu
+)
 
-FILEBROWSER_MT_bookmarks_recents_specials_menu: bl_ui.space_filebrowser.FILEBROWSER_MT_bookmarks_recents_specials_menu
+FILEBROWSER_MT_bookmarks_recents_specials_menu: (
+    bl_ui.space_filebrowser.FILEBROWSER_MT_bookmarks_recents_specials_menu
+)
 
 FILEBROWSER_MT_context_menu: bl_ui.space_filebrowser.FILEBROWSER_MT_context_menu
 
@@ -113324,13 +113637,19 @@ FILEBROWSER_MT_view_pie: bl_ui.space_filebrowser.FILEBROWSER_MT_view_pie
 
 FILEBROWSER_PT_advanced_filter: bl_ui.space_filebrowser.FILEBROWSER_PT_advanced_filter
 
-FILEBROWSER_PT_bookmarks_favorites: bl_ui.space_filebrowser.FILEBROWSER_PT_bookmarks_favorites
+FILEBROWSER_PT_bookmarks_favorites: (
+    bl_ui.space_filebrowser.FILEBROWSER_PT_bookmarks_favorites
+)
 
-FILEBROWSER_PT_bookmarks_recents: bl_ui.space_filebrowser.FILEBROWSER_PT_bookmarks_recents
+FILEBROWSER_PT_bookmarks_recents: (
+    bl_ui.space_filebrowser.FILEBROWSER_PT_bookmarks_recents
+)
 
 FILEBROWSER_PT_bookmarks_system: bl_ui.space_filebrowser.FILEBROWSER_PT_bookmarks_system
 
-FILEBROWSER_PT_bookmarks_volumes: bl_ui.space_filebrowser.FILEBROWSER_PT_bookmarks_volumes
+FILEBROWSER_PT_bookmarks_volumes: (
+    bl_ui.space_filebrowser.FILEBROWSER_PT_bookmarks_volumes
+)
 
 FILEBROWSER_PT_directory_path: bl_ui.space_filebrowser.FILEBROWSER_PT_directory_path
 
@@ -113342,7 +113661,9 @@ FILEBROWSER_UL_dir: bl_ui.space_filebrowser.FILEBROWSER_UL_dir
 
 FLUID_PT_presets: bl_ui.properties_physics_fluid.FLUID_PT_presets
 
-GPENCIL_UL_annotation_layer: bl_ui.properties_grease_pencil_common.GPENCIL_UL_annotation_layer
+GPENCIL_UL_annotation_layer: (
+    bl_ui.properties_grease_pencil_common.GPENCIL_UL_annotation_layer
+)
 
 GPENCIL_UL_matslots: bl_ui.properties_material_gpencil.GPENCIL_UL_matslots
 
@@ -113392,33 +113713,59 @@ GRAPH_PT_snapping: bl_ui.space_graph.GRAPH_PT_snapping
 
 GREASE_PENCIL_MT_Layers: bl_ui.space_view3d.GREASE_PENCIL_MT_Layers
 
-GREASE_PENCIL_MT_draw_delete: bl_ui.properties_grease_pencil_common.GREASE_PENCIL_MT_draw_delete
+GREASE_PENCIL_MT_draw_delete: (
+    bl_ui.properties_grease_pencil_common.GREASE_PENCIL_MT_draw_delete
+)
 
-GREASE_PENCIL_MT_grease_pencil_add_layer_extra: bl_ui.properties_data_grease_pencil.GREASE_PENCIL_MT_grease_pencil_add_layer_extra
+GREASE_PENCIL_MT_grease_pencil_add_layer_extra: (
+    bl_ui.properties_data_grease_pencil.GREASE_PENCIL_MT_grease_pencil_add_layer_extra
+)
 
-GREASE_PENCIL_MT_group_context_menu: bl_ui.properties_data_grease_pencil.GREASE_PENCIL_MT_group_context_menu
+GREASE_PENCIL_MT_group_context_menu: (
+    bl_ui.properties_data_grease_pencil.GREASE_PENCIL_MT_group_context_menu
+)
 
-GREASE_PENCIL_MT_layer_active: bl_ui.properties_grease_pencil_common.GREASE_PENCIL_MT_layer_active
+GREASE_PENCIL_MT_layer_active: (
+    bl_ui.properties_grease_pencil_common.GREASE_PENCIL_MT_layer_active
+)
 
-GREASE_PENCIL_MT_layer_group: bl_ui.properties_grease_pencil_common.GREASE_PENCIL_MT_layer_group
+GREASE_PENCIL_MT_layer_group: (
+    bl_ui.properties_grease_pencil_common.GREASE_PENCIL_MT_layer_group
+)
 
-GREASE_PENCIL_MT_layer_mask_add: bl_ui.properties_data_grease_pencil.GREASE_PENCIL_MT_layer_mask_add
+GREASE_PENCIL_MT_layer_mask_add: (
+    bl_ui.properties_data_grease_pencil.GREASE_PENCIL_MT_layer_mask_add
+)
 
-GREASE_PENCIL_MT_material_context_menu: bl_ui.properties_material_gpencil.GREASE_PENCIL_MT_material_context_menu
+GREASE_PENCIL_MT_material_context_menu: (
+    bl_ui.properties_material_gpencil.GREASE_PENCIL_MT_material_context_menu
+)
 
-GREASE_PENCIL_MT_move_to_layer: bl_ui.properties_grease_pencil_common.GREASE_PENCIL_MT_move_to_layer
+GREASE_PENCIL_MT_move_to_layer: (
+    bl_ui.properties_grease_pencil_common.GREASE_PENCIL_MT_move_to_layer
+)
 
-GREASE_PENCIL_MT_move_to_layer_SEARCH: bl_ui.properties_grease_pencil_common.GREASE_PENCIL_MT_move_to_layer_SEARCH
+GREASE_PENCIL_MT_move_to_layer_SEARCH: (
+    bl_ui.properties_grease_pencil_common.GREASE_PENCIL_MT_move_to_layer_SEARCH
+)
 
 GREASE_PENCIL_MT_snap: bl_ui.properties_grease_pencil_common.GREASE_PENCIL_MT_snap
 
-GREASE_PENCIL_MT_snap_pie: bl_ui.properties_grease_pencil_common.GREASE_PENCIL_MT_snap_pie
+GREASE_PENCIL_MT_snap_pie: (
+    bl_ui.properties_grease_pencil_common.GREASE_PENCIL_MT_snap_pie
+)
 
-GREASE_PENCIL_MT_stroke_simplify: bl_ui.properties_grease_pencil_common.GREASE_PENCIL_MT_stroke_simplify
+GREASE_PENCIL_MT_stroke_simplify: (
+    bl_ui.properties_grease_pencil_common.GREASE_PENCIL_MT_stroke_simplify
+)
 
-GREASE_PENCIL_OT_relative_layer_mask_add: bl_operators.grease_pencil.GREASE_PENCIL_OT_relative_layer_mask_add
+GREASE_PENCIL_OT_relative_layer_mask_add: (
+    bl_operators.grease_pencil.GREASE_PENCIL_OT_relative_layer_mask_add
+)
 
-GREASE_PENCIL_UL_attributes: bl_ui.properties_data_grease_pencil.GREASE_PENCIL_UL_attributes
+GREASE_PENCIL_UL_attributes: (
+    bl_ui.properties_data_grease_pencil.GREASE_PENCIL_UL_attributes
+)
 
 GREASE_PENCIL_UL_masks: bl_ui.properties_data_grease_pencil.GREASE_PENCIL_UL_masks
 
@@ -113476,9 +113823,13 @@ IMAGE_MT_view_pie: bl_ui.space_image.IMAGE_MT_view_pie
 
 IMAGE_MT_view_zoom: bl_ui.space_image.IMAGE_MT_view_zoom
 
-IMAGE_OT_convert_to_mesh_plane: bl_operators.image_as_planes.IMAGE_OT_convert_to_mesh_plane
+IMAGE_OT_convert_to_mesh_plane: (
+    bl_operators.image_as_planes.IMAGE_OT_convert_to_mesh_plane
+)
 
-IMAGE_OT_import_as_mesh_planes: bl_operators.image_as_planes.IMAGE_OT_import_as_mesh_planes
+IMAGE_OT_import_as_mesh_planes: (
+    bl_operators.image_as_planes.IMAGE_OT_import_as_mesh_planes
+)
 
 IMAGE_OT_open_images: bl_operators.image.IMAGE_OT_open_images
 
@@ -113530,7 +113881,9 @@ IMAGE_PT_paint_settings_advanced: bl_ui.space_image.IMAGE_PT_paint_settings_adva
 
 IMAGE_PT_paint_stroke: bl_ui.space_image.IMAGE_PT_paint_stroke
 
-IMAGE_PT_paint_stroke_smooth_stroke: bl_ui.space_image.IMAGE_PT_paint_stroke_smooth_stroke
+IMAGE_PT_paint_stroke_smooth_stroke: (
+    bl_ui.space_image.IMAGE_PT_paint_stroke_smooth_stroke
+)
 
 IMAGE_PT_paint_swatches: bl_ui.space_image.IMAGE_PT_paint_swatches
 
@@ -113608,23 +113961,39 @@ MATERIAL_PT_custom_props: bl_ui.properties_material.MATERIAL_PT_custom_props
 
 MATERIAL_PT_freestyle_line: bl_ui.properties_freestyle.MATERIAL_PT_freestyle_line
 
-MATERIAL_PT_gpencil_animation: bl_ui.properties_material_gpencil.MATERIAL_PT_gpencil_animation
+MATERIAL_PT_gpencil_animation: (
+    bl_ui.properties_material_gpencil.MATERIAL_PT_gpencil_animation
+)
 
-MATERIAL_PT_gpencil_custom_props: bl_ui.properties_material_gpencil.MATERIAL_PT_gpencil_custom_props
+MATERIAL_PT_gpencil_custom_props: (
+    bl_ui.properties_material_gpencil.MATERIAL_PT_gpencil_custom_props
+)
 
-MATERIAL_PT_gpencil_fillcolor: bl_ui.properties_material_gpencil.MATERIAL_PT_gpencil_fillcolor
+MATERIAL_PT_gpencil_fillcolor: (
+    bl_ui.properties_material_gpencil.MATERIAL_PT_gpencil_fillcolor
+)
 
-MATERIAL_PT_gpencil_material_presets: bl_ui.properties_material_gpencil.MATERIAL_PT_gpencil_material_presets
+MATERIAL_PT_gpencil_material_presets: (
+    bl_ui.properties_material_gpencil.MATERIAL_PT_gpencil_material_presets
+)
 
-MATERIAL_PT_gpencil_preview: bl_ui.properties_material_gpencil.MATERIAL_PT_gpencil_preview
+MATERIAL_PT_gpencil_preview: (
+    bl_ui.properties_material_gpencil.MATERIAL_PT_gpencil_preview
+)
 
-MATERIAL_PT_gpencil_settings: bl_ui.properties_material_gpencil.MATERIAL_PT_gpencil_settings
+MATERIAL_PT_gpencil_settings: (
+    bl_ui.properties_material_gpencil.MATERIAL_PT_gpencil_settings
+)
 
 MATERIAL_PT_gpencil_slots: bl_ui.properties_material_gpencil.MATERIAL_PT_gpencil_slots
 
-MATERIAL_PT_gpencil_strokecolor: bl_ui.properties_material_gpencil.MATERIAL_PT_gpencil_strokecolor
+MATERIAL_PT_gpencil_strokecolor: (
+    bl_ui.properties_material_gpencil.MATERIAL_PT_gpencil_strokecolor
+)
 
-MATERIAL_PT_gpencil_surface: bl_ui.properties_material_gpencil.MATERIAL_PT_gpencil_surface
+MATERIAL_PT_gpencil_surface: (
+    bl_ui.properties_material_gpencil.MATERIAL_PT_gpencil_surface
+)
 
 MATERIAL_PT_lineart: bl_ui.properties_material.MATERIAL_PT_lineart
 
@@ -113634,21 +114003,33 @@ MATERIAL_PT_viewport: bl_ui.properties_material.MATERIAL_PT_viewport
 
 MATERIAL_UL_matslots: bl_ui.properties_material.MATERIAL_UL_matslots
 
-MESH_MT_attribute_context_menu: bl_ui.properties_data_mesh.MESH_MT_attribute_context_menu
+MESH_MT_attribute_context_menu: (
+    bl_ui.properties_data_mesh.MESH_MT_attribute_context_menu
+)
 
-MESH_MT_color_attribute_context_menu: bl_ui.properties_data_mesh.MESH_MT_color_attribute_context_menu
+MESH_MT_color_attribute_context_menu: (
+    bl_ui.properties_data_mesh.MESH_MT_color_attribute_context_menu
+)
 
-MESH_MT_shape_key_context_menu: bl_ui.properties_data_mesh.MESH_MT_shape_key_context_menu
+MESH_MT_shape_key_context_menu: (
+    bl_ui.properties_data_mesh.MESH_MT_shape_key_context_menu
+)
 
-MESH_MT_shape_key_tree_context_menu: bl_ui.properties_data_mesh.MESH_MT_shape_key_tree_context_menu
+MESH_MT_shape_key_tree_context_menu: (
+    bl_ui.properties_data_mesh.MESH_MT_shape_key_tree_context_menu
+)
 
-MESH_MT_vertex_group_context_menu: bl_ui.properties_data_mesh.MESH_MT_vertex_group_context_menu
+MESH_MT_vertex_group_context_menu: (
+    bl_ui.properties_data_mesh.MESH_MT_vertex_group_context_menu
+)
 
 MESH_UL_attributes: bl_ui.properties_data_mesh.MESH_UL_attributes
 
 MESH_UL_color_attributes: bl_ui.properties_data_mesh.MESH_UL_color_attributes
 
-MESH_UL_color_attributes_selector: bl_ui.properties_data_mesh.MESH_UL_color_attributes_selector
+MESH_UL_color_attributes_selector: (
+    bl_ui.properties_data_mesh.MESH_UL_color_attributes_selector
+)
 
 MESH_UL_uvmaps: bl_ui.properties_data_mesh.MESH_UL_uvmaps
 
@@ -113704,7 +114085,9 @@ NODE_MT_context_menu: bl_ui.space_node.NODE_MT_context_menu
 
 NODE_MT_context_menu_select_menu: bl_ui.space_node.NODE_MT_context_menu_select_menu
 
-NODE_MT_context_menu_show_hide_menu: bl_ui.space_node.NODE_MT_context_menu_show_hide_menu
+NODE_MT_context_menu_show_hide_menu: (
+    bl_ui.space_node.NODE_MT_context_menu_show_hide_menu
+)
 
 NODE_MT_editor_menus: bl_ui.space_node.NODE_MT_editor_menus
 
@@ -113712,9 +114095,13 @@ NODE_MT_node: bl_ui.space_node.NODE_MT_node
 
 NODE_MT_node_color_context_menu: bl_ui.space_node.NODE_MT_node_color_context_menu
 
-NODE_MT_node_tree_interface_context_menu: bl_ui.space_node.NODE_MT_node_tree_interface_context_menu
+NODE_MT_node_tree_interface_context_menu: (
+    bl_ui.space_node.NODE_MT_node_tree_interface_context_menu
+)
 
-NODE_MT_node_tree_interface_new_item: bl_ui.space_node.NODE_MT_node_tree_interface_new_item
+NODE_MT_node_tree_interface_new_item: (
+    bl_ui.space_node.NODE_MT_node_tree_interface_new_item
+)
 
 NODE_MT_select: bl_ui.space_node.NODE_MT_select
 
@@ -113728,7 +114115,9 @@ NODE_OT_add_closure_zone: bl_operators.node.NODE_OT_add_closure_zone
 
 NODE_OT_add_empty_group: bl_operators.node.NODE_OT_add_empty_group
 
-NODE_OT_add_foreach_geometry_element_zone: bl_operators.node.NODE_OT_add_foreach_geometry_element_zone
+NODE_OT_add_foreach_geometry_element_zone: (
+    bl_operators.node.NODE_OT_add_foreach_geometry_element_zone
+)
 
 NODE_OT_add_node: bl_operators.node.NODE_OT_add_node
 
@@ -113738,21 +114127,29 @@ NODE_OT_add_simulation_zone: bl_operators.node.NODE_OT_add_simulation_zone
 
 NODE_OT_add_zone: bl_operators.node.NODE_OT_add_zone
 
-NODE_OT_collapse_hide_unused_toggle: bl_operators.node.NODE_OT_collapse_hide_unused_toggle
+NODE_OT_collapse_hide_unused_toggle: (
+    bl_operators.node.NODE_OT_collapse_hide_unused_toggle
+)
 
 NODE_OT_connect_to_output: bl_operators.connect_to_output.NODE_OT_connect_to_output
 
 NODE_OT_interface_item_duplicate: bl_operators.node.NODE_OT_interface_item_duplicate
 
-NODE_OT_interface_item_make_panel_toggle: bl_operators.node.NODE_OT_interface_item_make_panel_toggle
+NODE_OT_interface_item_make_panel_toggle: (
+    bl_operators.node.NODE_OT_interface_item_make_panel_toggle
+)
 
 NODE_OT_interface_item_new: bl_operators.node.NODE_OT_interface_item_new
 
-NODE_OT_interface_item_new_panel_toggle: bl_operators.node.NODE_OT_interface_item_new_panel_toggle
+NODE_OT_interface_item_new_panel_toggle: (
+    bl_operators.node.NODE_OT_interface_item_new_panel_toggle
+)
 
 NODE_OT_interface_item_remove: bl_operators.node.NODE_OT_interface_item_remove
 
-NODE_OT_interface_item_unlink_panel_toggle: bl_operators.node.NODE_OT_interface_item_unlink_panel_toggle
+NODE_OT_interface_item_unlink_panel_toggle: (
+    bl_operators.node.NODE_OT_interface_item_unlink_panel_toggle
+)
 
 NODE_OT_swap_empty_group: bl_operators.node.NODE_OT_swap_empty_group
 
@@ -113766,7 +114163,9 @@ NODE_OT_viewer_shortcut_get: bl_operators.node.NODE_OT_viewer_shortcut_get
 
 NODE_OT_viewer_shortcut_set: bl_operators.node.NODE_OT_viewer_shortcut_set
 
-NODE_PT_active_node_custom_properties: bl_ui.space_node.NODE_PT_active_node_custom_properties
+NODE_PT_active_node_custom_properties: (
+    bl_ui.space_node.NODE_PT_active_node_custom_properties
+)
 
 NODE_PT_active_node_generic: bl_ui.space_node.NODE_PT_active_node_generic
 
@@ -113780,7 +114179,9 @@ NODE_PT_backdrop: bl_ui.space_node.NODE_PT_backdrop
 
 NODE_PT_geometry_node_tool_mode: bl_ui.space_node.NODE_PT_geometry_node_tool_mode
 
-NODE_PT_geometry_node_tool_object_types: bl_ui.space_node.NODE_PT_geometry_node_tool_object_types
+NODE_PT_geometry_node_tool_object_types: (
+    bl_ui.space_node.NODE_PT_geometry_node_tool_object_types
+)
 
 NODE_PT_geometry_node_tool_options: bl_ui.space_node.NODE_PT_geometry_node_tool_options
 
@@ -113802,31 +114203,53 @@ NODE_PT_texture_mapping: bl_ui.space_node.NODE_PT_texture_mapping
 
 NODE_PT_tools_active: bl_ui.space_toolsystem_toolbar.NODE_PT_tools_active
 
-OBJECT_MT_light_linking_context_menu: bl_ui.properties_object.OBJECT_MT_light_linking_context_menu
+OBJECT_MT_light_linking_context_menu: (
+    bl_ui.properties_object.OBJECT_MT_light_linking_context_menu
+)
 
 OBJECT_MT_modifier_add: bl_ui.properties_data_modifier.OBJECT_MT_modifier_add
 
-OBJECT_MT_modifier_add_color: bl_ui.properties_data_modifier.OBJECT_MT_modifier_add_color
+OBJECT_MT_modifier_add_color: (
+    bl_ui.properties_data_modifier.OBJECT_MT_modifier_add_color
+)
 
-OBJECT_MT_modifier_add_deform: bl_ui.properties_data_modifier.OBJECT_MT_modifier_add_deform
+OBJECT_MT_modifier_add_deform: (
+    bl_ui.properties_data_modifier.OBJECT_MT_modifier_add_deform
+)
 
 OBJECT_MT_modifier_add_edit: bl_ui.properties_data_modifier.OBJECT_MT_modifier_add_edit
 
-OBJECT_MT_modifier_add_generate: bl_ui.properties_data_modifier.OBJECT_MT_modifier_add_generate
+OBJECT_MT_modifier_add_generate: (
+    bl_ui.properties_data_modifier.OBJECT_MT_modifier_add_generate
+)
 
-OBJECT_MT_modifier_add_normals: bl_ui.properties_data_modifier.OBJECT_MT_modifier_add_normals
+OBJECT_MT_modifier_add_normals: (
+    bl_ui.properties_data_modifier.OBJECT_MT_modifier_add_normals
+)
 
-OBJECT_MT_modifier_add_physics: bl_ui.properties_data_modifier.OBJECT_MT_modifier_add_physics
+OBJECT_MT_modifier_add_physics: (
+    bl_ui.properties_data_modifier.OBJECT_MT_modifier_add_physics
+)
 
-OBJECT_MT_shadow_linking_context_menu: bl_ui.properties_object.OBJECT_MT_shadow_linking_context_menu
+OBJECT_MT_shadow_linking_context_menu: (
+    bl_ui.properties_object.OBJECT_MT_shadow_linking_context_menu
+)
 
-OBJECT_OT_assign_property_defaults: bl_operators.object.OBJECT_OT_assign_property_defaults
+OBJECT_OT_assign_property_defaults: (
+    bl_operators.object.OBJECT_OT_assign_property_defaults
+)
 
-OBJECT_OT_copy_global_transform: bl_operators.copy_global_transform.OBJECT_OT_copy_global_transform
+OBJECT_OT_copy_global_transform: (
+    bl_operators.copy_global_transform.OBJECT_OT_copy_global_transform
+)
 
-OBJECT_OT_copy_relative_transform: bl_operators.copy_global_transform.OBJECT_OT_copy_relative_transform
+OBJECT_OT_copy_relative_transform: (
+    bl_operators.copy_global_transform.OBJECT_OT_copy_relative_transform
+)
 
-OBJECT_OT_delete_fix_to_camera_keys: bl_operators.copy_global_transform.OBJECT_OT_delete_fix_to_camera_keys
+OBJECT_OT_delete_fix_to_camera_keys: (
+    bl_operators.copy_global_transform.OBJECT_OT_delete_fix_to_camera_keys
+)
 
 OBJECT_OT_fix_to_camera: bl_operators.copy_global_transform.OBJECT_OT_fix_to_camera
 
@@ -113836,75 +114259,127 @@ OBJECT_PT_animation: bl_ui.properties_object.OBJECT_PT_animation
 
 OBJECT_PT_bActionConstraint: bl_ui.properties_constraint.OBJECT_PT_bActionConstraint
 
-OBJECT_PT_bActionConstraint_action: bl_ui.properties_constraint.OBJECT_PT_bActionConstraint_action
+OBJECT_PT_bActionConstraint_action: (
+    bl_ui.properties_constraint.OBJECT_PT_bActionConstraint_action
+)
 
-OBJECT_PT_bActionConstraint_target: bl_ui.properties_constraint.OBJECT_PT_bActionConstraint_target
+OBJECT_PT_bActionConstraint_target: (
+    bl_ui.properties_constraint.OBJECT_PT_bActionConstraint_target
+)
 
 OBJECT_PT_bArmatureConstraint: bl_ui.properties_constraint.OBJECT_PT_bArmatureConstraint
 
-OBJECT_PT_bArmatureConstraint_bones: bl_ui.properties_constraint.OBJECT_PT_bArmatureConstraint_bones
+OBJECT_PT_bArmatureConstraint_bones: (
+    bl_ui.properties_constraint.OBJECT_PT_bArmatureConstraint_bones
+)
 
-OBJECT_PT_bCameraSolverConstraint: bl_ui.properties_constraint.OBJECT_PT_bCameraSolverConstraint
+OBJECT_PT_bCameraSolverConstraint: (
+    bl_ui.properties_constraint.OBJECT_PT_bCameraSolverConstraint
+)
 
 OBJECT_PT_bChildOfConstraint: bl_ui.properties_constraint.OBJECT_PT_bChildOfConstraint
 
 OBJECT_PT_bClampToConstraint: bl_ui.properties_constraint.OBJECT_PT_bClampToConstraint
 
-OBJECT_PT_bDampTrackConstraint: bl_ui.properties_constraint.OBJECT_PT_bDampTrackConstraint
+OBJECT_PT_bDampTrackConstraint: (
+    bl_ui.properties_constraint.OBJECT_PT_bDampTrackConstraint
+)
 
-OBJECT_PT_bDistLimitConstraint: bl_ui.properties_constraint.OBJECT_PT_bDistLimitConstraint
+OBJECT_PT_bDistLimitConstraint: (
+    bl_ui.properties_constraint.OBJECT_PT_bDistLimitConstraint
+)
 
-OBJECT_PT_bFollowPathConstraint: bl_ui.properties_constraint.OBJECT_PT_bFollowPathConstraint
+OBJECT_PT_bFollowPathConstraint: (
+    bl_ui.properties_constraint.OBJECT_PT_bFollowPathConstraint
+)
 
-OBJECT_PT_bFollowTrackConstraint: bl_ui.properties_constraint.OBJECT_PT_bFollowTrackConstraint
+OBJECT_PT_bFollowTrackConstraint: (
+    bl_ui.properties_constraint.OBJECT_PT_bFollowTrackConstraint
+)
 
-OBJECT_PT_bGeometryAttributeConstraint: bl_ui.properties_constraint.OBJECT_PT_bGeometryAttributeConstraint
+OBJECT_PT_bGeometryAttributeConstraint: (
+    bl_ui.properties_constraint.OBJECT_PT_bGeometryAttributeConstraint
+)
 
-OBJECT_PT_bKinematicConstraint: bl_ui.properties_constraint.OBJECT_PT_bKinematicConstraint
+OBJECT_PT_bKinematicConstraint: (
+    bl_ui.properties_constraint.OBJECT_PT_bKinematicConstraint
+)
 
 OBJECT_PT_bLocLimitConstraint: bl_ui.properties_constraint.OBJECT_PT_bLocLimitConstraint
 
-OBJECT_PT_bLocateLikeConstraint: bl_ui.properties_constraint.OBJECT_PT_bLocateLikeConstraint
+OBJECT_PT_bLocateLikeConstraint: (
+    bl_ui.properties_constraint.OBJECT_PT_bLocateLikeConstraint
+)
 
-OBJECT_PT_bLockTrackConstraint: bl_ui.properties_constraint.OBJECT_PT_bLockTrackConstraint
+OBJECT_PT_bLockTrackConstraint: (
+    bl_ui.properties_constraint.OBJECT_PT_bLockTrackConstraint
+)
 
 OBJECT_PT_bMinMaxConstraint: bl_ui.properties_constraint.OBJECT_PT_bMinMaxConstraint
 
-OBJECT_PT_bObjectSolverConstraint: bl_ui.properties_constraint.OBJECT_PT_bObjectSolverConstraint
+OBJECT_PT_bObjectSolverConstraint: (
+    bl_ui.properties_constraint.OBJECT_PT_bObjectSolverConstraint
+)
 
 OBJECT_PT_bPivotConstraint: bl_ui.properties_constraint.OBJECT_PT_bPivotConstraint
 
 OBJECT_PT_bRotLimitConstraint: bl_ui.properties_constraint.OBJECT_PT_bRotLimitConstraint
 
-OBJECT_PT_bRotateLikeConstraint: bl_ui.properties_constraint.OBJECT_PT_bRotateLikeConstraint
+OBJECT_PT_bRotateLikeConstraint: (
+    bl_ui.properties_constraint.OBJECT_PT_bRotateLikeConstraint
+)
 
-OBJECT_PT_bSameVolumeConstraint: bl_ui.properties_constraint.OBJECT_PT_bSameVolumeConstraint
+OBJECT_PT_bSameVolumeConstraint: (
+    bl_ui.properties_constraint.OBJECT_PT_bSameVolumeConstraint
+)
 
-OBJECT_PT_bShrinkwrapConstraint: bl_ui.properties_constraint.OBJECT_PT_bShrinkwrapConstraint
+OBJECT_PT_bShrinkwrapConstraint: (
+    bl_ui.properties_constraint.OBJECT_PT_bShrinkwrapConstraint
+)
 
 OBJECT_PT_bSizeLikeConstraint: bl_ui.properties_constraint.OBJECT_PT_bSizeLikeConstraint
 
-OBJECT_PT_bSizeLimitConstraint: bl_ui.properties_constraint.OBJECT_PT_bSizeLimitConstraint
+OBJECT_PT_bSizeLimitConstraint: (
+    bl_ui.properties_constraint.OBJECT_PT_bSizeLimitConstraint
+)
 
-OBJECT_PT_bStretchToConstraint: bl_ui.properties_constraint.OBJECT_PT_bStretchToConstraint
+OBJECT_PT_bStretchToConstraint: (
+    bl_ui.properties_constraint.OBJECT_PT_bStretchToConstraint
+)
 
 OBJECT_PT_bTrackToConstraint: bl_ui.properties_constraint.OBJECT_PT_bTrackToConstraint
 
-OBJECT_PT_bTransLikeConstraint: bl_ui.properties_constraint.OBJECT_PT_bTransLikeConstraint
+OBJECT_PT_bTransLikeConstraint: (
+    bl_ui.properties_constraint.OBJECT_PT_bTransLikeConstraint
+)
 
-OBJECT_PT_bTransformCacheConstraint: bl_ui.properties_constraint.OBJECT_PT_bTransformCacheConstraint
+OBJECT_PT_bTransformCacheConstraint: (
+    bl_ui.properties_constraint.OBJECT_PT_bTransformCacheConstraint
+)
 
-OBJECT_PT_bTransformCacheConstraint_layers: bl_ui.properties_constraint.OBJECT_PT_bTransformCacheConstraint_layers
+OBJECT_PT_bTransformCacheConstraint_layers: (
+    bl_ui.properties_constraint.OBJECT_PT_bTransformCacheConstraint_layers
+)
 
-OBJECT_PT_bTransformCacheConstraint_time: bl_ui.properties_constraint.OBJECT_PT_bTransformCacheConstraint_time
+OBJECT_PT_bTransformCacheConstraint_time: (
+    bl_ui.properties_constraint.OBJECT_PT_bTransformCacheConstraint_time
+)
 
-OBJECT_PT_bTransformCacheConstraint_velocity: bl_ui.properties_constraint.OBJECT_PT_bTransformCacheConstraint_velocity
+OBJECT_PT_bTransformCacheConstraint_velocity: (
+    bl_ui.properties_constraint.OBJECT_PT_bTransformCacheConstraint_velocity
+)
 
-OBJECT_PT_bTransformConstraint: bl_ui.properties_constraint.OBJECT_PT_bTransformConstraint
+OBJECT_PT_bTransformConstraint: (
+    bl_ui.properties_constraint.OBJECT_PT_bTransformConstraint
+)
 
-OBJECT_PT_bTransformConstraint_destination: bl_ui.properties_constraint.OBJECT_PT_bTransformConstraint_destination
+OBJECT_PT_bTransformConstraint_destination: (
+    bl_ui.properties_constraint.OBJECT_PT_bTransformConstraint_destination
+)
 
-OBJECT_PT_bTransformConstraint_source: bl_ui.properties_constraint.OBJECT_PT_bTransformConstraint_source
+OBJECT_PT_bTransformConstraint_source: (
+    bl_ui.properties_constraint.OBJECT_PT_bTransformConstraint_source
+)
 
 OBJECT_PT_collections: bl_ui.properties_object.OBJECT_PT_collections
 
@@ -113930,7 +114405,9 @@ OBJECT_PT_motion_paths: bl_ui.properties_object.OBJECT_PT_motion_paths
 
 OBJECT_PT_motion_paths_display: bl_ui.properties_object.OBJECT_PT_motion_paths_display
 
-OBJECT_PT_parent_inverse_transform: bl_ui.properties_object.OBJECT_PT_parent_inverse_transform
+OBJECT_PT_parent_inverse_transform: (
+    bl_ui.properties_object.OBJECT_PT_parent_inverse_transform
+)
 
 OBJECT_PT_relations: bl_ui.properties_object.OBJECT_PT_relations
 
@@ -113952,9 +114429,13 @@ OUTLINER_MT_collection: bl_ui.space_outliner.OUTLINER_MT_collection
 
 OUTLINER_MT_collection_new: bl_ui.space_outliner.OUTLINER_MT_collection_new
 
-OUTLINER_MT_collection_view_layer: bl_ui.space_outliner.OUTLINER_MT_collection_view_layer
+OUTLINER_MT_collection_view_layer: (
+    bl_ui.space_outliner.OUTLINER_MT_collection_view_layer
+)
 
-OUTLINER_MT_collection_visibility: bl_ui.space_outliner.OUTLINER_MT_collection_visibility
+OUTLINER_MT_collection_visibility: (
+    bl_ui.space_outliner.OUTLINER_MT_collection_visibility
+)
 
 OUTLINER_MT_context_menu: bl_ui.space_outliner.OUTLINER_MT_context_menu
 
@@ -113986,7 +114467,9 @@ PARTICLE_PT_children: bl_ui.properties_particle.PARTICLE_PT_children
 
 PARTICLE_PT_children_clumping: bl_ui.properties_particle.PARTICLE_PT_children_clumping
 
-PARTICLE_PT_children_clumping_noise: bl_ui.properties_particle.PARTICLE_PT_children_clumping_noise
+PARTICLE_PT_children_clumping_noise: (
+    bl_ui.properties_particle.PARTICLE_PT_children_clumping_noise
+)
 
 PARTICLE_PT_children_kink: bl_ui.properties_particle.PARTICLE_PT_children_kink
 
@@ -114010,47 +114493,75 @@ PARTICLE_PT_force_fields: bl_ui.properties_particle.PARTICLE_PT_force_fields
 
 PARTICLE_PT_force_fields_type1: bl_ui.properties_particle.PARTICLE_PT_force_fields_type1
 
-PARTICLE_PT_force_fields_type1_falloff: bl_ui.properties_particle.PARTICLE_PT_force_fields_type1_falloff
+PARTICLE_PT_force_fields_type1_falloff: (
+    bl_ui.properties_particle.PARTICLE_PT_force_fields_type1_falloff
+)
 
 PARTICLE_PT_force_fields_type2: bl_ui.properties_particle.PARTICLE_PT_force_fields_type2
 
-PARTICLE_PT_force_fields_type2_falloff: bl_ui.properties_particle.PARTICLE_PT_force_fields_type2_falloff
+PARTICLE_PT_force_fields_type2_falloff: (
+    bl_ui.properties_particle.PARTICLE_PT_force_fields_type2_falloff
+)
 
 PARTICLE_PT_hair_dynamics: bl_ui.properties_particle.PARTICLE_PT_hair_dynamics
 
-PARTICLE_PT_hair_dynamics_collision: bl_ui.properties_particle.PARTICLE_PT_hair_dynamics_collision
+PARTICLE_PT_hair_dynamics_collision: (
+    bl_ui.properties_particle.PARTICLE_PT_hair_dynamics_collision
+)
 
-PARTICLE_PT_hair_dynamics_presets: bl_ui.properties_particle.PARTICLE_PT_hair_dynamics_presets
+PARTICLE_PT_hair_dynamics_presets: (
+    bl_ui.properties_particle.PARTICLE_PT_hair_dynamics_presets
+)
 
-PARTICLE_PT_hair_dynamics_structure: bl_ui.properties_particle.PARTICLE_PT_hair_dynamics_structure
+PARTICLE_PT_hair_dynamics_structure: (
+    bl_ui.properties_particle.PARTICLE_PT_hair_dynamics_structure
+)
 
-PARTICLE_PT_hair_dynamics_volume: bl_ui.properties_particle.PARTICLE_PT_hair_dynamics_volume
+PARTICLE_PT_hair_dynamics_volume: (
+    bl_ui.properties_particle.PARTICLE_PT_hair_dynamics_volume
+)
 
 PARTICLE_PT_hair_shape: bl_ui.properties_particle.PARTICLE_PT_hair_shape
 
 PARTICLE_PT_physics: bl_ui.properties_particle.PARTICLE_PT_physics
 
-PARTICLE_PT_physics_boids_battle: bl_ui.properties_particle.PARTICLE_PT_physics_boids_battle
+PARTICLE_PT_physics_boids_battle: (
+    bl_ui.properties_particle.PARTICLE_PT_physics_boids_battle
+)
 
 PARTICLE_PT_physics_boids_misc: bl_ui.properties_particle.PARTICLE_PT_physics_boids_misc
 
-PARTICLE_PT_physics_boids_movement: bl_ui.properties_particle.PARTICLE_PT_physics_boids_movement
+PARTICLE_PT_physics_boids_movement: (
+    bl_ui.properties_particle.PARTICLE_PT_physics_boids_movement
+)
 
 PARTICLE_PT_physics_deflection: bl_ui.properties_particle.PARTICLE_PT_physics_deflection
 
-PARTICLE_PT_physics_fluid_advanced: bl_ui.properties_particle.PARTICLE_PT_physics_fluid_advanced
+PARTICLE_PT_physics_fluid_advanced: (
+    bl_ui.properties_particle.PARTICLE_PT_physics_fluid_advanced
+)
 
-PARTICLE_PT_physics_fluid_interaction: bl_ui.properties_particle.PARTICLE_PT_physics_fluid_interaction
+PARTICLE_PT_physics_fluid_interaction: (
+    bl_ui.properties_particle.PARTICLE_PT_physics_fluid_interaction
+)
 
-PARTICLE_PT_physics_fluid_springs: bl_ui.properties_particle.PARTICLE_PT_physics_fluid_springs
+PARTICLE_PT_physics_fluid_springs: (
+    bl_ui.properties_particle.PARTICLE_PT_physics_fluid_springs
+)
 
-PARTICLE_PT_physics_fluid_springs_advanced: bl_ui.properties_particle.PARTICLE_PT_physics_fluid_springs_advanced
+PARTICLE_PT_physics_fluid_springs_advanced: (
+    bl_ui.properties_particle.PARTICLE_PT_physics_fluid_springs_advanced
+)
 
-PARTICLE_PT_physics_fluid_springs_viscoelastic: bl_ui.properties_particle.PARTICLE_PT_physics_fluid_springs_viscoelastic
+PARTICLE_PT_physics_fluid_springs_viscoelastic: (
+    bl_ui.properties_particle.PARTICLE_PT_physics_fluid_springs_viscoelastic
+)
 
 PARTICLE_PT_physics_forces: bl_ui.properties_particle.PARTICLE_PT_physics_forces
 
-PARTICLE_PT_physics_integration: bl_ui.properties_particle.PARTICLE_PT_physics_integration
+PARTICLE_PT_physics_integration: (
+    bl_ui.properties_particle.PARTICLE_PT_physics_integration
+)
 
 PARTICLE_PT_physics_relations: bl_ui.properties_particle.PARTICLE_PT_physics_relations
 
@@ -114058,7 +114569,9 @@ PARTICLE_PT_render: bl_ui.properties_particle.PARTICLE_PT_render
 
 PARTICLE_PT_render_collection: bl_ui.properties_particle.PARTICLE_PT_render_collection
 
-PARTICLE_PT_render_collection_use_count: bl_ui.properties_particle.PARTICLE_PT_render_collection_use_count
+PARTICLE_PT_render_collection_use_count: (
+    bl_ui.properties_particle.PARTICLE_PT_render_collection_use_count
+)
 
 PARTICLE_PT_render_extra: bl_ui.properties_particle.PARTICLE_PT_render_extra
 
@@ -114070,7 +114583,9 @@ PARTICLE_PT_render_path_timing: bl_ui.properties_particle.PARTICLE_PT_render_pat
 
 PARTICLE_PT_rotation: bl_ui.properties_particle.PARTICLE_PT_rotation
 
-PARTICLE_PT_rotation_angular_velocity: bl_ui.properties_particle.PARTICLE_PT_rotation_angular_velocity
+PARTICLE_PT_rotation_angular_velocity: (
+    bl_ui.properties_particle.PARTICLE_PT_rotation_angular_velocity
+)
 
 PARTICLE_PT_textures: bl_ui.properties_particle.PARTICLE_PT_textures
 
@@ -114096,19 +114611,31 @@ PHYSICS_PT_cloth_collision: bl_ui.properties_physics_cloth.PHYSICS_PT_cloth_coll
 
 PHYSICS_PT_cloth_damping: bl_ui.properties_physics_cloth.PHYSICS_PT_cloth_damping
 
-PHYSICS_PT_cloth_field_weights: bl_ui.properties_physics_cloth.PHYSICS_PT_cloth_field_weights
+PHYSICS_PT_cloth_field_weights: (
+    bl_ui.properties_physics_cloth.PHYSICS_PT_cloth_field_weights
+)
 
-PHYSICS_PT_cloth_internal_springs: bl_ui.properties_physics_cloth.PHYSICS_PT_cloth_internal_springs
+PHYSICS_PT_cloth_internal_springs: (
+    bl_ui.properties_physics_cloth.PHYSICS_PT_cloth_internal_springs
+)
 
-PHYSICS_PT_cloth_object_collision: bl_ui.properties_physics_cloth.PHYSICS_PT_cloth_object_collision
+PHYSICS_PT_cloth_object_collision: (
+    bl_ui.properties_physics_cloth.PHYSICS_PT_cloth_object_collision
+)
 
-PHYSICS_PT_cloth_physical_properties: bl_ui.properties_physics_cloth.PHYSICS_PT_cloth_physical_properties
+PHYSICS_PT_cloth_physical_properties: (
+    bl_ui.properties_physics_cloth.PHYSICS_PT_cloth_physical_properties
+)
 
 PHYSICS_PT_cloth_pressure: bl_ui.properties_physics_cloth.PHYSICS_PT_cloth_pressure
 
-PHYSICS_PT_cloth_property_weights: bl_ui.properties_physics_cloth.PHYSICS_PT_cloth_property_weights
+PHYSICS_PT_cloth_property_weights: (
+    bl_ui.properties_physics_cloth.PHYSICS_PT_cloth_property_weights
+)
 
-PHYSICS_PT_cloth_self_collision: bl_ui.properties_physics_cloth.PHYSICS_PT_cloth_self_collision
+PHYSICS_PT_cloth_self_collision: (
+    bl_ui.properties_physics_cloth.PHYSICS_PT_cloth_self_collision
+)
 
 PHYSICS_PT_cloth_shape: bl_ui.properties_physics_cloth.PHYSICS_PT_cloth_shape
 
@@ -114118,53 +114645,91 @@ PHYSICS_PT_collections: bl_ui.properties_physics_fluid.PHYSICS_PT_collections
 
 PHYSICS_PT_collision: bl_ui.properties_physics_field.PHYSICS_PT_collision
 
-PHYSICS_PT_collision_particle: bl_ui.properties_physics_field.PHYSICS_PT_collision_particle
+PHYSICS_PT_collision_particle: (
+    bl_ui.properties_physics_field.PHYSICS_PT_collision_particle
+)
 
-PHYSICS_PT_collision_softbody: bl_ui.properties_physics_field.PHYSICS_PT_collision_softbody
+PHYSICS_PT_collision_softbody: (
+    bl_ui.properties_physics_field.PHYSICS_PT_collision_softbody
+)
 
 PHYSICS_PT_diffusion: bl_ui.properties_physics_fluid.PHYSICS_PT_diffusion
 
-PHYSICS_PT_dp_brush_source: bl_ui.properties_physics_dynamicpaint.PHYSICS_PT_dp_brush_source
+PHYSICS_PT_dp_brush_source: (
+    bl_ui.properties_physics_dynamicpaint.PHYSICS_PT_dp_brush_source
+)
 
-PHYSICS_PT_dp_brush_source_color_ramp: bl_ui.properties_physics_dynamicpaint.PHYSICS_PT_dp_brush_source_color_ramp
+PHYSICS_PT_dp_brush_source_color_ramp: (
+    bl_ui.properties_physics_dynamicpaint.PHYSICS_PT_dp_brush_source_color_ramp
+)
 
-PHYSICS_PT_dp_brush_velocity: bl_ui.properties_physics_dynamicpaint.PHYSICS_PT_dp_brush_velocity
+PHYSICS_PT_dp_brush_velocity: (
+    bl_ui.properties_physics_dynamicpaint.PHYSICS_PT_dp_brush_velocity
+)
 
-PHYSICS_PT_dp_brush_velocity_color_ramp: bl_ui.properties_physics_dynamicpaint.PHYSICS_PT_dp_brush_velocity_color_ramp
+PHYSICS_PT_dp_brush_velocity_color_ramp: (
+    bl_ui.properties_physics_dynamicpaint.PHYSICS_PT_dp_brush_velocity_color_ramp
+)
 
-PHYSICS_PT_dp_brush_velocity_smudge: bl_ui.properties_physics_dynamicpaint.PHYSICS_PT_dp_brush_velocity_smudge
+PHYSICS_PT_dp_brush_velocity_smudge: (
+    bl_ui.properties_physics_dynamicpaint.PHYSICS_PT_dp_brush_velocity_smudge
+)
 
 PHYSICS_PT_dp_brush_wave: bl_ui.properties_physics_dynamicpaint.PHYSICS_PT_dp_brush_wave
 
 PHYSICS_PT_dp_cache: bl_ui.properties_physics_dynamicpaint.PHYSICS_PT_dp_cache
 
-PHYSICS_PT_dp_canvas_initial_color: bl_ui.properties_physics_dynamicpaint.PHYSICS_PT_dp_canvas_initial_color
+PHYSICS_PT_dp_canvas_initial_color: (
+    bl_ui.properties_physics_dynamicpaint.PHYSICS_PT_dp_canvas_initial_color
+)
 
-PHYSICS_PT_dp_canvas_output: bl_ui.properties_physics_dynamicpaint.PHYSICS_PT_dp_canvas_output
+PHYSICS_PT_dp_canvas_output: (
+    bl_ui.properties_physics_dynamicpaint.PHYSICS_PT_dp_canvas_output
+)
 
-PHYSICS_PT_dp_canvas_output_paintmaps: bl_ui.properties_physics_dynamicpaint.PHYSICS_PT_dp_canvas_output_paintmaps
+PHYSICS_PT_dp_canvas_output_paintmaps: (
+    bl_ui.properties_physics_dynamicpaint.PHYSICS_PT_dp_canvas_output_paintmaps
+)
 
-PHYSICS_PT_dp_canvas_output_wetmaps: bl_ui.properties_physics_dynamicpaint.PHYSICS_PT_dp_canvas_output_wetmaps
+PHYSICS_PT_dp_canvas_output_wetmaps: (
+    bl_ui.properties_physics_dynamicpaint.PHYSICS_PT_dp_canvas_output_wetmaps
+)
 
 PHYSICS_PT_dp_effects: bl_ui.properties_physics_dynamicpaint.PHYSICS_PT_dp_effects
 
-PHYSICS_PT_dp_effects_drip: bl_ui.properties_physics_dynamicpaint.PHYSICS_PT_dp_effects_drip
+PHYSICS_PT_dp_effects_drip: (
+    bl_ui.properties_physics_dynamicpaint.PHYSICS_PT_dp_effects_drip
+)
 
-PHYSICS_PT_dp_effects_drip_weights: bl_ui.properties_physics_dynamicpaint.PHYSICS_PT_dp_effects_drip_weights
+PHYSICS_PT_dp_effects_drip_weights: (
+    bl_ui.properties_physics_dynamicpaint.PHYSICS_PT_dp_effects_drip_weights
+)
 
-PHYSICS_PT_dp_effects_shrink: bl_ui.properties_physics_dynamicpaint.PHYSICS_PT_dp_effects_shrink
+PHYSICS_PT_dp_effects_shrink: (
+    bl_ui.properties_physics_dynamicpaint.PHYSICS_PT_dp_effects_shrink
+)
 
-PHYSICS_PT_dp_effects_spread: bl_ui.properties_physics_dynamicpaint.PHYSICS_PT_dp_effects_spread
+PHYSICS_PT_dp_effects_spread: (
+    bl_ui.properties_physics_dynamicpaint.PHYSICS_PT_dp_effects_spread
+)
 
-PHYSICS_PT_dp_surface_canvas: bl_ui.properties_physics_dynamicpaint.PHYSICS_PT_dp_surface_canvas
+PHYSICS_PT_dp_surface_canvas: (
+    bl_ui.properties_physics_dynamicpaint.PHYSICS_PT_dp_surface_canvas
+)
 
-PHYSICS_PT_dp_surface_canvas_paint_dissolve: bl_ui.properties_physics_dynamicpaint.PHYSICS_PT_dp_surface_canvas_paint_dissolve
+PHYSICS_PT_dp_surface_canvas_paint_dissolve: (
+    bl_ui.properties_physics_dynamicpaint.PHYSICS_PT_dp_surface_canvas_paint_dissolve
+)
 
-PHYSICS_PT_dp_surface_canvas_paint_dry: bl_ui.properties_physics_dynamicpaint.PHYSICS_PT_dp_surface_canvas_paint_dry
+PHYSICS_PT_dp_surface_canvas_paint_dry: (
+    bl_ui.properties_physics_dynamicpaint.PHYSICS_PT_dp_surface_canvas_paint_dry
+)
 
 PHYSICS_PT_dynamic_paint: bl_ui.properties_physics_dynamicpaint.PHYSICS_PT_dynamic_paint
 
-PHYSICS_PT_dynamic_paint_settings: bl_ui.properties_physics_dynamicpaint.PHYSICS_PT_dynamic_paint_settings
+PHYSICS_PT_dynamic_paint_settings: (
+    bl_ui.properties_physics_dynamicpaint.PHYSICS_PT_dynamic_paint_settings
+)
 
 PHYSICS_PT_export: bl_ui.properties_physics_fluid.PHYSICS_PT_export
 
@@ -114172,21 +114737,31 @@ PHYSICS_PT_field: bl_ui.properties_physics_field.PHYSICS_PT_field
 
 PHYSICS_PT_field_falloff: bl_ui.properties_physics_field.PHYSICS_PT_field_falloff
 
-PHYSICS_PT_field_falloff_angular: bl_ui.properties_physics_field.PHYSICS_PT_field_falloff_angular
+PHYSICS_PT_field_falloff_angular: (
+    bl_ui.properties_physics_field.PHYSICS_PT_field_falloff_angular
+)
 
-PHYSICS_PT_field_falloff_radial: bl_ui.properties_physics_field.PHYSICS_PT_field_falloff_radial
+PHYSICS_PT_field_falloff_radial: (
+    bl_ui.properties_physics_field.PHYSICS_PT_field_falloff_radial
+)
 
 PHYSICS_PT_field_settings: bl_ui.properties_physics_field.PHYSICS_PT_field_settings
 
-PHYSICS_PT_field_settings_kink: bl_ui.properties_physics_field.PHYSICS_PT_field_settings_kink
+PHYSICS_PT_field_settings_kink: (
+    bl_ui.properties_physics_field.PHYSICS_PT_field_settings_kink
+)
 
-PHYSICS_PT_field_settings_texture_select: bl_ui.properties_physics_field.PHYSICS_PT_field_settings_texture_select
+PHYSICS_PT_field_settings_texture_select: (
+    bl_ui.properties_physics_field.PHYSICS_PT_field_settings_texture_select
+)
 
 PHYSICS_PT_field_weights: bl_ui.properties_physics_fluid.PHYSICS_PT_field_weights
 
 PHYSICS_PT_fire: bl_ui.properties_physics_fluid.PHYSICS_PT_fire
 
-PHYSICS_PT_flow_initial_velocity: bl_ui.properties_physics_fluid.PHYSICS_PT_flow_initial_velocity
+PHYSICS_PT_flow_initial_velocity: (
+    bl_ui.properties_physics_fluid.PHYSICS_PT_flow_initial_velocity
+)
 
 PHYSICS_PT_flow_source: bl_ui.properties_physics_fluid.PHYSICS_PT_flow_source
 
@@ -114194,9 +114769,13 @@ PHYSICS_PT_flow_texture: bl_ui.properties_physics_fluid.PHYSICS_PT_flow_texture
 
 PHYSICS_PT_fluid: bl_ui.properties_physics_fluid.PHYSICS_PT_fluid
 
-PHYSICS_PT_fluid_domain_render: bl_ui.properties_physics_fluid.PHYSICS_PT_fluid_domain_render
+PHYSICS_PT_fluid_domain_render: (
+    bl_ui.properties_physics_fluid.PHYSICS_PT_fluid_domain_render
+)
 
-PHYSICS_PT_geometry_nodes: bl_ui.properties_physics_geometry_nodes.PHYSICS_PT_geometry_nodes
+PHYSICS_PT_geometry_nodes: (
+    bl_ui.properties_physics_geometry_nodes.PHYSICS_PT_geometry_nodes
+)
 
 PHYSICS_PT_guide: bl_ui.properties_physics_fluid.PHYSICS_PT_guide
 
@@ -114210,15 +114789,25 @@ PHYSICS_PT_particles: bl_ui.properties_physics_fluid.PHYSICS_PT_particles
 
 PHYSICS_PT_rigid_body: bl_ui.properties_physics_rigidbody.PHYSICS_PT_rigid_body
 
-PHYSICS_PT_rigid_body_collisions: bl_ui.properties_physics_rigidbody.PHYSICS_PT_rigid_body_collisions
+PHYSICS_PT_rigid_body_collisions: (
+    bl_ui.properties_physics_rigidbody.PHYSICS_PT_rigid_body_collisions
+)
 
-PHYSICS_PT_rigid_body_collisions_collections: bl_ui.properties_physics_rigidbody.PHYSICS_PT_rigid_body_collisions_collections
+PHYSICS_PT_rigid_body_collisions_collections: (
+    bl_ui.properties_physics_rigidbody.PHYSICS_PT_rigid_body_collisions_collections
+)
 
-PHYSICS_PT_rigid_body_collisions_sensitivity: bl_ui.properties_physics_rigidbody.PHYSICS_PT_rigid_body_collisions_sensitivity
+PHYSICS_PT_rigid_body_collisions_sensitivity: (
+    bl_ui.properties_physics_rigidbody.PHYSICS_PT_rigid_body_collisions_sensitivity
+)
 
-PHYSICS_PT_rigid_body_collisions_surface: bl_ui.properties_physics_rigidbody.PHYSICS_PT_rigid_body_collisions_surface
+PHYSICS_PT_rigid_body_collisions_surface: (
+    bl_ui.properties_physics_rigidbody.PHYSICS_PT_rigid_body_collisions_surface
+)
 
-PHYSICS_PT_rigid_body_constraint: bl_ui.properties_physics_rigidbody_constraint.PHYSICS_PT_rigid_body_constraint
+PHYSICS_PT_rigid_body_constraint: (
+    bl_ui.properties_physics_rigidbody_constraint.PHYSICS_PT_rigid_body_constraint
+)
 
 PHYSICS_PT_rigid_body_constraint_limits: bl_ui.properties_physics_rigidbody_constraint.PHYSICS_PT_rigid_body_constraint_limits
 
@@ -114226,7 +114815,9 @@ PHYSICS_PT_rigid_body_constraint_limits_angular: bl_ui.properties_physics_rigidb
 
 PHYSICS_PT_rigid_body_constraint_limits_linear: bl_ui.properties_physics_rigidbody_constraint.PHYSICS_PT_rigid_body_constraint_limits_linear
 
-PHYSICS_PT_rigid_body_constraint_motor: bl_ui.properties_physics_rigidbody_constraint.PHYSICS_PT_rigid_body_constraint_motor
+PHYSICS_PT_rigid_body_constraint_motor: (
+    bl_ui.properties_physics_rigidbody_constraint.PHYSICS_PT_rigid_body_constraint_motor
+)
 
 PHYSICS_PT_rigid_body_constraint_motor_angular: bl_ui.properties_physics_rigidbody_constraint.PHYSICS_PT_rigid_body_constraint_motor_angular
 
@@ -114244,11 +114835,17 @@ PHYSICS_PT_rigid_body_constraint_springs_angular: bl_ui.properties_physics_rigid
 
 PHYSICS_PT_rigid_body_constraint_springs_linear: bl_ui.properties_physics_rigidbody_constraint.PHYSICS_PT_rigid_body_constraint_springs_linear
 
-PHYSICS_PT_rigid_body_dynamics: bl_ui.properties_physics_rigidbody.PHYSICS_PT_rigid_body_dynamics
+PHYSICS_PT_rigid_body_dynamics: (
+    bl_ui.properties_physics_rigidbody.PHYSICS_PT_rigid_body_dynamics
+)
 
-PHYSICS_PT_rigid_body_dynamics_deactivation: bl_ui.properties_physics_rigidbody.PHYSICS_PT_rigid_body_dynamics_deactivation
+PHYSICS_PT_rigid_body_dynamics_deactivation: (
+    bl_ui.properties_physics_rigidbody.PHYSICS_PT_rigid_body_dynamics_deactivation
+)
 
-PHYSICS_PT_rigid_body_settings: bl_ui.properties_physics_rigidbody.PHYSICS_PT_rigid_body_settings
+PHYSICS_PT_rigid_body_settings: (
+    bl_ui.properties_physics_rigidbody.PHYSICS_PT_rigid_body_settings
+)
 
 PHYSICS_PT_settings: bl_ui.properties_physics_fluid.PHYSICS_PT_settings
 
@@ -114260,81 +114857,137 @@ PHYSICS_PT_softbody: bl_ui.properties_physics_softbody.PHYSICS_PT_softbody
 
 PHYSICS_PT_softbody_cache: bl_ui.properties_physics_softbody.PHYSICS_PT_softbody_cache
 
-PHYSICS_PT_softbody_collision: bl_ui.properties_physics_softbody.PHYSICS_PT_softbody_collision
+PHYSICS_PT_softbody_collision: (
+    bl_ui.properties_physics_softbody.PHYSICS_PT_softbody_collision
+)
 
 PHYSICS_PT_softbody_edge: bl_ui.properties_physics_softbody.PHYSICS_PT_softbody_edge
 
-PHYSICS_PT_softbody_edge_aerodynamics: bl_ui.properties_physics_softbody.PHYSICS_PT_softbody_edge_aerodynamics
+PHYSICS_PT_softbody_edge_aerodynamics: (
+    bl_ui.properties_physics_softbody.PHYSICS_PT_softbody_edge_aerodynamics
+)
 
-PHYSICS_PT_softbody_edge_stiffness: bl_ui.properties_physics_softbody.PHYSICS_PT_softbody_edge_stiffness
+PHYSICS_PT_softbody_edge_stiffness: (
+    bl_ui.properties_physics_softbody.PHYSICS_PT_softbody_edge_stiffness
+)
 
-PHYSICS_PT_softbody_field_weights: bl_ui.properties_physics_softbody.PHYSICS_PT_softbody_field_weights
+PHYSICS_PT_softbody_field_weights: (
+    bl_ui.properties_physics_softbody.PHYSICS_PT_softbody_field_weights
+)
 
 PHYSICS_PT_softbody_goal: bl_ui.properties_physics_softbody.PHYSICS_PT_softbody_goal
 
-PHYSICS_PT_softbody_goal_settings: bl_ui.properties_physics_softbody.PHYSICS_PT_softbody_goal_settings
+PHYSICS_PT_softbody_goal_settings: (
+    bl_ui.properties_physics_softbody.PHYSICS_PT_softbody_goal_settings
+)
 
-PHYSICS_PT_softbody_goal_strengths: bl_ui.properties_physics_softbody.PHYSICS_PT_softbody_goal_strengths
+PHYSICS_PT_softbody_goal_strengths: (
+    bl_ui.properties_physics_softbody.PHYSICS_PT_softbody_goal_strengths
+)
 
 PHYSICS_PT_softbody_object: bl_ui.properties_physics_softbody.PHYSICS_PT_softbody_object
 
-PHYSICS_PT_softbody_simulation: bl_ui.properties_physics_softbody.PHYSICS_PT_softbody_simulation
+PHYSICS_PT_softbody_simulation: (
+    bl_ui.properties_physics_softbody.PHYSICS_PT_softbody_simulation
+)
 
 PHYSICS_PT_softbody_solver: bl_ui.properties_physics_softbody.PHYSICS_PT_softbody_solver
 
-PHYSICS_PT_softbody_solver_diagnostics: bl_ui.properties_physics_softbody.PHYSICS_PT_softbody_solver_diagnostics
+PHYSICS_PT_softbody_solver_diagnostics: (
+    bl_ui.properties_physics_softbody.PHYSICS_PT_softbody_solver_diagnostics
+)
 
-PHYSICS_PT_softbody_solver_helpers: bl_ui.properties_physics_softbody.PHYSICS_PT_softbody_solver_helpers
+PHYSICS_PT_softbody_solver_helpers: (
+    bl_ui.properties_physics_softbody.PHYSICS_PT_softbody_solver_helpers
+)
 
 PHYSICS_PT_viewport_display: bl_ui.properties_physics_fluid.PHYSICS_PT_viewport_display
 
-PHYSICS_PT_viewport_display_advanced: bl_ui.properties_physics_fluid.PHYSICS_PT_viewport_display_advanced
+PHYSICS_PT_viewport_display_advanced: (
+    bl_ui.properties_physics_fluid.PHYSICS_PT_viewport_display_advanced
+)
 
-PHYSICS_PT_viewport_display_color: bl_ui.properties_physics_fluid.PHYSICS_PT_viewport_display_color
+PHYSICS_PT_viewport_display_color: (
+    bl_ui.properties_physics_fluid.PHYSICS_PT_viewport_display_color
+)
 
-PHYSICS_PT_viewport_display_debug: bl_ui.properties_physics_fluid.PHYSICS_PT_viewport_display_debug
+PHYSICS_PT_viewport_display_debug: (
+    bl_ui.properties_physics_fluid.PHYSICS_PT_viewport_display_debug
+)
 
-PHYSICS_PT_viewport_display_slicing: bl_ui.properties_physics_fluid.PHYSICS_PT_viewport_display_slicing
+PHYSICS_PT_viewport_display_slicing: (
+    bl_ui.properties_physics_fluid.PHYSICS_PT_viewport_display_slicing
+)
 
 PHYSICS_PT_viscosity: bl_ui.properties_physics_fluid.PHYSICS_PT_viscosity
 
-PHYSICS_UL_dynapaint_surfaces: bl_ui.properties_physics_dynamicpaint.PHYSICS_UL_dynapaint_surfaces
+PHYSICS_UL_dynapaint_surfaces: (
+    bl_ui.properties_physics_dynamicpaint.PHYSICS_UL_dynapaint_surfaces
+)
 
-POINTCLOUD_MT_add_attribute: bl_ui.properties_data_pointcloud.POINTCLOUD_MT_add_attribute
+POINTCLOUD_MT_add_attribute: (
+    bl_ui.properties_data_pointcloud.POINTCLOUD_MT_add_attribute
+)
 
-POINTCLOUD_MT_attribute_context_menu: bl_ui.properties_data_pointcloud.POINTCLOUD_MT_attribute_context_menu
+POINTCLOUD_MT_attribute_context_menu: (
+    bl_ui.properties_data_pointcloud.POINTCLOUD_MT_attribute_context_menu
+)
 
 POINTCLOUD_UL_attributes: bl_ui.properties_data_pointcloud.POINTCLOUD_UL_attributes
 
-POSE_MT_selection_set_create: bl_ui.properties_data_armature.POSE_MT_selection_set_create
+POSE_MT_selection_set_create: (
+    bl_ui.properties_data_armature.POSE_MT_selection_set_create
+)
 
-POSE_MT_selection_sets_context_menu: bl_ui.properties_data_armature.POSE_MT_selection_sets_context_menu
+POSE_MT_selection_sets_context_menu: (
+    bl_ui.properties_data_armature.POSE_MT_selection_sets_context_menu
+)
 
-POSE_MT_selection_sets_select: bl_ui.properties_data_armature.POSE_MT_selection_sets_select
+POSE_MT_selection_sets_select: (
+    bl_ui.properties_data_armature.POSE_MT_selection_sets_select
+)
 
 POSE_OT_selection_set_add: bl_operators.bone_selection_sets.POSE_OT_selection_set_add
 
-POSE_OT_selection_set_add_and_assign: bl_operators.bone_selection_sets.POSE_OT_selection_set_add_and_assign
+POSE_OT_selection_set_add_and_assign: (
+    bl_operators.bone_selection_sets.POSE_OT_selection_set_add_and_assign
+)
 
-POSE_OT_selection_set_assign: bl_operators.bone_selection_sets.POSE_OT_selection_set_assign
+POSE_OT_selection_set_assign: (
+    bl_operators.bone_selection_sets.POSE_OT_selection_set_assign
+)
 
 POSE_OT_selection_set_copy: bl_operators.bone_selection_sets.POSE_OT_selection_set_copy
 
-POSE_OT_selection_set_delete_all: bl_operators.bone_selection_sets.POSE_OT_selection_set_delete_all
+POSE_OT_selection_set_delete_all: (
+    bl_operators.bone_selection_sets.POSE_OT_selection_set_delete_all
+)
 
-POSE_OT_selection_set_deselect: bl_operators.bone_selection_sets.POSE_OT_selection_set_deselect
+POSE_OT_selection_set_deselect: (
+    bl_operators.bone_selection_sets.POSE_OT_selection_set_deselect
+)
 
 POSE_OT_selection_set_move: bl_operators.bone_selection_sets.POSE_OT_selection_set_move
 
-POSE_OT_selection_set_paste: bl_operators.bone_selection_sets.POSE_OT_selection_set_paste
+POSE_OT_selection_set_paste: (
+    bl_operators.bone_selection_sets.POSE_OT_selection_set_paste
+)
 
-POSE_OT_selection_set_remove: bl_operators.bone_selection_sets.POSE_OT_selection_set_remove
+POSE_OT_selection_set_remove: (
+    bl_operators.bone_selection_sets.POSE_OT_selection_set_remove
+)
 
-POSE_OT_selection_set_remove_bones: bl_operators.bone_selection_sets.POSE_OT_selection_set_remove_bones
+POSE_OT_selection_set_remove_bones: (
+    bl_operators.bone_selection_sets.POSE_OT_selection_set_remove_bones
+)
 
-POSE_OT_selection_set_select: bl_operators.bone_selection_sets.POSE_OT_selection_set_select
+POSE_OT_selection_set_select: (
+    bl_operators.bone_selection_sets.POSE_OT_selection_set_select
+)
 
-POSE_OT_selection_set_unassign: bl_operators.bone_selection_sets.POSE_OT_selection_set_unassign
+POSE_OT_selection_set_unassign: (
+    bl_operators.bone_selection_sets.POSE_OT_selection_set_unassign
+)
 
 POSE_PT_selection_sets: bl_ui.properties_data_armature.POSE_PT_selection_sets
 
@@ -114354,11 +115007,15 @@ PREFERENCES_OT_addon_remove: bl_operators.userpref.PREFERENCES_OT_addon_remove
 
 PREFERENCES_OT_addon_show: bl_operators.userpref.PREFERENCES_OT_addon_show
 
-PREFERENCES_OT_app_template_install: bl_operators.userpref.PREFERENCES_OT_app_template_install
+PREFERENCES_OT_app_template_install: (
+    bl_operators.userpref.PREFERENCES_OT_app_template_install
+)
 
 PREFERENCES_OT_copy_prev: bl_operators.userpref.PREFERENCES_OT_copy_prev
 
-PREFERENCES_OT_keyconfig_activate: bl_operators.userpref.PREFERENCES_OT_keyconfig_activate
+PREFERENCES_OT_keyconfig_activate: (
+    bl_operators.userpref.PREFERENCES_OT_keyconfig_activate
+)
 
 PREFERENCES_OT_keyconfig_export: bl_operators.userpref.PREFERENCES_OT_keyconfig_export
 
@@ -114376,15 +115033,23 @@ PREFERENCES_OT_keyitem_restore: bl_operators.userpref.PREFERENCES_OT_keyitem_res
 
 PREFERENCES_OT_keymap_restore: bl_operators.userpref.PREFERENCES_OT_keymap_restore
 
-PREFERENCES_OT_script_directory_remove: bl_operators.userpref.PREFERENCES_OT_script_directory_remove
+PREFERENCES_OT_script_directory_remove: (
+    bl_operators.userpref.PREFERENCES_OT_script_directory_remove
+)
 
-PREFERENCES_OT_studiolight_copy_settings: bl_operators.userpref.PREFERENCES_OT_studiolight_copy_settings
+PREFERENCES_OT_studiolight_copy_settings: (
+    bl_operators.userpref.PREFERENCES_OT_studiolight_copy_settings
+)
 
-PREFERENCES_OT_studiolight_install: bl_operators.userpref.PREFERENCES_OT_studiolight_install
+PREFERENCES_OT_studiolight_install: (
+    bl_operators.userpref.PREFERENCES_OT_studiolight_install
+)
 
 PREFERENCES_OT_studiolight_new: bl_operators.userpref.PREFERENCES_OT_studiolight_new
 
-PREFERENCES_OT_studiolight_uninstall: bl_operators.userpref.PREFERENCES_OT_studiolight_uninstall
+PREFERENCES_OT_studiolight_uninstall: (
+    bl_operators.userpref.PREFERENCES_OT_studiolight_uninstall
+)
 
 PREFERENCES_OT_theme_install: bl_operators.userpref.PREFERENCES_OT_theme_install
 
@@ -114398,7 +115063,9 @@ PROPERTIES_PT_visibility: bl_ui.space_properties.PROPERTIES_PT_visibility
 
 RENDER_MT_framerate_presets: bl_ui.properties_output.RENDER_MT_framerate_presets
 
-RENDER_MT_lineset_context_menu: bl_ui.properties_freestyle.RENDER_MT_lineset_context_menu
+RENDER_MT_lineset_context_menu: (
+    bl_ui.properties_freestyle.RENDER_MT_lineset_context_menu
+)
 
 RENDER_MT_pixeldensity_presets: bl_ui.properties_output.RENDER_MT_pixeldensity_presets
 
@@ -114406,21 +115073,33 @@ RENDER_OT_swap_dimensions: bl_operators.render.RENDER_OT_swap_dimensions
 
 RENDER_PT_color_management: bl_ui.properties_render.RENDER_PT_color_management
 
-RENDER_PT_color_management_advanced: bl_ui.properties_render.RENDER_PT_color_management_advanced
+RENDER_PT_color_management_advanced: (
+    bl_ui.properties_render.RENDER_PT_color_management_advanced
+)
 
-RENDER_PT_color_management_curves: bl_ui.properties_render.RENDER_PT_color_management_curves
+RENDER_PT_color_management_curves: (
+    bl_ui.properties_render.RENDER_PT_color_management_curves
+)
 
-RENDER_PT_color_management_white_balance: bl_ui.properties_render.RENDER_PT_color_management_white_balance
+RENDER_PT_color_management_white_balance: (
+    bl_ui.properties_render.RENDER_PT_color_management_white_balance
+)
 
-RENDER_PT_color_management_white_balance_presets: bl_ui.properties_render.RENDER_PT_color_management_white_balance_presets
+RENDER_PT_color_management_white_balance_presets: (
+    bl_ui.properties_render.RENDER_PT_color_management_white_balance_presets
+)
 
-RENDER_PT_color_management_working_space: bl_ui.properties_render.RENDER_PT_color_management_working_space
+RENDER_PT_color_management_working_space: (
+    bl_ui.properties_render.RENDER_PT_color_management_working_space
+)
 
 RENDER_PT_context: bl_ui.properties_render.RENDER_PT_context
 
 RENDER_PT_eevee_clamping: bl_ui.properties_render.RENDER_PT_eevee_clamping
 
-RENDER_PT_eevee_clamping_surface: bl_ui.properties_render.RENDER_PT_eevee_clamping_surface
+RENDER_PT_eevee_clamping_surface: (
+    bl_ui.properties_render.RENDER_PT_eevee_clamping_surface
+)
 
 RENDER_PT_eevee_clamping_volume: bl_ui.properties_render.RENDER_PT_eevee_clamping_volume
 
@@ -114430,41 +115109,63 @@ RENDER_PT_eevee_depth_of_field: bl_ui.properties_render.RENDER_PT_eevee_depth_of
 
 RENDER_PT_eevee_film: bl_ui.properties_render.RENDER_PT_eevee_film
 
-RENDER_PT_eevee_gi_approximation: bl_ui.properties_render.RENDER_PT_eevee_gi_approximation
+RENDER_PT_eevee_gi_approximation: (
+    bl_ui.properties_render.RENDER_PT_eevee_gi_approximation
+)
 
 RENDER_PT_eevee_hair: bl_ui.properties_render.RENDER_PT_eevee_hair
 
 RENDER_PT_eevee_light_paths: bl_ui.properties_render.RENDER_PT_eevee_light_paths
 
-RENDER_PT_eevee_light_paths_intensity: bl_ui.properties_render.RENDER_PT_eevee_light_paths_intensity
+RENDER_PT_eevee_light_paths_intensity: (
+    bl_ui.properties_render.RENDER_PT_eevee_light_paths_intensity
+)
 
 RENDER_PT_eevee_motion_blur: bl_ui.properties_render.RENDER_PT_eevee_motion_blur
 
-RENDER_PT_eevee_motion_blur_curve: bl_ui.properties_render.RENDER_PT_eevee_motion_blur_curve
+RENDER_PT_eevee_motion_blur_curve: (
+    bl_ui.properties_render.RENDER_PT_eevee_motion_blur_curve
+)
 
 RENDER_PT_eevee_performance: bl_ui.properties_render.RENDER_PT_eevee_performance
 
-RENDER_PT_eevee_performance_compositor: bl_ui.properties_render.RENDER_PT_eevee_performance_compositor
+RENDER_PT_eevee_performance_compositor: (
+    bl_ui.properties_render.RENDER_PT_eevee_performance_compositor
+)
 
-RENDER_PT_eevee_performance_compositor_denoise_settings: bl_ui.properties_render.RENDER_PT_eevee_performance_compositor_denoise_settings
+RENDER_PT_eevee_performance_compositor_denoise_settings: (
+    bl_ui.properties_render.RENDER_PT_eevee_performance_compositor_denoise_settings
+)
 
-RENDER_PT_eevee_performance_memory: bl_ui.properties_render.RENDER_PT_eevee_performance_memory
+RENDER_PT_eevee_performance_memory: (
+    bl_ui.properties_render.RENDER_PT_eevee_performance_memory
+)
 
-RENDER_PT_eevee_performance_viewport: bl_ui.properties_render.RENDER_PT_eevee_performance_viewport
+RENDER_PT_eevee_performance_viewport: (
+    bl_ui.properties_render.RENDER_PT_eevee_performance_viewport
+)
 
 RENDER_PT_eevee_raytracing: bl_ui.properties_render.RENDER_PT_eevee_raytracing
 
-RENDER_PT_eevee_raytracing_presets: bl_ui.properties_render.RENDER_PT_eevee_raytracing_presets
+RENDER_PT_eevee_raytracing_presets: (
+    bl_ui.properties_render.RENDER_PT_eevee_raytracing_presets
+)
 
 RENDER_PT_eevee_sampling: bl_ui.properties_render.RENDER_PT_eevee_sampling
 
-RENDER_PT_eevee_sampling_advanced: bl_ui.properties_render.RENDER_PT_eevee_sampling_advanced
+RENDER_PT_eevee_sampling_advanced: (
+    bl_ui.properties_render.RENDER_PT_eevee_sampling_advanced
+)
 
 RENDER_PT_eevee_sampling_render: bl_ui.properties_render.RENDER_PT_eevee_sampling_render
 
-RENDER_PT_eevee_sampling_shadows: bl_ui.properties_render.RENDER_PT_eevee_sampling_shadows
+RENDER_PT_eevee_sampling_shadows: (
+    bl_ui.properties_render.RENDER_PT_eevee_sampling_shadows
+)
 
-RENDER_PT_eevee_sampling_viewport: bl_ui.properties_render.RENDER_PT_eevee_sampling_viewport
+RENDER_PT_eevee_sampling_viewport: (
+    bl_ui.properties_render.RENDER_PT_eevee_sampling_viewport
+)
 
 RENDER_PT_eevee_screen_trace: bl_ui.properties_render.RENDER_PT_eevee_screen_trace
 
@@ -114492,7 +115193,9 @@ RENDER_PT_gpencil: bl_ui.properties_render.RENDER_PT_gpencil
 
 RENDER_PT_grease_pencil_render: bl_ui.properties_render.RENDER_PT_grease_pencil_render
 
-RENDER_PT_grease_pencil_viewport: bl_ui.properties_render.RENDER_PT_grease_pencil_viewport
+RENDER_PT_grease_pencil_viewport: (
+    bl_ui.properties_render.RENDER_PT_grease_pencil_viewport
+)
 
 RENDER_PT_hydra_debug: bl_ui.properties_render.RENDER_PT_hydra_debug
 
@@ -114508,7 +115211,9 @@ RENDER_PT_opengl_sampling: bl_ui.properties_render.RENDER_PT_opengl_sampling
 
 RENDER_PT_output: bl_ui.properties_output.RENDER_PT_output
 
-RENDER_PT_output_color_management: bl_ui.properties_output.RENDER_PT_output_color_management
+RENDER_PT_output_color_management: (
+    bl_ui.properties_output.RENDER_PT_output_color_management
+)
 
 RENDER_PT_output_pixel_density: bl_ui.properties_output.RENDER_PT_output_pixel_density
 
@@ -114536,11 +115241,17 @@ RENDER_PT_time_stretching: bl_ui.properties_output.RENDER_PT_time_stretching
 
 RENDER_UL_renderviews: bl_ui.properties_output.RENDER_UL_renderviews
 
-SCENE_OT_freestyle_add_edge_marks_to_keying_set: bl_operators.freestyle.SCENE_OT_freestyle_add_edge_marks_to_keying_set
+SCENE_OT_freestyle_add_edge_marks_to_keying_set: (
+    bl_operators.freestyle.SCENE_OT_freestyle_add_edge_marks_to_keying_set
+)
 
-SCENE_OT_freestyle_add_face_marks_to_keying_set: bl_operators.freestyle.SCENE_OT_freestyle_add_face_marks_to_keying_set
+SCENE_OT_freestyle_add_face_marks_to_keying_set: (
+    bl_operators.freestyle.SCENE_OT_freestyle_add_face_marks_to_keying_set
+)
 
-SCENE_OT_freestyle_fill_range_by_selection: bl_operators.freestyle.SCENE_OT_freestyle_fill_range_by_selection
+SCENE_OT_freestyle_fill_range_by_selection: (
+    bl_operators.freestyle.SCENE_OT_freestyle_fill_range_by_selection
+)
 
 SCENE_OT_freestyle_module_open: bl_operators.freestyle.SCENE_OT_freestyle_module_open
 
@@ -114564,11 +115275,15 @@ SCENE_PT_physics: bl_ui.properties_scene.SCENE_PT_physics
 
 SCENE_PT_rigid_body_cache: bl_ui.properties_scene.SCENE_PT_rigid_body_cache
 
-SCENE_PT_rigid_body_field_weights: bl_ui.properties_scene.SCENE_PT_rigid_body_field_weights
+SCENE_PT_rigid_body_field_weights: (
+    bl_ui.properties_scene.SCENE_PT_rigid_body_field_weights
+)
 
 SCENE_PT_rigid_body_world: bl_ui.properties_scene.SCENE_PT_rigid_body_world
 
-SCENE_PT_rigid_body_world_settings: bl_ui.properties_scene.SCENE_PT_rigid_body_world_settings
+SCENE_PT_rigid_body_world_settings: (
+    bl_ui.properties_scene.SCENE_PT_rigid_body_world_settings
+)
 
 SCENE_PT_scene: bl_ui.properties_scene.SCENE_PT_scene
 
@@ -114622,7 +115337,9 @@ SEQUENCER_MT_navigation: bl_ui.space_sequencer.SEQUENCER_MT_navigation
 
 SEQUENCER_MT_pivot_pie: bl_ui.space_sequencer.SEQUENCER_MT_pivot_pie
 
-SEQUENCER_MT_preview_context_menu: bl_ui.space_sequencer.SEQUENCER_MT_preview_context_menu
+SEQUENCER_MT_preview_context_menu: (
+    bl_ui.space_sequencer.SEQUENCER_MT_preview_context_menu
+)
 
 SEQUENCER_MT_preview_view_pie: bl_ui.space_sequencer.SEQUENCER_MT_preview_view_pie
 
@@ -114696,11 +115413,17 @@ SEQUENCER_PT_proxy_settings: bl_ui.space_sequencer.SEQUENCER_PT_proxy_settings
 
 SEQUENCER_PT_sequencer_overlay: bl_ui.space_sequencer.SEQUENCER_PT_sequencer_overlay
 
-SEQUENCER_PT_sequencer_overlay_strips: bl_ui.space_sequencer.SEQUENCER_PT_sequencer_overlay_strips
+SEQUENCER_PT_sequencer_overlay_strips: (
+    bl_ui.space_sequencer.SEQUENCER_PT_sequencer_overlay_strips
+)
 
-SEQUENCER_PT_sequencer_overlay_thumbnails: bl_ui.space_sequencer.SEQUENCER_PT_sequencer_overlay_thumbnails
+SEQUENCER_PT_sequencer_overlay_thumbnails: (
+    bl_ui.space_sequencer.SEQUENCER_PT_sequencer_overlay_thumbnails
+)
 
-SEQUENCER_PT_sequencer_overlay_waveforms: bl_ui.space_sequencer.SEQUENCER_PT_sequencer_overlay_waveforms
+SEQUENCER_PT_sequencer_overlay_waveforms: (
+    bl_ui.space_sequencer.SEQUENCER_PT_sequencer_overlay_waveforms
+)
 
 SEQUENCER_PT_sequencer_snapping: bl_ui.space_sequencer.SEQUENCER_PT_sequencer_snapping
 
@@ -114716,7 +115439,9 @@ SEQUENCER_PT_view_cursor: bl_ui.space_sequencer.SEQUENCER_PT_view_cursor
 
 SEQUENCER_PT_view_safe_areas: bl_ui.space_sequencer.SEQUENCER_PT_view_safe_areas
 
-SEQUENCER_PT_view_safe_areas_center_cut: bl_ui.space_sequencer.SEQUENCER_PT_view_safe_areas_center_cut
+SEQUENCER_PT_view_safe_areas_center_cut: (
+    bl_ui.space_sequencer.SEQUENCER_PT_view_safe_areas_center_cut
+)
 
 SPREADSHEET_HT_header: bl_ui.space_spreadsheet.SPREADSHEET_HT_header
 
@@ -114820,7 +115545,9 @@ TEXTURE_PT_stucci: bl_ui.properties_texture.TEXTURE_PT_stucci
 
 TEXTURE_PT_voronoi: bl_ui.properties_texture.TEXTURE_PT_voronoi
 
-TEXTURE_PT_voronoi_feature_weights: bl_ui.properties_texture.TEXTURE_PT_voronoi_feature_weights
+TEXTURE_PT_voronoi_feature_weights: (
+    bl_ui.properties_texture.TEXTURE_PT_voronoi_feature_weights
+)
 
 TEXTURE_PT_wood: bl_ui.properties_texture.TEXTURE_PT_wood
 
@@ -114924,7 +115651,9 @@ TOPBAR_PT_grease_pencil_layers: bl_ui.space_topbar.TOPBAR_PT_grease_pencil_layer
 
 TOPBAR_PT_grease_pencil_materials: bl_ui.space_view3d.TOPBAR_PT_grease_pencil_materials
 
-TOPBAR_PT_grease_pencil_vertex_color: bl_ui.space_view3d.TOPBAR_PT_grease_pencil_vertex_color
+TOPBAR_PT_grease_pencil_vertex_color: (
+    bl_ui.space_view3d.TOPBAR_PT_grease_pencil_vertex_color
+)
 
 TOPBAR_PT_name: bl_ui.space_topbar.TOPBAR_PT_name
 
@@ -114950,11 +115679,17 @@ USERPREF_HT_header: bl_ui.space_userpref.USERPREF_HT_header
 
 USERPREF_MT_editor_menus: bl_ui.space_userpref.USERPREF_MT_editor_menus
 
-USERPREF_MT_extensions_active_repo: bl_ui.space_userpref.USERPREF_MT_extensions_active_repo
+USERPREF_MT_extensions_active_repo: (
+    bl_ui.space_userpref.USERPREF_MT_extensions_active_repo
+)
 
-USERPREF_MT_extensions_active_repo_remove: bl_ui.space_userpref.USERPREF_MT_extensions_active_repo_remove
+USERPREF_MT_extensions_active_repo_remove: (
+    bl_ui.space_userpref.USERPREF_MT_extensions_active_repo_remove
+)
 
-USERPREF_MT_interface_theme_presets: bl_ui.space_userpref.USERPREF_MT_interface_theme_presets
+USERPREF_MT_interface_theme_presets: (
+    bl_ui.space_userpref.USERPREF_MT_interface_theme_presets
+)
 
 USERPREF_MT_keyconfigs: bl_ui.space_userpref.USERPREF_MT_keyconfigs
 
@@ -114974,7 +115709,9 @@ USERPREF_PT_animation_timeline: bl_ui.space_userpref.USERPREF_PT_animation_timel
 
 USERPREF_PT_assets: bl_ui.space_userpref.USERPREF_PT_assets
 
-USERPREF_PT_assets_asset_libraries: bl_ui.space_userpref.USERPREF_PT_assets_asset_libraries
+USERPREF_PT_assets_asset_libraries: (
+    bl_ui.space_userpref.USERPREF_PT_assets_asset_libraries
+)
 
 USERPREF_PT_developer_tools: bl_ui.space_userpref.USERPREF_PT_developer_tools
 
@@ -114990,7 +115727,9 @@ USERPREF_PT_edit_node_editor: bl_ui.space_userpref.USERPREF_PT_edit_node_editor
 
 USERPREF_PT_edit_objects: bl_ui.space_userpref.USERPREF_PT_edit_objects
 
-USERPREF_PT_edit_objects_duplicate_data: bl_ui.space_userpref.USERPREF_PT_edit_objects_duplicate_data
+USERPREF_PT_edit_objects_duplicate_data: (
+    bl_ui.space_userpref.USERPREF_PT_edit_objects_duplicate_data
+)
 
 USERPREF_PT_edit_objects_new: bl_ui.space_userpref.USERPREF_PT_edit_objects_new
 
@@ -115000,23 +115739,33 @@ USERPREF_PT_edit_text_editor: bl_ui.space_userpref.USERPREF_PT_edit_text_editor
 
 USERPREF_PT_edit_weight_paint: bl_ui.space_userpref.USERPREF_PT_edit_weight_paint
 
-USERPREF_PT_experimental_new_features: bl_ui.space_userpref.USERPREF_PT_experimental_new_features
+USERPREF_PT_experimental_new_features: (
+    bl_ui.space_userpref.USERPREF_PT_experimental_new_features
+)
 
-USERPREF_PT_experimental_prototypes: bl_ui.space_userpref.USERPREF_PT_experimental_prototypes
+USERPREF_PT_experimental_prototypes: (
+    bl_ui.space_userpref.USERPREF_PT_experimental_prototypes
+)
 
 USERPREF_PT_extensions: bl_ui.space_userpref.USERPREF_PT_extensions
 
 USERPREF_PT_extensions_repos: bl_ui.space_userpref.USERPREF_PT_extensions_repos
 
-USERPREF_PT_file_paths_applications: bl_ui.space_userpref.USERPREF_PT_file_paths_applications
+USERPREF_PT_file_paths_applications: (
+    bl_ui.space_userpref.USERPREF_PT_file_paths_applications
+)
 
 USERPREF_PT_file_paths_data: bl_ui.space_userpref.USERPREF_PT_file_paths_data
 
-USERPREF_PT_file_paths_development: bl_ui.space_userpref.USERPREF_PT_file_paths_development
+USERPREF_PT_file_paths_development: (
+    bl_ui.space_userpref.USERPREF_PT_file_paths_development
+)
 
 USERPREF_PT_file_paths_render: bl_ui.space_userpref.USERPREF_PT_file_paths_render
 
-USERPREF_PT_file_paths_script_directories: bl_ui.space_userpref.USERPREF_PT_file_paths_script_directories
+USERPREF_PT_file_paths_script_directories: (
+    bl_ui.space_userpref.USERPREF_PT_file_paths_script_directories
+)
 
 USERPREF_PT_input_keyboard: bl_ui.space_userpref.USERPREF_PT_input_keyboard
 
@@ -115028,7 +115777,9 @@ USERPREF_PT_input_tablet: bl_ui.space_userpref.USERPREF_PT_input_tablet
 
 USERPREF_PT_input_touchpad: bl_ui.space_userpref.USERPREF_PT_input_touchpad
 
-USERPREF_PT_interface_accessibility: bl_ui.space_userpref.USERPREF_PT_interface_accessibility
+USERPREF_PT_interface_accessibility: (
+    bl_ui.space_userpref.USERPREF_PT_interface_accessibility
+)
 
 USERPREF_PT_interface_display: bl_ui.space_userpref.USERPREF_PT_interface_display
 
@@ -115036,17 +115787,23 @@ USERPREF_PT_interface_editors: bl_ui.space_userpref.USERPREF_PT_interface_editor
 
 USERPREF_PT_interface_menus: bl_ui.space_userpref.USERPREF_PT_interface_menus
 
-USERPREF_PT_interface_menus_mouse_over: bl_ui.space_userpref.USERPREF_PT_interface_menus_mouse_over
+USERPREF_PT_interface_menus_mouse_over: (
+    bl_ui.space_userpref.USERPREF_PT_interface_menus_mouse_over
+)
 
 USERPREF_PT_interface_menus_pie: bl_ui.space_userpref.USERPREF_PT_interface_menus_pie
 
 USERPREF_PT_interface_statusbar: bl_ui.space_userpref.USERPREF_PT_interface_statusbar
 
-USERPREF_PT_interface_temporary_windows: bl_ui.space_userpref.USERPREF_PT_interface_temporary_windows
+USERPREF_PT_interface_temporary_windows: (
+    bl_ui.space_userpref.USERPREF_PT_interface_temporary_windows
+)
 
 USERPREF_PT_interface_text: bl_ui.space_userpref.USERPREF_PT_interface_text
 
-USERPREF_PT_interface_translation: bl_ui.space_userpref.USERPREF_PT_interface_translation
+USERPREF_PT_interface_translation: (
+    bl_ui.space_userpref.USERPREF_PT_interface_translation
+)
 
 USERPREF_PT_keymap: bl_ui.space_userpref.USERPREF_PT_keymap
 
@@ -115054,9 +115811,13 @@ USERPREF_PT_navigation_bar: bl_ui.space_userpref.USERPREF_PT_navigation_bar
 
 USERPREF_PT_navigation_fly_walk: bl_ui.space_userpref.USERPREF_PT_navigation_fly_walk
 
-USERPREF_PT_navigation_fly_walk_gravity: bl_ui.space_userpref.USERPREF_PT_navigation_fly_walk_gravity
+USERPREF_PT_navigation_fly_walk_gravity: (
+    bl_ui.space_userpref.USERPREF_PT_navigation_fly_walk_gravity
+)
 
-USERPREF_PT_navigation_fly_walk_navigation: bl_ui.space_userpref.USERPREF_PT_navigation_fly_walk_navigation
+USERPREF_PT_navigation_fly_walk_navigation: (
+    bl_ui.space_userpref.USERPREF_PT_navigation_fly_walk_navigation
+)
 
 USERPREF_PT_navigation_orbit: bl_ui.space_userpref.USERPREF_PT_navigation_orbit
 
@@ -115070,9 +115831,13 @@ USERPREF_PT_saveload_autorun: bl_ui.space_userpref.USERPREF_PT_saveload_autorun
 
 USERPREF_PT_saveload_blend: bl_ui.space_userpref.USERPREF_PT_saveload_blend
 
-USERPREF_PT_saveload_file_browser: bl_ui.space_userpref.USERPREF_PT_saveload_file_browser
+USERPREF_PT_saveload_file_browser: (
+    bl_ui.space_userpref.USERPREF_PT_saveload_file_browser
+)
 
-USERPREF_PT_studiolight_light_editor: bl_ui.space_userpref.USERPREF_PT_studiolight_light_editor
+USERPREF_PT_studiolight_light_editor: (
+    bl_ui.space_userpref.USERPREF_PT_studiolight_light_editor
+)
 
 USERPREF_PT_studiolight_lights: bl_ui.space_userpref.USERPREF_PT_studiolight_lights
 
@@ -115080,9 +115845,13 @@ USERPREF_PT_studiolight_matcaps: bl_ui.space_userpref.USERPREF_PT_studiolight_ma
 
 USERPREF_PT_studiolight_world: bl_ui.space_userpref.USERPREF_PT_studiolight_world
 
-USERPREF_PT_system_cycles_devices: bl_ui.space_userpref.USERPREF_PT_system_cycles_devices
+USERPREF_PT_system_cycles_devices: (
+    bl_ui.space_userpref.USERPREF_PT_system_cycles_devices
+)
 
-USERPREF_PT_system_display_graphics: bl_ui.space_userpref.USERPREF_PT_system_display_graphics
+USERPREF_PT_system_display_graphics: (
+    bl_ui.space_userpref.USERPREF_PT_system_display_graphics
+)
 
 USERPREF_PT_system_memory: bl_ui.space_userpref.USERPREF_PT_system_memory
 
@@ -115092,7 +115861,9 @@ USERPREF_PT_system_os_settings: bl_ui.space_userpref.USERPREF_PT_system_os_setti
 
 USERPREF_PT_system_sound: bl_ui.space_userpref.USERPREF_PT_system_sound
 
-USERPREF_PT_system_video_sequencer: bl_ui.space_userpref.USERPREF_PT_system_video_sequencer
+USERPREF_PT_system_video_sequencer: (
+    bl_ui.space_userpref.USERPREF_PT_system_video_sequencer
+)
 
 USERPREF_PT_text_editor: bl_ui.space_userpref.USERPREF_PT_text_editor
 
@@ -115100,21 +115871,37 @@ USERPREF_PT_text_editor_presets: bl_ui.space_userpref.USERPREF_PT_text_editor_pr
 
 USERPREF_PT_theme: bl_ui.space_userpref.USERPREF_PT_theme
 
-USERPREF_PT_theme_bone_color_sets: bl_ui.space_userpref.USERPREF_PT_theme_bone_color_sets
+USERPREF_PT_theme_bone_color_sets: (
+    bl_ui.space_userpref.USERPREF_PT_theme_bone_color_sets
+)
 
-USERPREF_PT_theme_collection_colors: bl_ui.space_userpref.USERPREF_PT_theme_collection_colors
+USERPREF_PT_theme_collection_colors: (
+    bl_ui.space_userpref.USERPREF_PT_theme_collection_colors
+)
 
-USERPREF_PT_theme_interface_gizmos: bl_ui.space_userpref.USERPREF_PT_theme_interface_gizmos
+USERPREF_PT_theme_interface_gizmos: (
+    bl_ui.space_userpref.USERPREF_PT_theme_interface_gizmos
+)
 
-USERPREF_PT_theme_interface_icons: bl_ui.space_userpref.USERPREF_PT_theme_interface_icons
+USERPREF_PT_theme_interface_icons: (
+    bl_ui.space_userpref.USERPREF_PT_theme_interface_icons
+)
 
-USERPREF_PT_theme_interface_panel: bl_ui.space_userpref.USERPREF_PT_theme_interface_panel
+USERPREF_PT_theme_interface_panel: (
+    bl_ui.space_userpref.USERPREF_PT_theme_interface_panel
+)
 
-USERPREF_PT_theme_interface_state: bl_ui.space_userpref.USERPREF_PT_theme_interface_state
+USERPREF_PT_theme_interface_state: (
+    bl_ui.space_userpref.USERPREF_PT_theme_interface_state
+)
 
-USERPREF_PT_theme_interface_styles: bl_ui.space_userpref.USERPREF_PT_theme_interface_styles
+USERPREF_PT_theme_interface_styles: (
+    bl_ui.space_userpref.USERPREF_PT_theme_interface_styles
+)
 
-USERPREF_PT_theme_interface_transparent_checker: bl_ui.space_userpref.USERPREF_PT_theme_interface_transparent_checker
+USERPREF_PT_theme_interface_transparent_checker: (
+    bl_ui.space_userpref.USERPREF_PT_theme_interface_transparent_checker
+)
 
 USERPREF_PT_theme_strip_colors: bl_ui.space_userpref.USERPREF_PT_theme_strip_colors
 
@@ -115212,13 +115999,19 @@ VIEW3D_MT_edit_curves: bl_ui.space_view3d.VIEW3D_MT_edit_curves
 
 VIEW3D_MT_edit_curves_add: bl_ui.space_view3d.VIEW3D_MT_edit_curves_add
 
-VIEW3D_MT_edit_curves_context_menu: bl_ui.space_view3d.VIEW3D_MT_edit_curves_context_menu
+VIEW3D_MT_edit_curves_context_menu: (
+    bl_ui.space_view3d.VIEW3D_MT_edit_curves_context_menu
+)
 
-VIEW3D_MT_edit_curves_control_points: bl_ui.space_view3d.VIEW3D_MT_edit_curves_control_points
+VIEW3D_MT_edit_curves_control_points: (
+    bl_ui.space_view3d.VIEW3D_MT_edit_curves_control_points
+)
 
 VIEW3D_MT_edit_curves_segments: bl_ui.space_view3d.VIEW3D_MT_edit_curves_segments
 
-VIEW3D_MT_edit_curves_select_more_less: bl_ui.space_view3d.VIEW3D_MT_edit_curves_select_more_less
+VIEW3D_MT_edit_curves_select_more_less: (
+    bl_ui.space_view3d.VIEW3D_MT_edit_curves_select_more_less
+)
 
 VIEW3D_MT_edit_font: bl_ui.space_view3d.VIEW3D_MT_edit_font
 
@@ -115232,21 +116025,33 @@ VIEW3D_MT_edit_font_kerning: bl_ui.space_view3d.VIEW3D_MT_edit_font_kerning
 
 VIEW3D_MT_edit_greasepencil: bl_ui.space_view3d.VIEW3D_MT_edit_greasepencil
 
-VIEW3D_MT_edit_greasepencil_animation: bl_ui.space_view3d.VIEW3D_MT_edit_greasepencil_animation
+VIEW3D_MT_edit_greasepencil_animation: (
+    bl_ui.space_view3d.VIEW3D_MT_edit_greasepencil_animation
+)
 
-VIEW3D_MT_edit_greasepencil_cleanup: bl_ui.space_view3d.VIEW3D_MT_edit_greasepencil_cleanup
+VIEW3D_MT_edit_greasepencil_cleanup: (
+    bl_ui.space_view3d.VIEW3D_MT_edit_greasepencil_cleanup
+)
 
-VIEW3D_MT_edit_greasepencil_delete: bl_ui.space_view3d.VIEW3D_MT_edit_greasepencil_delete
+VIEW3D_MT_edit_greasepencil_delete: (
+    bl_ui.space_view3d.VIEW3D_MT_edit_greasepencil_delete
+)
 
 VIEW3D_MT_edit_greasepencil_point: bl_ui.space_view3d.VIEW3D_MT_edit_greasepencil_point
 
-VIEW3D_MT_edit_greasepencil_showhide: bl_ui.space_view3d.VIEW3D_MT_edit_greasepencil_showhide
+VIEW3D_MT_edit_greasepencil_showhide: (
+    bl_ui.space_view3d.VIEW3D_MT_edit_greasepencil_showhide
+)
 
-VIEW3D_MT_edit_greasepencil_stroke: bl_ui.space_view3d.VIEW3D_MT_edit_greasepencil_stroke
+VIEW3D_MT_edit_greasepencil_stroke: (
+    bl_ui.space_view3d.VIEW3D_MT_edit_greasepencil_stroke
+)
 
 VIEW3D_MT_edit_lattice: bl_ui.space_view3d.VIEW3D_MT_edit_lattice
 
-VIEW3D_MT_edit_lattice_context_menu: bl_ui.space_view3d.VIEW3D_MT_edit_lattice_context_menu
+VIEW3D_MT_edit_lattice_context_menu: (
+    bl_ui.space_view3d.VIEW3D_MT_edit_lattice_context_menu
+)
 
 VIEW3D_MT_edit_mesh: bl_ui.space_view3d.VIEW3D_MT_edit_mesh
 
@@ -115268,13 +116073,21 @@ VIEW3D_MT_edit_mesh_merge: bl_ui.space_view3d.VIEW3D_MT_edit_mesh_merge
 
 VIEW3D_MT_edit_mesh_normals: bl_ui.space_view3d.VIEW3D_MT_edit_mesh_normals
 
-VIEW3D_MT_edit_mesh_normals_average: bl_ui.space_view3d.VIEW3D_MT_edit_mesh_normals_average
+VIEW3D_MT_edit_mesh_normals_average: (
+    bl_ui.space_view3d.VIEW3D_MT_edit_mesh_normals_average
+)
 
-VIEW3D_MT_edit_mesh_normals_select_strength: bl_ui.space_view3d.VIEW3D_MT_edit_mesh_normals_select_strength
+VIEW3D_MT_edit_mesh_normals_select_strength: (
+    bl_ui.space_view3d.VIEW3D_MT_edit_mesh_normals_select_strength
+)
 
-VIEW3D_MT_edit_mesh_normals_set_strength: bl_ui.space_view3d.VIEW3D_MT_edit_mesh_normals_set_strength
+VIEW3D_MT_edit_mesh_normals_set_strength: (
+    bl_ui.space_view3d.VIEW3D_MT_edit_mesh_normals_set_strength
+)
 
-VIEW3D_MT_edit_mesh_select_by_trait: bl_ui.space_view3d.VIEW3D_MT_edit_mesh_select_by_trait
+VIEW3D_MT_edit_mesh_select_by_trait: (
+    bl_ui.space_view3d.VIEW3D_MT_edit_mesh_select_by_trait
+)
 
 VIEW3D_MT_edit_mesh_select_linked: bl_ui.space_view3d.VIEW3D_MT_edit_mesh_select_linked
 
@@ -115282,9 +116095,13 @@ VIEW3D_MT_edit_mesh_select_loops: bl_ui.space_view3d.VIEW3D_MT_edit_mesh_select_
 
 VIEW3D_MT_edit_mesh_select_mode: bl_ui.space_view3d.VIEW3D_MT_edit_mesh_select_mode
 
-VIEW3D_MT_edit_mesh_select_more_less: bl_ui.space_view3d.VIEW3D_MT_edit_mesh_select_more_less
+VIEW3D_MT_edit_mesh_select_more_less: (
+    bl_ui.space_view3d.VIEW3D_MT_edit_mesh_select_more_less
+)
 
-VIEW3D_MT_edit_mesh_select_similar: bl_ui.space_view3d.VIEW3D_MT_edit_mesh_select_similar
+VIEW3D_MT_edit_mesh_select_similar: (
+    bl_ui.space_view3d.VIEW3D_MT_edit_mesh_select_similar
+)
 
 VIEW3D_MT_edit_mesh_shading: bl_ui.space_view3d.VIEW3D_MT_edit_mesh_shading
 
@@ -115300,7 +116117,9 @@ VIEW3D_MT_edit_meta: bl_ui.space_view3d.VIEW3D_MT_edit_meta
 
 VIEW3D_MT_edit_meta_showhide: bl_ui.space_view3d.VIEW3D_MT_edit_meta_showhide
 
-VIEW3D_MT_edit_metaball_context_menu: bl_ui.space_view3d.VIEW3D_MT_edit_metaball_context_menu
+VIEW3D_MT_edit_metaball_context_menu: (
+    bl_ui.space_view3d.VIEW3D_MT_edit_metaball_context_menu
+)
 
 VIEW3D_MT_edit_pointcloud: bl_ui.space_view3d.VIEW3D_MT_edit_pointcloud
 
@@ -115316,15 +116135,25 @@ VIEW3D_MT_face_sets_init: bl_ui.space_view3d.VIEW3D_MT_face_sets_init
 
 VIEW3D_MT_grease_pencil_add: bl_ui.space_view3d.VIEW3D_MT_grease_pencil_add
 
-VIEW3D_MT_grease_pencil_assign_material: bl_ui.space_view3d.VIEW3D_MT_grease_pencil_assign_material
+VIEW3D_MT_grease_pencil_assign_material: (
+    bl_ui.space_view3d.VIEW3D_MT_grease_pencil_assign_material
+)
 
-VIEW3D_MT_grease_pencil_sculpt_automasking_pie: bl_ui.space_view3d.VIEW3D_MT_grease_pencil_sculpt_automasking_pie
+VIEW3D_MT_grease_pencil_sculpt_automasking_pie: (
+    bl_ui.space_view3d.VIEW3D_MT_grease_pencil_sculpt_automasking_pie
+)
 
-VIEW3D_MT_greasepencil_edit_context_menu: bl_ui.space_view3d.VIEW3D_MT_greasepencil_edit_context_menu
+VIEW3D_MT_greasepencil_edit_context_menu: (
+    bl_ui.space_view3d.VIEW3D_MT_greasepencil_edit_context_menu
+)
 
-VIEW3D_MT_greasepencil_material_active: bl_ui.space_view3d.VIEW3D_MT_greasepencil_material_active
+VIEW3D_MT_greasepencil_material_active: (
+    bl_ui.space_view3d.VIEW3D_MT_greasepencil_material_active
+)
 
-VIEW3D_MT_greasepencil_vertex_group: bl_ui.space_view3d.VIEW3D_MT_greasepencil_vertex_group
+VIEW3D_MT_greasepencil_vertex_group: (
+    bl_ui.space_view3d.VIEW3D_MT_greasepencil_vertex_group
+)
 
 VIEW3D_MT_hook: bl_ui.space_view3d.VIEW3D_MT_hook
 
@@ -115394,7 +116223,9 @@ VIEW3D_MT_paint_grease_pencil: bl_ui.space_view3d.VIEW3D_MT_paint_grease_pencil
 
 VIEW3D_MT_paint_vertex: bl_ui.space_view3d.VIEW3D_MT_paint_vertex
 
-VIEW3D_MT_paint_vertex_grease_pencil: bl_ui.space_view3d.VIEW3D_MT_paint_vertex_grease_pencil
+VIEW3D_MT_paint_vertex_grease_pencil: (
+    bl_ui.space_view3d.VIEW3D_MT_paint_vertex_grease_pencil
+)
 
 VIEW3D_MT_paint_weight: bl_ui.space_view3d.VIEW3D_MT_paint_weight
 
@@ -115430,7 +116261,9 @@ VIEW3D_MT_pose_slide: bl_ui.space_view3d.VIEW3D_MT_pose_slide
 
 VIEW3D_MT_pose_transform: bl_ui.space_view3d.VIEW3D_MT_pose_transform
 
-VIEW3D_MT_proportional_editing_falloff_pie: bl_ui.space_view3d.VIEW3D_MT_proportional_editing_falloff_pie
+VIEW3D_MT_proportional_editing_falloff_pie: (
+    bl_ui.space_view3d.VIEW3D_MT_proportional_editing_falloff_pie
+)
 
 VIEW3D_MT_random_mask: bl_ui.space_view3d.VIEW3D_MT_random_mask
 
@@ -115440,7 +116273,9 @@ VIEW3D_MT_sculpt_automasking_pie: bl_ui.space_view3d.VIEW3D_MT_sculpt_automaskin
 
 VIEW3D_MT_sculpt_curves: bl_ui.space_view3d.VIEW3D_MT_sculpt_curves
 
-VIEW3D_MT_sculpt_face_sets_edit_pie: bl_ui.space_view3d.VIEW3D_MT_sculpt_face_sets_edit_pie
+VIEW3D_MT_sculpt_face_sets_edit_pie: (
+    bl_ui.space_view3d.VIEW3D_MT_sculpt_face_sets_edit_pie
+)
 
 VIEW3D_MT_sculpt_mask_edit_pie: bl_ui.space_view3d.VIEW3D_MT_sculpt_mask_edit_pie
 
@@ -115458,7 +116293,9 @@ VIEW3D_MT_select_edit_curve: bl_ui.space_view3d.VIEW3D_MT_select_edit_curve
 
 VIEW3D_MT_select_edit_curves: bl_ui.space_view3d.VIEW3D_MT_select_edit_curves
 
-VIEW3D_MT_select_edit_grease_pencil: bl_ui.space_view3d.VIEW3D_MT_select_edit_grease_pencil
+VIEW3D_MT_select_edit_grease_pencil: (
+    bl_ui.space_view3d.VIEW3D_MT_select_edit_grease_pencil
+)
 
 VIEW3D_MT_select_edit_lattice: bl_ui.space_view3d.VIEW3D_MT_select_edit_lattice
 
@@ -115478,7 +116315,9 @@ VIEW3D_MT_select_object_more_less: bl_ui.space_view3d.VIEW3D_MT_select_object_mo
 
 VIEW3D_MT_select_paint_mask: bl_ui.space_view3d.VIEW3D_MT_select_paint_mask
 
-VIEW3D_MT_select_paint_mask_vertex: bl_ui.space_view3d.VIEW3D_MT_select_paint_mask_vertex
+VIEW3D_MT_select_paint_mask_vertex: (
+    bl_ui.space_view3d.VIEW3D_MT_select_paint_mask_vertex
+)
 
 VIEW3D_MT_select_particle: bl_ui.space_view3d.VIEW3D_MT_select_particle
 
@@ -115498,11 +116337,17 @@ VIEW3D_MT_snap_pie: bl_ui.space_view3d.VIEW3D_MT_snap_pie
 
 VIEW3D_MT_surface_add: bl_ui.space_view3d.VIEW3D_MT_surface_add
 
-VIEW3D_MT_tools_projectpaint_clone: bl_ui.properties_paint_common.VIEW3D_MT_tools_projectpaint_clone
+VIEW3D_MT_tools_projectpaint_clone: (
+    bl_ui.properties_paint_common.VIEW3D_MT_tools_projectpaint_clone
+)
 
-VIEW3D_MT_tools_projectpaint_stencil: bl_ui.space_view3d_toolbar.VIEW3D_MT_tools_projectpaint_stencil
+VIEW3D_MT_tools_projectpaint_stencil: (
+    bl_ui.space_view3d_toolbar.VIEW3D_MT_tools_projectpaint_stencil
+)
 
-VIEW3D_MT_tools_projectpaint_uvlayer: bl_ui.space_view3d_toolbar.VIEW3D_MT_tools_projectpaint_uvlayer
+VIEW3D_MT_tools_projectpaint_uvlayer: (
+    bl_ui.space_view3d_toolbar.VIEW3D_MT_tools_projectpaint_uvlayer
+)
 
 VIEW3D_MT_transform: bl_ui.space_view3d.VIEW3D_MT_transform
 
@@ -115540,9 +116385,13 @@ VIEW3D_MT_weight_grease_pencil: bl_ui.space_view3d.VIEW3D_MT_weight_grease_penci
 
 VIEW3D_MT_wpaint_vgroup_lock_pie: bl_ui.space_view3d.VIEW3D_MT_wpaint_vgroup_lock_pie
 
-VIEW3D_OT_edit_mesh_extrude_individual_move: bl_operators.view3d.VIEW3D_OT_edit_mesh_extrude_individual_move
+VIEW3D_OT_edit_mesh_extrude_individual_move: (
+    bl_operators.view3d.VIEW3D_OT_edit_mesh_extrude_individual_move
+)
 
-VIEW3D_OT_edit_mesh_extrude_manifold_normal: bl_operators.view3d.VIEW3D_OT_edit_mesh_extrude_manifold_normal
+VIEW3D_OT_edit_mesh_extrude_manifold_normal: (
+    bl_operators.view3d.VIEW3D_OT_edit_mesh_extrude_manifold_normal
+)
 
 VIEW3D_OT_transform_gizmo_set: bl_operators.view3d.VIEW3D_OT_transform_gizmo_set
 
@@ -115558,27 +116407,45 @@ VIEW3D_PT_collections: bl_ui.space_view3d.VIEW3D_PT_collections
 
 VIEW3D_PT_context_properties: bl_ui.space_view3d.VIEW3D_PT_context_properties
 
-VIEW3D_PT_copy_global_transform: bl_ui.space_view3d_sidebar.VIEW3D_PT_copy_global_transform
+VIEW3D_PT_copy_global_transform: (
+    bl_ui.space_view3d_sidebar.VIEW3D_PT_copy_global_transform
+)
 
-VIEW3D_PT_copy_global_transform_fix_to_camera: bl_ui.space_view3d_sidebar.VIEW3D_PT_copy_global_transform_fix_to_camera
+VIEW3D_PT_copy_global_transform_fix_to_camera: (
+    bl_ui.space_view3d_sidebar.VIEW3D_PT_copy_global_transform_fix_to_camera
+)
 
-VIEW3D_PT_copy_global_transform_mirror: bl_ui.space_view3d_sidebar.VIEW3D_PT_copy_global_transform_mirror
+VIEW3D_PT_copy_global_transform_mirror: (
+    bl_ui.space_view3d_sidebar.VIEW3D_PT_copy_global_transform_mirror
+)
 
-VIEW3D_PT_copy_global_transform_relative: bl_ui.space_view3d_sidebar.VIEW3D_PT_copy_global_transform_relative
+VIEW3D_PT_copy_global_transform_relative: (
+    bl_ui.space_view3d_sidebar.VIEW3D_PT_copy_global_transform_relative
+)
 
 VIEW3D_PT_curves_sculpt_add_shape: bl_ui.space_view3d.VIEW3D_PT_curves_sculpt_add_shape
 
-VIEW3D_PT_curves_sculpt_grow_shrink_scaling: bl_ui.space_view3d.VIEW3D_PT_curves_sculpt_grow_shrink_scaling
+VIEW3D_PT_curves_sculpt_grow_shrink_scaling: (
+    bl_ui.space_view3d.VIEW3D_PT_curves_sculpt_grow_shrink_scaling
+)
 
-VIEW3D_PT_curves_sculpt_parameter_falloff: bl_ui.space_view3d.VIEW3D_PT_curves_sculpt_parameter_falloff
+VIEW3D_PT_curves_sculpt_parameter_falloff: (
+    bl_ui.space_view3d.VIEW3D_PT_curves_sculpt_parameter_falloff
+)
 
-VIEW3D_PT_curves_sculpt_symmetry: bl_ui.space_view3d_toolbar.VIEW3D_PT_curves_sculpt_symmetry
+VIEW3D_PT_curves_sculpt_symmetry: (
+    bl_ui.space_view3d_toolbar.VIEW3D_PT_curves_sculpt_symmetry
+)
 
-VIEW3D_PT_curves_sculpt_symmetry_for_topbar: bl_ui.space_view3d_toolbar.VIEW3D_PT_curves_sculpt_symmetry_for_topbar
+VIEW3D_PT_curves_sculpt_symmetry_for_topbar: (
+    bl_ui.space_view3d_toolbar.VIEW3D_PT_curves_sculpt_symmetry_for_topbar
+)
 
 VIEW3D_PT_gizmo_display: bl_ui.space_view3d.VIEW3D_PT_gizmo_display
 
-VIEW3D_PT_gpencil_brush_presets: bl_ui.space_view3d_toolbar.VIEW3D_PT_gpencil_brush_presets
+VIEW3D_PT_gpencil_brush_presets: (
+    bl_ui.space_view3d_toolbar.VIEW3D_PT_gpencil_brush_presets
+)
 
 VIEW3D_PT_grease_pencil: bl_ui.space_view3d.VIEW3D_PT_grease_pencil
 
@@ -115586,19 +116453,31 @@ VIEW3D_PT_grease_pencil_guide: bl_ui.space_view3d.VIEW3D_PT_grease_pencil_guide
 
 VIEW3D_PT_grease_pencil_lock: bl_ui.space_view3d.VIEW3D_PT_grease_pencil_lock
 
-VIEW3D_PT_grease_pencil_multi_frame: bl_ui.space_view3d.VIEW3D_PT_grease_pencil_multi_frame
+VIEW3D_PT_grease_pencil_multi_frame: (
+    bl_ui.space_view3d.VIEW3D_PT_grease_pencil_multi_frame
+)
 
 VIEW3D_PT_grease_pencil_origin: bl_ui.space_view3d.VIEW3D_PT_grease_pencil_origin
 
-VIEW3D_PT_grease_pencil_sculpt_automasking: bl_ui.space_view3d.VIEW3D_PT_grease_pencil_sculpt_automasking
+VIEW3D_PT_grease_pencil_sculpt_automasking: (
+    bl_ui.space_view3d.VIEW3D_PT_grease_pencil_sculpt_automasking
+)
 
-VIEW3D_PT_greasepencil_draw_context_menu: bl_ui.space_view3d.VIEW3D_PT_greasepencil_draw_context_menu
+VIEW3D_PT_greasepencil_draw_context_menu: (
+    bl_ui.space_view3d.VIEW3D_PT_greasepencil_draw_context_menu
+)
 
-VIEW3D_PT_greasepencil_sculpt_context_menu: bl_ui.space_view3d.VIEW3D_PT_greasepencil_sculpt_context_menu
+VIEW3D_PT_greasepencil_sculpt_context_menu: (
+    bl_ui.space_view3d.VIEW3D_PT_greasepencil_sculpt_context_menu
+)
 
-VIEW3D_PT_greasepencil_vertex_paint_context_menu: bl_ui.space_view3d.VIEW3D_PT_greasepencil_vertex_paint_context_menu
+VIEW3D_PT_greasepencil_vertex_paint_context_menu: (
+    bl_ui.space_view3d.VIEW3D_PT_greasepencil_vertex_paint_context_menu
+)
 
-VIEW3D_PT_greasepencil_weight_context_menu: bl_ui.space_view3d.VIEW3D_PT_greasepencil_weight_context_menu
+VIEW3D_PT_greasepencil_weight_context_menu: (
+    bl_ui.space_view3d.VIEW3D_PT_greasepencil_weight_context_menu
+)
 
 VIEW3D_PT_mask: bl_ui.space_view3d_toolbar.VIEW3D_PT_mask
 
@@ -115614,19 +116493,31 @@ VIEW3D_PT_overlay_edit_curves: bl_ui.space_view3d.VIEW3D_PT_overlay_edit_curves
 
 VIEW3D_PT_overlay_edit_mesh: bl_ui.space_view3d.VIEW3D_PT_overlay_edit_mesh
 
-VIEW3D_PT_overlay_edit_mesh_freestyle: bl_ui.space_view3d.VIEW3D_PT_overlay_edit_mesh_freestyle
+VIEW3D_PT_overlay_edit_mesh_freestyle: (
+    bl_ui.space_view3d.VIEW3D_PT_overlay_edit_mesh_freestyle
+)
 
-VIEW3D_PT_overlay_edit_mesh_measurement: bl_ui.space_view3d.VIEW3D_PT_overlay_edit_mesh_measurement
+VIEW3D_PT_overlay_edit_mesh_measurement: (
+    bl_ui.space_view3d.VIEW3D_PT_overlay_edit_mesh_measurement
+)
 
-VIEW3D_PT_overlay_edit_mesh_normals: bl_ui.space_view3d.VIEW3D_PT_overlay_edit_mesh_normals
+VIEW3D_PT_overlay_edit_mesh_normals: (
+    bl_ui.space_view3d.VIEW3D_PT_overlay_edit_mesh_normals
+)
 
-VIEW3D_PT_overlay_edit_mesh_shading: bl_ui.space_view3d.VIEW3D_PT_overlay_edit_mesh_shading
+VIEW3D_PT_overlay_edit_mesh_shading: (
+    bl_ui.space_view3d.VIEW3D_PT_overlay_edit_mesh_shading
+)
 
 VIEW3D_PT_overlay_geometry: bl_ui.space_view3d.VIEW3D_PT_overlay_geometry
 
-VIEW3D_PT_overlay_grease_pencil_canvas_options: bl_ui.space_view3d.VIEW3D_PT_overlay_grease_pencil_canvas_options
+VIEW3D_PT_overlay_grease_pencil_canvas_options: (
+    bl_ui.space_view3d.VIEW3D_PT_overlay_grease_pencil_canvas_options
+)
 
-VIEW3D_PT_overlay_grease_pencil_options: bl_ui.space_view3d.VIEW3D_PT_overlay_grease_pencil_options
+VIEW3D_PT_overlay_grease_pencil_options: (
+    bl_ui.space_view3d.VIEW3D_PT_overlay_grease_pencil_options
+)
 
 VIEW3D_PT_overlay_guides: bl_ui.space_view3d.VIEW3D_PT_overlay_guides
 
@@ -115648,11 +116539,17 @@ VIEW3D_PT_overlay_viewer_node: bl_ui.space_view3d.VIEW3D_PT_overlay_viewer_node
 
 VIEW3D_PT_overlay_weight_paint: bl_ui.space_view3d.VIEW3D_PT_overlay_weight_paint
 
-VIEW3D_PT_paint_texture_context_menu: bl_ui.space_view3d.VIEW3D_PT_paint_texture_context_menu
+VIEW3D_PT_paint_texture_context_menu: (
+    bl_ui.space_view3d.VIEW3D_PT_paint_texture_context_menu
+)
 
-VIEW3D_PT_paint_vertex_context_menu: bl_ui.space_view3d.VIEW3D_PT_paint_vertex_context_menu
+VIEW3D_PT_paint_vertex_context_menu: (
+    bl_ui.space_view3d.VIEW3D_PT_paint_vertex_context_menu
+)
 
-VIEW3D_PT_paint_weight_context_menu: bl_ui.space_view3d.VIEW3D_PT_paint_weight_context_menu
+VIEW3D_PT_paint_weight_context_menu: (
+    bl_ui.space_view3d.VIEW3D_PT_paint_weight_context_menu
+)
 
 VIEW3D_PT_proportional_edit: bl_ui.space_view3d.VIEW3D_PT_proportional_edit
 
@@ -115666,13 +116563,17 @@ VIEW3D_PT_sculpt_dyntopo: bl_ui.space_view3d_toolbar.VIEW3D_PT_sculpt_dyntopo
 
 VIEW3D_PT_sculpt_options: bl_ui.space_view3d_toolbar.VIEW3D_PT_sculpt_options
 
-VIEW3D_PT_sculpt_options_gravity: bl_ui.space_view3d_toolbar.VIEW3D_PT_sculpt_options_gravity
+VIEW3D_PT_sculpt_options_gravity: (
+    bl_ui.space_view3d_toolbar.VIEW3D_PT_sculpt_options_gravity
+)
 
 VIEW3D_PT_sculpt_snapping: bl_ui.space_view3d.VIEW3D_PT_sculpt_snapping
 
 VIEW3D_PT_sculpt_symmetry: bl_ui.space_view3d_toolbar.VIEW3D_PT_sculpt_symmetry
 
-VIEW3D_PT_sculpt_symmetry_for_topbar: bl_ui.space_view3d_toolbar.VIEW3D_PT_sculpt_symmetry_for_topbar
+VIEW3D_PT_sculpt_symmetry_for_topbar: (
+    bl_ui.space_view3d_toolbar.VIEW3D_PT_sculpt_symmetry_for_topbar
+)
 
 VIEW3D_PT_sculpt_voxel_remesh: bl_ui.space_view3d_toolbar.VIEW3D_PT_sculpt_voxel_remesh
 
@@ -115694,7 +116595,9 @@ VIEW3D_PT_shading_options_ssao: bl_ui.space_view3d.VIEW3D_PT_shading_options_ssa
 
 VIEW3D_PT_shading_render_pass: bl_ui.space_view3d.VIEW3D_PT_shading_render_pass
 
-VIEW3D_PT_slots_color_attributes: bl_ui.space_view3d_toolbar.VIEW3D_PT_slots_color_attributes
+VIEW3D_PT_slots_color_attributes: (
+    bl_ui.space_view3d_toolbar.VIEW3D_PT_slots_color_attributes
+)
 
 VIEW3D_PT_slots_paint_canvas: bl_ui.space_view3d_toolbar.VIEW3D_PT_slots_paint_canvas
 
@@ -115704,11 +116607,15 @@ VIEW3D_PT_slots_vertex_groups: bl_ui.space_view3d_toolbar.VIEW3D_PT_slots_vertex
 
 VIEW3D_PT_snapping: bl_ui.space_view3d.VIEW3D_PT_snapping
 
-VIEW3D_PT_stencil_projectpaint: bl_ui.space_view3d_toolbar.VIEW3D_PT_stencil_projectpaint
+VIEW3D_PT_stencil_projectpaint: (
+    bl_ui.space_view3d_toolbar.VIEW3D_PT_stencil_projectpaint
+)
 
 VIEW3D_PT_tools_active: bl_ui.space_toolsystem_toolbar.VIEW3D_PT_tools_active
 
-VIEW3D_PT_tools_armatureedit_options: bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_armatureedit_options
+VIEW3D_PT_tools_armatureedit_options: (
+    bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_armatureedit_options
+)
 
 VIEW3D_PT_tools_brush_clone: bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_brush_clone
 
@@ -115718,119 +116625,223 @@ VIEW3D_PT_tools_brush_display: bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_brush_
 
 VIEW3D_PT_tools_brush_falloff: bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_brush_falloff
 
-VIEW3D_PT_tools_brush_falloff_frontface: bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_brush_falloff_frontface
+VIEW3D_PT_tools_brush_falloff_frontface: (
+    bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_brush_falloff_frontface
+)
 
-VIEW3D_PT_tools_brush_falloff_normal: bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_brush_falloff_normal
+VIEW3D_PT_tools_brush_falloff_normal: (
+    bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_brush_falloff_normal
+)
 
 VIEW3D_PT_tools_brush_select: bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_brush_select
 
-VIEW3D_PT_tools_brush_settings: bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_brush_settings
+VIEW3D_PT_tools_brush_settings: (
+    bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_brush_settings
+)
 
-VIEW3D_PT_tools_brush_settings_advanced: bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_brush_settings_advanced
+VIEW3D_PT_tools_brush_settings_advanced: (
+    bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_brush_settings_advanced
+)
 
 VIEW3D_PT_tools_brush_stroke: bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_brush_stroke
 
-VIEW3D_PT_tools_brush_stroke_smooth_stroke: bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_brush_stroke_smooth_stroke
+VIEW3D_PT_tools_brush_stroke_smooth_stroke: (
+    bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_brush_stroke_smooth_stroke
+)
 
-VIEW3D_PT_tools_brush_swatches: bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_brush_swatches
+VIEW3D_PT_tools_brush_swatches: (
+    bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_brush_swatches
+)
 
 VIEW3D_PT_tools_brush_texture: bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_brush_texture
 
-VIEW3D_PT_tools_grease_pencil_brush_vertex_color: bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_grease_pencil_brush_vertex_color
+VIEW3D_PT_tools_grease_pencil_brush_vertex_color: (
+    bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_grease_pencil_brush_vertex_color
+)
 
-VIEW3D_PT_tools_grease_pencil_brush_vertex_falloff: bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_grease_pencil_brush_vertex_falloff
+VIEW3D_PT_tools_grease_pencil_brush_vertex_falloff: (
+    bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_grease_pencil_brush_vertex_falloff
+)
 
-VIEW3D_PT_tools_grease_pencil_brush_vertex_palette: bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_grease_pencil_brush_vertex_palette
+VIEW3D_PT_tools_grease_pencil_brush_vertex_palette: (
+    bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_grease_pencil_brush_vertex_palette
+)
 
-VIEW3D_PT_tools_grease_pencil_brush_weight_falloff: bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_grease_pencil_brush_weight_falloff
+VIEW3D_PT_tools_grease_pencil_brush_weight_falloff: (
+    bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_grease_pencil_brush_weight_falloff
+)
 
-VIEW3D_PT_tools_grease_pencil_paint_appearance: bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_grease_pencil_paint_appearance
+VIEW3D_PT_tools_grease_pencil_paint_appearance: (
+    bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_grease_pencil_paint_appearance
+)
 
-VIEW3D_PT_tools_grease_pencil_sculpt_appearance: bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_grease_pencil_sculpt_appearance
+VIEW3D_PT_tools_grease_pencil_sculpt_appearance: (
+    bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_grease_pencil_sculpt_appearance
+)
 
-VIEW3D_PT_tools_grease_pencil_sculpt_brush_popover: bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_grease_pencil_sculpt_brush_popover
+VIEW3D_PT_tools_grease_pencil_sculpt_brush_popover: (
+    bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_grease_pencil_sculpt_brush_popover
+)
 
-VIEW3D_PT_tools_grease_pencil_v3_brush_advanced: bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_grease_pencil_v3_brush_advanced
+VIEW3D_PT_tools_grease_pencil_v3_brush_advanced: (
+    bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_grease_pencil_v3_brush_advanced
+)
 
-VIEW3D_PT_tools_grease_pencil_v3_brush_eraser: bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_grease_pencil_v3_brush_eraser
+VIEW3D_PT_tools_grease_pencil_v3_brush_eraser: (
+    bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_grease_pencil_v3_brush_eraser
+)
 
-VIEW3D_PT_tools_grease_pencil_v3_brush_fill_advanced: bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_grease_pencil_v3_brush_fill_advanced
+VIEW3D_PT_tools_grease_pencil_v3_brush_fill_advanced: (
+    bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_grease_pencil_v3_brush_fill_advanced
+)
 
-VIEW3D_PT_tools_grease_pencil_v3_brush_gap_closure: bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_grease_pencil_v3_brush_gap_closure
+VIEW3D_PT_tools_grease_pencil_v3_brush_gap_closure: (
+    bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_grease_pencil_v3_brush_gap_closure
+)
 
-VIEW3D_PT_tools_grease_pencil_v3_brush_mix_palette: bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_grease_pencil_v3_brush_mix_palette
+VIEW3D_PT_tools_grease_pencil_v3_brush_mix_palette: (
+    bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_grease_pencil_v3_brush_mix_palette
+)
 
-VIEW3D_PT_tools_grease_pencil_v3_brush_mixcolor: bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_grease_pencil_v3_brush_mixcolor
+VIEW3D_PT_tools_grease_pencil_v3_brush_mixcolor: (
+    bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_grease_pencil_v3_brush_mixcolor
+)
 
-VIEW3D_PT_tools_grease_pencil_v3_brush_post_processing: bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_grease_pencil_v3_brush_post_processing
+VIEW3D_PT_tools_grease_pencil_v3_brush_post_processing: (
+    bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_grease_pencil_v3_brush_post_processing
+)
 
-VIEW3D_PT_tools_grease_pencil_v3_brush_random: bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_grease_pencil_v3_brush_random
+VIEW3D_PT_tools_grease_pencil_v3_brush_random: (
+    bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_grease_pencil_v3_brush_random
+)
 
-VIEW3D_PT_tools_grease_pencil_v3_brush_select: bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_grease_pencil_v3_brush_select
+VIEW3D_PT_tools_grease_pencil_v3_brush_select: (
+    bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_grease_pencil_v3_brush_select
+)
 
-VIEW3D_PT_tools_grease_pencil_v3_brush_settings: bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_grease_pencil_v3_brush_settings
+VIEW3D_PT_tools_grease_pencil_v3_brush_settings: (
+    bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_grease_pencil_v3_brush_settings
+)
 
-VIEW3D_PT_tools_grease_pencil_v3_brush_stabilizer: bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_grease_pencil_v3_brush_stabilizer
+VIEW3D_PT_tools_grease_pencil_v3_brush_stabilizer: (
+    bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_grease_pencil_v3_brush_stabilizer
+)
 
-VIEW3D_PT_tools_grease_pencil_v3_brush_stroke: bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_grease_pencil_v3_brush_stroke
+VIEW3D_PT_tools_grease_pencil_v3_brush_stroke: (
+    bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_grease_pencil_v3_brush_stroke
+)
 
-VIEW3D_PT_tools_grease_pencil_vertex_appearance: bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_grease_pencil_vertex_appearance
+VIEW3D_PT_tools_grease_pencil_vertex_appearance: (
+    bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_grease_pencil_vertex_appearance
+)
 
-VIEW3D_PT_tools_grease_pencil_vertex_paint_select: bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_grease_pencil_vertex_paint_select
+VIEW3D_PT_tools_grease_pencil_vertex_paint_select: (
+    bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_grease_pencil_vertex_paint_select
+)
 
-VIEW3D_PT_tools_grease_pencil_vertex_paint_settings: bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_grease_pencil_vertex_paint_settings
+VIEW3D_PT_tools_grease_pencil_vertex_paint_settings: (
+    bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_grease_pencil_vertex_paint_settings
+)
 
-VIEW3D_PT_tools_grease_pencil_weight_appearance: bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_grease_pencil_weight_appearance
+VIEW3D_PT_tools_grease_pencil_weight_appearance: (
+    bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_grease_pencil_weight_appearance
+)
 
-VIEW3D_PT_tools_grease_pencil_weight_options: bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_grease_pencil_weight_options
+VIEW3D_PT_tools_grease_pencil_weight_options: (
+    bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_grease_pencil_weight_options
+)
 
-VIEW3D_PT_tools_grease_pencil_weight_paint_select: bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_grease_pencil_weight_paint_select
+VIEW3D_PT_tools_grease_pencil_weight_paint_select: (
+    bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_grease_pencil_weight_paint_select
+)
 
-VIEW3D_PT_tools_grease_pencil_weight_paint_settings: bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_grease_pencil_weight_paint_settings
+VIEW3D_PT_tools_grease_pencil_weight_paint_settings: (
+    bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_grease_pencil_weight_paint_settings
+)
 
-VIEW3D_PT_tools_imagepaint_options: bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_imagepaint_options
+VIEW3D_PT_tools_imagepaint_options: (
+    bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_imagepaint_options
+)
 
-VIEW3D_PT_tools_imagepaint_options_cavity: bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_imagepaint_options_cavity
+VIEW3D_PT_tools_imagepaint_options_cavity: (
+    bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_imagepaint_options_cavity
+)
 
-VIEW3D_PT_tools_imagepaint_options_external: bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_imagepaint_options_external
+VIEW3D_PT_tools_imagepaint_options_external: (
+    bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_imagepaint_options_external
+)
 
-VIEW3D_PT_tools_imagepaint_symmetry: bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_imagepaint_symmetry
+VIEW3D_PT_tools_imagepaint_symmetry: (
+    bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_imagepaint_symmetry
+)
 
 VIEW3D_PT_tools_mask_texture: bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_mask_texture
 
-VIEW3D_PT_tools_meshedit_options: bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_meshedit_options
+VIEW3D_PT_tools_meshedit_options: (
+    bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_meshedit_options
+)
 
-VIEW3D_PT_tools_meshedit_options_transform: bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_meshedit_options_transform
+VIEW3D_PT_tools_meshedit_options_transform: (
+    bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_meshedit_options_transform
+)
 
-VIEW3D_PT_tools_meshedit_options_uvs: bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_meshedit_options_uvs
+VIEW3D_PT_tools_meshedit_options_uvs: (
+    bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_meshedit_options_uvs
+)
 
-VIEW3D_PT_tools_object_options: bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_object_options
+VIEW3D_PT_tools_object_options: (
+    bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_object_options
+)
 
-VIEW3D_PT_tools_object_options_transform: bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_object_options_transform
+VIEW3D_PT_tools_object_options_transform: (
+    bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_object_options_transform
+)
 
 VIEW3D_PT_tools_particlemode: bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_particlemode
 
-VIEW3D_PT_tools_particlemode_options: bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_particlemode_options
+VIEW3D_PT_tools_particlemode_options: (
+    bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_particlemode_options
+)
 
-VIEW3D_PT_tools_particlemode_options_display: bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_particlemode_options_display
+VIEW3D_PT_tools_particlemode_options_display: (
+    bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_particlemode_options_display
+)
 
-VIEW3D_PT_tools_particlemode_options_shapecut: bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_particlemode_options_shapecut
+VIEW3D_PT_tools_particlemode_options_shapecut: (
+    bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_particlemode_options_shapecut
+)
 
-VIEW3D_PT_tools_posemode_options: bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_posemode_options
+VIEW3D_PT_tools_posemode_options: (
+    bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_posemode_options
+)
 
-VIEW3D_PT_tools_vertexpaint_options: bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_vertexpaint_options
+VIEW3D_PT_tools_vertexpaint_options: (
+    bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_vertexpaint_options
+)
 
-VIEW3D_PT_tools_vertexpaint_symmetry: bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_vertexpaint_symmetry
+VIEW3D_PT_tools_vertexpaint_symmetry: (
+    bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_vertexpaint_symmetry
+)
 
-VIEW3D_PT_tools_vertexpaint_symmetry_for_topbar: bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_vertexpaint_symmetry_for_topbar
+VIEW3D_PT_tools_vertexpaint_symmetry_for_topbar: (
+    bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_vertexpaint_symmetry_for_topbar
+)
 
-VIEW3D_PT_tools_weight_gradient: bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_weight_gradient
+VIEW3D_PT_tools_weight_gradient: (
+    bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_weight_gradient
+)
 
-VIEW3D_PT_tools_weightpaint_options: bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_weightpaint_options
+VIEW3D_PT_tools_weightpaint_options: (
+    bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_weightpaint_options
+)
 
-VIEW3D_PT_tools_weightpaint_symmetry: bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_weightpaint_symmetry
+VIEW3D_PT_tools_weightpaint_symmetry: (
+    bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_weightpaint_symmetry
+)
 
-VIEW3D_PT_tools_weightpaint_symmetry_for_topbar: bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_weightpaint_symmetry_for_topbar
+VIEW3D_PT_tools_weightpaint_symmetry_for_topbar: (
+    bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_weightpaint_symmetry_for_topbar
+)
 
 VIEW3D_PT_transform_orientations: bl_ui.space_view3d.VIEW3D_PT_transform_orientations
 
@@ -115848,69 +116859,119 @@ VIEWLAYER_MT_lightgroup_sync: bl_ui.properties_view_layer.VIEWLAYER_MT_lightgrou
 
 VIEWLAYER_PT_context_layer: bl_ui.properties_view_layer.VIEWLAYER_PT_context_layer
 
-VIEWLAYER_PT_eevee_layer_passes_data: bl_ui.properties_view_layer.VIEWLAYER_PT_eevee_layer_passes_data
+VIEWLAYER_PT_eevee_layer_passes_data: (
+    bl_ui.properties_view_layer.VIEWLAYER_PT_eevee_layer_passes_data
+)
 
-VIEWLAYER_PT_eevee_layer_passes_light: bl_ui.properties_view_layer.VIEWLAYER_PT_eevee_layer_passes_light
+VIEWLAYER_PT_eevee_layer_passes_light: (
+    bl_ui.properties_view_layer.VIEWLAYER_PT_eevee_layer_passes_light
+)
 
 VIEWLAYER_PT_filter: bl_ui.properties_view_layer.VIEWLAYER_PT_filter
 
 VIEWLAYER_PT_freestyle: bl_ui.properties_freestyle.VIEWLAYER_PT_freestyle
 
-VIEWLAYER_PT_freestyle_animation: bl_ui.properties_freestyle.VIEWLAYER_PT_freestyle_animation
+VIEWLAYER_PT_freestyle_animation: (
+    bl_ui.properties_freestyle.VIEWLAYER_PT_freestyle_animation
+)
 
-VIEWLAYER_PT_freestyle_edge_detection: bl_ui.properties_freestyle.VIEWLAYER_PT_freestyle_edge_detection
+VIEWLAYER_PT_freestyle_edge_detection: (
+    bl_ui.properties_freestyle.VIEWLAYER_PT_freestyle_edge_detection
+)
 
-VIEWLAYER_PT_freestyle_lineset: bl_ui.properties_freestyle.VIEWLAYER_PT_freestyle_lineset
+VIEWLAYER_PT_freestyle_lineset: (
+    bl_ui.properties_freestyle.VIEWLAYER_PT_freestyle_lineset
+)
 
-VIEWLAYER_PT_freestyle_lineset_collection: bl_ui.properties_freestyle.VIEWLAYER_PT_freestyle_lineset_collection
+VIEWLAYER_PT_freestyle_lineset_collection: (
+    bl_ui.properties_freestyle.VIEWLAYER_PT_freestyle_lineset_collection
+)
 
-VIEWLAYER_PT_freestyle_lineset_edgetype: bl_ui.properties_freestyle.VIEWLAYER_PT_freestyle_lineset_edgetype
+VIEWLAYER_PT_freestyle_lineset_edgetype: (
+    bl_ui.properties_freestyle.VIEWLAYER_PT_freestyle_lineset_edgetype
+)
 
-VIEWLAYER_PT_freestyle_lineset_facemarks: bl_ui.properties_freestyle.VIEWLAYER_PT_freestyle_lineset_facemarks
+VIEWLAYER_PT_freestyle_lineset_facemarks: (
+    bl_ui.properties_freestyle.VIEWLAYER_PT_freestyle_lineset_facemarks
+)
 
-VIEWLAYER_PT_freestyle_lineset_visibilty: bl_ui.properties_freestyle.VIEWLAYER_PT_freestyle_lineset_visibilty
+VIEWLAYER_PT_freestyle_lineset_visibilty: (
+    bl_ui.properties_freestyle.VIEWLAYER_PT_freestyle_lineset_visibilty
+)
 
-VIEWLAYER_PT_freestyle_linestyle_alpha: bl_ui.properties_freestyle.VIEWLAYER_PT_freestyle_linestyle_alpha
+VIEWLAYER_PT_freestyle_linestyle_alpha: (
+    bl_ui.properties_freestyle.VIEWLAYER_PT_freestyle_linestyle_alpha
+)
 
-VIEWLAYER_PT_freestyle_linestyle_color: bl_ui.properties_freestyle.VIEWLAYER_PT_freestyle_linestyle_color
+VIEWLAYER_PT_freestyle_linestyle_color: (
+    bl_ui.properties_freestyle.VIEWLAYER_PT_freestyle_linestyle_color
+)
 
-VIEWLAYER_PT_freestyle_linestyle_geometry: bl_ui.properties_freestyle.VIEWLAYER_PT_freestyle_linestyle_geometry
+VIEWLAYER_PT_freestyle_linestyle_geometry: (
+    bl_ui.properties_freestyle.VIEWLAYER_PT_freestyle_linestyle_geometry
+)
 
-VIEWLAYER_PT_freestyle_linestyle_strokes: bl_ui.properties_freestyle.VIEWLAYER_PT_freestyle_linestyle_strokes
+VIEWLAYER_PT_freestyle_linestyle_strokes: (
+    bl_ui.properties_freestyle.VIEWLAYER_PT_freestyle_linestyle_strokes
+)
 
-VIEWLAYER_PT_freestyle_linestyle_strokes_chaining: bl_ui.properties_freestyle.VIEWLAYER_PT_freestyle_linestyle_strokes_chaining
+VIEWLAYER_PT_freestyle_linestyle_strokes_chaining: (
+    bl_ui.properties_freestyle.VIEWLAYER_PT_freestyle_linestyle_strokes_chaining
+)
 
-VIEWLAYER_PT_freestyle_linestyle_strokes_dashedline: bl_ui.properties_freestyle.VIEWLAYER_PT_freestyle_linestyle_strokes_dashedline
+VIEWLAYER_PT_freestyle_linestyle_strokes_dashedline: (
+    bl_ui.properties_freestyle.VIEWLAYER_PT_freestyle_linestyle_strokes_dashedline
+)
 
-VIEWLAYER_PT_freestyle_linestyle_strokes_selection: bl_ui.properties_freestyle.VIEWLAYER_PT_freestyle_linestyle_strokes_selection
+VIEWLAYER_PT_freestyle_linestyle_strokes_selection: (
+    bl_ui.properties_freestyle.VIEWLAYER_PT_freestyle_linestyle_strokes_selection
+)
 
-VIEWLAYER_PT_freestyle_linestyle_strokes_sorting: bl_ui.properties_freestyle.VIEWLAYER_PT_freestyle_linestyle_strokes_sorting
+VIEWLAYER_PT_freestyle_linestyle_strokes_sorting: (
+    bl_ui.properties_freestyle.VIEWLAYER_PT_freestyle_linestyle_strokes_sorting
+)
 
-VIEWLAYER_PT_freestyle_linestyle_strokes_splitting: bl_ui.properties_freestyle.VIEWLAYER_PT_freestyle_linestyle_strokes_splitting
+VIEWLAYER_PT_freestyle_linestyle_strokes_splitting: (
+    bl_ui.properties_freestyle.VIEWLAYER_PT_freestyle_linestyle_strokes_splitting
+)
 
 VIEWLAYER_PT_freestyle_linestyle_strokes_splitting_pattern: bl_ui.properties_freestyle.VIEWLAYER_PT_freestyle_linestyle_strokes_splitting_pattern
 
-VIEWLAYER_PT_freestyle_linestyle_texture: bl_ui.properties_freestyle.VIEWLAYER_PT_freestyle_linestyle_texture
+VIEWLAYER_PT_freestyle_linestyle_texture: (
+    bl_ui.properties_freestyle.VIEWLAYER_PT_freestyle_linestyle_texture
+)
 
-VIEWLAYER_PT_freestyle_linestyle_thickness: bl_ui.properties_freestyle.VIEWLAYER_PT_freestyle_linestyle_thickness
+VIEWLAYER_PT_freestyle_linestyle_thickness: (
+    bl_ui.properties_freestyle.VIEWLAYER_PT_freestyle_linestyle_thickness
+)
 
-VIEWLAYER_PT_freestyle_style_modules: bl_ui.properties_freestyle.VIEWLAYER_PT_freestyle_style_modules
+VIEWLAYER_PT_freestyle_style_modules: (
+    bl_ui.properties_freestyle.VIEWLAYER_PT_freestyle_style_modules
+)
 
 VIEWLAYER_PT_layer: bl_ui.properties_view_layer.VIEWLAYER_PT_layer
 
-VIEWLAYER_PT_layer_custom_props: bl_ui.properties_view_layer.VIEWLAYER_PT_layer_custom_props
+VIEWLAYER_PT_layer_custom_props: (
+    bl_ui.properties_view_layer.VIEWLAYER_PT_layer_custom_props
+)
 
 VIEWLAYER_PT_layer_passes: bl_ui.properties_view_layer.VIEWLAYER_PT_layer_passes
 
 VIEWLAYER_PT_layer_passes_aov: bl_ui.properties_view_layer.VIEWLAYER_PT_layer_passes_aov
 
-VIEWLAYER_PT_layer_passes_cryptomatte: bl_ui.properties_view_layer.VIEWLAYER_PT_layer_passes_cryptomatte
+VIEWLAYER_PT_layer_passes_cryptomatte: (
+    bl_ui.properties_view_layer.VIEWLAYER_PT_layer_passes_cryptomatte
+)
 
-VIEWLAYER_PT_layer_passes_lightgroups: bl_ui.properties_view_layer.VIEWLAYER_PT_layer_passes_lightgroups
+VIEWLAYER_PT_layer_passes_lightgroups: (
+    bl_ui.properties_view_layer.VIEWLAYER_PT_layer_passes_lightgroups
+)
 
 VIEWLAYER_PT_override: bl_ui.properties_view_layer.VIEWLAYER_PT_override
 
-VIEWLAYER_PT_workbench_layer_passes_data: bl_ui.properties_view_layer.VIEWLAYER_PT_workbench_layer_passes_data
+VIEWLAYER_PT_workbench_layer_passes_data: (
+    bl_ui.properties_view_layer.VIEWLAYER_PT_workbench_layer_passes_data
+)
 
 VIEWLAYER_UL_aov: bl_ui.properties_view_layer.VIEWLAYER_UL_aov
 
@@ -115934,7 +116995,9 @@ WM_OT_batch_rename: bl_operators.wm.WM_OT_batch_rename
 
 WM_OT_blend_strings_utf8_validate: bl_operators.file.WM_OT_blend_strings_utf8_validate
 
-WM_OT_context_collection_boolean_set: bl_operators.wm.WM_OT_context_collection_boolean_set
+WM_OT_context_collection_boolean_set: (
+    bl_operators.wm.WM_OT_context_collection_boolean_set
+)
 
 WM_OT_context_cycle_array: bl_operators.wm.WM_OT_context_cycle_array
 

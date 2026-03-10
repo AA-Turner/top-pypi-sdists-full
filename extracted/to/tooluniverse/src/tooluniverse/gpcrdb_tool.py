@@ -40,6 +40,9 @@ class GPCRdbTool(BaseTool):
     def run(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Execute GPCRdb API call based on operation type."""
         operation = arguments.get("operation", "")
+        # Auto-fill operation from tool config const if not provided by user
+        if not operation:
+            operation = self.get_schema_const_operation()
 
         if operation == "get_protein":
             return self._get_protein(arguments)

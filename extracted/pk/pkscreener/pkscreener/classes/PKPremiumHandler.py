@@ -38,6 +38,8 @@ class PKPremiumHandler:
     def hasPremium(self,mnu:menu):
         findingPremium = True
         consideredMenu = mnu
+        if consideredMenu is None:
+            return False
         isPremium = consideredMenu.isPremium #False
         # while findingPremium:
         #     findingPremium = not consideredMenu.isPremium

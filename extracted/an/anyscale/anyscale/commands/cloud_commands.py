@@ -2363,3 +2363,54 @@ def terminate_system_cluster(cloud_id: str, wait: Optional[bool]) -> None:
         anyscale.cloud.terminate_system_cluster(cloud_id, wait)
     except ValueError as e:
         log.error(f"Error terminating system cluster: {e}")
+
+
+# --- Gateway Migration Commands ---
+
+
+@cloud_cli.command(
+    name="start-gateway-migration",
+    help="Start gateway migration. Creates dual-stack (Ingress + HTTPRoute) with canary_weight=0.",
+    cls=AnyscaleCommand,
+    hidden=True,
+)
+@click.option(
+    "--cloud-id", help="ID of the cloud.", type=str, required=True,
+)
+def start_gateway_migration(cloud_id: str) -> None:
+    controller = CloudController()
+    controller.start_gateway_migration(cloud_id)
+
+
+@cloud_cli.command(
+    name="set-gateway-canary-weight",
+    help="Set the gateway migration canary weight (0-100). 100 = migration done, HTTPRoute only.",
+    cls=AnyscaleCommand,
+    hidden=True,
+)
+@click.option(
+    "--cloud-id", help="ID of the cloud.", type=str, required=True,
+)
+@click.option(
+    "--weight",
+    help="Canary weight (0-100). Percentage of traffic routed through the gateway.",
+    type=int,
+    required=True,
+)
+def set_gateway_canary_weight(cloud_id: str, weight: int) -> None:
+    controller = CloudController()
+    controller.set_gateway_canary_weight(cloud_id, weight)
+
+
+@cloud_cli.command(
+    name="gateway-migration-status",
+    help="Get the gateway migration status for a cloud.",
+    cls=AnyscaleCommand,
+    hidden=True,
+)
+@click.option(
+    "--cloud-id", help="ID of the cloud.", type=str, required=True,
+)
+def gateway_migration_status(cloud_id: str) -> None:
+    controller = CloudController()
+    controller.gateway_migration_status(cloud_id)

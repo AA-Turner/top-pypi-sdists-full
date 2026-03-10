@@ -7,7 +7,7 @@
 #
 # Copyright (c) 2010      Patrick Spendrin <ps_ml@gmx.de>
 # Copyright (c) 2012      Karl Waclawek <karl@waclawek.net>
-# Copyright (c) 2016-2025 Sebastian Pipping <sebastian@pipping.org>
+# Copyright (c) 2016-2026 Sebastian Pipping <sebastian@pipping.org>
 # Copyright (c) 2016      Sergei Nikulov <sergey.nikulov@gmail.com>
 # Copyright (c) 2016      Björn Lindahl <bjorn.lindahl@foi.se>
 # Copyright (c) 2016      Tobias Taschner <github@tc84.de>
@@ -32,14 +32,17 @@
 # Copyright (c) 2022      Johnny Jazeix <jazeix@gmail.com>
 # Copyright (c) 2022      Mark Brand <markbrand@google.com>
 # Copyright (c) 2022      David Faure <david.faure@kdab.com>
+# Copyright (c) 2025      Alfonso Gregory <gfunni234@gmail.com>
+# Copyright (c) 2026      Rosen Penev <rosenp@gmail.com>
+# Copyright (c) 2026      Gordon Messmer <gordon.messmer@gmail.com>
 # Unlike most of Expat,
 # this file is copyrighted under the BSD-license for buildsystem files of KDE.
 
-cmake_minimum_required(VERSION 3.15.0)
+cmake_minimum_required(VERSION 3.17.0)
 
 project(expat
     VERSION
-        2.7.3
+        2.7.4
     LANGUAGES
         C
 )
@@ -138,6 +141,7 @@ expat_shy_set(EXPAT_OSSFUZZ_BUILD OFF CACHE BOOL "Build fuzzers via OSS-Fuzz for
 expat_shy_set(EXPAT_ENABLE_INSTALL ON CACHE BOOL "Install expat files in cmake install target")
 expat_shy_set(EXPAT_CONTEXT_BYTES 1024 CACHE STRING "Define to specify how much context to retain around the current parse point, 0 to disable")
 mark_as_advanced(EXPAT_CONTEXT_BYTES)
+expat_shy_set(EXPAT_SYMBOL_VERSIONING OFF CACHE BOOL "Define to provide symbol versioning for dependency generation")
 expat_shy_set(EXPAT_DTD ON CACHE BOOL "Define to make parameter entity parsing functionality available")
 mark_as_advanced(EXPAT_DTD)
 expat_shy_set(EXPAT_GE ON CACHE BOOL "Define to make general entity parsing functionality available")
@@ -380,6 +384,12 @@ set(_EXPAT_C_SOURCES
 
 if(EXPAT_SHARED_LIBS)
     set(_SHARED SHARED)
+    if(EXPAT_DTD OR EXPAT_GE)
+        set(_EXPAT_DTD_OR_GE TRUE)
+    else()
+        set(_EXPAT_DTD_OR_GE FALSE)
+    endif()
+
     if(WIN32)
         macro(_expat_def_file_toggle source_var target_var)
             if(${source_var})
@@ -388,12 +398,6 @@ if(EXPAT_SHARED_LIBS)
                 set(${target_var} ";")  # i.e. commented out
             endif()
         endmacro()
-
-        if(EXPAT_DTD OR EXPAT_GE)
-            set(_EXPAT_DTD_OR_GE TRUE)
-        else()
-            set(_EXPAT_DTD_OR_GE FALSE)
-        endif()
 
         _expat_def_file_toggle(_EXPAT_DTD_OR_GE _EXPAT_COMMENT_DTD_OR_GE)
         _expat_def_file_toggle(EXPAT_ATTR_INFO _EXPAT_COMMENT_ATTR_INFO)
@@ -405,6 +409,20 @@ if(EXPAT_SHARED_LIBS)
         string(REPLACE "." "," _EXPAT_DLL_VERSION ${PROJECT_VERSION}.0)
         configure_file("${CMAKE_CURRENT_SOURCE_DIR}/win32/version.rc.cmake" "${CMAKE_CURRENT_BINARY_DIR}/win32/version.rc")
         set(_EXPAT_EXTRA_SOURCES ${_EXPAT_EXTRA_SOURCES} "${CMAKE_CURRENT_BINARY_DIR}/win32/version.rc")
+    else()
+        macro(_expat_map_file_toggle source_var target_var)
+            if(${source_var})
+                set(${target_var} " ")  # i.e. not commented out, a single space
+            else()
+                set(${target_var} "#")  # i.e. commented out
+            endif()
+        endmacro()
+
+        _expat_map_file_toggle(_EXPAT_DTD_OR_GE _EXPAT_COMMENT_DTD_OR_GE)
+        _expat_map_file_toggle(EXPAT_ATTR_INFO _EXPAT_COMMENT_ATTR_INFO)
+
+        configure_file("${CMAKE_CURRENT_SOURCE_DIR}/lib/libexpat.map.in" "${CMAKE_CURRENT_BINARY_DIR}/lib/libexpat.map")
+        set(_EXPAT_EXTRA_SOURCES ${_EXPAT_EXTRA_SOURCES} "${CMAKE_CURRENT_BINARY_DIR}/lib/libexpat.map")
     endif()
 else()
     set(_SHARED STATIC)
@@ -450,7 +468,7 @@ foreach(build_type_upper
 endforeach()
 
 set(LIBCURRENT 12)  # sync
-set(LIBREVISION 1)  # with
+set(LIBREVISION 2)  # with
 set(LIBAGE 11)      # configure.ac!
 math(EXPR LIBCURRENT_MINUS_AGE "${LIBCURRENT} - ${LIBAGE}")
 
@@ -458,12 +476,11 @@ if(NOT WIN32)
     set_property(TARGET expat PROPERTY VERSION ${LIBCURRENT_MINUS_AGE}.${LIBAGE}.${LIBREVISION})
     set_property(TARGET expat PROPERTY SOVERSION ${LIBCURRENT_MINUS_AGE})
     set_property(TARGET expat PROPERTY NO_SONAME ${NO_SONAME})
+    if(EXPAT_SYMBOL_VERSIONING)
+        set_property(TARGET expat PROPERTY LINK_FLAGS "-Wl,--version-script=${CMAKE_CURRENT_BINARY_DIR}/lib/libexpat.map")
+    endif()
 
     if(APPLE)
-        if(NOT CMAKE_VERSION VERSION_GREATER_EQUAL 3.17)
-            message(FATAL_ERROR "Expat requires CMake >=3.17 on platform \"APPLE\".")
-        endif()
-
         # NOTE: This intends to talk CMake into compatibility with GNU Libtool
         math(EXPR _EXPAT_MACHO_COMPATIBILITY_VERSION "${LIBCURRENT} + 1")
         set(_EXPAT_MACHO_CURRENT_VERSION "${_EXPAT_MACHO_COMPATIBILITY_VERSION}.${LIBREVISION}")

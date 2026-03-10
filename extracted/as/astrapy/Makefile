@@ -38,17 +38,33 @@ format-fix-tests: FMT_FLAGS=
 format-fix-tests: format-tests
 
 test-integration:
-	uv run $(VENV_FLAGS) pytest tests/base -vv
+	COVERAGE_FILE=".coverage.integration" uv run $(VENV_FLAGS) pytest --cov=astrapy/ tests/base/integration -vv
 
 test:
-	uv run $(VENV_FLAGS) pytest tests/base/unit -vv
+	COVERAGE_FILE=".coverage.unit" uv run $(VENV_FLAGS) pytest --cov=astrapy/ tests/base/unit -vv
 
 docker-test-integration:
-	DOCKER_COMPOSE_LOCAL_DATA_API="yes" uv run pytest tests/base -vv
+	DOCKER_COMPOSE_LOCAL_DATA_API="yes" uv run pytest --cov=astrapy/ tests/base/integration -vv
 
 build:
 	rm -f dist/astrapy*
 	uv build
+
+coverage_html:
+	rm htmlcov -rf
+	uv run coverage combine $(ls .coverage.unit .coverage.integration 2>/dev/null)
+	uv run coverage html
+	echo "OPEN file://${PWD}/htmlcov/index.html"
+
+coverage_json:
+	rm jsoncov -rf
+	uv run coverage combine $(ls .coverage.unit .coverage.integration 2>/dev/null)
+	mkdir jsoncov
+	uv run coverage json -o jsoncov/coverage.json
+	echo "Created `ls jsoncov/coverage.json`"
+
+query_providers:
+	uv run python tests/vectorize/query_providers.py 
 
 help:
 	@echo "======================================================================"
@@ -61,8 +77,11 @@ help:
 	@echo "  format-fix                       fixing imports and style"
 	@echo "    format-fix-src                   limited to source"
 	@echo "    format-fix-tests                 limited to tests"
-	@echo "test                   					run unit tests"
-	@echo "test-integration              		run integration tests"
-	@echo "docker-test-integration       		run int.tests on dockerized local"
+	@echo "test                                     run unit tests"
+	@echo "test-integration                     run integration tests"
+	@echo "docker-test-integration              run int.tests on dockerized local"
+	@echo "coverage_html                    HTML coverage map from last test"
+	@echo "coverage_json                    JSON coverage map from last test"
+	@echo "query_providers                  Refresh _providers.json"
 	@echo "build                            build package ready for PyPI"
 	@echo "======================================================================"

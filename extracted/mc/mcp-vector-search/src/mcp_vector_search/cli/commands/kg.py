@@ -14,6 +14,7 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.tree import Tree
 
+from ...core.chunks_backend import ChunksBackend
 from ...core.factory import ComponentFactory
 from ...core.kg_builder import KGBuilder
 from ...core.knowledge_graph import KnowledgeGraph
@@ -291,8 +292,21 @@ def _build_kg_impl(
     )
 
     async def _load_and_prepare_chunks():
-        """Load chunks from database and save to temp file for subprocess."""
+        """Load chunks from database and save to temp file for subprocess.
+
+        Returns:
+            Tuple of (chunks_temp_path, files_to_delete_temp_path, current_hashes).
+            - chunks_temp_path: path to JSON file with chunks to build into KG
+            - files_to_delete_temp_path: path to JSON file with file paths whose KG
+              entities should be deleted before building (None if not incremental or
+              no deletions needed)
+            - current_hashes: dict[file_path, sha256] for all currently indexed files
+              (empty dict when incremental=False, used to update metadata after build)
+        """
+        import os
+        import sys
         import tempfile
+        from dataclasses import asdict
 
         # Initialize database to load chunks
         components = await ComponentFactory.create_standard_components(
@@ -301,6 +315,9 @@ def _build_kg_impl(
         database = components.database
 
         temp_path = None
+        files_to_delete_path = None
+        current_hashes: dict[str, str] = {}
+
         async with database:
             # Check if index exists
             chunk_count = database.get_chunk_count()
@@ -315,38 +332,58 @@ def _build_kg_impl(
                     f"[cyan]Loading {chunk_count} chunks from database...[/cyan]"
                 )
 
-            # Load chunks based on incremental mode
-            processed_chunk_ids = set()
+            # --- Incremental: hash-based change detection ---
+            files_to_process: set[str] | None = None  # None = process all
+            files_to_delete: set[str] = set()
+
             if incremental:
-                # Load processed chunk IDs from KG metadata
-                metadata_path = (
-                    project_root
-                    / ".mcp-vector-search"
-                    / "knowledge_graph"
-                    / "kg_metadata.json"
+                # Use ChunksBackend to get per-file hashes (file_hash lives there)
+                lance_path = project_root / ".mcp-vector-search" / "lance"
+                chunks_backend = ChunksBackend(lance_path)
+                await chunks_backend.initialize()
+                try:
+                    current_hashes = await chunks_backend.get_all_indexed_file_hashes()
+                finally:
+                    # ChunksBackend has no async close; just release reference
+                    pass
+
+                # Compare against last KG build's stored hashes
+                builder_for_diff = KGBuilder(
+                    None,  # type: ignore[arg-type]  # only metadata path needed
+                    project_root,
                 )
-                if metadata_path.exists():
-                    with open(metadata_path) as f:
-                        metadata = json.load(f)
-                        processed_chunk_ids = set(
-                            metadata.get("processed_chunk_ids", [])
-                        )
+                changed_files, new_files, deleted_files = (
+                    builder_for_diff._get_changed_files(current_hashes)
+                )
+
+                files_to_process = changed_files | new_files
+                files_to_delete = changed_files | deleted_files
+
                 if verbose:
                     console.print(
-                        f"[yellow]Incremental mode: {len(processed_chunk_ids)} chunks already processed[/yellow]"
+                        f"[yellow]Incremental mode: {len(new_files)} new, "
+                        f"{len(changed_files)} changed, "
+                        f"{len(deleted_files)} deleted file(s)[/yellow]"
                     )
 
-            # Load all chunks
+                if not files_to_process and not files_to_delete:
+                    console.print(
+                        "[green]✓ KG already up to date — no file changes detected[/green]"
+                    )
+                    raise typer.Exit(0)
+
+                if verbose:
+                    console.print(
+                        f"[cyan]Processing {len(files_to_process)} file(s), "
+                        f"deleting entities from {len(files_to_delete)} file(s)[/cyan]"
+                    )
+
+            # --- Load all chunks (filtered if incremental) ---
             chunks = []
             for batch in database.iter_chunks_batched(batch_size=5000):
-                # Filter out already processed chunks in incremental mode
-                if incremental:
-                    batch = [
-                        c
-                        for c in batch
-                        if (c.chunk_id or c.id) not in processed_chunk_ids
-                    ]
-
+                if files_to_process is not None:
+                    # Only keep chunks belonging to files that changed or are new
+                    batch = [c for c in batch if str(c.file_path) in files_to_process]
                 chunks.extend(batch)
 
                 # Apply limit if specified
@@ -354,59 +391,73 @@ def _build_kg_impl(
                     chunks = chunks[:limit]
                     break
 
-            if incremental and len(chunks) == 0:
+            if incremental and len(chunks) == 0 and not files_to_delete:
                 console.print(
-                    "[green]✓ No new chunks to process in incremental mode[/green]"
+                    "[green]✓ No chunks to process in incremental mode[/green]"
                 )
                 raise typer.Exit(0)
 
             if verbose:
                 console.print(f"[green]✓ Loaded {len(chunks)} chunks[/green]")
 
-            # Serialize chunks to temp JSON file (inside async with to ensure DB is open)
-            import sys
-            from dataclasses import asdict
-
+            # --- Serialize chunks to temp JSON file ---
             if verbose:
                 console.print("[dim]Serializing chunks to temp file...[/dim]")
-                sys.stdout.flush()  # Force flush
+                sys.stdout.flush()
             temp_fd, temp_path = tempfile.mkstemp(suffix=".json", prefix="kg_chunks_")
             try:
                 with open(temp_path, "w") as f:
-                    # Serialize chunks to JSON (use asdict for dataclasses)
                     chunks_data = [asdict(chunk) for chunk in chunks]
-                    # Convert Path objects to strings for JSON serialization
                     for chunk_dict in chunks_data:
                         chunk_dict["file_path"] = str(chunk_dict["file_path"])
                     json.dump(chunks_data, f)
                 if verbose:
                     console.print(f"[dim]Saved chunks to {temp_path}[/dim]")
-                    sys.stdout.flush()  # Force flush
+                    sys.stdout.flush()
             finally:
-                import os
-
                 os.close(temp_fd)
 
-        # Return temp_path AFTER database is properly closed
+            # --- Write files-to-delete list (incremental only) ---
+            if incremental and files_to_delete:
+                del_fd, files_to_delete_path = tempfile.mkstemp(
+                    suffix=".json", prefix="kg_delete_"
+                )
+                try:
+                    with open(files_to_delete_path, "w") as f:
+                        json.dump(list(files_to_delete), f)
+                    if verbose:
+                        console.print(
+                            f"[dim]Saved {len(files_to_delete)} file(s) to delete at "
+                            f"{files_to_delete_path}[/dim]"
+                        )
+                finally:
+                    os.close(del_fd)
+
+        # Return paths AFTER database is properly closed
         if verbose:
             console.print("[dim]Closing database...[/dim]")
-            sys.stdout.flush()  # Force flush
+            sys.stdout.flush()
 
         # CRITICAL: Explicitly close database and await cleanup
-        # This ensures the async context manager has fully released resources
         await database.close()
         if verbose:
             console.print("[dim]Database closed explicitly[/dim]")
             sys.stdout.flush()
 
-        return temp_path
+        return temp_path, files_to_delete_path, current_hashes
 
     # Load chunks in parent process (before spawning subprocess)
     if verbose:
         console.print("[cyan]Loading chunks in parent process...[/cyan]")
-    chunks_file = asyncio.run(_load_and_prepare_chunks())
+    chunks_file, files_to_delete_path, current_hashes = asyncio.run(
+        _load_and_prepare_chunks()
+    )
     if verbose:
         console.print(f"[green]✓ Chunks saved to {chunks_file}[/green]")
+        if files_to_delete_path:
+            console.print(
+                f"[green]✓ Files-to-delete saved to {files_to_delete_path}[/green]"
+            )
 
     # CRITICAL: Force cleanup of asyncio resources and background threads
     # LanceDB creates a persistent "LanceDBBackgroundEventLoop" daemon thread
@@ -513,6 +564,8 @@ def _build_kg_impl(
         cmd.append("--skip-documents")
     if verbose:
         cmd.append("--verbose")
+    if files_to_delete_path:
+        cmd.extend(["--files-to-delete", files_to_delete_path])
 
     if verbose:
         console.print(f"[dim]Command: {' '.join(cmd)}[/dim]")
@@ -524,6 +577,15 @@ def _build_kg_impl(
         stdout=None,  # Inherit stdout (shows in console)
         stderr=None,  # Inherit stderr (shows in console)
     )
+
+    # Clean up files-to-delete temp file (chunks file is cleaned by subprocess)
+    if files_to_delete_path:
+        try:
+            Path(files_to_delete_path).unlink(missing_ok=True)
+        except Exception as e:
+            logger.debug(
+                "Failed to clean up temp delete file %s: %s", files_to_delete_path, e
+            )
 
     if verbose:
         console.print(
@@ -549,6 +611,21 @@ def _build_kg_impl(
         raise typer.Exit(
             1
         )  # Always normalize to 1, never propagate raw signal/OS codes
+
+    # --- Post-build: persist file hashes so next incremental run can diff ---
+    if incremental and current_hashes:
+        try:
+            builder_for_meta = KGBuilder(
+                None,  # type: ignore[arg-type]  # only metadata path needed
+                project_root,
+            )
+            builder_for_meta.update_metadata_file_hashes(current_hashes)
+            if verbose:
+                console.print(
+                    f"[dim]Updated kg_metadata.json with {len(current_hashes)} file hashes[/dim]"
+                )
+        except Exception as e:
+            logger.warning("Failed to update KG metadata file hashes: %s", e)
 
     if verbose:
         console.print("[green]✓ Build completed successfully in subprocess[/green]")
@@ -1545,6 +1622,314 @@ def get_inheritance(
         await kg.close()
 
     asyncio.run(_inherits())
+
+
+@kg_app.command("trace")
+def kg_trace(
+    entry_point: str = typer.Argument(..., help="Function or class name to trace from"),
+    depth: int = typer.Option(
+        3, "--depth", "-d", help="Max call chain depth (1–8)", min=1, max=8
+    ),
+    direction: str = typer.Option(
+        "outgoing",
+        "--direction",
+        help="outgoing=what it calls, incoming=what calls it, both=full neighborhood",
+    ),
+    output_format: str = typer.Option(
+        "tree",
+        "--format",
+        "-f",
+        help="Output format: tree, flat, or json",
+    ),
+) -> None:
+    """Trace execution flow from a function through the call graph.
+
+    Shows the call chain from a function entry point, following CALLS
+    relationships in the knowledge graph up to the specified depth.
+
+    Requires 'mvs index kg' to have been run first.
+
+    Examples:
+
+      mvs kg trace handle_search_code
+
+      mvs kg trace WikiPublisher --depth 4 --direction incoming
+
+      mvs kg trace enrich_with_git_blame --format flat
+    """
+    if direction not in ("outgoing", "incoming", "both"):
+        console.print(
+            f"[red]Invalid direction '{direction}'. Use: outgoing, incoming, both[/red]"
+        )
+        raise typer.Exit(1)
+
+    if output_format not in ("tree", "flat", "json"):
+        console.print(
+            f"[red]Invalid format '{output_format}'. Use: tree, flat, json[/red]"
+        )
+        raise typer.Exit(1)
+
+    async def run():
+        project_root = Path.cwd()
+        kg_path = project_root / ".mcp-vector-search" / "knowledge_graph"
+
+        if not kg_path.exists():
+            console.print(
+                "[red]Knowledge graph not found.[/red] "
+                "Run [cyan]mvs index kg[/cyan] to build it first."
+            )
+            raise typer.Exit(1)
+
+        kg = KnowledgeGraph(kg_path)
+        try:
+            await kg.initialize()
+        except Exception as e:
+            console.print(f"[red]Failed to initialize knowledge graph: {e}[/red]")
+            raise typer.Exit(1)
+
+        with console.status(f"[bold blue]Tracing {entry_point}...[/bold blue]"):
+            result = await kg.trace_execution_flow(
+                entry_point=entry_point,
+                depth=depth,
+                direction=direction,
+            )
+
+        await kg.close()
+
+        if result["entry"] is None:
+            console.print(
+                f"[yellow]No entity found matching '{entry_point}'.[/yellow] "
+                "Try a more specific name."
+            )
+            raise typer.Exit(1)
+
+        entry = result["entry"]
+        nodes = result["nodes"]
+        edges = result["edges"]
+
+        if output_format == "json":
+            # Raw JSON to stdout — pipe-friendly
+            import sys
+
+            json.dump(result, sys.stdout, indent=2, default=str)
+            sys.stdout.write("\n")
+            return
+
+        if output_format == "flat":
+            # Flat list — one entry per node, ordered by depth
+            print(
+                f"{entry['name']}  [{(entry.get('file_path') or '?').split('/src/')[-1]}]  (entry)"
+            )
+            for node in sorted(nodes, key=lambda n: (n["depth"], n["name"])):
+                short = (node.get("file_path") or "?").split("/src/")[-1]
+                print(f"{node['name']}  [{short}]  depth={node['depth']}")
+            return
+
+        # Tree format (default)
+        short_entry_file = (entry.get("file_path") or "?").split("/src/")[-1]
+        direction_label = {
+            "outgoing": "calls",
+            "incoming": "called by",
+            "both": "related",
+        }[direction]
+
+        console.print()
+        root_label = (
+            f"[bold cyan]{entry['name']}[/bold cyan] "
+            f"[dim]({entry.get('entity_type', 'function')})[/dim] "
+            f"[dim green][{short_entry_file}][/dim green]"
+        )
+        tree = Tree(root_label)
+
+        if not nodes:
+            tree.add(f"[dim]No {direction_label} found[/dim]")
+        else:
+            # Build tree structure: group edges by depth, then by caller
+            node_map = {n["id"]: n for n in nodes}
+            node_map[entry["id"]] = entry
+
+            def add_children(
+                parent_tree: Tree, parent_id: str, current_depth: int, visited: set
+            ):
+                if current_depth > depth:
+                    return
+                child_edges = [e for e in edges if e["from_id"] == parent_id]
+                for edge in child_edges:
+                    child_id = edge["to_id"]
+                    child = node_map.get(child_id)
+                    if child is None:
+                        continue
+                    short_file = (child.get("file_path") or "?").split("/src/")[-1]
+                    child_label = (
+                        f"[cyan]{child['name']}[/cyan] "
+                        f"[dim]({child.get('entity_type', '?')})[/dim] "
+                        f"[dim green][{short_file}:{child.get('start_line', '?')}][/dim green]"
+                    )
+                    subtree = parent_tree.add(child_label)
+                    if child_id not in visited:
+                        visited.add(child_id)
+                        add_children(subtree, child_id, current_depth + 1, visited)
+
+            if direction in ("outgoing", "both"):
+                add_children(tree, entry["id"], 1, {entry["id"]})
+            else:
+                # Incoming: show callers
+                caller_edges = [e for e in edges if e["to_id"] == entry["id"]]
+                for edge in caller_edges:
+                    caller = node_map.get(edge["from_id"])
+                    if caller:
+                        short_file = (caller.get("file_path") or "?").split("/src/")[-1]
+                        tree.add(
+                            f"[cyan]{caller['name']}[/cyan] "
+                            f"[dim green][{short_file}:{caller.get('start_line', '?')}][/dim green]"
+                            f" [dim]calls this[/dim]"
+                        )
+
+        console.print(tree)
+        console.print(
+            f"\n[dim]Nodes: {result['total_nodes']} | "
+            f"Edges: {len(edges)} | "
+            f"Depth reached: {result['depth_reached']}/{depth}"
+            + (" | [yellow]truncated[/yellow]" if result["truncated"] else "")
+            + "[/dim]"
+        )
+
+    asyncio.run(run())
+
+
+@kg_app.command("history")
+def kg_history(
+    entity_name: str = typer.Argument(..., help="Entity name to look up"),
+    project_root: Path = typer.Option(
+        ".", help="Project root directory", exists=True, file_okay=False
+    ),
+):
+    """Show the commit history recorded for a named entity.
+
+    Returns the commit SHA(s) stored at last kg_build time for the entity.
+    V1 note: reflects the most recent commit per file at kg_build time,
+    not the full git log.
+
+    Examples:
+        mcp-vector-search kg history "MyClass"
+        mcp-vector-search kg history "process_request"
+    """
+    project_root = project_root.resolve()
+
+    async def _history() -> None:
+        kg_path = project_root / ".mcp-vector-search" / "knowledge_graph"
+        kg = KnowledgeGraph(kg_path)
+        await kg.initialize()
+
+        history = await kg.get_entity_history(entity_name)
+        await kg.close()
+
+        if not history:
+            console.print(
+                f"[yellow]No entity named '{entity_name}' found in the knowledge graph.[/yellow]"
+            )
+            raise typer.Exit(0)
+
+        table = Table(title=f"KG history: {entity_name}")
+        table.add_column("Name", style="cyan")
+        table.add_column("Type", style="green")
+        table.add_column("File")
+        table.add_column("Commit SHA", style="dim")
+
+        for entry in history:
+            table.add_row(
+                entry["name"],
+                entry["entity_type"],
+                entry["file_path"] or "(none)",
+                entry["commit_sha"] or "(none)",
+            )
+
+        console.print(table)
+        console.print(
+            "[dim]V1: reflects the most recent commit per file at kg_build time.[/dim]"
+        )
+
+    asyncio.run(_history())
+
+
+@kg_app.command("callers-at")
+def kg_callers_at(
+    entity_name: str = typer.Argument(..., help="Callee entity name"),
+    commit_sha: str = typer.Argument(..., help="Git commit SHA"),
+    project_root: Path = typer.Option(
+        ".", help="Project root directory", exists=True, file_okay=False
+    ),
+):
+    """Show what called entity_name as of a given commit.
+
+    Returns callers whose stored commit_sha is an ancestor of (or equal to)
+    the specified commit.  Requires the knowledge graph to be built first.
+
+    Examples:
+        mcp-vector-search kg callers-at "process_request" abc1234
+        mcp-vector-search kg callers-at "MyClass.__init__" HEAD
+    """
+    project_root = project_root.resolve()
+
+    async def _callers_at() -> None:
+        kg_path = project_root / ".mcp-vector-search" / "knowledge_graph"
+        kg = KnowledgeGraph(kg_path)
+        await kg.initialize()
+
+        callers = await kg.get_callers_at_commit(entity_name, commit_sha, project_root)
+        await kg.close()
+
+        if not callers:
+            console.print(
+                f"[yellow]No callers found for '{entity_name}' at commit {commit_sha}.[/yellow]"
+            )
+            raise typer.Exit(0)
+
+        table = Table(title=f"Callers of '{entity_name}' as of {commit_sha[:12]}")
+        table.add_column("Caller", style="cyan")
+        table.add_column("File")
+        table.add_column("Caller commit SHA", style="dim")
+        table.add_column("Callee", style="green")
+
+        for c in callers:
+            table.add_row(
+                c["caller_name"],
+                c["caller_file"] or "(none)",
+                c["caller_commit_sha"] or "(none)",
+                c["callee_name"],
+            )
+
+        console.print(table)
+
+    asyncio.run(_callers_at())
+
+
+@kg_app.command("ancestor")
+def kg_ancestor(
+    earlier: str = typer.Argument(..., help="Earlier (ancestor) commit SHA"),
+    later: str = typer.Argument(..., help="Later (descendant) commit SHA"),
+    project_root: Path = typer.Option(
+        ".", help="Project root directory", exists=True, file_okay=False
+    ),
+):
+    """Check if earlier commit is an ancestor of later commit.
+
+    Prints 'yes' (exit 0) or 'no' (exit 1).
+
+    Examples:
+        mcp-vector-search kg ancestor abc1234 def5678
+        mcp-vector-search kg ancestor HEAD~3 HEAD
+    """
+    from ...core.git_utils import is_ancestor_commit
+
+    project_root = project_root.resolve()
+    result = is_ancestor_commit(earlier, later, project_root)
+    if result:
+        console.print("yes")
+        raise typer.Exit(0)
+    else:
+        console.print("no")
+        raise typer.Exit(1)
 
 
 @kg_app.command("visualize")

@@ -117,4 +117,19 @@ class STRINGRESTTool(BaseTool):
                 "error": api_response.get("error"),
             }
 
+        # Feature-79B: STRING /json/enrichment ignores `category` param server-side.
+        # Apply client-side filter when category is specified.
+        category_filter = arguments.get("category")
+        if category_filter:
+            if isinstance(api_response, list):
+                api_response = [
+                    r for r in api_response if r.get("category") == category_filter
+                ]
+            elif isinstance(api_response, dict):
+                data_list = api_response.get("data", [])
+                if isinstance(data_list, list):
+                    api_response["data"] = [
+                        r for r in data_list if r.get("category") == category_filter
+                    ]
+
         return {"status": "success", "data": api_response}

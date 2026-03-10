@@ -99,8 +99,6 @@ class ThoughtspotDashlet(Asset):
     OUTPUT_FROM_SPARK_JOBS: ClassVar[Any] = None
     THOUGHTSPOT_LIVEBOARD: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "ThoughtspotDashlet"
-
     thoughtspot_liveboard_name: Union[str, None, UnsetType] = UNSET
     """Simple name of the liveboard in which this dashlet exists."""
 
@@ -517,6 +515,9 @@ def _thoughtspot_dashlet_to_nested(
         is_incomplete=thoughtspot_dashlet.is_incomplete,
         provenance_type=thoughtspot_dashlet.provenance_type,
         home_id=thoughtspot_dashlet.home_id,
+        depth=thoughtspot_dashlet.depth,
+        immediate_upstream=thoughtspot_dashlet.immediate_upstream,
+        immediate_downstream=thoughtspot_dashlet.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -552,7 +553,6 @@ def _thoughtspot_dashlet_from_nested(
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -561,6 +561,9 @@ def _thoughtspot_dashlet_from_nested(
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_thoughtspot_dashlet_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

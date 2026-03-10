@@ -421,32 +421,6 @@ def _patch_replicate():
     except Exception as e:
         logger.warning("Failed to patch Replicate", error=str(e))
 
-def _patch_linkup():
-    """Monkey patch LinkupClient to auto-inject LINKUP_API_KEY from runtime env.
-
-    The Linkup SDK already reads LINKUP_API_KEY from os.environ, but this
-    patch ensures the runtime-injected env var is used and adds correlation
-    ID propagation.
-    """
-    try:
-        from linkup import LinkupClient
-        if hasattr(LinkupClient, '_codewords_patched'):
-            return
-
-        _original_init = LinkupClient.__init__
-
-        def _enhanced_init(self, api_key=None, base_url="https://api.linkup.so/v1", **kwargs):
-            api_key = api_key or os.environ.get('LINKUP_API_KEY')
-            _original_init(self, api_key=api_key, base_url=base_url, **kwargs)
-
-        LinkupClient.__init__ = _enhanced_init
-        LinkupClient._codewords_patched = True
-        logger.debug("LinkupClient successfully patched for CodeWords auto-configuration")
-
-    except ImportError:
-        pass
-    except Exception as e:
-        logger.warning("Failed to patch LinkupClient", error=str(e))
 
 def _patch_composio():
     """Monkey patch Composio to auto-inject CodeWords proxy settings.
@@ -488,7 +462,6 @@ _patch_anthropic()
 _patch_perplexity()
 _patch_composio()
 _patch_replicate()
-_patch_linkup()
 
 # Export everything
 __all__ = [

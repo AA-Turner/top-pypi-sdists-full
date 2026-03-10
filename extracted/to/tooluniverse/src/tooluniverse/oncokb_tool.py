@@ -57,6 +57,9 @@ class OncoKBTool(BaseTool):
     def run(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Execute OncoKB API call based on operation type."""
         operation = arguments.get("operation", "")
+        # Auto-fill operation from tool config const if not provided by user
+        if not operation:
+            operation = self.get_schema_const_operation()
 
         if operation == "annotate_variant":
             return self._annotate_variant(arguments)
@@ -240,7 +243,7 @@ class OncoKBTool(BaseTool):
             # Filter to only include cancer genes (oncogene or TSG)
             cancer_genes = [g for g in data if g.get("oncogene") or g.get("tsg")]
 
-            return {
+            result = {
                 "status": "success",
                 "data": {
                     "total_genes": len(data),
@@ -252,6 +255,13 @@ class OncoKBTool(BaseTool):
                     "api_mode": "demo" if self.use_demo else "authenticated",
                 },
             }
+            if self.use_demo:
+                result["metadata"]["note"] = (
+                    "Demo mode: results are limited. Set ONCOKB_API_TOKEN "
+                    "environment variable for full cancer gene list (700+ genes). "
+                    "Get a token at https://www.oncokb.org/apiAccess"
+                )
+            return result
 
         except requests.exceptions.RequestException as e:
             return {"status": "error", "error": f"Request failed: {str(e)}"}

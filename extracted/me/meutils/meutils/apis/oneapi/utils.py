@@ -7,19 +7,17 @@
 # @WeChat       : meutils
 # @Software     : PyCharm
 # @Description  :
-import json
-import os
 
-import numpy as np
 
 from meutils.pipe import *
 from meutils.llm.clients import AsyncOpenAI
 from meutils.caches import rcache
+from meutils.decorators.retry import retrying
 from meutils.db.orm import select_first, update_or_insert
-from meutils.schemas.db.oneapi_types import OneapiTask, OneapiUser, OneapiToken
+from meutils.db.redis_db import redis_aclient
 from meutils.apis.oneapi.channel import get_channel_keys
 from meutils.schemas.task_types import FluxTaskResponse
-from meutils.db.redis_db import redis_aclient
+from meutils.schemas.db.oneapi_types import OneapiTask, OneapiUser, OneapiToken
 
 
 @rcache(ttl=90 * 24 * 3600)
@@ -49,8 +47,12 @@ async def get_user_quota(api_key: Optional[str] = None, user_id: Optional[int] =
         return user_object.quota / 500000
 
 
-async def polling_keys(biz: str, api_key: Optional[str] = None, batch_size: int = 1,
-                       channel_id: Optional[int] = None):  # 轮询
+@retrying()
+async def polling_keys(
+        biz: str, api_key: Optional[str] = None, batch_size: int = 1,
+        channel_id: Optional[int] = None,
+        skip_keys: Optional[str] = None
+):  # 轮询
     """
 
     :param biz: model
@@ -61,7 +63,7 @@ async def polling_keys(biz: str, api_key: Optional[str] = None, batch_size: int 
     """
     # all
     if channel_id:
-        df = await get_channel_keys(channel_id, base_url='https://api.chatfire.cn')
+        df = await get_channel_keys(channel_id, base_url='http://api.chatfire.cn')
         return df['key_preview'].to_list()  # 渠道所有 keys
 
     if batch_size > 1:
@@ -69,25 +71,17 @@ async def polling_keys(biz: str, api_key: Optional[str] = None, batch_size: int 
         api_keys = await asyncio.gather(*tasks)
         return api_keys
 
-    # "biz-channel_id" => sk-channel_id
+    client = AsyncOpenAI(
+        # base_url="http://0.0.0.0:8000/v1",
+        api_key=api_key
+    )
 
-    try:
-        client = AsyncOpenAI(
-            # base_url="http://0.0.0.0:8000/v1",
-            api_key=api_key
-        )
-        response = await client.audio.speech.create(model=biz, input=biz, voice=biz, extra_query={"biz": biz})
-        logger.debug(bjson(response.json()))
-        api_key = response.json().get("api_key")  # todo 依赖内部服务
+    response = await client.audio.speech.create(model=biz, input=biz, voice=biz, extra_query={"biz": biz})
+    response = response.json()
+    logger.debug(bjson(response))
+    api_key = response.get("api_key")
 
-        # if api_key:
-        #     # logger.debug(bjson(response))
-        #     logger.debug("获取轮询key成功")
-
-        return api_key
-    except Exception as e:
-        logger.debug(e)
-        return None
+    return api_key
 
 
 async def set_async_flux_signal(task_id: str, response: Union[BaseModel, dict]):
@@ -152,4 +146,4 @@ if __name__ == '__main__':
     # arun(polling_key("test"))
     # arun(polling_key('volc'))
     # arun(polling_keys('volc', batch_size=1))
-    arun(polling_keys('sd2', batch_size=1))
+    arun(polling_keys('volc', batch_size=2))

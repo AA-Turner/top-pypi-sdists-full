@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydap
-Version: 3.5.8
+Version: 3.5.9
 Summary: A pure python implementation of the Data Access Protocol.
 Author-email: Roberto De Almeida <roberto@dealmeida.net>
 Maintainer-email: Miguel Jimenez-Urias <mjimenez@opendap.org>
@@ -50,6 +50,7 @@ Requires-Dist: scipy
 Requires-Dist: Webob
 Requires-Dist: beautifulsoup4
 Requires-Dist: lxml
+Requires-Dist: Jinja2
 Provides-Extra: docs
 Requires-Dist: Sphinx; extra == "docs"
 Requires-Dist: Pygments; extra == "docs"
@@ -67,7 +68,6 @@ Requires-Dist: docopt-ng; extra == "server"
 Requires-Dist: cryptography; extra == "server"
 Requires-Dist: gsw; extra == "server"
 Requires-Dist: coards; extra == "server"
-Requires-Dist: Jinja2; extra == "server"
 Dynamic: license-file
 
 pydap

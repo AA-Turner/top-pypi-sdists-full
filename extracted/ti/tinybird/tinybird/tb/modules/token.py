@@ -161,7 +161,7 @@ def create(ctx: Context) -> None:
 
     You can create two types of tokens: Static or JWT.
 
-    * Static Tokens do not have a TTL and can have any valid scope (ADMIN, TOKENS, or ORG_DATASOURCES:READ).
+    * Static Tokens do not have a TTL and can have any valid scope (ADMIN, TOKENS, WORKSPACE:READ_ALL, WORKSPACE:DEPLOY, or ORG_DATASOURCES:READ).
 
     * JWT tokens have a TTL and can have PIPES:READ and DATASOURCES:READ scopes. Their main use case is allow your users to call your endpoints or read datasources without exposing your API key.
 
@@ -261,6 +261,8 @@ def create_jwt_token(ctx: Context, name: str, ttl: timedelta, scope, resource, f
 valid_scopes = [
     "ADMIN",
     "TOKENS",
+    "WORKSPACE:READ_ALL",
+    "WORKSPACE:DEPLOY",
     "ORG_DATASOURCES:READ",
 ]
 

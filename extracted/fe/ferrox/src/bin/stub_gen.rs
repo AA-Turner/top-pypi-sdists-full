@@ -144,6 +144,7 @@ fn append_ferrox_exports(stub_root: &Path) -> Result<()> {
             "elastic",
             "io",
             "lattice",
+            "lmdb",
             "md",
             "mp",
             "neighbors",
@@ -158,6 +159,8 @@ fn append_ferrox_exports(stub_root: &Path) -> Result<()> {
             "surfaces",
             "symmetry",
             "trajectory",
+            "units",
+            "vasp",
             "xrd",
         ];
         let mut block = String::from("\n");
@@ -181,6 +184,86 @@ fn append_ferrox_exports(stub_root: &Path) -> Result<()> {
     Ok(())
 }
 
+/// Insert missing import lines after the existing import block at the top of a stub file.
+fn prepend_missing_imports(stub_path: &Path, imports: &[&str]) -> Result<()> {
+    if !stub_path.is_file() {
+        return Ok(());
+    }
+    let content = fs::read_to_string(stub_path)?;
+    let existing_lines: BTreeSet<&str> = content.lines().map(str::trim).collect();
+    let new_imports: Vec<&str> = imports
+        .iter()
+        .filter(|imp| !existing_lines.contains(**imp))
+        .copied()
+        .collect();
+    if new_imports.is_empty() {
+        return Ok(());
+    }
+    let mut lines: Vec<&str> = content.lines().collect();
+    let insert_pos = lines
+        .iter()
+        .rposition(|line| line.starts_with("from ") || line.starts_with("import "))
+        .map_or(0, |pos| pos + 1);
+    for (offset, imp) in new_imports.iter().enumerate() {
+        lines.insert(insert_pos + offset, imp);
+    }
+    let mut result = lines.join("\n");
+    if content.ends_with('\n') {
+        result.push('\n');
+    }
+    fs::write(stub_path, result)?;
+    println!("  Augmented imports: {}", stub_path.display());
+    Ok(())
+}
+
+/// Append missing declaration lines to a stub file.
+fn append_missing_declarations(
+    stub_path: &Path,
+    declarations: impl IntoIterator<Item = String>,
+) -> Result<()> {
+    if !stub_path.is_file() {
+        return Ok(());
+    }
+
+    let mut content = fs::read_to_string(stub_path)?;
+    let existing_lines: BTreeSet<&str> = content.lines().map(str::trim).collect();
+
+    let block_lines: Vec<String> = declarations
+        .into_iter()
+        .filter(|declaration| !existing_lines.contains(declaration.as_str()))
+        .collect();
+
+    if !block_lines.is_empty() {
+        if !content.ends_with('\n') {
+            content.push('\n');
+        }
+        content.push('\n');
+        content.push_str(&block_lines.join("\n"));
+        content.push('\n');
+        fs::write(stub_path, content)?;
+        println!("  Augmented: {}", stub_path.display());
+    }
+
+    Ok(())
+}
+
+/// Fix `__next__` return type from `T | None` to `T` in iterator stubs.
+/// PyO3 requires `Option<T>` to signal StopIteration, but the Python typing
+/// convention is `__next__(self) -> T`.
+fn fix_iterator_next_stub(stub_path: &Path) -> Result<()> {
+    if !stub_path.is_file() {
+        return Ok(());
+    }
+    let content = fs::read_to_string(stub_path)?;
+    let pattern = Regex::new(r"def\s+__next__\s*\(\s*self\s*\)\s*->\s*(.+?)\s*\|\s*None\s*:(.*)")?;
+    let fixed = pattern.replace_all(&content, "def __next__(self) -> $1:$2");
+    if fixed != content {
+        fs::write(stub_path, fixed.as_ref())?;
+        println!("  Fixed __next__ return type: {}", stub_path.display());
+    }
+    Ok(())
+}
+
 fn main() -> Result<()> {
     let repo_root = project_root()?;
     let stub_root = repo_root.join("bindings").join("python").join("ferrox");
@@ -188,6 +271,23 @@ fn main() -> Result<()> {
     let stub = ferrox::python::stub_info()?;
     stub.generate()?;
     append_ferrox_exports(&stub_root)?;
+    let unit_mode_line = "UnitMode = Literal[\"auto\", \"warn\", \"strict\"]".to_string();
+    let units_stub = stub_root.join("_ferrox").join("units").join("__init__.pyi");
+    append_missing_declarations(&units_stub, [unit_mode_line.clone()])?;
+    append_missing_declarations(
+        &units_stub,
+        ferrox::python::units::exported_unit_constants()
+            .iter()
+            .map(|(constant_name, _)| format!("{constant_name}: Quantity")),
+    )?;
+    let ferrox_stub = stub_root.join("_ferrox").join("__init__.pyi");
+    append_missing_declarations(&ferrox_stub, [unit_mode_line])?;
+    let md_stub = stub_root.join("_ferrox").join("md").join("__init__.pyi");
+    prepend_missing_imports(&md_stub, &["from ferrox._ferrox.units import Quantity"])?;
+    // Fix __next__ return type: pyo3_stub_gen emits `-> T | None` but Python iterator
+    // protocol types __next__ as `-> T` (StopIteration is raised, not None returned)
+    let lmdb_stub = stub_root.join("_ferrox").join("lmdb").join("__init__.pyi");
+    fix_iterator_next_stub(&lmdb_stub)?;
     generate_top_level_init_stub(&stub_root)?;
     Ok(())
 }

@@ -100,8 +100,6 @@ class SemanticDimension(Asset):
     INPUT_TO_SPARK_JOBS: ClassVar[Any] = None
     OUTPUT_FROM_SPARK_JOBS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "SemanticDimension"
-
     semantic_expression: Union[str, None, UnsetType] = UNSET
     """Column name or SQL expression for the semantic field."""
 
@@ -522,6 +520,9 @@ def _semantic_dimension_to_nested(
         is_incomplete=semantic_dimension.is_incomplete,
         provenance_type=semantic_dimension.provenance_type,
         home_id=semantic_dimension.home_id,
+        depth=semantic_dimension.depth,
+        immediate_upstream=semantic_dimension.immediate_upstream,
+        immediate_downstream=semantic_dimension.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -557,7 +558,6 @@ def _semantic_dimension_from_nested(
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -566,6 +566,9 @@ def _semantic_dimension_from_nested(
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_semantic_dimension_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

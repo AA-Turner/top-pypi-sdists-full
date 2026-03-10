@@ -8,7 +8,7 @@ def clear_filter(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Clear the search filter
 
     :return: Result of the operator call.
@@ -18,7 +18,7 @@ def context_menu(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Display properties editor context_menu
 
     :return: Result of the operator call.
@@ -55,7 +55,7 @@ def directory_browse(
     ]
     | None = "DEFAULT",
     sort_method: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Open a directory browser, hold Shift to open the file, Alt to browse containing directory
 
         :param directory: Directory, Directory of the file (optional, never None)
@@ -128,7 +128,7 @@ def file_browse(
     | None = "DEFAULT",
     sort_method: str | None = "",
     filter_glob: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Open a file browser, hold Shift to open the file, Alt to browse containing directory
 
         :param filepath: File Path, Path to file (optional, never None)
@@ -174,7 +174,7 @@ def start_filter(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Start entering filter text
 
     :return: Result of the operator call.
@@ -184,7 +184,7 @@ def toggle_pin(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Keep the current data-block displayed
 
     :return: Result of the operator call.

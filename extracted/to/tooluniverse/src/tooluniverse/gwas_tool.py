@@ -64,6 +64,27 @@ class GWASRESTTool(BaseTool):
         s = s.strip()
         return s or None
 
+    def _resolve_trait_to_efo_id(self, disease_trait: str) -> Optional[str]:
+        """Resolve a disease trait name to an EFO ID via the efoTraits search endpoint.
+
+        The /v2/associations endpoint ignores the disease_trait query parameter,
+        so we must first resolve the trait name to an EFO ID for reliable filtering.
+        """
+        url = f"{self.base_url}/v2/efoTraits/search/findByTrait"
+        try:
+            resp = requests.get(url, params={"trait": disease_trait}, timeout=30)
+            resp.raise_for_status()
+            data = resp.json()
+            traits = data.get("_embedded", {}).get("efoTraits", [])
+            if traits:
+                # Return the first matching EFO ID (best match)
+                short_name = traits[0].get("shortForm")
+                if short_name:
+                    return short_name
+        except Exception:
+            pass
+        return None
+
     def _extract_embedded_data(
         self, data: Dict[str, Any], data_type: str
     ) -> Dict[str, Any]:
@@ -113,13 +134,19 @@ class GWASAssociationSearch(GWASRESTTool):
 
         # Handle various search parameters
         disease_trait = self._coerce_str(arguments.get("disease_trait"))
-        if disease_trait:
-            params["disease_trait"] = disease_trait
 
         # Prefer efo_id filtering. If user provided efo_uri, normalize to efo_id.
         efo_id = self._efo_id_from_uri_or_id(arguments.get("efo_id"))
         if not efo_id:
             efo_id = self._efo_id_from_uri_or_id(arguments.get("efo_uri"))
+
+        # Feature-79C: /v2/associations ignores disease_trait param server-side.
+        # Auto-resolve trait name to efo_id for reliable filtering.
+        if disease_trait and not efo_id:
+            resolved = self._resolve_trait_to_efo_id(disease_trait)
+            if resolved:
+                efo_id = resolved
+
         if efo_id:
             params["efo_id"] = efo_id
 
@@ -294,6 +321,14 @@ class GWASVariantsForTrait(GWASRESTTool):
             arguments.get("efo_id")
         ) or self._efo_id_from_uri_or_id(arguments.get("efo_uri"))
         efo_trait = self._coerce_str(arguments.get("efo_trait"))
+
+        # Feature-79C: /v2/associations ignores disease_trait param server-side.
+        # Auto-resolve trait name to efo_id for reliable filtering.
+        if disease_trait and not efo_id:
+            resolved = self._resolve_trait_to_efo_id(disease_trait)
+            if resolved:
+                efo_id = resolved
+
         if not disease_trait and not efo_id and not efo_trait:
             return {
                 "error": "Provide at least one of: disease_trait, efo_id (or efo_uri), efo_trait."
@@ -304,15 +339,16 @@ class GWASVariantsForTrait(GWASRESTTool):
             "page": arguments.get("page", 0),
         }
 
-        if disease_trait:
-            params["disease_trait"] = disease_trait
         if efo_id:
             params["efo_id"] = efo_id
-        if efo_trait:
+        elif efo_trait:
             params["efo_trait"] = efo_trait
 
         data = self._make_request(self.endpoint, params)
-        return self._extract_embedded_data(data, "associations")
+        result = self._extract_embedded_data(data, "associations")
+        if efo_id and disease_trait:
+            result["resolved_efo_id"] = efo_id
+        return result
 
 
 @register_tool("GWASAssociationsForTrait")
@@ -330,6 +366,14 @@ class GWASAssociationsForTrait(GWASRESTTool):
             arguments.get("efo_id")
         ) or self._efo_id_from_uri_or_id(arguments.get("efo_uri"))
         efo_trait = self._coerce_str(arguments.get("efo_trait"))
+
+        # Feature-79C: /v2/associations ignores disease_trait param server-side.
+        # Auto-resolve trait name to efo_id for reliable filtering.
+        if disease_trait and not efo_id:
+            resolved = self._resolve_trait_to_efo_id(disease_trait)
+            if resolved:
+                efo_id = resolved
+
         if not disease_trait and not efo_id and not efo_trait:
             return {
                 "error": "Provide at least one of: disease_trait, efo_id (or efo_uri), efo_trait."
@@ -342,15 +386,16 @@ class GWASAssociationsForTrait(GWASRESTTool):
             "page": arguments.get("page", 0),
         }
 
-        if disease_trait:
-            params["disease_trait"] = disease_trait
         if efo_id:
             params["efo_id"] = efo_id
-        if efo_trait:
+        elif efo_trait:
             params["efo_trait"] = efo_trait
 
         data = self._make_request(self.endpoint, params)
-        return self._extract_embedded_data(data, "associations")
+        result = self._extract_embedded_data(data, "associations")
+        if efo_id and disease_trait:
+            result["resolved_efo_id"] = efo_id
+        return result
 
 
 @register_tool("GWASAssociationsForSNP")

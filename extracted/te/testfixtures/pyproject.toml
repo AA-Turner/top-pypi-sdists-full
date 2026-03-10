@@ -1,0 +1,141 @@
+[project]
+name = "testfixtures"
+version = "11.0.0"
+description = "A collection of helpers and mock objects for unit tests and doc tests."
+readme = "README.rst"
+authors = [
+    { name = "Chris Withers", email = "chris@simplistix.co.uk" }
+]
+license = { text = "MIT" }
+requires-python = ">=3.11"
+dependencies = []
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+]
+
+[project.urls]
+Homepage = "https://github.com/Simplistix/testfixtures"
+Documentation = "http://testfixtures.readthedocs.org/en/latest/"
+Repository = "https://github.com/Simplistix/testfixtures"
+Changelog = "https://testfixtures.readthedocs.io/en/latest/changes.html"
+
+[project.optional-dependencies]
+django = [
+    "django>=4; python_version < '3.13'",
+    "django>=5.1.3; python_version >= '3.13'",
+]
+sybil = ["sybil>=6.0.3"]
+mock-backport = ["mock>=4.0.3"]
+twisted = ["twisted>=22.1"]
+yaml = ["pyyaml>=6.0.3"]
+toml = ["tomlkit>=0.10.0"]
+
+[dependency-groups]
+dev = [
+    "mypy>=1.19",
+    "pytest>=8.0",
+    "pytest-cov>=5",
+    "types-mock",
+]
+django-dev = [
+    "django-stubs",
+    "pytest-django>=4",
+]
+twisted-dev = [
+    "mypy-zope",
+]
+docs = [
+    "sphinx",
+    "furo",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+addopts = "-p no:doctest"
+norecursedirs = "_build"
+testpaths = ["tests", "docs"]
+DJANGO_SETTINGS_MODULE = "tests.test_django.settings"
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+    "error::SyntaxWarning",
+    "error::UserWarning",
+    "ignore:Unknown config option.+DJANGO_SETTINGS_MODULE:pytest.PytestConfigWarning",
+]
+
+[tool.mypy]
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+no_implicit_reexport = true
+warn_unused_ignores = true
+plugins = [
+    "mypy_django_plugin.main",
+    "mypy_zope:plugin",
+]
+
+# "nice to have" stuff to fix:
+[[tool.mypy.overrides]]
+module = "tests.*"
+disable_error_code = ["no-untyped-call", "no-untyped-def"]
+
+# Be more picky with some test files:
+[[tool.mypy.overrides]]
+module = [
+    "tests.test_date",
+    "tests.test_datetime",
+    "tests.test_formats",
+    "tests.test_outputcapture",
+    "tests.test_should_raise",
+    "tests.test_time",
+]
+enable_error_code = ["no-untyped-call", "no-untyped-def"]
+
+# Be very picky with these test files:
+[[tool.mypy.overrides]]
+module = [
+    "tests.test_compare_types",
+    "tests.test_formats",
+    "tests.test_tempdirectory",
+]
+check_untyped_defs = true
+warn_return_any = true
+no_implicit_optional = true
+
+[[tool.mypy.overrides]]
+module = [
+    # permanent exclusions and workaround:
+    "constantly.*",
+    # guppy isn't actually ever installed:
+    "guppy"
+]
+ignore_missing_imports = true
+
+[tool.django-stubs]
+django_settings_module = "tests.test_django.settings"
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.format]
+quote-style = "preserve"
+
+[tool.coverage.run]
+source = ["testfixtures"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "'No exception raised!'",
+    "self\\.fail\\('Expected",
+    "guppy =",
+    "if TYPE_CHECKING:",
+    "\\.\\.\\.",
+]

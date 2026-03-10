@@ -21,10 +21,10 @@ class NewScript:
     Attributes:
         path (str):
         summary (str):
-        description (str):
         content (str):
         language (NewScriptLanguage):
         parent_hash (Union[Unset, str]):
+        description (Union[Unset, str]):
         schema (Union[Unset, NewScriptSchema]):
         is_template (Union[Unset, bool]):
         lock (Union[Unset, str]):
@@ -61,10 +61,10 @@ class NewScript:
 
     path: str
     summary: str
-    description: str
     content: str
     language: NewScriptLanguage
     parent_hash: Union[Unset, str] = UNSET
+    description: Union[Unset, str] = UNSET
     schema: Union[Unset, "NewScriptSchema"] = UNSET
     is_template: Union[Unset, bool] = UNSET
     lock: Union[Unset, str] = UNSET
@@ -101,11 +101,11 @@ class NewScript:
     def to_dict(self) -> Dict[str, Any]:
         path = self.path
         summary = self.summary
-        description = self.description
         content = self.content
         language = self.language.value
 
         parent_hash = self.parent_hash
+        description = self.description
         schema: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.schema, Unset):
             schema = self.schema.to_dict()
@@ -162,13 +162,14 @@ class NewScript:
             {
                 "path": path,
                 "summary": summary,
-                "description": description,
                 "content": content,
                 "language": language,
             }
         )
         if parent_hash is not UNSET:
             field_dict["parent_hash"] = parent_hash
+        if description is not UNSET:
+            field_dict["description"] = description
         if schema is not UNSET:
             field_dict["schema"] = schema
         if is_template is not UNSET:
@@ -244,13 +245,13 @@ class NewScript:
 
         summary = d.pop("summary")
 
-        description = d.pop("description")
-
         content = d.pop("content")
 
         language = NewScriptLanguage(d.pop("language"))
 
         parent_hash = d.pop("parent_hash", UNSET)
+
+        description = d.pop("description", UNSET)
 
         _schema = d.pop("schema", UNSET)
         schema: Union[Unset, NewScriptSchema]
@@ -332,10 +333,10 @@ class NewScript:
         new_script = cls(
             path=path,
             summary=summary,
-            description=description,
             content=content,
             language=language,
             parent_hash=parent_hash,
+            description=description,
             schema=schema,
             is_template=is_template,
             lock=lock,

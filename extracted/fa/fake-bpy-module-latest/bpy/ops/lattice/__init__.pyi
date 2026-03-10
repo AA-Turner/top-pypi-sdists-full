@@ -10,7 +10,7 @@ def flip(
     /,
     *,
     axis: typing.Literal["U", "V", "W"] | None = "U",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Mirror all control points without inverting the lattice deform
 
     :param axis: Flip Axis, Coordinates along this axis get flipped (optional)
@@ -21,7 +21,7 @@ def make_regular(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set UVW control points a uniform distance apart
 
     :return: Result of the operator call.
@@ -33,7 +33,7 @@ def select_all(
     /,
     *,
     action: typing.Literal["TOGGLE", "SELECT", "DESELECT", "INVERT"] | None = "TOGGLE",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Change selection of all UVW control points
 
         :param action: Action, Selection action to execute (optional)
@@ -56,7 +56,7 @@ def select_less(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Deselect vertices at the boundary of each selection region
 
     :return: Result of the operator call.
@@ -67,9 +67,11 @@ def select_mirror(
     undo: bool | None = None,
     /,
     *,
-    axis: set[Literal[bpy.stub_internal.rna_enums.AxisFlagXyzItems]] | None = {"X"},
+    axis: set[typing.Literal[bpy.stub_internal.rna_enums.AxisFlagXyzItems]] | None = {
+        "X"
+    },
     extend: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select mirrored lattice points
 
     :param axis: Axis, (optional)
@@ -81,7 +83,7 @@ def select_more(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select vertices directly linked to already selected ones
 
     :return: Result of the operator call.
@@ -95,7 +97,7 @@ def select_random(
     ratio: float | None = 0.5,
     seed: int | None = 0,
     action: typing.Literal["SELECT", "DESELECT"] | None = "SELECT",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Randomly select UVW control points
 
         :param ratio: Ratio, Portion of items to select randomly (in [0, 1], optional)
@@ -116,7 +118,7 @@ def select_ungrouped(
     /,
     *,
     extend: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select vertices without a group
 
     :param extend: Extend, Extend the selection (optional)

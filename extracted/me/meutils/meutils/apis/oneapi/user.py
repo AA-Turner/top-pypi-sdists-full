@@ -119,7 +119,7 @@ async def get_user_from_api_key(api_key):
 
 async def get_user_for_quota(api_key):
     async with httpx.AsyncClient(base_url=BASE_URL) as client:
-        response = await client.get("/api/user/self", headers=headers)
+        response = await client.get("/api/data/self", headers=headers)
         response.raise_for_status()
         data = response.json()
         # logger.debug(data)
@@ -147,6 +147,8 @@ if __name__ == '__main__':
 
     # arun(get_user_quota("sk-x"))
 
-    # arun(get_user(11327))
+    arun(get_user(11327))
 
     # arun(update_user_for_refund(2, quota=73065879))
+
+    os.getenv("OPENAI_API_KEY")

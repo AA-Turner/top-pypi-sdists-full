@@ -8,7 +8,7 @@ def bake_animation(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Update the audio animation cache
 
     :return: Result of the operator call.
@@ -66,7 +66,7 @@ def mixdown(
     mixrate: int | None = 48000,
     bitrate: int | None = 192,
     split_channels: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Mix the scenes audio to a sound file
 
         :param filepath: File Path, Path to file (optional, never None)
@@ -236,7 +236,7 @@ def open(
     sort_method: str | None = "",
     cache: bool | None = False,
     mono: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Load a sound file
 
         :param filepath: File Path, Path to file (optional, never None)
@@ -316,7 +316,7 @@ def open_mono(
     sort_method: str | None = "",
     cache: bool | None = False,
     mono: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Load a sound file as mono
 
         :param filepath: File Path, Path to file (optional, never None)
@@ -365,7 +365,7 @@ def pack(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Pack the sound into the current blend file
 
     :return: Result of the operator call.
@@ -376,9 +376,10 @@ def unpack(
     undo: bool | None = None,
     /,
     *,
-    method: Literal[bpy.stub_internal.rna_enums.UnpackMethodItems] | None = "USE_LOCAL",
+    method: typing.Literal[bpy.stub_internal.rna_enums.UnpackMethodItems]
+    | None = "USE_LOCAL",
     id: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Unpack the sound to the samples filename
 
     :param method: Method, How to unpack (optional)
@@ -390,7 +391,7 @@ def update_animation_flags(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Update animation flags
 
     :return: Result of the operator call.

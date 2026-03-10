@@ -45,8 +45,8 @@ from .version import ExtraVersionOption
 
 TYPE_CHECKING = False
 if TYPE_CHECKING:
-    from collections.abc import Sequence
-    from typing import Any, NoReturn
+    from collections.abc import Callable, Sequence
+    from typing import Any
 
 
 class ExtraContext(cloup.Context):
@@ -170,6 +170,8 @@ class ExtraCommand(ExtraHelpColorsMixin, cloup.Command):  # type: ignore[misc]
         self,
         *args,
         version_fields: dict[str, Any] | None = None,
+        config_schema: type | Callable[[dict[str, Any]], Any] | None = None,
+        fallback_sections: Sequence[str] = (),
         extra_option_at_end: bool = True,
         populate_auto_envvars: bool = True,
         **kwargs: Any,
@@ -327,6 +329,18 @@ class ExtraCommand(ExtraHelpColorsMixin, cloup.Command):  # type: ignore[misc]
                             raise TypeError(msg)
                         setattr(param, field_id, field_value)
 
+        # Forward config schema and fallback sections to the config option.
+        if config_schema is not None or fallback_sections:
+            for param in self.params:
+                if isinstance(param, ConfigOption):
+                    if config_schema is not None:
+                        param.config_schema = config_schema
+                        param._config_schema_callable = param._make_schema_callable(
+                            config_schema
+                        )
+                    if fallback_sections:
+                        param.fallback_sections = tuple(fallback_sections)
+
         if populate_auto_envvars:
             for param in self.params:
                 param.envvar = param_envvar_ids(param, self.context_settings)
@@ -344,7 +358,7 @@ class ExtraCommand(ExtraHelpColorsMixin, cloup.Command):  # type: ignore[misc]
         args: Sequence[str] | None = None,
         prog_name: str | None = None,
         **kwargs: Any,
-    ) -> Any | NoReturn:
+    ) -> Any:
         """Pre-invocation step that is instantiating the context, then call ``invoke()``
         within it.
 
@@ -673,7 +687,7 @@ class LazyGroup(ExtraGroup):
         mod = importlib.import_module(modname)
         cmd_object = getattr(mod, cmd_object_name)
         if not isinstance(cmd_object, click.Command):
-            raise ValueError(
+            raise TypeError(
                 f"Lazy loading of {import_path!r} failed by returning a non-command "
                 f"object: {cmd_object!r}"
             )

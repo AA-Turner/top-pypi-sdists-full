@@ -797,11 +797,13 @@ class DocumentStore:
         content_hash: Optional[str] = None,
         content_hash_full: Optional[str] = None,
         created_at: Optional[str] = None,
+        archive: bool = True,
     ) -> tuple[DocumentRecord, bool]:
         """Insert or update a document record.
 
         Preserves created_at on update. Updates updated_at always.
-        Archives the current version to history before updating.
+        Archives the current version to history before updating (unless
+        archive=False, which updates in-place without creating a version).
 
         Args:
             collection: Collection name
@@ -812,6 +814,9 @@ class DocumentStore:
             content_hash_full: Full SHA256 hash (for dedup verification)
             created_at: Optional override for created_at timestamp
                         (for importing historical data with original timestamps)
+            archive: If True (default), archive the current version before
+                     updating. If False, update in-place without creating
+                     a version entry.
 
         Returns:
             Tuple of (stored DocumentRecord, content_changed bool).
@@ -837,7 +842,8 @@ class DocumentStore:
 
                 if existing:
                     # Archive current version before updating
-                    self._archive_current_unlocked(collection, id, existing)
+                    if archive:
+                        self._archive_current_unlocked(collection, id, existing)
                     # Detect content change
                     content_changed = (
                         content_hash is not None
@@ -1273,6 +1279,95 @@ class DocumentStore:
                 (collection, id, version),
             )
             return cursor.rowcount > 0
+
+    def replace_version_content(
+        self,
+        collection: str,
+        id: str,
+        version: int,
+        summary: str,
+        tags: dict[str, Any],
+        content_hash: Optional[str] = None,
+    ) -> bool:
+        """Replace the content of a specific archived version in-place.
+
+        Used to update the bundled base version of system docs without
+        affecting user override versions above it.
+
+        Returns:
+            True if the version existed and was updated.
+        """
+        tags = normalize_tag_map(tags)
+        tags_json = json.dumps(tags, ensure_ascii=False)
+        with self._lock:
+            cursor = self._execute("""
+                UPDATE document_versions
+                SET summary = ?, tags_json = ?, content_hash = ?
+                WHERE id = ? AND collection = ? AND version = ?
+            """, (summary, tags_json, content_hash, id, collection, version))
+            return cursor.rowcount > 0
+
+    def find_version_by_content_hash(
+        self,
+        collection: str,
+        id: str,
+        content_hash: str,
+    ) -> Optional[int]:
+        """Find the oldest archived version with a given content_hash.
+
+        Returns:
+            The version number, or None if not found.
+        """
+        cursor = self._execute("""
+            SELECT version FROM document_versions
+            WHERE id = ? AND collection = ? AND content_hash = ?
+            ORDER BY version ASC LIMIT 1
+        """, (id, collection, content_hash))
+        row = cursor.fetchone()
+        return row["version"] if row else None
+
+    def delete_all_versions(self, collection: str, id: str) -> int:
+        """Delete all archived versions for a document.
+
+        Returns:
+            Number of versions deleted.
+        """
+        with self._lock:
+            cursor = self._execute("""
+                DELETE FROM document_versions
+                WHERE id = ? AND collection = ?
+            """, (id, collection))
+            self._execute("""
+                DELETE FROM version_edges
+                WHERE collection = ? AND source_id = ?
+            """, (collection, id))
+            return cursor.rowcount
+
+    def patch_head_tags(
+        self,
+        collection: str,
+        id: str,
+        patch: dict[str, Any],
+    ) -> bool:
+        """Merge patch into the head document's tags without creating a version.
+
+        Only updates tags; content and timestamps are unchanged.
+
+        Returns:
+            True if the document existed and was updated.
+        """
+        with self._lock:
+            existing = self._get_unlocked(collection, id)
+            if not existing:
+                return False
+            tags = dict(existing.tags)
+            tags.update(patch)
+            tags = normalize_tag_map(tags)
+            self._execute("""
+                UPDATE documents SET tags_json = ?
+                WHERE id = ? AND collection = ?
+            """, (json.dumps(tags, ensure_ascii=False), id, collection))
+            return True
 
     def delete(self, collection: str, id: str, delete_versions: bool = True) -> bool:
         """Delete a document record and optionally its version history.
@@ -1854,6 +1949,37 @@ class DocumentStore:
         """, (id, collection))
         return cursor.fetchone() is not None
 
+    def insert_if_absent(
+        self,
+        collection: str,
+        id: str,
+        summary: str,
+        tags: dict[str, Any],
+        created_at: Optional[str] = None,
+    ) -> bool:
+        """Insert a document only if it doesn't already exist.
+
+        Atomic INSERT OR IGNORE — avoids the TOCTOU race of
+        exists() + upsert() where a concurrent writer could create
+        the real document between check and write.
+
+        Returns:
+            True if a new row was inserted, False if it already existed.
+        """
+        now = self._now()
+        tags = normalize_tag_map(tags)
+        tags_json = json.dumps(tags, ensure_ascii=False)
+        ts = created_at or now
+
+        with self._lock:
+            cursor = self._conn.execute("""
+                INSERT OR IGNORE INTO documents
+                    (id, collection, summary, tags_json, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (id, collection, summary, tags_json, ts, now))
+            self._conn.commit()
+        return cursor.rowcount > 0
+
     def find_by_content_hash(
         self,
         collection: str,
@@ -1941,15 +2067,21 @@ class DocumentStore:
         Returns:
             List of DocumentRecords, most recent first
         """
-        allowed_order = {"updated": "updated_at", "accessed": "accessed_at"}
-        order_col = allowed_order.get(order_by)
-        if order_col is None:
-            raise ValueError(f"Invalid order_by: {order_by!r} (expected 'updated' or 'accessed')")
+        allowed_order = {
+            "updated": ("updated_at", "DESC"),
+            "accessed": ("accessed_at", "DESC"),
+            "created": ("created_at", "DESC"),
+            "id": ("id", "ASC"),
+        }
+        entry = allowed_order.get(order_by)
+        if entry is None:
+            raise ValueError(f"Invalid order_by: {order_by!r} (expected 'updated', 'accessed', 'created', or 'id')")
+        order_col, order_dir = entry
         cursor = self._execute(f"""
             SELECT id, collection, summary, tags_json, created_at, updated_at, content_hash, accessed_at
             FROM documents
             WHERE collection = ?
-            ORDER BY {order_col} DESC
+            ORDER BY {order_col} {order_dir}
             LIMIT ? OFFSET ?
         """, (collection, limit, offset))
 
@@ -1980,10 +2112,16 @@ class DocumentStore:
         have '_version' tag set to their offset (1=previous, 2=two ago...).
         Current versions have no '_version' tag (equivalent to offset 0).
         """
-        allowed_order = {"updated": "updated_at", "accessed": "accessed_at"}
-        order_col = allowed_order.get(order_by)
-        if order_col is None:
-            raise ValueError(f"Invalid order_by: {order_by!r} (expected 'updated' or 'accessed')")
+        allowed_order = {
+            "updated": ("updated_at", "DESC"),
+            "accessed": ("accessed_at", "DESC"),
+            "created": ("created_at", "DESC"),
+            "id": ("id", "ASC"),
+        }
+        entry = allowed_order.get(order_by)
+        if entry is None:
+            raise ValueError(f"Invalid order_by: {order_by!r} (expected 'updated', 'accessed', 'created', or 'id')")
+        order_col, order_dir = entry
 
         cursor = self._execute(f"""
             SELECT id, summary, tags_json, {order_col} as sort_ts,
@@ -1999,7 +2137,7 @@ class DocumentStore:
             FROM document_versions dv
             WHERE dv.collection = ?
 
-            ORDER BY sort_ts DESC
+            ORDER BY sort_ts {order_dir}
             LIMIT ? OFFSET ?
         """, (collection, collection, limit, offset))
 
@@ -2927,6 +3065,64 @@ class DocumentStore:
             (source_id, collection, predicate, target_id, inverse, created),
         )
         self._conn.commit()
+
+    def upsert_edges_batch(
+        self,
+        collection: str,
+        edges: list[tuple[str, str, str, str, str]],
+    ) -> int:
+        """Batch insert/replace edge rows in a single transaction.
+
+        Each tuple is (source_id, predicate, target_id, inverse, created).
+        """
+        if not edges:
+            return 0
+        with self._lock:
+            self._conn.execute("BEGIN IMMEDIATE")
+            try:
+                self._conn.executemany(
+                    """
+                    INSERT OR REPLACE INTO edges
+                        (source_id, collection, predicate, target_id, inverse, created)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    [(s, collection, p, t, inv, c) for s, p, t, inv, c in edges],
+                )
+                self._conn.commit()
+                return len(edges)
+            except Exception:
+                self._conn.rollback()
+                raise
+
+    def delete_edges_batch(
+        self,
+        collection: str,
+        edges: list[tuple[str, str, str]],
+    ) -> int:
+        """Batch delete edge rows in a single transaction.
+
+        Each tuple is (source_id, predicate, target_id).
+        """
+        if not edges:
+            return 0
+        count = 0
+        with self._lock:
+            self._conn.execute("BEGIN IMMEDIATE")
+            try:
+                for source_id, predicate, target_id in edges:
+                    cur = self._conn.execute(
+                        """
+                        DELETE FROM edges
+                        WHERE source_id = ? AND collection = ? AND predicate = ? AND target_id = ?
+                        """,
+                        (source_id, collection, predicate, target_id),
+                    )
+                    count += cur.rowcount
+                self._conn.commit()
+                return count
+            except Exception:
+                self._conn.rollback()
+                raise
 
     def delete_edge(
         self,

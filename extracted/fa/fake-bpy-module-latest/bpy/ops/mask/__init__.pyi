@@ -11,7 +11,7 @@ def add_feather_vertex(
     /,
     *,
     location: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add vertex to feather
 
     :param location: Location, Location of vertex in normalized space (array of 2 items, in [-inf, inf], optional)
@@ -25,7 +25,7 @@ def add_feather_vertex_slide(
     *,
     MASK_OT_add_feather_vertex: dict[str, typing.Any] | None = {},
     MASK_OT_slide_point: dict[str, typing.Any] | None = {},
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add new vertex to feather and slide it
 
     :param MASK_OT_add_feather_vertex: Add Feather Vertex, Add vertex to feather (optional, `bpy.ops.mask.add_feather_vertex` keyword arguments)
@@ -39,7 +39,7 @@ def add_vertex(
     /,
     *,
     location: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add vertex to active spline
 
     :param location: Location, Location of vertex in normalized space (array of 2 items, in [-inf, inf], optional)
@@ -53,7 +53,7 @@ def add_vertex_slide(
     *,
     MASK_OT_add_vertex: dict[str, typing.Any] | None = {},
     MASK_OT_slide_point: dict[str, typing.Any] | None = {},
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add new vertex and slide it
 
     :param MASK_OT_add_vertex: Add Vertex, Add vertex to active spline (optional, `bpy.ops.mask.add_vertex` keyword arguments)
@@ -65,7 +65,7 @@ def copy_splines(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Copy the selected splines to the internal clipboard
 
     :return: Result of the operator call.
@@ -75,7 +75,7 @@ def cyclic_toggle(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Toggle cyclic for selected splines
 
     :return: Result of the operator call.
@@ -87,7 +87,7 @@ def delete(
     /,
     *,
     confirm: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Delete selected control points or splines
 
     :param confirm: Confirm, Prompt for confirmation (optional)
@@ -98,7 +98,7 @@ def duplicate(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Duplicate selected control points and segments between them
 
     :return: Result of the operator call.
@@ -111,7 +111,7 @@ def duplicate_move(
     *,
     MASK_OT_duplicate: dict[str, typing.Any] | None = {},
     TRANSFORM_OT_translate: dict[str, typing.Any] | None = {},
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Duplicate mask and move
 
     :param MASK_OT_duplicate: Duplicate Mask, Duplicate selected control points and segments between them (optional, `bpy.ops.mask.duplicate` keyword arguments)
@@ -123,7 +123,7 @@ def feather_weight_clear(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Reset the feather weight to zero
 
     :return: Result of the operator call.
@@ -136,7 +136,7 @@ def handle_type_set(
     *,
     type: typing.Literal["AUTO", "VECTOR", "ALIGNED", "ALIGNED_DOUBLESIDE", "FREE"]
     | None = "AUTO",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set type of handles for selected control points
 
     :param type: Type, Spline type (optional)
@@ -149,7 +149,7 @@ def hide_view_clear(
     /,
     *,
     select: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Reveal temporarily hidden mask layers
 
     :param select: Select, (optional)
@@ -162,7 +162,7 @@ def hide_view_set(
     /,
     *,
     unselected: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Temporarily hide mask layers
 
     :param unselected: Unselected, Hide unselected rather than selected layers (optional)
@@ -175,7 +175,7 @@ def layer_move(
     /,
     *,
     direction: typing.Literal["UP", "DOWN"] | None = "UP",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move the active layer up/down in the list
 
     :param direction: Direction, Direction to move the active layer (optional)
@@ -188,7 +188,7 @@ def layer_new(
     /,
     *,
     name: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add new mask layer for masking
 
     :param name: Name, Name of new mask layer (optional, never None)
@@ -199,7 +199,7 @@ def layer_remove(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove mask layer
 
     :return: Result of the operator call.
@@ -211,7 +211,7 @@ def new(
     /,
     *,
     name: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Create new mask
 
     :param name: Name, Name of new mask (optional, never None)
@@ -222,7 +222,7 @@ def normals_make_consistent(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Recalculate the direction of selected handles
 
     :return: Result of the operator call.
@@ -232,7 +232,7 @@ def parent_clear(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Clear the masks parenting
 
     :return: Result of the operator call.
@@ -242,7 +242,7 @@ def parent_set(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set the masks parenting
 
     :return: Result of the operator call.
@@ -252,7 +252,7 @@ def paste_splines(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Paste splines from the internal clipboard
 
     :return: Result of the operator call.
@@ -265,7 +265,7 @@ def primitive_circle_add(
     *,
     size: float | None = 100.0,
     location: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add new circle-shaped spline
 
     :param size: Size, Size of new primitive (in [-inf, inf], optional)
@@ -280,7 +280,7 @@ def primitive_square_add(
     *,
     size: float | None = 100.0,
     location: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add new square-shaped spline
 
     :param size: Size, Size of new primitive (in [-inf, inf], optional)
@@ -299,7 +299,7 @@ def select(
     deselect_all: bool | None = False,
     select_passthrough: bool | None = False,
     location: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select spline points
 
     :param extend: Extend, Extend selection instead of deselecting everything first (optional)
@@ -317,7 +317,7 @@ def select_all(
     /,
     *,
     action: typing.Literal["TOGGLE", "SELECT", "DESELECT", "INVERT"] | None = "TOGGLE",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Change selection of all curve points
 
         :param action: Action, Selection action to execute (optional)
@@ -347,7 +347,7 @@ def select_box(
     ymax: int | None = 0,
     wait_for_input: bool | None = True,
     mode: typing.Literal["SET", "ADD", "SUB"] | None = "SET",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select curve points using box selection
 
         :param xmin: X Min, (in [-inf, inf], optional)
@@ -378,7 +378,7 @@ def select_circle(
     radius: int | None = 25,
     wait_for_input: bool | None = True,
     mode: typing.Literal["SET", "ADD", "SUB"] | None = "SET",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select curve points using circle selection
 
         :param x: X, (in [-inf, inf], optional)
@@ -408,7 +408,7 @@ def select_lasso(
     smooth_stroke_factor: float | None = 0.75,
     smooth_stroke_radius: int | None = 35,
     mode: typing.Literal["SET", "ADD", "SUB"] | None = "SET",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select curve points using lasso selection
 
         :param path: Path, (optional)
@@ -432,7 +432,7 @@ def select_less(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Deselect spline points at the boundary of each selection region
 
     :return: Result of the operator call.
@@ -442,7 +442,7 @@ def select_linked(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select all curve points linked to already selected ones
 
     :return: Result of the operator call.
@@ -454,7 +454,7 @@ def select_linked_pick(
     /,
     *,
     deselect: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """(De)select all points linked to the curve under the mouse cursor
 
     :param deselect: Deselect, (optional)
@@ -465,7 +465,7 @@ def select_more(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select more spline points connected to initial selection
 
     :return: Result of the operator call.
@@ -475,7 +475,7 @@ def shape_key_clear(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove mask shape keyframe for active mask layer at the current frame
 
     :return: Result of the operator call.
@@ -485,7 +485,7 @@ def shape_key_feather_reset(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Reset feather weights on all selected points animation values
 
     :return: Result of the operator call.
@@ -495,7 +495,7 @@ def shape_key_insert(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Insert mask shape keyframe for active mask layer at the current frame
 
     :return: Result of the operator call.
@@ -508,7 +508,7 @@ def shape_key_rekey(
     *,
     location: bool | None = True,
     feather: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Recalculate animation data on selected points for frames selected in the dopesheet
 
     :param location: Location, (optional)
@@ -523,7 +523,7 @@ def slide_point(
     *,
     slide_feather: bool | None = False,
     is_new_point: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Slide control points
 
     :param slide_feather: Slide Feather, First try to slide feather instead of vertex (optional)
@@ -535,7 +535,7 @@ def slide_spline_curvature(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Slide a point on the spline to define its curvature
 
     :return: Result of the operator call.
@@ -545,7 +545,7 @@ def switch_direction(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Switch direction of selected splines
 
     :return: Result of the operator call.

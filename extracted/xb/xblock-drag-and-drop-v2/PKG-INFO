@@ -1,15 +1,14 @@
 Metadata-Version: 2.4
 Name: xblock-drag-and-drop-v2
-Version: 5.0.3
+Version: 5.0.4
 Summary: XBlock - Drag-and-Drop v2
 Home-page: https://github.com/openedx/xblock-drag-and-drop-v2
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Framework :: Django
 Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.2
-Requires-Python: >=3.11
+Requires-Python: >=3.12
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: XBlock[django]

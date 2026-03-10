@@ -339,7 +339,7 @@ async def worker(
                             run_id,
                             status,
                             graph_id=graph_id,
-                            checkpoint=checkpoint,
+                            checkpoint=None,
                         )
                         await logger.ainfo(
                             "Background run rolled back",

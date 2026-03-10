@@ -112,12 +112,9 @@ class CTGovAPITool(BaseRESTTool):
         if arguments.get("next_page_token"):
             params["pageToken"] = arguments["next_page_token"]
 
-        # Specify fields to return for efficiency
-        params["fields"] = (
-            "NCTId,BriefTitle,OfficialTitle,OverallStatus,StartDate,CompletionDate,"
-            "StudyType,Phase,EnrollmentCount,Condition,InterventionName,LeadSponsorName,"
-            "LocationCountry"
-        )
+        # Note: CT.gov V2 API returns flat fields when 'fields' param is used,
+        # but parsing below expects nested protocolSection structure. Omitting
+        # 'fields' to get the full nested response.
 
         url = f"{CLINICALTRIALS_BASE}/studies"
         resp = requests.get(url, params=params, timeout=self.timeout)

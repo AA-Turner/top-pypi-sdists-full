@@ -11,8 +11,8 @@ import operator
 import re
 from functools import reduce
 
-from ..lib import walk
-from . import SimpleParser
+from pydap.lib import walk
+from pydap.parsers import SimpleParser
 
 
 class DASParser(SimpleParser):
@@ -64,15 +64,13 @@ class DASParser(SimpleParser):
 
         values = []
         while not self.peek(";"):
-            value = self.consume(
-                r"""
+            value = self.consume(r"""
                     ""          # empty attribute
                     |           # or
                     ".*?[^\\]"  # from quote up to an unquoted quote
                     |           # or
                     [^;,]+      # up to semicolon or comma
-                """
-            )
+                """)
 
             if type.lower() in ["string", "url"]:
                 value = str(value).strip('"')

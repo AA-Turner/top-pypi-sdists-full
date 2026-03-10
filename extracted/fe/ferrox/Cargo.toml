@@ -1,6 +1,6 @@
 [package]
 name = "ferrox"
-version = "0.0.9"
+version = "0.0.10"
 edition = "2024"
 rust-version = "1.93"
 authors = ["Janosh Riebesell <janosh.riebesell@gmail.com>"]
@@ -43,6 +43,7 @@ getrandom = { version = "0.3", features = ["wasm_js"] }
 # Math
 nalgebra = "0.34"
 glam = "0.27"  # Vector math for Voronoi (compatible with meshless_voronoi)
+uom = { version = "0.38", default-features = false, features = ["f64", "si", "autoconvert"] }
 
 # Symmetry - same underlying Rust crate as moyopy
 moyo = "0.7"
@@ -77,6 +78,10 @@ roxmltree = { version = "0.20", optional = true }
 # File format parsing
 extxyz = "0.2"
 
+# LMDB dataset storage (optional)
+heed = { version = "0.22", optional = true }
+rkyv = { version = "0.8.15", optional = true, features = ["alloc"] }
+
 [dev-dependencies]
 approx = "0.5"
 criterion = { version = "0.8", features = ["html_reports"] }
@@ -95,7 +100,9 @@ python = [
   "dep:pyo3-stub-gen",
   "rayon",
   "mp",
+  "lmdb",
   "pyo3/abi3-py311",
+  "pyo3/multiple-pymethods",
 ]
 # python-extension feature: extension module loaded into Python interpreter
 python-extension = ["python", "pyo3/extension-module"]
@@ -110,6 +117,7 @@ wasm = [
 ]
 rayon = ["dep:rayon"]
 mp = ["dep:ureq", "dep:roxmltree"]
+lmdb = ["dep:heed", "dep:rkyv"]
 
 [[bin]]
 name = "stub_gen"

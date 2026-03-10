@@ -13,7 +13,7 @@ def GTEx_get_single_tissue_eqtls(
     gencode_id: Optional[list[str]] = None,
     variant_id: Optional[list[str]] = None,
     tissue_site_detail_id: Optional[list[str]] = None,
-    dataset_id: Optional[str] = "gtex_v10",
+    dataset_id: Optional[str] = "gtex_v8",
     page: Optional[int] = 0,
     items_per_page: Optional[int] = 250,
     *,

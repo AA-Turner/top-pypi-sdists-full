@@ -123,8 +123,6 @@ class AdfActivity(Asset):
     INPUT_TO_SPARK_JOBS: ClassVar[Any] = None
     OUTPUT_FROM_SPARK_JOBS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "AdfActivity"
-
     adf_activity_type: Union[str, None, UnsetType] = UNSET
     """The type of the ADF activity."""
 
@@ -681,6 +679,9 @@ def _adf_activity_to_nested(adf_activity: AdfActivity) -> AdfActivityNested:
         is_incomplete=adf_activity.is_incomplete,
         provenance_type=adf_activity.provenance_type,
         home_id=adf_activity.home_id,
+        depth=adf_activity.depth,
+        immediate_upstream=adf_activity.immediate_upstream,
+        immediate_downstream=adf_activity.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -712,7 +713,6 @@ def _adf_activity_from_nested(nested: AdfActivityNested) -> AdfActivity:
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -721,6 +721,9 @@ def _adf_activity_from_nested(nested: AdfActivityNested) -> AdfActivity:
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_adf_activity_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

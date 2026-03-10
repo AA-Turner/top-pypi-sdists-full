@@ -1164,17 +1164,17 @@ precomputed_krx_holidays = original_precomputed_krx_holidays.union(
 
 # Korean regular holidays
 NewYearsDay = KoreanSolarHoliday(
-    "New Years Day", month=1, day=1
+    "New Year's Day", month=1, day=1
 )  # New years day previously had 2 additional following holidays
 NewYearsDayAfter = KoreanSolarHoliday(
-    "New Years Day (+1 day)",
+    "New Year's Day (+1 day)",
     month=1,
     day=1,
     offset=Day(1),
     end_date=pd.Timestamp("1998-12-31"),
 )  # This was also removed since 1999
 NewYearsDayAfterAfter = KoreanSolarHoliday(
-    "New Years Day (+2 day)",
+    "New Year's Day (+2 day)",
     month=1,
     day=1,
     offset=Day(2),

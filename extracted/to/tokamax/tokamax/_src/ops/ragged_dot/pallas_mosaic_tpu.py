@@ -13,11 +13,12 @@
 # limitations under the License.
 # ==============================================================================
 """Pallas Mosaic TPU Megablox."""
+
 import dataclasses
-from functools import partial  # pylint: disable=g-importing-member
+import functools
 import itertools
 import types
-from typing import Callable, ClassVar
+from typing import ClassVar
 
 import jax
 import jax.experimental.pallas.tpu as pltpu
@@ -40,7 +41,7 @@ TilingTuple = tuple[
     pydantic.PositiveInt,  # tile_k
     pydantic.PositiveInt,  # tile_n
 ]
-InputBufferCount = pydantic.conint(ge=1, le=3, multiple_of=1)
+InputBufferCount = pydantic.PositiveInt
 
 QArray = base.QArray
 AsQArray = base.AsQArray
@@ -72,6 +73,7 @@ class Config:
   tile_k: pydantic.PositiveInt = 128
   tile_n: pydantic.PositiveInt = 128
   input_buffer_count: InputBufferCount = 2
+  combine_scopes: bool = False
 
 
 # A temporary lookup table for optimized configs.
@@ -81,11 +83,17 @@ GMM_TILING_TUNED_LUT: dict[LUTKey, LUTValue] = {
     (262144, 7168, 2048, 256, True): ((128, 7168, 2048), 2),
     (262144, 2048, 7168, 256, False): ((128, 2048, 3584), 2),
     (262144, 2048, 7168, 256, True): ((256, 2048, 3584), 3),
+    (262144, 7168, 256, 256, False): ((1024, 128, 256), 3),
+    (262144, 256, 7168, 256, False): ((512, 1024, 2048), 4),
     (327680, 2880, 2880, 128, False): ((512, 2944, 1536), 2),
     (393216, 2048, 768, 128, False): ((512, 2048, 768), 2),
     (393216, 768, 2048, 128, False): ((1024, 768, 2048), 2),
     (524288, 4096, 1536, 128, False): ((256, 4096, 1536), 2),
     (524288, 1536, 4096, 128, False): ((512, 1536, 1536), 2),
+    (524288, 7168, 2048, 16, False): ((1024, 1024, 1024), 2),
+    (524288, 7168, 2048, 16, True): ((1024, 1024, 1024), 2),
+    (524288, 2048, 7168, 16, False): ((256, 256, 7168), 3),
+    (524288, 2048, 7168, 16, True): ((256, 256, 7168), 3),
     (262144, 4096, 1536, 128, False): ((256, 4096, 1536), 2),
     (262144, 1536, 4096, 128, False): ((256, 1536, 4096), 2),
     (131072, 7168, 2048, 256, False): ((128, 7168, 1024), 2),
@@ -94,17 +102,28 @@ GMM_TILING_TUNED_LUT: dict[LUTKey, LUTValue] = {
     (131072, 1536, 4096, 128, False): ((256, 1536, 4096), 2),
     (131072, 7168, 2048, 256, False): ((512, 3584, 1024), 2),
     (65536, 7168, 2048, 256, False): ((256, 3584, 1024), 2),
+    (262144, 7168, 512, 256, False): ((512, 7168, 512), 2),
+    (262144, 512, 7168, 256, False): ((256, 512, 7168), 2),
+    (262144, 7168, 1024, 256, False): ((512, 7168, 1024), 2),
+    (262144, 1024, 7168, 256, False): ((256, 1024, 7168), 3),
+    (131072, 7168, 512, 256, False): ((128, 7168, 512), 3),
+    (131072, 512, 7168, 256, False): ((256, 512, 7168), 2),
 }
 GMM_RHS_TRANSPOSE_TILING_TUNED_LUT: dict[LUTKey, LUTValue] = {
     (262144, 7168, 2048, 256, False): ((256, 2048, 1792), 2),
     (262144, 7168, 2048, 256, True): ((256, 2048, 3584), 2),
     (262144, 2048, 7168, 256, False): ((256, 7168, 512), 2),
     (262144, 2048, 7168, 256, True): ((256, 7168, 1024), 2),
+    (262144, 7168, 256, 256, False): ((256, 512, 1792), 2),
+    (262144, 256, 7168, 256, False): ((512, 7168, 128), 4),
     (327680, 2880, 2880, 128, False): ((512, 2944, 1536), 2),
     (393216, 2048, 768, 128, False): ((1024, 768, 2048), 2),
     (393216, 768, 2048, 128, False): ((512, 2048, 768), 2),
     (524288, 4096, 1536, 128, False): ((1024, 1536, 1024), 2),
     (524288, 1536, 4096, 128, False): ((1024, 1024, 1536), 2),
+    (524288, 7168, 2048, 16, False): ((512, 2048, 1792), 4),
+    (524288, 7168, 2048, 16, True): ((512, 2048, 1792), 4),
+    (524288, 2048, 7168, 16, False): ((512, 2048, 1792), 4),
     (262144, 4096, 1536, 128, False): ((512, 1536, 1024), 2),
     (262144, 1536, 4096, 128, False): ((1024, 1024, 1536), 2),
     (131072, 7168, 2048, 256, False): ((256, 2048, 1792), 2),
@@ -113,17 +132,29 @@ GMM_RHS_TRANSPOSE_TILING_TUNED_LUT: dict[LUTKey, LUTValue] = {
     (131072, 1536, 4096, 128, False): ((512, 1024, 1536), 2),
     (131072, 7168, 2048, 256, False): ((512, 2048, 1792), 2),
     (65536, 7168, 2048, 256, False): ((512, 2048, 1024), 2),
+    (262144, 7168, 512, 256, False): ((256, 512, 7168), 2),
+    (262144, 512, 7168, 256, False): ((256, 7168, 512), 2),
+    (262144, 7168, 1024, 256, False): ((512, 1024, 7168), 2),
+    (262144, 1024, 7168, 256, False): ((256, 7168, 1024), 2),
+    (131072, 7168, 512, 256, False): ((256, 512, 7168), 2),
+    (131072, 512, 7168, 256, False): ((256, 7168, 512), 3),
 }
 TGMM_TILING_TUNED_LUT: dict[LUTKey, LUTValue] = {
     (262144, 7168, 2048, 256, False): ((512, 1024, 2048), 3),
     (262144, 7168, 2048, 256, True): ((512, 1024, 2048), 2),
     (262144, 2048, 7168, 256, False): ((256, 2048, 1024), 3),
     (262144, 2048, 7168, 256, True): ((512, 512, 3584), 2),
+    (262144, 7168, 256, 256, False): ((1024, 128, 1024), 3),
+    (262144, 256, 7168, 256, False): ((1024, 256, 1024), 3),
     (327680, 2880, 2880, 128, False): ((512, 2944, 768), 2),
     (393216, 2048, 768, 128, False): ((512, 2048, 768), 3),
     (393216, 768, 2048, 128, False): ((512, 768, 2048), 3),
     (524288, 4096, 1536, 128, False): ((512, 4096, 512), 2),
     (524288, 1536, 4096, 128, False): ((512, 512, 4096), 2),
+    (524288, 7168, 2048, 16, False): ((256, 512, 3584), 4),
+    (524288, 7168, 2048, 16, True): ((256, 512, 3584), 4),
+    (524288, 2048, 7168, 16, False): ((256, 512, 3584), 4),
+    (524288, 2048, 7168, 16, True): ((256, 512, 3584), 4),
     (262144, 4096, 1536, 128, False): ((512, 4096, 512), 2),
     (262144, 1536, 4096, 128, False): ((512, 512, 4096), 2),
     (131072, 7168, 2048, 256, False): ((256, 1024, 2048), 2),
@@ -132,6 +163,12 @@ TGMM_TILING_TUNED_LUT: dict[LUTKey, LUTValue] = {
     (131072, 1536, 4096, 128, False): ((512, 512, 4096), 2),
     (131072, 7168, 2048, 256, False): ((256, 1792, 1024), 3),
     (65536, 7168, 2048, 256, False): ((256, 1024, 2048), 2),
+    (262144, 7168, 512, 256, False): ((256, 7168, 512), 3),
+    (262144, 512, 7168, 256, False): ((512, 512, 7168), 2),
+    (262144, 7168, 1024, 256, False): ((256, 3584, 1024), 4),
+    (262144, 1024, 7168, 256, False): ((512, 1024, 3584), 2),
+    (131072, 7168, 512, 256, False): ((256, 7168, 512), 3),
+    (131072, 512, 7168, 256, False): ((256, 256, 7168), 3),
 }
 
 # Ragged dot dimension numbers supported by the megablox kernel.
@@ -180,7 +217,9 @@ class PallasMosaicTpuRaggedDot(base.RaggedDot[Config, None]):
           *args, **kw
       )
       object.__setattr__(
-          self, "vjp", partial(base.vjp, dlhs_ragged_dot=fn, drhs_ragged_dot=fn)
+          self,
+          "vjp",
+          functools.partial(base.vjp, dlhs_ragged_dot=fn, drhs_ragged_dot=fn),
       )
 
   @override
@@ -293,6 +332,7 @@ class PallasMosaicTpuRaggedDot(base.RaggedDot[Config, None]):
           interpret=self.interpret,  # pytype: disable=attribute-error
           input_buffer_count=config.input_buffer_count,
           activation=activation if not return_residuals else None,
+          combine_scopes=config.combine_scopes,
       )
     else:
       raise NotImplementedError(
@@ -388,8 +428,14 @@ class PallasMosaicTpuRaggedDot(base.RaggedDot[Config, None]):
     n_ = ((n + 128 - 1) // 128) * 128
 
     # Based on some empirical TPU tiling performance. Create a reasonable
-    # tiling search space.
-    tile_m_range = [64 * (2**i) for i in range(8) if 64 * (2**i) <= m]
+    # tiling search space. We limit the search space max to 1024 to ensure
+    # reasonable compilation time. From our experiments, we found that there
+    # is no need on current TPU generations to search for larger tiles for m.
+    tile_m_range = [
+        64 * (2**i)
+        for i in range(8)
+        if 64 * (2**i) <= m and 64 * (2**i) <= 1024
+    ]
 
     tile_k_range = set(
         [
@@ -406,14 +452,16 @@ class PallasMosaicTpuRaggedDot(base.RaggedDot[Config, None]):
         + [n_ // (2**i) for i in range(6)]  # downwards divisors of n_
         + [n]  # full tile
     )
+    input_buffer_count_range = [2, 3, 4]
     return set(
         Config(
             tile_m=tile_m,
             tile_k=tile_k,
             tile_n=tile_n,
+            input_buffer_count=input_buffer_count,
         )
-        for tile_m, tile_k, tile_n in itertools.product(
-            tile_m_range, tile_k_range, tile_n_range
+        for tile_m, tile_k, tile_n, input_buffer_count in itertools.product(
+            tile_m_range, tile_k_range, tile_n_range, input_buffer_count_range
         )
     )
 

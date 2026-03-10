@@ -92,8 +92,6 @@ class NoSQL(Asset):
     INPUT_TO_SPARK_JOBS: ClassVar[Any] = None
     OUTPUT_FROM_SPARK_JOBS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "NoSQL"
-
     no_sql_schema_definition: Union[str, None, UnsetType] = msgspec.field(
         default=UNSET, name="noSQLSchemaDefinition"
     )
@@ -447,6 +445,9 @@ def _no_sql_to_nested(no_sql: NoSQL) -> NoSQLNested:
         is_incomplete=no_sql.is_incomplete,
         provenance_type=no_sql.provenance_type,
         home_id=no_sql.home_id,
+        depth=no_sql.depth,
+        immediate_upstream=no_sql.immediate_upstream,
+        immediate_downstream=no_sql.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -476,7 +477,6 @@ def _no_sql_from_nested(nested: NoSQLNested) -> NoSQL:
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -485,6 +485,9 @@ def _no_sql_from_nested(nested: NoSQLNested) -> NoSQL:
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_no_sql_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

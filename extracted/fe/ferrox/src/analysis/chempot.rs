@@ -393,6 +393,7 @@ pub fn dedup_vertices(vertices: &[Vec<f64>], tol: f64) -> Vec<Vec<f64>> {
 mod tests {
     use super::*;
     use crate::composition::Composition;
+    use approx::assert_abs_diff_eq;
 
     fn make_entry(formula: &str, e_form_per_atom: f64) -> ConvexHullEntry {
         let composition =
@@ -406,13 +407,6 @@ mod tests {
             e_form_per_atom: Some(e_form_per_atom),
             correction: None,
         }
-    }
-
-    fn assert_approx_eq(actual: f64, expected: f64, tol: f64) {
-        assert!(
-            (actual - expected).abs() < tol,
-            "expected {actual} ≈ {expected} (±{tol})"
-        );
     }
 
     #[test]
@@ -435,8 +429,8 @@ mod tests {
             make_entry("Li2O", -0.5),
         ];
         let diagram = compute_chempot_diagram(&entries).unwrap();
-        assert_approx_eq(diagram.el_refs[&Element::Li], 0.0, 1e-12);
-        assert_approx_eq(diagram.el_refs[&Element::O], 0.0, 1e-12);
+        assert_abs_diff_eq!(diagram.el_refs[&Element::Li], 0.0, epsilon = 1e-12);
+        assert_abs_diff_eq!(diagram.el_refs[&Element::O], 0.0, epsilon = 1e-12);
     }
 
     #[test]
@@ -496,10 +490,10 @@ mod tests {
 
         let li2o_limits = get_chempot_limits(&diagram, "Li2O").expect("Li2O must have limits");
         // µ_Li ranges from -0.75 to 0, µ_O ranges from -1.5 to 0
-        assert_approx_eq(li2o_limits[0].0, -0.75, 1e-6);
-        assert_approx_eq(li2o_limits[0].1, 0.0, 1e-6);
-        assert_approx_eq(li2o_limits[1].0, -1.5, 1e-6);
-        assert_approx_eq(li2o_limits[1].1, 0.0, 1e-6);
+        assert_abs_diff_eq!(li2o_limits[0].0, -0.75, epsilon = 1e-6);
+        assert_abs_diff_eq!(li2o_limits[0].1, 0.0, epsilon = 1e-6);
+        assert_abs_diff_eq!(li2o_limits[1].0, -1.5, epsilon = 1e-6);
+        assert_abs_diff_eq!(li2o_limits[1].1, 0.0, epsilon = 1e-6);
     }
 
     #[test]
@@ -576,7 +570,7 @@ mod tests {
             make_entry("Li2O", -0.5),
         ];
         let diagram = compute_chempot_diagram(&entries).unwrap();
-        assert_approx_eq(diagram.el_refs[&Element::Li], 0.0, 1e-12);
+        assert_abs_diff_eq!(diagram.el_refs[&Element::Li], 0.0, epsilon = 1e-12);
     }
 
     #[test]
@@ -584,8 +578,8 @@ mod tests {
         let matrix = vec![vec![1.0, 0.0], vec![0.0, 1.0]];
         let rhs = vec![3.0, 4.0];
         let solution = solve_linear_system(&matrix, &rhs).unwrap();
-        assert_approx_eq(solution[0], 3.0, 1e-12);
-        assert_approx_eq(solution[1], 4.0, 1e-12);
+        assert_abs_diff_eq!(solution[0], 3.0, epsilon = 1e-12);
+        assert_abs_diff_eq!(solution[1], 4.0, epsilon = 1e-12);
     }
 
     #[test]

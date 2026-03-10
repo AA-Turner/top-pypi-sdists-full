@@ -94,8 +94,6 @@ class Resource(Asset):
     INPUT_TO_SPARK_JOBS: ClassVar[Any] = None
     OUTPUT_FROM_SPARK_JOBS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "Resource"
-
     link: Union[str, None, UnsetType] = UNSET
     """URL to the resource."""
 
@@ -469,6 +467,9 @@ def _resource_to_nested(resource: Resource) -> ResourceNested:
         is_incomplete=resource.is_incomplete,
         provenance_type=resource.provenance_type,
         home_id=resource.home_id,
+        depth=resource.depth,
+        immediate_upstream=resource.immediate_upstream,
+        immediate_downstream=resource.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -500,7 +501,6 @@ def _resource_from_nested(nested: ResourceNested) -> Resource:
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -509,6 +509,9 @@ def _resource_from_nested(nested: ResourceNested) -> Resource:
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_resource_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

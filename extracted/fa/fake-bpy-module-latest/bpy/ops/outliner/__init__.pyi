@@ -10,7 +10,7 @@ def action_set(
     /,
     *,
     action: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Change the active action used
 
     :param action: Action, (optional)
@@ -26,7 +26,7 @@ def animdata_operation(
         "CLEAR_ANIMDATA", "SET_ACT", "CLEAR_ACT", "REFRESH_DRIVERS", "CLEAR_DRIVERS"
     ]
     | None = "CLEAR_ANIMDATA",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
 
         :param type: Animation Operation, (optional)
@@ -52,7 +52,7 @@ def clear_filter(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Clear the search filter
 
     :return: Result of the operator call.
@@ -63,8 +63,9 @@ def collection_color_tag_set(
     undo: bool | None = None,
     /,
     *,
-    color: Literal[bpy.stub_internal.rna_enums.CollectionColorItems] | None = "NONE",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    color: typing.Literal[bpy.stub_internal.rna_enums.CollectionColorItems]
+    | None = "NONE",
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set a color tag for the selected collections
 
     :param color: Color Tag, (optional)
@@ -75,7 +76,7 @@ def collection_disable(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Disable viewport display in the view layers
 
     :return: Result of the operator call.
@@ -85,7 +86,7 @@ def collection_disable_render(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Do not render this collection
 
     :return: Result of the operator call.
@@ -95,7 +96,7 @@ def collection_drop(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Drag to move to collection in Outliner
 
     :return: Result of the operator call.
@@ -105,7 +106,7 @@ def collection_duplicate(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Recursively duplicate the collection, all its children, objects and object data
 
     :return: Result of the operator call.
@@ -115,7 +116,7 @@ def collection_duplicate_linked(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Recursively duplicate the collection, all its children and objects, with linked object data
 
     :return: Result of the operator call.
@@ -125,7 +126,7 @@ def collection_enable(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Enable viewport display in the view layers
 
     :return: Result of the operator call.
@@ -135,7 +136,7 @@ def collection_enable_render(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Render the collection
 
     :return: Result of the operator call.
@@ -145,7 +146,7 @@ def collection_exclude_clear(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Include collection in the active view layer
 
     :return: Result of the operator call.
@@ -155,7 +156,7 @@ def collection_exclude_set(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Exclude collection from the active view layer
 
     :return: Result of the operator call.
@@ -165,7 +166,7 @@ def collection_hide(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Hide the collection in this view layer
 
     :return: Result of the operator call.
@@ -175,7 +176,7 @@ def collection_hide_inside(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Hide all the objects and collections inside the collection
 
     :return: Result of the operator call.
@@ -185,7 +186,7 @@ def collection_hierarchy_delete(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Delete selected collection hierarchies
 
     :return: Result of the operator call.
@@ -195,7 +196,7 @@ def collection_holdout_clear(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Clear masking of collection in the active view layer
 
     :return: Result of the operator call.
@@ -205,7 +206,7 @@ def collection_holdout_set(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Mask collection in the active view layer
 
     :return: Result of the operator call.
@@ -215,7 +216,7 @@ def collection_indirect_only_clear(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Clear collection contributing only indirectly in the view layer
 
     :return: Result of the operator call.
@@ -225,7 +226,7 @@ def collection_indirect_only_set(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set collection to only contribute indirectly (through shadows and reflections) in the view layer
 
     :return: Result of the operator call.
@@ -235,7 +236,7 @@ def collection_instance(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Instance selected collections to active scene
 
     :return: Result of the operator call.
@@ -247,7 +248,7 @@ def collection_isolate(
     /,
     *,
     extend: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Hide all but this collection and its parents
 
     :param extend: Extend, Extend current visible collections (optional)
@@ -258,7 +259,7 @@ def collection_link(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Link selected collections to active scene
 
     :return: Result of the operator call.
@@ -270,7 +271,7 @@ def collection_new(
     /,
     *,
     nested: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a new collection inside selected collection
 
     :param nested: Nested, Add as child of selected collection (optional)
@@ -281,7 +282,7 @@ def collection_objects_deselect(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Deselect objects in collection
 
     :return: Result of the operator call.
@@ -291,7 +292,7 @@ def collection_objects_select(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select objects in collection
 
     :return: Result of the operator call.
@@ -301,7 +302,7 @@ def collection_show(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Show the collection in this view layer
 
     :return: Result of the operator call.
@@ -311,7 +312,7 @@ def collection_show_inside(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Show all the objects and collections inside the collection
 
     :return: Result of the operator call.
@@ -323,7 +324,7 @@ def constraint_operation(
     /,
     *,
     type: typing.Literal["ENABLE", "DISABLE", "DELETE"] | None = "ENABLE",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
 
     :param type: Constraint Operation, (optional)
@@ -336,7 +337,7 @@ def data_operation(
     /,
     *,
     type: typing.Literal["DEFAULT"] | None = "DEFAULT",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
 
     :param type: Data Operation, (optional)
@@ -347,7 +348,7 @@ def datastack_drop(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Copy or reorder modifiers, constraints, and effects
 
     :return: Result of the operator call.
@@ -359,7 +360,7 @@ def delete(
     /,
     *,
     hierarchy: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Delete selected objects and collections
 
     :param hierarchy: Hierarchy, Delete child objects and collections (optional)
@@ -370,7 +371,7 @@ def drivers_add_selected(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add drivers to selected items
 
     :return: Result of the operator call.
@@ -380,7 +381,7 @@ def drivers_delete_selected(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Delete drivers assigned to selected items
 
     :return: Result of the operator call.
@@ -390,7 +391,7 @@ def expanded_toggle(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Expand/Collapse all items
 
     :return: Result of the operator call.
@@ -400,7 +401,7 @@ def hide(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Hide selected objects and collections
 
     :return: Result of the operator call.
@@ -410,7 +411,7 @@ def highlight_update(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Update the item highlight based on the current mouse position
 
     :return: Result of the operator call.
@@ -420,7 +421,7 @@ def id_copy(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Copy the selected data-blocks to the internal clipboard
 
     :return: Result of the operator call.
@@ -430,7 +431,7 @@ def id_delete(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Delete the ID under cursor
 
     :return: Result of the operator call.
@@ -440,7 +441,7 @@ def id_linked_relocate(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Replace the active linked ID (and its dependencies if any) by another one, from the same or a different library
 
     :return: Result of the operator call.
@@ -465,7 +466,7 @@ def id_operation(
         "SELECT_LINKED",
     ]
     | None = "UNLINK",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """General data-block management operations
 
         :param type: ID Data Operation, (optional)
@@ -509,7 +510,7 @@ def id_paste(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Paste data-blocks from the internal clipboard
 
     :return: Result of the operator call.
@@ -520,10 +521,10 @@ def id_remap(
     undo: bool | None = None,
     /,
     *,
-    id_type: Literal[bpy.stub_internal.rna_enums.IdTypeItems] | None = "OBJECT",
+    id_type: typing.Literal[bpy.stub_internal.rna_enums.IdTypeItems] | None = "OBJECT",
     old_id: int | None = 0,
     new_id: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
 
     :param id_type: ID Type, (optional)
@@ -541,7 +542,7 @@ def item_activate(
     extend_range: bool | None = False,
     deselect_all: bool | None = False,
     recurse: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Handle mouse clicks to select and activate items
 
     :param extend: Extend, Extend selection for activation (optional)
@@ -555,7 +556,7 @@ def item_drag_drop(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Drag and drop element to another place
 
     :return: Result of the operator call.
@@ -567,7 +568,7 @@ def item_openclose(
     /,
     *,
     all: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Toggle whether item under cursor is open or closed
 
     :param all: All, Close or open all items (optional)
@@ -580,7 +581,7 @@ def item_rename(
     /,
     *,
     use_active: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Rename the active element
 
     :param use_active: Use Active, Rename the active item, rather than the one the mouse is over (optional)
@@ -591,7 +592,7 @@ def keyingset_add_selected(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add selected items (blue-gray rows) to active Keying Set
 
     :return: Result of the operator call.
@@ -601,7 +602,7 @@ def keyingset_remove_selected(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove selected items (blue-gray rows) from active Keying Set
 
     :return: Result of the operator call.
@@ -613,7 +614,7 @@ def lib_operation(
     /,
     *,
     type: typing.Literal["DELETE", "RELOCATE", "RELOAD"] | None = "DELETE",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
 
         :param type: Library Operation, (optional)
@@ -633,7 +634,7 @@ def lib_relocate(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Relocate the library under cursor
 
     :return: Result of the operator call.
@@ -652,7 +653,7 @@ def liboverride_operation(
     | None = "OVERRIDE_LIBRARY_CREATE_HIERARCHY",
     selection_set: typing.Literal["SELECTED", "CONTENT", "SELECTED_AND_CONTENT"]
     | None = "SELECTED",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Create, reset or clear library override hierarchies
 
         :param type: Library Override Operation, (optional)
@@ -691,7 +692,7 @@ def liboverride_troubleshoot_operation(
     | None = "OVERRIDE_LIBRARY_RESYNC_HIERARCHY",
     selection_set: typing.Literal["SELECTED", "CONTENT", "SELECTED_AND_CONTENT"]
     | None = "SELECTED",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Advanced operations over library override to help fix broken hierarchies
 
         :param type: Library Override Troubleshoot Operation, (optional)
@@ -721,7 +722,7 @@ def material_drop(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Drag material to object in Outliner
 
     :return: Result of the operator call.
@@ -733,7 +734,7 @@ def modifier_operation(
     /,
     *,
     type: typing.Literal["APPLY", "DELETE", "TOGVIS", "TOGREN"] | None = "APPLY",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
 
     :param type: Modifier Operation, (optional)
@@ -747,7 +748,7 @@ def object_operation(
     *,
     type: typing.Literal["SELECT", "DESELECT", "SELECT_HIERARCHY", "REMAP", "RENAME"]
     | None = "SELECT",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
 
         :param type: Object Operation, (optional)
@@ -773,7 +774,7 @@ def operation(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Context menu for item operations
 
     :return: Result of the operator call.
@@ -783,7 +784,7 @@ def orphans_manage(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Open a window to manage unused data
 
     :return: Result of the operator call.
@@ -797,7 +798,7 @@ def orphans_purge(
     do_local_ids: bool | None = True,
     do_linked_ids: bool | None = True,
     do_recursive: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Clear all orphaned data-blocks without any users from the file
 
     :param do_local_ids: Local Data-blocks, Include unused local data-blocks into deletion (optional)
@@ -810,7 +811,7 @@ def parent_clear(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Drag to clear parent in Outliner
 
     :return: Result of the operator call.
@@ -820,7 +821,7 @@ def parent_drop(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Drag to parent in Outliner
 
     :return: Result of the operator call.
@@ -830,7 +831,7 @@ def scene_drop(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Drag object to scene in Outliner
 
     :return: Result of the operator call.
@@ -842,7 +843,7 @@ def scene_operation(
     /,
     *,
     type: typing.Literal["DELETE"] | None = "DELETE",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Context menu for scene operations
 
     :param type: Scene Operation, (optional)
@@ -855,7 +856,7 @@ def scroll_page(
     /,
     *,
     up: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Scroll page up or down
 
     :param up: Up, Scroll up one page (optional)
@@ -868,7 +869,7 @@ def select_all(
     /,
     *,
     action: typing.Literal["TOGGLE", "SELECT", "DESELECT", "INVERT"] | None = "TOGGLE",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Toggle the Outliner selection of items
 
         :param action: Action, Selection action to execute (optional)
@@ -899,7 +900,7 @@ def select_box(
     ymax: int | None = 0,
     wait_for_input: bool | None = True,
     mode: typing.Literal["SET", "ADD", "SUB"] | None = "SET",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Use box selection to select tree elements
 
         :param tweak: Tweak, Tweak gesture from empty space for box selection (optional)
@@ -929,7 +930,7 @@ def select_walk(
     direction: typing.Literal["UP", "DOWN", "LEFT", "RIGHT"] | None = "UP",
     extend: bool | None = False,
     toggle_all: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Use walk navigation to select tree elements
 
     :param direction: Walk Direction, Select/Deselect element in this direction (optional)
@@ -942,7 +943,7 @@ def show_active(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Open up the tree and adjust the view so that the active object is shown centered
 
     :return: Result of the operator call.
@@ -952,7 +953,7 @@ def show_hierarchy(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Open all object entries and close all others
 
     :return: Result of the operator call.
@@ -964,7 +965,7 @@ def show_one_level(
     /,
     *,
     open: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Expand/collapse all entries by one level
 
     :param open: Open, Expand all entries one level deep (optional)
@@ -975,7 +976,7 @@ def start_filter(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Start entering filter text
 
     :return: Result of the operator call.
@@ -985,7 +986,7 @@ def unhide_all(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Unhide all objects and collections
 
     :return: Result of the operator call.

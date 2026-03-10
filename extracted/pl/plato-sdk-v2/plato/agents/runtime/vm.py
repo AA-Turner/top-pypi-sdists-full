@@ -5,10 +5,12 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import re
+import threading
 import time as _time
 import uuid
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 import tenacity
 from opentelemetry import trace
@@ -31,6 +33,17 @@ _VM_SSH_EXTRA_OPTS: list[tuple[str, str]] = [
     ("ServerAliveInterval", "30"),
     ("ServerAliveCountMax", "3"),
 ]
+
+
+def _make_agent_alias(display_name: str | None) -> str:
+    """Build a readable unique alias for an agent VM."""
+    suffix = uuid.uuid4().hex[:8]
+    if not display_name:
+        return f"agent-{suffix}"
+
+    slug = re.sub(r"[^a-z0-9]+", "-", display_name.lower()).strip("-")
+    slug = slug[:40].strip("-") or "agent"
+    return f"{slug}-{suffix}"
 
 
 class VMConfig(BaseModel):
@@ -73,6 +86,23 @@ class PlatoVMRuntime(Runtime):
         self.workspaces: list[Transport] = workspaces or []
         self._agent_envs: dict[str, Environment] = {}
         self._prepare_lock = asyncio.Lock()
+        # Process-wide lock guard for VM prepare lifecycle. This prevents
+        # concurrent VM bring-up storms across different AgentRunner instances.
+        # It is initialized lazily per event loop via _get_global_prepare_lock().
+
+    _global_prepare_lock: ClassVar[asyncio.Lock | None] = None
+    _global_prepare_lock_loop_id: ClassVar[int | None] = None
+    _global_prepare_lock_guard: ClassVar[threading.Lock] = threading.Lock()
+
+    @classmethod
+    def _get_global_prepare_lock(cls) -> asyncio.Lock:
+        loop = asyncio.get_running_loop()
+        loop_id = id(loop)
+        with cls._global_prepare_lock_guard:
+            if cls._global_prepare_lock is None or cls._global_prepare_lock_loop_id != loop_id:
+                cls._global_prepare_lock = asyncio.Lock()
+                cls._global_prepare_lock_loop_id = loop_id
+            return cls._global_prepare_lock
 
     def _all_workspaces(self) -> list[Transport]:
         """Return all workspaces (single + list) for setup/sync."""
@@ -100,34 +130,39 @@ class PlatoVMRuntime(Runtime):
 
     async def prepare(self, ctx: AgentContext) -> PreparedAgent:
         """Start agent VM with desktop/Chrome but without running the task."""
-        agent_alias = f"agent-{uuid.uuid4().hex[:8]}"
+        agent_alias = _make_agent_alias(ctx.display_name)
+        global_prepare_lock = self._get_global_prepare_lock()
 
         try:
-            async with self._prepare_lock:
-                agent_env = await self._create_vm(ctx.image, agent_alias)
-                self._agent_envs[agent_alias] = agent_env
+            logger.info("Waiting for global VM prepare lock: %s", agent_alias)
+            async with global_prepare_lock:
+                logger.info("Acquired global VM prepare lock: %s", agent_alias)
+                async with self._prepare_lock:
+                    agent_env = await self._create_vm(ctx.image, agent_alias)
+                    self._agent_envs[agent_alias] = agent_env
 
-                logger.info(f"Setting up network for {agent_alias}")
-                await self._setup_network()
+                    logger.info(f"Setting up network for {agent_alias}")
+                    await self._setup_network()
 
-                logger.info(f"Getting mesh IP for {agent_alias}")
-                mesh_ip = await agent_env.get_mesh_ip()
-                if not mesh_ip:
-                    raise RuntimeError(f"Failed to get mesh IP for agent VM {agent_alias}")
-                logger.info(f"Mesh IP for {agent_alias}: {mesh_ip}")
+                    logger.info(f"Getting mesh IP for {agent_alias}")
+                    mesh_ip = await agent_env.get_mesh_ip()
+                    if not mesh_ip:
+                        raise RuntimeError(f"Failed to get mesh IP for agent VM {agent_alias}")
+                    logger.info(f"Mesh IP for {agent_alias}: {mesh_ip}")
 
-            logger.info(f"Syncing code to {agent_alias}")
-            await self._sync_code(ctx, agent_env, mesh_ip)
-            logger.info(f"Code synced to {agent_alias}")
+                    logger.info(f"Syncing code to {agent_alias}")
+                    await self._sync_code(ctx, agent_env, mesh_ip)
+                    logger.info(f"Code synced to {agent_alias}")
 
-            # Inject PLATO_API_KEY into the VM so it's available during
-            # on_prepare hooks and agent execution.
-            plato_api_key = os.environ.get("PLATO_API_KEY", "")
-            if plato_api_key:
-                await self._run_ssh_streaming(
-                    mesh_ip,
-                    f'echo "PLATO_API_KEY={plato_api_key}" >> /etc/environment',
-                )
+                    # Inject PLATO_API_KEY into the VM so it's available during
+                    # on_prepare hooks and agent execution.
+                    plato_api_key = os.environ.get("PLATO_API_KEY", "")
+                    if plato_api_key:
+                        await self._run_ssh_streaming(
+                            mesh_ip,
+                            f'echo "PLATO_API_KEY={plato_api_key}" >> /etc/environment',
+                        )
+                logger.info("Released global VM prepare lock: %s", agent_alias)
         except Exception:
             await self.cleanup(agent_alias, error=True)
             raise
@@ -306,6 +341,8 @@ class PlatoVMRuntime(Runtime):
             f"AGENT_CONFIG_B64={ctx.config_b64}",
             f"JOB_ID={agent_env.job_id}",
         ]
+        if ctx.display_name:
+            env_vars.append(f"PLATO_AGENT_DISPLAY_NAME={ctx.display_name}")
         if ctx.runtime_b64:
             env_vars.append(f"AGENT_RUNTIME_B64={ctx.runtime_b64}")
         plato_api_key = os.environ.get("PLATO_API_KEY", "")
@@ -317,6 +354,10 @@ class PlatoVMRuntime(Runtime):
 
         tracer = trace.get_tracer(__name__)
         with tracer.start_as_current_span("agent.execution.output") as span:
+            if ctx.display_name:
+                span.set_attribute("atif.agent.name", ctx.display_name)
+                span.set_attribute("plato.agent.display_name", ctx.display_name)
+            span.set_attribute("plato.agent.alias", agent_env.alias or "")
             span.set_attribute("agent.user", "root")
             span.set_attribute("agent.hostname", hostname)
 

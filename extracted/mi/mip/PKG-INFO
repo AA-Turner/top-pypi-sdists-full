@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mip
-Version: 1.17.2
+Version: 1.17.3
 Summary: Python tools for Modeling and Solving Mixed-Integer Linear Programs (MIPs)
 Author-email: "Tulio A.M. Toffolo" <tulio@toffolo.com.br>, "Haroldo G. Santos" <haroldo.santos@gmail.com>
 License: Eclipse Public License - v 2.0
@@ -300,7 +300,7 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: cffi>=1.15
-Requires-Dist: cbcbox>=2.913
+Requires-Dist: cbcbox>=2.923
 Provides-Extra: numpy
 Requires-Dist: numpy<3,>=1.25; extra == "numpy"
 Provides-Extra: gurobi

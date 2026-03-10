@@ -11,7 +11,7 @@ def execute_preset(
     *,
     filepath: str | None = "",
     menu_idname: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Load a preset
 
     :param filepath: filepath, (optional, never None)
@@ -25,7 +25,7 @@ def python_file_run(
     /,
     *,
     filepath: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Run Python file
 
     :param filepath: Path, (optional, never None)
@@ -36,7 +36,7 @@ def reload(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Reload scripts
 
     :return: Result of the operator call.

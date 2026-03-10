@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: BSD-2-Clause
 
-# Copyright (c) 2025 Phil Thompson <phil@riverbankcomputing.com>
+# Copyright (c) 2026 Phil Thompson <phil@riverbankcomputing.com>
 
 
 
@@ -13,9 +13,10 @@ from ..python_slots import (is_hash_return_slot, is_int_return_slot,
         is_void_return_slot, is_zero_arg_slot)
 from ..scoped_name import ScopedName
 from ..specification import (AccessSpecifier, Argument, ArgumentType,
-        ArrayArgument, ClassKey, Constructor, IfaceFileType, IndexedClassList, MappedType,
-        Member, PyQtMethodSpecifier, PySlot, Signature, Transfer, ValueType,
-        VirtualHandler, VirtualOverload, VisibleMember, WrappedClass)
+        ArrayArgument, ClassKey, Constructor, EnumBaseType, IfaceFileType,
+        IndexedClassList, MappedType, Member, PyQtMethodSpecifier, PySlot,
+        Signature, Transfer, ValueType, VirtualHandler, VirtualOverload,
+        VisibleMember, WrappedClass)
 from ..templates import (encoded_template_name, same_template_signature,
         template_code, template_code_blocks, template_expansions)
 from ..utils import (append_iface_file, argument_as_str, cached_name,
@@ -159,15 +160,7 @@ def resolve(spec, modules):
             if exception_mod is spec.module:
                 append_iface_file(spec.module.used, exception.iface_file)
 
-        # Skip those that don't require a Python exception object to be
-        # created.
-        if exception.iface_file.type is not IfaceFileType.EXCEPTION:
-            continue
-
-        if exception.builtin_base_exception is None and exception.defined_base_exception is None:
-            continue
-
-        if exception_mod is spec.module or exception.needed:
+        if _exception_needed(spec, exception):
             exception.exception_nr = exception_mod.nr_exceptions
             exception_mod.nr_exceptions += 1
 
@@ -364,6 +357,10 @@ def _set_all_imports(mod, error_log, seen=None):
         _append_unique_import(direct_import)
 
     seen.remove(mod)
+
+    # Set the module's number, ie. it's index in the all_imports list.
+    for nr, imported_mod in enumerate(mod.all_imports):
+        imported_mod.module_nr = nr
 
 
 def _move_main_module_casts_slots(spec, error_log):
@@ -951,6 +948,14 @@ _ENUM_BASE_TYPES = (
     ArgumentType.BOOL,
 )
 
+# ABI v14 also supports integer base types larger than int.
+_ENUM_BASE_TYPES_V14 = (
+    ArgumentType.LONG,
+    ArgumentType.ULONG,
+    ArgumentType.LONGLONG,
+    ArgumentType.ULONGLONG,
+)
+
 def _resolve_enums(spec, error_log):
     """ Resolve the base types for all the enums. """
 
@@ -958,13 +963,26 @@ def _resolve_enums(spec, error_log):
         base_type = enum.enum_base_type
 
         if base_type is None:
+            # There is no explicit C++ base type so if the Python base type
+            # implies it has unsigned value then default the C++ base type to
+            # unsigned.
+            if enum.base_type is EnumBaseType.UINT_ENUM:
+                enum.enum_base_type = Argument(ArgumentType.UINT)
+
             continue
 
         _resolve_type(spec, enum.module, enum.scope, base_type, error_log)
 
-        # The current ABI implementations only support enums no larger than an
-        # int.
-        if base_type.type not in _ENUM_BASE_TYPES or len(base_type.derefs) != 0:
+        if len(base_type.derefs) != 0:
+            bad_base_type = True
+        elif base_type.type in _ENUM_BASE_TYPES:
+            bad_base_type = False
+        elif spec.target_abi >= (14, 0) and base_type.type in _ENUM_BASE_TYPES_V14:
+            bad_base_type = False
+        else:
+            bad_base_type = True
+
+        if bad_base_type:
             error_log.log(f"unsupported enum base type",
                     source_location=base_type.source_location)
 
@@ -2162,13 +2180,8 @@ def _create_sorted_numbered_types(spec, mod, error_log):
 
         if mod is spec.module or klass.iface_file.needed:
             if not klass.is_hidden_namespace:
-                # For ABI v14 and later the sip module searches this table
-                # using the Python name (as part of attribute lookup).  For
-                # earlier versions it uses the C/C++ name (for sipFindType()).
-                key_name = klass.py_name if spec.target_abi >= (14, 0) else klass.iface_file.cpp_name
-
                 mod.needed_types.append(Argument(ArgumentType.CLASS,
-                        definition=klass, name=key_name))
+                        definition=klass, name=klass.iface_file.cpp_name))
 
     for mapped_type in spec.mapped_types:
         if mapped_type.iface_file.module is not mod:
@@ -2189,14 +2202,20 @@ def _create_sorted_numbered_types(spec, mod, error_log):
             mod.needed_types.append(Argument(ArgumentType.ENUM,
                     definition=enum, name=enum.cached_fq_cpp_name))
 
+    # ABI v14 includes exceptions in the list of needed types.
+    if spec.target_abi >= (14, 0):
+        for exception in spec.exceptions:
+            if _exception_needed(spec, exception):
+                mod.needed_types.append(Argument(ArgumentType.EXCEPTION,
+                        definition=exception,
+                        name=exception.iface_file.cpp_name))
+
     # Sort the list and assign type numbers.
     mod.needed_types.sort(key=lambda t: t.name.name)
 
-    needed_type_nr = 0
-
-    for needed_type in mod.needed_types:
+    for type_nr, needed_type in enumerate(mod.needed_types):
         if needed_type.type is ArgumentType.CLASS:
-            needed_type.definition.iface_file.type_nr = needed_type_nr
+            needed_type.definition.iface_file.type_nr = type_nr
 
             # If we find a class called QObject, assume it's Qt.
             if needed_type.name.name == 'QObject':
@@ -2207,12 +2226,26 @@ def _create_sorted_numbered_types(spec, mod, error_log):
                 spec.pyqt_qobject = needed_type.definition
 
         elif needed_type.type is ArgumentType.MAPPED:
-            needed_type.definition.iface_file.type_nr = needed_type_nr
+            needed_type.definition.iface_file.type_nr = type_nr
 
         elif needed_type.type is ArgumentType.ENUM:
-            needed_type.definition.type_nr = needed_type_nr
+            needed_type.definition.type_nr = type_nr
 
-        needed_type_nr += 1
+        elif needed_type.type is ArgumentType.EXCEPTION:
+            needed_type.definition.iface_file.type_nr = type_nr
+
+
+def _exception_needed(spec, exception):
+    """ Return True if an exception is needed by the module. """
+
+    # Skip those that don't require a Python exception object to be created.
+    if exception.iface_file.type is not IfaceFileType.EXCEPTION:
+        return False
+
+    if exception.builtin_base_exception is None and exception.defined_base_exception is None:
+        return False
+
+    return exception.iface_file.module is spec.module or exception.needed
 
 
 def _check_properties(klass, error_log):

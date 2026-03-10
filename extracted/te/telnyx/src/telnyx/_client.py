@@ -89,7 +89,6 @@ if TYPE_CHECKING:
         document_links,
         ip_connections,
         porting_orders,
-        speech_to_text,
         text_to_speech,
         user_addresses,
         advanced_orders,
@@ -110,6 +109,7 @@ if TYPE_CHECKING:
         network_coverage,
         numbers_features,
         operator_connect,
+        session_analysis,
         verified_numbers,
         access_ip_address,
         charges_breakdown,
@@ -223,7 +223,6 @@ if TYPE_CHECKING:
     from .resources.detail_records import DetailRecordsResource, AsyncDetailRecordsResource
     from .resources.document_links import DocumentLinksResource, AsyncDocumentLinksResource
     from .resources.ip_connections import IPConnectionsResource, AsyncIPConnectionsResource
-    from .resources.speech_to_text import SpeechToTextResource, AsyncSpeechToTextResource
     from .resources.text_to_speech import TextToSpeechResource, AsyncTextToSpeechResource
     from .resources.user_addresses import UserAddressesResource, AsyncUserAddressesResource
     from .resources.actions.actions import ActionsResource, AsyncActionsResource
@@ -380,6 +379,7 @@ if TYPE_CHECKING:
     )
     from .resources.managed_accounts.managed_accounts import ManagedAccountsResource, AsyncManagedAccountsResource
     from .resources.operator_connect.operator_connect import OperatorConnectResource, AsyncOperatorConnectResource
+    from .resources.session_analysis.session_analysis import SessionAnalysisResource, AsyncSessionAnalysisResource
     from .resources.sim_card_data_usage_notifications import (
         SimCardDataUsageNotificationsResource,
         AsyncSimCardDataUsageNotificationsResource,
@@ -432,6 +432,14 @@ class Telnyx(SyncAPIClient):
     client_id: str | None
     client_secret: str | None
 
+    websocket_base_url: str | httpx.URL | None
+    """Base URL for WebSocket connections.
+
+    If not specified, the default base URL will be used, with 'wss://' replacing the
+    'http://' or 'https://' scheme. For example: 'http://example.com' becomes
+    'wss://example.com'
+    """
+
     def __init__(
         self,
         *,
@@ -440,6 +448,7 @@ class Telnyx(SyncAPIClient):
         client_id: str | None = None,
         client_secret: str | None = None,
         base_url: str | httpx.URL | None = None,
+        websocket_base_url: str | httpx.URL | None = None,
         timeout: float | Timeout | None | NotGiven = not_given,
         max_retries: int = DEFAULT_MAX_RETRIES,
         default_headers: Mapping[str, str] | None = None,
@@ -481,6 +490,8 @@ class Telnyx(SyncAPIClient):
         if client_secret is None:
             client_secret = os.environ.get("TELNYX_CLIENT_SECRET")
         self.client_secret = client_secret
+
+        self.websocket_base_url = websocket_base_url
 
         if base_url is None:
             base_url = os.environ.get("TELNYX_BASE_URL")
@@ -1374,6 +1385,7 @@ class Telnyx(SyncAPIClient):
 
     @cached_property
     def text_to_speech(self) -> TextToSpeechResource:
+        """Text to speech streaming command operations"""
         from .resources.text_to_speech import TextToSpeechResource
 
         return TextToSpeechResource(self)
@@ -1513,13 +1525,6 @@ class Telnyx(SyncAPIClient):
         return Messaging10dlcResource(self)
 
     @cached_property
-    def speech_to_text(self) -> SpeechToTextResource:
-        """Speech to text command operations"""
-        from .resources.speech_to_text import SpeechToTextResource
-
-        return SpeechToTextResource(self)
-
-    @cached_property
     def organizations(self) -> OrganizationsResource:
         from .resources.organizations import OrganizationsResource
 
@@ -1536,6 +1541,13 @@ class Telnyx(SyncAPIClient):
         from .resources.messaging_profile_metrics import MessagingProfileMetricsResource
 
         return MessagingProfileMetricsResource(self)
+
+    @cached_property
+    def session_analysis(self) -> SessionAnalysisResource:
+        """Analyze voice AI sessions, costs, and event hierarchies across Telnyx products."""
+        from .resources.session_analysis import SessionAnalysisResource
+
+        return SessionAnalysisResource(self)
 
     @cached_property
     def with_raw_response(self) -> TelnyxWithRawResponse:
@@ -1595,6 +1607,7 @@ class Telnyx(SyncAPIClient):
         public_key: str | None = None,
         client_id: str | None = None,
         client_secret: str | None = None,
+        websocket_base_url: str | httpx.URL | None = None,
         base_url: str | httpx.URL | None = None,
         timeout: float | Timeout | None | NotGiven = not_given,
         http_client: httpx.Client | None = None,
@@ -1632,6 +1645,7 @@ class Telnyx(SyncAPIClient):
             public_key=public_key or self.public_key,
             client_id=client_id or self.client_id,
             client_secret=client_secret or self.client_secret,
+            websocket_base_url=websocket_base_url or self.websocket_base_url,
             base_url=base_url or self.base_url,
             timeout=self.timeout if isinstance(timeout, NotGiven) else timeout,
             http_client=http_client,
@@ -1688,6 +1702,14 @@ class AsyncTelnyx(AsyncAPIClient):
     client_id: str | None
     client_secret: str | None
 
+    websocket_base_url: str | httpx.URL | None
+    """Base URL for WebSocket connections.
+
+    If not specified, the default base URL will be used, with 'wss://' replacing the
+    'http://' or 'https://' scheme. For example: 'http://example.com' becomes
+    'wss://example.com'
+    """
+
     def __init__(
         self,
         *,
@@ -1696,6 +1718,7 @@ class AsyncTelnyx(AsyncAPIClient):
         client_id: str | None = None,
         client_secret: str | None = None,
         base_url: str | httpx.URL | None = None,
+        websocket_base_url: str | httpx.URL | None = None,
         timeout: float | Timeout | None | NotGiven = not_given,
         max_retries: int = DEFAULT_MAX_RETRIES,
         default_headers: Mapping[str, str] | None = None,
@@ -1737,6 +1760,8 @@ class AsyncTelnyx(AsyncAPIClient):
         if client_secret is None:
             client_secret = os.environ.get("TELNYX_CLIENT_SECRET")
         self.client_secret = client_secret
+
+        self.websocket_base_url = websocket_base_url
 
         if base_url is None:
             base_url = os.environ.get("TELNYX_BASE_URL")
@@ -2630,6 +2655,7 @@ class AsyncTelnyx(AsyncAPIClient):
 
     @cached_property
     def text_to_speech(self) -> AsyncTextToSpeechResource:
+        """Text to speech streaming command operations"""
         from .resources.text_to_speech import AsyncTextToSpeechResource
 
         return AsyncTextToSpeechResource(self)
@@ -2769,13 +2795,6 @@ class AsyncTelnyx(AsyncAPIClient):
         return AsyncMessaging10dlcResource(self)
 
     @cached_property
-    def speech_to_text(self) -> AsyncSpeechToTextResource:
-        """Speech to text command operations"""
-        from .resources.speech_to_text import AsyncSpeechToTextResource
-
-        return AsyncSpeechToTextResource(self)
-
-    @cached_property
     def organizations(self) -> AsyncOrganizationsResource:
         from .resources.organizations import AsyncOrganizationsResource
 
@@ -2792,6 +2811,13 @@ class AsyncTelnyx(AsyncAPIClient):
         from .resources.messaging_profile_metrics import AsyncMessagingProfileMetricsResource
 
         return AsyncMessagingProfileMetricsResource(self)
+
+    @cached_property
+    def session_analysis(self) -> AsyncSessionAnalysisResource:
+        """Analyze voice AI sessions, costs, and event hierarchies across Telnyx products."""
+        from .resources.session_analysis import AsyncSessionAnalysisResource
+
+        return AsyncSessionAnalysisResource(self)
 
     @cached_property
     def with_raw_response(self) -> AsyncTelnyxWithRawResponse:
@@ -2851,6 +2877,7 @@ class AsyncTelnyx(AsyncAPIClient):
         public_key: str | None = None,
         client_id: str | None = None,
         client_secret: str | None = None,
+        websocket_base_url: str | httpx.URL | None = None,
         base_url: str | httpx.URL | None = None,
         timeout: float | Timeout | None | NotGiven = not_given,
         http_client: httpx.AsyncClient | None = None,
@@ -2888,6 +2915,7 @@ class AsyncTelnyx(AsyncAPIClient):
             public_key=public_key or self.public_key,
             client_id=client_id or self.client_id,
             client_secret=client_secret or self.client_secret,
+            websocket_base_url=websocket_base_url or self.websocket_base_url,
             base_url=base_url or self.base_url,
             timeout=self.timeout if isinstance(timeout, NotGiven) else timeout,
             http_client=http_client,
@@ -3840,6 +3868,7 @@ class TelnyxWithRawResponse:
 
     @cached_property
     def text_to_speech(self) -> text_to_speech.TextToSpeechResourceWithRawResponse:
+        """Text to speech streaming command operations"""
         from .resources.text_to_speech import TextToSpeechResourceWithRawResponse
 
         return TextToSpeechResourceWithRawResponse(self._client.text_to_speech)
@@ -3981,13 +4010,6 @@ class TelnyxWithRawResponse:
         return Messaging10dlcResourceWithRawResponse(self._client.messaging_10dlc)
 
     @cached_property
-    def speech_to_text(self) -> speech_to_text.SpeechToTextResourceWithRawResponse:
-        """Speech to text command operations"""
-        from .resources.speech_to_text import SpeechToTextResourceWithRawResponse
-
-        return SpeechToTextResourceWithRawResponse(self._client.speech_to_text)
-
-    @cached_property
     def organizations(self) -> organizations.OrganizationsResourceWithRawResponse:
         from .resources.organizations import OrganizationsResourceWithRawResponse
 
@@ -4004,6 +4026,13 @@ class TelnyxWithRawResponse:
         from .resources.messaging_profile_metrics import MessagingProfileMetricsResourceWithRawResponse
 
         return MessagingProfileMetricsResourceWithRawResponse(self._client.messaging_profile_metrics)
+
+    @cached_property
+    def session_analysis(self) -> session_analysis.SessionAnalysisResourceWithRawResponse:
+        """Analyze voice AI sessions, costs, and event hierarchies across Telnyx products."""
+        from .resources.session_analysis import SessionAnalysisResourceWithRawResponse
+
+        return SessionAnalysisResourceWithRawResponse(self._client.session_analysis)
 
 
 class AsyncTelnyxWithRawResponse:
@@ -4919,6 +4948,7 @@ class AsyncTelnyxWithRawResponse:
 
     @cached_property
     def text_to_speech(self) -> text_to_speech.AsyncTextToSpeechResourceWithRawResponse:
+        """Text to speech streaming command operations"""
         from .resources.text_to_speech import AsyncTextToSpeechResourceWithRawResponse
 
         return AsyncTextToSpeechResourceWithRawResponse(self._client.text_to_speech)
@@ -5062,13 +5092,6 @@ class AsyncTelnyxWithRawResponse:
         return AsyncMessaging10dlcResourceWithRawResponse(self._client.messaging_10dlc)
 
     @cached_property
-    def speech_to_text(self) -> speech_to_text.AsyncSpeechToTextResourceWithRawResponse:
-        """Speech to text command operations"""
-        from .resources.speech_to_text import AsyncSpeechToTextResourceWithRawResponse
-
-        return AsyncSpeechToTextResourceWithRawResponse(self._client.speech_to_text)
-
-    @cached_property
     def organizations(self) -> organizations.AsyncOrganizationsResourceWithRawResponse:
         from .resources.organizations import AsyncOrganizationsResourceWithRawResponse
 
@@ -5087,6 +5110,13 @@ class AsyncTelnyxWithRawResponse:
         from .resources.messaging_profile_metrics import AsyncMessagingProfileMetricsResourceWithRawResponse
 
         return AsyncMessagingProfileMetricsResourceWithRawResponse(self._client.messaging_profile_metrics)
+
+    @cached_property
+    def session_analysis(self) -> session_analysis.AsyncSessionAnalysisResourceWithRawResponse:
+        """Analyze voice AI sessions, costs, and event hierarchies across Telnyx products."""
+        from .resources.session_analysis import AsyncSessionAnalysisResourceWithRawResponse
+
+        return AsyncSessionAnalysisResourceWithRawResponse(self._client.session_analysis)
 
 
 class TelnyxWithStreamedResponse:
@@ -6004,6 +6034,7 @@ class TelnyxWithStreamedResponse:
 
     @cached_property
     def text_to_speech(self) -> text_to_speech.TextToSpeechResourceWithStreamingResponse:
+        """Text to speech streaming command operations"""
         from .resources.text_to_speech import TextToSpeechResourceWithStreamingResponse
 
         return TextToSpeechResourceWithStreamingResponse(self._client.text_to_speech)
@@ -6147,13 +6178,6 @@ class TelnyxWithStreamedResponse:
         return Messaging10dlcResourceWithStreamingResponse(self._client.messaging_10dlc)
 
     @cached_property
-    def speech_to_text(self) -> speech_to_text.SpeechToTextResourceWithStreamingResponse:
-        """Speech to text command operations"""
-        from .resources.speech_to_text import SpeechToTextResourceWithStreamingResponse
-
-        return SpeechToTextResourceWithStreamingResponse(self._client.speech_to_text)
-
-    @cached_property
     def organizations(self) -> organizations.OrganizationsResourceWithStreamingResponse:
         from .resources.organizations import OrganizationsResourceWithStreamingResponse
 
@@ -6172,6 +6196,13 @@ class TelnyxWithStreamedResponse:
         from .resources.messaging_profile_metrics import MessagingProfileMetricsResourceWithStreamingResponse
 
         return MessagingProfileMetricsResourceWithStreamingResponse(self._client.messaging_profile_metrics)
+
+    @cached_property
+    def session_analysis(self) -> session_analysis.SessionAnalysisResourceWithStreamingResponse:
+        """Analyze voice AI sessions, costs, and event hierarchies across Telnyx products."""
+        from .resources.session_analysis import SessionAnalysisResourceWithStreamingResponse
+
+        return SessionAnalysisResourceWithStreamingResponse(self._client.session_analysis)
 
 
 class AsyncTelnyxWithStreamedResponse:
@@ -7123,6 +7154,7 @@ class AsyncTelnyxWithStreamedResponse:
 
     @cached_property
     def text_to_speech(self) -> text_to_speech.AsyncTextToSpeechResourceWithStreamingResponse:
+        """Text to speech streaming command operations"""
         from .resources.text_to_speech import AsyncTextToSpeechResourceWithStreamingResponse
 
         return AsyncTextToSpeechResourceWithStreamingResponse(self._client.text_to_speech)
@@ -7274,13 +7306,6 @@ class AsyncTelnyxWithStreamedResponse:
         return AsyncMessaging10dlcResourceWithStreamingResponse(self._client.messaging_10dlc)
 
     @cached_property
-    def speech_to_text(self) -> speech_to_text.AsyncSpeechToTextResourceWithStreamingResponse:
-        """Speech to text command operations"""
-        from .resources.speech_to_text import AsyncSpeechToTextResourceWithStreamingResponse
-
-        return AsyncSpeechToTextResourceWithStreamingResponse(self._client.speech_to_text)
-
-    @cached_property
     def organizations(self) -> organizations.AsyncOrganizationsResourceWithStreamingResponse:
         from .resources.organizations import AsyncOrganizationsResourceWithStreamingResponse
 
@@ -7301,6 +7326,13 @@ class AsyncTelnyxWithStreamedResponse:
         from .resources.messaging_profile_metrics import AsyncMessagingProfileMetricsResourceWithStreamingResponse
 
         return AsyncMessagingProfileMetricsResourceWithStreamingResponse(self._client.messaging_profile_metrics)
+
+    @cached_property
+    def session_analysis(self) -> session_analysis.AsyncSessionAnalysisResourceWithStreamingResponse:
+        """Analyze voice AI sessions, costs, and event hierarchies across Telnyx products."""
+        from .resources.session_analysis import AsyncSessionAnalysisResourceWithStreamingResponse
+
+        return AsyncSessionAnalysisResourceWithStreamingResponse(self._client.session_analysis)
 
 
 Client = Telnyx

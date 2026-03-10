@@ -32,6 +32,9 @@ def get_tool_schemas() -> list[Tool]:
         _get_kg_query_schema(),
         _get_kg_ontology_schema(),
         _get_kg_ia_schema(),
+        _get_trace_execution_flow_schema(),
+        _get_kg_history_schema(),
+        _get_kg_callers_at_commit_schema(),
         _get_story_generate_schema(),
     ]
 
@@ -1074,6 +1077,93 @@ def _get_kg_ia_schema() -> Tool:
         inputSchema={
             "type": "object",
             "properties": {},
+        },
+    )
+
+
+def _get_trace_execution_flow_schema() -> Tool:
+    """Get trace_execution_flow tool schema."""
+    return Tool(
+        name="trace_execution_flow",
+        description=(
+            "Trace the call chain from a function entry point through the codebase. "
+            "Shows what a function calls, and what calls it, up to N hops deep. "
+            "Requires knowledge graph to be built first (mvs index kg). "
+            "Uses the CALLS relationship graph built from source code analysis."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "entry_point": {
+                    "type": "string",
+                    "description": "Function or class name to trace from (e.g. 'handle_search_code', 'WikiPublisher')",
+                },
+                "depth": {
+                    "type": "integer",
+                    "description": "Maximum call chain depth to traverse (default: 3, max: 8)",
+                    "default": 3,
+                    "minimum": 1,
+                    "maximum": 8,
+                },
+                "direction": {
+                    "type": "string",
+                    "enum": ["outgoing", "incoming", "both"],
+                    "description": "outgoing=what it calls, incoming=what calls it, both=full neighborhood",
+                    "default": "outgoing",
+                },
+            },
+            "required": ["entry_point"],
+        },
+    )
+
+
+def _get_kg_history_schema() -> Tool:
+    """Get kg_history tool schema."""
+    return Tool(
+        name="kg_history",
+        description=(
+            "Get the recorded commit history for a named entity in the knowledge graph. "
+            "Returns the commit SHA(s) stored at last kg_build time for the entity. "
+            "V1 note: reflects the most recent commit per file at kg_build time, "
+            "not the full git log."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "entity_name": {
+                    "type": "string",
+                    "description": "Name of the entity to look up (e.g. 'MyClass', 'my_function')",
+                },
+            },
+            "required": ["entity_name"],
+        },
+    )
+
+
+def _get_kg_callers_at_commit_schema() -> Tool:
+    """Get kg_callers_at_commit tool schema."""
+    return Tool(
+        name="kg_callers_at_commit",
+        description=(
+            "Find what called a function as of a given git commit. "
+            "Returns CALLS edges whose calling entity's stored commit_sha is an "
+            "ancestor of (or equal to) the specified commit. "
+            "Requires knowledge graph to be built first (mvs kg build). "
+            "V1 note: reflects the most recent commit per file at kg_build time."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "entity_name": {
+                    "type": "string",
+                    "description": "Name of the callee entity (e.g. 'process_request')",
+                },
+                "commit_sha": {
+                    "type": "string",
+                    "description": "Git commit SHA to query as-of (full or abbreviated)",
+                },
+            },
+            "required": ["entity_name", "commit_sha"],
         },
     )
 

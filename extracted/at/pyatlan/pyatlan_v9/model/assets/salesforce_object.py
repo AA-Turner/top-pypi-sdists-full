@@ -101,8 +101,6 @@ class SalesforceObject(Asset):
     INPUT_TO_SPARK_JOBS: ClassVar[Any] = None
     OUTPUT_FROM_SPARK_JOBS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "SalesforceObject"
-
     is_custom: Union[bool, None, UnsetType] = UNSET
     """Whether this object is a custom object (true) or not (false)."""
 
@@ -529,6 +527,9 @@ def _salesforce_object_to_nested(
         is_incomplete=salesforce_object.is_incomplete,
         provenance_type=salesforce_object.provenance_type,
         home_id=salesforce_object.home_id,
+        depth=salesforce_object.depth,
+        immediate_upstream=salesforce_object.immediate_upstream,
+        immediate_downstream=salesforce_object.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -562,7 +563,6 @@ def _salesforce_object_from_nested(nested: SalesforceObjectNested) -> Salesforce
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -571,6 +571,9 @@ def _salesforce_object_from_nested(nested: SalesforceObjectNested) -> Salesforce
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_salesforce_object_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

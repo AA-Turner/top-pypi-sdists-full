@@ -10,13 +10,14 @@ from ...core.http_response import AsyncHttpResponse, HttpResponse
 from ...core.jsonable_encoder import jsonable_encoder
 from ...core.request_options import RequestOptions
 from ...core.unchecked_base_model import construct_type
-from ...errors.not_found_error import NotFoundError
 from ...errors.validation_error import ValidationError
-from ...metrics.types.list_metrics_response import ListMetricsResponse
-from ...metrics.types.metric_end_timestamp import MetricEndTimestamp
+from ...metrics.types.descending import Descending
+from ...metrics.types.end import End
 from ...metrics.types.metric_event_types import MetricEventTypes
-from ...metrics.types.metric_start_timestamp import MetricStartTimestamp
-from ...types.error_response import ErrorResponse
+from ...metrics.types.metric_limit import MetricLimit
+from ...metrics.types.period import Period
+from ...metrics.types.query_metrics_response import QueryMetricsResponse
+from ...metrics.types.start import Start
 from ...types.validation_error_response import ValidationErrorResponse
 from ..types.inbox_id import InboxId
 
@@ -25,32 +26,41 @@ class RawMetricsClient:
     def __init__(self, *, client_wrapper: SyncClientWrapper):
         self._client_wrapper = client_wrapper
 
-    def get(
+    def query(
         self,
         inbox_id: InboxId,
         *,
-        start_timestamp: MetricStartTimestamp,
-        end_timestamp: MetricEndTimestamp,
         event_types: typing.Optional[MetricEventTypes] = None,
+        start: typing.Optional[Start] = None,
+        end: typing.Optional[End] = None,
+        period: typing.Optional[Period] = None,
+        limit: typing.Optional[MetricLimit] = None,
+        descending: typing.Optional[Descending] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> HttpResponse[ListMetricsResponse]:
+    ) -> HttpResponse[QueryMetricsResponse]:
         """
         Parameters
         ----------
         inbox_id : InboxId
 
-        start_timestamp : MetricStartTimestamp
-
-        end_timestamp : MetricEndTimestamp
-
         event_types : typing.Optional[MetricEventTypes]
+
+        start : typing.Optional[Start]
+
+        end : typing.Optional[End]
+
+        period : typing.Optional[Period]
+
+        limit : typing.Optional[MetricLimit]
+
+        descending : typing.Optional[Descending]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        HttpResponse[ListMetricsResponse]
+        HttpResponse[QueryMetricsResponse]
         """
         _response = self._client_wrapper.httpx_client.request(
             f"v0/inboxes/{jsonable_encoder(inbox_id)}/metrics",
@@ -58,32 +68,24 @@ class RawMetricsClient:
             method="GET",
             params={
                 "event_types": event_types,
-                "start_timestamp": serialize_datetime(start_timestamp),
-                "end_timestamp": serialize_datetime(end_timestamp),
+                "start": serialize_datetime(start) if start is not None else None,
+                "end": serialize_datetime(end) if end is not None else None,
+                "period": period,
+                "limit": limit,
+                "descending": descending,
             },
             request_options=request_options,
         )
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    ListMetricsResponse,
+                    QueryMetricsResponse,
                     construct_type(
-                        type_=ListMetricsResponse,  # type: ignore
+                        type_=QueryMetricsResponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
                 return HttpResponse(response=_response, data=_data)
-            if _response.status_code == 404:
-                raise NotFoundError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        ErrorResponse,
-                        construct_type(
-                            type_=ErrorResponse,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
             if _response.status_code == 400:
                 raise ValidationError(
                     headers=dict(_response.headers),
@@ -105,32 +107,41 @@ class AsyncRawMetricsClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
         self._client_wrapper = client_wrapper
 
-    async def get(
+    async def query(
         self,
         inbox_id: InboxId,
         *,
-        start_timestamp: MetricStartTimestamp,
-        end_timestamp: MetricEndTimestamp,
         event_types: typing.Optional[MetricEventTypes] = None,
+        start: typing.Optional[Start] = None,
+        end: typing.Optional[End] = None,
+        period: typing.Optional[Period] = None,
+        limit: typing.Optional[MetricLimit] = None,
+        descending: typing.Optional[Descending] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncHttpResponse[ListMetricsResponse]:
+    ) -> AsyncHttpResponse[QueryMetricsResponse]:
         """
         Parameters
         ----------
         inbox_id : InboxId
 
-        start_timestamp : MetricStartTimestamp
-
-        end_timestamp : MetricEndTimestamp
-
         event_types : typing.Optional[MetricEventTypes]
+
+        start : typing.Optional[Start]
+
+        end : typing.Optional[End]
+
+        period : typing.Optional[Period]
+
+        limit : typing.Optional[MetricLimit]
+
+        descending : typing.Optional[Descending]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        AsyncHttpResponse[ListMetricsResponse]
+        AsyncHttpResponse[QueryMetricsResponse]
         """
         _response = await self._client_wrapper.httpx_client.request(
             f"v0/inboxes/{jsonable_encoder(inbox_id)}/metrics",
@@ -138,32 +149,24 @@ class AsyncRawMetricsClient:
             method="GET",
             params={
                 "event_types": event_types,
-                "start_timestamp": serialize_datetime(start_timestamp),
-                "end_timestamp": serialize_datetime(end_timestamp),
+                "start": serialize_datetime(start) if start is not None else None,
+                "end": serialize_datetime(end) if end is not None else None,
+                "period": period,
+                "limit": limit,
+                "descending": descending,
             },
             request_options=request_options,
         )
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    ListMetricsResponse,
+                    QueryMetricsResponse,
                     construct_type(
-                        type_=ListMetricsResponse,  # type: ignore
+                        type_=QueryMetricsResponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
                 return AsyncHttpResponse(response=_response, data=_data)
-            if _response.status_code == 404:
-                raise NotFoundError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        ErrorResponse,
-                        construct_type(
-                            type_=ErrorResponse,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
             if _response.status_code == 400:
                 raise ValidationError(
                     headers=dict(_response.headers),

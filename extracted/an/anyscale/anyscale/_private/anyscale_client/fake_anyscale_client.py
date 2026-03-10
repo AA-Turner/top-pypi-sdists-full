@@ -290,6 +290,9 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         # Store connections for testing - keyed by connection ID
         self._connections: Dict[str, Any] = {}
 
+        self._deployment_infra_provider: str = "aws"
+        self.last_build_from_image_uri_cloud_id: Optional[str] = None
+
         # Cloud resource ID -> DecoratedCloudResource
         self._cloud_resources: Dict[str, DecoratedCloudResource] = {}
 
@@ -426,6 +429,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         """Add a mock third-party connection for testing."""
         mock_conn = Mock()
         mock_conn.id = connection_id
+        mock_conn.user_connection_id = connection_id
         mock_conn.name = name
         mock_conn.connection_type = connection_type
         self._connections[connection_id] = mock_conn
@@ -1091,13 +1095,26 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         self.add_build(build)
         return build_id
 
+    def get_deployment_infra_provider(self) -> str:
+        return self._deployment_infra_provider
+
+    def set_deployment_infra_provider(self, provider: str) -> None:
+        self._deployment_infra_provider = provider
+
     def get_cluster_env_build_id_from_image_uri(
         self,
         image_uri: ImageURI,
         registry_login_secret: Optional[str] = None,
         ray_version: Optional[str] = None,
         name: Optional[str] = None,
+        cloud_id: Optional[str] = None,
     ) -> str:
+        # Only pass cloud_id for Azure deployments.
+        if self.get_deployment_infra_provider() != "azure":
+            cloud_id = None
+
+        self.last_build_from_image_uri_cloud_id = cloud_id
+
         for build in self._builds.values():
             build_image_uri = self.get_cluster_env_build_image_uri(build.id)
             if (

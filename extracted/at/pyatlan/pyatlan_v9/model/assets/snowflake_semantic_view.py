@@ -135,8 +135,6 @@ class SnowflakeSemanticView(Asset):
     INPUT_TO_SPARK_JOBS: ClassVar[Any] = None
     OUTPUT_FROM_SPARK_JOBS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "SnowflakeSemanticView"
-
     snowflake_definition: Union[str, None, UnsetType] = UNSET
     """DDL definition of the semantic view (via GET_DDL)."""
 
@@ -741,6 +739,9 @@ def _snowflake_semantic_view_to_nested(
         is_incomplete=snowflake_semantic_view.is_incomplete,
         provenance_type=snowflake_semantic_view.provenance_type,
         home_id=snowflake_semantic_view.home_id,
+        depth=snowflake_semantic_view.depth,
+        immediate_upstream=snowflake_semantic_view.immediate_upstream,
+        immediate_downstream=snowflake_semantic_view.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -776,7 +777,6 @@ def _snowflake_semantic_view_from_nested(
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -785,6 +785,9 @@ def _snowflake_semantic_view_from_nested(
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_snowflake_semantic_view_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: asyncstdlib
-Version: 3.13.1
+Version: 3.13.2
 Summary: The missing async toolbox
 Keywords: async,enumerate,itertools,builtins,functools,contextlib
 Author-email: Max Kühn <maxfischer2781@gmail.com>
@@ -17,6 +17,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 License-File: LICENSE
 Requires-Dist: sphinx ; extra == "doc"
 Requires-Dist: sphinxcontrib-trio ; extra == "doc"

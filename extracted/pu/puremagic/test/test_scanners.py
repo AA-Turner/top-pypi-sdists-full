@@ -38,6 +38,38 @@ def test_text_scanner():
     assert results[0].confidence == 0.9
 
 
+def test_utf16_le_not_mp1():
+    # GH #134: UTF-16 LE BOM (FF FE) should not be misidentified as .mp1
+    data = b"\xff\xfe" + "a,b,c\n1,2,3\n".encode("utf-16-le")
+    result = puremagic.from_string(data)
+    assert result != ".mp1", "UTF-16 LE data misidentified as .mp1"
+    result_mime = puremagic.from_string(data, mime=True)
+    assert result_mime != "audio/mpeg", "UTF-16 LE data misidentified as audio/mpeg"
+
+
+def test_utf16_le_csv_deep_scan():
+    # GH #134: UTF-16 LE CSV file should be detected as CSV via text_scanner deep scan
+    utf16_csv = OFFICE_DIR / "test_utf16le.csv"
+    results = puremagic.magic_file(utf16_csv)
+    assert results[0].extension == ".csv"
+    assert results[0].mime_type == "text/csv"
+    assert "comma" in results[0].name
+    assert results[0].confidence >= 0.9
+
+
+def test_from_string_nonexistent_filename():
+    # GH #137: passing filename for extension hint should not raise FileNotFoundError
+    # Use PDF-like bytes so identify_all finds a match via magic numbers,
+    # then deep scan is skipped (file doesn't exist) and the match is returned.
+    pdf_bytes = b"%PDF-1.4 fake content"
+    result = puremagic.from_string(pdf_bytes, filename="nonexistent.pdf")
+    assert result == ".pdf"
+
+    # magic_string should also work without crashing
+    results = puremagic.magic_string(pdf_bytes, filename="nonexistent.pdf")
+    assert any(r.extension == ".pdf" for r in results)
+
+
 def test_python_scanner():
     # Test the Python scanner with a sample Python file
     py_file = SYSTEM_DIR / "test.py"

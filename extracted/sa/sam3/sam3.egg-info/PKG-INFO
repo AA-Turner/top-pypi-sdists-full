@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sam3
-Version: 0.1.2
+Version: 0.1.3
 Summary: SAM3 (Segment Anything Model 3) implementation
 Author: Meta AI Research
 License: SAM License
@@ -87,7 +87,7 @@ Requires-Dist: ftfy<6.4.0,>=6.1.1
 Requires-Dist: regex>=2025.11.3
 Requires-Dist: iopath<0.2.0,>=0.1.10
 Requires-Dist: typing_extensions<4.16.0,>=4.8.0
-Requires-Dist: huggingface-hub<1.0,>=0.30.0
+Requires-Dist: huggingface-hub<2.0,>=0.30.0
 Requires-Dist: decord<0.7.0,>=0.6.0
 Requires-Dist: einops<0.9.0,>=0.8.0
 Requires-Dist: pycocotools<2.1.0,>=2.0.10

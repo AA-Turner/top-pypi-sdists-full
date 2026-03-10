@@ -1,5 +1,3 @@
-from typing import Optional, Type
-
 from django.utils.decorators import classonlymethod
 
 from allauth.account.stages import LoginStage, LoginStageController
@@ -30,7 +28,7 @@ class APIView(RESTView):
 
 
 class AuthenticationStageAPIView(APIView):
-    stage_class: Optional[Type[LoginStage]] = None
+    stage_class: type[LoginStage] | None = None
 
     def handle(self, request, *args, **kwargs):
         self.stage = LoginStageController.enter(request, self.stage_class.key)
@@ -38,10 +36,10 @@ class AuthenticationStageAPIView(APIView):
             return response.UnauthorizedResponse(request)
         return super().handle(request, *args, **kwargs)
 
-    def respond_stage_error(self):
+    def respond_stage_error(self) -> response.UnauthorizedResponse:
         return response.UnauthorizedResponse(self.request)
 
-    def respond_next_stage(self):
+    def respond_next_stage(self) -> response.AuthenticationResponse:
         self.stage.exit()
         return response.AuthenticationResponse(self.request)
 

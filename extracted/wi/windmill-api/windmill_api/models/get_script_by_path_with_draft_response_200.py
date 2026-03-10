@@ -24,11 +24,11 @@ class GetScriptByPathWithDraftResponse200:
     Attributes:
         path (str):
         summary (str):
-        description (str):
         content (str):
         language (GetScriptByPathWithDraftResponse200Language):
         hash_ (str):
         parent_hash (Union[Unset, str]):
+        description (Union[Unset, str]):
         schema (Union[Unset, GetScriptByPathWithDraftResponse200Schema]):
         is_template (Union[Unset, bool]):
         lock (Union[Unset, str]):
@@ -66,11 +66,11 @@ class GetScriptByPathWithDraftResponse200:
 
     path: str
     summary: str
-    description: str
     content: str
     language: GetScriptByPathWithDraftResponse200Language
     hash_: str
     parent_hash: Union[Unset, str] = UNSET
+    description: Union[Unset, str] = UNSET
     schema: Union[Unset, "GetScriptByPathWithDraftResponse200Schema"] = UNSET
     is_template: Union[Unset, bool] = UNSET
     lock: Union[Unset, str] = UNSET
@@ -108,12 +108,12 @@ class GetScriptByPathWithDraftResponse200:
     def to_dict(self) -> Dict[str, Any]:
         path = self.path
         summary = self.summary
-        description = self.description
         content = self.content
         language = self.language.value
 
         hash_ = self.hash_
         parent_hash = self.parent_hash
+        description = self.description
         schema: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.schema, Unset):
             schema = self.schema.to_dict()
@@ -174,7 +174,6 @@ class GetScriptByPathWithDraftResponse200:
             {
                 "path": path,
                 "summary": summary,
-                "description": description,
                 "content": content,
                 "language": language,
                 "hash": hash_,
@@ -182,6 +181,8 @@ class GetScriptByPathWithDraftResponse200:
         )
         if parent_hash is not UNSET:
             field_dict["parent_hash"] = parent_hash
+        if description is not UNSET:
+            field_dict["description"] = description
         if schema is not UNSET:
             field_dict["schema"] = schema
         if is_template is not UNSET:
@@ -262,8 +263,6 @@ class GetScriptByPathWithDraftResponse200:
 
         summary = d.pop("summary")
 
-        description = d.pop("description")
-
         content = d.pop("content")
 
         language = GetScriptByPathWithDraftResponse200Language(d.pop("language"))
@@ -271,6 +270,8 @@ class GetScriptByPathWithDraftResponse200:
         hash_ = d.pop("hash")
 
         parent_hash = d.pop("parent_hash", UNSET)
+
+        description = d.pop("description", UNSET)
 
         _schema = d.pop("schema", UNSET)
         schema: Union[Unset, GetScriptByPathWithDraftResponse200Schema]
@@ -359,11 +360,11 @@ class GetScriptByPathWithDraftResponse200:
         get_script_by_path_with_draft_response_200 = cls(
             path=path,
             summary=summary,
-            description=description,
             content=content,
             language=language,
             hash_=hash_,
             parent_hash=parent_hash,
+            description=description,
             schema=schema,
             is_template=is_template,
             lock=lock,

@@ -104,8 +104,6 @@ class AnaplanList(Asset):
     INPUT_TO_SPARK_JOBS: ClassVar[Any] = None
     OUTPUT_FROM_SPARK_JOBS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "AnaplanList"
-
     anaplan_list_item_count: Union[int, None, UnsetType] = UNSET
     """Item Count of the AnaplanList from the source system."""
 
@@ -582,6 +580,9 @@ def _anaplan_list_to_nested(anaplan_list: AnaplanList) -> AnaplanListNested:
         is_incomplete=anaplan_list.is_incomplete,
         provenance_type=anaplan_list.provenance_type,
         home_id=anaplan_list.home_id,
+        depth=anaplan_list.depth,
+        immediate_upstream=anaplan_list.immediate_upstream,
+        immediate_downstream=anaplan_list.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -613,7 +614,6 @@ def _anaplan_list_from_nested(nested: AnaplanListNested) -> AnaplanList:
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -622,6 +622,9 @@ def _anaplan_list_from_nested(nested: AnaplanListNested) -> AnaplanList:
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_anaplan_list_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

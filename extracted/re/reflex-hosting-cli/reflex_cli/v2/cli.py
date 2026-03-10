@@ -274,7 +274,9 @@ def deploy(
                             project_name = target_project.get("name", "Unknown")
                         else:
                             token = hosting.get_existing_access_token()
-                            default_project_id = hosting.get_default_project(token)
+                            default_project_id = hosting.get_default_project(
+                                authenticated_client
+                            )
                             if default_project_id:
                                 default_project = hosting.get_project(
                                     default_project_id, client=authenticated_client
@@ -334,7 +336,7 @@ def deploy(
     elif not app:
         app = hosting.create_app(
             app_name=app_name or "",
-            description=description if description else "",
+            description=description or "",
             project_id=project_id,
             client=authenticated_client,
         )

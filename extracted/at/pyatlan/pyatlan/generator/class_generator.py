@@ -11,6 +11,7 @@ import enum
 import json
 import os
 import re
+from collections.abc import Iterable
 from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, NamedTuple, Optional, Set
@@ -975,7 +976,7 @@ class Generator:
             ) as doc:
                 doc.write(content)
 
-    def render_mkdocs_docs(self, asset_infos):
+    def render_mkdocs_docs(self, asset_infos: "Iterable[AssetInfo]") -> None:
         """Generate docs/api/assets/*.md pages grouped by connector/platform."""
         # Map module_name → AssetInfo for all generated assets (excluding internal ones)
         by_module: Dict[str, List["AssetInfo"]] = {}

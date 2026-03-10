@@ -12,7 +12,7 @@ def bake_to_keyframes(
     frame_start: int | None = 1,
     frame_end: int | None = 250,
     step: int | None = 1,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Bake rigid body transformations of selected objects to keyframes
 
     :param frame_start: Start Frame, Start frame for baking (in [0, 300000], optional)
@@ -40,7 +40,7 @@ def connect(
     pivot_type: typing.Literal["CENTER", "ACTIVE", "SELECTED"] | None = "CENTER",
     connection_pattern: typing.Literal["SELECTED_TO_ACTIVE", "CHAIN_DISTANCE"]
     | None = "SELECTED_TO_ACTIVE",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Create rigid body constraints between selected rigid bodies
 
         :param con_type: Type, Type of generated constraint (optional)
@@ -93,9 +93,9 @@ def constraint_add(
     undo: bool | None = None,
     /,
     *,
-    type: Literal[bpy.stub_internal.rna_enums.RigidbodyConstraintTypeItems]
+    type: typing.Literal[bpy.stub_internal.rna_enums.RigidbodyConstraintTypeItems]
     | None = "FIXED",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add Rigid Body Constraint to active object
 
     :param type: Rigid Body Constraint Type, (optional)
@@ -106,7 +106,7 @@ def constraint_remove(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove Rigid Body Constraint from Object
 
     :return: Result of the operator call.
@@ -119,7 +119,7 @@ def mass_calculate(
     *,
     material: typing.Literal["DEFAULT"] | None = "DEFAULT",
     density: float | None = 1.0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Automatically calculate mass values for Rigid Body Objects based on volume
 
     :param material: Material Preset, Type of material that objects are made of (determines material density) (optional)
@@ -132,9 +132,9 @@ def object_add(
     undo: bool | None = None,
     /,
     *,
-    type: Literal[bpy.stub_internal.rna_enums.RigidbodyObjectTypeItems]
+    type: typing.Literal[bpy.stub_internal.rna_enums.RigidbodyObjectTypeItems]
     | None = "ACTIVE",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add active object as Rigid Body
 
     :param type: Rigid Body Type, (optional)
@@ -145,7 +145,7 @@ def object_remove(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove Rigid Body settings from Object
 
     :return: Result of the operator call.
@@ -155,7 +155,7 @@ def object_settings_copy(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Copy Rigid Body settings from active object to selected
 
     :return: Result of the operator call.
@@ -166,9 +166,9 @@ def objects_add(
     undo: bool | None = None,
     /,
     *,
-    type: Literal[bpy.stub_internal.rna_enums.RigidbodyObjectTypeItems]
+    type: typing.Literal[bpy.stub_internal.rna_enums.RigidbodyObjectTypeItems]
     | None = "ACTIVE",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add selected objects as Rigid Bodies
 
     :param type: Rigid Body Type, (optional)
@@ -179,7 +179,7 @@ def objects_remove(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove selected objects from Rigid Body simulation
 
     :return: Result of the operator call.
@@ -190,9 +190,9 @@ def shape_change(
     undo: bool | None = None,
     /,
     *,
-    type: Literal[bpy.stub_internal.rna_enums.RigidbodyObjectShapeItems]
+    type: typing.Literal[bpy.stub_internal.rna_enums.RigidbodyObjectShapeItems]
     | None = "MESH",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Change collision shapes for selected Rigid Body Objects
 
     :param type: Rigid Body Shape, (optional)
@@ -203,7 +203,7 @@ def world_add(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add Rigid Body simulation world to the current scene
 
     :return: Result of the operator call.
@@ -213,7 +213,7 @@ def world_remove(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove Rigid Body simulation world from the current scene
 
     :return: Result of the operator call.

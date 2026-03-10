@@ -1,5 +1,5 @@
 import time
-from typing import Any, Dict
+from typing import Any
 
 from django.core import exceptions, validators
 from django.http import HttpRequest, HttpResponse
@@ -16,7 +16,7 @@ from allauth.core.exceptions import ImmediateHttpResponse
 AUTHENTICATION_METHODS_SESSION_KEY = "account_authentication_methods"
 
 
-def record_authentication(request, user, method, **extra_data):
+def record_authentication(request, user, method: str, **extra_data) -> None:
     """Here we keep a log of all authentication methods used within the current
     session.  Important to note is that having entries here does not imply that
     a user is fully signed in. For example, consider a case where a user
@@ -57,7 +57,7 @@ def record_authentication(request, user, method, **extra_data):
     )
 
 
-def _get_login_hook_kwargs(login: Login) -> Dict[str, Any]:
+def _get_login_hook_kwargs(login: Login) -> dict[str, Any]:
     """
     TODO: Just break backwards compatibility and pass only `login` to
     `pre/post_login()`.
@@ -72,7 +72,7 @@ def _get_login_hook_kwargs(login: Login) -> Dict[str, Any]:
 
 
 def perform_password_login(
-    request: HttpRequest, credentials: Dict[str, Any], login: Login
+    request: HttpRequest, credentials: dict[str, Any], login: Login
 ) -> HttpResponse:
     extra_data = {
         field: credentials.get(field)

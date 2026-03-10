@@ -2,6 +2,7 @@
 """
 from __future__ import annotations
 
+import intake
 from intake.readers.convert import BaseConverter, SameType
 from intake.readers.utils import one_to_one
 
@@ -108,3 +109,48 @@ class GetItem(BaseConverter):
 
     def _read(self, item, data=None):
         return data[item]
+
+
+def identity(x):
+    return x
+
+
+class CatalogMapper(BaseConverter):
+    instances = {"intake.readers.entry:Catalog": "intake.readers.entry:Catalog"}
+
+    def run(
+        self,
+        in_cat: intake.Catalog,
+        func,
+        *args,
+        transform=True,
+        name_arg=None,
+        read=False,
+        **kwargs,
+    ):
+        """
+        Parameters
+        ----------
+        func: function to apply to each entry (as callable or string equivalent)
+        transform: do we expect this to be a named transform that intake
+            already knows about?
+        name_arg: if given, pass the entry name to the action to be
+            performed using this as the kwarg name
+        read: if True, execute the pipeline produced. This might be used
+            where the pipeline output is itself another reader.
+        """
+        out = intake.Catalog()
+        for name in in_cat.entries:
+            if name_arg:
+                kwargs[name_arg] = name
+            if transform:
+                pipe = in_cat[name].__getattr__(func)(*args, **kwargs)
+            else:
+                if isinstance(func, str):
+                    func = intake.import_name(func)
+                pipe = in_cat[name].apply(func, *args, **kwargs)
+            if read:
+                out[name] = pipe.read()
+            else:
+                out[name] = pipe
+        return out

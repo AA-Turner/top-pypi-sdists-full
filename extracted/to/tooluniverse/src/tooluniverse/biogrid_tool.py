@@ -142,6 +142,35 @@ class BioGRIDRESTTool(BaseTool):
                     "error": error_msg,
                 }
 
+        # BioGRID REST API v4.x /interactions/ silently ignores chemicalList —
+        # it always returns protein-protein interactions regardless.  Warn the
+        # user early so they don't get misleading PPI results.
+        tool_name = self.tool_config.get("name", "")
+        if tool_name == "BioGRID_get_chemical_interactions":
+            has_genes = bool(arguments.get("gene_names"))
+            has_chemicals = bool(arguments.get("chemical_names"))
+            if not has_genes:
+                if has_chemicals:
+                    error_msg = (
+                        "BioGRID REST API does not support chemical-only searches — "
+                        "the chemicalList parameter is silently ignored and returns "
+                        "unrelated protein interactions. Please provide gene_names to "
+                        "query interactions for specific proteins, or use "
+                        "ChEMBL_search_mechanisms / DGIdb_search_interactions for "
+                        "drug-protein interaction data."
+                    )
+                else:
+                    error_msg = (
+                        "Please provide gene_names (e.g., ['EGFR', 'ABL1']) to query "
+                        "BioGRID interactions. Chemical-only search is not supported "
+                        "by the BioGRID REST API."
+                    )
+                return {
+                    "status": "error",
+                    "error": error_msg,
+                    "data": {"error": error_msg},
+                }
+
         url = self._build_url()
 
         try:

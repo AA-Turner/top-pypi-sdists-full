@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import os
+from collections import defaultdict
 from contextlib import asynccontextmanager
 from types import TracebackType
 from typing import (
@@ -38,10 +38,10 @@ from redis.asyncio.cluster import RedisCluster as AsyncRedisCluster
 from redisvl.index import AsyncSearchIndex
 from redisvl.query import FilterQuery
 from redisvl.query.filter import Num, Tag
+from redisvl.redis.connection import RedisConnectionFactory
 from ulid import ULID
 
 from langgraph.checkpoint.redis.base import (
-    CHECKPOINT_BLOB_PREFIX,
     CHECKPOINT_PREFIX,
     CHECKPOINT_WRITE_PREFIX,
     REDIS_KEY_SEPARATOR,
@@ -64,11 +64,14 @@ logger = logging.getLogger(__name__)
 class AsyncRedisSaver(
     BaseRedisSaver[Union[AsyncRedis, AsyncRedisCluster], AsyncSearchIndex]
 ):
-    """Async Redis implementation for checkpoint saver."""
+    """Async Redis implementation for checkpoint saver.
+
+    Supports standard Redis URLs (redis://), SSL (rediss://), and
+    Sentinel URLs (redis+sentinel://host:26379/service_name/db).
+    """
 
     _redis_url: str
     checkpoints_index: AsyncSearchIndex
-    checkpoint_blobs_index: AsyncSearchIndex
     checkpoint_writes_index: AsyncSearchIndex
 
     _redis: Union[
@@ -88,7 +91,6 @@ class AsyncRedisSaver(
         connection_args: Optional[Dict[str, Any]] = None,
         ttl: Optional[Dict[str, Any]] = None,
         checkpoint_prefix: str = CHECKPOINT_PREFIX,
-        checkpoint_blob_prefix: str = CHECKPOINT_BLOB_PREFIX,
         checkpoint_write_prefix: str = CHECKPOINT_WRITE_PREFIX,
     ) -> None:
         super().__init__(
@@ -97,7 +99,6 @@ class AsyncRedisSaver(
             connection_args=connection_args,
             ttl=ttl,
             checkpoint_prefix=checkpoint_prefix,
-            checkpoint_blob_prefix=checkpoint_blob_prefix,
             checkpoint_write_prefix=checkpoint_write_prefix,
         )
         self.loop = asyncio.get_running_loop()
@@ -114,15 +115,17 @@ class AsyncRedisSaver(
         redis_client: Optional[Union[AsyncRedis, AsyncRedisCluster]] = None,
         connection_args: Optional[Dict[str, Any]] = None,
     ) -> None:
-        """Configure the Redis client."""
+        """Configure the Redis client.
+
+        Supports standard Redis URLs (redis://), SSL (rediss://), and
+        Sentinel URLs (redis+sentinel://host:26379/service_name/db).
+        """
         self._owns_its_client = redis_client is None
 
         if redis_client is None:
-            if not redis_url:
-                redis_url = os.environ.get("REDIS_URL")
-                if not redis_url:
-                    raise ValueError("REDIS_URL env var not set")
-            self._redis = AsyncRedis.from_url(redis_url, **(connection_args or {}))
+            self._redis = RedisConnectionFactory.get_async_redis_connection(
+                redis_url, **(connection_args or {})
+            )
         else:
             self._redis = redis_client
 
@@ -130,9 +133,6 @@ class AsyncRedisSaver(
         """Create indexes without connecting to Redis."""
         self.checkpoints_index = AsyncSearchIndex.from_dict(
             self.checkpoints_schema, redis_client=self._redis
-        )
-        self.checkpoint_blobs_index = AsyncSearchIndex.from_dict(
-            self.blobs_schema, redis_client=self._redis
         )
         self.checkpoint_writes_index = AsyncSearchIndex.from_dict(
             self.writes_schema, redis_client=self._redis
@@ -239,14 +239,12 @@ class AsyncRedisSaver(
             # Prevent RedisVL from attempting to close the client
             # on an event loop in a separate thread.
             self.checkpoints_index._redis_client = None
-            self.checkpoint_blobs_index._redis_client = None
             self.checkpoint_writes_index._redis_client = None
 
     async def asetup(self) -> None:
         """Set up the checkpoint saver."""
         self.create_indexes()
         await self.checkpoints_index.create(overwrite=False)
-        await self.checkpoint_blobs_index.create(overwrite=False)
         await self.checkpoint_writes_index.create(overwrite=False)
 
         # Detect cluster mode if not explicitly set
@@ -490,12 +488,6 @@ class AsyncRedisSaver(
             # Only refresh if key exists and has TTL (skip keys with no expiry)
             # TTL states: -2 = key doesn't exist, -1 = key exists but no TTL, 0 = expired, >0 = seconds remaining
             if current_ttl > 0:
-                # Get all blob keys related to this checkpoint
-                from langgraph.checkpoint.redis.base import (
-                    CHECKPOINT_BLOB_PREFIX,
-                    CHECKPOINT_WRITE_PREFIX,
-                )
-
                 # Get write keys from registry instead of SCAN
                 write_keys = []
 
@@ -1454,7 +1446,6 @@ class AsyncRedisSaver(
         connection_args: Optional[Dict[str, Any]] = None,
         ttl: Optional[Dict[str, Any]] = None,
         checkpoint_prefix: str = CHECKPOINT_PREFIX,
-        checkpoint_blob_prefix: str = CHECKPOINT_BLOB_PREFIX,
         checkpoint_write_prefix: str = CHECKPOINT_WRITE_PREFIX,
     ) -> AsyncIterator[AsyncRedisSaver]:
         async with cls(
@@ -1463,7 +1454,6 @@ class AsyncRedisSaver(
             connection_args=connection_args,
             ttl=ttl,
             checkpoint_prefix=checkpoint_prefix,
-            checkpoint_blob_prefix=checkpoint_blob_prefix,
             checkpoint_write_prefix=checkpoint_write_prefix,
         ) as saver:
             yield saver
@@ -2008,24 +1998,7 @@ class AsyncRedisSaver(
             latest_pointer_key = f"checkpoint_latest:{storage_safe_thread_id}:{to_storage_safe_str(checkpoint_ns)}"
             keys_to_delete.append(latest_pointer_key)
 
-        # Delete all blobs for this thread
-        blob_query = FilterQuery(
-            filter_expression=Tag("thread_id") == storage_safe_thread_id,
-            return_fields=["checkpoint_ns", "channel", "version"],
-            num_results=10000,
-        )
-
-        blob_results = await self.checkpoint_blobs_index.search(blob_query)
-
-        for doc in blob_results.docs:
-            checkpoint_ns = getattr(doc, "checkpoint_ns", "")
-            channel = getattr(doc, "channel", "")
-            version = getattr(doc, "version", "")
-
-            blob_key = self._make_redis_checkpoint_blob_key(
-                storage_safe_thread_id, checkpoint_ns, channel, version
-            )
-            keys_to_delete.append(blob_key)
+        # Channel values are stored inline — no separate blob keys to clean up.
 
         # Delete all writes for this thread
         writes_query = FilterQuery(
@@ -2075,3 +2048,144 @@ class AsyncRedisSaver(
             for key in keys_to_delete:
                 pipeline.delete(key)
             await pipeline.execute()
+
+    async def aprune(
+        self,
+        thread_ids: Sequence[str],
+        *,
+        strategy: str = "keep_latest",
+        keep_last: Optional[int] = None,
+        max_results: int = 10000,
+    ) -> None:
+        """Prune old checkpoints for the given threads per namespace.
+
+        Retains the most-recent checkpoints **per checkpoint namespace** and
+        removes the rest, along with their associated write keys and
+        key-registry sorted sets.
+
+        Each namespace (root ``""`` and any subgraph namespaces) is treated as
+        an independent checkpoint chain.  Channel values are stored inline
+        within each checkpoint document, so they are automatically removed
+        when the checkpoint document is deleted.
+
+        Args:
+            thread_ids: Thread IDs whose old checkpoints should be pruned.
+            strategy: Pruning strategy.  ``"keep_latest"`` retains only the
+                most recent checkpoint per namespace (default).  ``"delete"``
+                removes all checkpoints for the thread.
+            keep_last: Optional override — number of recent checkpoints to
+                retain per namespace.  When provided, takes precedence over
+                ``strategy``.  Use ``keep_last=0`` to remove all checkpoints.
+            max_results: Maximum number of checkpoints fetched from the index
+                per thread in a single query.  Defaults to 10 000.
+        """
+        # Resolve keep_last from strategy if not explicitly provided
+        if keep_last is None:
+            if strategy == "delete":
+                keep_last = 0
+            else:
+                keep_last = 1
+
+        # Validate inputs
+        if not thread_ids:
+            raise ValueError("``thread_ids`` must be a non-empty sequence")
+        if keep_last < 0:
+            raise ValueError(f"``keep_last`` must be >= 0, got {keep_last}")
+        if max_results < 1:
+            raise ValueError(f"``max_results`` must be >= 1, got {max_results}")
+
+        for thread_id in thread_ids:
+            storage_safe_thread_id = to_storage_safe_id(thread_id)
+
+            # Fetch all checkpoints for this thread across all namespaces
+            checkpoint_query = FilterQuery(
+                filter_expression=Tag("thread_id") == storage_safe_thread_id,
+                return_fields=["checkpoint_ns", "checkpoint_id"],
+                num_results=max_results,
+            )
+            checkpoint_results = await self.checkpoints_index.search(checkpoint_query)
+
+            if not checkpoint_results.docs:
+                continue
+
+            # Group by namespace — each namespace is an independent checkpoint chain
+            # (root graph vs. subgraph checkpoints must be evicted independently).
+            by_ns: Dict[str, list] = defaultdict(list)
+            for doc in checkpoint_results.docs:
+                ns = getattr(doc, "checkpoint_ns", "")
+                by_ns[ns].append(doc)
+
+            # Within each namespace sort newest-first (ULIDs are lex time-ordered)
+            # and collect checkpoints that fall outside the keep_last window.
+            # Track namespaces where every checkpoint is evicted so we can clean
+            # up the checkpoint_latest:{thread}:{ns} pointer key too
+            to_evict = []
+            fully_evicted_ns: set = set()
+            for ns, ns_docs in by_ns.items():
+                ns_sorted = sorted(
+                    ns_docs,
+                    key=lambda d: getattr(d, "checkpoint_id", ""),
+                    reverse=True,
+                )
+                ns_evicted = ns_sorted[keep_last:]
+                to_evict.extend(ns_evicted)
+                if len(ns_evicted) == len(ns_docs):  # nothing left in this namespace
+                    fully_evicted_ns.add(ns)
+
+            if not to_evict:
+                continue
+
+            keys_to_delete = []
+            for doc in to_evict:
+                checkpoint_ns = getattr(doc, "checkpoint_ns", "")
+                checkpoint_id = getattr(doc, "checkpoint_id", "")
+
+                # Evict checkpoint document
+                keys_to_delete.append(
+                    self._make_redis_checkpoint_key(
+                        storage_safe_thread_id, checkpoint_ns, checkpoint_id
+                    )
+                )
+
+                # Evict all write documents for this checkpoint
+                writes_query = FilterQuery(
+                    filter_expression=(
+                        (Tag("thread_id") == storage_safe_thread_id)
+                        & (Tag("checkpoint_id") == checkpoint_id)
+                    ),
+                    return_fields=["checkpoint_ns", "checkpoint_id", "task_id", "idx"],
+                    num_results=max_results,
+                )
+                writes_results = await self.checkpoint_writes_index.search(writes_query)
+                for wdoc in writes_results.docs:
+                    keys_to_delete.append(
+                        self._make_redis_checkpoint_writes_key(
+                            storage_safe_thread_id,
+                            getattr(wdoc, "checkpoint_ns", ""),
+                            getattr(wdoc, "checkpoint_id", ""),
+                            getattr(wdoc, "task_id", ""),
+                            int(getattr(wdoc, "idx", 0)),
+                        )
+                    )
+
+                # Evict key-registry sorted set for this checkpoint
+                if self._key_registry:
+                    keys_to_delete.append(
+                        self._key_registry.make_write_keys_zset_key(
+                            thread_id, checkpoint_ns, checkpoint_id
+                        )
+                    )
+
+            for ns in fully_evicted_ns:
+                keys_to_delete.append(
+                    f"checkpoint_latest:{storage_safe_thread_id}:{ns}"
+                )
+
+            if self.cluster_mode:
+                for key in keys_to_delete:
+                    await self._redis.delete(key)
+            else:
+                pipeline = self._redis.pipeline()
+                for key in keys_to_delete:
+                    pipeline.delete(key)
+                await pipeline.execute()

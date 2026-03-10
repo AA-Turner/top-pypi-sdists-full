@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: galaxy-tool-util-models
-Version: 25.1.1
+Version: 25.1.2
 Summary: Pydantic models for Galaxy tools
 Home-page: https://github.com/galaxyproject/galaxy
 Author: Galaxy Project and Community
@@ -48,6 +48,12 @@ History
 -------
 
 .. to_doc
+
+-------------------
+25.1.2 (2026-03-09)
+-------------------
+
+No recorded changes since last release
 
 -------------------
 25.1.1 (2026-02-03)

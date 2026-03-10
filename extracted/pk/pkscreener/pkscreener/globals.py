@@ -533,7 +533,7 @@ def initExecution(menuOption=None):
             OutputControls().printOutput(colorText.END, end="")
         if menuOption == "" or menuOption is None:
             menuOption = "X"
-        menuOption = menuOption.upper()
+        menuOption = str(menuOption).upper()
         selectedMenu = m0.find(menuOption)
         if selectedMenu is not None:
             if selectedMenu.menuKey == "Z":
@@ -597,7 +597,7 @@ def initPostLevel0Execution(
             indexOption = int(configManager.defaultIndex)
         # elif indexOption == 'W' or indexOption == 'w' or indexOption == 'N' or indexOption == 'n' or indexOption == 'E' or indexOption == 'e':
         elif not str(indexOption).isnumeric():
-            indexOption = indexOption.upper()
+            indexOption = str(indexOption).upper()
             if indexOption in ["M", "E", "N", "Z"]:
                 return indexOption, 0
         else:
@@ -625,7 +625,13 @@ def initPostLevel0Execution(
         if not retrial:
             sleep(2)
             ConsoleUtility.PKConsoleTools.clearScreen(forceTop=True)
-            return initPostLevel0Execution(retrial=True)
+            return initPostLevel0Execution(
+                    menuOption=menuOption,
+                    indexOption=indexOption,
+                    executeOption=executeOption,
+                    skip=["N", "E"],
+                    retrial=True
+                )
     return indexOption, executeOption
 
 
@@ -640,7 +646,7 @@ def initPostLevel1Execution(indexOption, executeOption=None, skip=[], retrial=Fa
                 + "  [+] You chose: "
                 + level0MenuDict[selectedChoice["0"]].strip()
                 + " > "
-                + level1_X_MenuDict[selectedChoice["1"]].strip()
+                + level1_X_MenuDict.get(selectedChoice["1"],"").strip()
                 + (f" (Piped Scan Mode) [{userPassedArgs.pipedmenus}]" if (userPassedArgs is not None and userPassedArgs.pipedmenus is not None) else "")
                 + colorText.END
             )
@@ -684,7 +690,7 @@ def initPostLevel1Execution(indexOption, executeOption=None, skip=[], retrial=Fa
             if executeOption == "":
                 executeOption = 1
             if not str(executeOption).isnumeric():
-                executeOption = executeOption.upper()
+                executeOption = str(executeOption).upper()
             else:
                 executeOption = int(executeOption)
                 if executeOption < 0 or executeOption > MAX_MENU_OPTION: # or (executeOption > MAX_SUPPORTED_MENU_OPTION and executeOption < MAX_MENU_OPTION):
@@ -1255,7 +1261,7 @@ def main(userArgs=None,optionalFinalOutcome_df=None):
             )
             if not configManager.isIntradayConfig():
                 fetcher.saveAllNSEIndices()
-        if menuOption.upper() in ["B", "G"]:
+        if str(menuOption).upper() in ["B", "G"]:
             OutputControls().printOutput(
                     colorText.WARN
                     + f"  [+] A total of {configManager.backtestPeriod} trading periods' historical data will be considered for backtesting. You can change this in User Config."
@@ -1314,7 +1320,7 @@ def main(userArgs=None,optionalFinalOutcome_df=None):
         if not keyboardInterruptEventFired:
             global tasks_queue, results_queue, consumers, logging_queue
             screenResults, saveResults, backtest_df, tasks_queue, results_queue, consumers,logging_queue = PKScanRunner.runScanWithParams(userPassedArgs,keyboardInterruptEvent,screenCounter,screenResultsCounter,stockDictPrimary,stockDictSecondary,testing, backtestPeriod, menuOption,executeOption, samplingDuration, items,screenResults, saveResults, backtest_df,scanningCb=runScanners,tasks_queue=tasks_queue, results_queue=results_queue, consumers=consumers,logging_queue=logging_queue)
-            if userPassedArgs is not None and not userPassedArgs.testalloptions and (userPassedArgs.monitor is None and "|" not in userPassedArgs.options and not userPassedArgs.options.upper().startswith("C")):
+            if userPassedArgs is not None and not userPassedArgs.testalloptions and (userPassedArgs.monitor is None and "|" not in userPassedArgs.options and not str(userPassedArgs.options).upper().startswith("C")):
                 tasks_queue = None
                 results_queue = None
                 consumers = None

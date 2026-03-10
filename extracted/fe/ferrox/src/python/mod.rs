@@ -9,6 +9,7 @@
 //! - `ferrox.elastic` - Elastic tensor calculations
 //! - `ferrox.io` - File I/O and format conversion
 //! - `ferrox.lattice` - Lattice operations
+//! - `ferrox.lmdb` - LMDB dataset storage for ML training data
 //! - `ferrox.md` - Molecular dynamics integrators
 //! - `ferrox.mp` - Materials Project integration
 //! - `ferrox.neighbors` - Distance and neighbor calculations
@@ -23,11 +24,16 @@
 //! - `ferrox.surfaces` - Surface and slab operations
 //! - `ferrox.symmetry` - Space group and symmetry operations
 //! - `ferrox.trajectory` - Trajectory analysis
+//! - `ferrox.units` - Runtime-typed physical quantities and unit conversions
 //! - `ferrox.vasp` - VASP file I/O (CHGCAR parsing, Fourier extraction)
 //! - `ferrox.xrd` - X-ray diffraction
 
-// PyO3 proc macros generate code that triggers false positive clippy warnings
-#![allow(clippy::useless_conversion)]
+// PyO3 binding functions naturally have many kwargs and complex return types
+#![allow(
+    clippy::useless_conversion,
+    clippy::too_many_arguments,
+    clippy::type_complexity
+)]
 
 // Define stub info gatherer for pyo3-stub-gen
 pyo3_stub_gen::define_stub_info_gatherer!(stub_info);
@@ -50,6 +56,7 @@ pub mod elastic;
 pub mod element;
 pub mod io;
 pub mod lattice;
+pub mod lmdb;
 pub mod md;
 pub mod mp;
 pub mod neighbors;
@@ -64,6 +71,7 @@ pub mod structure;
 pub mod surfaces;
 pub mod symmetry;
 pub mod trajectory;
+pub mod units;
 pub mod vasp;
 pub mod xrd;
 

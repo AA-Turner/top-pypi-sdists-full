@@ -112,8 +112,6 @@ class SalesforceField(Asset):
     INPUT_TO_SPARK_JOBS: ClassVar[Any] = None
     OUTPUT_FROM_SPARK_JOBS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "SalesforceField"
-
     data_type: Union[str, None, UnsetType] = UNSET
     """Data type of values in this field."""
 
@@ -631,6 +629,9 @@ def _salesforce_field_to_nested(
         is_incomplete=salesforce_field.is_incomplete,
         provenance_type=salesforce_field.provenance_type,
         home_id=salesforce_field.home_id,
+        depth=salesforce_field.depth,
+        immediate_upstream=salesforce_field.immediate_upstream,
+        immediate_downstream=salesforce_field.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -664,7 +665,6 @@ def _salesforce_field_from_nested(nested: SalesforceFieldNested) -> SalesforceFi
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -673,6 +673,9 @@ def _salesforce_field_from_nested(nested: SalesforceFieldNested) -> SalesforceFi
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_salesforce_field_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: tinybird
-Version: 3.5.4
+Version: 4.1.0
 Summary: Tinybird Command Line Tool
 Home-page: https://www.tinybird.co/docs/forward/commands
 Author: Tinybird
@@ -8,7 +8,6 @@ Author-email: support@tinybird.co
 Requires-Python: >=3.10, <3.14
 Description-Content-Type: text/x-rst
 Requires-Dist: aiofiles==24.1.0
-Requires-Dist: anthropic==0.55.0
 Requires-Dist: boto3
 Requires-Dist: click<8.2,>=8.1.6
 Requires-Dist: clickhouse-toolset==0.34.dev0
@@ -19,12 +18,9 @@ Requires-Dist: croniter==1.3.15
 Requires-Dist: docker==7.1.0
 Requires-Dist: GitPython~=3.1.32
 Requires-Dist: humanfriendly~=8.2
-Requires-Dist: plotext==5.3.2
 Requires-Dist: prompt_toolkit==3.0.48
 Requires-Dist: logfire-api==4.2.0
 Requires-Dist: pydantic~=2.11.7
-Requires-Dist: pydantic-ai-slim[anthropic]~=0.5.0
-Requires-Dist: pydantic-ai-slim[retries]~=0.5.0
 Requires-Dist: pyperclip==1.9.0
 Requires-Dist: pyyaml<6.1,>=6.0
 Requires-Dist: requests<3,>=2.28.1
@@ -36,7 +32,6 @@ Requires-Dist: urllib3<2,>=1.26.14
 Requires-Dist: watchdog==6.0.0
 Requires-Dist: wheel
 Requires-Dist: packaging<24,>=23.1
-Requires-Dist: llm>=0.19
 Requires-Dist: thefuzz==0.22.1
 Requires-Dist: python-dotenv==1.1.0
 Requires-Dist: pyjwt[crypto]==2.9.0
@@ -56,6 +51,19 @@ The Tinybird command-line tool allows you to use all the Tinybird functionality 
 
 Changelog
 ----------
+
+4.1.0
+*******
+
+- `Added` New `WORKSPACE:DEPLOY` scope for static tokens. To create one, run: `tb --cloud token create static deploy --scope "WORKSPACE:DEPLOY"`
+
+4.0.0
+*******
+
+- `Removed` Tinybird Code entry points and AI-assisted command paths (`tb --prompt`, `tb datasource create --prompt`, `tb test create`, and `tb mock`).
+- `Changed` `tb init` is now the project scaffolding command.
+- `Changed` `tb build` now uses the `dev_mode` configuration from the project JSON config file.
+- `Changed` `tb deploy` now uses the `dev_mode` configuration from the project JSON config file.
 
 3.5.4
 *******

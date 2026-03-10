@@ -5,6 +5,7 @@ import typing
 
 import Microsoft.Win32.SafeHandles
 import System
+import System.IO
 import System.Runtime.InteropServices
 
 
@@ -43,6 +44,10 @@ class SafeHandleZeroOrMinusOneIsInvalid(System.Runtime.InteropServices.SafeHandl
 
 class SafeFileHandle(Microsoft.Win32.SafeHandles.SafeHandleZeroOrMinusOneIsInvalid):
     """This class has no documentation."""
+
+    @property
+    def type(self) -> System.IO.FileHandleType:
+        ...
 
     @property
     def is_async(self) -> bool:

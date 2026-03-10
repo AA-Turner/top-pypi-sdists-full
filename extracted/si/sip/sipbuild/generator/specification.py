@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: BSD-2-Clause
 
-# Copyright (c) 2025 Phil Thompson <phil@riverbankcomputing.com>
+# Copyright (c) 2026 Phil Thompson <phil@riverbankcomputing.com>
 
 
 from dataclasses import dataclass, field
@@ -207,6 +207,10 @@ class ArgumentType(Enum):
     # A Py_hash_t.
     HASH = 57
 
+    # An exception.  This is only used internally (exceptions can't be passed
+    # as arguments).
+    EXCEPTION = 58
+
 
 class ArrayArgument(Enum):
     """ The array support provided by an argument. """
@@ -262,7 +266,7 @@ class DocstringSignature(Enum):
 
 
 class EnumBaseType(Enum):
-    """ The different base types fo an enum. """
+    """ The different base types of an enum. """
 
     # enum.Enum
     ENUM = auto()
@@ -915,6 +919,11 @@ class MappedType:
     # The type hints.
     type_hints: 'TypeHints|None' = None
 
+    def __hash__(self):
+        """ Reimplemented so a MappedType object can be used as a dict key. """
+
+        return id(self)
+
 
 @dataclass
 class MappedTypeTemplate:
@@ -1024,6 +1033,9 @@ class Module:
 
     # The %ModuleHeaderCode.
     module_header_code: list[CodeBlock] = field(default_factory=list)
+
+    # The number of the module. (resolver)
+    module_nr: int = -1
 
     # The module's support for multiple interpreters.
     multi_interpreter_support: MultiInterpreterSupport = MultiInterpreterSupport.NOT_SUPPORTED
@@ -1698,7 +1710,8 @@ class WrappedClass:
     visible_members: list[VisibleMember] = field(default_factory=list)
 
     def __hash__(self):
-        """ Reimplemented so an Argument object can be used as a dict key. """
+        """ Reimplemented so a WrappedClass object can be used as a dict key.
+        """
 
         return id(self)
 

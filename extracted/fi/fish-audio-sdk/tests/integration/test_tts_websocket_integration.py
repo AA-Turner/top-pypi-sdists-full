@@ -5,8 +5,9 @@ from typing import get_args
 import pytest
 
 from fishaudio import WebSocketOptions
-from fishaudio.types import Prosody, TTSConfig, TextEvent, FlushEvent
-from fishaudio.types.shared import Model
+from fishaudio.types import FlushEvent, Prosody, TextEvent, TTSConfig
+from fishaudio.types.shared import DEPRECATED_MODELS, Model
+
 from .conftest import TEST_REFERENCE_ID
 
 
@@ -34,6 +35,7 @@ class TestTTSWebSocketIntegration:
         # Save the audio
         save_audio(audio_chunks, "test_websocket_streaming.mp3")
 
+    @pytest.mark.filterwarnings("ignore::DeprecationWarning")
     @pytest.mark.parametrize(
         "model",
         [
@@ -43,7 +45,7 @@ class TestTTSWebSocketIntegration:
                     reason="WebSocket unreliable for legacy models"
                 ),
             )
-            if not m.startswith("s1")
+            if m in DEPRECATED_MODELS
             else m
             for m in get_args(Model)
         ],
@@ -112,8 +114,7 @@ class TestTTSWebSocketIntegration:
                 "And that all audio is received correctly. ",
                 "Finally, we end the stream here.",
             ]
-            for sentence in sentences:
-                yield sentence
+            yield from sentences
 
         audio_chunks = list(client.tts.stream_websocket(text_stream()))
 
@@ -137,16 +138,14 @@ class TestTTSWebSocketIntegration:
         save_audio(audio_chunks, "test_websocket_reference.mp3")
 
     def test_websocket_streaming_empty_text(self, client, save_audio):
-        """Test WebSocket streaming with empty text stream raises error."""
-        from fishaudio.exceptions import WebSocketError
+        """Test WebSocket streaming with empty text stream completes without error."""
 
         def text_stream():
             return
             yield  # Make it a generator
 
-        # Empty stream should raise WebSocketError as API returns error
-        with pytest.raises(WebSocketError, match="WebSocket stream ended with error"):
-            list(client.tts.stream_websocket(text_stream()))
+        audio_chunks = list(client.tts.stream_websocket(text_stream()))
+        assert isinstance(audio_chunks, list)
 
     def test_websocket_very_long_generation_with_timeout(self, client, save_audio):
         """
@@ -185,8 +184,7 @@ class TestTTSWebSocketIntegration:
                 "Long-form content generation is now much more reliable. ",
                 "The implementation passes through all necessary parameters to the underlying httpx_ws library. ",
             ]
-            for sentence in long_text:
-                yield sentence
+            yield from long_text
 
         # This should succeed with increased timeout
         audio_chunks = list(
@@ -224,6 +222,7 @@ class TestAsyncTTSWebSocketIntegration:
 
         save_audio(audio_chunks, "test_async_websocket_streaming.mp3")
 
+    @pytest.mark.filterwarnings("ignore::DeprecationWarning")
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
         "model",
@@ -234,7 +233,7 @@ class TestAsyncTTSWebSocketIntegration:
                     reason="WebSocket unreliable for legacy models"
                 ),
             )
-            if not m.startswith("s1")
+            if m in DEPRECATED_MODELS
             else m
             for m in get_args(Model)
         ],
@@ -367,14 +366,13 @@ class TestAsyncTTSWebSocketIntegration:
 
     @pytest.mark.asyncio
     async def test_async_websocket_streaming_empty_text(self, async_client, save_audio):
-        """Test async WebSocket streaming with empty text stream raises error."""
-        from fishaudio.exceptions import WebSocketError
+        """Test async WebSocket streaming with empty text stream completes without error."""
 
         async def text_stream():
             return
             yield  # Make it an async generator
 
-        # Empty stream should raise WebSocketError as API returns error
-        with pytest.raises(WebSocketError, match="WebSocket stream ended with error"):
-            async for chunk in async_client.tts.stream_websocket(text_stream()):
-                pass
+        audio_chunks = []
+        async for chunk in async_client.tts.stream_websocket(text_stream()):
+            audio_chunks.append(chunk)
+        assert isinstance(audio_chunks, list)

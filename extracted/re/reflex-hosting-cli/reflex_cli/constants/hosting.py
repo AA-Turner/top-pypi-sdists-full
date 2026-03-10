@@ -28,11 +28,11 @@ class Hosting(SimpleNamespace):
     # The hosting service backend URL
     HOSTING_SERVICE = os.environ.get(
         "REFLEX_CLOUD_BACKEND_URL",
-        os.environ.get("CP_BACKEND_URL", "https://cloud-backend.reflex.dev"),
+        os.environ.get("CP_BACKEND_URL", "https://build.reflex.dev"),
     )
     # The hosting service webpage URL
     HOSTING_SERVICE_UI = os.environ.get(
-        "REFLEX_CLOUD_URL", os.environ.get("CP_WEB_URL", "https://cloud.reflex.dev")
+        "REFLEX_CLOUD_URL", os.environ.get("CP_WEB_URL", "https://build.reflex.dev")
     )
     # The time to wait for HTTP requests to the backend
     TIMEOUT = 10

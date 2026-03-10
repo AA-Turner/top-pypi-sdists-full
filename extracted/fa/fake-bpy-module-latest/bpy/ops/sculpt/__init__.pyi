@@ -16,7 +16,7 @@ def brush_stroke(
     pen_flip: bool | None = False,
     override_location: bool | None = False,
     ignore_background_click: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Sculpt a stroke into the geometry
 
         :param stroke: Stroke, (optional)
@@ -64,7 +64,7 @@ def cloth_filter(
     cloth_damping: float | None = 0.0,
     use_face_sets: bool | None = False,
     use_collisions: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Applies a cloth simulation deformation to the entire mesh
 
         :param start_mouse: Starting Mouse, (array of 2 items, in [0, 16384], optional)
@@ -143,7 +143,7 @@ def color_filter(
         1.0,
         1.0,
     ),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Applies a filter to modify the active color attribute
 
         :param start_mouse: Starting Mouse, (array of 2 items, in [0, 16384], optional)
@@ -190,7 +190,7 @@ def detail_flood_fill(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Flood fill the mesh with the selected detail setting
 
     :return: Result of the operator call.
@@ -200,7 +200,7 @@ def dynamic_topology_toggle(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Dynamic topology alters the mesh topology while sculpting
 
     :return: Result of the operator call.
@@ -210,7 +210,7 @@ def dyntopo_detail_size_edit(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Modify the detail size of dyntopo interactively
 
     :return: Result of the operator call.
@@ -241,7 +241,7 @@ def expand(
     max_geodesic_move_preview: int | None = 10000,
     use_auto_mask: bool | None = False,
     normal_falloff_smooth: int | None = 2,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Generic sculpt expand operator
 
     :param target: Data Target, Data that is going to be modified in the expand operation (optional)
@@ -268,7 +268,7 @@ def face_set_box_gesture(
     ymax: int | None = 0,
     wait_for_input: bool | None = True,
     use_front_faces_only: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a face set in a rectangle defined by the cursor
 
     :param xmin: X Min, (in [-inf, inf], optional)
@@ -287,7 +287,7 @@ def face_set_change_visibility(
     *,
     mode: typing.Literal["TOGGLE", "SHOW_ACTIVE", "HIDE_ACTIVE"] | None = "TOGGLE",
     active_face_set: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Change the visibility of the face sets of the sculpt
 
         :param mode: Mode, (optional)
@@ -316,7 +316,7 @@ def face_set_edit(
     | None = "GROW",
     strength: float | None = 1.0,
     modify_hidden: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Edits the current active face set
 
         :param active_face_set: Active Face Set, (in [0, inf], optional)
@@ -350,7 +350,7 @@ def face_set_extract(
     smooth_iterations: int | None = 4,
     apply_shrinkwrap: bool | None = True,
     add_solidify: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Create a new mesh object from the selected face set
 
     :param add_boundary_loop: Add Boundary Loop, Add an extra edge loop to better preserve the shape when applying a subdivision surface modifier (optional)
@@ -370,7 +370,7 @@ def face_set_lasso_gesture(
     smooth_stroke_factor: float | None = 0.75,
     smooth_stroke_radius: int | None = 35,
     use_front_faces_only: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a face set in a shape defined by the cursor
 
     :param path: Path, (optional)
@@ -394,7 +394,7 @@ def face_set_line_gesture(
     cursor: int | None = 5,
     use_front_faces_only: bool | None = False,
     use_limit_to_segment: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a face set to one side of a line defined by the cursor
 
     :param xstart: X Start, (in [-inf, inf], optional)
@@ -415,7 +415,7 @@ def face_set_polyline_gesture(
     *,
     path=None,
     use_front_faces_only: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a face set in a shape defined by the cursor
 
     :param path: Path, (optional)
@@ -429,7 +429,7 @@ def face_sets_create(
     /,
     *,
     mode: typing.Literal["MASKED", "VISIBLE", "ALL", "SELECTION"] | None = "MASKED",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Create a new face set
 
         :param mode: Mode, (optional)
@@ -465,7 +465,7 @@ def face_sets_init(
     ]
     | None = "LOOSE_PARTS",
     threshold: float | None = 0.5,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Initializes all face sets in the mesh
 
         :param mode: Mode, (optional)
@@ -501,7 +501,7 @@ def face_sets_randomize_colors(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Generates a new set of random colors to render the face sets in the viewport
 
     :return: Result of the operator call.
@@ -517,7 +517,7 @@ def mask_by_color(
     preserve_previous_mask: bool | None = False,
     threshold: float | None = 0.35,
     location: collections.abc.Sequence[int] | None = (0, 0),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Creates a mask based on the active color attribute
 
     :param contiguous: Contiguous, Mask only contiguous color areas (optional)
@@ -539,7 +539,7 @@ def mask_filter(
     | None = "SMOOTH",
     iterations: int | None = 1,
     auto_iteration_count: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Applies a filter to modify the current mask
 
     :param filter_type: Type, Filter that is going to be applied to the mask (optional)
@@ -559,7 +559,7 @@ def mask_from_boundary(
     settings_source: typing.Literal["OPERATOR", "BRUSH", "SCENE"] | None = "OPERATOR",
     boundary_mode: typing.Literal["MESH", "FACE_SETS"] | None = "MESH",
     propagation_steps: int | None = 1,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Creates a mask based on the boundaries of the surface
 
         :param mix_mode: Mode, Mix mode (optional)
@@ -598,7 +598,7 @@ def mask_from_cavity(
     blur_steps: int | None = 2,
     use_curve: bool | None = False,
     invert: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Creates a mask based on the curvature of the surface
 
         :param mix_mode: Mode, Mix mode (optional)
@@ -629,7 +629,7 @@ def mask_init(
         "RANDOM_PER_VERTEX", "RANDOM_PER_FACE_SET", "RANDOM_PER_LOOSE_PART"
     ]
     | None = "RANDOM_PER_VERTEX",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Creates a new mask for the entire mesh
 
     :param mode: Mode, (optional)
@@ -667,7 +667,7 @@ def mesh_filter(
     sharpen_smooth_ratio: float | None = 0.35,
     sharpen_intensify_detail_strength: float | None = 0.0,
     sharpen_curvature_smooth_iterations: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Applies a filter to modify the current mesh
 
         :param start_mouse: Starting Mouse, (array of 2 items, in [0, 16384], optional)
@@ -741,7 +741,7 @@ def optimize(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Recalculate the sculpt BVH to improve performance
 
     :return: Result of the operator call.
@@ -757,7 +757,7 @@ def paint_mask_extract(
     smooth_iterations: int | None = 4,
     apply_shrinkwrap: bool | None = True,
     add_solidify: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Create a new mesh object from the current paint mask
 
     :param mask_threshold: Threshold, Minimum mask value to consider the vertex valid to extract a face from the original mesh (in [0, 1], optional)
@@ -776,7 +776,7 @@ def paint_mask_slice(
     mask_threshold: float | None = 0.5,
     fill_holes: bool | None = True,
     new_object: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Slices the paint mask from the mesh
 
     :param mask_threshold: Threshold, Minimum mask value to consider the vertex valid to extract a face from the original mesh (in [0, 1], optional)
@@ -798,7 +798,7 @@ def project_line_gesture(
     cursor: int | None = 5,
     use_front_faces_only: bool | None = False,
     use_limit_to_segment: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Project the geometry onto a plane defined by a line
 
     :param xstart: X Start, (in [-inf, inf], optional)
@@ -819,7 +819,7 @@ def sample_detail_size(
     *,
     location: collections.abc.Sequence[int] | None = (0, 0),
     mode: typing.Literal["DYNTOPO", "VOXEL"] | None = "DYNTOPO",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Sample the mesh detail on clicked point
 
         :param location: Location, Screen coordinates of sampling (array of 2 items, in [0, 32767], optional)
@@ -837,7 +837,7 @@ def sculptmode_toggle(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Toggle sculpt mode in 3D view
 
     :return: Result of the operator call.
@@ -847,7 +847,7 @@ def set_persistent_base(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Reset the copy of the mesh that is being sculpted on
 
     :return: Result of the operator call.
@@ -862,7 +862,7 @@ def set_pivot_position(
     | None = "UNMASKED",
     mouse_x: float | None = 0.0,
     mouse_y: float | None = 0.0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Sets the sculpt transform pivot position
 
         :param mode: Mode, (optional)
@@ -892,7 +892,7 @@ def symmetrize(
     /,
     *,
     merge_tolerance: float | None = 0.0005,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Symmetrize the topology modifications
 
     :param merge_tolerance: Merge Distance, Distance within which symmetrical vertices are merged (in [0, inf], optional)
@@ -916,7 +916,7 @@ def trim_box_gesture(
     trim_orientation: typing.Literal["VIEW", "SURFACE"] | None = "VIEW",
     trim_extrude_mode: typing.Literal["PROJECT", "FIXED"] | None = "FIXED",
     trim_solver: typing.Literal["EXACT", "FLOAT", "MANIFOLD"] | None = "MANIFOLD",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Execute a boolean operation on the mesh and a rectangle defined by the cursor
 
         :param xmin: X Min, (in [-inf, inf], optional)
@@ -980,7 +980,7 @@ def trim_lasso_gesture(
     trim_orientation: typing.Literal["VIEW", "SURFACE"] | None = "VIEW",
     trim_extrude_mode: typing.Literal["PROJECT", "FIXED"] | None = "FIXED",
     trim_solver: typing.Literal["EXACT", "FLOAT", "MANIFOLD"] | None = "MANIFOLD",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Execute a boolean operation on the mesh and a shape defined by the cursor
 
         :param path: Path, (optional)
@@ -1046,7 +1046,7 @@ def trim_line_gesture(
     trim_orientation: typing.Literal["VIEW", "SURFACE"] | None = "VIEW",
     trim_extrude_mode: typing.Literal["PROJECT", "FIXED"] | None = "FIXED",
     trim_solver: typing.Literal["EXACT", "FLOAT", "MANIFOLD"] | None = "MANIFOLD",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove a portion of the mesh on one side of a line
 
         :param xstart: X Start, (in [-inf, inf], optional)
@@ -1109,7 +1109,7 @@ def trim_polyline_gesture(
     trim_orientation: typing.Literal["VIEW", "SURFACE"] | None = "VIEW",
     trim_extrude_mode: typing.Literal["PROJECT", "FIXED"] | None = "FIXED",
     trim_solver: typing.Literal["EXACT", "FLOAT", "MANIFOLD"] | None = "MANIFOLD",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Execute a boolean operation on the mesh and a polygonal shape defined by the cursor
 
         :param path: Path, (optional)
@@ -1159,7 +1159,7 @@ def uv_sculpt_grab(
     /,
     *,
     use_invert: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Grab UVs
 
     :param use_invert: Invert, Invert action for the duration of the stroke (optional)
@@ -1172,7 +1172,7 @@ def uv_sculpt_pinch(
     /,
     *,
     use_invert: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Pinch UVs
 
     :param use_invert: Invert, Invert action for the duration of the stroke (optional)
@@ -1186,7 +1186,7 @@ def uv_sculpt_relax(
     *,
     use_invert: bool | None = False,
     relax_method: typing.Literal["LAPLACIAN", "HC", "COTAN"] | None = "LAPLACIAN",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Relax UVs
 
         :param use_invert: Invert, Invert action for the duration of the stroke (optional)

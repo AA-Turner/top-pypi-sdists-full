@@ -20,15 +20,27 @@ def _http_get(
             return {"raw": data.decode("utf-8", errors="ignore")}
 
 
+def _extract_data_list(api_response: Any) -> list:
+    """Extract the data list from a GTEx API response.
+
+    API returns {"data": [...], "paging_info": {...}}.
+    Falls back to the response itself if it is a list, or empty list otherwise.
+    """
+    if isinstance(api_response, dict) and "data" in api_response:
+        return api_response.get("data", [])
+    return api_response if isinstance(api_response, list) else []
+
+
 def _resolve_gene_id(gene_input: str, base_url: str, timeout: int) -> str:
     """Resolve a gene symbol or unversioned Ensembl ID to a versioned GENCODE ID.
 
-    If already a versioned Ensembl ID (contains '.'), returns as-is.
-    Otherwise queries GTEx /reference/gene to resolve.
+    Queries GTEx /reference/gene to resolve to the correct GENCODE v26 version.
+    If a user-provided versioned ID (e.g., ENSG00000142192.21) doesn't match
+    GENCODE v26, strip the version and re-resolve.
     """
-    if "." in gene_input:
-        return gene_input
-    url = f"{base_url}/reference/gene?geneId={gene_input}&gencodeVersion=v26"
+    # Try resolving the input (versioned or not) via the reference API
+    query_id = gene_input.split(".")[0] if gene_input.startswith("ENS") else gene_input
+    url = f"{base_url}/reference/gene?geneId={query_id}&gencodeVersion=v26"
     try:
         data = _http_get(url, headers={"Accept": "application/json"}, timeout=timeout)
         genes = data.get("data", [])
@@ -76,44 +88,57 @@ class GTExExpressionTool:
         gene_input = arguments.get("gene_symbol") or arguments.get(
             "ensembl_gene_id", ""
         )
+        if not gene_input:
+            return {
+                "error": "Provide gene_symbol (e.g., 'TP53') or ensembl_gene_id (e.g., 'ENSG00000141510').",
+                "success": False,
+            }
         gencode_id = _resolve_gene_id(gene_input, base, timeout)
 
-        # Feature-69A-001: /expression/geneExpression with gtex_v10 returns empty.
-        # Use /expression/medianGeneExpression with gtex_v8 for reliable results.
+        # Feature-80A: /expression/medianGeneExpression now requires tissueSiteDetailId.
+        # Use /expression/clusteredMedianGeneExpression which returns all tissues.
         query = {
             "gencodeId": gencode_id,
             "datasetId": "gtex_v8",
         }
-        url = f"{base}/expression/medianGeneExpression?{urlencode(query)}"
+        url = f"{base}/expression/clusteredMedianGeneExpression?{urlencode(query)}"
         try:
             api_response = _http_get(
                 url, headers={"Accept": "application/json"}, timeout=timeout
             )
-            # Wrap API response to match schema: data.geneExpression should be array
-            # API returns {"data": [...], "paging_info": {...}}
-            # Schema expects {"data": {"geneExpression": [...]}}
-            if isinstance(api_response, dict) and "data" in api_response:
-                wrapped_data = {"geneExpression": api_response.get("data", [])}
+            # clusteredMedianGeneExpression returns data under 'medianGeneExpression' key
+            if isinstance(api_response, dict):
+                expression_data = api_response.get("medianGeneExpression", [])
             else:
-                # Fallback if response format is unexpected
-                wrapped_data = {
-                    "geneExpression": (
-                        api_response if isinstance(api_response, list) else []
-                    )
-                }
+                expression_data = _extract_data_list(api_response)
 
-            return {
+            result = {
                 "source": "GTEx",
-                "endpoint": "expression/medianGeneExpression",
+                "endpoint": "expression/clusteredMedianGeneExpression",
                 "query": query,
-                "data": wrapped_data,
+                "data": {"geneExpression": expression_data},
                 "success": True,
             }
+            # Provide hint when results are empty due to GENCODE version mismatch
+            if not expression_data and gencode_id == gene_input:
+                result["note"] = (
+                    f"No expression data found. Could not resolve '{gene_input}' to a "
+                    "versioned GENCODE ID. Try providing an Ensembl gene ID "
+                    "(e.g., 'ENSG00000141510') or use GTEx_get_median_gene_expression "
+                    "with a versioned ID (e.g., 'ENSG00000141510.16')."
+                )
+            elif not expression_data:
+                result["note"] = (
+                    f"No expression data found for '{gencode_id}'. The GENCODE version "
+                    "may not match gtex_v8 (GENCODE v26). Try GTEx_get_median_gene_expression "
+                    "with a different version suffix."
+                )
+            return result
         except Exception as e:
             return {
                 "error": str(e),
                 "source": "GTEx",
-                "endpoint": "expression/medianGeneExpression",
+                "endpoint": "expression/clusteredMedianGeneExpression",
                 "success": False,
             }
 
@@ -172,7 +197,7 @@ class GTExEQTLTool:
 
         query: Dict[str, Any] = {
             "gencodeId": gencode_id,
-            "datasetId": arguments.get("dataset_id", "gtex_v10"),
+            "datasetId": arguments.get("dataset_id", "gtex_v8"),
         }
         if "page" in arguments:
             query["page"] = int(arguments["page"])
@@ -184,24 +209,13 @@ class GTExEQTLTool:
             api_response = _http_get(
                 url, headers={"Accept": "application/json"}, timeout=timeout
             )
-            # Wrap API response to match schema: data.singleTissueEqtl should be array
-            # API returns {"data": [...], "paging_info": {...}}
-            # Schema expects {"data": {"singleTissueEqtl": [...]}}
-            if isinstance(api_response, dict) and "data" in api_response:
-                wrapped_data = {"singleTissueEqtl": api_response.get("data", [])}
-            else:
-                # Fallback if response format is unexpected
-                wrapped_data = {
-                    "singleTissueEqtl": (
-                        api_response if isinstance(api_response, list) else []
-                    )
-                }
+            eqtl_data = _extract_data_list(api_response)
 
             return {
                 "source": "GTEx",
                 "endpoint": "association/singleTissueEqtl",
                 "query": query,
-                "data": wrapped_data,
+                "data": {"singleTissueEqtl": eqtl_data},
                 "success": True,
             }
         except Exception as e:

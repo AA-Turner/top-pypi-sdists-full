@@ -449,14 +449,6 @@ from .porting_orders import (
     PortingOrdersResourceWithStreamingResponse,
     AsyncPortingOrdersResourceWithStreamingResponse,
 )
-from .speech_to_text import (
-    SpeechToTextResource,
-    AsyncSpeechToTextResource,
-    SpeechToTextResourceWithRawResponse,
-    AsyncSpeechToTextResourceWithRawResponse,
-    SpeechToTextResourceWithStreamingResponse,
-    AsyncSpeechToTextResourceWithStreamingResponse,
-)
 from .text_to_speech import (
     TextToSpeechResource,
     AsyncTextToSpeechResource,
@@ -616,6 +608,14 @@ from .operator_connect import (
     AsyncOperatorConnectResourceWithRawResponse,
     OperatorConnectResourceWithStreamingResponse,
     AsyncOperatorConnectResourceWithStreamingResponse,
+)
+from .session_analysis import (
+    SessionAnalysisResource,
+    AsyncSessionAnalysisResource,
+    SessionAnalysisResourceWithRawResponse,
+    AsyncSessionAnalysisResourceWithRawResponse,
+    SessionAnalysisResourceWithStreamingResponse,
+    AsyncSessionAnalysisResourceWithStreamingResponse,
 )
 from .verified_numbers import (
     VerifiedNumbersResource,
@@ -2096,12 +2096,6 @@ __all__ = [
     "AsyncMessaging10dlcResourceWithRawResponse",
     "Messaging10dlcResourceWithStreamingResponse",
     "AsyncMessaging10dlcResourceWithStreamingResponse",
-    "SpeechToTextResource",
-    "AsyncSpeechToTextResource",
-    "SpeechToTextResourceWithRawResponse",
-    "AsyncSpeechToTextResourceWithRawResponse",
-    "SpeechToTextResourceWithStreamingResponse",
-    "AsyncSpeechToTextResourceWithStreamingResponse",
     "OrganizationsResource",
     "AsyncOrganizationsResource",
     "OrganizationsResourceWithRawResponse",
@@ -2120,4 +2114,10 @@ __all__ = [
     "AsyncMessagingProfileMetricsResourceWithRawResponse",
     "MessagingProfileMetricsResourceWithStreamingResponse",
     "AsyncMessagingProfileMetricsResourceWithStreamingResponse",
+    "SessionAnalysisResource",
+    "AsyncSessionAnalysisResource",
+    "SessionAnalysisResourceWithRawResponse",
+    "AsyncSessionAnalysisResourceWithRawResponse",
+    "SessionAnalysisResourceWithStreamingResponse",
+    "AsyncSessionAnalysisResourceWithStreamingResponse",
 ]

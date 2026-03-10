@@ -8,15 +8,16 @@ from __future__ import annotations
 
 import base64
 import json
+from contextlib import contextmanager
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from plato.agents.runtime.base import AgentContext
-from plato.agents.runtime.vm import PlatoVMRuntime
+from plato.agents.runtime.vm import PlatoVMRuntime, _make_agent_alias
 
 
-def _make_ctx(continue_session: bool = False) -> AgentContext:
+def _make_ctx(continue_session: bool = False, display_name: str | None = None) -> AgentContext:
     config = {"key": "value"}
     if continue_session:
         config["continue_session"] = True
@@ -24,6 +25,7 @@ def _make_ctx(continue_session: bool = False) -> AgentContext:
         image="test:latest",
         config=config,
         instruction="do something",
+        display_name=display_name,
     )
 
 
@@ -132,6 +134,63 @@ class TestVMContinueSession:
         assert "AGENT_CONTINUE_SESSION" not in captured_command
         decoded = json.loads(base64.b64decode(ctx.config_b64).decode())
         assert "continue_session" not in decoded
+
+    def test_make_agent_alias_uses_readable_slug(self):
+        alias = _make_agent_alias("Backend Builder / Review")
+        assert alias.startswith("backend-builder-review-")
+        assert len(alias.split("-")[-1]) == 8
+
+    @pytest.mark.asyncio
+    async def test_agent_name_propagated_to_span_and_env(self, runtime):
+        ctx = _make_ctx(display_name="backend-builder")
+        agent_env = MagicMock()
+        agent_env.alias = "backend-builder-ab12cd34"
+        agent_env.job_id = "job-123"
+        hostname = "10.0.0.1"
+
+        captured_command = None
+        span_attrs: dict[str, str] = {}
+
+        class _FakeSpan:
+            def set_attribute(self, key, value):
+                span_attrs[key] = value
+
+        class _FakeTracer:
+            @contextmanager
+            def start_as_current_span(self, _name):
+                yield _FakeSpan()
+
+        async def mock_run_ssh_streaming(_ssh_key, hostname, command, user="root", extra_opts=None):
+            nonlocal captured_command
+            captured_command = command
+            return 0
+
+        with patch("plato.agents.runtime.vm.trace.get_tracer", return_value=_FakeTracer()):
+            with patch(
+                "plato.agents.runtime.vm.run_ssh",
+                new=AsyncMock(return_value=(0, "ALREADY_EXISTS\n", "")),
+            ):
+                with patch(
+                    "plato.agents.runtime.vm.run_ssh_streaming",
+                    new=AsyncMock(side_effect=mock_run_ssh_streaming),
+                ):
+                    with patch("plato.agents.runtime.vm.OTelContext.from_env") as mock_otel:
+                        mock_otel.return_value = MagicMock(
+                            otel_url=None,
+                            session_id=None,
+                            upload_url=None,
+                            traceparent=None,
+                            trace_id=None,
+                            parent_span_id=None,
+                            to_env_vars=MagicMock(return_value=[]),
+                        )
+                        await runtime._execute_agent(ctx, agent_env, hostname)
+
+        assert captured_command is not None
+        assert 'PLATO_AGENT_DISPLAY_NAME="backend-builder"' in captured_command
+        assert span_attrs["atif.agent.name"] == "backend-builder"
+        assert span_attrs["plato.agent.display_name"] == "backend-builder"
+        assert span_attrs["plato.agent.alias"] == "backend-builder-ab12cd34"
 
     @pytest.mark.asyncio
     async def test_workspace_ownership_normalized_before_agent_run(self, runtime):

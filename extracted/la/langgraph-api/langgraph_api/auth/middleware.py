@@ -40,7 +40,7 @@ def on_error(conn: HTTPConnection, exc: AuthenticationError):
 
 class ConditionalAuthenticationMiddleware(AuthenticationMiddleware):
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if (root_path := scope.get("root_path")) and root_path.startswith("/noauth"):
+        if (root_path := scope.get("root_path")) and root_path == "/noauth":
             # disable auth for requests originating from SDK ASGI transport
             # root_path cannot be set from a request, so safe to use as auth bypass
             await self.app(scope, receive, send)

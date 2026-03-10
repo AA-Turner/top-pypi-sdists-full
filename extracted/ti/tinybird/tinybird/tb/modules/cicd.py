@@ -236,11 +236,25 @@ class GitLabCICDGenerator(CICDGeneratorBase):
 def init_cicd(
     path: Optional[str] = None,
     data_project_dir: Optional[str] = None,
+    provider: Optional[str] = None,
 ):
-    for provider in Provider:
+    providers: List[Provider]
+    if provider is None:
+        providers = list(Provider)
+    else:
+        provider_map = {
+            "github": Provider.GitHub,
+            "gitlab": Provider.GitLab,
+        }
+        provider_key = provider.strip().lower()
+        if provider_key not in provider_map:
+            raise ValueError(f"Unsupported CI/CD provider: {provider}")
+        providers = [provider_map[provider_key]]
+
+    for provider_item in providers:
         path = path or getcwd()
         data_project_dir = data_project_dir or "."
-        generator = CICDGeneratorBase.build_generator(provider.name)
+        generator = CICDGeneratorBase.build_generator(provider_item.name)
         params = {
             "data_project_dir": data_project_dir,
             "workflow_version": WORKFLOW_VERSION,
@@ -250,10 +264,23 @@ def init_cicd(
             click.echo(warning_message)
 
 
-def check_cicd_exists(path: Optional[str] = None) -> Optional[Provider]:
+def check_cicd_exists(path: Optional[str] = None, provider: Optional[str] = None) -> Optional[Provider]:
     path = path or getcwd()
-    for provider in Provider:
-        generator = CICDGeneratorBase.build_generator(provider.name)
+    providers: List[Provider]
+    if provider is None:
+        providers = list(Provider)
+    else:
+        provider_map = {
+            "github": Provider.GitHub,
+            "gitlab": Provider.GitLab,
+        }
+        provider_key = provider.strip().lower()
+        if provider_key not in provider_map:
+            raise ValueError(f"Unsupported CI/CD provider: {provider}")
+        providers = [provider_map[provider_key]]
+
+    for provider_item in providers:
+        generator = CICDGeneratorBase.build_generator(provider_item.name)
         if generator.is_already_generated(path):
-            return provider
+            return provider_item
     return None

@@ -8,7 +8,7 @@ def autopack_toggle(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Automatically pack all external files into the .blend file
 
     :return: Result of the operator call.
@@ -18,7 +18,7 @@ def bookmark_add(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a bookmark for the selected/active directory
 
     :return: Result of the operator call.
@@ -28,7 +28,7 @@ def bookmark_cleanup(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Delete all invalid bookmarks
 
     :return: Result of the operator call.
@@ -40,7 +40,7 @@ def bookmark_delete(
     /,
     *,
     index: int | None = -1,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Delete selected bookmark
 
     :param index: Index, (in [-1, 20000], optional)
@@ -53,7 +53,7 @@ def bookmark_move(
     /,
     *,
     direction: typing.Literal["TOP", "UP", "DOWN", "BOTTOM"] | None = "TOP",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move the active bookmark up/down in the list
 
         :param direction: Direction, Direction to move the active bookmark towards (optional)
@@ -76,7 +76,7 @@ def cancel(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Cancel file operation
 
     :return: Result of the operator call.
@@ -86,7 +86,7 @@ def delete(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move selected files to the trash or recycle bin
 
     :return: Result of the operator call.
@@ -100,7 +100,7 @@ def directory_new(
     directory: str | None = "",
     open: bool | None = False,
     confirm: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Create a new directory
 
     :param directory: Directory, Name of new directory (optional, never None)
@@ -113,7 +113,7 @@ def edit_directory_path(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Start editing directory field
 
     :return: Result of the operator call.
@@ -123,7 +123,7 @@ def execute(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Execute selected file
 
     :return: Result of the operator call.
@@ -152,7 +152,7 @@ def external_operation(
         "CMD",
     ]
     | None = "OPEN",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Perform external operation on a file or folder
 
         :param operation: Operation, Operation to perform on the selected file or path (optional)
@@ -210,7 +210,7 @@ def filenum(
     /,
     *,
     increment: int | None = 1,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Increment number in filename
 
     :param increment: Increment, (in [-100, 100], optional)
@@ -223,7 +223,7 @@ def filepath_drop(
     /,
     *,
     filepath: str | None = "Path",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
 
     :param filepath: (optional, never None)
@@ -261,7 +261,7 @@ def find_missing_files(
     ]
     | None = "DEFAULT",
     sort_method: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Try to find missing external files
 
         :param find_all: Find All, Find all files in the search path (not just missing) (optional)
@@ -306,7 +306,7 @@ def hidedot(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Toggle hide hidden dot files
 
     :return: Result of the operator call.
@@ -316,7 +316,7 @@ def highlight(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Highlight selected file(s)
 
     :return: Result of the operator call.
@@ -326,7 +326,7 @@ def make_paths_absolute(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Make all paths to external files absolute
 
     :return: Result of the operator call.
@@ -336,7 +336,7 @@ def make_paths_relative(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Make all paths to external files relative to current .blend
 
     :return: Result of the operator call.
@@ -346,7 +346,7 @@ def mouse_execute(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Perform the current execute action for the file under the cursor (e.g. open the file)
 
     :return: Result of the operator call.
@@ -356,7 +356,7 @@ def next(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move to next folder
 
     :return: Result of the operator call.
@@ -366,7 +366,7 @@ def pack_all(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Pack all used external files into this .blend
 
     :return: Result of the operator call.
@@ -376,7 +376,7 @@ def pack_libraries(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Store all data-blocks linked from other .blend files in the current .blend file. Library references are preserved so the linked data-blocks can be unpacked again
 
     :return: Result of the operator call.
@@ -386,7 +386,7 @@ def parent(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move to parent directory
 
     :return: Result of the operator call.
@@ -396,7 +396,7 @@ def previous(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move to previous folder
 
     :return: Result of the operator call.
@@ -406,7 +406,7 @@ def refresh(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Refresh the file list
 
     :return: Result of the operator call.
@@ -416,7 +416,7 @@ def rename(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Rename file or file directory
 
     :return: Result of the operator call.
@@ -426,7 +426,7 @@ def report_missing_files(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Report all missing external files
 
     :return: Result of the operator call.
@@ -436,7 +436,7 @@ def reset_recent(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Reset recent files
 
     :return: Result of the operator call.
@@ -457,7 +457,7 @@ def select(
     deselect_all: bool | None = False,
     only_activate_if_selected: bool | None = False,
     pass_through: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Handle mouse clicks to select and activate items
 
     :param wait_to_deselect_others: Wait to Deselect Others, (optional)
@@ -479,7 +479,7 @@ def select_all(
     /,
     *,
     action: typing.Literal["TOGGLE", "SELECT", "DESELECT", "INVERT"] | None = "TOGGLE",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select or deselect all files
 
         :param action: Action, Selection action to execute (optional)
@@ -504,7 +504,7 @@ def select_bookmark(
     /,
     *,
     dir: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select a bookmarked directory
 
     :param dir: Directory, (optional, never None)
@@ -522,7 +522,7 @@ def select_box(
     ymax: int | None = 0,
     wait_for_input: bool | None = True,
     mode: typing.Literal["SET", "ADD", "SUB"] | None = "SET",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Activate/select the file(s) contained in the border
 
         :param xmin: X Min, (in [-inf, inf], optional)
@@ -551,7 +551,7 @@ def select_walk(
     direction: typing.Literal["UP", "DOWN", "LEFT", "RIGHT"] | None = "UP",
     extend: bool | None = False,
     fill: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select/Deselect files by walking through them
 
     :param direction: Walk Direction, Select/Deselect element in this direction (optional)
@@ -564,7 +564,7 @@ def smoothscroll(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Smooth scroll to make editable file visible
 
     :return: Result of the operator call.
@@ -574,7 +574,7 @@ def sort_column_ui_context(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Change sorting to use column under cursor
 
     :return: Result of the operator call.
@@ -584,7 +584,7 @@ def start_filter(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Start entering filter text
 
     :return: Result of the operator call.
@@ -599,7 +599,7 @@ def unpack_all(
         "USE_LOCAL", "WRITE_LOCAL", "USE_ORIGINAL", "WRITE_ORIGINAL", "KEEP", "REMOVE"
     ]
     | None = "USE_LOCAL",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Unpack all files packed into this .blend to external ones
 
     :param method: Method, How to unpack (optional)
@@ -615,7 +615,7 @@ def unpack_item(
     | None = "USE_LOCAL",
     id_name: str | None = "",
     id_type: int | None = 19785,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Unpack this file to an external file
 
     :param method: Method, How to unpack (optional)
@@ -628,7 +628,7 @@ def unpack_libraries(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Restore all packed linked data-blocks to their original locations
 
     :return: Result of the operator call.
@@ -638,7 +638,7 @@ def view_selected(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Scroll the selected files into view
 
     :return: Result of the operator call.

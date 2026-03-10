@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: yandexcloud
-Version: 0.380.0
+Version: 0.381.0
 Summary: The Yandex Cloud official SDK
 Author-email: Yandex LLC <cloud@support.yandex.ru>
 License: MIT
@@ -49,15 +49,9 @@ Installation:
 
 ## Getting started
 
-There are several options for authorization your requests - OAuth Token,
-Metadata Service (if you're executing your code inside VMs or Cloud Functions
-running in Yandex.Cloud), Service Account Keys, and externally created IAM tokens.
-
-### OAuth Token
-
-```python
-sdk = yandexcloud.SDK(token='AQAD-.....')
-```
+There are several options for authorization your requests - Metadata Service
+(if you're executing your code inside VMs or Cloud Functions running in Yandex.Cloud),
+Service Account Keys and externally created IAM tokens.
 
 ### Metadata Service
 

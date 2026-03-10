@@ -13,7 +13,7 @@ def brush_stroke(
     mode: typing.Literal["NORMAL", "INVERT"] | None = "NORMAL",
     brush_toggle: typing.Literal["None", "SMOOTH", "ERASE", "MASK"] | None = "None",
     pen_flip: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Sculpt curves using a brush
 
         :param stroke: Stroke, (optional)
@@ -45,7 +45,7 @@ def min_distance_edit(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Change the minimum distance used by the density brush
 
     :return: Result of the operator call.
@@ -57,7 +57,7 @@ def select_grow(
     /,
     *,
     distance: float | None = 0.1,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select curves which are close to curves that are selected already
 
     :param distance: Distance, By how much to grow the selection (in [-inf, inf], optional)
@@ -74,7 +74,7 @@ def select_random(
     probability: float | None = 0.5,
     min: float | None = 0.0,
     constant_per_curve: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Randomizes existing selection or create new random selection
 
     :param seed: Seed, Source of randomness (in [-inf, inf], optional)

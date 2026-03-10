@@ -6,10 +6,9 @@
 from typing import Any, Dict, List, Optional
 
 import click
-import requests
 from click import Context
 
-from tinybird.tb.client import AuthNoTokenException, TinyB
+from tinybird.tb.client import TinyB
 from tinybird.tb.modules.cli import cli
 from tinybird.tb.modules.common import (
     _get_workspace_plan_name,
@@ -26,11 +25,7 @@ from tinybird.tb.modules.common import (
 from tinybird.tb.modules.config import CLIConfig
 from tinybird.tb.modules.exceptions import CLIWorkspaceException
 from tinybird.tb.modules.feedback_manager import FeedbackManager
-from tinybird.tb.modules.local_common import (
-    TB_LOCAL_ADDRESS,
-    TB_LOCAL_DEFAULT_WORKSPACE_NAME,
-    get_local_tokens,
-)
+from tinybird.tb.modules.local_common import TB_LOCAL_DEFAULT_WORKSPACE_NAME, get_local_tokens
 
 
 @cli.group()
@@ -232,66 +227,11 @@ def delete_workspace(ctx: Context, workspace_name_or_id: str, confirm_hard_delet
 
 @workspace.command(
     name="clear",
-    short_help="Clear all resources and deployments inside a workspace. Only available against Tinybird Local.",
+    hidden=True,
+    short_help="Deprecated. Use `tb branch clear` instead.",
 )
 @click.option("--yes", is_flag=True, default=False, help="Don't ask for confirmation")
 @click.pass_context
 def workspace_clear(ctx: Context, yes: bool) -> None:
-    """Delete a workspace where you are an admin."""
-    is_cloud = ctx.ensure_object(dict)["env"] == "cloud"
-    if is_cloud:
-        raise CLIWorkspaceException(
-            FeedbackManager.error(
-                message="`tb workspace clear` is not available against Tinybird Cloud. Use `tb --cloud deploy` instead."
-            )
-        )
-    yes = yes or click.confirm(
-        FeedbackManager.warning(message="Are you sure you want to clear the workspace? [y/N]:"),
-        show_default=False,
-        prompt_suffix="",
-    )
-    if yes:
-        clear_workspace()
-
-
-def clear_workspace() -> None:
-    config = CLIConfig.get_project_config()
-    tokens = get_local_tokens()
-
-    user_token = tokens["user_token"]
-    admin_token = tokens["admin_token"]
-    user_client = config.get_client(host=TB_LOCAL_ADDRESS, token=user_token)
-    ws_name = config.get("name")
-    if not ws_name:
-        raise AuthNoTokenException()
-
-    user_workspaces = requests.get(
-        f"{TB_LOCAL_ADDRESS}/v1/user/workspaces?with_organization=true&token={admin_token}"
-    ).json()
-    user_org_id = user_workspaces.get("organization_id", {})
-    local_workspaces = user_workspaces.get("workspaces", [])
-
-    ws = next((ws for ws in local_workspaces if ws["name"] == ws_name), None)
-
-    if not ws:
-        raise CLIWorkspaceException(FeedbackManager.error(message=f"Workspace '{ws_name}' not found."))
-
-    requests.delete(f"{TB_LOCAL_ADDRESS}/v1/workspaces/{ws['id']}?token={user_token}&hard_delete_confirmation=yes")
-    user_workspaces = user_client.user_workspaces(version="v1")
-    ws = next((ws for ws in user_workspaces["workspaces"] if ws["name"] == ws_name), None)
-
-    if ws:
-        raise CLIWorkspaceException(
-            FeedbackManager.error(message=f"Workspace '{ws_name}' was not cleared properly. Please try again.")
-        )
-
-    user_client.create_workspace(ws_name, assign_to_organization_id=user_org_id, version="v1")
-    user_workspaces = requests.get(f"{TB_LOCAL_ADDRESS}/v1/user/workspaces?token={admin_token}").json()
-    ws = next((ws for ws in user_workspaces["workspaces"] if ws["name"] == ws_name), None)
-
-    if not ws:
-        raise CLIWorkspaceException(
-            FeedbackManager.error(message=f"Workspace '{ws_name}' was not cleared properly. Please try again.")
-        )
-
-    click.echo(FeedbackManager.success(message=f"✓ Workspace '{ws_name}' cleared"))
+    """Deprecated alias for branch clear."""
+    raise CLIWorkspaceException(FeedbackManager.error(message="`tb workspace clear` has moved to `tb branch clear`."))

@@ -37,7 +37,7 @@ def fbx(
     | None = "MAKE_UNIQUE",
     axis_forward: typing.Literal["X", "Y", "Z", "-X", "-Y", "-Z"] | None = "-Z",
     axis_up: typing.Literal["X", "Y", "Z", "-X", "-Y", "-Z"] | None = "Y",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Load a FBX file
 
         :param filepath: File Path, Filepath used for importing the file (optional, never None)
@@ -117,7 +117,7 @@ def gltf(
     import_scene_extras: bool | None = True,
     import_scene_as_collection: bool | None = True,
     import_merge_material_slots: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Load a glTF 2.0 file
 
         :param filepath: File Path, Filepath used for importing the file (optional, never None)

@@ -25,7 +25,6 @@ from arthur_client.api_bindings.api.projects_v1_api import ProjectsV1Api
 from arthur_client.api_bindings.api.registration_v1_api import RegistrationV1Api
 from arthur_client.api_bindings.api.roles_v1_api import RolesV1Api
 from arthur_client.api_bindings.api.tasks_v1_api import TasksV1Api
-from arthur_client.api_bindings.api.unregistered_agents_v1_api import UnregisteredAgentsV1Api
 from arthur_client.api_bindings.api.upsolve_v1_api import UpsolveV1Api
 from arthur_client.api_bindings.api.users_v1_api import UsersV1Api
 from arthur_client.api_bindings.api.webhooks_v1_api import WebhooksV1Api

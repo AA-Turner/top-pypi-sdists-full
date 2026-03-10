@@ -26,9 +26,6 @@ from tinybird.tb.client import (
     OperationCanNotBePerformed,
     TinyB,
 )
-from tinybird.tb.modules.agent.utils import (
-    create_terminal_box,
-)
 from tinybird.tb.modules.build import process as build_project
 from tinybird.tb.modules.cli import cli
 from tinybird.tb.modules.common import (
@@ -38,7 +35,6 @@ from tinybird.tb.modules.common import (
     get_format_from_filename_or_url,
     normalize_datasource_name,
     push_data,
-    warn_prompt_ai_deprecation,
 )
 from tinybird.tb.modules.config import CLIConfig
 from tinybird.tb.modules.connection_kafka import (
@@ -58,7 +54,6 @@ from tinybird.tb.modules.connection_s3 import (
     select_schedule,
 )
 from tinybird.tb.modules.create import (
-    create_resources_from_prompt,
     generate_gcs_connection_file_with_secrets,
 )
 from tinybird.tb.modules.datafile.fixture import persist_fixture
@@ -69,6 +64,25 @@ from tinybird.tb.modules.llm_utils import extract_xml
 from tinybird.tb.modules.project import Project
 from tinybird.tb.modules.secret import save_secret_to_env_file
 from tinybird.tb.modules.telemetry import add_telemetry_event
+
+
+def create_terminal_box(content: str, new_content: Optional[str] = None, title: Optional[str] = None) -> str:
+    lines = content.splitlines() or [""]
+    if new_content:
+        lines.extend(["", "Updated:", *new_content.splitlines()])
+
+    max_line_width = max(len(line) for line in lines)
+    if title:
+        max_line_width = max(max_line_width, len(title))
+
+    border = "+" + "-" * (max_line_width + 2) + "+"
+    output: list[str] = [border]
+    if title:
+        output.append(f"| {title.ljust(max_line_width)} |")
+        output.append(border)
+    output.extend(f"| {line.ljust(max_line_width)} |" for line in lines)
+    output.append(border)
+    return "\n".join(output)
 
 
 @cli.group()
@@ -800,7 +814,6 @@ def datasource_sample(ctx: Context, datasource_name: str, max_files: int, wait: 
 @click.option("--blank", is_flag=True, default=False, help="Create a blank data source")
 @click.option("--file", type=str, help="Create a data source from a local file")
 @click.option("--url", type=str, help="Create a data source from a remote URL")
-@click.option("--prompt", type=str, help="Create a data source from a prompt")
 @click.option("--connection-name", type=str, help="Create a data source from a connection")
 @click.option("--s3", is_flag=True, default=False, help="Create a data source from a S3 connection")
 @click.option("--gcs", is_flag=True, default=False, help="Create a data source from a GCS connection")
@@ -836,7 +849,6 @@ def datasource_create(
     file: str,
     url: str,
     connection_name: Optional[str],
-    prompt: str,
     s3: bool,
     gcs: bool,
     kafka: bool,
@@ -871,7 +883,6 @@ def datasource_create(
             "s3": ("S3", "Connect your data source to S3. A S3 connection file is required."),
             "gcs": ("GCS", "Connect your data source to GCS. A GCS connection file is required."),
             "kafka": ("Kafka", "Connect your data source to a Kafka topic. A Kafka connection file is required."),
-            "prompt": ("Prompt", "Create a data source from a prompt"),
         }
         datasource_type: Optional[str] = None
         connection_file: Optional[str] = None
@@ -908,8 +919,6 @@ ENGINE "MergeTree"
             datasource_type = "gcs"
         elif kafka:
             datasource_type = "kafka"
-        elif prompt:
-            datasource_type = "prompt"
         elif connection_name:
             # Determine type from local connection file
             connection_files = project.get_connection_files()
@@ -971,44 +980,6 @@ ENGINE "MergeTree"
             )
 
             wizard_data["exit_reason"] = "invalid_type_selection"
-            wizard_data["duration_seconds"] = round(time.time() - start_time, 2)
-            add_telemetry_event("system_info", **wizard_data)
-            return
-
-        if datasource_type == "prompt":
-            warn_prompt_ai_deprecation()
-            if not config.get("user_token"):
-                raise Exception("This action requires authentication. Run 'tb login' first.")
-
-            instructions = (
-                "Create or update a Tinybird datasource (.datasource file) for this project. "
-                "Do not generate mock data or append data; those steps will run later programmatically."
-            )
-            if not prompt:
-                wizard_data["current_step"] = "enter_prompt"
-                prompt = click.prompt(FeedbackManager.highlight(message="? Enter your prompt"))
-            wizard_data["prompt"] = prompt
-
-            if name:
-                instructions += f" Name the datasource '{name}'."
-
-            created_resources = create_resources_from_prompt(
-                config,
-                project,
-                prompt,
-                feature="tb_datasource_create",
-                instructions=instructions,
-            )
-            if any(path.suffix == ".datasource" for path in created_resources):
-                click.echo(FeedbackManager.success(message="✓ .datasource created!"))
-            else:
-                click.echo(
-                    FeedbackManager.gray(
-                        message="△ No new datasource file detected. Existing resources may have been updated instead."
-                    )
-                )
-
-            wizard_data["current_step"] = "completed"
             wizard_data["duration_seconds"] = round(time.time() - start_time, 2)
             add_telemetry_event("system_info", **wizard_data)
             return

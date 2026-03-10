@@ -160,8 +160,8 @@ css = """
 }
 
 /* Highlighting Rows */
-.row-highlight-me { background: rgba(96, 165, 250, 0.2); font-weight: 700; }
-.row-highlight-team { background: rgba(96, 165, 250, 0.1); font-weight: 700; }
+.row-highlight-me { background: color-mix(in srgb, var(--color-accent) 20%, transparent); font-weight: 700; }
+.row-highlight-team { background: color-mix(in srgb, var(--color-accent) 10%, transparent); font-weight: 700; }
 
 /* --- TAB LOGIC (RESTORED) --- */
 .leaderboard-card input[type="radio"] { display: none; }
@@ -216,7 +216,7 @@ css = """
     border: none; 
     cursor: pointer;
 }
-.share-print { background-color: #1e3a8a; }
+.share-print { background-color: var(--color-accent, #1e3a8a); }
 
 /* --- PRINT ONLY --- */
 @media print {
@@ -538,17 +538,17 @@ MODULES = [
                     <div style="display:grid; gap:15px;">
                         <div style="background: rgba(59, 130, 246, 0.1); border-left:5px solid #3b82f6; padding:15px; border-radius:4px;">
                             <div style="font-weight:800; color:#3b82f6; font-size:1.1rem;">⚡ ENERGY AWARENESS</div>
-                            <div style="opacity: 0.9;">You traced AI's hidden energy costs from prompt to GPU, uncovering that one AI image costs half a phone charge and 25 prompts evaporate a water bottle.</div>
+                            <div style="opacity: 0.9;">You uncovered AI's hidden energy costs &mdash; from the question you type to the powerful computers that process it. You learned that generating a single AI image can use as much energy as half a phone charge, and that 25 AI requests can evaporate a bottle of water.</div>
                         </div>
 
                         <div style="background: rgba(139, 92, 246, 0.1); border-left:5px solid #8b5cf6; padding:15px; border-radius:4px;">
                             <div style="font-weight:800; color:#8b5cf6; font-size:1.1rem;">✂️ EFFICIENCY OPTIMIZATION</div>
-                            <div style="opacity: 0.9;">You mastered prompt engineering and model selection to cut AI energy waste by 60%+ without sacrificing quality.</div>
+                            <div style="opacity: 0.9;">You learned how to ask smarter questions and choose the right AI model for the task, cutting energy waste by more than 60% without sacrificing quality.</div>
                         </div>
 
                         <div style="background: rgba(16, 185, 129, 0.1); border-left:5px solid #10b981; padding:15px; border-radius:4px;">
                             <div style="font-weight:800; color:#10b981; font-size:1.1rem;">🌍 INFRASTRUCTURE INTELLIGENCE</div>
-                            <div style="opacity: 0.9;">You evaluated data center cooling, renewable energy claims vs. reality, and grid impacts across nations.</div>
+                            <div style="opacity: 0.9;">You examined how data centers are cooled, what's behind renewable energy claims, and how large-scale AI systems impact national power grids.</div>
                         </div>
                     </div>
 
@@ -577,7 +577,7 @@ MODULES = [
                         <div style="font-weight:700; color: var(--color-primary); margin-bottom:10px;">AUTHORIZED FOR:</div>
                         <div style="font-size:1.5rem; font-weight:900; color: var(--color-primary); margin-bottom:5px;">GREEN AI ENGINEER</div>
                         <p style="font-size:0.9rem; color: var(--body-text-color); margin:0;">
-                            This document proves you prioritize Sustainability over Convenience.
+                            This document certifies that you have acquired knowledge in sustainable AI.
                         </p>
                     </div>
                 </div>
@@ -786,8 +786,8 @@ def create_sustainability_upgrade_en_app(theme_primary_hue: str = "indigo"):
                     # These are now placed in the middle for Module 0, or bottom for others
                     with gr.Row():
                         btn_prev = gr.Button("⬅️ Previous", visible=(i > 0))
-                        next_txt = "Next ▶️" if i < len(MODULES) - 1 else "Finish"
-                        btn_next = gr.Button(next_txt, visible=(i < len(MODULES) - 1))
+                        next_txt = "Next ▶️" if i < len(MODULES) - 1 else "PROCEED TO ACTIVITY 9 →"
+                        btn_next = gr.Button(next_txt, visible=True, variant="primary" if i == len(MODULES) - 1 else "secondary")
 
                     # --- MODULE 0 PART 2: LEADERBOARD ---
                     # We render the leaderboard AFTER the buttons
@@ -811,6 +811,14 @@ def create_sustainability_upgrade_en_app(theme_primary_hue: str = "indigo"):
                     def nav_fwd():
                         return gr.update(visible=False), gr.update(visible=True)
                     next_btn.click(nav_fwd, None, [curr_col, next_col])
+
+            # Navigate to next activity from last module
+            last_idx = len(MODULES) - 1
+            _, _, last_next = module_ui_elements[last_idx]
+            last_next.click(
+                fn=None,
+                js="() => { try { window.parent.postMessage('navigate-to-activity-9', '*'); } catch(e) {} }"
+            )
 
         # --- LOAD HANDLER ---
         def handle_load(req: gr.Request):

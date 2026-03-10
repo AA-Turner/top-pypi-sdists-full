@@ -3,7 +3,7 @@ Type annotations for route53globalresolver service client paginators.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_route53globalresolver/paginators/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 

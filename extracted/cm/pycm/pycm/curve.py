@@ -41,8 +41,10 @@ class Curve:
             actual_vector: Union[List[Any], numpy.ndarray],
             probs: Union[List[float], numpy.ndarray],
             classes: List[Any],
-            thresholds: Optional[Union[List[float], numpy.ndarray]]=None,
-            sample_weight: Optional[Union[List[float], numpy.ndarray]]=None) -> None:
+            thresholds: Optional[Union[List[float], numpy.ndarray]] = None,
+            sample_weight: Optional[Union[List[float], numpy.ndarray]] = None,
+            x_axis: str = "FPR",
+            y_axis: str = "TPR") -> None:
         """
         Init method.
 
@@ -51,15 +53,20 @@ class Curve:
         :param classes: ordered labels of classes
         :param thresholds: thresholds list
         :param sample_weight: sample weights list
+        :param x_axis: x axis
+        :param y_axis: y axis
         """
         self.data = {}
         self.thresholds = []
         self.binary = False
-        __curve_validation__(self, actual_vector, probs)
+        self.augment_endpoint = False
+        self.plot_x_axis = x_axis
+        self.plot_y_axis = y_axis
+        __curve_validation__(self, actual_vector, probs, x_axis, y_axis)
         __curve_classes_handler__(self, classes)
         __curve_thresholds_handler__(self, thresholds)
         for c_index, c in enumerate(self.classes):
-            data_temp = {item: [] for item in CURVE_PARAMS}
+            data_temp = {self.plot_x_axis: [], self.plot_y_axis: []}
             for t in self.thresholds:
                 def lambda_fun(x): return threshold_func(
                     x, c_index, self.classes, t)
@@ -68,23 +75,30 @@ class Curve:
                     predict_vector=self.probs,
                     threshold=lambda_fun,
                     sample_weight=sample_weight)
-                for item in CURVE_PARAMS:
-                    data_temp[item].append(getattr(cm, item)[c])
+                if self.plot_x_axis != "thresholds":
+                    data_temp[self.plot_x_axis].append(getattr(cm, self.plot_x_axis)[c])
+                else:
+                    data_temp[self.plot_x_axis].append(t)
+                if self.plot_y_axis != "thresholds":
+                    data_temp[self.plot_y_axis].append(getattr(cm, self.plot_y_axis)[c])
+                else:
+                    data_temp[self.plot_y_axis].append(t)
             self.data[c] = data_temp
         self.auc = {}
-        self.plot_x_axis = "FPR"
-        self.plot_y_axis = "TPR"
         self.title = "{x_axis} per {y_axis}".format(x_axis=self.plot_x_axis, y_axis=self.plot_y_axis)
 
-    def area(self, method: str="trapezoidal") -> Dict[str, float]:
+    def area(self, method: str = "trapezoidal") -> Dict[str, float]:
         """
         Compute Area Under Curve (AUC) using trapezoidal or midpoint numerical integral technique.
 
         :param method: numerical integral technique (trapezoidal or midpoint)
         """
         for c in self.classes:
-            x = self.data[c][self.plot_x_axis]
-            y = self.data[c][self.plot_y_axis]
+            x = numpy.array(self.data[c][self.plot_x_axis], dtype=float)
+            y = numpy.array(self.data[c][self.plot_y_axis], dtype=float)
+            if self.augment_endpoint:
+                x = numpy.concatenate((x, [0.0]))
+                y = numpy.concatenate((y, [0.0]))
             dx = numpy.diff(x)
             if numpy.any(dx < 0) and numpy.any(dx > 0):
                 sort_indices = numpy.argsort(x, kind="mergesort")
@@ -102,12 +116,12 @@ class Curve:
 
     def plot(
             self,
-            classes: Optional[List[Any]]=None,
-            area: bool=False,
-            area_method: str="trapezoidal",
-            colors: Optional[List[str]]=None,
-            markers: Optional[List[str]]=None,
-            linewidth: float=1) -> "matplotlib.pyplot.Axes":
+            classes: Optional[List[Any]] = None,
+            area: bool = False,
+            area_method: str = "trapezoidal",
+            colors: Optional[List[str]] = None,
+            markers: Optional[List[str]] = None,
+            linewidth: float = 1) -> "matplotlib.pyplot.Axes":
         """
         Plot the given curve.
 
@@ -123,6 +137,10 @@ class Curve:
         ax.set_xlabel(self.plot_x_axis)
         ax.set_ylabel(self.plot_y_axis)
         fig.suptitle(self.title)
+        from matplotlib.ticker import FuncFormatter
+        formatter = FuncFormatter(lambda x, _: "{:.3g}".format(x))
+        ax.xaxis.set_major_formatter(formatter)
+        ax.yaxis.set_major_formatter(formatter)
         for c_index, c in enumerate(classes):
             label = "{}".format(c)
             if area:
@@ -168,21 +186,33 @@ class ROCCurve(Curve):
     0.2
     """
 
-    def __init__(self, *args: list, **kwargs: dict) -> None:
+    def __init__(
+            self,
+            actual_vector: Union[List[Any], numpy.ndarray],
+            probs: Union[List[float], numpy.ndarray],
+            classes: List[Any],
+            thresholds: Optional[Union[List[float], numpy.ndarray]] = None,
+            sample_weight: Optional[Union[List[float], numpy.ndarray]] = None) -> None:
         """
         Init method.
 
-        :param args: positional arguments
-        :param kwargs: keyword arguments
+        :param actual_vector: actual vector
+        :param probs: probabilities
+        :param classes: ordered labels of classes
+        :param thresholds: thresholds list
+        :param sample_weight: sample weights list
         """
-        super().__init__(*args, **kwargs)
-        self.plot_x_axis = "FPR"
-        self.plot_y_axis = "TPR"
+        super().__init__(
+            actual_vector=actual_vector,
+            probs=probs,
+            classes=classes,
+            thresholds=thresholds,
+            sample_weight=sample_weight,
+            x_axis="FPR",
+            y_axis="TPR")
+        self.augment_endpoint = True
         self.title = "ROC Curve"
         __curve_data_filter__(self)
-        for c in self.classes:
-            self.data[c][self.plot_x_axis].append(0)
-            self.data[c][self.plot_y_axis].append(0)
 
     def __repr__(self) -> str:
         """Representation method."""
@@ -221,16 +251,30 @@ class PRCurve(Curve):
     0.29166666666666663
     """
 
-    def __init__(self, *args: list, **kwargs: dict) -> None:
+    def __init__(
+            self,
+            actual_vector: Union[List[Any], numpy.ndarray],
+            probs: Union[List[float], numpy.ndarray],
+            classes: List[Any],
+            thresholds: Optional[Union[List[float], numpy.ndarray]] = None,
+            sample_weight: Optional[Union[List[float], numpy.ndarray]] = None) -> None:
         """
         Init method.
 
-        :param args: positional arguments
-        :param kwargs: keyword arguments
+        :param actual_vector: actual vector
+        :param probs: probabilities
+        :param classes: ordered labels of classes
+        :param thresholds: thresholds list
+        :param sample_weight: sample weights list
         """
-        super().__init__(*args, **kwargs)
-        self.plot_x_axis = "TPR"
-        self.plot_y_axis = "PPV"
+        super().__init__(
+            actual_vector=actual_vector,
+            probs=probs,
+            classes=classes,
+            thresholds=thresholds,
+            sample_weight=sample_weight,
+            x_axis="TPR",
+            y_axis="PPV")
         self.title = "PR Curve"
         __curve_data_filter__(self)
 
@@ -239,17 +283,144 @@ class PRCurve(Curve):
         return "pycm.PRCurve(classes: " + str(self.classes) + ")"
 
 
+class PCurve(Curve):
+    """
+    Precision-Curve class.
+
+    >>> import numpy as np
+    >>> crv = PCurve(actual_vector = np.array([1, 1, 2, 2]), probs = np.array([[0.1, 0.9], [0.4, 0.6], [0.35, 0.65], [0.8, 0.2]]), classes=[2, 1])
+    >>> crv.thresholds
+    [0.1, 0.2, 0.35, 0.4, 0.6, 0.65, 0.8, 0.9]
+    >>> auc_trp = crv.area()
+    >>> auc_trp[1]
+    0.5458333333333333
+    >>> auc_trp[2]
+    0.5375000000000001
+    """
+
+    def __init__(
+            self,
+            actual_vector: Union[List[Any], numpy.ndarray],
+            probs: Union[List[float], numpy.ndarray],
+            classes: List[Any],
+            thresholds: Optional[Union[List[float], numpy.ndarray]] = None,
+            sample_weight: Optional[Union[List[float], numpy.ndarray]] = None) -> None:
+        """
+        Init method.
+
+        :param actual_vector: actual vector
+        :param probs: probabilities
+        :param classes: ordered labels of classes
+        :param thresholds: thresholds list
+        :param sample_weight: sample weights list
+        """
+        super().__init__(actual_vector=actual_vector, probs=probs, classes=classes, thresholds=thresholds,
+                         sample_weight=sample_weight, x_axis="thresholds", y_axis="PPV")
+        self.title = "P Curve"
+        __curve_data_filter__(self)
+
+    def __repr__(self) -> str:
+        """Representation method."""
+        return "pycm.PCurve(classes: " + str(self.classes) + ")"
+
+
+class RCurve(Curve):
+    """
+    Recall-Curve class.
+
+    >>> import numpy as np
+    >>> crv = RCurve(actual_vector = np.array([1, 1, 2, 2]), probs = np.array([[0.1, 0.9], [0.4, 0.6], [0.35, 0.65], [0.8, 0.2]]), classes=[2, 1])
+    >>> crv.thresholds
+    [0.1, 0.2, 0.35, 0.4, 0.6, 0.65, 0.8, 0.9]
+    >>> auc_trp = crv.area()
+    >>> auc_trp[1]
+    0.6625000000000001
+    >>> auc_trp[2]
+    0.5125
+    """
+
+    def __init__(
+            self,
+            actual_vector: Union[List[Any], numpy.ndarray],
+            probs: Union[List[float], numpy.ndarray],
+            classes: List[Any],
+            thresholds: Optional[Union[List[float], numpy.ndarray]] = None,
+            sample_weight: Optional[Union[List[float], numpy.ndarray]] = None) -> None:
+        """
+        Init method.
+
+        :param actual_vector: actual vector
+        :param probs: probabilities
+        :param classes: ordered labels of classes
+        :param thresholds: thresholds list
+        :param sample_weight: sample weights list
+        """
+        super().__init__(actual_vector=actual_vector, probs=probs, classes=classes, thresholds=thresholds,
+                         sample_weight=sample_weight, x_axis="thresholds", y_axis="TPR")
+        self.title = "R Curve"
+        __curve_data_filter__(self)
+
+    def __repr__(self) -> str:
+        """Representation method."""
+        return "pycm.RCurve(classes: " + str(self.classes) + ")"
+
+
+class F1Curve(Curve):
+    """
+    F1-Curve class.
+
+    >>> import numpy as np
+    >>> crv = F1Curve(actual_vector = np.array([1, 1, 2, 2]), probs = np.array([[0.1, 0.9], [0.4, 0.6], [0.35, 0.65], [0.8, 0.2]]), classes=[2, 1])
+    >>> crv.thresholds
+    [0.1, 0.2, 0.35, 0.4, 0.6, 0.65, 0.8, 0.9]
+    >>> auc_trp = crv.area()
+    >>> auc_trp[1]
+    0.5633333333333334
+    >>> auc_trp[2]
+    0.5091666666666667
+    """
+
+    def __init__(
+            self,
+            actual_vector: Union[List[Any], numpy.ndarray],
+            probs: Union[List[float], numpy.ndarray],
+            classes: List[Any],
+            thresholds: Optional[Union[List[float], numpy.ndarray]] = None,
+            sample_weight: Optional[Union[List[float], numpy.ndarray]] = None) -> None:
+        """
+        Init method.
+
+        :param actual_vector: actual vector
+        :param probs: probabilities
+        :param classes: ordered labels of classes
+        :param thresholds: thresholds list
+        :param sample_weight: sample weights list
+        """
+        super().__init__(actual_vector=actual_vector, probs=probs, classes=classes, thresholds=thresholds,
+                         sample_weight=sample_weight, x_axis="thresholds", y_axis="F1")
+        self.title = "F1 Curve"
+        __curve_data_filter__(self)
+
+    def __repr__(self) -> str:
+        """Representation method."""
+        return "pycm.F1Curve(classes: " + str(self.classes) + ")"
+
+
 def __curve_validation__(curve: Curve,
                          actual_vector: Union[List[Any],
                                               numpy.ndarray],
                          probs: Union[List[float],
-                                      numpy.ndarray]) -> None:
+                                      numpy.ndarray],
+                         x_axis: str,
+                         y_axis: str) -> None:
     """
     Curve input validation.
 
     :param curve: curve
     :param actual_vector: actual vector
     :param probs: probabilities
+    :param x_axis: x axis
+    :param y_axis: y axis
     """
     for item in [actual_vector, probs]:
         if not isinstance(item, (list, numpy.ndarray)):
@@ -261,6 +432,12 @@ def __curve_validation__(curve: Curve,
             raise pycmCurveError(PROBABILITY_TYPE_ERROR)
         if abs(sum(item) - 1) > 0.001:
             raise pycmCurveError(PROBABILITY_SUM_ERROR)
+    valid_axis_list = set(CLASS_PARAMS) - set(CLASS_BENCHMARK_LIST)
+    valid_axis_list.update({"thresholds"})
+    if x_axis not in valid_axis_list or y_axis not in valid_axis_list:
+        raise pycmCurveError(CURVE_AXIS_ERROR)
+    curve.plot_x_axis = x_axis
+    curve.plot_y_axis = y_axis
     curve.actual_vector = actual_vector
     curve.probs = probs
 
@@ -375,7 +552,11 @@ def __trapezoidal_numeric_integral__(x: Union[List[float], numpy.ndarray],
     :param x: the x coordinate of the curve
     :param y: the y coordinate of the curve
     """
-    area = numpy.trapz(y, x)
+    try:
+        trapezoid_function = numpy.trapezoid
+    except AttributeError:
+        trapezoid_function = numpy.trapz
+    area = trapezoid_function(y, x)
     if isinstance(area, numpy.memmap):
         area = area.dtype.type(area)
     return abs(float(area))

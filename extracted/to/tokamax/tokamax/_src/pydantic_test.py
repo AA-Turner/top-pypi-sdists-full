@@ -18,8 +18,10 @@ from typing import Annotated
 
 from absl.testing import absltest
 from absl.testing import parameterized
+import chex
 import jax
 import jax.numpy as jnp
+import numpy as np
 import pydantic
 from tokamax._src import batching
 from tokamax._src import pydantic as pydantic_lib
@@ -27,12 +29,8 @@ from tokamax._src import utils
 from tokamax._src.ops import op as op_lib
 from tokamax._src.ops.attention import base as attn_base
 from tokamax._src.ops.attention import pallas_triton as pl_attn
-from tokamax._src.ops.normalization import base as norm_base
 from tokamax._src.ops.ragged_dot import base as ragged_dot_base
 from tokamax._src.ops.ragged_dot import pallas_triton as pl_ragged_dot
-from tokamax._src.ops.attention import arg_specs as attn_arg_specs
-from tokamax._src.ops.normalization import arg_specs as norm_arg_specs
-from tokamax._src.ops.ragged_dot import arg_specs as ragged_dot_arg_specs
 
 
 def _eval_shape(spec):
@@ -124,6 +122,7 @@ class PydanticTest(parameterized.TestCase):
   @parameterized.parameters(
       (jax.ShapeDtypeStruct((1, 2), jnp.float32)),
       (jax.ShapeDtypeStruct((3, 4), jnp.int4),),
+      (jax.ShapeDtypeStruct((5, 6), jnp.float8_e4m3fn),),
       (batching.BatchedShapeDtype((6,), jnp.int8, vmap_axes=((0, 5), (1, 7))),),
       (batching.BatchedShapeDtype((8, 9), jnp.int8, vmap_axes=(None,)),),
       (batching.BatchedShapeDtype((10, 11), jnp.int8, vmap_axes=()),),
@@ -133,6 +132,25 @@ class PydanticTest(parameterized.TestCase):
     adapter = pydantic.TypeAdapter(ty)
     self.assertEqual(shape, adapter.validate_python(adapter.dump_python(shape)))
     self.assertEqual(shape, adapter.validate_json(adapter.dump_json(shape)))
+
+  def test_concrete_array_roundtrip(self):
+    class NPArrSubclass(np.ndarray):
+
+      def __new__(cls, input_array):
+        return np.asarray(input_array).view(cls)
+
+    adpt = lambda t: pydantic.TypeAdapter(Annotated[t, pydantic_lib.ShapeDtype])
+    test_data = {
+        adpt(jax.Array): jnp.arange(12).reshape((3, 4)),
+        adpt(np.ndarray): np.arange(12).reshape((3, 4)),
+        adpt(NPArrSubclass): NPArrSubclass(np.arange(12).reshape((3, 4))),
+    }
+    for adapter, arr in test_data.items():
+      with self.subTest(adapter):
+        py_round = adapter.validate_python(adapter.dump_python(arr))
+        json_round = adapter.validate_json(adapter.dump_json(arr))
+        chex.assert_trees_all_equal(arr, py_round)
+        self.assertEqual(jax.ShapeDtypeStruct(arr.shape, arr.dtype), json_round)
 
   def test_abstract_dataclass_roundtrip(self):
     shape = jax.ShapeDtypeStruct((1, 2), dtype=jnp.float32)
@@ -171,25 +189,6 @@ class PydanticTest(parameterized.TestCase):
     op_roundtrip = adapter.validate_json(adapter.dump_json(op))
     object.__setattr__(op_roundtrip, "vjp", None)
     self.assertEqual(op, op_roundtrip)
-
-  @parameterized.named_parameters(
-      ("attention", attn_base.DotProductAttention, attn_arg_specs),
-      ("normalization", norm_base.Normalization, norm_arg_specs),
-      ("ragged_dot", ragged_dot_base.RaggedDot, ragged_dot_arg_specs),
-  )
-  def test_arg_specs_roundtrip(self, op_cls, arg_specs):
-    spec = pydantic_lib.get_arg_spec_model("ArgSpec", op_cls().signature)
-    adapter = pydantic.TypeAdapter(spec)
-    for arg_spec in arg_specs.ARG_SPECS:
-      spec = arg_spec.args
-      with self.subTest(arg_spec.full_name):
-        spec = op_lib._abstractify(_eval_shape(spec))
-        spec_roundtrip = adapter.validate_python(adapter.dump_python(spec))
-        self.assertEqual(spec, spec_roundtrip)
-        spec_roundtrip = adapter.validate_json(adapter.dump_json(spec))
-        if op_cls is ragged_dot_base.RaggedDot:
-          spec["group_sizes"] = spec["group_sizes"].representative_value
-        self.assertEqual(spec, spec_roundtrip)
 
 
 if __name__ == "__main__":

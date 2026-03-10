@@ -20,7 +20,6 @@ from meutils.io.image import image_resize
 from meutils.schemas.hailuo_types import BASE_URL_ABROAD as BASE_URL
 
 from meutils.decorators.retry import retrying
-from meutils.notice.feishu import send_message as _send_message, VIDEOS
 
 from meutils.apis.hailuoai.yy import get_yy
 from meutils.apis.hailuoai.utils import PARAMS as params, get_access_token, upload
@@ -28,12 +27,6 @@ from meutils.apis.hailuoai import openai_images
 
 from meutils.schemas.video_types import SoraVideoRequest, Video
 from meutils.schemas.image_types import ImageRequest
-
-send_message = partial(
-    _send_message,
-    title=__name__,
-    url=VIDEOS
-)
 
 APP_ID = '3001'
 VERSION_CODE = '22203'

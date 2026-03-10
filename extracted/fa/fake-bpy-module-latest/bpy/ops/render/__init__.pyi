@@ -12,7 +12,7 @@ def color_management_white_balance_preset_add(
     name: str | None = "",
     remove_name: bool | None = False,
     remove_active: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add or remove a white balance preset
 
     :param name: Name, Name of the preset, used to make the path name (optional, never None)
@@ -29,7 +29,7 @@ def cycles_integrator_preset_add(
     name: str | None = "",
     remove_name: bool | None = False,
     remove_active: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add an Integrator Preset
 
     :param name: Name, Name of the preset, used to make the path name (optional, never None)
@@ -46,7 +46,7 @@ def cycles_performance_preset_add(
     name: str | None = "",
     remove_name: bool | None = False,
     remove_active: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add an Performance Preset
 
     :param name: Name, Name of the preset, used to make the path name (optional, never None)
@@ -63,7 +63,7 @@ def cycles_sampling_preset_add(
     name: str | None = "",
     remove_name: bool | None = False,
     remove_active: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a Sampling Preset
 
     :param name: Name, Name of the preset, used to make the path name (optional, never None)
@@ -80,7 +80,7 @@ def cycles_viewport_sampling_preset_add(
     name: str | None = "",
     remove_name: bool | None = False,
     remove_active: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a Viewport Sampling Preset
 
     :param name: Name, Name of the preset, used to make the path name (optional, never None)
@@ -97,7 +97,7 @@ def eevee_raytracing_preset_add(
     name: str | None = "",
     remove_name: bool | None = False,
     remove_active: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add or remove an EEVEE ray-tracing preset
 
     :param name: Name, Name of the preset, used to make the path name (optional, never None)
@@ -116,7 +116,7 @@ def opengl(
     sequencer: bool | None = False,
     write_still: bool | None = False,
     view_context: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Take a snapshot of the active viewport
 
     :param animation: Animation, Render files from the animation range of this scene (optional)
@@ -131,7 +131,7 @@ def play_rendered_anim(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Play back rendered frames/movies using an external player
 
     :return: Result of the operator call.
@@ -145,7 +145,7 @@ def preset_add(
     name: str | None = "",
     remove_name: bool | None = False,
     remove_active: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add or remove a Render Preset
 
     :param name: Name, Name of the preset, used to make the path name (optional, never None)
@@ -167,7 +167,7 @@ def render(
     scene: str | None = "",
     frame_start: int | None = 0,
     frame_end: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
 
     :param animation: Animation, Render files from the animation range of this scene (optional)
@@ -188,7 +188,7 @@ def shutter_curve_preset(
     *,
     shape: typing.Literal["SHARP", "SMOOTH", "MAX", "LINE", "ROUND", "ROOT"]
     | None = "SMOOTH",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set shutter curve
 
     :param shape: Mode, (optional)
@@ -199,7 +199,7 @@ def swap_dimensions(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Flip X and Y resolutions
 
     :return: Result of the operator call.
@@ -209,7 +209,7 @@ def view_cancel(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Cancel showing the render view
 
     :return: Result of the operator call.
@@ -219,7 +219,7 @@ def view_show(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Toggle show render view
 
     :return: Result of the operator call.

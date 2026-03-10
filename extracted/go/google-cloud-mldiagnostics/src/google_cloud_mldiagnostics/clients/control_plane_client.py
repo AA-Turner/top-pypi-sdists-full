@@ -48,9 +48,7 @@ class ControlPlaneClient:
     if environment == "prod":
       base_url = "https://hypercomputecluster.googleapis.com/v1alpha"
     else:
-      base_url = (
-          f"https://{environment}-hypercomputecluster.sandbox.googleapis.com/v1alpha"
-      )
+      base_url = f"https://{environment}-hypercomputecluster.sandbox.googleapis.com/v1alpha"
     self.project_id = project_id
     self.location = location
     self.base_url = base_url
@@ -162,7 +160,6 @@ class ControlPlaneClient:
       run_phase: str,
       configs: Optional[Dict[str, Any]] = None,
       tools: Optional[List[Dict[str, Any]]] = None,
-      metrics: Optional[Dict[str, str]] = None,
       artifacts: Optional[Dict[str, str]] = None,
       run_group: Optional[str] = None,
       labels: Optional[Dict[str, str]] = None,
@@ -175,10 +172,9 @@ class ControlPlaneClient:
         name: Name of the run
         display_name: Display name for the run
         run_phase: Phase of the run (ACTIVE, COMPLETE, FAILED)
-        configs: Configuration settings (userConfigs, softwareConfigs,
+        configs: Configuration settings (softwareConfigs,
           hardwareConfigs)
         tools: List of tools to enable (e.g., XProf, NSys)
-        metrics: Metrics for the run (e.g., avgStep, avgLatency)
         artifacts: Artifacts configuration (e.g., gcsPath)
         run_group: Run group grouping identifier
         labels: Custom labels for the run
@@ -195,9 +191,6 @@ class ControlPlaneClient:
 
     if configs:
       payload["configs"] = configs
-
-    if metrics:
-      payload["metrics"] = metrics
 
     if artifacts:
       payload["artifacts"] = artifacts
@@ -280,7 +273,7 @@ class ControlPlaneClient:
       target = metadata.get("target")
       if not target:
         raise ValueError(
-            f"Could not find target in operation metadata for operation"
+            "Could not find target in operation metadata for operation"
             f" {operation.get('name')}"
         )
       mlrun_name = target.split("/")[-1]
@@ -308,11 +301,14 @@ class ControlPlaneClient:
     try:
       response.raise_for_status()
     except requests.exceptions.HTTPError:
-      logger.exception(
-          "Get ML Run request failed: status_code=%s, content=%s",
-          response.status_code,
-          response.text,
-      )
+      if response.status_code == 404:
+        logger.warning("ML run '%s' not found.", name)
+      else:
+        logger.exception(
+            "Get ML Run request failed: status_code=%s, content=%s",
+            response.status_code,
+            response.text,
+        )
       raise
     json_response = response.json()
     logger.debug("Get ML Run response: %s", pprint.pformat(json_response))
@@ -322,14 +318,12 @@ class ControlPlaneClient:
       self,
       name: str,
       run_phase: Optional[str] = None,
-      metrics: Optional[Dict[str, str]] = None,
   ) -> Dict[str, Any]:
     """Update an existing ML run using the Google Cloud API by sending the full resource.
 
     Args:
         name: Name of the run to update
         run_phase: Phase of the run (ACTIVE, COMPLETE, FAILED)
-        metrics: Metrics for the run (e.g., avgStep, avgLatency)
 
     Returns:
         Response from the API as a dictionary
@@ -339,10 +333,6 @@ class ControlPlaneClient:
     """
     payload = self.get_ml_run(name)
     need_update = False
-
-    if metrics is not None and payload.get("metrics") != metrics:
-      payload["metrics"] = metrics
-      need_update = True
 
     if run_phase is not None and payload.get("runPhase") != run_phase:
       payload["runPhase"] = run_phase

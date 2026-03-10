@@ -15,8 +15,8 @@
 """Flash attention with Mosaic TPU."""
 
 import dataclasses
-import functools
-from typing import Any, ClassVar, Final, TypeAlias
+import itertools
+from typing import Any, ClassVar, TypeAlias
 import immutabledict
 import jax
 import jax.experimental.pallas.tpu as pltpu
@@ -26,8 +26,9 @@ import pydantic
 from tokamax._src import jaxtyping
 from tokamax._src.ops import op
 from tokamax._src.ops.attention import base
+from tokamax._src.ops.attention import pallas_mosaic_tpu_common as common
+from tokamax._src.ops.attention import pallas_mosaic_tpu_vjp
 from tokamax._src.ops.experimental.tpu.splash_attention import splash_attention_kernel as splash
-from tokamax._src.ops.experimental.tpu.splash_attention import splash_attention_mask as mask_lib
 from typing_extensions import override
 
 
@@ -36,34 +37,22 @@ Residuals = base.Residuals
 PagingInfo = base.PagingInfo
 Key: TypeAlias = immutabledict.immutabledict[str, Any]
 
-_NUM_LANES: Final[int] = 128
-
 
 @pydantic.dataclasses.dataclass(frozen=True, kw_only=True, slots=True)
 class Config:
-  block_q: pydantic.conint(multiple_of=_NUM_LANES, gt=0)
-  block_kv: pydantic.conint(multiple_of=_NUM_LANES, gt=0)
-  block_kv_compute: pydantic.conint(multiple_of=_NUM_LANES, gt=0)
+  block_q: pydantic.conint(multiple_of=common.NUM_LANES, gt=0)
+  block_kv: pydantic.conint(multiple_of=common.NUM_LANES, gt=0)
+  block_kv_compute: pydantic.conint(multiple_of=common.NUM_LANES, gt=0)
+  q_layout: splash.QKVLayout
+  k_layout: splash.QKVLayout
+  v_layout: splash.QKVLayout
+  use_experimental_scheduler: bool
+  use_base2_exp: bool = True
 
   def __post_init__(self):
     if self.block_kv % self.block_kv_compute:
       raise ValueError(
           f"{self.block_kv=} must be a multiple of {self.block_kv_compute=}."
-      )
-
-
-@pydantic.dataclasses.dataclass(frozen=True, kw_only=True, slots=True)
-class ConfigVjp:
-  block_q_dkv: pydantic.conint(multiple_of=_NUM_LANES, gt=0) = 128
-  block_kv_dkv: pydantic.conint(multiple_of=_NUM_LANES, gt=0) = 128
-  block_kv_dkv_compute: pydantic.conint(multiple_of=_NUM_LANES, gt=0) = 128
-
-  def __post_init__(self):
-    if self.block_kv_dkv % self.block_kv_dkv_compute:
-      block_kv_dkv = self.block_kv_dkv
-      block_kv_dkv_compute = self.block_kv_dkv_compute
-      raise ValueError(
-          f"{block_kv_dkv=} must be a multiple of {block_kv_dkv_compute=}."
       )
 
 
@@ -73,7 +62,14 @@ class PallasMosaicTpuFlashAttention(base.DotProductAttention[Config, Key]):
 
   config_cls: ClassVar[type[Config]] = Config
   supports_symbolic_shapes: ClassVar[bool] = False
-  use_base2: bool = True
+
+  def __post_init__(self):
+    if self.vjp is None:
+      object.__setattr__(
+          self,
+          "vjp",
+          pallas_mosaic_tpu_vjp.PallasMosaicTpuFlashAttentionVjp(),
+      )
 
   @jaxtyping.jaxtyped
   @override
@@ -99,34 +95,17 @@ class PallasMosaicTpuFlashAttention(base.DotProductAttention[Config, Key]):
       config: Config,
   ) -> tuple[Float[Array, "*B T H d"], Residuals | None]:
     """Performs attention, optionally returning softmax residuals."""
-
-    supported_dtypes = (jnp.bfloat16, jnp.float32)
-    if any(x.dtype not in supported_dtypes for x in (q, k, v)):
-      raise NotImplementedError(
-          "Only bfloat16 and float32 inputs are supported."
-      )
-
-    # TODO: support a learnable bias.
-    if bias is not None:
-      raise NotImplementedError("Bias is not supported.")
-    if logits_dtype != jnp.float32:
-      raise NotImplementedError("`logits_dtype` must be float32.")
-    if dropout_mask is not None:
-      raise NotImplementedError("dropout is not supported.")
-    if paging_info is not None:
-      raise NotImplementedError("Paged attention not supported.")
-    if dropout_rate != 0.0:
-      raise NotImplementedError("Dropout is not supported.")
-
-    # TODO: support sequence subsets.
-    if mask.q_start is not None:
-      raise NotImplementedError("mask.q_start is not supported.")
-    if mask.q_end is not None:
-      raise NotImplementedError("mask.q_end is not supported.")
-    if mask.k_start is not None:
-      raise NotImplementedError("mask.k_start is not supported.")
-    if mask.k_end is not None:
-      raise NotImplementedError("mask.k_end is not supported.")
+    common.check_inputs_support(
+        q,
+        k,
+        v,
+        bias=bias,
+        logits_dtype=logits_dtype,
+        dropout_mask=dropout_mask,
+        dropout_rate=dropout_rate,
+        paging_info=paging_info,
+        mask=mask,
+    )
 
     q *= logits_scale
 
@@ -140,88 +119,104 @@ class PallasMosaicTpuFlashAttention(base.DotProductAttention[Config, Key]):
     # TODO: The SplashAttention kernel expects the sequence
     # dimension to be after the num_heads dimension. This requires transposing
     # the inputs, which introduces overhead.
-    axis_swapper = lambda x: jnp.swapaxes(x, 1, 2)
-    q, k, v = map(axis_swapper, (q, k, v))
+    q, k, v = map(lambda x: jnp.swapaxes(x, 1, 2), (q, k, v))
 
-    is_mqa = num_q_heads != num_kv_heads
+    is_mqa = num_kv_heads == 1
     if num_q_heads % num_kv_heads:
       raise ValueError(f"{num_q_heads=} must be divisible by {num_kv_heads=}")
-
-    if is_mqa and num_kv_heads != 1:
-      raise NotImplementedError("Grouped query attention is not implemented.")
+    splash_config = dataclasses.replace(
+        splash.SplashConfig.get_default(),
+        attn_logits_soft_cap=logits_soft_cap,
+        **dataclasses.asdict(config),
+    )
+    splash_fn = common.build_splash_kernel(
+        mask=mask,
+        splash_config=splash_config,
+        q_seq_len=q_seq_len,
+        kv_seq_len=kv_seq_len,
+        is_mqa=is_mqa,
+        save_residuals=return_residuals,
+    )
     if is_mqa:
       k = jnp.squeeze(k, axis=1)
       v = jnp.squeeze(v, axis=1)
 
-    config_splash = splash.SplashConfig(
-        use_base2_exp=self.use_base2,
-        attn_logits_soft_cap=logits_soft_cap,
-        q_layout=splash.QKVLayout.HEAD_DIM_MINOR,
-        k_layout=splash.QKVLayout.HEAD_DIM_MINOR,
-        v_layout=splash.QKVLayout.HEAD_DIM_MINOR,
-        **dataclasses.asdict(config),
-        **dataclasses.asdict(ConfigVjp()),
-    )
+    splash_output = jax.vmap(splash_fn)(q, k, v)
 
-    # TODO: support multiple shards.
-    shard_count = 1
-
-    mask_shape = (q_seq_len, kv_seq_len)
-
-    if mask.bool_mask is not None:
-      if mask.is_causal:
-        raise NotImplementedError(
-            "Causal attention with a boolean mask is not supported."
-        )
-      splash_mask = as_4d(mask.bool_mask)
-      mask_batch_size, num_mask_heads, _, _ = splash_mask.shape
-      # TODO: Support boolean masks differing across heads.
-      if num_mask_heads != 1:
-        raise NotImplementedError(
-            "Only num_mask_heads=1 is supported with a boolean mask."
-        )
-      if mask_batch_size != 1:
-        raise NotImplementedError("Only unbatched boolean masks are supported.")
-      splash_mask = jnp.squeeze(splash_mask, axis=(0, 1))  # (seq_q, seq_kv)
-    elif mask.is_causal:
-      splash_mask = mask_lib.CausalMask(
-          shape=mask_shape, shard_count=shard_count
+    if return_residuals:
+      out, stats = splash_output
+      residuals = (stats["max_logits"], stats["logsumexp"])
+      # Restore the original batch dimensions (*B) and head/sequence structure
+      # (H, T).
+      # Input q is [*B, T, H, D]. Target residuals are [*B, H, T].
+      # Input q is [T, H, D]. Target residuals are [H, T].
+      res_target_shape = (
+          *orig_q_shape[:-3],
+          orig_q_shape[-2],
+          orig_q_shape[-3],
       )
+      residuals = jax.tree.map(lambda x: x.reshape(res_target_shape), residuals)
     else:
-      splash_mask = mask_lib.FullMask(mask_shape)
-
-    is_dynamic_mask = isinstance(splash_mask, jax.Array)
-    make_splash_attention = functools.partial(
-        splash._make_splash_attention, q_seq_shards=shard_count  # pylint: disable=protected-access
-    )
-    splash_maker = (
-        splash._make_dynamic_splash_attention  # pylint: disable=protected-access
-        if is_dynamic_mask
-        else make_splash_attention
-    )
-    splash_fn = splash_maker(
-        mask=splash_mask,
-        config=config_splash,
-        is_mqa=is_mqa,
-        save_residuals=return_residuals,
-        mask_value=float(jnp.finfo(jnp.float32).min),
-        downcast_smem_data=False,
-    )
-
-    out = jax.vmap(splash_fn)(q, k, v)
-    out = axis_swapper(out)
+      out = splash_output
+      residuals = None
+    out = jnp.swapaxes(out, 1, 2)
+    # Reshape back to original shape.
     out = out.reshape(*orig_q_shape[:-1], out.shape[-1])[..., :head_dim_out]
-    return out, None
+    return out, residuals
 
   @override
   def _get_heuristics_config(self, ba: op.BoundArguments):
     # TODO: Select better parameters based on a heuristic.
-    return Config(block_q=128, block_kv=128, block_kv_compute=128)
+    return Config(
+        block_q=128,
+        block_kv=128,
+        block_kv_compute=128,
+        q_layout=splash.QKVLayout.HEAD_DIM_MINOR,
+        k_layout=splash.QKVLayout.HEAD_DIM_MINOR,
+        v_layout=splash.QKVLayout.HEAD_DIM_MINOR,
+        use_experimental_scheduler=True,
+        use_base2_exp=True,
+    )
 
   @override
   def _get_autotuning_configs(self, ba: op.BoundArguments) -> set[Config]:
-    # TODO: Add support for autotuning.
-    return set()
+    q, k = ba.arguments['q'], ba.arguments['k']
+    q_seq_len, kv_seq_len = q.shape[-3], k.shape[-3]
+    # TODO: Add 8192 once autotuning bugs are fixed.
+    tiles = [128, 256, 512, 1024, 2048, 4096]
+    layouts = [splash.QKVLayout.HEAD_DIM_MINOR, splash.QKVLayout.SEQ_MINOR]
+    schedulers = [True, False]
+    config = set()
+    for bq, bkv, bkv_c, ql, kl, vl, sched in itertools.product(
+        tiles,
+        tiles,
+        tiles,
+        layouts,
+        layouts,
+        layouts,
+        schedulers,
+    ):
+      # TODO: For sparse masks smaller block sizes could give
+      # better performance.
+      if q_seq_len >= 1024 and bq < 1024:
+        continue
+      if kv_seq_len >= 1024 and bkv < 1024:
+        continue
+      if bkv_c > 1024:
+        continue
+      if bkv % bkv_c == 0 and bq <= q_seq_len and bkv <= kv_seq_len:
+        config.add(
+            Config(
+                block_q=bq,
+                block_kv=bkv,
+                block_kv_compute=bkv_c,
+                q_layout=ql,
+                k_layout=kl,
+                v_layout=vl,
+                use_experimental_scheduler=sched,
+            )
+        )
+    return config
 
   @override
   def supported_on(self, device: jax.Device) -> bool:

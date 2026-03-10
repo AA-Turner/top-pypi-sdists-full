@@ -4424,17 +4424,30 @@ class RestApiClient(BaseApiClient):
             return results["views"]
         return []
 
+    def _post_view(self, endpoint, project_id, view):
+        payload = view.to_upsert_payload(project_id)
+        response = self.post_from_endpoint(endpoint, payload)
+        return response.json()
+
     def upsert_view(self, project_id, view):
         """
-        Create or update a view.
+        Create or update a project-level view.
 
         Args:
             project_id: The project ID.
             view: A View dataclass instance.
         """
-        payload = view.to_upsert_payload(project_id)
-        response = self.post_from_endpoint("write/views/upsert", payload)
-        return response.json()
+        return self._post_view("write/views/upsert", project_id, view)
+
+    def upsert_chart_template_view(self, project_id, view):
+        """
+        Create or update an experiment-level view (chart_templates table).
+
+        Args:
+            project_id: The project ID.
+            view: A View dataclass instance with experiment_key set.
+        """
+        return self._post_view("write/chart-templates/upsert", project_id, view)
 
     # General methods:
 

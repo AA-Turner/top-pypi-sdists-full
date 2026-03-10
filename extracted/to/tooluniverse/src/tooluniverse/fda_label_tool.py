@@ -90,19 +90,15 @@ class FDALabelTool(BaseTool):
         except Exception as e:
             return {"error": f"Unexpected error: {e}"}
 
-    def _search(self, arguments: dict) -> Any:
-        drug_name = arguments.get("drug_name")
-        indication = arguments.get("indication")
-        limit = min(int(arguments.get("limit", 5)), 20)
+    def _query_drug_fields(self, drug_name: str, limit: int) -> list[dict] | None:
+        """Search generic_name then brand_name with quoted then unquoted fallback.
 
-        if not drug_name and not indication:
-            return {"error": "Provide drug_name or indication"}
-
-        if drug_name:
-            # Feature-66B-004: "+" in openFDA means AND — both fields can't match simultaneously.
-            # Try generic_name first; fall back to brand_name if no results.
-            for field in ("openfda.generic_name", "openfda.brand_name"):
-                q = f'{field}:"{drug_name}"'
+        Returns extracted label results on first match, or None if no results found.
+        Quoted search finds exact matches; unquoted fallback catches salt forms
+        (e.g., "tofacitinib" matching "TOFACITINIB CITRATE").
+        """
+        for field in ("openfda.generic_name", "openfda.brand_name"):
+            for q in (f'{field}:"{drug_name}"', f"{field}:{drug_name}"):
                 resp = requests.get(
                     FDA_LABEL_URL,
                     params={"search": q, "limit": limit},
@@ -114,55 +110,51 @@ class FDALabelTool(BaseTool):
                 results = resp.json().get("results", [])
                 if results:
                     return [_extract_label(r) for r in results]
+        return None
+
+    def _search(self, arguments: dict) -> Any:
+        drug_name = arguments.get("drug_name")
+        indication = arguments.get("indication")
+        limit = min(int(arguments.get("limit", 5)), 20)
+
+        if not drug_name and not indication:
+            return {"error": "Provide drug_name or indication"}
+
+        if drug_name:
+            return self._query_drug_fields(drug_name, limit) or []
+
+        q = f'indications_and_usage:"{indication}"'
+        resp = requests.get(
+            FDA_LABEL_URL,
+            params={"search": q, "limit": limit},
+            timeout=20,
+        )
+        if resp.status_code == 404:
             return []
-        else:
-            q = f'indications_and_usage:"{indication}"'
-            resp = requests.get(
-                FDA_LABEL_URL,
-                params={"search": q, "limit": limit},
-                timeout=20,
-            )
-            if resp.status_code == 404:
-                return []
-            resp.raise_for_status()
-            data = resp.json()
-            results = data.get("results", [])
-            return [_extract_label(r) for r in results]
+        resp.raise_for_status()
+        results = resp.json().get("results", [])
+        return [_extract_label(r) for r in results]
 
     def _get_label(self, arguments: dict) -> Any:
         drug_name = arguments.get("drug_name", "")
         if not drug_name:
             return {"error": "drug_name is required"}
 
+        results = self._query_drug_fields(drug_name, limit=10)
+        if not results:
+            return {"error": f"No FDA label found for '{drug_name}'"}
+
         dn_upper = drug_name.upper()
 
-        # Feature-66B-004: "+" in openFDA means AND — try generic_name then brand_name.
-        # Feature-67B-005B: fetch multiple results and prefer exact brand/generic name match
-        # (e.g., "OPDIVO" should match canonical OPDIVO IV, not newer OPDIVO QVANTIG).
-        for field in ("openfda.generic_name", "openfda.brand_name"):
-            q = f'{field}:"{drug_name}"'
-            resp = requests.get(
-                FDA_LABEL_URL,
-                params={"search": q, "limit": 10},
-                timeout=20,
-            )
-            if resp.status_code == 404:
-                continue
-            resp.raise_for_status()
-            results = resp.json().get("results", [])
-            if results:
-                extracted = [_extract_label(r) for r in results]
+        def _match_score(r):
+            brand = (r.get("brand_name") or "").upper()
+            generic = (r.get("generic_name") or "").upper()
+            if brand == dn_upper or generic == dn_upper:
+                return 0
+            return len(brand) or 999
 
-                def _match_score(r):
-                    brand = (r.get("brand_name") or "").upper()
-                    generic = (r.get("generic_name") or "").upper()
-                    if brand == dn_upper or generic == dn_upper:
-                        return 0
-                    return len(brand) or 999
-
-                extracted.sort(key=_match_score)
-                return extracted[0]
-        return {"error": f"No FDA label found for '{drug_name}'"}
+        results.sort(key=_match_score)
+        return results[0]
 
     def _list_classes(self, arguments: dict) -> Any:
         limit = min(int(arguments.get("limit", 20)), 100)

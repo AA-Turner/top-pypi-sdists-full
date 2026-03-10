@@ -98,8 +98,6 @@ class KafkaConsumerGroup(Asset):
     INPUT_TO_SPARK_JOBS: ClassVar[Any] = None
     OUTPUT_FROM_SPARK_JOBS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "KafkaConsumerGroup"
-
     kafka_consumer_group_topic_consumption_properties: Union[
         List[Dict[str, Any]], None, UnsetType
     ] = UNSET
@@ -544,6 +542,9 @@ def _kafka_consumer_group_to_nested(
         is_incomplete=kafka_consumer_group.is_incomplete,
         provenance_type=kafka_consumer_group.provenance_type,
         home_id=kafka_consumer_group.home_id,
+        depth=kafka_consumer_group.depth,
+        immediate_upstream=kafka_consumer_group.immediate_upstream,
+        immediate_downstream=kafka_consumer_group.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -579,7 +580,6 @@ def _kafka_consumer_group_from_nested(
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -588,6 +588,9 @@ def _kafka_consumer_group_from_nested(
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_kafka_consumer_group_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

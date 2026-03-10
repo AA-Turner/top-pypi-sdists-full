@@ -234,8 +234,6 @@ class StarburstDatasetColumn(Asset):
     OUTPUT_FROM_SPARK_JOBS: ClassVar[Any] = None
     STARBURST_DATASET: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "StarburstDatasetColumn"
-
     starburst_sql_column_qualified_name: Union[str, None, UnsetType] = UNSET
     """Qualified name of the corresponding SQL Column. Enables cross-stream lookup between the Data Product perspective and the SQL perspective of the same underlying column."""
 
@@ -1553,6 +1551,9 @@ def _starburst_dataset_column_to_nested(
         is_incomplete=starburst_dataset_column.is_incomplete,
         provenance_type=starburst_dataset_column.provenance_type,
         home_id=starburst_dataset_column.home_id,
+        depth=starburst_dataset_column.depth,
+        immediate_upstream=starburst_dataset_column.immediate_upstream,
+        immediate_downstream=starburst_dataset_column.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -1588,7 +1589,6 @@ def _starburst_dataset_column_from_nested(
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -1597,6 +1597,9 @@ def _starburst_dataset_column_from_nested(
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_starburst_dataset_column_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

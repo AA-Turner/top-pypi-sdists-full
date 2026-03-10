@@ -103,8 +103,6 @@ class CognosDashboard(Asset):
     INPUT_TO_SPARK_JOBS: ClassVar[Any] = None
     OUTPUT_FROM_SPARK_JOBS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "CognosDashboard"
-
     cognos_id: Union[str, None, UnsetType] = UNSET
     """ID of the asset in Cognos."""
 
@@ -550,6 +548,9 @@ def _cognos_dashboard_to_nested(
         is_incomplete=cognos_dashboard.is_incomplete,
         provenance_type=cognos_dashboard.provenance_type,
         home_id=cognos_dashboard.home_id,
+        depth=cognos_dashboard.depth,
+        immediate_upstream=cognos_dashboard.immediate_upstream,
+        immediate_downstream=cognos_dashboard.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -583,7 +584,6 @@ def _cognos_dashboard_from_nested(nested: CognosDashboardNested) -> CognosDashbo
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -592,6 +592,9 @@ def _cognos_dashboard_from_nested(nested: CognosDashboardNested) -> CognosDashbo
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_cognos_dashboard_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

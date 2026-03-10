@@ -260,8 +260,6 @@ class ProcessExecution(Referenceable):
     SCHEMA_REGISTRY_SUBJECTS: ClassVar[Any] = None
     SODA_CHECKS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "ProcessExecution"
-
     name: Union[str, None, UnsetType] = UNSET
     """Name of this asset. Fallback for display purposes, if displayName is empty."""
 
@@ -2381,6 +2379,9 @@ def _process_execution_to_nested(
         is_incomplete=process_execution.is_incomplete,
         provenance_type=process_execution.provenance_type,
         home_id=process_execution.home_id,
+        depth=process_execution.depth,
+        immediate_upstream=process_execution.immediate_upstream,
+        immediate_downstream=process_execution.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -2414,7 +2415,6 @@ def _process_execution_from_nested(nested: ProcessExecutionNested) -> ProcessExe
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -2423,6 +2423,9 @@ def _process_execution_from_nested(nested: ProcessExecutionNested) -> ProcessExe
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_process_execution_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

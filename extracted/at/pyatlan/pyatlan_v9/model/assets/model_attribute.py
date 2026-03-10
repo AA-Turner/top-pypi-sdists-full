@@ -123,8 +123,6 @@ class ModelAttribute(Asset):
     INPUT_TO_SPARK_JOBS: ClassVar[Any] = None
     OUTPUT_FROM_SPARK_JOBS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "ModelAttribute"
-
     model_attribute_is_nullable: Union[bool, None, UnsetType] = UNSET
     """When true, the values in this attribute can be null."""
 
@@ -716,6 +714,9 @@ def _model_attribute_to_nested(model_attribute: ModelAttribute) -> ModelAttribut
         is_incomplete=model_attribute.is_incomplete,
         provenance_type=model_attribute.provenance_type,
         home_id=model_attribute.home_id,
+        depth=model_attribute.depth,
+        immediate_upstream=model_attribute.immediate_upstream,
+        immediate_downstream=model_attribute.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -749,7 +750,6 @@ def _model_attribute_from_nested(nested: ModelAttributeNested) -> ModelAttribute
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -758,6 +758,9 @@ def _model_attribute_from_nested(nested: ModelAttributeNested) -> ModelAttribute
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_model_attribute_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

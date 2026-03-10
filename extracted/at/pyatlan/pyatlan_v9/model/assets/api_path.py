@@ -109,8 +109,6 @@ class APIPath(Asset):
     INPUT_TO_SPARK_JOBS: ClassVar[Any] = None
     OUTPUT_FROM_SPARK_JOBS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "APIPath"
-
     api_path_summary: Union[str, None, UnsetType] = UNSET
     """Descriptive summary intended to apply to all operations in this path."""
 
@@ -637,6 +635,9 @@ def _api_path_to_nested(api_path: APIPath) -> APIPathNested:
         is_incomplete=api_path.is_incomplete,
         provenance_type=api_path.provenance_type,
         home_id=api_path.home_id,
+        depth=api_path.depth,
+        immediate_upstream=api_path.immediate_upstream,
+        immediate_downstream=api_path.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -666,7 +667,6 @@ def _api_path_from_nested(nested: APIPathNested) -> APIPath:
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -675,6 +675,9 @@ def _api_path_from_nested(nested: APIPathNested) -> APIPath:
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_api_path_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

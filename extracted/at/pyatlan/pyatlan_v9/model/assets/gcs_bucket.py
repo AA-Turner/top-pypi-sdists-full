@@ -116,8 +116,6 @@ class GCSBucket(Asset):
     INPUT_TO_SPARK_JOBS: ClassVar[Any] = None
     OUTPUT_FROM_SPARK_JOBS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "GCSBucket"
-
     gcs_object_count: Union[int, None, UnsetType] = UNSET
     """Number of objects within the bucket."""
 
@@ -699,6 +697,9 @@ def _gcs_bucket_to_nested(gcs_bucket: GCSBucket) -> GCSBucketNested:
         is_incomplete=gcs_bucket.is_incomplete,
         provenance_type=gcs_bucket.provenance_type,
         home_id=gcs_bucket.home_id,
+        depth=gcs_bucket.depth,
+        immediate_upstream=gcs_bucket.immediate_upstream,
+        immediate_downstream=gcs_bucket.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -730,7 +731,6 @@ def _gcs_bucket_from_nested(nested: GCSBucketNested) -> GCSBucket:
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -739,6 +739,9 @@ def _gcs_bucket_from_nested(nested: GCSBucketNested) -> GCSBucket:
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_gcs_bucket_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

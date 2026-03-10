@@ -56,9 +56,13 @@ def alembic_export(
     use_instancing: bool | None = True,
     global_scale: float | None = 1.0,
     triangulate: bool | None = False,
-    quad_method: Literal[bpy.stub_internal.rna_enums.ModifierTriangulateQuadMethodItems]
+    quad_method: typing.Literal[
+        bpy.stub_internal.rna_enums.ModifierTriangulateQuadMethodItems
+    ]
     | None = "SHORTEST_DIAGONAL",
-    ngon_method: Literal[bpy.stub_internal.rna_enums.ModifierTriangulateNgonMethodItems]
+    ngon_method: typing.Literal[
+        bpy.stub_internal.rna_enums.ModifierTriangulateNgonMethodItems
+    ]
     | None = "BEAUTY",
     export_hair: bool | None = True,
     export_particles: bool | None = True,
@@ -66,7 +70,7 @@ def alembic_export(
     as_background_job: bool | None = False,
     evaluation_mode: typing.Literal["RENDER", "VIEWPORT"] | None = "RENDER",
     init_scene_frame_range: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Export current scene in an Alembic archive
 
         :param filepath: File Path, Path to file (optional, never None)
@@ -180,7 +184,7 @@ def alembic_import(
     always_add_cache_reader: bool | None = False,
     is_sequence: bool | None = False,
     as_background_job: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Load an Alembic archive
 
         :param filepath: File Path, Path to file (optional, never None)
@@ -270,7 +274,7 @@ def append(
     instance_object_data: bool | None = True,
     set_fake: bool | None = False,
     use_recursive: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Append from a Library .blend file
 
         :param filepath: File Path, Path to file (optional, never None)
@@ -351,7 +355,7 @@ def batch_rename(
     | None = "OBJECT",
     data_source: typing.Literal["SELECT", "ALL"] | None = "SELECT",
     actions=None,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Rename multiple items at once
 
     :param data_type: Type, Type of data to rename (optional)
@@ -364,7 +368,7 @@ def blend_strings_utf8_validate(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Check and fix all strings in current .blend file to be valid UTF-8 Unicode (needed for some old, 2.4x area files)
 
     :return: Result of the operator call.
@@ -376,7 +380,7 @@ def call_asset_shelf_popover(
     /,
     *,
     name: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Open a predefined asset shelf in a popup
 
     :param name: Asset Shelf Name, Identifier of the asset shelf to display (optional, never None)
@@ -389,7 +393,7 @@ def call_menu(
     /,
     *,
     name: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Open a predefined menu
 
     :param name: Name, Name of the menu (optional, never None)
@@ -402,7 +406,7 @@ def call_menu_pie(
     /,
     *,
     name: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Open a predefined pie menu
 
     :param name: Name, Name of the pie menu (optional, never None)
@@ -416,7 +420,7 @@ def call_panel(
     *,
     name: str | None = "",
     keep_open: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Open a predefined panel
 
     :param name: Name, Name of the menu (optional, never None)
@@ -430,7 +434,7 @@ def clear_recent_files(
     /,
     *,
     remove: typing.Literal["ALL", "MISSING"] | None = "ALL",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Clear the recent files list
 
     :param remove: Remove, (optional)
@@ -441,7 +445,7 @@ def collection_export_all(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Invoke all configured exporters for all collections
 
     :return: Result of the operator call.
@@ -455,7 +459,7 @@ def context_collection_boolean_set(
     data_path_iter: str | None = "",
     data_path_item: str | None = "",
     type: typing.Literal["TOGGLE", "ENABLE", "DISABLE"] | None = "TOGGLE",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set boolean values for a collection of items
 
     :param data_path_iter: data_path_iter, The data path relative to the context, must point to an iterable (optional, never None)
@@ -471,7 +475,7 @@ def context_cycle_array(
     *,
     data_path: str | None = "",
     reverse: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set a context array value (useful for cycling the active mesh edit mode)
 
     :param data_path: Context Attributes, Context data-path (expanded using visible windows in the current .blend file) (optional, never None)
@@ -487,7 +491,7 @@ def context_cycle_enum(
     data_path: str | None = "",
     reverse: bool | None = False,
     wrap: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Toggle a context value
 
     :param data_path: Context Attributes, Context data-path (expanded using visible windows in the current .blend file) (optional, never None)
@@ -504,7 +508,7 @@ def context_cycle_int(
     data_path: str | None = "",
     reverse: bool | None = False,
     wrap: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set a context value (useful for cycling active material, shape keys, groups, etc.)
 
     :param data_path: Context Attributes, Context data-path (expanded using visible windows in the current .blend file) (optional, never None)
@@ -519,7 +523,7 @@ def context_menu_enum(
     /,
     *,
     data_path: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
 
     :param data_path: Context Attributes, Context data-path (expanded using visible windows in the current .blend file) (optional, never None)
@@ -537,7 +541,7 @@ def context_modal_mouse(
     input_scale: float | None = 0.01,
     invert: bool | None = False,
     initial_x: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Adjust arbitrary values with mouse input
 
     :param data_path_iter: data_path_iter, The data path relative to the context, must point to an iterable (optional, never None)
@@ -555,7 +559,7 @@ def context_pie_enum(
     /,
     *,
     data_path: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
 
     :param data_path: Context Attributes, Context data-path (expanded using visible windows in the current .blend file) (optional, never None)
@@ -569,7 +573,7 @@ def context_scale_float(
     *,
     data_path: str | None = "",
     value: float | None = 1.0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Scale a float context value
 
     :param data_path: Context Attributes, Context data-path (expanded using visible windows in the current .blend file) (optional, never None)
@@ -585,7 +589,7 @@ def context_scale_int(
     data_path: str | None = "",
     value: float | None = 1.0,
     always_step: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Scale an int context value
 
     :param data_path: Context Attributes, Context data-path (expanded using visible windows in the current .blend file) (optional, never None)
@@ -601,7 +605,7 @@ def context_set_boolean(
     *,
     data_path: str | None = "",
     value: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set a context value
 
     :param data_path: Context Attributes, Context data-path (expanded using visible windows in the current .blend file) (optional, never None)
@@ -616,7 +620,7 @@ def context_set_enum(
     *,
     data_path: str | None = "",
     value: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set a context value
 
     :param data_path: Context Attributes, Context data-path (expanded using visible windows in the current .blend file) (optional, never None)
@@ -632,7 +636,7 @@ def context_set_float(
     data_path: str | None = "",
     value: float | None = 0.0,
     relative: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set a context value
 
     :param data_path: Context Attributes, Context data-path (expanded using visible windows in the current .blend file) (optional, never None)
@@ -648,7 +652,7 @@ def context_set_id(
     *,
     data_path: str | None = "",
     value: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set a context value to an ID data-block
 
     :param data_path: Context Attributes, Context data-path (expanded using visible windows in the current .blend file) (optional, never None)
@@ -664,7 +668,7 @@ def context_set_int(
     data_path: str | None = "",
     value: int | None = 0,
     relative: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set a context value
 
     :param data_path: Context Attributes, Context data-path (expanded using visible windows in the current .blend file) (optional, never None)
@@ -680,7 +684,7 @@ def context_set_string(
     *,
     data_path: str | None = "",
     value: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set a context value
 
     :param data_path: Context Attributes, Context data-path (expanded using visible windows in the current .blend file) (optional, never None)
@@ -695,7 +699,7 @@ def context_set_value(
     *,
     data_path: str | None = "",
     value: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set a context value
 
     :param data_path: Context Attributes, Context data-path (expanded using visible windows in the current .blend file) (optional, never None)
@@ -710,7 +714,7 @@ def context_toggle(
     *,
     data_path: str | None = "",
     module: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Toggle a context value
 
     :param data_path: Context Attributes, Context data-path (expanded using visible windows in the current .blend file) (optional, never None)
@@ -726,7 +730,7 @@ def context_toggle_enum(
     data_path: str | None = "",
     value_1: str | None = "",
     value_2: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Toggle a context value
 
     :param data_path: Context Attributes, Context data-path (expanded using visible windows in the current .blend file) (optional, never None)
@@ -741,7 +745,7 @@ def debug_menu(
     /,
     *,
     debug_value: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Open a popup to set the debug level
 
     :param debug_value: Debug Value, (in [-32768, 32767], optional)
@@ -754,7 +758,7 @@ def doc_view(
     /,
     *,
     doc_id: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Open online reference docs in a web browser
 
     :param doc_id: Doc ID, (optional, never None)
@@ -767,7 +771,7 @@ def doc_view_manual(
     /,
     *,
     doc_id: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Load online manual
 
     :param doc_id: Doc ID, (optional, never None)
@@ -778,7 +782,7 @@ def doc_view_manual_ui_context(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """View a context based online manual in a web browser
 
     :return: Result of the operator call.
@@ -790,7 +794,7 @@ def drop_blend_file(
     /,
     *,
     filepath: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
 
     :param filepath: filepath, (optional, never None)
@@ -804,7 +808,7 @@ def drop_import_file(
     *,
     directory: str | None = "",
     files=None,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Operator that allows file handlers to receive file drops
 
     :param directory: Directory, Directory of the file (optional, never None)
@@ -856,7 +860,7 @@ def fbx_import(
     use_anim: bool | None = True,
     anim_offset: float | None = 1.0,
     filter_glob: str | None = "*.fbx",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Import FBX file into current scene
 
         :param filepath: File Path, Path to file (optional, never None)
@@ -959,7 +963,7 @@ def grease_pencil_export_pdf(
     frame_mode: typing.Literal["ACTIVE", "SELECTED", "SCENE"] | None = "ACTIVE",
     stroke_sample: float | None = 0.0,
     use_uniform_width: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Export Grease Pencil to PDF
 
         :param filepath: File Path, Path to file (optional, never None)
@@ -1057,7 +1061,7 @@ def grease_pencil_export_svg(
     stroke_sample: float | None = 0.0,
     use_uniform_width: bool | None = False,
     use_clip_camera: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Export Grease Pencil to SVG
 
         :param filepath: File Path, Path to file (optional, never None)
@@ -1155,7 +1159,7 @@ def grease_pencil_import_svg(
     resolution: int | None = 10,
     scale: float | None = 10.0,
     use_scene_unit: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Import SVG into Grease Pencil
 
         :param filepath: File Path, Path to file (optional, never None)
@@ -1240,7 +1244,7 @@ def id_linked_relocate(
     active_collection: bool | None = False,
     instance_collections: bool | None = False,
     instance_object_data: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Relocate a linked ID, i.e. select another ID to link, and remap its local usages to that newly linked data-block). Currently only designed as an internal operator, not directly exposed to the user
 
         :param id_session_uid: Linked ID Session UID, Unique runtime identifier for the linked ID to relocate (in [0, inf], optional)
@@ -1298,7 +1302,7 @@ def interface_theme_preset_add(
     name: str | None = "",
     remove_name: bool | None = False,
     remove_active: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a custom theme to the preset list
 
     :param name: Name, Name of the preset, used to make the path name (optional, never None)
@@ -1315,7 +1319,7 @@ def interface_theme_preset_remove(
     name: str | None = "",
     remove_name: bool | None = False,
     remove_active: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove a custom theme from the preset list
 
     :param name: Name, Name of the preset, used to make the path name (optional, never None)
@@ -1332,7 +1336,7 @@ def interface_theme_preset_save(
     name: str | None = "",
     remove_name: bool | None = False,
     remove_active: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Save a custom theme in the preset list
 
     :param name: Name, Name of the preset, used to make the path name (optional, never None)
@@ -1349,7 +1353,7 @@ def keyconfig_preset_add(
     name: str | None = "",
     remove_name: bool | None = False,
     remove_active: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a custom keymap configuration to the preset list
 
     :param name: Name, Name of the preset, used to make the path name (optional, never None)
@@ -1366,7 +1370,7 @@ def keyconfig_preset_remove(
     name: str | None = "",
     remove_name: bool | None = False,
     remove_active: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove a custom keymap configuration from the preset list
 
     :param name: Name, Name of the preset, used to make the path name (optional, never None)
@@ -1409,7 +1413,7 @@ def lib_reload(
     ]
     | None = "DEFAULT",
     sort_method: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Reload the given library
 
         :param library: Library, Library to reload (optional, never None)
@@ -1488,7 +1492,7 @@ def lib_relocate(
     ]
     | None = "DEFAULT",
     sort_method: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Relocate the given library to one or several others
 
         :param library: Library, Library to relocate (optional, never None)
@@ -1573,7 +1577,7 @@ def link(
     active_collection: bool | None = True,
     instance_collections: bool | None = True,
     instance_object_data: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Link from a Library .blend file
 
         :param filepath: File Path, Path to file (optional, never None)
@@ -1627,7 +1631,7 @@ def memory_statistics(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Print memory statistics to the console
 
     :return: Result of the operator call.
@@ -1693,7 +1697,7 @@ def obj_export(
     smooth_group_bitflags: bool | None = False,
     filter_glob: str | None = "*.obj;*.mtl",
     collection: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Save the scene to a Wavefront OBJ file
 
         :param filepath: File Path, Path to file (optional, never None)
@@ -1865,7 +1869,7 @@ def obj_import(
     mtl_name_collision_mode: typing.Literal["MAKE_UNIQUE", "REFERENCE_EXISTING"]
     | None = "MAKE_UNIQUE",
     filter_glob: str | None = "*.obj;*.mtl",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Load a Wavefront OBJ scene
 
         :param filepath: File Path, Path to file (optional, never None)
@@ -1994,7 +1998,7 @@ def open_mainfile(
     use_scripts: bool | None = False,
     display_file_selector: bool | None = True,
     state: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Open a Blender file
 
         :param filepath: File Path, Path to file (optional, never None)
@@ -2042,7 +2046,7 @@ def operator_cheat_sheet(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """List all the operators in a text-block, useful for scripting
 
     :return: Result of the operator call.
@@ -2052,7 +2056,7 @@ def operator_defaults(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set the active operator to its default values
 
     :return: Result of the operator call.
@@ -2065,7 +2069,7 @@ def operator_pie_enum(
     *,
     data_path: str | None = "",
     prop_string: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
 
     :param data_path: Operator, Operator name (in Python as string) (optional, never None)
@@ -2082,7 +2086,7 @@ def operator_preset_add(
     remove_name: bool | None = False,
     remove_active: bool | None = False,
     operator: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add or remove an Operator Preset
 
     :param name: Name, Name of the preset, used to make the path name (optional, never None)
@@ -2099,7 +2103,7 @@ def operator_presets_cleanup(
     *,
     operator: str | None = "",
     properties=None,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove outdated operator properties from presets that may cause problems
 
     :param operator: operator, (optional, never None)
@@ -2113,7 +2117,7 @@ def owner_disable(
     /,
     *,
     owner_id: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Disable add-on for workspace
 
     :param owner_id: UI Tag, (optional, never None)
@@ -2126,7 +2130,7 @@ def owner_enable(
     /,
     *,
     owner_id: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Enable add-on for workspace
 
     :param owner_id: UI Tag, (optional, never None)
@@ -2139,7 +2143,7 @@ def path_open(
     /,
     *,
     filepath: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Open a path in a file browser
 
     :param filepath: filepath, (optional, never None)
@@ -2192,7 +2196,7 @@ def ply_export(
     export_triangulated_mesh: bool | None = False,
     ascii_format: bool | None = False,
     filter_glob: str | None = "*.ply",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Save the scene to a PLY file
 
         :param filepath: File Path, Path to file (optional, never None)
@@ -2332,7 +2336,7 @@ def ply_import(
     import_colors: typing.Literal["NONE", "SRGB", "LINEAR"] | None = "SRGB",
     import_attributes: bool | None = True,
     filter_glob: str | None = "*.ply",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Import an PLY file as an object
 
         :param filepath: File Path, Path to file (optional, never None)
@@ -2441,7 +2445,7 @@ def previews_batch_clear(
     use_intern_data: bool | None = True,
     use_trusted: bool | None = False,
     use_backups: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Clear selected .blend files previews
 
     :param files: files, (optional)
@@ -2472,7 +2476,7 @@ def previews_batch_generate(
     use_intern_data: bool | None = True,
     use_trusted: bool | None = False,
     use_backups: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Generate selected .blend files previews
 
     :param files: Collection of file paths with common directory root (optional)
@@ -2509,7 +2513,7 @@ def previews_clear(
         ]
     ]
     | None = set(),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Clear data-block previews (only for some types like objects, materials, textures, etc.)
 
         :param id_type: Data-Block Type, Which data-block previews to clear (optional)
@@ -2553,7 +2557,7 @@ def previews_ensure(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Ensure data-block previews are available and up-to-date (to be saved in .blend file, only for some types like materials, textures, etc.)
 
     :return: Result of the operator call.
@@ -2565,7 +2569,7 @@ def properties_add(
     /,
     *,
     data_path: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add your own property to the data-block
 
     :param data_path: Property Edit, Property data_path edit (optional, never None)
@@ -2578,7 +2582,7 @@ def properties_context_change(
     /,
     *,
     context: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Jump to a different tab inside the properties editor
 
     :param context: Context, (optional, never None)
@@ -2766,7 +2770,7 @@ def properties_edit(
     ]
     | None = "OBJECT",
     eval_string: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Change a custom propertys type, or adjust how it is displayed in the interface
 
         :param data_path: Property Edit, Property data_path edit (optional, never None)
@@ -2832,7 +2836,7 @@ def properties_edit_value(
     data_path: str | None = "",
     property_name: str | None = "",
     eval_string: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Edit the value of a custom property
 
     :param data_path: Property Edit, Property data_path edit (optional, never None)
@@ -2848,7 +2852,7 @@ def properties_remove(
     *,
     data_path: str | None = "",
     property_name: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Internal use (edit a property data_path)
 
     :param data_path: Property Edit, Property data_path edit (optional, never None)
@@ -2860,7 +2864,7 @@ def quit_blender(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Quit Blender
 
     :return: Result of the operator call.
@@ -2883,7 +2887,7 @@ def radial_control(
     image_id: str | None = "",
     secondary_tex: bool | None = False,
     release_confirm: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set some size property (e.g. brush size) with mouse wheel
 
     :param data_path_primary: Primary Data Path, Primary path of property to be set by the radial control (optional, never None)
@@ -2909,7 +2913,7 @@ def read_factory_settings(
     use_factory_startup_app_template_only: bool | None = False,
     app_template: str | None = "Template",
     use_empty: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Load factory default startup file and preferences. To make changes permanent, use "Save Startup File" and "Save Preferences"
 
     :param use_factory_startup_app_template_only: Factory Startup App-Template Only, (optional)
@@ -2924,7 +2928,7 @@ def read_factory_userpref(
     /,
     *,
     use_factory_startup_app_template_only: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Load factory default preferences. To make changes to preferences permanent, use "Save Preferences"
 
     :param use_factory_startup_app_template_only: Factory Startup App-Template Only, (optional)
@@ -2935,7 +2939,7 @@ def read_history(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Reloads history and bookmarks
 
     :return: Result of the operator call.
@@ -2953,7 +2957,7 @@ def read_homefile(
     use_factory_startup_app_template_only: bool | None = False,
     app_template: str | None = "Template",
     use_empty: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Open the default file
 
     :param filepath: File Path, Path to an alternative start-up file (optional, never None)
@@ -2970,7 +2974,7 @@ def read_userpref(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Load last saved preferences
 
     :return: Result of the operator call.
@@ -3007,7 +3011,7 @@ def recover_auto_save(
     | None = "LIST_VERTICAL",
     sort_method: str | None = "",
     use_scripts: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Open an automatically saved file to recover it
 
         :param filepath: File Path, Path to file (optional, never None)
@@ -3054,7 +3058,7 @@ def recover_last_session(
     /,
     *,
     use_scripts: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Open the last closed file ("quit.blend")
 
     :param use_scripts: Trusted Source, Allow .blend file to execute scripts automatically, default available from system preferences (optional)
@@ -3078,7 +3082,7 @@ def redraw_timer(
     | None = "DRAW",
     iterations: int | None = 10,
     time_limit: float | None = 0.0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Simple redraw timer to test the speed of updating the interface
 
         :param type: Type, (optional)
@@ -3114,7 +3118,7 @@ def revert_mainfile(
     /,
     *,
     use_scripts: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Reload the saved file
 
     :param use_scripts: Trusted Source, Allow .blend file to execute scripts automatically, default available from system preferences (optional)
@@ -3154,7 +3158,7 @@ def save_as_mainfile(
     compress: bool | None = False,
     relative_remap: bool | None = True,
     copy: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Save the current file in the desired location
 
         :param filepath: File Path, Path to file (optional, never None)
@@ -3201,7 +3205,7 @@ def save_homefile(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Make the current file the default startup file
 
     :return: Result of the operator call.
@@ -3241,7 +3245,7 @@ def save_mainfile(
     relative_remap: bool | None = False,
     exit: bool | None = False,
     incremental: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Save the current Blender file
 
         :param filepath: File Path, Path to file (optional, never None)
@@ -3289,7 +3293,7 @@ def save_userpref(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Make the current preferences default
 
     :return: Result of the operator call.
@@ -3299,7 +3303,7 @@ def search_menu(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Pop-up a search over all menus in the current context
 
     :return: Result of the operator call.
@@ -3309,7 +3313,7 @@ def search_operator(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Pop-up a search over all available operators in current context
 
     :return: Result of the operator call.
@@ -3322,7 +3326,7 @@ def search_single_menu(
     *,
     menu_idname: str | None = "",
     initial_query: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Pop-up a search for a menu in current context
 
     :param menu_idname: Menu Name, Menu to search in (optional, never None)
@@ -3335,15 +3339,17 @@ def set_stereo_3d(
     undo: bool | None = None,
     /,
     *,
-    display_mode: Literal[bpy.stub_internal.rna_enums.Stereo3DDisplayItems]
+    display_mode: typing.Literal[bpy.stub_internal.rna_enums.Stereo3DDisplayItems]
     | None = "ANAGLYPH",
-    anaglyph_type: Literal[bpy.stub_internal.rna_enums.Stereo3DAnaglyphTypeItems]
+    anaglyph_type: typing.Literal[bpy.stub_internal.rna_enums.Stereo3DAnaglyphTypeItems]
     | None = "RED_CYAN",
-    interlace_type: Literal[bpy.stub_internal.rna_enums.Stereo3DInterlaceTypeItems]
+    interlace_type: typing.Literal[
+        bpy.stub_internal.rna_enums.Stereo3DInterlaceTypeItems
+    ]
     | None = "ROW_INTERLEAVED",
     use_interlace_swap: bool | None = False,
     use_sidebyside_crosseyed: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Toggle 3D stereo support for current window (or change the display mode)
 
     :param display_mode: Display Mode, (optional)
@@ -3361,7 +3367,7 @@ def set_working_color_space(
     *,
     convert_colors: bool | None = True,
     working_space: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Change the working color space of all colors in this blend file
 
     :param convert_colors: Convert Colors in All Data-blocks, Change colors in all data-blocks to the new working space (optional)
@@ -3373,7 +3379,7 @@ def splash(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Open the splash screen with release info
 
     :return: Result of the operator call.
@@ -3383,7 +3389,7 @@ def splash_about(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Open a window with information about Blender
 
     :return: Result of the operator call.
@@ -3432,7 +3438,7 @@ def stl_export(
     | None = "Z",
     apply_modifiers: bool | None = True,
     filter_glob: str | None = "*.stl",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Save the scene to an STL file
 
         :param filepath: File Path, Path to file (optional, never None)
@@ -3559,7 +3565,7 @@ def stl_import(
     | None = "Z",
     use_mesh_validate: bool | None = True,
     filter_glob: str | None = "*.stl",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Import an STL file as an object
 
         :param filepath: File Path, Path to file (optional, never None)
@@ -3649,7 +3655,7 @@ def sysinfo(
     /,
     *,
     filepath: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Generate system information, saved into a text file
 
     :param filepath: filepath, (optional, never None)
@@ -3684,7 +3690,7 @@ def tool_set_by_brush_type(
         "PREFERENCES",
     ]
     | None = "EMPTY",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Look up the most appropriate tool for the given brush type and activate that
 
     :param brush_type: Brush Type, Brush type identifier for which the most appropriate tool will be looked up (optional, never None)
@@ -3722,7 +3728,7 @@ def tool_set_by_id(
         "PREFERENCES",
     ]
     | None = "EMPTY",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set the tool by name (for key-maps)
 
     :param name: Identifier, Identifier of the tool (optional, never None)
@@ -3763,7 +3769,7 @@ def tool_set_by_index(
         "PREFERENCES",
     ]
     | None = "EMPTY",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set the tool by index (for key-maps)
 
     :param index: Index in Toolbar, (in [-inf, inf], optional)
@@ -3778,7 +3784,7 @@ def toolbar(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
 
     :return: Result of the operator call.
@@ -3788,7 +3794,7 @@ def toolbar_fallback_pie(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
 
     :return: Result of the operator call.
@@ -3798,7 +3804,7 @@ def toolbar_prompt(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Leader key like functionality for accessing tools
 
     :return: Result of the operator call.
@@ -3810,7 +3816,7 @@ def url_open(
     /,
     *,
     url: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Open a website in the web browser
 
     :param url: URL, URL to open (optional, never None)
@@ -3823,7 +3829,7 @@ def url_open_preset(
     /,
     *,
     type: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Open a preset website in the web browser
 
     :param type: Site, (optional)
@@ -3906,9 +3912,13 @@ def usd_export(
     export_points: bool | None = True,
     export_volumes: bool | None = True,
     triangulate_meshes: bool | None = False,
-    quad_method: Literal[bpy.stub_internal.rna_enums.ModifierTriangulateQuadMethodItems]
+    quad_method: typing.Literal[
+        bpy.stub_internal.rna_enums.ModifierTriangulateQuadMethodItems
+    ]
     | None = "SHORTEST_DIAGONAL",
-    ngon_method: Literal[bpy.stub_internal.rna_enums.ModifierTriangulateNgonMethodItems]
+    ngon_method: typing.Literal[
+        bpy.stub_internal.rna_enums.ModifierTriangulateNgonMethodItems
+    ]
     | None = "BEAUTY",
     usdz_downscale_size: typing.Literal[
         "KEEP", "256", "512", "1024", "2048", "4096", "CUSTOM"
@@ -3928,7 +3938,7 @@ def usd_export(
     ]
     | None = "METERS",
     meters_per_unit: float | None = 1.0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Export current scene in a USD archive
 
         :param filepath: File Path, Path to file (optional, never None)
@@ -4202,7 +4212,7 @@ def usd_import(
     import_defined_only: bool | None = True,
     merge_parent_xform: bool | None = True,
     apply_unit_conversion_scale: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Import USD stage into current scene
 
         :param filepath: File Path, Path to file (optional, never None)
@@ -4324,7 +4334,7 @@ def window_close(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Close the current window
 
     :return: Result of the operator call.
@@ -4334,7 +4344,7 @@ def window_fullscreen_toggle(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Toggle the current window full-screen
 
     :return: Result of the operator call.
@@ -4344,7 +4354,7 @@ def window_new(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Create a new window
 
     :return: Result of the operator call.
@@ -4354,7 +4364,7 @@ def window_new_main(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Create a new main window with its own workspace and scene selection
 
     :return: Result of the operator call.
@@ -4413,7 +4423,7 @@ def xr_navigation_fly(
     | None = "VIEWER_FORWARD",
     alt_lock_location_z: bool | None = False,
     alt_lock_direction: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move/turn relative to the VR viewer or controller
 
         :param mode: Mode, Fly mode (optional)
@@ -4519,7 +4529,7 @@ def xr_navigation_grab(
     lock_rotation: bool | None = False,
     lock_rotation_z: bool | None = False,
     lock_scale: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Navigate the VR scene by grabbing with controllers
 
     :param lock_location: Lock Location, Prevent changes to viewer location (optional)
@@ -4538,7 +4548,7 @@ def xr_navigation_reset(
     location: bool | None = True,
     rotation: bool | None = True,
     scale: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Reset VR navigation deltas relative to session base pose
 
     :param location: Location, Reset location deltas (optional)
@@ -4551,7 +4561,7 @@ def xr_navigation_swap_hands(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Swap VR navigation controls between left / right controllers
 
     :return: Result of the operator call.
@@ -4570,7 +4580,7 @@ def xr_navigation_teleport(
     hit_color: collections.abc.Sequence[float] | None = (0.4, 0.6, 0.9, 1.0),
     miss_color: collections.abc.Sequence[float] | None = (1.0, 0.35, 0.35, 1.0),
     fallback_color: collections.abc.Sequence[float] | None = (0.5, 0.45, 0.8, 1.0),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set VR viewer location to controller raycast hit location
 
     :param selectable_only: Selectable Only, Only allow selectable objects to influence raycast result (optional)
@@ -4588,7 +4598,7 @@ def xr_session_toggle(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Open a view for use with virtual reality headsets, or close it if already opened
 
     :return: Result of the operator call.

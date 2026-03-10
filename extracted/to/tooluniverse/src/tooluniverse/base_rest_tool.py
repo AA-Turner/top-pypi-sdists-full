@@ -148,8 +148,19 @@ class BaseRESTTool(BaseTool):
         try:
             data = response.json()
         except Exception:
+            text = response.text
+            # Detect HTML error pages returned instead of JSON/text data
+            content_type = response.headers.get("content-type", "")
+            if "text/html" in content_type or (
+                text.strip().startswith(("<html", "<!DOCTYPE", "<HTML"))
+            ):
+                return {
+                    "status": "error",
+                    "error": f"{self.api_name}: server returned an HTML page instead of data. The requested resource may not exist.",
+                    "url": url,
+                }
             # Non-JSON response (e.g., BibTeX, plain text) - return as string
-            data = response.text
+            data = text
 
         # Handle extract_path for nested data
         extract_path = self.tool_config.get("fields", {}).get("extract_path")

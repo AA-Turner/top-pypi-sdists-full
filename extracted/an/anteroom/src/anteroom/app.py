@@ -54,6 +54,30 @@ def _write_progress(path: Path | None, step: str, status: str, detail: str = "")
         pass
 
 
+async def _call_next_allowing_disconnect(
+    request: Request,
+    call_next: Callable[[Request], Awaitable[Response]],
+) -> Response:
+    """Treat Starlette's disconnect sentinel as a clean close for streaming requests.
+
+    ``BaseHTTPMiddleware`` can raise ``RuntimeError("No response returned.")``
+    when a client disconnects during a streaming response. For long-lived SSE
+    endpoints, that is expected and should not be surfaced as a 500.
+    """
+    try:
+        return await call_next(request)
+    except RuntimeError as exc:
+        if str(exc) != "No response returned.":
+            raise
+        try:
+            disconnected = await request.is_disconnected()
+        except Exception:
+            disconnected = True
+        if not disconnected:
+            raise
+        return Response(status_code=204)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     config: AppConfig = app.state.config
@@ -354,7 +378,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     _SELF_CSP_PATHS = frozenset({"/excalidraw-viewer"})
 
     async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
-        response = await call_next(request)
+        response = await _call_next_allowing_disconnect(request, call_next)
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=(), payment=()"
@@ -399,7 +423,7 @@ class MaxBodySizeMiddleware(BaseHTTPMiddleware):
                 content_length,
             )
             return JSONResponse(status_code=413, content={"detail": "Request body too large"})
-        return await call_next(request)
+        return await _call_next_allowing_disconnect(request, call_next)
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
@@ -422,7 +446,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
         if request.url.path in self.exempt_paths:
-            return await call_next(request)
+            return await _call_next_allowing_disconnect(request, call_next)
 
         client_ip = request.client.host if request.client else "unknown"
         now = time.time()
@@ -450,7 +474,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 headers={"Retry-After": str(self.window)},
             )
         hits.append(now)
-        return await call_next(request)
+        return await _call_next_allowing_disconnect(request, call_next)
 
 
 def session_id_from_token(token: str) -> str:
@@ -589,7 +613,7 @@ class BearerTokenMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
         path = request.url.path
         if not (path.startswith("/api/") or path.startswith("/v1/")):
-            return await call_next(request)
+            return await _call_next_allowing_disconnect(request, call_next)
 
         self._ensure_store(request)
         client_ip = request.client.host if request.client else "unknown"
@@ -608,7 +632,7 @@ class BearerTokenMiddleware(BaseHTTPMiddleware):
             if error:
                 return error
             _emit_auth_audit(request, "auth.success", "info", client_ip, path)
-            return await call_next(request)
+            return await _call_next_allowing_disconnect(request, call_next)
 
         # Check HttpOnly session cookie
         cookie_token = request.cookies.get("anteroom_session", "")
@@ -634,7 +658,7 @@ class BearerTokenMiddleware(BaseHTTPMiddleware):
                         _emit_auth_audit(request, "auth.origin_mismatch", "warning", client_ip, path)
                         return JSONResponse(status_code=403, content={"detail": "Origin not allowed"})
             _emit_auth_audit(request, "auth.success", "info", client_ip, path)
-            return await call_next(request)
+            return await _call_next_allowing_disconnect(request, call_next)
 
         security_logger.warning("Authentication failed from %s: %s %s", client_ip, request.method, path)
         _emit_auth_audit(request, "auth.failure", "warning", client_ip, path)

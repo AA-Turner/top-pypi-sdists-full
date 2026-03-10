@@ -1,6 +1,5 @@
 import logging
 import os
-import math
 import queue
 import re
 import time
@@ -27,6 +26,7 @@ from siliconcompiler.utils.logging import SCColorLoggerFormatter
 from siliconcompiler.utils.paths import workdir
 from siliconcompiler.flowgraph import RuntimeFlowgraph
 from siliconcompiler.utils.units import format_time
+from siliconcompiler.report.dashboard.cli.layout import Layout
 
 
 class LogBuffer:
@@ -176,6 +176,7 @@ class JobData:
 
     Attributes:
         total (int): The total number of nodes in the job.
+        visible (int): The total number of visible nodes in the job.
         success (int): The number of successfully completed nodes.
         error (int): The number of nodes that resulted in an error.
         skipped (int): The number of skipped nodes.
@@ -188,6 +189,7 @@ class JobData:
                             information about a single node in the flowgraph.
     """
     total: int = 0
+    visible: int = 0
     success: int = 0
     error: int = 0
     skipped: int = 0
@@ -207,6 +209,7 @@ class SessionData:
 
     Attributes:
         total (int): The total number of nodes across all jobs.
+        visible (int): The total number of visible nodes across all jobs.
         success (int): The total number of successfully completed nodes across all jobs.
         error (int): The total number of nodes that resulted in an error across all jobs.
         skipped (int): The total number of skipped nodes across all jobs.
@@ -216,6 +219,7 @@ class SessionData:
                                    corresponding JobData objects.
     """
     total: int = 0
+    visible: int = 0
     success: int = 0
     error: int = 0
     skipped: int = 0
@@ -229,114 +233,6 @@ class NodeType(Enum):
     ENTRY = "entry"
     EXIT = "exit"
     OTHER = "other"
-
-
-@dataclass
-class Layout:
-    """
-    Manages the dynamic layout of the dashboard, calculating the height
-    of different sections based on terminal size and content.
-
-    Attributes:
-        height (int): The total height of the terminal.
-        width (int): The total width of the terminal.
-        log_height (int): The calculated height for the log display area.
-        job_board_height (int): The calculated height for the job status board.
-        progress_bar_height (int): The calculated height for the progress bar section.
-        job_board_show_log (bool): Flag to determine if the log file column is shown.
-        job_board_v_limit (int): Width threshold to switch to a more compact view.
-    """
-
-    height: int = 0
-    width: int = 0
-
-    log_height: int = 0
-    job_board_height: int = 0
-    progress_bar_height: int = 0
-
-    job_board_show_log: bool = True
-    job_board_v_limit: int = 120
-
-    __progress_bar_height_default = 1
-    padding_log = 2
-    padding_progress_bar: int = 1
-    padding_job_board: int = 1
-    padding_job_board_header: int = 1
-
-    show_node_type: bool = False
-
-    def update(self, height: int, width: int, visible_jobs: int, visible_bars: int):
-        """
-        Recalculates the layout dimensions based on the current terminal size and content.
-
-        This method implements the logic to intelligently allocate vertical space
-        to the progress bars, job board, and log view.
-
-        Args:
-            height (int): The current terminal height.
-            width (int): The current terminal width.
-            visible_jobs (int): The number of job nodes to be displayed.
-            visible_bars (int): The number of progress bars to be displayed.
-        """
-        self.height = height
-        self.width = width
-
-        if self.height < 3:
-            self.progress_bar_height = self.height - self.padding_progress_bar - 1
-            self.job_board_height = 0
-            self.log_height = 0
-
-        # target sizes
-        target_jobs = 0.25 * self.height
-        target_bars = 0.50 * self.height
-        # 25 % for log
-
-        # Adjust targets based on progress bars
-        if visible_bars < target_bars:
-            remainder = target_bars - visible_bars
-            target_bars = visible_bars
-            target_jobs += 0.75 * remainder
-        target_bars = int(math.ceil(target_bars))
-
-        # Adjust targets based on jobs
-        if visible_jobs < target_jobs:
-            target_jobs = visible_jobs
-        target_jobs = int(math.ceil(target_jobs))
-
-        remaining_height = self.height
-
-        # Allocate progress bar space (highest priority)
-        self.progress_bar_height = max(min(target_bars, visible_bars),
-                                       self.__progress_bar_height_default)
-        if self.progress_bar_height > 0:
-            remaining_height -= self.progress_bar_height + self.padding_progress_bar
-
-        # Calculate job board requirements
-        job_board_min_space = self.padding_job_board_header + self.padding_job_board
-        job_board_max_nodes = remaining_height // 2
-        visible_jobs = min(min(target_jobs, visible_jobs), job_board_max_nodes)
-        if visible_jobs > 0:
-            job_board_full_space = visible_jobs + job_board_min_space
-        else:
-            job_board_full_space = 0
-
-        # Allocate job board space (second priority)
-        if remaining_height <= job_board_min_space:
-            self.job_board_height = 0
-            self.log_height = 0
-        elif remaining_height <= job_board_full_space:
-            self.job_board_height = remaining_height - job_board_min_space
-            self.log_height = 0
-        elif visible_jobs == 0:
-            self.job_board_height = 0
-            self.log_height = remaining_height
-        else:
-            self.job_board_height = visible_jobs
-            self.log_height = remaining_height - job_board_full_space - self.padding_log
-        if self.log_height < 0:
-            self.log_height = 0
-
-        self.job_board_show_log = self.width >= self.job_board_v_limit
 
 
 class Board:
@@ -378,11 +274,15 @@ class Board:
         }
     )
     _symbols = {
-        "table": {
-            "warnings": "⚠️",
-            "errors": "🚫",
+        "headers": {
+            "status": "🚦",
+            "node": "🌐",
             "time": "⏳",
             "log": "📜",
+        },
+        "metrics": {
+            "warnings": "⚠️",
+            "errors": "🚫",
         },
         "logging": {
             logging.getLevelName(logging.DEBUG): "🐛",
@@ -552,8 +452,14 @@ class Board:
 
         # Print final render to avoid losing it
         if self.live._screen:
-            self._console.print(self._get_rendable())
-        self._console.show_cursor()
+            try:
+                self._console.print(self._get_rendable())
+            except Exception:
+                pass
+        try:
+            self._console.show_cursor()
+        except Exception:
+            pass
 
     def wait(self):
         """Waits for the dashboard rendering thread to finish."""
@@ -653,7 +559,10 @@ class Board:
         table.show_header = self.__JOB_BOARD_HEADER
 
         def get_column_header(title):
-            return Board._symbols.get("table", {}).get(title, title.capitalize())
+            return Board._symbols.get("headers", {}).get(title, title.capitalize())
+
+        def get_metrics_header(title):
+            return Board._symbols.get("metrics", {}).get(title, title.capitalize())
 
         table.add_column(get_column_header("status"))
         if layout.show_node_type:
@@ -661,11 +570,11 @@ class Board:
         table.add_column(get_column_header("node"))
         table.add_column(get_column_header("time"), justify="right")
         for metric in self._metrics:
-            table.add_column(get_column_header(metric), justify="right")
+            table.add_column(get_metrics_header(metric), justify="right")
         if layout.job_board_show_log:
             table.add_column(get_column_header("log"))
 
-        multi_jobs = len(job_data) > 1 or True
+        multi_jobs = len(job_data) > 1
 
         # jobname, node index, priority, node order
         table_data_select = []
@@ -862,7 +771,7 @@ class Board:
         """
         with self._render_data_lock:
             visible_progress_bars = len(self._render_data.jobs)
-            visible_jobs_count = self._render_data.total - self._render_data.skipped
+            visible_jobs_count = self._render_data.visible
 
         self._layout.update(
             self._console.height,
@@ -895,6 +804,9 @@ class Board:
 
             self._render_data.total = sum(
                 [0, *[job.total for job in self._render_data.jobs.values()]]
+            )
+            self._render_data.visible = sum(
+                [0, *[job.visible for job in self._render_data.jobs.values()]]
             )
             self._render_data.success = sum(
                 [0, *[job.success for job in self._render_data.jobs.values()]]
@@ -1116,6 +1028,10 @@ class Board:
                 job_data.skipped += 1
                 continue
 
+            hide = (step, index) not in check_flow.get_nodes()
+            if not hide:
+                job_data.visible += 1
+
             starttime = None
             duration = None
             if NodeStatus.is_done(status):
@@ -1161,7 +1077,7 @@ class Board:
                     "print": {
                         "order": nodeorder[(step, index)],
                         "priority": node_priority[(step, index)],
-                        "hide": (step, index) not in check_flow.get_nodes()
+                        "hide": hide
                     },
                     "type": node_type
                 }

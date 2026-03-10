@@ -1,6 +1,6 @@
 [project]
 name = "clean_ioc"
-version = "1.20.2"
+version = "1.21.0"
 description = "An IOC Container for Python 3.10+"
 authors = [{ name = "Peter Daly" }]
 requires-python = ">=3.10,<4"
@@ -16,7 +16,10 @@ keywords = [
     "typing",
 ]
 classifiers = ["Development Status :: 5 - Production/Stable"]
-dependencies = ["the-utility-belt>=0.3.0,<0.4"]
+dependencies = [
+    "funcie>=0.2.0",
+    "typetoolbox>=0.2.0",
+]
 
 [project.optional-dependencies]
 fastapi = ["fastapi>=0.101.0,<0.102"]
@@ -31,16 +34,16 @@ dev = [
     "pytest>=7.0.0,<8",
     "pytest-cov>=4.0.0,<5",
     "pytest-asyncio>=0.21.1,<0.22",
-    "assertive>=0.2.1,<0.3",
+    "assertive>=1.0.0",
     "fastapi>=0.101.0,<0.102",
     "httpx>=0.26.0,<0.27",
-    "pyright>=1.1.362,<2",
     "ruff>=0.4.3,<0.5",
     "mkdocs>=1.5.3,<2",
     "mkdocstrings[python]>=0.25.0,<0.26",
     "mkdocs-material>=9.5.9,<10",
     "mkdocs-glightbox>=0.4.0,<0.5",
-
+    "pre-commit>=4.5.1,<5",
+    "ty>=0.0.21,<1",
 ]
 
 [tool.uv]

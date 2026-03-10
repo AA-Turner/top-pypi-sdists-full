@@ -1,12 +1,13 @@
 """Tests for TTS realtime streaming."""
 
-import pytest
-from unittest.mock import Mock, AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
-from fishaudio.core import ClientWrapper, AsyncClientWrapper, WebSocketOptions
-from fishaudio.resources.tts import TTSClient, AsyncTTSClient
-from fishaudio.types import Prosody, TTSConfig, TextEvent, FlushEvent, ReferenceAudio
 import ormsgpack
+import pytest
+
+from fishaudio.core import AsyncClientWrapper, ClientWrapper, WebSocketOptions
+from fishaudio.resources.tts import AsyncTTSClient, TTSClient
+from fishaudio.types import FlushEvent, Prosody, ReferenceAudio, TextEvent, TTSConfig
 
 
 @pytest.fixture
@@ -92,6 +93,7 @@ class TestTTSRealtimeClient:
             mock_connect_ws.assert_called_once()
             assert mock_connect_ws.call_args[0][0] == "/v1/tts/live"
 
+    @pytest.mark.filterwarnings("ignore::DeprecationWarning")
     @patch("fishaudio.resources.tts.connect_ws")
     @patch("fishaudio.resources.tts.ThreadPoolExecutor")
     def test_stream_websocket_with_config(
@@ -424,6 +426,7 @@ class TestAsyncTTSRealtimeClient:
             mock_aconnect_ws.assert_called_once()
             assert mock_aconnect_ws.call_args[0][0] == "/v1/tts/live"
 
+    @pytest.mark.filterwarnings("ignore::DeprecationWarning")
     @pytest.mark.asyncio
     @patch("fishaudio.resources.tts.aconnect_ws")
     async def test_stream_websocket_with_config(

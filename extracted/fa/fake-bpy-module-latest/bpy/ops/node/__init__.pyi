@@ -8,7 +8,7 @@ def activate_viewer(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Activate selected viewer node in compositor and geometry nodes
 
     :return: Result of the operator call.
@@ -22,7 +22,7 @@ def add_closure_zone(
     settings=None,
     use_transform: bool | None = False,
     offset: collections.abc.Sequence[float] | None = (150.0, 0.0),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a Closure zone
 
     :param settings: Settings, Settings to be applied on the newly created node (optional)
@@ -38,7 +38,7 @@ def add_collection(
     *,
     name: str | None = "",
     session_uid: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a collection info node to the current node editor
 
     :param name: Name, Name of the data-block to use by the operator (optional, never None)
@@ -54,7 +54,7 @@ def add_color(
     color: collections.abc.Sequence[float] | None = (0.0, 0.0, 0.0, 0.0),
     gamma: bool | None = False,
     has_alpha: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a color node to the current node editor
 
     :param color: Color, Source color (array of 4 items, in [0, inf], optional)
@@ -70,7 +70,7 @@ def add_empty_group(
     *,
     settings=None,
     use_transform: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a group node with an empty group
 
     :param settings: Settings, Settings to be applied on the newly created node (optional)
@@ -86,7 +86,7 @@ def add_foreach_geometry_element_zone(
     settings=None,
     use_transform: bool | None = False,
     offset: collections.abc.Sequence[float] | None = (150.0, 0.0),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a For Each Geometry Element zone that allows executing nodes e.g. for each vertex separately
 
     :param settings: Settings, Settings to be applied on the newly created node (optional)
@@ -103,7 +103,7 @@ def add_group(
     name: str | None = "",
     session_uid: int | None = 0,
     show_datablock_in_node: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add an existing node group to the current node editor
 
     :param name: Name, Name of the data-block to use by the operator (optional, never None)
@@ -117,11 +117,13 @@ def add_group_asset(
     undo: bool | None = None,
     /,
     *,
-    asset_library_type: Literal[bpy.stub_internal.rna_enums.AssetLibraryTypeItems]
+    asset_library_type: typing.Literal[
+        bpy.stub_internal.rna_enums.AssetLibraryTypeItems
+    ]
     | None = "LOCAL",
     asset_library_identifier: str | None = "",
     relative_asset_identifier: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a node group asset to the active node tree
 
     :param asset_library_type: Asset Library Type, (optional)
@@ -137,7 +139,7 @@ def add_group_input_node(
     *,
     socket_identifier: str | None = "",
     panel_identifier: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a Group Input node with selected sockets to the current node editor
 
     :param socket_identifier: Socket Identifier, Socket to include in the added group input/output node (optional, never None)
@@ -190,7 +192,7 @@ def add_image(
     | None = "",
     name: str | None = "",
     session_uid: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a image/movie file as node to the current node editor
 
         :param filepath: File Path, Path to file (optional, never None)
@@ -262,7 +264,7 @@ def add_import_node(
     *,
     directory: str | None = "",
     files=None,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add an import node to the node tree
 
     :param directory: Directory, Directory of the file (optional, never None)
@@ -277,7 +279,7 @@ def add_mask(
     *,
     name: str | None = "",
     session_uid: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a mask node to the current node editor
 
     :param name: Name, Name of the data-block to use by the operator (optional, never None)
@@ -292,7 +294,7 @@ def add_material(
     *,
     name: str | None = "",
     session_uid: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a material node to the current node editor
 
     :param name: Name, Name of the data-block to use by the operator (optional, never None)
@@ -309,7 +311,7 @@ def add_node(
     use_transform: bool | None = False,
     type: str | None = "",
     visible_output: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a node to the active tree
 
     :param settings: Settings, Settings to be applied on the newly created node (optional)
@@ -326,7 +328,7 @@ def add_object(
     *,
     name: str | None = "",
     session_uid: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add an object info node to the current node editor
 
     :param name: Name, Name of the data-block to use by the operator (optional, never None)
@@ -342,7 +344,7 @@ def add_repeat_zone(
     settings=None,
     use_transform: bool | None = False,
     offset: collections.abc.Sequence[float] | None = (150.0, 0.0),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a repeat zone that allows executing nodes a dynamic number of times
 
     :param settings: Settings, Settings to be applied on the newly created node (optional)
@@ -358,7 +360,7 @@ def add_reroute(
     *,
     path=None,
     cursor: int | None = 11,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a reroute node
 
     :param path: Path, (optional)
@@ -374,7 +376,7 @@ def add_simulation_zone(
     settings=None,
     use_transform: bool | None = False,
     offset: collections.abc.Sequence[float] | None = (150.0, 0.0),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add simulation zone input and output nodes to the active tree
 
     :param settings: Settings, Settings to be applied on the newly created node (optional)
@@ -394,7 +396,7 @@ def add_zone(
     input_node_type: str | None = "",
     output_node_type: str | None = "",
     add_default_geometry_link: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
 
     :param settings: Settings, Settings to be applied on the newly created node (optional)
@@ -410,7 +412,7 @@ def attach(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Attach active node to a frame
 
     :return: Result of the operator call.
@@ -420,7 +422,7 @@ def backimage_fit(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Fit the background image to the view
 
     :return: Result of the operator call.
@@ -430,7 +432,7 @@ def backimage_move(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move node backdrop
 
     :return: Result of the operator call.
@@ -440,7 +442,7 @@ def backimage_sample(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Use mouse to sample background image
 
     :return: Result of the operator call.
@@ -452,7 +454,7 @@ def backimage_zoom(
     /,
     *,
     factor: float | None = 1.2,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Zoom in/out the background image
 
     :param factor: Factor, (in [0, 10], optional)
@@ -465,7 +467,7 @@ def bake_node_item_add(
     /,
     *,
     node_identifier: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add item below active item
 
     :param node_identifier: Node Identifier, Optional identifier of the node to operate on (in [0, inf], optional)
@@ -479,7 +481,7 @@ def bake_node_item_move(
     *,
     direction: typing.Literal["UP", "DOWN"] | None = "UP",
     node_identifier: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move active item
 
     :param direction: Direction, Move direction (optional)
@@ -493,7 +495,7 @@ def bake_node_item_remove(
     /,
     *,
     node_identifier: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove active item
 
     :param node_identifier: Node Identifier, Optional identifier of the node to operate on (in [0, inf], optional)
@@ -506,7 +508,7 @@ def capture_attribute_item_add(
     /,
     *,
     node_identifier: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add item below active item
 
     :param node_identifier: Node Identifier, Optional identifier of the node to operate on (in [0, inf], optional)
@@ -520,7 +522,7 @@ def capture_attribute_item_move(
     *,
     direction: typing.Literal["UP", "DOWN"] | None = "UP",
     node_identifier: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move active item
 
     :param direction: Direction, Move direction (optional)
@@ -534,7 +536,7 @@ def capture_attribute_item_remove(
     /,
     *,
     node_identifier: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove active item
 
     :param node_identifier: Node Identifier, Optional identifier of the node to operate on (in [0, inf], optional)
@@ -545,7 +547,7 @@ def clear_viewer_border(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Clear the boundaries for viewer operations
 
     :return: Result of the operator call.
@@ -555,7 +557,7 @@ def clipboard_copy(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Copy the selected nodes to the internal clipboard
 
     :return: Result of the operator call.
@@ -567,7 +569,7 @@ def clipboard_paste(
     /,
     *,
     offset: collections.abc.Sequence[float] | None = (0.0, 0.0),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Paste nodes from the internal clipboard to the active node tree
 
     :param offset: Location, The 2D view location for the center of the new nodes, or unchanged if not set (array of 2 items, in [-inf, inf], optional)
@@ -580,7 +582,7 @@ def closure_input_item_add(
     /,
     *,
     node_identifier: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add item below active item
 
     :param node_identifier: Node Identifier, Optional identifier of the node to operate on (in [0, inf], optional)
@@ -594,7 +596,7 @@ def closure_input_item_move(
     *,
     direction: typing.Literal["UP", "DOWN"] | None = "UP",
     node_identifier: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move active item
 
     :param direction: Direction, Move direction (optional)
@@ -608,7 +610,7 @@ def closure_input_item_remove(
     /,
     *,
     node_identifier: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove active item
 
     :param node_identifier: Node Identifier, Optional identifier of the node to operate on (in [0, inf], optional)
@@ -621,7 +623,7 @@ def closure_output_item_add(
     /,
     *,
     node_identifier: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add item below active item
 
     :param node_identifier: Node Identifier, Optional identifier of the node to operate on (in [0, inf], optional)
@@ -635,7 +637,7 @@ def closure_output_item_move(
     *,
     direction: typing.Literal["UP", "DOWN"] | None = "UP",
     node_identifier: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move active item
 
     :param direction: Direction, Move direction (optional)
@@ -649,7 +651,7 @@ def closure_output_item_remove(
     /,
     *,
     node_identifier: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove active item
 
     :param node_identifier: Node Identifier, Optional identifier of the node to operate on (in [0, inf], optional)
@@ -660,7 +662,7 @@ def collapse_hide_unused_toggle(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Toggle collapsed nodes and hide unused sockets
 
     :return: Result of the operator call.
@@ -672,7 +674,7 @@ def combine_bundle_item_add(
     /,
     *,
     node_identifier: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add item below active item
 
     :param node_identifier: Node Identifier, Optional identifier of the node to operate on (in [0, inf], optional)
@@ -686,7 +688,7 @@ def combine_bundle_item_move(
     *,
     direction: typing.Literal["UP", "DOWN"] | None = "UP",
     node_identifier: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move active item
 
     :param direction: Direction, Move direction (optional)
@@ -700,7 +702,7 @@ def combine_bundle_item_remove(
     /,
     *,
     node_identifier: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove active item
 
     :param node_identifier: Node Identifier, Optional identifier of the node to operate on (in [0, inf], optional)
@@ -713,7 +715,7 @@ def connect_to_output(
     /,
     *,
     run_in_geometry_nodes: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Connect active node to the active output node of the node tree
 
     :param run_in_geometry_nodes: Run in Geometry Nodes Editor, (optional)
@@ -724,7 +726,7 @@ def cryptomatte_layer_add(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a new input layer to a Cryptomatte node
 
     :return: Result of the operator call.
@@ -734,7 +736,7 @@ def cryptomatte_layer_remove(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove layer from a Cryptomatte node
 
     :return: Result of the operator call.
@@ -744,7 +746,7 @@ def deactivate_viewer(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Deactivate selected viewer node in geometry nodes
 
     :return: Result of the operator call.
@@ -754,7 +756,7 @@ def default_group_width_set(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set the width based on the parent group node in the current context
 
     :return: Result of the operator call.
@@ -764,7 +766,7 @@ def delete(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove selected nodes
 
     :return: Result of the operator call.
@@ -777,7 +779,7 @@ def delete_copy_reconnect(
     *,
     NODE_OT_clipboard_copy: dict[str, typing.Any] | None = {},
     NODE_OT_delete_reconnect: dict[str, typing.Any] | None = {},
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Copy nodes to clipboard, remove and reconnect them.
 
     :param NODE_OT_clipboard_copy: Copy to Clipboard, Copy the selected nodes to the internal clipboard (optional, `bpy.ops.node.clipboard_copy` keyword arguments)
@@ -789,7 +791,7 @@ def delete_reconnect(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove nodes and reconnect nodes as if deletion was muted
 
     :return: Result of the operator call.
@@ -799,7 +801,7 @@ def detach(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Detach selected nodes from parents
 
     :return: Result of the operator call.
@@ -813,7 +815,7 @@ def detach_translate_attach(
     NODE_OT_detach: dict[str, typing.Any] | None = {},
     TRANSFORM_OT_translate: dict[str, typing.Any] | None = {},
     NODE_OT_attach: dict[str, typing.Any] | None = {},
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Detach nodes, move and attach to frame
 
     :param NODE_OT_detach: Detach Nodes, Detach selected nodes from parents (optional, `bpy.ops.node.detach` keyword arguments)
@@ -829,7 +831,7 @@ def duplicate(
     *,
     keep_inputs: bool | None = False,
     linked: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Duplicate selected nodes
 
     :param keep_inputs: Keep Inputs, Keep the input links to duplicated nodes (optional)
@@ -841,7 +843,7 @@ def duplicate_compositing_modifier_node_group(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Duplicate the currently assigned compositing node group.
 
     :return: Result of the operator call.
@@ -851,7 +853,7 @@ def duplicate_compositing_node_group(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Duplicate the currently assigned compositing node group.
 
     :return: Result of the operator call.
@@ -864,7 +866,7 @@ def duplicate_move(
     *,
     NODE_OT_duplicate: dict[str, typing.Any] | None = {},
     NODE_OT_translate_attach: dict[str, typing.Any] | None = {},
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Duplicate selected nodes and move them
 
     :param NODE_OT_duplicate: Duplicate Nodes, Duplicate selected nodes (optional, `bpy.ops.node.duplicate` keyword arguments)
@@ -879,7 +881,7 @@ def duplicate_move_keep_inputs(
     *,
     NODE_OT_duplicate: dict[str, typing.Any] | None = {},
     NODE_OT_translate_attach: dict[str, typing.Any] | None = {},
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Duplicate selected nodes keeping input links and move them
 
     :param NODE_OT_duplicate: Duplicate Nodes, Duplicate selected nodes (optional, `bpy.ops.node.duplicate` keyword arguments)
@@ -894,7 +896,7 @@ def duplicate_move_linked(
     *,
     NODE_OT_duplicate: dict[str, typing.Any] | None = {},
     NODE_OT_translate_attach: dict[str, typing.Any] | None = {},
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Duplicate selected nodes, but not their node trees, and move them
 
     :param NODE_OT_duplicate: Duplicate Nodes, Duplicate selected nodes (optional, `bpy.ops.node.duplicate` keyword arguments)
@@ -908,7 +910,7 @@ def enum_definition_item_add(
     /,
     *,
     node_identifier: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add item below active item
 
     :param node_identifier: Node Identifier, Optional identifier of the node to operate on (in [0, inf], optional)
@@ -922,7 +924,7 @@ def enum_definition_item_move(
     *,
     direction: typing.Literal["UP", "DOWN"] | None = "UP",
     node_identifier: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move active item
 
     :param direction: Direction, Move direction (optional)
@@ -936,7 +938,7 @@ def enum_definition_item_remove(
     /,
     *,
     node_identifier: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove active item
 
     :param node_identifier: Node Identifier, Optional identifier of the node to operate on (in [0, inf], optional)
@@ -949,7 +951,7 @@ def evaluate_closure_input_item_add(
     /,
     *,
     node_identifier: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add item below active item
 
     :param node_identifier: Node Identifier, Optional identifier of the node to operate on (in [0, inf], optional)
@@ -963,7 +965,7 @@ def evaluate_closure_input_item_move(
     *,
     direction: typing.Literal["UP", "DOWN"] | None = "UP",
     node_identifier: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move active item
 
     :param direction: Direction, Move direction (optional)
@@ -977,7 +979,7 @@ def evaluate_closure_input_item_remove(
     /,
     *,
     node_identifier: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove active item
 
     :param node_identifier: Node Identifier, Optional identifier of the node to operate on (in [0, inf], optional)
@@ -990,7 +992,7 @@ def evaluate_closure_output_item_add(
     /,
     *,
     node_identifier: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add item below active item
 
     :param node_identifier: Node Identifier, Optional identifier of the node to operate on (in [0, inf], optional)
@@ -1004,7 +1006,7 @@ def evaluate_closure_output_item_move(
     *,
     direction: typing.Literal["UP", "DOWN"] | None = "UP",
     node_identifier: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move active item
 
     :param direction: Direction, Move direction (optional)
@@ -1018,7 +1020,7 @@ def evaluate_closure_output_item_remove(
     /,
     *,
     node_identifier: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove active item
 
     :param node_identifier: Node Identifier, Optional identifier of the node to operate on (in [0, inf], optional)
@@ -1031,7 +1033,7 @@ def field_to_grid_item_add(
     /,
     *,
     node_identifier: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add item below active item
 
     :param node_identifier: Node Identifier, Optional identifier of the node to operate on (in [0, inf], optional)
@@ -1045,7 +1047,7 @@ def field_to_grid_item_move(
     *,
     direction: typing.Literal["UP", "DOWN"] | None = "UP",
     node_identifier: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move active item
 
     :param direction: Direction, Move direction (optional)
@@ -1059,7 +1061,7 @@ def field_to_grid_item_remove(
     /,
     *,
     node_identifier: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove active item
 
     :param node_identifier: Node Identifier, Optional identifier of the node to operate on (in [0, inf], optional)
@@ -1072,7 +1074,7 @@ def field_to_list_item_add(
     /,
     *,
     node_identifier: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add item below active item
 
     :param node_identifier: Node Identifier, Optional identifier of the node to operate on (in [0, inf], optional)
@@ -1086,7 +1088,7 @@ def field_to_list_item_move(
     *,
     direction: typing.Literal["UP", "DOWN"] | None = "UP",
     node_identifier: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move active item
 
     :param direction: Direction, Move direction (optional)
@@ -1100,7 +1102,7 @@ def field_to_list_item_remove(
     /,
     *,
     node_identifier: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove active item
 
     :param node_identifier: Node Identifier, Optional identifier of the node to operate on (in [0, inf], optional)
@@ -1113,7 +1115,7 @@ def file_output_item_add(
     /,
     *,
     node_identifier: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add item below active item
 
     :param node_identifier: Node Identifier, Optional identifier of the node to operate on (in [0, inf], optional)
@@ -1127,7 +1129,7 @@ def file_output_item_move(
     *,
     direction: typing.Literal["UP", "DOWN"] | None = "UP",
     node_identifier: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move active item
 
     :param direction: Direction, Move direction (optional)
@@ -1141,7 +1143,7 @@ def file_output_item_remove(
     /,
     *,
     node_identifier: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove active item
 
     :param node_identifier: Node Identifier, Optional identifier of the node to operate on (in [0, inf], optional)
@@ -1152,7 +1154,7 @@ def find_node(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Search for a node by name and focus and select it
 
     :return: Result of the operator call.
@@ -1164,7 +1166,7 @@ def foreach_geometry_element_zone_generation_item_add(
     /,
     *,
     node_identifier: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add item below active item
 
     :param node_identifier: Node Identifier, Optional identifier of the node to operate on (in [0, inf], optional)
@@ -1178,7 +1180,7 @@ def foreach_geometry_element_zone_generation_item_move(
     *,
     direction: typing.Literal["UP", "DOWN"] | None = "UP",
     node_identifier: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move active item
 
     :param direction: Direction, Move direction (optional)
@@ -1192,7 +1194,7 @@ def foreach_geometry_element_zone_generation_item_remove(
     /,
     *,
     node_identifier: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove active item
 
     :param node_identifier: Node Identifier, Optional identifier of the node to operate on (in [0, inf], optional)
@@ -1205,7 +1207,7 @@ def foreach_geometry_element_zone_input_item_add(
     /,
     *,
     node_identifier: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add item below active item
 
     :param node_identifier: Node Identifier, Optional identifier of the node to operate on (in [0, inf], optional)
@@ -1219,7 +1221,7 @@ def foreach_geometry_element_zone_input_item_move(
     *,
     direction: typing.Literal["UP", "DOWN"] | None = "UP",
     node_identifier: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move active item
 
     :param direction: Direction, Move direction (optional)
@@ -1233,7 +1235,7 @@ def foreach_geometry_element_zone_input_item_remove(
     /,
     *,
     node_identifier: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove active item
 
     :param node_identifier: Node Identifier, Optional identifier of the node to operate on (in [0, inf], optional)
@@ -1246,7 +1248,7 @@ def foreach_geometry_element_zone_main_item_add(
     /,
     *,
     node_identifier: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add item below active item
 
     :param node_identifier: Node Identifier, Optional identifier of the node to operate on (in [0, inf], optional)
@@ -1260,7 +1262,7 @@ def foreach_geometry_element_zone_main_item_move(
     *,
     direction: typing.Literal["UP", "DOWN"] | None = "UP",
     node_identifier: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move active item
 
     :param direction: Direction, Move direction (optional)
@@ -1274,7 +1276,7 @@ def foreach_geometry_element_zone_main_item_remove(
     /,
     *,
     node_identifier: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove active item
 
     :param node_identifier: Node Identifier, Optional identifier of the node to operate on (in [0, inf], optional)
@@ -1287,7 +1289,7 @@ def format_string_item_add(
     /,
     *,
     node_identifier: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add item below active item
 
     :param node_identifier: Node Identifier, Optional identifier of the node to operate on (in [0, inf], optional)
@@ -1301,7 +1303,7 @@ def format_string_item_move(
     *,
     direction: typing.Literal["UP", "DOWN"] | None = "UP",
     node_identifier: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move active item
 
     :param direction: Direction, Move direction (optional)
@@ -1315,7 +1317,7 @@ def format_string_item_remove(
     /,
     *,
     node_identifier: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove active item
 
     :param node_identifier: Node Identifier, Optional identifier of the node to operate on (in [0, inf], optional)
@@ -1328,7 +1330,7 @@ def geometry_nodes_viewer_item_add(
     /,
     *,
     node_identifier: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add item below active item
 
     :param node_identifier: Node Identifier, Optional identifier of the node to operate on (in [0, inf], optional)
@@ -1342,7 +1344,7 @@ def geometry_nodes_viewer_item_move(
     *,
     direction: typing.Literal["UP", "DOWN"] | None = "UP",
     node_identifier: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move active item
 
     :param direction: Direction, Move direction (optional)
@@ -1356,7 +1358,7 @@ def geometry_nodes_viewer_item_remove(
     /,
     *,
     node_identifier: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove active item
 
     :param node_identifier: Node Identifier, Optional identifier of the node to operate on (in [0, inf], optional)
@@ -1367,7 +1369,7 @@ def gltf_settings_node_operator(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a node to the active tree for glTF export
 
     :return: Result of the operator call.
@@ -1379,7 +1381,7 @@ def group_edit(
     /,
     *,
     exit: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Edit node group
 
     :param exit: Exit, (optional)
@@ -1390,7 +1392,7 @@ def group_enter_exit(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Enter or exit node group based on cursor location
 
     :return: Result of the operator call.
@@ -1400,7 +1402,7 @@ def group_insert(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Insert selected nodes into a node group
 
     :return: Result of the operator call.
@@ -1410,7 +1412,7 @@ def group_make(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Make group from selected nodes
 
     :return: Result of the operator call.
@@ -1422,7 +1424,7 @@ def group_separate(
     /,
     *,
     type: typing.Literal["COPY", "MOVE"] | None = "COPY",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Separate selected nodes from the node group
 
         :param type: Type, (optional)
@@ -1439,7 +1441,7 @@ def group_ungroup(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Ungroup selected nodes
 
     :return: Result of the operator call.
@@ -1449,7 +1451,7 @@ def hide_socket_toggle(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Toggle unused node socket display
 
     :return: Result of the operator call.
@@ -1459,7 +1461,7 @@ def hide_toggle(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Toggle collapsing of selected nodes
 
     :return: Result of the operator call.
@@ -1471,7 +1473,7 @@ def index_switch_item_add(
     /,
     *,
     node_identifier: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add an item to the index switch
 
     :param node_identifier: Node Identifier, Optional identifier of the node to operate on (in [0, inf], optional)
@@ -1484,7 +1486,7 @@ def index_switch_item_remove(
     /,
     *,
     index: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove an item from the index switch
 
     :param index: Index, Index to remove (in [0, inf], optional)
@@ -1495,7 +1497,7 @@ def insert_offset(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Automatically offset nodes on insertion
 
     :return: Result of the operator call.
@@ -1505,7 +1507,7 @@ def interface_item_duplicate(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a copy of the active item to the interface
 
     :return: Result of the operator call.
@@ -1515,7 +1517,7 @@ def interface_item_make_panel_toggle(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Make the active boolean socket a toggle for its parent panel
 
     :return: Result of the operator call.
@@ -1527,7 +1529,7 @@ def interface_item_new(
     /,
     *,
     item_type: typing.Literal["INPUT", "OUTPUT", "PANEL"] | None = "INPUT",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a new item to the interface
 
     :param item_type: Item Type, Type of the item to create (optional)
@@ -1538,7 +1540,7 @@ def interface_item_new_panel_toggle(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a checkbox to the currently selected panel
 
     :return: Result of the operator call.
@@ -1548,7 +1550,7 @@ def interface_item_remove(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove selected items from the interface
 
     :return: Result of the operator call.
@@ -1558,7 +1560,7 @@ def interface_item_unlink_panel_toggle(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Make the panel toggle a stand-alone socket
 
     :return: Result of the operator call.
@@ -1568,7 +1570,7 @@ def join(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Attach selected nodes to a new common frame
 
     :return: Result of the operator call.
@@ -1581,7 +1583,7 @@ def join_named(
     *,
     NODE_OT_join: dict[str, typing.Any] | None = {},
     WM_OT_call_panel: dict[str, typing.Any] | None = {},
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Create a new frame node around the selected nodes and name it immediately
 
     :param NODE_OT_join: Join Nodes in Frame, Attach selected nodes to a new common frame (optional, `bpy.ops.node.join` keyword arguments)
@@ -1593,7 +1595,7 @@ def join_nodes(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Merge selected group input nodes into one if possible
 
     :return: Result of the operator call.
@@ -1612,7 +1614,7 @@ def link(
     max_speed: float | None = 26.0,
     delay: float | None = 0.5,
     zoom_influence: float | None = 0.5,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Use the mouse to create a link between two nodes
 
     :param detach: Detach, Detach and redirect existing links (optional)
@@ -1633,7 +1635,7 @@ def link_drag_operation_test(
     *,
     find_link_operations: bool | None = False,
     link_operation_index: int | None = -1,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Run a node link-drag operation for testing
 
     :param find_link_operations: Find Link Operations, Write link operation names for the context socket the "link_operation_names" property of the node tree (optional)
@@ -1647,7 +1649,7 @@ def link_make(
     /,
     *,
     replace: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Make a link between selected output and input sockets
 
     :param replace: Replace, Replace socket connections with the new links (optional)
@@ -1658,7 +1660,7 @@ def link_viewer(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Link to viewer node
 
     :return: Result of the operator call.
@@ -1671,7 +1673,7 @@ def links_cut(
     *,
     path=None,
     cursor: int | None = 15,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Use the mouse to cut (remove) some links
 
     :param path: Path, (optional)
@@ -1683,7 +1685,7 @@ def links_detach(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove all links to selected nodes, and try to connect neighbor nodes together
 
     :return: Result of the operator call.
@@ -1696,7 +1698,7 @@ def links_mute(
     *,
     path=None,
     cursor: int | None = 39,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Use the mouse to mute links
 
     :param path: Path, (optional)
@@ -1711,7 +1713,7 @@ def move_detach_links(
     *,
     NODE_OT_links_detach: dict[str, typing.Any] | None = {},
     TRANSFORM_OT_translate: dict[str, typing.Any] | None = {},
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move a node to detach links
 
     :param NODE_OT_links_detach: Detach Links, Remove all links to selected nodes, and try to connect neighbor nodes together (optional, `bpy.ops.node.links_detach` keyword arguments)
@@ -1726,7 +1728,7 @@ def move_detach_links_release(
     *,
     NODE_OT_links_detach: dict[str, typing.Any] | None = {},
     NODE_OT_translate_attach: dict[str, typing.Any] | None = {},
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move a node to detach links
 
     :param NODE_OT_links_detach: Detach Links, Remove all links to selected nodes, and try to connect neighbor nodes together (optional, `bpy.ops.node.links_detach` keyword arguments)
@@ -1738,7 +1740,7 @@ def mute_toggle(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Toggle muting of selected nodes
 
     :return: Result of the operator call.
@@ -1750,7 +1752,7 @@ def new_compositing_node_group(
     /,
     *,
     name: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Create a new compositing node group and initialize it with default nodes
 
     :param name: Name, (optional, never None)
@@ -1763,7 +1765,7 @@ def new_compositor_sequencer_node_group(
     /,
     *,
     name: str | None = "Sequencer Compositor Nodes",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Create a new compositor node group for sequencer
 
     :param name: Name, (optional, never None)
@@ -1774,7 +1776,7 @@ def new_geometry_node_group_assign(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Create a new geometry node group and assign it to the active modifier
 
     :return: Result of the operator call.
@@ -1784,7 +1786,7 @@ def new_geometry_node_group_tool(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Create a new geometry node group for a tool
 
     :return: Result of the operator call.
@@ -1794,7 +1796,7 @@ def new_geometry_nodes_modifier(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Create a new modifier with a new geometry node group
 
     :return: Result of the operator call.
@@ -1807,7 +1809,7 @@ def new_node_tree(
     *,
     type: str | None = "",
     name: str | None = "NodeTree",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Create a new node tree
 
     :param type: Tree Type, (optional)
@@ -1823,7 +1825,7 @@ def node_color_preset_add(
     name: str | None = "",
     remove_name: bool | None = False,
     remove_active: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add or remove a Node Color Preset
 
     :param name: Name, Name of the preset, used to make the path name (optional, never None)
@@ -1836,7 +1838,7 @@ def node_copy_color(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Copy color to all selected nodes
 
     :return: Result of the operator call.
@@ -1846,7 +1848,7 @@ def options_toggle(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Toggle option buttons display for selected nodes
 
     :return: Result of the operator call.
@@ -1856,7 +1858,7 @@ def parent_set(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Attach selected nodes
 
     :return: Result of the operator call.
@@ -1866,7 +1868,7 @@ def preview_toggle(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Toggle preview display for selected nodes
 
     :return: Result of the operator call.
@@ -1876,7 +1878,7 @@ def read_viewlayers(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Read all render layers of all used scenes
 
     :return: Result of the operator call.
@@ -1886,7 +1888,7 @@ def render_changed(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Render current scene, when input nodes layer has been changed
 
     :return: Result of the operator call.
@@ -1898,7 +1900,7 @@ def repeat_zone_item_add(
     /,
     *,
     node_identifier: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add item below active item
 
     :param node_identifier: Node Identifier, Optional identifier of the node to operate on (in [0, inf], optional)
@@ -1912,7 +1914,7 @@ def repeat_zone_item_move(
     *,
     direction: typing.Literal["UP", "DOWN"] | None = "UP",
     node_identifier: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move active item
 
     :param direction: Direction, Move direction (optional)
@@ -1926,7 +1928,7 @@ def repeat_zone_item_remove(
     /,
     *,
     node_identifier: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove active item
 
     :param node_identifier: Node Identifier, Optional identifier of the node to operate on (in [0, inf], optional)
@@ -1937,7 +1939,7 @@ def resize(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Resize a node
 
     :return: Result of the operator call.
@@ -1956,7 +1958,7 @@ def select(
     location: collections.abc.Sequence[int] | None = (0, 0),
     socket_select: bool | None = False,
     clear_viewer: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select the node under the cursor
 
     :param extend: Extend, Extend selection instead of deselecting everything first (optional)
@@ -1976,7 +1978,7 @@ def select_all(
     /,
     *,
     action: typing.Literal["TOGGLE", "SELECT", "DESELECT", "INVERT"] | None = "TOGGLE",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """(De)select all nodes
 
         :param action: Action, Selection action to execute (optional)
@@ -2007,7 +2009,7 @@ def select_box(
     ymax: int | None = 0,
     wait_for_input: bool | None = True,
     mode: typing.Literal["SET", "ADD", "SUB"] | None = "SET",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Use box selection to select nodes
 
         :param tweak: Tweak, Only activate when mouse is not over a node (useful for tweak gesture) (optional)
@@ -2039,7 +2041,7 @@ def select_circle(
     radius: int | None = 25,
     wait_for_input: bool | None = True,
     mode: typing.Literal["SET", "ADD", "SUB"] | None = "SET",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Use circle selection to select nodes
 
         :param x: X, (in [-inf, inf], optional)
@@ -2066,7 +2068,7 @@ def select_grouped(
     *,
     extend: bool | None = False,
     type: typing.Literal["TYPE", "COLOR", "PREFIX", "SUFFIX"] | None = "TYPE",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select nodes with similar properties
 
     :param extend: Extend, Extend selection instead of deselecting everything first (optional)
@@ -2085,7 +2087,7 @@ def select_lasso(
     smooth_stroke_factor: float | None = 0.75,
     smooth_stroke_radius: int | None = 35,
     mode: typing.Literal["SET", "ADD", "SUB"] | None = "SET",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select nodes using lasso selection
 
         :param tweak: Tweak, Only activate when mouse is not over a node (useful for tweak gesture) (optional)
@@ -2113,7 +2115,7 @@ def select_link_viewer(
     *,
     NODE_OT_select: dict[str, typing.Any] | None = {},
     NODE_OT_link_viewer: dict[str, typing.Any] | None = {},
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select node and link it to a viewer node
 
     :param NODE_OT_select: Select, Select the node under the cursor (optional, `bpy.ops.node.select` keyword arguments)
@@ -2125,7 +2127,7 @@ def select_linked_from(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select nodes linked from the selected ones
 
     :return: Result of the operator call.
@@ -2135,7 +2137,7 @@ def select_linked_to(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select nodes linked to the selected ones
 
     :return: Result of the operator call.
@@ -2147,7 +2149,7 @@ def select_same_type_step(
     /,
     *,
     prev: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Activate and view same node type, step by step
 
     :param prev: Previous, (optional)
@@ -2160,7 +2162,7 @@ def separate_bundle_item_add(
     /,
     *,
     node_identifier: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add item below active item
 
     :param node_identifier: Node Identifier, Optional identifier of the node to operate on (in [0, inf], optional)
@@ -2174,7 +2176,7 @@ def separate_bundle_item_move(
     *,
     direction: typing.Literal["UP", "DOWN"] | None = "UP",
     node_identifier: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move active item
 
     :param direction: Direction, Move direction (optional)
@@ -2188,7 +2190,7 @@ def separate_bundle_item_remove(
     /,
     *,
     node_identifier: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove active item
 
     :param node_identifier: Node Identifier, Optional identifier of the node to operate on (in [0, inf], optional)
@@ -2199,7 +2201,7 @@ def shader_script_update(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Update shader script node with new sockets and options from the script
 
     :return: Result of the operator call.
@@ -2211,7 +2213,7 @@ def simulation_zone_item_add(
     /,
     *,
     node_identifier: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add item below active item
 
     :param node_identifier: Node Identifier, Optional identifier of the node to operate on (in [0, inf], optional)
@@ -2225,7 +2227,7 @@ def simulation_zone_item_move(
     *,
     direction: typing.Literal["UP", "DOWN"] | None = "UP",
     node_identifier: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move active item
 
     :param direction: Direction, Move direction (optional)
@@ -2239,7 +2241,7 @@ def simulation_zone_item_remove(
     /,
     *,
     node_identifier: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove active item
 
     :param node_identifier: Node Identifier, Optional identifier of the node to operate on (in [0, inf], optional)
@@ -2252,7 +2254,7 @@ def sockets_sync(
     /,
     *,
     node_name: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Update sockets to match what is actually used
 
     :param node_name: Node Name, (optional, never None)
@@ -2265,7 +2267,7 @@ def swap_empty_group(
     /,
     *,
     settings=None,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Replace active node with an empty group
 
     :param settings: Settings, Settings to be applied on the newly created node (optional)
@@ -2277,11 +2279,13 @@ def swap_group_asset(
     undo: bool | None = None,
     /,
     *,
-    asset_library_type: Literal[bpy.stub_internal.rna_enums.AssetLibraryTypeItems]
+    asset_library_type: typing.Literal[
+        bpy.stub_internal.rna_enums.AssetLibraryTypeItems
+    ]
     | None = "LOCAL",
     asset_library_identifier: str | None = "",
     relative_asset_identifier: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Swap selected nodes with the specified node group asset
 
     :param asset_library_type: Asset Library Type, (optional)
@@ -2298,7 +2302,7 @@ def swap_node(
     settings=None,
     type: str | None = "",
     visible_output: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Replace the selected nodes with the specified type
 
     :param settings: Settings, Settings to be applied on the newly created node (optional)
@@ -2317,7 +2321,7 @@ def swap_zone(
     input_node_type: str | None = "",
     output_node_type: str | None = "",
     add_default_geometry_link: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
 
     :param settings: Settings, Settings to be applied on the newly created node (optional)
@@ -2332,7 +2336,7 @@ def test_inlining_shader_nodes(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Create a new inlined shader node tree as is consumed by renderers
 
     :return: Result of the operator call.
@@ -2342,7 +2346,7 @@ def toggle_viewer(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Toggle selected viewer node in compositor and geometry nodes
 
     :return: Result of the operator call.
@@ -2355,7 +2359,7 @@ def translate_attach(
     *,
     TRANSFORM_OT_translate: dict[str, typing.Any] | None = {},
     NODE_OT_attach: dict[str, typing.Any] | None = {},
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move nodes and attach to frame
 
     :param TRANSFORM_OT_translate: Move, Move selected items (optional, `bpy.ops.transform.translate` keyword arguments)
@@ -2370,7 +2374,7 @@ def translate_attach_remove_on_cancel(
     *,
     TRANSFORM_OT_translate: dict[str, typing.Any] | None = {},
     NODE_OT_attach: dict[str, typing.Any] | None = {},
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move nodes and attach to frame
 
     :param TRANSFORM_OT_translate: Move, Move selected items (optional, `bpy.ops.transform.translate` keyword arguments)
@@ -2384,7 +2388,7 @@ def tree_path_parent(
     /,
     *,
     parent_tree_index: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Go to parent node tree
 
     :param parent_tree_index: Parent Index, Parent index in context path (in [-inf, inf], optional)
@@ -2395,7 +2399,7 @@ def view_all(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Resize view so you can see all nodes
 
     :return: Result of the operator call.
@@ -2405,7 +2409,7 @@ def view_selected(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Resize view so you can see selected nodes
 
     :return: Result of the operator call.
@@ -2421,7 +2425,7 @@ def viewer_border(
     ymin: int | None = 0,
     ymax: int | None = 0,
     wait_for_input: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set the boundaries for viewer operations (Not implemented)
 
     :param xmin: X Min, (in [-inf, inf], optional)
@@ -2438,7 +2442,7 @@ def viewer_shortcut_get(
     /,
     *,
     viewer_index: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Toggle a specific viewer node using 1,2,..,9 keys
 
     :param viewer_index: Viewer Index, Index corresponding to the shortcut, e.g. number key 1 corresponds to index 1 etc.. (in [-inf, inf], optional)
@@ -2451,7 +2455,7 @@ def viewer_shortcut_set(
     /,
     *,
     viewer_index: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Create a viewer shortcut for the selected node by pressing ctrl+1,2,..9
 
     :param viewer_index: Viewer Index, Index corresponding to the shortcut, e.g. number key 1 corresponds to index 1 etc.. (in [-inf, inf], optional)

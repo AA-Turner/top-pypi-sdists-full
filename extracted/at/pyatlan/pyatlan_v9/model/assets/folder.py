@@ -84,8 +84,6 @@ class Folder(Asset):
     SCHEMA_REGISTRY_SUBJECTS: ClassVar[Any] = None
     SODA_CHECKS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "Folder"
-
     parent_qualified_name: Union[str, None, UnsetType] = UNSET
     """Unique name of the parent folder or collection in which this folder exists."""
 
@@ -178,6 +176,7 @@ class Folder(Asset):
         collection_qualified_name: str | None = None,
         parent_folder_qualified_name: str | None = None,
     ) -> "Folder":
+
         validate_required_fields(["name"], [name])
         if not (parent_folder_qualified_name or collection_qualified_name):
             raise ValueError(
@@ -437,6 +436,9 @@ def _folder_to_nested(folder: Folder) -> FolderNested:
         is_incomplete=folder.is_incomplete,
         provenance_type=folder.provenance_type,
         home_id=folder.home_id,
+        depth=folder.depth,
+        immediate_upstream=folder.immediate_upstream,
+        immediate_downstream=folder.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -466,7 +468,6 @@ def _folder_from_nested(nested: FolderNested) -> Folder:
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -475,6 +476,9 @@ def _folder_from_nested(nested: FolderNested) -> Folder:
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_folder_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

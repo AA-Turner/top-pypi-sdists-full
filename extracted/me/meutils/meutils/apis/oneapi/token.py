@@ -40,7 +40,14 @@ async def get_api_key_money(api_key):
         hard_limit_usd = response2.json()['hard_limit_usd']
         return hard_limit_usd - total_usage
 
+# todo
+"""
+curl --location --request GET 'https://api.ffire.cc/api/usage/token/' \
+--header 'Authorization: bearer sk-1fJYtvUPY29YQ9NpkOIKTUKAXsYJfMYvXSInZEet5ytJeHpB' \
+--header 'New-Api-User: 1'
+"""
 
+"api/usage/token/"
 if __name__ == '__main__':
     # arun(get_api_key_money(os.getenv("OPENAI_API_KEY_GUOCHAN")))
 

@@ -90,8 +90,6 @@ class BI(Asset):
     INPUT_TO_SPARK_JOBS: ClassVar[Any] = None
     OUTPUT_FROM_SPARK_JOBS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "BI"
-
     input_to_airflow_tasks: Union[List[RelatedAirflowTask], None, UnsetType] = UNSET
     """Tasks to which this asset provides input."""
 
@@ -430,6 +428,9 @@ def _bi_to_nested(bi: BI) -> BINested:
         is_incomplete=bi.is_incomplete,
         provenance_type=bi.provenance_type,
         home_id=bi.home_id,
+        depth=bi.depth,
+        immediate_upstream=bi.immediate_upstream,
+        immediate_downstream=bi.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -459,7 +460,6 @@ def _bi_from_nested(nested: BINested) -> BI:
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -468,6 +468,9 @@ def _bi_from_nested(nested: BINested) -> BI:
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_bi_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

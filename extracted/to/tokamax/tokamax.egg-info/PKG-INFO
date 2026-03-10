@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tokamax
-Version: 0.0.10
+Version: 0.0.11
 Summary: A Pallas Custom Kernel Library.
 Author-email: Ani Udipi <udipi@google.com>, Chris Jones <cjfj@google.com>, Christos Perivolaropoulos <cperivol@google.com>, Giorgio Arena <giorgioa@google.com>, Gleb Pobudzey <pobudzey@google.com>, Robert Dyro <rdyro@google.com>, Sebastian Bodenstein <sbodenstein@google.com>, Selim Seferbekov <selimsef@google.com>, Stanley Tzeng <stzeng@google.com>, Niyati Chaudhary <niyatic@google.com>
 License: 
@@ -211,15 +211,14 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: absl-py>=2.3.0
 Requires-Dist: einshape
-Requires-Dist: jax>=0.8.2
-Requires-Dist: jaxlib>=0.8.2
+Requires-Dist: jax>=0.9.1
+Requires-Dist: jaxlib>=0.9.1
 Requires-Dist: jaxtyping>=0.3
 Requires-Dist: pydantic>=2.11.0
 Requires-Dist: qwix>=0.1.2
 Requires-Dist: tqdm
 Requires-Dist: typing_extensions>=4.5.0
 Requires-Dist: typeguard==2.13.3
-Requires-Dist: xprof
 Requires-Dist: immutabledict
 Requires-Dist: tensorboardx
 Provides-Extra: test
@@ -228,8 +227,11 @@ Requires-Dist: flatbuffers; extra == "test"
 Requires-Dist: flax; extra == "test"
 Requires-Dist: pytest-xdist; extra == "test"
 Requires-Dist: pytest; extra == "test"
+Requires-Dist: xprof; extra == "test"
 Provides-Extra: bench
+Requires-Dist: libtpu>=0.0.35; extra == "bench"
 Requires-Dist: google-benchmark>=1.9.0; extra == "bench"
+Requires-Dist: xprof; extra == "bench"
 Provides-Extra: cuda
 Requires-Dist: jax[cuda12]>=0.8.0; extra == "cuda"
 Requires-Dist: nvidia-cudnn-cu12>=9.0.0; extra == "cuda"
@@ -405,18 +407,19 @@ execution time. This means the usual approach of timing
 for only measuring accelerator execution time:
 
 ```python
-
-f_std, args = tokamax.benchmarking.standardize_function(f, kwargs={'x': x, 'scale': scale})
-run = tokamax.benchmarking.compile_benchmark(f_std, args)
-bench: tokamax.benchmarking.BenchmarkData = run(args)
+f_std, args = tokamax.standardize_function(f, kwargs={'x': x, 'scale': scale})
+bench: tokamax.BenchmarkData = tokamax.benchmark(f_std, args)
 ```
 
 There are different measurement techniques: for example, on GPU, there is the
 [CUPTI profiler](https://docs.nvidia.com/cupti) that can be specified via
-`run(args, method='cupti')`. This instruments the kernel and adds some a small
-overhead. The default `run(args, method=None)` allows Tokamax to choose the
-method, and works for both TPU and GPU. Benchmark noise can be reduced by
-increasing the number of iterations `run(args, iterations=10)`.
+`tokamax.benchmark(f_std, args, method='cupti')`. This instruments the
+kernel and adds some a small overhead. The default `method=None` allows Tokamax
+to choose the method, and works for both TPU and GPU. Benchmark noise can be
+reduced by increasing the number of iterations:
+```python
+tokamax.benchmark(f_std, args, iterations=10)
+```
 
 ## Disclaimer
 

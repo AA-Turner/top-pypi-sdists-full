@@ -1,5 +1,4 @@
 import time
-from typing import Optional
 
 from django.http import HttpResponseRedirect
 from django.urls import reverse
@@ -12,7 +11,7 @@ from allauth.account.stages import LoginStage, LoginStageController
 LOGIN_SESSION_KEY = "account_login"
 
 
-def get_pending_stage(request) -> Optional[LoginStage]:
+def get_pending_stage(request) -> LoginStage | None:
     stage = None
     if not request.user.is_authenticated:
         login = unstash_login(request, peek=True)
@@ -29,11 +28,11 @@ def redirect_to_pending_stage(request, stage: LoginStage):
     return HttpResponseRedirect(reverse("account_login"))
 
 
-def clear_login(request):
+def clear_login(request) -> None:
     request.session.pop(LOGIN_SESSION_KEY, None)
 
 
-def unstash_login(request, peek=False):
+def unstash_login(request, peek: bool = False):
     login = None
     if peek:
         data = request.session.get(LOGIN_SESSION_KEY)
@@ -53,6 +52,6 @@ def unstash_login(request, peek=False):
     return login
 
 
-def stash_login(request, login):
+def stash_login(request, login) -> None:
     request.session[LOGIN_SESSION_KEY] = login.serialize()
     request._account_login_accessed = True

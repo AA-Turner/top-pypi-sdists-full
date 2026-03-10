@@ -96,6 +96,9 @@ from anyscale.client.openapi_client.models import (
     WriteProject,
 )
 from anyscale.client.openapi_client.models.create_schedule import CreateSchedule
+from anyscale.client.openapi_client.models.databricks_connection_config_item import (
+    DatabricksConnectionConfigItem,
+)
 from anyscale.client.openapi_client.models.databricks_connection_info import (
     DatabricksConnectionInfo,
 )
@@ -286,6 +289,7 @@ class AnyscaleClient(AnyscaleClientInterface):
         self._cloud_id_cache: Dict[Optional[str], str] = {}
         self._cluster_env_build_cache: Dict[str, ClusterEnvironmentBuild] = {}
         self._current_workspace_cluster: Optional[Cluster] = None
+        self._deployment_infra_provider: Optional[str] = None
         self._logger = logger or BlockLogger()
         self._host = host or ANYSCALE_HOST
 
@@ -1067,19 +1071,34 @@ class AnyscaleClient(AnyscaleClientInterface):
         return build_op.cluster_environment_build_id
 
     @handle_api_exceptions
+    def get_deployment_infra_provider(self) -> str:
+        """Get the deployment infrastructure provider (e.g. 'aws' or 'azure')."""
+        if self._deployment_infra_provider is None:
+            self._deployment_infra_provider = (
+                self._internal_api_client.get_deployment_infra_api_v2_workos_deployment_infra_get().result.deployment_infra
+            )
+        return self._deployment_infra_provider
+
+    @handle_api_exceptions
     def get_cluster_env_build_id_from_image_uri(
         self,
         image_uri: ImageURI,
         registry_login_secret: Optional[str] = None,
         ray_version: Optional[str] = None,
         name: Optional[str] = None,
+        cloud_id: Optional[str] = None,
     ) -> str:
+        # Only pass cloud_id for Azure deployments.
+        if self.get_deployment_infra_provider() != "azure":
+            cloud_id = None
+
         build = self._internal_api_client.get_or_create_build_from_image_uri_api_v2_builds_get_or_create_build_from_image_uri_post(
             GetOrCreateBuildFromImageUriRequest(
                 image_uri=str(image_uri),
                 registry_login_secret=registry_login_secret,
                 ray_version=ray_version,
                 cluster_env_name=name,
+                cloud_id=cloud_id,
             )
         ).result
         return build.id
@@ -2565,12 +2584,12 @@ class AnyscaleClient(AnyscaleClientInterface):
     @handle_api_exceptions
     def list_databricks_connections(
         self, *, name: Optional[str] = None
-    ) -> List[DatabricksConnectionInfo]:
+    ) -> List[DatabricksConnectionConfigItem]:
         """List Databricks connections."""
         response = self._internal_api_client.list_databricks_connections_api_v2_integrations_connections_databricks_get(
             name=name
         )
-        return response.connections
+        return response.results
 
     @handle_api_exceptions
     def get_databricks_connection(self, connection_id: str) -> DatabricksConnectionInfo:

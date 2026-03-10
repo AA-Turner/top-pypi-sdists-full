@@ -351,6 +351,7 @@ class ApplySubscriptionInput(BaseModel):
     subscription_entitlements: Optional[List["SubscriptionEntitlementInput"]] = Field(
         alias="subscriptionEntitlements", default=None
     )
+    trial_end_date: Optional[Any] = Field(alias="trialEndDate", default=None)
     trial_override_configuration: Optional["TrialOverrideConfigurationInput"] = Field(
         alias="trialOverrideConfiguration", default=None
     )
@@ -5669,8 +5670,8 @@ class UsageHistoryV2Input(BaseModel):
     environment_id: Optional[Any] = Field(alias="environmentId", default=None)
     feature_id: str = Field(alias="featureId")
     group_by: Optional[List[str]] = Field(alias="groupBy", default=None)
-    include_historical_usage: Optional[bool] = Field(
-        alias="includeHistoricalUsage", default=None
+    include_inactive_subscriptions: Optional[bool] = Field(
+        alias="includeInactiveSubscriptions", default=None
     )
     resource_id: Optional[str] = Field(alias="resourceId", default=None)
     start_date: Any = Field(alias="startDate")

@@ -3,7 +3,7 @@
 # - If it makes sense and only when strictly necessary, you can create utility functions in this file.
 # - But please, **do not** interleave utility functions and command definitions.
 
-from typing import List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import click
 
@@ -17,6 +17,7 @@ from tinybird.tb.modules.common import (
     get_workspace_member_email,
     switch_to_workspace_by_user_workspace_data,
     try_update_config_with_remote,
+    wait_job,
 )
 from tinybird.tb.modules.config import CLIConfig
 from tinybird.tb.modules.exceptions import CLIBranchException, CLIException
@@ -148,3 +149,91 @@ def delete_branch(branch_name_or_id: str, yes: bool) -> None:
                     switch_to_workspace_by_user_workspace_data(config, workspace_main)
                 else:
                     raise CLIException(FeedbackManager.error_switching_to_main())
+
+
+@branch.command(name="clear", short_help="Clear a branch by deleting and recreating it.")
+@click.argument("branch_name_or_id", required=False)
+@click.option(
+    "--last-partition",
+    is_flag=True,
+    default=False,
+    help="Attach the last modified partition from the current workspace to the new branch",
+)
+@click.option(
+    "-i",
+    "--ignore-datasource",
+    "ignore_datasources",
+    type=str,
+    multiple=True,
+    help="Ignore specified data source partitions",
+)
+@click.option(
+    "--wait/--no-wait",
+    is_flag=True,
+    default=True,
+    help="Wait for data branch jobs to finish, showing a progress bar. Disabled by default.",
+)
+@click.option("--yes", is_flag=True, default=False, help="Do not ask for confirmation")
+def clear_branch(
+    branch_name_or_id: Optional[str],
+    last_partition: bool,
+    ignore_datasources: Tuple[str, ...],
+    wait: bool,
+    yes: bool,
+) -> None:
+    """Clear a branch by deleting and recreating it."""
+    config = CLIConfig.get_project_config()
+    _ = try_update_config_with_remote(config, only_if_needed=True)
+
+    current_main_workspace = get_current_main_workspace(config)
+    if not current_main_workspace:
+        raise CLIException(FeedbackManager.error_unable_to_identify_main_workspace())
+
+    workspace_branches = get_current_workspace_branches(config)
+    workspace_to_clear: Optional[Dict[str, Any]] = None
+
+    if branch_name_or_id:
+        if branch_name_or_id == MAIN_BRANCH:
+            raise CLIException(FeedbackManager.error_not_allowed_in_main_branch())
+        workspace_to_clear = next(
+            (
+                workspace
+                for workspace in workspace_branches
+                if workspace["name"] == branch_name_or_id or workspace["id"] == branch_name_or_id
+            ),
+            None,
+        )
+    else:
+        workspace_to_clear = next(
+            (workspace for workspace in workspace_branches if workspace["id"] == config["id"]), None
+        )
+        if not workspace_to_clear:
+            raise CLIBranchException(FeedbackManager.error_not_a_branch())
+
+    if not workspace_to_clear:
+        raise CLIBranchException(FeedbackManager.error_branch(branch=branch_name_or_id or ""))
+
+    branch_name = workspace_to_clear["name"]
+    if yes or click.confirm(FeedbackManager.warning_confirm_clear_workspace()):
+        was_current_branch = workspace_to_clear["id"] == config.get("id")
+        client = config.get_client(token=current_main_workspace.get("token"))
+        try:
+            client.delete_branch(workspace_to_clear["id"])
+            response = client.create_workspace_branch(branch_name, last_partition, False, list(ignore_datasources))
+            if wait and "job" in response:
+                job_id = response["job"]["job_id"]
+                job_url = response["job"]["job_url"]
+                wait_job(client, job_id, job_url, "Environment creation")
+        except Exception as e:
+            raise CLIBranchException(FeedbackManager.error_exception(error=str(e)))
+
+        recreated_branches = client.user_workspace_branches("v1").get("workspaces", [])
+        recreated_branch = next(
+            (workspace for workspace in recreated_branches if workspace.get("name") == branch_name), None
+        )
+        if not recreated_branch:
+            raise CLIBranchException(FeedbackManager.error_branch(branch=branch_name))
+
+        click.echo(FeedbackManager.success(message=f"✓ Branch '{branch_name}' cleared"))
+        if was_current_branch:
+            switch_to_workspace_by_user_workspace_data(config, recreated_branch)

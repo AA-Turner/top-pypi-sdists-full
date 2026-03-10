@@ -28,6 +28,7 @@ __copyright__ = "Copyright (c) 2008-2024 Hive Solutions Lda."
 __license__ = "Apache License, Version 2.0"
 """ The license for the module """
 
+import re
 import json
 
 import netius
@@ -56,8 +57,10 @@ class ConsulProxyServer(proxy_r.ReverseProxyServer):
     Additional per-service tags are supported for password
     protection (`proxy.password=<secret>`), custom error pages
     (`proxy.error-url=<url>`), automatic HTTPS redirection
-    (`proxy.redirect-ssl=true`), and port filtering
-    (`proxy.port=<port1,port2,...>` or alias `proxy.ports`).
+    (`proxy.redirect-ssl=true`), port filtering
+    (`proxy.port=<port1,port2,...>` or alias `proxy.ports`),
+    address override (`proxy.address=<address>`), and regex-based
+    auth rules (`proxy.auth-regex=<pattern>;<type>,...`).
     """
 
     def __init__(
@@ -80,6 +83,7 @@ class ConsulProxyServer(proxy_r.ReverseProxyServer):
         )
         self._consul_hosts = set()
         self._consul_aliases = set()
+        self._consul_auth_regex = []
 
     def on_serve(self):
         proxy_r.ReverseProxyServer.on_serve(self)
@@ -102,19 +106,26 @@ class ConsulProxyServer(proxy_r.ReverseProxyServer):
         self._consul_tick(timeout=self.consul_poll_interval)
 
     def _build_consul(self, entries):
+        self._debug_entries(entries)
         self._build_hosts(entries)
         self._build_suffixes()
 
     def _build_hosts(self, entries):
         # removes any previously registered consul-managed hosts,
-        # auth, error URLs and redirects to ensure a clean state
-        # before rebuilding the complete set of entries
+        # auth, error URLs, redirects and auth regex entries to
+        # ensure a clean state before rebuilding the complete set
         for host in self._consul_hosts:
             self.hosts.pop(host, None)
             self.auth.pop(host, None)
             self.error_urls.pop(host, None)
             self.redirect.pop(host, None)
+        for entry in self._consul_auth_regex:
+            try:
+                self.auth_regex.remove(entry)
+            except ValueError:
+                pass
         self._consul_hosts = set()
+        self._consul_auth_regex = []
 
         # iterates over the fetched entries registering each one
         # in the hosts map and applying per-service configuration
@@ -184,13 +195,17 @@ class ConsulProxyServer(proxy_r.ReverseProxyServer):
             if not instances:
                 continue
 
+            # resolves the optional address override from the
+            # consul tags, bypassing the default resolution
+            address = self._resolve_address(tags)
+
             # resolves the optional port filter from the consul
             # tags, limiting which ports are considered valid
             ports = self._resolve_ports(tags)
 
             # builds the complete set of backend URLs from the
             # healthy instances, filtering out any invalid ones
-            urls = self._build_urls(instances, ports=ports)
+            urls = self._build_urls(instances, address=address, ports=ports)
             if not urls:
                 continue
 
@@ -287,6 +302,16 @@ class ConsulProxyServer(proxy_r.ReverseProxyServer):
             return str(domain)
         return str(service.lower())
 
+    def _resolve_address(self, tags):
+        for tag in tags:
+            if not tag.startswith("proxy.address="):
+                continue
+            value = tag[len("proxy.address=") :]
+            if not value:
+                continue
+            return str(value)
+        return None
+
     def _resolve_ports(self, tags):
         value = None
         for tag in tags:
@@ -301,11 +326,67 @@ class ConsulProxyServer(proxy_r.ReverseProxyServer):
             part = part.strip()
             if not part:
                 continue
-            try:
-                ports.add(int(part))
-            except ValueError:
-                continue
+            if "-" in part:
+                bounds = part.split("-", 1)
+                try:
+                    start = int(bounds[0].strip())
+                    end = int(bounds[1].strip())
+                except ValueError:
+                    continue
+                for port in range(start, end + 1):
+                    ports.add(port)
+            else:
+                try:
+                    ports.add(int(part))
+                except ValueError:
+                    continue
         return ports if ports else None
+
+    def _resolve_auth_regex(self, tags):
+        value = None
+        for tag in tags:
+            if tag.startswith("proxy.auth-regex=") and value == None:
+                value = tag[len("proxy.auth-regex=") :]
+        if not value:
+            return None
+        result = []
+        for part in value.split(","):
+            part = part.strip()
+            if not part:
+                continue
+            if ";" not in part:
+                continue
+            pattern, auth_type = part.split(";", 1)
+            pattern = pattern.strip()
+            auth_type = auth_type.strip()
+            if not pattern:
+                continue
+            regex = re.compile(pattern)
+            if auth_type == "none":
+                result.append((regex, None))
+            elif auth_type == "password":
+                password = self._resolve_tag(tags, "proxy.password=")
+                if password:
+                    auth = netius.SimpleAuth(password=password)
+                    result.append((regex, auth))
+            elif auth_type.startswith("simple:"):
+                credentials = auth_type[len("simple:") :]
+                parts = credentials.split(":", 1)
+                username = parts[0] if len(parts) > 0 else None
+                password = parts[1] if len(parts) > 1 else None
+                auth = netius.SimpleAuth(username=username, password=password)
+                result.append((regex, auth))
+        return result if result else None
+
+    def _resolve_tag(self, tags, prefix):
+        for tag in tags:
+            if not tag.startswith(prefix):
+                continue
+            value = tag[len(prefix) :]
+            if not value:
+                continue
+            return str(value)
+        return None
 
     def _apply_tags(self, domain, tags):
         for tag in tags:
@@ -320,23 +401,51 @@ class ConsulProxyServer(proxy_r.ReverseProxyServer):
                     self.error_urls[domain] = str(error_url)
             elif tag == "proxy.redirect-ssl=true":
                 self.redirect[domain] = (domain, "https")
+        auth_regex = self._resolve_auth_regex(tags)
+        if auth_regex:
+            self.auth_regex = list(self.auth_regex) + auth_regex
+            self._consul_auth_regex.extend(auth_regex)
+            for regex, auth in auth_regex:
+                auth_s = auth.__class__.__name__ if auth else "none"
+                self.debug(
+                    "Registered auth regex '%s' for '%s' with auth type '%s'"
+                    % (regex.pattern, domain, auth_s)
+                )
 
-    def _build_urls(self, instances, ports=None):
+    def _build_urls(self, instances, address=None, ports=None):
         urls = []
         for instance in instances:
             service = instance.get("Service", dict())
             node = instance.get("Node", dict())
-            address = service.get("Address", None)
-            if not address:
-                address = node.get("Address", None)
+            _address = address or service.get("Address", None)
+            if not _address:
+                _address = node.get("Address", None)
             port = service.get("Port", 0)
-            if not address or not port:
+            if not _address or not port:
                 continue
             if ports and port not in ports:
                 continue
-            url = str("http://%s:%d" % (address, port))
+            url = str("http://%s:%d" % (_address, port))
             urls.append(url)
         return urls
+
+    def _debug_entries(self, entries):
+        self.debug(
+            "Building consul proxy from %d entr%s"
+            % (len(entries), "y" if len(entries) == 1 else "ies")
+        )
+        for service, domain, urls, tags in entries:
+            self.debug(
+                "  %s => %s (%d URL%s, %d tag%s)"
+                % (
+                    service,
+                    domain,
+                    len(urls),
+                    "" if len(urls) == 1 else "s",
+                    len(tags),
+                    "" if len(tags) == 1 else "s",
+                )
+            )
 
 
 if __name__ == "__main__":

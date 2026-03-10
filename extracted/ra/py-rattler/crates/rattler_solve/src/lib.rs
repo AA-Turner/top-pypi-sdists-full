@@ -279,6 +279,9 @@ pub struct SolverTask<TAvailablePackagesIterator> {
 
     /// The solve strategy.
     pub strategy: SolveStrategy,
+
+    /// Dependency overrides that replace dependencies of matching packages.
+    pub dependency_overrides: Vec<(MatchSpec, MatchSpec)>,
 }
 
 impl<'r, I: IntoIterator<Item = &'r RepoDataRecord>> FromIterator<I>
@@ -297,6 +300,7 @@ impl<'r, I: IntoIterator<Item = &'r RepoDataRecord>> FromIterator<I>
             exclude_newer: None,
             min_age: None,
             strategy: SolveStrategy::default(),
+            dependency_overrides: Vec::new(),
         }
     }
 }
@@ -314,7 +318,7 @@ pub enum SolveStrategy {
     ///
     /// All candidates with the same version are still ordered the same as
     /// with `Default`. This ensures that the candidate with the highest build
-    /// number is used and downprioritization still works.
+    /// number is used and down-prioritization still works.
     LowestVersion,
 
     /// Resolve the lowest compatible version for direct dependencies but the

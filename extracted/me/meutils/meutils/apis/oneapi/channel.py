@@ -57,7 +57,7 @@ async def manage_multi_key(id: int, base_url: str, action: str = "enable_all_key
         "action": action,
         **kwargs
     }  #
-    async with httpx.AsyncClient(base_url=base_url, headers=headers, timeout=30) as client:
+    async with httpx.AsyncClient(base_url=base_url, headers=headers, timeout=60) as client:
         response = await client.post("/api/channel/multi_key/manage", json=payload)
         response.raise_for_status()
 
@@ -66,13 +66,58 @@ async def manage_multi_key(id: int, base_url: str, action: str = "enable_all_key
         return data
 
 
-async def get_channel_keys(id: int, base_url: str, status: int = 1, page_size: int = 10240) -> ChannelInfo:
-    payload = {"channel_id": id, "action": "get_key_status", "page": 1, "page_size": page_size, "status": status}
+async def get_channel_keys(id: int, base_url: str, status: Optional[int] = 1, page_size: int = 10240):
+    """
 
-    data = await manage_multi_key(id=-1, base_url=base_url, **payload)
+    :param id:
+    :param base_url:
+    :param status: 1 2 3 分别代表 启用 手动禁用 自动禁用
+    :param page_size:
+    :return:
+    """
+    payload = {"channel_id": id, "action": "get_key_status", "page": 1, "page_size": page_size}
+    if status:
+        payload["status"] = status
+
+    data = await manage_multi_key(id=id, base_url=base_url, **payload)
 
     if data := data['data']:
         return pd.DataFrame(data['keys'])
+
+
+async def get_channel_keys_for_enable(id: int, base_url: str):
+    return await get_channel_keys(id, base_url, status=1)
+
+
+async def get_channel_keys_for_disable(id: int, base_url: str, target_id: Optional[Union[int, list]] = None):
+    df = await get_channel_keys(id, base_url, status=None)
+    df = df[lambda df: df.status != 1]  # 禁用的
+
+    if target_id:  # todo 同步多个 target_id
+        target_df = await get_channel_keys(target_id, base_url, status=None)
+        target_df = target_df[lambda df: df.status != 1]  # 禁用的
+
+        diff_df = df[~df['key_preview'].isin(target_df['key_preview'])]
+
+        key_indexs = diff_df["index"].to_list()
+        # keys = diff_df["key_preview"].to_list()
+
+        if key_indexs:
+            logger.debug(f"{len(key_indexs)} 同步禁用相关渠道 {target_id} 的 keys")
+
+            # tasks = [
+            #     manage_multi_key(target_id, base_url=base_url, action="disable_key", key_index=key_index)
+            #     for key_index in key_indexs
+            # ]
+            # await asyncio.gather(*tasks)
+
+            for key_index in tqdm(key_indexs):
+                # {"channel_id":21385,"action":"disable_key","key_index":0}
+                _ = await manage_multi_key(target_id, base_url=base_url, action="disable_key", key_index=key_index)
+                logger.debug(_)
+
+    else:
+        return df
 
 
 async def get_channel_info(id: int, base_url: str, response_format: Optional[str] = None):
@@ -114,7 +159,7 @@ async def edit_channel(models, token: Optional[str] = None):
         "created_time": 1717038002,
         "test_time": 1728212103,
         "response_time": 9,
-        "base_url": "https://ppu.chatfire.cn",
+        "base_url": "http://ppu.chatfire.cn",
         "other": "",
         "balance": 0,
         "balance_updated_time": 1726793323,
@@ -142,7 +187,7 @@ async def edit_channel(models, token: Optional[str] = None):
         payload['id'] = 280
         payload['name'] = '按次收费ppu-cc'
         payload['priority'] = 0
-        payload['base_url'] = 'https://ppu.chatfire.cc'
+        payload['base_url'] = 'http://ppu.chatfire.cc'
 
         response = await client.put("/api/channel/", json=payload)
         response.raise_for_status()
@@ -379,4 +424,10 @@ if __name__ == '__main__':
     #
     # dff = pd.DataFrame(data['data']['keys'])
 
-    df = arun(get_channel_keys(21385, base_url))
+    # df = arun(get_channel_keys(21385, base_url))
+    base_url = "https://api.chatfire.ai"
+
+    df = arun(get_channel_keys_for_disable(21514, base_url, target_id=21385))
+    # df = arun(get_channel_keys_for_disable(21514, base_url))
+
+    # df = arun(get_channel_keys(21520, status=None, base_url=base_url))

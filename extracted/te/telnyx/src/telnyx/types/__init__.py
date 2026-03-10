@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from . import ai
+from . import ai, event_node, session_analysis_retrieve_response
 from .. import _compat
 from .ip import IP as IP
 from .fax import Fax as Fax
@@ -51,6 +51,7 @@ from .sim_card import SimCard as SimCard
 from .dtmf_type import DtmfType as DtmfType
 from .rcs_agent import RcsAgent as RcsAgent
 from .conference import Conference as Conference
+from .event_node import EventNode as EventNode
 from .fax_failed import FaxFailed as FaxFailed
 from .fax_queued import FaxQueued as FaxQueued
 from .inbound_ip import InboundIP as InboundIP
@@ -189,6 +190,8 @@ from .portout_list_params import PortoutListParams as PortoutListParams
 from .queue_create_params import QueueCreateParams as QueueCreateParams
 from .queue_update_params import QueueUpdateParams as QueueUpdateParams
 from .replaced_link_click import ReplacedLinkClick as ReplacedLinkClick
+from .stream_client_event import StreamClientEvent as StreamClientEvent
+from .stream_server_event import StreamServerEvent as StreamServerEvent
 from .verify_profile_data import VerifyProfileData as VerifyProfileData
 from .webhook_api_version import WebhookAPIVersion as WebhookAPIVersion
 from .call_ai_gather_ended import CallAIGatherEnded as CallAIGatherEnded
@@ -366,6 +369,7 @@ from .report_list_wdrs_response import ReportListWdrsResponse as ReportListWdrsR
 from .requirement_list_response import RequirementListResponse as RequirementListResponse
 from .sound_modifications_param import SoundModificationsParam as SoundModificationsParam
 from .stream_bidirectional_mode import StreamBidirectionalMode as StreamBidirectionalMode
+from .stream_client_event_param import StreamClientEventParam as StreamClientEventParam
 from .access_ip_address_response import AccessIPAddressResponse as AccessIPAddressResponse
 from .call_bridged_webhook_event import CallBridgedWebhookEvent as CallBridgedWebhookEvent
 from .channel_zone_list_response import ChannelZoneListResponse as ChannelZoneListResponse
@@ -460,13 +464,13 @@ from .sim_card_group_list_response import SimCardGroupListResponse as SimCardGro
 from .sim_card_group_update_params import SimCardGroupUpdateParams as SimCardGroupUpdateParams
 from .sim_card_order_create_params import SimCardOrderCreateParams as SimCardOrderCreateParams
 from .sub_number_order_list_params import SubNumberOrderListParams as SubNumberOrderListParams
-from .text_to_speech_stream_params import TextToSpeechStreamParams as TextToSpeechStreamParams
 from .url_shortener_settings_param import URLShortenerSettingsParam as URLShortenerSettingsParam
 from .user_address_create_response import UserAddressCreateResponse as UserAddressCreateResponse
 from .verified_number_data_wrapper import VerifiedNumberDataWrapper as VerifiedNumberDataWrapper
 from .verify_profile_create_params import VerifyProfileCreateParams as VerifyProfileCreateParams
 from .verify_profile_update_params import VerifyProfileUpdateParams as VerifyProfileUpdateParams
 from .webhook_delivery_list_params import WebhookDeliveryListParams as WebhookDeliveryListParams
+from .websocket_connection_options import WebsocketConnectionOptions as WebsocketConnectionOptions
 from .wireguard_peer_create_params import WireguardPeerCreateParams as WireguardPeerCreateParams
 from .wireguard_peer_list_response import WireguardPeerListResponse as WireguardPeerListResponse
 from .wireguard_peer_update_params import WireguardPeerUpdateParams as WireguardPeerUpdateParams
@@ -622,12 +626,12 @@ from .number_reservation_create_params import NumberReservationCreateParams as N
 from .porting_phone_number_list_params import PortingPhoneNumberListParams as PortingPhoneNumberListParams
 from .room_composition_create_response import RoomCompositionCreateResponse as RoomCompositionCreateResponse
 from .room_recording_retrieve_response import RoomRecordingRetrieveResponse as RoomRecordingRetrieveResponse
+from .session_analysis_retrieve_params import SessionAnalysisRetrieveParams as SessionAnalysisRetrieveParams
 from .sim_card_data_usage_notification import SimCardDataUsageNotification as SimCardDataUsageNotification
 from .sim_card_group_retrieve_response import SimCardGroupRetrieveResponse as SimCardGroupRetrieveResponse
 from .sim_card_order_retrieve_response import SimCardOrderRetrieveResponse as SimCardOrderRetrieveResponse
 from .siprec_connector_create_response import SiprecConnectorCreateResponse as SiprecConnectorCreateResponse
 from .siprec_connector_update_response import SiprecConnectorUpdateResponse as SiprecConnectorUpdateResponse
-from .speech_to_text_transcribe_params import SpeechToTextTranscribeParams as SpeechToTextTranscribeParams
 from .stream_bidirectional_target_legs import StreamBidirectionalTargetLegs as StreamBidirectionalTargetLegs
 from .sub_number_order_cancel_response import SubNumberOrderCancelResponse as SubNumberOrderCancelResponse
 from .sub_number_order_retrieve_params import SubNumberOrderRetrieveParams as SubNumberOrderRetrieveParams
@@ -701,6 +705,7 @@ from .porting_phone_number_list_response import PortingPhoneNumberListResponse a
 from .requirement_type_retrieve_response import RequirementTypeRetrieveResponse as RequirementTypeRetrieveResponse
 from .room_composition_retrieve_response import RoomCompositionRetrieveResponse as RoomCompositionRetrieveResponse
 from .room_participant_retrieve_response import RoomParticipantRetrieveResponse as RoomParticipantRetrieveResponse
+from .session_analysis_retrieve_response import SessionAnalysisRetrieveResponse as SessionAnalysisRetrieveResponse
 from .siprec_connector_retrieve_response import SiprecConnectorRetrieveResponse as SiprecConnectorRetrieveResponse
 from .stream_bidirectional_sampling_rate import StreamBidirectionalSamplingRate as StreamBidirectionalSamplingRate
 from .sub_number_order_retrieve_response import SubNumberOrderRetrieveResponse as SubNumberOrderRetrieveResponse
@@ -1441,6 +1446,10 @@ from .managed_account_get_allocatable_global_outbound_channels_response import (
 if _compat.PYDANTIC_V1:
     ai.recursive_cluster.RecursiveCluster.update_forward_refs()  # type: ignore
     ai.cluster_retrieve_response.ClusterRetrieveResponse.update_forward_refs()  # type: ignore
+    event_node.EventNode.update_forward_refs()  # type: ignore
+    session_analysis_retrieve_response.SessionAnalysisRetrieveResponse.update_forward_refs()  # type: ignore
 else:
     ai.recursive_cluster.RecursiveCluster.model_rebuild(_parent_namespace_depth=0)
     ai.cluster_retrieve_response.ClusterRetrieveResponse.model_rebuild(_parent_namespace_depth=0)
+    event_node.EventNode.model_rebuild(_parent_namespace_depth=0)
+    session_analysis_retrieve_response.SessionAnalysisRetrieveResponse.model_rebuild(_parent_namespace_depth=0)

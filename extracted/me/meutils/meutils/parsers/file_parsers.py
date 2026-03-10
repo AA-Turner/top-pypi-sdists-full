@@ -13,7 +13,7 @@ from meutils.pipe import *
 from meutils.io.files_utils import to_bytes, guess_mime_type
 from meutils.llm.clients import moonshot_client, zhipuai_client, APIStatusError
 from meutils.notice.feishu import send_message as _send_message, FILES
-from meutils.caches.redis_cache import cache
+from meutils.caches import rcache
 
 send_message = partial(
     _send_message,
@@ -36,7 +36,7 @@ send_message = partial(
 """
 
 
-@cache(ttl=24 * 3600)
+@rcache(ttl=24 * 3600)
 async def file_extract(
         file,
         provider: Union[str, Literal['kimi', 'moonshot', 'zhipu']] = 'moonshot'

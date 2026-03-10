@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: siliconcompiler
-Version: 0.37.1
+Version: 0.37.2
 Summary: A compiler framework that automates translation from source code to silicon.
 Author: Zero ASIC
 License: Apache License 2.0
@@ -62,7 +62,7 @@ Requires-Dist: PyVirtualDisplay==3.0; extra == "test"
 Provides-Extra: lint
 Requires-Dist: flake8==7.3.0; extra == "lint"
 Requires-Dist: tclint==0.7.0; extra == "lint"
-Requires-Dist: codespell==2.4.1; extra == "lint"
+Requires-Dist: codespell==2.4.2; extra == "lint"
 Provides-Extra: docs
 Requires-Dist: Sphinx<8.3,>=7.4; extra == "docs"
 Requires-Dist: pip-licenses==5.5.1; extra == "docs"

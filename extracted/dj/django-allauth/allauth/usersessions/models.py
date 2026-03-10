@@ -1,5 +1,4 @@
 from importlib import import_module
-from typing import List
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
@@ -22,7 +21,7 @@ if not allauth_settings.USERSESSIONS_ENABLED:
 
 
 class UserSessionManager(models.Manager):
-    def purge_and_list(self, user) -> List["UserSession"]:
+    def purge_and_list(self, user) -> list["UserSession"]:
         ret = []
         sessions = UserSession.objects.filter(user=user)
         for session in sessions.iterator():
@@ -96,17 +95,17 @@ class UserSession(models.Model):
     user_agent = models.CharField(max_length=HTTP_USER_AGENT_MAX_LENGTH)
     data = models.JSONField(default=dict)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.ip} ({self.user_agent})"
 
     def _session_store(self, *args):
         engine = import_module(settings.SESSION_ENGINE)
         return engine.SessionStore(*args)
 
-    def exists(self):
+    def exists(self) -> bool:
         return self._session_store().exists(self.session_key)
 
-    def purge(self):
+    def purge(self) -> bool:
         purge = not self.exists()
         if not purge:
             # Even if the session still exists, it might be the case that the
@@ -119,10 +118,10 @@ class UserSession(models.Model):
             return True
         return False
 
-    def is_current(self):
+    def is_current(self) -> bool:
         return self.session_key == context.request.session.session_key
 
-    def end(self):
+    def end(self) -> None:
         engine = import_module(settings.SESSION_ENGINE)
         store = engine.SessionStore()
         store.delete(self.session_key)

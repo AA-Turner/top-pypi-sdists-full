@@ -3,7 +3,7 @@ Type annotations for mgn service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mgn/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -332,6 +332,7 @@ class CreateReplicationConfigurationTemplateRequestTypeDef(TypedDict):
     useFipsEndpoint: NotRequired[bool]
     tags: NotRequired[Mapping[str, str]]
     internetProtocol: NotRequired[InternetProtocolType]
+    storeSnapshotOnLocalZone: NotRequired[bool]
 
 class CreateWaveRequestTypeDef(TypedDict):
     name: str
@@ -428,6 +429,7 @@ class ReplicationConfigurationTemplateTypeDef(TypedDict):
     useFipsEndpoint: NotRequired[bool]
     tags: NotRequired[dict[str, str]]
     internetProtocol: NotRequired[InternetProtocolType]
+    storeSnapshotOnLocalZone: NotRequired[bool]
 
 class DescribeSourceServersRequestFiltersTypeDef(TypedDict):
     sourceServerIDs: NotRequired[Sequence[str]]
@@ -723,6 +725,7 @@ class UpdateReplicationConfigurationTemplateRequestTypeDef(TypedDict):
     stagingAreaTags: NotRequired[Mapping[str, str]]
     useFipsEndpoint: NotRequired[bool]
     internetProtocol: NotRequired[InternetProtocolType]
+    storeSnapshotOnLocalZone: NotRequired[bool]
 
 class UpdateSourceServerReplicationTypeRequestTypeDef(TypedDict):
     sourceServerID: str
@@ -792,6 +795,7 @@ class ReplicationConfigurationTemplateResponseTypeDef(TypedDict):
     useFipsEndpoint: bool
     tags: dict[str, str]
     internetProtocol: InternetProtocolType
+    storeSnapshotOnLocalZone: bool
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ChangeServerLifeCycleStateRequestTypeDef(TypedDict):
@@ -1152,6 +1156,7 @@ class ReplicationConfigurationTypeDef(TypedDict):
     stagingAreaTags: dict[str, str]
     useFipsEndpoint: bool
     internetProtocol: InternetProtocolType
+    storeSnapshotOnLocalZone: bool
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateReplicationConfigurationRequestTypeDef(TypedDict):
@@ -1175,6 +1180,7 @@ class UpdateReplicationConfigurationRequestTypeDef(TypedDict):
     useFipsEndpoint: NotRequired[bool]
     accountID: NotRequired[str]
     internetProtocol: NotRequired[InternetProtocolType]
+    storeSnapshotOnLocalZone: NotRequired[bool]
 
 class UpdateSourceServerRequestTypeDef(TypedDict):
     sourceServerID: str

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import base64
 import contextlib
 import dataclasses
 import importlib.metadata
@@ -271,7 +270,7 @@ def get_authentication_client(
         An authenticated client if the token is valid, otherwise an unauthenticated client.
 
     """
-    access_token = token if token else get_existing_access_token()
+    access_token = token or get_existing_access_token()
     if access_token:
         validated_info = validate_token_with_retries(access_token)
         if validated_info:
@@ -416,7 +415,7 @@ def validate_token(token: str) -> dict[str, Any]:
         }
 
         response = httpx.post(
-            urljoin(constants.Hosting.HOSTING_SERVICE, "/v1/authenticate/me"),
+            urljoin(constants.Hosting.HOSTING_SERVICE, "/api/v1/authenticate/me"),
             headers=authorization_header(token),
             params=params,
             timeout=constants.Hosting.TIMEOUT,
@@ -501,7 +500,7 @@ def create_token(
         raise NotAuthenticatedError("not authenticated")
     try:
         response = httpx.post(
-            urljoin(constants.Hosting.HOSTING_SERVICE, "/v1/user/token"),
+            urljoin(constants.Hosting.HOSTING_SERVICE, "/api/v1/user/token"),
             json={"name": name, "expiration": expiration},
             headers=authorization_header(client.token),
             timeout=constants.Hosting.TIMEOUT,
@@ -550,7 +549,7 @@ def authenticated_token() -> tuple[str, dict[str, Any]]:
 
 
 def authorization_header(token: str) -> dict[str, str]:
-    """Construct an authorization header with the specified token as bearer token.
+    """Construct an authorization header with the specified token.
 
     Args:
         token: The access token to use.
@@ -559,12 +558,7 @@ def authorization_header(token: str) -> dict[str, str]:
         The authorization header in dict format.
 
     """
-    try:
-        uuid.UUID(token, version=4)
-    except ValueError:
-        return {"Authorization": f"Bearer {token}"}
-    else:
-        return {"X-API-TOKEN": token}
+    return {"X-API-TOKEN": token}
 
 
 def requires_authenticated() -> str:
@@ -640,7 +634,7 @@ def search_app(
     response = httpx.get(
         urljoin(
             constants.Hosting.HOSTING_SERVICE,
-            f"/v1/apps/search?app_name={app_name}"
+            f"/api/v1/apps/search?app_name={app_name}"
             + (f"&project_id={project_id}" if project_id else ""),
         ),
         headers=authorization_header(client.token),
@@ -706,7 +700,7 @@ def search_project(
     response = httpx.get(
         urljoin(
             constants.Hosting.HOSTING_SERVICE,
-            f"/v1/project/search?project_name={project_name}",
+            f"/api/v1/project/search?project_name={project_name}",
         ),
         headers=authorization_header(client.token),
         timeout=constants.Hosting.TIMEOUT,
@@ -765,7 +759,7 @@ def get_app(app_id: str, client: AuthenticatedClient) -> dict:
     if not isinstance(app_id, str) or not app_id:
         raise ValueError("app_id should be a string")
     response = httpx.get(
-        urljoin(constants.Hosting.HOSTING_SERVICE, f"/v1/apps/{app_id}"),
+        urljoin(constants.Hosting.HOSTING_SERVICE, f"/api/v1/apps/{app_id}"),
         headers=authorization_header(client.token),
         timeout=constants.Hosting.TIMEOUT,
     )
@@ -808,16 +802,16 @@ def create_app(
     if not isinstance(client, AuthenticatedClient):
         raise NotAuthenticatedError("not authenticated")
     response = httpx.post(
-        urljoin(constants.Hosting.HOSTING_SERVICE, "/v1/apps/"),
+        urljoin(constants.Hosting.HOSTING_SERVICE, "/api/v1/apps/"),
         json={"name": app_name, "description": description, "project": project_id},
         headers=authorization_header(client.token),
         timeout=constants.Hosting.TIMEOUT,
     )
-    response_json = response.json()
     if response.status_code == HTTPStatus.FORBIDDEN:
-        console.debug(f"Server responded with 403: {response_json.get('detail')}")
-        raise ValueError(f"{response_json.get('detail', 'forbidden')}")
+        console.debug(f"Server responded with 403: {response.text}")
+        raise ValueError(f"{response.text}")
     response.raise_for_status()
+    response_json = response.json()
     return response_json
 
 
@@ -852,7 +846,7 @@ def get_hostname(
             raise Exception("bad hostname provided")
         data["hostname"] = clean_hostname
     response = httpx.post(
-        urljoin(constants.Hosting.HOSTING_SERVICE, "/v1/apps/reserve"),
+        urljoin(constants.Hosting.HOSTING_SERVICE, "/api/v1/apps/reserve"),
         headers=authorization_header(client.token),
         json=data,
         timeout=constants.Hosting.TIMEOUT,
@@ -921,7 +915,7 @@ def get_secrets(app_id: str, client: AuthenticatedClient) -> str:
     if not isinstance(client, AuthenticatedClient):
         raise NotAuthenticatedError("not authenticated")
     response = httpx.get(
-        urljoin(constants.Hosting.HOSTING_SERVICE, f"/v1/apps/{app_id}/secrets"),
+        urljoin(constants.Hosting.HOSTING_SERVICE, f"/api/v1/apps/{app_id}/secrets"),
         headers=authorization_header(client.token),
         timeout=constants.Hosting.TIMEOUT,
     )
@@ -963,7 +957,7 @@ def update_secrets(
     response = httpx.post(
         urljoin(
             constants.Hosting.HOSTING_SERVICE,
-            f"/v1/apps/{app_id}/secrets?reboot={reboot}",
+            f"/api/v1/apps/{app_id}/secrets?reboot={reboot}",
         ),
         headers=authorization_header(client.token),
         json={"secrets": secrets},
@@ -999,7 +993,7 @@ def delete_secret(
     response = httpx.delete(
         urljoin(
             constants.Hosting.HOSTING_SERVICE,
-            f"/v1/apps/{app_id}/secrets/{key}?reboot={reboot}",
+            f"/api/v1/apps/{app_id}/secrets/{key}?reboot={reboot}",
         ),
         headers=authorization_header(client.token),
         timeout=constants.Hosting.TIMEOUT,
@@ -1034,7 +1028,7 @@ def create_project(name: str, client: AuthenticatedClient) -> dict:
     if not isinstance(client, AuthenticatedClient):
         raise NotAuthenticatedError("not authenticated")
     response = httpx.post(
-        urljoin(constants.Hosting.HOSTING_SERVICE, "/v1/project/create"),
+        urljoin(constants.Hosting.HOSTING_SERVICE, "/api/v1/project/create"),
         json={"name": name},
         headers=authorization_header(client.token),
         timeout=constants.Hosting.TIMEOUT,
@@ -1112,7 +1106,7 @@ def get_projects(client: AuthenticatedClient) -> list[dict]:
     if not isinstance(client, AuthenticatedClient):
         raise NotAuthenticatedError("not authenticated")
     response = httpx.get(
-        urljoin(constants.Hosting.HOSTING_SERVICE, "/v1/project/"),
+        urljoin(constants.Hosting.HOSTING_SERVICE, "/api/v1/project/"),
         headers=authorization_header(client.token),
         timeout=constants.Hosting.TIMEOUT,
     )
@@ -1140,7 +1134,7 @@ def get_project(project_id: str, client: AuthenticatedClient):
     if not isinstance(client, AuthenticatedClient):
         raise NotAuthenticatedError("not authenticated")
     response = httpx.get(
-        urljoin(constants.Hosting.HOSTING_SERVICE, f"/v1/project/{project_id}"),
+        urljoin(constants.Hosting.HOSTING_SERVICE, f"/api/v1/project/{project_id}"),
         headers=authorization_header(client.token),
         timeout=constants.Hosting.TIMEOUT,
     )
@@ -1168,7 +1162,9 @@ def get_project_roles(project_id: str, client: AuthenticatedClient):
     if not isinstance(client, AuthenticatedClient):
         raise NotAuthenticatedError("not authenticated")
     response = httpx.get(
-        urljoin(constants.Hosting.HOSTING_SERVICE, f"/v1/project/{project_id}/roles"),
+        urljoin(
+            constants.Hosting.HOSTING_SERVICE, f"/api/v1/project/{project_id}/roles"
+        ),
         headers=authorization_header(client.token),
         timeout=constants.Hosting.TIMEOUT,
     )
@@ -1201,7 +1197,7 @@ def get_project_role_permissions(
     response = httpx.get(
         urljoin(
             constants.Hosting.HOSTING_SERVICE,
-            f"/v1/project/{project_id}/role/{role_id}",
+            f"/api/v1/project/{project_id}/role/{role_id}",
         ),
         headers=authorization_header(client.token),
         timeout=constants.Hosting.TIMEOUT,
@@ -1230,7 +1226,9 @@ def get_project_role_users(project_id: str, client: AuthenticatedClient):
     if not isinstance(client, AuthenticatedClient):
         raise NotAuthenticatedError("not authenticated")
     response = httpx.get(
-        urljoin(constants.Hosting.HOSTING_SERVICE, f"/v1/project/{project_id}/users"),
+        urljoin(
+            constants.Hosting.HOSTING_SERVICE, f"/api/v1/project/{project_id}/users"
+        ),
         headers=authorization_header(client.token),
         timeout=constants.Hosting.TIMEOUT,
     )
@@ -1261,7 +1259,7 @@ def invite_user_to_project(
     if not isinstance(client, AuthenticatedClient):
         raise NotAuthenticatedError("not authenticated")
     response = httpx.post(
-        urljoin(constants.Hosting.HOSTING_SERVICE, "/v1/project/users/invite"),
+        urljoin(constants.Hosting.HOSTING_SERVICE, "/api/v1/project/users/invite"),
         headers=authorization_header(client.token),
         json={"user_id": user_id, "role_id": role_id},
         timeout=constants.Hosting.TIMEOUT,
@@ -1314,7 +1312,7 @@ def validate_deployment_args(
         "hostname": hostname or "",
     }
     response = httpx.get(
-        urljoin(constants.Hosting.HOSTING_SERVICE, "/v1/deployments/validate_cli"),
+        urljoin(constants.Hosting.HOSTING_SERVICE, "/api/v1/deployments/validate_cli"),
         headers=authorization_header(client.token),
         params=param_data,
         timeout=15,
@@ -1398,7 +1396,7 @@ def create_deployment(
     if project_id:
         payload["project_id"] = project_id
     if regions:
-        regions = regions if regions else []
+        regions = regions or []
         payload["regions"] = json.dumps(regions)
     if hostname:
         payload["hostname"] = hostname
@@ -1412,7 +1410,7 @@ def create_deployment(
         payload["deployment_strategy"] = strategy
 
     response = httpx.post(
-        urljoin(constants.Hosting.HOSTING_SERVICE, "/v1/deployments"),
+        urljoin(constants.Hosting.HOSTING_SERVICE, "/api/v1/deployments"),
         data=payload,
         files=zips,
         headers=authorization_header(client.token),
@@ -1449,7 +1447,7 @@ def stop_app(app_id: str, client: AuthenticatedClient):
     if not isinstance(client, AuthenticatedClient):
         raise NotAuthenticatedError("not authenticated")
     response = httpx.post(
-        urljoin(constants.Hosting.HOSTING_SERVICE, f"/v1/apps/{app_id}/stop"),
+        urljoin(constants.Hosting.HOSTING_SERVICE, f"/api/v1/apps/{app_id}/stop"),
         headers=authorization_header(client.token),
     )
     try:
@@ -1479,7 +1477,7 @@ def start_app(app_id: str, client: AuthenticatedClient):
     if not isinstance(client, AuthenticatedClient):
         raise NotAuthenticatedError("not authenticated")
     response = httpx.post(
-        urljoin(constants.Hosting.HOSTING_SERVICE, f"/v1/apps/{app_id}/start"),
+        urljoin(constants.Hosting.HOSTING_SERVICE, f"/api/v1/apps/{app_id}/start"),
         headers=authorization_header(client.token),
     )
     try:
@@ -1513,7 +1511,7 @@ def delete_app(app_id: str, client: AuthenticatedClient):
         console.warn("no app with given id found")
         return
     response = httpx.delete(
-        urljoin(constants.Hosting.HOSTING_SERVICE, f"/v1/apps/{app['id']}/delete"),
+        urljoin(constants.Hosting.HOSTING_SERVICE, f"/api/v1/apps/{app['id']}/delete"),
         headers=authorization_header(client.token),
     )
     try:
@@ -1569,7 +1567,7 @@ def get_app_logs(
             response = httpx.get(
                 urljoin(
                     constants.Hosting.HOSTING_SERVICE,
-                    f"/v1/apps/{app['id']}/logsv2{params}",
+                    f"/api/v1/apps/{app['id']}/logsv2{params}",
                 ),
                 headers=authorization_header(client.token),
             )
@@ -1612,7 +1610,7 @@ def list_apps(client: AuthenticatedClient, project: str | None = None) -> list[d
 
     url = urljoin(
         constants.Hosting.HOSTING_SERVICE,
-        f"/v1/apps?project={project}" if project else "/v1/apps",
+        f"/api/v1/apps?project={project}" if project else "/api/v1/apps",
     )
 
     response = httpx.get(url, headers=authorization_header(client.token), timeout=5)
@@ -1643,7 +1641,7 @@ def get_app_history(app_id: str, client: AuthenticatedClient) -> list:
     if not isinstance(client, AuthenticatedClient):
         raise NotAuthenticatedError("not authenticated")
     response = httpx.get(
-        urljoin(constants.Hosting.HOSTING_SERVICE, f"/v1/apps/{app_id}/history"),
+        urljoin(constants.Hosting.HOSTING_SERVICE, f"/api/v1/apps/{app_id}/history"),
         headers=authorization_header(client.token),
     )
 
@@ -1685,7 +1683,8 @@ def get_app_status(app_id: str, client: AuthenticatedClient) -> str:
     try:
         response = httpx.get(
             urljoin(
-                constants.Hosting.HOSTING_SERVICE, f"/v1/deployments/{app_id}/status"
+                constants.Hosting.HOSTING_SERVICE,
+                f"/api/v1/deployments/{app_id}/status",
             ),
             headers=authorization_header(client.token),
         )
@@ -1720,7 +1719,7 @@ def scale_app(app_id: str, scale_params: ScaleParams, client: AuthenticatedClien
     if not isinstance(client, AuthenticatedClient):
         raise NotAuthenticatedError("not authenticated")
     response = httpx.post(
-        urljoin(constants.Hosting.HOSTING_SERVICE, f"/v1/apps/{app_id}/scale"),
+        urljoin(constants.Hosting.HOSTING_SERVICE, f"/api/v1/apps/{app_id}/scale"),
         headers=authorization_header(client.token),
         json=scale_params.as_json(),
         timeout=constants.Hosting.TIMEOUT,
@@ -1753,7 +1752,8 @@ def get_deployment_status(deployment_id: str, client: AuthenticatedClient) -> st
         raise NotAuthenticatedError("not authenticated")
     response = httpx.get(
         urljoin(
-            constants.Hosting.HOSTING_SERVICE, f"/v1/deployments/{deployment_id}/status"
+            constants.Hosting.HOSTING_SERVICE,
+            f"/api/v1/deployments/{deployment_id}/status",
         ),
         headers=authorization_header(client.token),
     )
@@ -1782,7 +1782,7 @@ def _get_deployment_status(deployment_id: str, token: str) -> str:
         response = httpx.get(
             urljoin(
                 constants.Hosting.HOSTING_SERVICE,
-                f"/v1/deployments/{deployment_id}/status",
+                f"/api/v1/deployments/{deployment_id}/status",
             ),
             headers=authorization_header(token),
         )
@@ -1866,7 +1866,7 @@ def get_deployment_build_logs(deployment_id: str, client: AuthenticatedClient):
     response = httpx.get(
         urljoin(
             constants.Hosting.HOSTING_SERVICE,
-            f"/v1/deployments/{deployment_id}/build/logs",
+            f"/api/v1/deployments/{deployment_id}/build/logs",
         ),
         headers=authorization_header(client.token),
     )
@@ -1899,16 +1899,17 @@ def fetch_token(request_id: str) -> str:
     """
     import httpx
 
-    access_token = ""
+    token = ""
     try:
         resp = httpx.get(
             urljoin(
-                constants.Hosting.HOSTING_SERVICE, f"/v1/authenticate/{request_id}"
+                constants.Hosting.HOSTING_SERVICE,
+                f"/api/v1/cli/token?request_id={request_id}",
             ),
             timeout=constants.Hosting.TIMEOUT,
         )
         resp.raise_for_status()
-        access_token = (resp_json := resp.json()).get("access_token", "")
+        token = (resp_json := resp.json()).get("token_id", "")
         project_id = resp_json.get("user_id", "")
         select_project(project=project_id)
     except httpx.RequestError as re:
@@ -1922,7 +1923,7 @@ def fetch_token(request_id: str) -> str:
     except Exception as ex:
         console.debug(f"Unexpected errors: {ex}")
 
-    return access_token
+    return token
 
 
 def authenticate_on_browser() -> tuple[str, dict[str, Any]]:
@@ -1937,7 +1938,7 @@ def authenticate_on_browser() -> tuple[str, dict[str, Any]]:
     """
     request_id = uuid.uuid4().hex
     auth_url = urljoin(
-        constants.Hosting.HOSTING_SERVICE_UI, f"?request-id={request_id}"
+        constants.Hosting.HOSTING_SERVICE_UI, f"/cli/login?request_id={request_id}"
     )
 
     console.print(f"Opening {auth_url} ...")
@@ -1970,38 +1971,16 @@ def authenticate_on_browser() -> tuple[str, dict[str, Any]]:
     return access_token, validated_info
 
 
-def get_default_project(access_token: str) -> str | None:
-    """Decode an access token without verifying its signature.
+def get_default_project(authenticated_client: AuthenticatedClient) -> str | None:
+    """Get the default project ID for the authenticated user.
 
     Args:
-        access_token: The JWT access token to decode.
+        authenticated_client: The authenticated client.
 
     Returns:
-        user/project ID if decoding is successful, None otherwise.
-
+        The default project ID if available, None otherwise.
     """
-    try:
-        # Split the JWT token into its three parts
-        parts = access_token.split(".")
-        if len(parts) != 3:
-            return None
-
-        # Decode the payload (second part)
-        payload = parts[1]
-
-        # Add padding if necessary for base64 decoding
-        padding = len(payload) % 4
-        if padding:
-            payload += "=" * (4 - padding)
-
-        # Decode the base64 payload
-        decoded_bytes = base64.urlsafe_b64decode(payload)
-        decoded = json.loads(decoded_bytes.decode("utf-8"))
-
-        return decoded.get("sub")
-    except Exception:
-        # Return empty values if decoding fails
-        return None
+    return authenticated_client.validated_data.get("user_id")
 
 
 def validate_token_with_retries(access_token: str) -> dict[str, Any]:
@@ -2163,7 +2142,7 @@ def get_vm_types() -> list[dict]:
 
     try:
         response = httpx.get(
-            urljoin(constants.Hosting.HOSTING_SERVICE, "/v1/deployments/vm_types"),
+            urljoin(constants.Hosting.HOSTING_SERVICE, "/api/v1/deployments/vm_types"),
             timeout=10,
         )
         response.raise_for_status()
@@ -2196,7 +2175,7 @@ def get_regions() -> list[dict]:
 
     try:
         response = httpx.get(
-            urljoin(constants.Hosting.HOSTING_SERVICE, "/v1/deployments/regions"),
+            urljoin(constants.Hosting.HOSTING_SERVICE, "/api/v1/deployments/regions"),
             timeout=10,
         )
         response.raise_for_status()

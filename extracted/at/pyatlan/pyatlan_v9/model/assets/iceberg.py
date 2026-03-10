@@ -125,8 +125,6 @@ class Iceberg(Asset):
     INPUT_TO_SPARK_JOBS: ClassVar[Any] = None
     OUTPUT_FROM_SPARK_JOBS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "Iceberg"
-
     iceberg_parent_namespace_qualified_name: Union[str, None, UnsetType] = UNSET
     """Unique name of the immediate parent namespace in which this asset exists."""
 
@@ -695,6 +693,9 @@ def _iceberg_to_nested(iceberg: Iceberg) -> IcebergNested:
         is_incomplete=iceberg.is_incomplete,
         provenance_type=iceberg.provenance_type,
         home_id=iceberg.home_id,
+        depth=iceberg.depth,
+        immediate_upstream=iceberg.immediate_upstream,
+        immediate_downstream=iceberg.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -724,7 +725,6 @@ def _iceberg_from_nested(nested: IcebergNested) -> Iceberg:
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -733,6 +733,9 @@ def _iceberg_from_nested(nested: IcebergNested) -> Iceberg:
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_iceberg_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

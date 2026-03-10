@@ -31,7 +31,7 @@ def isort(session):
 @nox.session(tags=["lint"])
 def flake8(session):
     session.install("flake8==7.2.0")
-    session.run("flake8", "allauth/")
+    session.run("flake8", "allauth/", "tests/")
 
 
 @nox.session(tags=["lint"])
@@ -49,9 +49,7 @@ def djlint(session):
 
 
 DJANGO_PYTHON_REQ = {
-    "4.2.20": ("3.8", "3.9", "3.10", "3.11", "3.12"),
-    # 5.0 is EOL
-    # "5.0": ("3.10", "3.11", "3.12"),
+    "4.2.20": ("3.10", "3.11", "3.12"),
     "5.1": ("3.10", "3.11", "3.12", "3.13"),
     "5.2": ("3.10", "3.11", "3.12", "3.13", "3.14"),
     "6.0": ("3.12", "3.13", "3.14"),
@@ -59,7 +57,7 @@ DJANGO_PYTHON_REQ = {
 DJANGO_LTS = "5.2"
 
 
-@nox.session(python=["3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14"])
+@nox.session(python=["3.10", "3.11", "3.12", "3.13", "3.14"])
 @nox.parametrize("django", list(DJANGO_PYTHON_REQ.keys()))
 @nox.parametrize(
     "project", ["regular", "headless_only", "account_only", "login_required_mw"]
@@ -85,7 +83,7 @@ def test(session, django, project):
     session.install(
         f"django~={django_version}",
         "pytest>=8.3.5,<9",
-        "pytest-asyncio==0.23.8",
+        "pytest-asyncio==1.3.0",
         "pytest-django>=4.11,<5",
         "Pillow>=9.0",
         "coverage==7.6.1",
@@ -97,7 +95,7 @@ def test(session, django, project):
         "psycopg2-binary>=2.9.10,<3",
         "djangorestframework>=3.15.2,<4",
         "django-ninja>=1.3.0,<2",
-        "mypy==1.10.0",
+        "mypy==1.19.1",
         ".[mfa,openid,socialaccount,steam]",  # SAML is disabled in CI
     )
     session.run("/bin/sh", "-c", "cd allauth; python ../manage.py compilemessages")
@@ -121,7 +119,7 @@ def test(session, django, project):
         session.run("coveralls", "--service=github")
     if django == "5.2" and session.python == "3.14":
         session.install(
-            "django-stubs~=5.2.7",
-            "types-requests==2.32.4.20250913",
+            "django-stubs~=5.2.9",
+            "types-requests==2.32.4.20260107",
         )
         session.run("mypy", "allauth")

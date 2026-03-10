@@ -1072,12 +1072,18 @@ def push_offline_run(
     path: str,
     upload_artifacts: bool = True,
     clean: bool = False,
+    agent: Optional[str] = None,
+    ignore_agent_host: bool = False,
+    ignore_store: bool = False,
 ):
     global TRACKING_RUN
     TRACKING_RUN.push_offline_run(
         path=path,
         upload_artifacts=upload_artifacts,
         clean=clean,
+        agent=agent,
+        ignore_agent_host=ignore_agent_host,
+        ignore_store=ignore_store,
     )
 
 

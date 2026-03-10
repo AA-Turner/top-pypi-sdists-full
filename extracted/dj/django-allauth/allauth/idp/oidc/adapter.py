@@ -1,6 +1,7 @@
 import hashlib
 import uuid
-from typing import Any, Dict, Iterable, Literal, Optional
+from collections.abc import Iterable
+from typing import Any, Literal
 
 from django.contrib.auth import get_user_model
 from django.core.management.utils import get_random_secret_key
@@ -45,7 +46,7 @@ class DefaultOIDCAdapter(BaseAdapter):
         return get_random_secret_key()
 
     def generate_user_code(self) -> str:
-        return generate_user_code(length=8)
+        return generate_user_code(**app_settings.USER_CODE_FORMAT)
 
     def hash_token(self, token: str) -> str:
         """
@@ -85,9 +86,9 @@ class DefaultOIDCAdapter(BaseAdapter):
         user,
         client,
         scopes: Iterable[str],
-        email: Optional[str] = None,
+        email: str | None = None,
         **kwargs,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Return the claims to be included in the ID token or userinfo response.
         """

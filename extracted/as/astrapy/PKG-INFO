@@ -1,28 +1,30 @@
 Metadata-Version: 2.4
 Name: astrapy
-Version: 2.1.0
+Version: 2.2.0
 Summary: A Python client for the Data API on DataStax Astra DB
 Project-URL: Homepage, https://github.com/datastax/astrapy
 Project-URL: Documentation, https://docs.datastax.com/en/astra-db-serverless/api-reference/dataapiclient.html
 Project-URL: Repository, https://github.com/datastax/astrapy
 Project-URL: Issues, https://github.com/datastax/astrapy/issues
 Project-URL: Changelog, https://github.com/datastax/astrapy/blob/main/CHANGES
-Author-email: Stefano Lottini <stefano.lottini@datastax.com>, Eric Hare <eric.hare@datastax.com>
+Author-email: Stefano Lottini <stefano.lottini@ibm.com>, Eric Hare <eric.hare@ibm.com>
 License-File: LICENSE.md
 Keywords: Astra,Astra DB,DataStax
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Build Tools
-Requires-Python: <4.0,>=3.8
+Requires-Python: <4.0,>=3.9
 Requires-Dist: deprecation~=2.1.0
 Requires-Dist: h11>=0.16.0
 Requires-Dist: httpx[http2]<1,>=0.25.2
+Requires-Dist: ipython>=8.0.0
 Requires-Dist: pymongo>=3
 Requires-Dist: toml<1.0.0,>=0.10.2
 Requires-Dist: typing-extensions>=4.0
@@ -123,6 +125,7 @@ Next steps:
 - [Data API reference](https://docs.datastax.com/en/astra-db-serverless/api-reference/overview.html)
 - [AstraPy reference](https://docs.datastax.com/en/astra-api-docs/_attachments/python-client/astrapy/index.html)
 - Package on [PyPI](https://pypi.org/project/astrapy/)
+- For interactive sessions, check the `astrapy-repl` command [here](DEVELOPING.md#astrapy-repl)
 
 ### Server-side embeddings
 
@@ -656,8 +659,9 @@ document = my_collection.find_one({"code": 123})
 
 ### Working with ObjectIds and UUIDs in Collections
 
-Astrapy repackages the ObjectId from `bson` and the UUID class and utilities
-from the `uuid` package and its `uuidv6` extension. You can also use them directly.
+Astrapy repackages the ObjectId from PyMongo's `bson` and the UUID class and
+utilities from the `uuid` package and its `uuidv6` extension. You can also
+use them directly.
 
 Even when setting a default ID type for a collection, you still retain the freedom
 to use any ID type for any document:
@@ -718,131 +722,115 @@ print(unescape_field_path("a&&&.b.c.d.12"))
 # prints: ['a&.b', 'c', 'd', '12']
 ```
 
-## For contributors
+### Logging, instrumentation and observability
 
-First install `uv` (e.g. `pipx install uv`), then set up a dev environment with `make venv`, or equivalently:
+#### Logging
 
-```
-uv venv
-uv sync --dev
-```
+AstraPy's actions are logged using the standard `logging` facilities.
+To control the verbosity (logging level), a script preamble can have something
+like:
 
-Linter, style and typecheck should all pass for a PR:
-
-```bash
-make format
+```python
+import logging
+logging.basicConfig(level=logging.DEBUG)
 ```
 
-With `make format-fix` the style and imports are autofixed (by `ruff`)
+#### Event observers with context manager
 
-Features must be thoroughly covered in tests (have a look at `tests/*` to infer
-naming convention and module structure).
+When logging does not suffice, you can use the **Event Observer API**, i.e. attach
+an observer to the main astrapy class hierarchy (clients, databases,
+tables/collections; plus the admin classes).
 
-### Running tests
+Events are, for example, errors and warnings, as well as requests sent
+and responses received.
 
-Tests are grouped in:
-- "base", covering general-purpose astrapy functionality. Divided in unit/integration;
-- "vectorize", extensively running a base workload on all provider/integration choices;
-- "admin", doing a whole sweep of admin operations. Very slow on Astra DB.
+Events are generally issued during the lifecycle of a Data API or DevOps API
+HTTP request. Note that events are in correspondence with individual requests,
+and not class methods, some of which in fact involve multiple requests (e.g. the
+chunked `insert_many` or the database admin's `create_database` with
+`wait_until_active=True`).
 
-Astrapy's CI only runs "base". The others are to be checked manually when it's needed.
+The simplest usage, when one needs to capture events for a limited
+span of statements, is through a context manager:
 
-Tests can be run on three types of Data API _targets_ (with slight differences in what is applicable):
+```python
+from astrapy.event_observers import event_collector, ObservableEvent
 
-- **DockerCompose**: HCD+Data API, started by the test initialization with `docker-compose`. _Note that in this case you will have to manually destroy the created containers._
-- **nonAstra**: a ready-to-use (user-supplied) local Data API (e.g. using `tests/dse_compose`)
-- **Astra**: an Astra DB target account (or two, as some tests are specific to dev environment)
+ev_lst: list[ObservableEvent] = []
 
-Depending on the test, different environment variables are needed: refer to
-the templates in `tests/env_templates`. The "basic" credentials (one of the three options)
-are always required, _even for unit testing_.
+with event_collector(db, destination=event_list) as instrumented_db:
+    # Use instrumented_db: call its methods, spawn and use collections, etc:
+    instrumented_table = instrumented_db.get_table("my_table")
+    instrumented_table.insert_one({"id": 123, "name": "Fox"})
 
-#### Docker vs. Podman
-
-In case you use a different Docker-compatible container runtime, viz. `podman`, make sure to export
-the environment variable `DOCKER_COMMAND_NAME="podman"` to have the **DockerCompose** tests use it properly.
-
-#### Multiple Python versions
-
-If may be useful to run e.g. unit tests with multiple Python versions. You can have `uv`
-create more than one venv and specify the version, e.g. for each one:
-
-```
-uv venv --python 3.8 .venv-3.8
-. .venv-3.8/bin/activate
-uv sync --dev --active
+for event in event_list:
+    print(event.event_type)
 ```
 
-Then, with the desired virtual env active, you will run e.g. `uv run --active pytest [...]`.
+For more details and options, see the docstring of
+the `event_collector` utility.
 
-Most make targets will also support running in the named virtual env:
-assuming you activated a certain virtual env, you can run e.g.: `make format VENV=true`.
+#### Event observers with utility factories
 
-#### Adding/changing dependencies
+An event observer can be created explicitly and attached through the API Options.
 
-After editing the `pyproject.toml`, make sure you run
+```python
+from astrapy.api_options import APIOptions
+from astrapy.event_observers import (
+    ObservableEvent,
+    ObservableEventType,
+    Observer,
+)
 
-```
-uv lock
-uv sync --dev
-```
+my_event_list: list[ObservableEvent] = []
+my_observer = Observer.from_event_list(
+    my_event_list,
+    # optional filtering by event type:
+    event_types=[ObservableEventType.REQUEST, ObservableEventType.RESPONSE],
+)
 
-and then commit the new `uv.lock` to the repo as well.
+instrumented_client = my_client.with_options(
+    api_options=APIOptions(event_observers={"my_obs001": my_observer})
+)
 
-#### Sample testing commands
-
-Base:
-
-```
-# choose one:
-uv run pytest tests/base
-uv run pytest tests/base/unit
-uv run pytest tests/base/integration
-```
-
-_Note: when running locally, the reranking-related tests require `ASTRAPY_FINDANDRERANK_USE_RERANKER_HEADER=y` and
-HEADER_RERANKING_API_KEY_NVIDIA="AstraCS:<dev token...>`._
-
-Admin:
-
-```
-# depending on the environment, different 'admin tests' will run:
-uv run pytest tests/admin
+# any event of the desired type emitted by 'instrumented_client',
+# or by classes it has spawned, will be accumulated into 'my_event_list'.
 ```
 
-Extended vectorize:
+See also method `Observer.from_event_dict` for a similar alternative.
 
+This approach allows attaching multiple observers, if needed.
+
+#### Fully customized event observer
+
+For higher control, one can subclass `Observer` directly:
+
+```python
+from typing import Any
+from astrapy.api_options import APIOptions
+from astrapy.event_observers import ObservableEvent, Observer
+
+class MyObserver(Observer):
+    def receive(
+        self,
+        event: ObservableEvent,
+        sender: Any = None,
+        function_name: str | None = None,
+        request_id: str | None = None,
+    ) -> None:
+        received_item = {
+            "event_type": event.event_type.value,
+            "sender": sender,
+            "function_name": function_name,
+            "request_id": request_id,
+        }
+        print(f"Just received: {received_item}")
+
+my_observer = MyObserver()
+instrumented_collection = my_collection.with_options(
+    api_options=APIOptions(event_observers={"custom_obs001": my_observer})
+)
 ```
-# very many env. variables required for this one:
-uv run pytest tests/vectorize
-
-# restrict to some combination(s) with e.g.:
-EMBEDDING_MODEL_TAGS="openai/text-embedding-3-large/HEADER/0,voyageAI/voyage-finance-2/SHARED_SECRET/f" \
-    uv run pytest tests/vectorize/integration/test_vectorize_providers.py \
-    -k test_vectorize_usage_auth_type_header_sync
-```
-
-All the usual `pytest` ways of restricting the test selection hold
-(e.g. `uv run pytest tests/idiomatic/unit` or `[...] -k <test_name_selector>`). Also e.g.:
-
-```
-# suppress log noise
-uv run pytest [...] -o log_cli=0
-
-# increase log level
-uv run pytest [...] -o log_cli=1 --log-cli-level=10
-```
-
-### Special tests
-
-The following are special provision to manage features under evolution or not
-entirely deployed to all environments. Typically they require manually passing
-certain environment variables, otherwise the associated tests are excluded from CI.
-
-#### Cutting-edge features on `main`
-
-Prepend tests with a `ASTRAPY_TEST_LATEST_MAIN=y` for features found on `main` that are not released anywhere.
-_(Tip: run a code search first to see what is currently marked as such. Chances are nothing is.)_
 
 ## Appendices
 
@@ -871,6 +859,7 @@ Constants for data-related use:
 
 ```python
 from astrapy.constants import (
+    DatabaseStatus,
     DefaultIdType,
     Environment,
     MapEncodingMode,
@@ -1011,6 +1000,21 @@ from astrapy.authentication import (
     UsernamePasswordTokenProvider,
     EmbeddingAPIKeyHeaderProvider,
     AWSEmbeddingHeadersProvider,
+)
+```
+
+Event observer API:
+
+```python
+from astrapy.event_observers import (
+    event_collector,
+    ObservableEventType,
+    ObservableEvent,
+    ObservableError,
+    ObservableWarning,
+    ObservableRequest,
+    ObservableResponse,
+    Observer,
 )
 ```
 

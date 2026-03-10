@@ -10,7 +10,7 @@ def case_set(
     /,
     *,
     case: typing.Literal["LOWER", "UPPER"] | None = "LOWER",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set font case
 
     :param case: Case, Lower or upper case (optional)
@@ -21,7 +21,7 @@ def case_toggle(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Toggle font case
 
     :return: Result of the operator call.
@@ -33,7 +33,7 @@ def change_character(
     /,
     *,
     delta: int | None = 1,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Change font character code
 
     :param delta: Delta, Number to increase or decrease character code with (in [-255, 255], optional)
@@ -46,7 +46,7 @@ def change_spacing(
     /,
     *,
     delta: float | None = 1.0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Change font spacing
 
     :param delta: Delta, Amount to decrease or increase character spacing with (in [-inf, inf], optional)
@@ -68,7 +68,7 @@ def delete(
         "PREVIOUS_OR_SELECTION",
     ]
     | None = "PREVIOUS_CHARACTER",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Delete text by cursor position
 
     :param type: Type, Which part of the text to delete (optional)
@@ -79,7 +79,7 @@ def line_break(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Insert line break at cursor position
 
     :return: Result of the operator call.
@@ -105,7 +105,7 @@ def move(
         "NEXT_PAGE",
     ]
     | None = "LINE_BEGIN",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move cursor to position type
 
     :param type: Type, Where to move cursor to (optional)
@@ -132,7 +132,7 @@ def move_select(
         "NEXT_PAGE",
     ]
     | None = "LINE_BEGIN",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move the cursor while selecting
 
     :param type: Type, Where to move cursor to, to make a selection (optional)
@@ -170,7 +170,7 @@ def open(
     ]
     | None = "THUMBNAIL",
     sort_method: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Load a new font from a file
 
         :param filepath: File Path, Path to file (optional, never None)
@@ -215,7 +215,7 @@ def select_all(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select all text
 
     :return: Result of the operator call.
@@ -225,7 +225,7 @@ def select_word(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select word under cursor
 
     :return: Result of the operator call.
@@ -235,7 +235,7 @@ def selection_set(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set cursor selection
 
     :return: Result of the operator call.
@@ -248,7 +248,7 @@ def style_set(
     *,
     style: typing.Literal["BOLD", "ITALIC", "UNDERLINE", "SMALL_CAPS"] | None = "BOLD",
     clear: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set font style
 
     :param style: Style, Style to set selection to (optional)
@@ -262,7 +262,7 @@ def style_toggle(
     /,
     *,
     style: typing.Literal["BOLD", "ITALIC", "UNDERLINE", "SMALL_CAPS"] | None = "BOLD",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Toggle font style
 
     :param style: Style, Style to set selection to (optional)
@@ -273,7 +273,7 @@ def text_copy(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Copy selected text to clipboard
 
     :return: Result of the operator call.
@@ -283,7 +283,7 @@ def text_cut(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Cut selected text to clipboard
 
     :return: Result of the operator call.
@@ -296,7 +296,7 @@ def text_insert(
     *,
     text: str | None = "",
     accent: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Insert text at cursor position
 
     :param text: Text, Text to insert at the cursor position (optional, never None)
@@ -308,7 +308,7 @@ def text_insert_unicode(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Insert Unicode Character
 
     :return: Result of the operator call.
@@ -320,7 +320,7 @@ def text_paste(
     /,
     *,
     selection: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Paste text from clipboard
 
     :param selection: Selection, Paste text selected elsewhere rather than copied (X11/Wayland only) (optional)
@@ -357,7 +357,7 @@ def text_paste_from_file(
     ]
     | None = "DEFAULT",
     sort_method: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Paste contents from file
 
         :param filepath: File Path, Path to file (optional, never None)
@@ -401,7 +401,7 @@ def textbox_add(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a new text box
 
     :return: Result of the operator call.
@@ -413,7 +413,7 @@ def textbox_remove(
     /,
     *,
     index: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove the text box
 
     :param index: Index, The current text box (in [0, inf], optional)
@@ -424,7 +424,7 @@ def unlink(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Unlink active font data-block
 
     :return: Result of the operator call.

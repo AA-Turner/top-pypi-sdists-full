@@ -15,7 +15,7 @@ def GTEx_get_sample_info(
     tissue_site_detail_id: Optional[list[str]] = None,
     sex: Optional[str] = None,
     age_bracket: Optional[list[str]] = None,
-    dataset_id: Optional[str] = "gtex_v10",
+    dataset_id: Optional[str] = "gtex_v8",
     page: Optional[int] = 0,
     items_per_page: Optional[int] = 250,
     *,

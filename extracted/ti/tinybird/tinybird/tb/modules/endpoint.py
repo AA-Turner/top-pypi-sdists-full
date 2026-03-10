@@ -17,7 +17,7 @@ from click import Context
 from tinybird.datafile.common import get_name_version
 from tinybird.tb.client import AuthNoTokenException, DoesNotExistException, TinyB
 from tinybird.tb.modules.cli import cli
-from tinybird.tb.modules.common import echo_safe_humanfriendly_tables_format_smart_table
+from tinybird.tb.modules.common import echo_json, echo_safe_humanfriendly_tables_format_smart_table
 from tinybird.tb.modules.exceptions import CLIPipeException
 from tinybird.tb.modules.feedback_manager import FeedbackManager
 
@@ -42,6 +42,8 @@ def endpoint_ls(ctx: Context, match: str, format_: str):
     """List endpoints"""
 
     client: TinyB = ctx.ensure_object(dict)["client"]
+    output_format = ctx.ensure_object(dict).get("output")
+    effective_format = format_ or ("json" if output_format == "json" else None)
     pipes = client.pipes(dependencies=False, node_attrs="name", attrs="name,updated_at,endpoint,url")
     endpoints = [p for p in pipes if p.get("endpoint")]
     endpoints = sorted(endpoints, key=lambda p: p["updated_at"])
@@ -66,12 +68,12 @@ def endpoint_ls(ctx: Context, match: str, format_: str):
             }
         )
 
-    if not format_:
+    if not effective_format:
         click.echo(FeedbackManager.info_pipes())
         echo_safe_humanfriendly_tables_format_smart_table(table_human_readable, column_names=columns)
         click.echo("\n")
-    elif format_ == "json":
-        click.echo(json.dumps({"pipes": table_machine_readable}, indent=2))
+    elif effective_format == "json":
+        echo_json({"pipes": table_machine_readable}, indent=2)
     else:
         raise CLIPipeException(FeedbackManager.error_pipe_ls_type())
 

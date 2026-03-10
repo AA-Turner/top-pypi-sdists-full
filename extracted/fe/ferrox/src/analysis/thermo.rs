@@ -437,13 +437,7 @@ pub fn calculate_e_above_hull_at_temperature(
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    fn assert_approx(actual: f64, expected: f64, tolerance: f64, label: &str) {
-        assert!(
-            (actual - expected).abs() < tolerance,
-            "{label}: expected {expected} ± {tolerance}, got {actual}"
-        );
-    }
+    use approx::assert_abs_diff_eq;
 
     // NIST-JANAF reference values for Shomate validation of each gas species.
     // Source: https://webbook.nist.gov/chemistry/
@@ -464,7 +458,7 @@ mod tests {
     fn test_gas_entropy_matches_janaf() {
         for &(species, temp, expected, tol) in JANAF_ENTROPY_REFS {
             let entropy = gas_entropy(species, temp).unwrap();
-            assert_approx(entropy, expected, tol, &format!("S°({species:?}, {temp}K)"));
+            assert_abs_diff_eq!(entropy, expected, epsilon = tol);
         }
     }
 
@@ -478,29 +472,24 @@ mod tests {
         ];
         for &(species, temp, expected, tol) in cases {
             let enthalpy = gas_enthalpy(species, temp).unwrap();
-            assert_approx(
-                enthalpy,
-                expected,
-                tol,
-                &format!("ΔH({species:?}, {temp}K)"),
-            );
+            assert_abs_diff_eq!(enthalpy, expected, epsilon = tol);
         }
     }
 
     #[test]
     fn test_gas_chemical_potential_o2() {
         let mu_298 = gas_chemical_potential(GasSpecies::O2, 298.0, 1.0).unwrap();
-        assert_approx(mu_298, -0.633, 0.005, "μ(O2, 298K, 1atm)");
+        assert_abs_diff_eq!(mu_298, -0.633, epsilon = 0.005);
 
         let mu_1000 = gas_chemical_potential(GasSpecies::O2, 1000.0, 0.21).unwrap();
-        assert_approx(mu_1000, -2.423, 0.01, "μ(O2, 1000K, 0.21atm)");
+        assert_abs_diff_eq!(mu_1000, -2.423, epsilon = 0.01);
     }
 
     #[test]
     fn test_negative_pressure_falls_back_to_reference() {
         let mu_ref = gas_chemical_potential(GasSpecies::O2, 500.0, 1.0 / ATM_TO_BAR).unwrap();
         let mu_neg = gas_chemical_potential(GasSpecies::O2, 500.0, -1.0).unwrap();
-        assert_approx(mu_neg, mu_ref, 0.001, "negative pressure fallback");
+        assert_abs_diff_eq!(mu_neg, mu_ref, epsilon = 0.001);
     }
 
     #[test]
@@ -532,12 +521,12 @@ mod tests {
         // Below range: O2 starts at 100K, querying at 50K should match 100K
         let below = gas_entropy(GasSpecies::O2, 50.0).unwrap();
         let at_min = gas_entropy(GasSpecies::O2, 100.0).unwrap();
-        assert_approx(below, at_min, 1e-10, "clamping below range");
+        assert_abs_diff_eq!(below, at_min, epsilon = 1e-10);
 
         // Above range: all species end at 6000K, querying at 7000K should match 6000K
         let above = gas_entropy(GasSpecies::N2, 7000.0).unwrap();
         let at_max = gas_entropy(GasSpecies::N2, 6000.0).unwrap();
-        assert_approx(above, at_max, 1e-10, "clamping above range");
+        assert_abs_diff_eq!(above, at_max, epsilon = 1e-10);
     }
 
     #[test]

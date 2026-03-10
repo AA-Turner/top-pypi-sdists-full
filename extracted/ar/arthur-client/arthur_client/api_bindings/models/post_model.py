@@ -21,8 +21,6 @@ from pydantic import BaseModel, ConfigDict, Field, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from typing_extensions import Annotated
 from arthur_client.api_bindings.models.put_model_metric_spec import PutModelMetricSpec
-from arthur_client.api_bindings.models.sub_agent import SubAgent
-from arthur_client.api_bindings.models.tool import Tool
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -35,9 +33,7 @@ class PostModel(BaseModel):
     onboarding_identifier: Optional[Annotated[str, Field(strict=True, max_length=1024)]] = None
     metric_config: Optional[PutModelMetricSpec] = None
     dataset_ids: List[StrictStr] = Field(description="IDs of datasets for the model.")
-    tools: Optional[List[Tool]] = Field(default=None, description="List of tools used by this model.")
-    sub_agents: Optional[List[SubAgent]] = Field(default=None, description="List of sub-agents used by this model.")
-    __properties: ClassVar[List[str]] = ["name", "description", "onboarding_identifier", "metric_config", "dataset_ids", "tools", "sub_agents"]
+    __properties: ClassVar[List[str]] = ["name", "description", "onboarding_identifier", "metric_config", "dataset_ids"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -81,20 +77,6 @@ class PostModel(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of metric_config
         if self.metric_config:
             _dict['metric_config'] = self.metric_config.to_dict()
-        # override the default output from pydantic by calling `to_dict()` of each item in tools (list)
-        _items = []
-        if self.tools:
-            for _item_tools in self.tools:
-                if _item_tools:
-                    _items.append(_item_tools.to_dict())
-            _dict['tools'] = _items
-        # override the default output from pydantic by calling `to_dict()` of each item in sub_agents (list)
-        _items = []
-        if self.sub_agents:
-            for _item_sub_agents in self.sub_agents:
-                if _item_sub_agents:
-                    _items.append(_item_sub_agents.to_dict())
-            _dict['sub_agents'] = _items
         # set to None if description (nullable) is None
         # and model_fields_set contains the field
         if self.description is None and "description" in self.model_fields_set:
@@ -126,9 +108,7 @@ class PostModel(BaseModel):
             "description": obj.get("description"),
             "onboarding_identifier": obj.get("onboarding_identifier"),
             "metric_config": PutModelMetricSpec.from_dict(obj["metric_config"]) if obj.get("metric_config") is not None else None,
-            "dataset_ids": obj.get("dataset_ids"),
-            "tools": [Tool.from_dict(_item) for _item in obj["tools"]] if obj.get("tools") is not None else None,
-            "sub_agents": [SubAgent.from_dict(_item) for _item in obj["sub_agents"]] if obj.get("sub_agents") is not None else None
+            "dataset_ids": obj.get("dataset_ids")
         })
         return _obj
 

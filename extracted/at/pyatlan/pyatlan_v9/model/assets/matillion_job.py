@@ -101,8 +101,6 @@ class MatillionJob(Asset):
     INPUT_TO_SPARK_JOBS: ClassVar[Any] = None
     OUTPUT_FROM_SPARK_JOBS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "MatillionJob"
-
     matillion_job_type: Union[str, None, UnsetType] = UNSET
     """Type of the job, for example: orchestration or transformation."""
 
@@ -530,6 +528,9 @@ def _matillion_job_to_nested(matillion_job: MatillionJob) -> MatillionJobNested:
         is_incomplete=matillion_job.is_incomplete,
         provenance_type=matillion_job.provenance_type,
         home_id=matillion_job.home_id,
+        depth=matillion_job.depth,
+        immediate_upstream=matillion_job.immediate_upstream,
+        immediate_downstream=matillion_job.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -563,7 +564,6 @@ def _matillion_job_from_nested(nested: MatillionJobNested) -> MatillionJob:
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -572,6 +572,9 @@ def _matillion_job_from_nested(nested: MatillionJobNested) -> MatillionJob:
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_matillion_job_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

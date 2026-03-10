@@ -11,7 +11,7 @@ def add_marker(
     /,
     *,
     location: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Place new marker at specified location
 
     :param location: Location, Location of marker on frame (array of 2 items, in [-inf, inf], optional)
@@ -22,7 +22,7 @@ def add_marker_at_click(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Place new marker at the desired (clicked) position
 
     :return: Result of the operator call.
@@ -35,7 +35,7 @@ def add_marker_move(
     *,
     CLIP_OT_add_marker: dict[str, typing.Any] | None = {},
     TRANSFORM_OT_translate: dict[str, typing.Any] | None = {},
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add new marker and move it on movie
 
     :param CLIP_OT_add_marker: Add Marker, Place new marker at specified location (optional, `bpy.ops.clip.add_marker` keyword arguments)
@@ -50,7 +50,7 @@ def add_marker_slide(
     *,
     CLIP_OT_add_marker: dict[str, typing.Any] | None = {},
     TRANSFORM_OT_translate: dict[str, typing.Any] | None = {},
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add new marker and slide it with mouse until mouse button release
 
     :param CLIP_OT_add_marker: Add Marker, Place new marker at specified location (optional, `bpy.ops.clip.add_marker` keyword arguments)
@@ -64,7 +64,7 @@ def apply_solution_scale(
     /,
     *,
     distance: float | None = 0.0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Apply scale on solution itself to make distance between selected tracks equals to desired
 
     :param distance: Distance, Distance between selected tracks (in [-inf, inf], optional)
@@ -77,7 +77,7 @@ def average_tracks(
     /,
     *,
     keep_original: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Average selected tracks into active
 
     :param keep_original: Keep Original, Keep original tracks (optional)
@@ -88,7 +88,7 @@ def bundles_to_mesh(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Create vertex cloud using coordinates of reconstructed tracks
 
     :return: Result of the operator call.
@@ -103,7 +103,7 @@ def camera_preset_add(
     remove_name: bool | None = False,
     remove_active: bool | None = False,
     use_focal_length: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add or remove a Tracking Camera Intrinsics Preset
 
     :param name: Name, Name of the preset, used to make the path name (optional, never None)
@@ -119,7 +119,7 @@ def change_frame(
     /,
     *,
     frame: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Interactively change the current frame number
 
     :param frame: Frame, (in [-1048574, 1048574], optional)
@@ -135,7 +135,7 @@ def clean_tracks(
     error: float | None = 0.0,
     action: typing.Literal["SELECT", "DELETE_TRACK", "DELETE_SEGMENTS"]
     | None = "SELECT",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Clean tracks with high error values or few frames
 
         :param frames: Tracked Frames, Affect tracks which are tracked less than the specified number of frames (in [0, inf], optional)
@@ -157,7 +157,7 @@ def clear_solution(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Clear all calculated data
 
     :return: Result of the operator call.
@@ -170,7 +170,7 @@ def clear_track_path(
     *,
     action: typing.Literal["UPTO", "REMAINED", "ALL"] | None = "REMAINED",
     clear_active: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Clear tracks after/before current position or clear the whole track
 
         :param action: Action, Clear action to execute (optional)
@@ -191,7 +191,7 @@ def constraint_to_fcurve(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Create F-Curves for object which will copy objects movement caused by this constraint
 
     :return: Result of the operator call.
@@ -201,7 +201,7 @@ def copy_tracks(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Copy the selected tracks to the internal clipboard
 
     :return: Result of the operator call.
@@ -211,7 +211,7 @@ def create_plane_track(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Create new plane track out of selected point tracks
 
     :return: Result of the operator call.
@@ -223,7 +223,7 @@ def cursor_set(
     /,
     *,
     location: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set 2D cursor location
 
     :param location: Location, Cursor location in normalized clip coordinates (array of 2 items, in [-inf, inf], optional)
@@ -236,7 +236,7 @@ def delete_marker(
     /,
     *,
     confirm: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Delete marker for current frame from selected tracks
 
     :param confirm: Confirm, Prompt for confirmation (optional)
@@ -247,7 +247,7 @@ def delete_proxy(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Delete movie clip proxy files from the hard drive
 
     :return: Result of the operator call.
@@ -259,7 +259,7 @@ def delete_track(
     /,
     *,
     confirm: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Delete selected tracks
 
     :param confirm: Confirm, Prompt for confirmation (optional)
@@ -276,7 +276,7 @@ def detect_features(
     margin: int | None = 16,
     threshold: float | None = 0.5,
     min_distance: int | None = 120,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Automatically detect features and place markers to track
 
         :param placement: Placement, Placement for detected features (optional)
@@ -301,7 +301,7 @@ def disable_markers(
     /,
     *,
     action: typing.Literal["DISABLE", "ENABLE", "TOGGLE"] | None = "DISABLE",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Disable/enable selected markers
 
         :param action: Action, Disable action to execute (optional)
@@ -324,7 +324,7 @@ def dopesheet_select_channel(
     *,
     location: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0),
     extend: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select movie tracking channel
 
     :param location: Location, Mouse location to select channel (array of 2 items, in [-inf, inf], optional)
@@ -336,7 +336,7 @@ def dopesheet_view_all(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Reset viewable area to show full keyframe range
 
     :return: Result of the operator call.
@@ -348,7 +348,7 @@ def filter_tracks(
     /,
     *,
     track_threshold: float | None = 5.0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Filter tracks which has weirdly looking spikes in motion curves
 
     :param track_threshold: Track Threshold, Filter Threshold to select problematic tracks (in [-inf, inf], optional)
@@ -362,7 +362,7 @@ def frame_jump(
     *,
     position: typing.Literal["PATHSTART", "PATHEND", "FAILEDPREV", "FAILNEXT"]
     | None = "PATHSTART",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Jump to special frame
 
         :param position: Position, Position to jump to (optional)
@@ -385,7 +385,7 @@ def graph_center_current_frame(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Scroll view so current frame would be centered
 
     :return: Result of the operator call.
@@ -397,7 +397,7 @@ def graph_delete_curve(
     /,
     *,
     confirm: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Delete track corresponding to the selected curve
 
     :param confirm: Confirm, Prompt for confirmation (optional)
@@ -408,7 +408,7 @@ def graph_delete_knot(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Delete curve knots
 
     :return: Result of the operator call.
@@ -420,7 +420,7 @@ def graph_disable_markers(
     /,
     *,
     action: typing.Literal["DISABLE", "ENABLE", "TOGGLE"] | None = "DISABLE",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Disable/enable selected markers
 
         :param action: Action, Disable action to execute (optional)
@@ -443,7 +443,7 @@ def graph_select(
     *,
     location: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0),
     extend: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select graph curves
 
     :param location: Location, Mouse location to select nearest entity (array of 2 items, in [-inf, inf], optional)
@@ -457,7 +457,7 @@ def graph_select_all_markers(
     /,
     *,
     action: typing.Literal["TOGGLE", "SELECT", "DESELECT", "INVERT"] | None = "TOGGLE",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Change selection of all markers of active track
 
         :param action: Action, Selection action to execute (optional)
@@ -488,7 +488,7 @@ def graph_select_box(
     wait_for_input: bool | None = True,
     deselect: bool | None = False,
     extend: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select curve points using box selection
 
     :param xmin: X Min, (in [-inf, inf], optional)
@@ -505,7 +505,7 @@ def graph_view_all(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """View all curves in editor
 
     :return: Result of the operator call.
@@ -517,7 +517,7 @@ def hide_tracks(
     /,
     *,
     unselected: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Hide selected tracks
 
     :param unselected: Unselected, Hide unselected tracks (optional)
@@ -528,7 +528,7 @@ def hide_tracks_clear(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Clear hide selected tracks
 
     :return: Result of the operator call.
@@ -538,7 +538,7 @@ def join_tracks(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Join selected tracks
 
     :return: Result of the operator call.
@@ -548,7 +548,7 @@ def keyframe_delete(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Delete a keyframe from selected tracks at current frame
 
     :return: Result of the operator call.
@@ -558,7 +558,7 @@ def keyframe_insert(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Insert a keyframe to selected tracks at current frame
 
     :return: Result of the operator call.
@@ -568,7 +568,7 @@ def lock_selection_toggle(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Toggle Lock Selection option of the current clip editor
 
     :return: Result of the operator call.
@@ -580,7 +580,7 @@ def lock_tracks(
     /,
     *,
     action: typing.Literal["LOCK", "UNLOCK", "TOGGLE"] | None = "LOCK",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Lock/unlock selected tracks
 
         :param action: Action, Lock action to execute (optional)
@@ -601,8 +601,9 @@ def mode_set(
     undo: bool | None = None,
     /,
     *,
-    mode: Literal[bpy.stub_internal.rna_enums.ClipEditorModeItems] | None = "TRACKING",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    mode: typing.Literal[bpy.stub_internal.rna_enums.ClipEditorModeItems]
+    | None = "TRACKING",
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set the clip interaction mode
 
     :param mode: Mode, (optional)
@@ -613,7 +614,7 @@ def new_image_from_plane_marker(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Create new image from the content of the plane marker
 
     :return: Result of the operator call.
@@ -661,7 +662,7 @@ def open(
         "ASSET_CATALOG",
     ]
     | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Load a sequence of frames or a movie file
 
         :param directory: Directory, Directory of the file (optional, never None)
@@ -727,7 +728,7 @@ def paste_tracks(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Paste tracks from the internal clipboard
 
     :return: Result of the operator call.
@@ -737,7 +738,7 @@ def prefetch(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Prefetch frames from disk for faster playback/tracking
 
     :return: Result of the operator call.
@@ -747,7 +748,7 @@ def rebuild_proxy(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Rebuild all selected proxies and timecode indices in the background
 
     :return: Result of the operator call.
@@ -759,7 +760,7 @@ def refine_markers(
     /,
     *,
     backwards: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Refine selected markers positions by running the tracker from tracks reference to current frame
 
     :param backwards: Backwards, Do backwards tracking (optional)
@@ -770,7 +771,7 @@ def reload(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Reload clip
 
     :return: Result of the operator call.
@@ -784,7 +785,7 @@ def select(
     extend: bool | None = False,
     deselect_all: bool | None = False,
     location: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select tracking markers
 
     :param extend: Extend, Extend selection rather than clearing the existing selection (optional)
@@ -799,7 +800,7 @@ def select_all(
     /,
     *,
     action: typing.Literal["TOGGLE", "SELECT", "DESELECT", "INVERT"] | None = "TOGGLE",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Change selection of all tracking markers
 
         :param action: Action, Selection action to execute (optional)
@@ -829,7 +830,7 @@ def select_box(
     ymax: int | None = 0,
     wait_for_input: bool | None = True,
     mode: typing.Literal["SET", "ADD", "SUB"] | None = "SET",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select markers using box selection
 
         :param xmin: X Min, (in [-inf, inf], optional)
@@ -860,7 +861,7 @@ def select_circle(
     radius: int | None = 25,
     wait_for_input: bool | None = True,
     mode: typing.Literal["SET", "ADD", "SUB"] | None = "SET",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select markers using circle selection
 
         :param x: X, (in [-inf, inf], optional)
@@ -889,7 +890,7 @@ def select_grouped(
         "KEYFRAMED", "ESTIMATED", "TRACKED", "LOCKED", "DISABLED", "COLOR", "FAILED"
     ]
     | None = "ESTIMATED",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select all tracks from specified group
 
         :param group: Group, Select tracks by group (optional)
@@ -927,7 +928,7 @@ def select_lasso(
     smooth_stroke_factor: float | None = 0.75,
     smooth_stroke_radius: int | None = 35,
     mode: typing.Literal["SET", "ADD", "SUB"] | None = "SET",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select markers using lasso selection
 
         :param path: Path, (optional)
@@ -951,7 +952,7 @@ def set_active_clip(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
 
     :return: Result of the operator call.
@@ -963,7 +964,7 @@ def set_axis(
     /,
     *,
     axis: typing.Literal["X", "Y"] | None = "X",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set the direction of a scene axis by rotating the camera (or its parent if present). This assumes that the selected track lies on a real axis connecting it to the origin
 
         :param axis: Axis, Axis to use to align bundle along (optional)
@@ -982,7 +983,7 @@ def set_origin(
     /,
     *,
     use_median: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set active marker as origin by moving camera (or its parent if present) in 3D space
 
     :param use_median: Use Median, Set origin to median point of selected bundles (optional)
@@ -995,7 +996,7 @@ def set_plane(
     /,
     *,
     plane: typing.Literal["FLOOR", "WALL"] | None = "FLOOR",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set plane based on 3 selected bundles by moving camera (or its parent if present) in 3D space
 
         :param plane: Plane, Plane to be used for orientation (optional)
@@ -1014,7 +1015,7 @@ def set_scale(
     /,
     *,
     distance: float | None = 0.0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set scale of scene by scaling camera (or its parent if present)
 
     :param distance: Distance, Distance between selected tracks (in [-inf, inf], optional)
@@ -1025,7 +1026,7 @@ def set_scene_frames(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set scenes start and end frame to match clips start frame and length
 
     :return: Result of the operator call.
@@ -1037,7 +1038,7 @@ def set_solution_scale(
     /,
     *,
     distance: float | None = 0.0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set object solution scale using distance between two selected tracks
 
     :param distance: Distance, Distance between selected tracks (in [-inf, inf], optional)
@@ -1050,7 +1051,7 @@ def set_solver_keyframe(
     /,
     *,
     keyframe: typing.Literal["KEYFRAME_A", "KEYFRAME_B"] | None = "KEYFRAME_A",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set keyframe used by solver
 
     :param keyframe: Keyframe, Keyframe to set (optional)
@@ -1061,7 +1062,7 @@ def set_viewport_background(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set current movie clip as a camera background in 3D Viewport (works only when a 3D Viewport is visible)
 
     :return: Result of the operator call.
@@ -1071,7 +1072,7 @@ def setup_tracking_scene(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Prepare scene for compositing 3D objects into this footage
 
     :return: Result of the operator call.
@@ -1083,7 +1084,7 @@ def slide_marker(
     /,
     *,
     offset: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Slide marker areas
 
     :param offset: Offset, Offset in floating-point units, 1.0 is the width and height of the image (array of 2 items, in [-inf, inf], optional)
@@ -1094,7 +1095,7 @@ def slide_plane_marker(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Slide plane marker areas
 
     :return: Result of the operator call.
@@ -1104,7 +1105,7 @@ def solve_camera(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Solve camera motion from tracks
 
     :return: Result of the operator call.
@@ -1114,7 +1115,7 @@ def stabilize_2d_add(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add selected tracks to 2D translation stabilization
 
     :return: Result of the operator call.
@@ -1124,7 +1125,7 @@ def stabilize_2d_remove(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove selected track from translation stabilization
 
     :return: Result of the operator call.
@@ -1134,7 +1135,7 @@ def stabilize_2d_rotation_add(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add selected tracks to 2D rotation stabilization
 
     :return: Result of the operator call.
@@ -1144,7 +1145,7 @@ def stabilize_2d_rotation_remove(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove selected track from rotation stabilization
 
     :return: Result of the operator call.
@@ -1154,7 +1155,7 @@ def stabilize_2d_rotation_select(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select tracks which are used for rotation stabilization
 
     :return: Result of the operator call.
@@ -1164,7 +1165,7 @@ def stabilize_2d_select(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select tracks which are used for translation stabilization
 
     :return: Result of the operator call.
@@ -1178,7 +1179,7 @@ def track_color_preset_add(
     name: str | None = "",
     remove_name: bool | None = False,
     remove_active: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add or remove a Clip Track Color Preset
 
     :param name: Name, Name of the preset, used to make the path name (optional, never None)
@@ -1191,7 +1192,7 @@ def track_copy_color(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Copy color to all selected tracks
 
     :return: Result of the operator call.
@@ -1204,7 +1205,7 @@ def track_markers(
     *,
     backwards: bool | None = False,
     sequence: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Track selected markers
 
     :param backwards: Backwards, Do backwards tracking (optional)
@@ -1216,7 +1217,7 @@ def track_settings_as_default(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Copy tracking settings from active track to default settings
 
     :return: Result of the operator call.
@@ -1226,7 +1227,7 @@ def track_settings_to_track(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Copy tracking settings from active track to selected tracks
 
     :return: Result of the operator call.
@@ -1236,7 +1237,7 @@ def track_to_empty(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Create an Empty object which will be copying movement of active track
 
     :return: Result of the operator call.
@@ -1246,7 +1247,7 @@ def tracking_object_new(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add new object for tracking
 
     :return: Result of the operator call.
@@ -1256,7 +1257,7 @@ def tracking_object_remove(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove object for tracking
 
     :return: Result of the operator call.
@@ -1270,7 +1271,7 @@ def tracking_settings_preset_add(
     name: str | None = "",
     remove_name: bool | None = False,
     remove_active: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add or remove a motion tracking settings preset
 
     :param name: Name, Name of the preset, used to make the path name (optional, never None)
@@ -1283,7 +1284,7 @@ def update_image_from_plane_marker(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Update current image used by plane marker from the content of the plane marker
 
     :return: Result of the operator call.
@@ -1295,7 +1296,7 @@ def view_all(
     /,
     *,
     fit_view: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """View whole image with markers
 
     :param fit_view: Fit View, Fit frame to the viewport (optional)
@@ -1306,7 +1307,7 @@ def view_center_cursor(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Center the view so that the cursor is in the middle of the view
 
     :return: Result of the operator call.
@@ -1316,7 +1317,7 @@ def view_ndof(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Use a 3D mouse device to pan/zoom the view
 
     :return: Result of the operator call.
@@ -1328,7 +1329,7 @@ def view_pan(
     /,
     *,
     offset: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Pan the view
 
     :param offset: Offset, Offset in floating-point units, 1.0 is the width and height of the image (array of 2 items, in [-inf, inf], optional)
@@ -1339,7 +1340,7 @@ def view_selected(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """View all selected elements
 
     :return: Result of the operator call.
@@ -1352,7 +1353,7 @@ def view_zoom(
     *,
     factor: float | None = 0.0,
     use_cursor_init: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Zoom in/out the view
 
     :param factor: Factor, Zoom factor, values higher than 1.0 zoom in, lower values zoom out (in [-inf, inf], optional)
@@ -1366,7 +1367,7 @@ def view_zoom_in(
     /,
     *,
     location: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Zoom in the view
 
     :param location: Location, Cursor location in screen coordinates (array of 2 items, in [-inf, inf], optional)
@@ -1379,7 +1380,7 @@ def view_zoom_out(
     /,
     *,
     location: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Zoom out the view
 
     :param location: Location, Cursor location in normalized (0.0 to 1.0) coordinates (array of 2 items, in [-inf, inf], optional)
@@ -1392,7 +1393,7 @@ def view_zoom_ratio(
     /,
     *,
     ratio: float | None = 0.0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set the zoom ratio (based on clip size)
 
     :param ratio: Ratio, Zoom ratio, 1.0 is 1:1, higher is zoomed in, lower is zoomed out (in [-inf, inf], optional)

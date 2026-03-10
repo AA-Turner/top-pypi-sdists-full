@@ -102,8 +102,6 @@ class SalesforceReport(Asset):
     INPUT_TO_SPARK_JOBS: ClassVar[Any] = None
     OUTPUT_FROM_SPARK_JOBS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "SalesforceReport"
-
     source_id: Union[str, None, UnsetType] = UNSET
     """Identifier of the report in Salesforce."""
 
@@ -515,6 +513,9 @@ def _salesforce_report_to_nested(
         is_incomplete=salesforce_report.is_incomplete,
         provenance_type=salesforce_report.provenance_type,
         home_id=salesforce_report.home_id,
+        depth=salesforce_report.depth,
+        immediate_upstream=salesforce_report.immediate_upstream,
+        immediate_downstream=salesforce_report.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -548,7 +549,6 @@ def _salesforce_report_from_nested(nested: SalesforceReportNested) -> Salesforce
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -557,6 +557,9 @@ def _salesforce_report_from_nested(nested: SalesforceReportNested) -> Salesforce
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_salesforce_report_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

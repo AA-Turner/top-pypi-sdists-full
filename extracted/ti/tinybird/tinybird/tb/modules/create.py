@@ -1,205 +1,172 @@
 import glob
+import json
 import os
-import re
-import shutil
+import subprocess
+import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set
-from urllib.parse import urlparse
+from typing import Any, Dict, Optional
 
 import click
-import requests
 
-from tinybird.prompts import claude_rules_prompt, rules_prompt
-from tinybird.tb.modules.agent import run_agent
-from tinybird.tb.modules.cicd import init_cicd
+from tinybird.tb.modules.cicd import check_cicd_exists, init_cicd
 from tinybird.tb.modules.cli import cli
-from tinybird.tb.modules.common import _generate_datafile
 from tinybird.tb.modules.config import CLIConfig
-from tinybird.tb.modules.datafile.fixture import persist_fixture
 from tinybird.tb.modules.exceptions import CLICreateException
 from tinybird.tb.modules.feedback_manager import FeedbackManager
-from tinybird.tb.modules.local_common import get_tinybird_local_client
+from tinybird.tb.modules.login_common import login
 from tinybird.tb.modules.project import Project
 
-# Pre-compiled regex patterns for pipe type detection (performance optimization)
-_PATTERN_TYPE_COPY = re.compile(r"TYPE copy", re.IGNORECASE)
-_PATTERN_TYPE_MATERIALIZED = re.compile(r"TYPE materialized", re.IGNORECASE)
-_PATTERN_TYPE_SINK = re.compile(r"TYPE sink", re.IGNORECASE)
-_PATTERN_TYPE_ENDPOINT = re.compile(r"TYPE endpoint", re.IGNORECASE)
-_PATTERN_ENGINE_MERGETREE = re.compile(r'ENGINE\s+(?:"MergeTree"|MergeTree|"Null"|Null)')
-_PATTERN_ENGINE = re.compile(r"ENGINE\s+")
+DEFAULT_FOLDER = "tinybird"
+DEFAULT_SDK = "cli"
+DEFAULT_MODE = "manual"
+DEFAULT_CICD = "skip"
+SDK_CHOICES = ("typescript", "python", "cli")
+MODE_CHOICES = ("branch", "local", "manual")
+CICD_CHOICES = ("github", "gitlab", "skip")
+SKILLS_INSTALL_REGISTRY = "tinybirdco/tinybird-agent-skills"
+SKILLS_INSTALL_BASE_ARGS = [
+    "skills",
+    "add",
+    SKILLS_INSTALL_REGISTRY,
+]
+GLOBAL_AGENT_SKILL = "tinybird"
+PROJECT_TYPE_AGENT_SKILLS = {
+    "cli": "tinybird-cli-guidelines",
+    "typescript": "tinybird-typescript-sdk-guidelines",
+}
+SKILLS_INSTALL_TIMEOUT_SECONDS = 120
 
 
-@cli.command()
+@cli.command(name="init")
 @click.option(
-    "--data",
-    type=str,
+    "--type",
+    "project_type",
+    type=click.Choice(SDK_CHOICES, case_sensitive=False),
     default=None,
-    help="Initial data to be used to create the project. Tinybird Local and authentication are required.",
+    help="Project type: typescript, python, or cli.",
 )
 @click.option(
-    "--prompt",
-    type=str,
+    "--dev-mode",
+    type=click.Choice(MODE_CHOICES, case_sensitive=False),
     default=None,
-    help="Prompt to be used to create the project. Tinybird Local and authentication are required.",
+    help="Development mode: branch, local, or manual.",
 )
-@click.option("--rows", type=int, default=10, help="Number of events to send")
-@click.option("--folder", type=str, default=None, help="Folder to create the project in")
-@click.option("--agent", type=str, default="cursor", help="Agent to use for rules")
+@click.option("--folder", type=str, default=None, help=f"Project folder. Default: {DEFAULT_FOLDER}")
+@click.option(
+    "--cicd",
+    "cicd_provider",
+    type=click.Choice(CICD_CHOICES, case_sensitive=False),
+    default=None,
+    help="Generate CI/CD templates for github, gitlab, or skip.",
+)
+@click.option(
+    "--skip-login",
+    default=False,
+    is_flag=True,
+    help="Authenticate after init.",
+)
 @click.pass_context
-def create(
-    ctx: click.Context, data: Optional[str], prompt: Optional[str], rows: int, folder: Optional[str], agent: str
+def init(
+    ctx: click.Context,
+    project_type: Optional[str],
+    dev_mode: Optional[str],
+    folder: Optional[str],
+    cicd_provider: Optional[str],
+    skip_login: bool,
 ) -> None:
     """Initialize a new project."""
     project: Project = ctx.ensure_object(dict)["project"]
     config = CLIConfig.get_project_config()
-    ctx_config = ctx.ensure_object(dict)["config"]
-
-    # If folder is provided, rewrite the config and project folder
-    if folder:
-        config.set_cwd(folder)
-        config.persist_to_file()
-        project.folder = folder
 
     root_folder = os.getcwd()
     if config._path:
         root_folder = os.path.dirname(config._path)
 
-    folder = project.folder
-    folder_path = project.path
+    selected_sdk = _prompt_sdk(project_type)
+    selected_mode = _prompt_mode(dev_mode)
+    selected_folder = _prompt_folder(folder)
+    selected_cicd = _prompt_cicd_provider(cicd_provider)
 
-    if not folder_path.exists():
-        folder_path.mkdir()
+    folder_path = _resolve_folder_path(root_folder, selected_folder)
+    project.folder = str(folder_path)
+    folder_path.mkdir(parents=True, exist_ok=True)
 
     try:
-        created_something = False
-        if prompt and not ctx_config.get("user_token"):
-            raise Exception("This action requires authentication. Run 'tb login' first.")
+        config_status = "unchanged"
+        project_structure_status = "unchanged"
+        env_status = "already exists"
+        cicd_status = "skipped"
 
-        if not validate_project_structure(project):
+        config_changed, config_created = persist_tinybird_config(
+            root_folder,
+            project_type=selected_sdk,
+            dev_mode=selected_mode,
+            folder=selected_folder,
+        )
+        if config_changed:
+            config_file_action = "Created" if config_created else "Updated"
+            config_status = config_file_action.lower()
+
+        if selected_sdk == "cli" and not validate_project_structure(project):
+            project_structure_status = "created"
             click.echo(FeedbackManager.highlight(message="\n» Creating new project structure..."))
             click.echo(
                 FeedbackManager.info(
                     message="Learn more about data files https://www.tinybird.co/docs/forward/datafiles"
                 )
             )
-            create_project_structure(folder)
+            create_project_structure(str(folder_path))
             click.echo(FeedbackManager.success(message="✓ Scaffolding completed!\n"))
-            created_something = True
-        result: List[Path] = []
-        if data or prompt:
-            click.echo(FeedbackManager.highlight(message="\n» Creating resources..."))
-
-        data_result: List[Path] = []
-        if data:
-            if urlparse(data).scheme in ("http", "https"):
-                data_result = create_resources_from_url(data, project, ctx_config)
-            else:
-                data_result = create_resources_from_data(data, project, ctx_config)
-            result.extend(data_result)
-
-        prompt_result: List[Path] = []
-        if prompt:
-            prompt_instructions = (
-                "Create or update the Tinybird datasources, pipes, and connections required to satisfy the following request. "
-                "Do not generate mock data or append data; those steps will run later programmatically."
-            )
-            prompt_result = create_resources_from_prompt(
-                ctx_config,
-                project,
-                prompt,
-                feature="tb_create",
-                instructions=prompt_instructions,
-            )
-            result.extend(prompt_result)
-            if prompt_result:
-                created_something = True
-
-        if data or prompt:
-            click.echo(FeedbackManager.success(message="✓ Resources created!\n"))
+        elif selected_sdk == "cli":
+            project_structure_status = "already exists"
 
         if not already_has_env_file(root_folder):
+            env_status = "created"
             click.echo(FeedbackManager.highlight(message="\n» Creating .env.local file..."))
             create_env_file(root_folder)
             click.echo(FeedbackManager.success(message="✓ Done!\n"))
-            created_something = True
 
-        if not already_has_cicd(root_folder):
-            click.echo(FeedbackManager.highlight(message="\n» Creating CI/CD files for GitHub and GitLab..."))
-            init_git(root_folder)
-            init_cicd(root_folder, data_project_dir=os.path.relpath(folder))
-            click.echo(FeedbackManager.success(message="✓ Done!\n"))
-            created_something = True
-
-        if not already_has_cursor_rules(root_folder):
-            click.echo(FeedbackManager.highlight(message="\n» Creating rules..."))
-            create_rules(root_folder, "tb", agent)
-            click.echo(FeedbackManager.info_file_created(file=".cursorrules"))
-            click.echo(FeedbackManager.success(message="✓ Done!\n"))
-            created_something = True
-
-        if not already_has_claude_rules(root_folder):
-            click.echo(FeedbackManager.highlight(message="\n» Creating Claude Code rules..."))
-            create_claude_rules(root_folder, "tb")
-            click.echo(FeedbackManager.info_file_created(file="CLAUDE.md"))
-            click.echo(FeedbackManager.success(message="✓ Done!\n"))
-            created_something = True
-
-        if should_generate_fixtures(result):
-            click.echo(FeedbackManager.highlight(message="\n» Generating fixtures..."))
-
-            if data:
-                for ds_path in [ds for ds in data_result if ds.suffix == ".datasource"]:
-                    parsed_url = urlparse(data)
-                    if parsed_url.scheme in ("http", "https"):
-                        response = requests.get(data)
-                        data_content = response.text
-                        data_format = parsed_url.path.split(".")[-1]
-                    else:
-                        data_path = Path(data)
-                        data_content = data_path.read_text()
-                        data_format = data_path.suffix.lstrip(".")
-
-                    ds_name = ds_path.stem
-                    datasource_path = Path(folder) / "datasources" / f"{ds_name}.datasource"
-                    click.echo(FeedbackManager.info_file_created(file=f"fixtures/{ds_name}.{data_format}"))
-                    persist_fixture(ds_name, data_content, folder, format=data_format)
-                    click.echo(FeedbackManager.success(message="✓ Done!"))
-                    created_something = True
-
-            elif prompt and prompt_result:
-                ds_results = [path for path in prompt_result if path.suffix == ".datasource"]
-                for datasource_path in ds_results:
-                    datasource_name = datasource_path.stem
-                    datasource_content = datasource_path.read_text()
-                    has_json_path = "`json:" in datasource_content
-                    if not has_json_path:
-                        continue
-
-                    fixture_path = Path(folder) / "fixtures" / f"{datasource_name}.ndjson"
-                    fixture_existed = fixture_path.exists()
-                    fixture_prompt = (
-                        f"Generate {rows} rows of representative sample data for the Tinybird datasource defined in {datasource_path}. "
-                        f"Store the data in ndjson format at fixtures/{datasource_name}.ndjson."
+        if selected_cicd != "skip":
+            if check_cicd_exists(root_folder, provider=selected_cicd):
+                cicd_status = f"{selected_cicd} already exists"
+                click.echo(
+                    FeedbackManager.warning(
+                        message=f"△ {selected_cicd} CI/CD templates already exist. Skipping generation.\n"
                     )
-                    if prompt.strip():
-                        fixture_prompt += f"\n\nOriginal project request:\n{prompt.strip()}"
+                )
+            else:
+                cicd_status = f"{selected_cicd} generated"
+                click.echo(FeedbackManager.highlight(message=f"\n» Creating CI/CD files for {selected_cicd}..."))
+                init_git(root_folder)
+                init_cicd(
+                    root_folder,
+                    data_project_dir=os.path.relpath(folder_path, root_folder),
+                    provider=selected_cicd,
+                )
+                click.echo(FeedbackManager.success(message="✓ Done!\n"))
+        else:
+            cicd_status = "skipped"
 
-                    run_agent(
-                        ctx_config,
-                        project,
-                        True,
-                        prompt=fixture_prompt,
-                        feature="tb_mock",
-                    )
+        if _resolve_install_skills_choice():
+            click.echo(FeedbackManager.highlight(message="\n» Installing Tinybird agent skills..."))
+            install_agent_skills(selected_sdk)
 
-                    if fixture_path.exists() and not fixture_existed:
-                        click.echo(FeedbackManager.info_file_created(file=f"fixtures/{datasource_name}.ndjson"))
-                        click.echo(FeedbackManager.success(message="✓ Done!"))
-                        created_something = True
+        _show_init_summary(
+            selected_sdk=selected_sdk,
+            selected_mode=selected_mode,
+            selected_folder=selected_folder,
+            config_status=config_status,
+            project_structure_status=project_structure_status,
+            env_status=env_status,
+            cicd_status=cicd_status,
+        )
 
-        if not created_something and not len(result) > 0:
-            click.echo(FeedbackManager.warning(message="△ No resources created\n"))
+        login_choice = _resolve_login_choice(skip_login)
+        if login_choice:
+            click.echo(FeedbackManager.highlight(message="\n» Starting login..."))
+            login(host=None, interactive=True, method="browser")
+            click.echo(FeedbackManager.success(message="✓ Done!\n"))
+
     except Exception as e:
         raise CLICreateException(FeedbackManager.error(message=str(e)))
 
@@ -226,33 +193,6 @@ def validate_project_structure(project: Project) -> bool:
     pipes = project.get_pipe_files()
 
     return len(datasources) > 0 or len(pipes) > 0
-
-
-def should_generate_fixtures(result: List[Path]) -> List[Path]:
-    if not result:
-        return []
-    return [
-        path
-        for path in result
-        if path.suffix == ".datasource"
-        # we only want to generate fixtures for MergeTree or Null engines
-        and (_PATTERN_ENGINE_MERGETREE.search(path.read_text()) or not _PATTERN_ENGINE.search(path.read_text()))
-    ]
-
-
-def already_has_cicd(folder: str) -> bool:
-    ci_cd_paths = (".gitlab", ".github")
-    return any((Path(folder) / path).exists() for path in ci_cd_paths)
-
-
-def already_has_cursor_rules(folder: str) -> bool:
-    cursor_rules_paths = (".cursorrules", ".windsurfrules")
-    return any((Path(folder) / path).exists() for path in cursor_rules_paths)
-
-
-def already_has_claude_rules(folder: str) -> bool:
-    claude_rules_path = "CLAUDE.md"
-    return (Path(folder) / claude_rules_path).exists()
 
 
 def already_has_env_file(folder: str) -> bool:
@@ -286,42 +226,6 @@ def create_project_structure(folder: str):
             pass
 
 
-def create_resources_from_prompt(
-    config: Dict[str, Any],
-    project: Project,
-    prompt: str,
-    feature: str = "tb_create",
-    instructions: Optional[str] = None,
-) -> List[Path]:
-    """Run the agent in prompt mode and report newly created project resources."""
-
-    agent_prompt = prompt.strip()
-    if instructions:
-        instructions = instructions.strip()
-        if agent_prompt:
-            agent_prompt = f"{instructions}\n\n{agent_prompt}"
-        else:
-            agent_prompt = instructions
-
-    if not agent_prompt:
-        return []
-
-    resources_before = _collect_project_resource_paths(project)
-    run_agent(config, project, True, prompt=agent_prompt, feature=feature)
-    resources_after = _collect_project_resource_paths(project)
-
-    created_resources = [Path(path) for path in sorted(resources_after - resources_before)]
-    return created_resources
-
-
-def _collect_project_resource_paths(project: Project) -> Set[Path]:
-    resources: Set[Path] = set()
-    resources.update(Path(path) for path in project.get_datasource_files())
-    resources.update(Path(path) for path in project.get_pipe_files())
-    resources.update(Path(path) for path in project.get_connection_files())
-    return resources
-
-
 def init_git(folder: str):
     try:
         path = Path(folder)
@@ -337,44 +241,6 @@ def init_git(folder: str):
         click.echo(FeedbackManager.info_file_created(file=".gitignore"))
     except Exception as e:
         raise Exception(f"Error initializing Git: {e}")
-
-
-def generate_pipe_file(name: str, content: str, folder: str) -> Path:
-    def is_copy(content: str) -> bool:
-        return _PATTERN_TYPE_COPY.search(content) is not None
-
-    def is_materialization(content: str) -> bool:
-        return _PATTERN_TYPE_MATERIALIZED.search(content) is not None
-
-    def is_sink(content: str) -> bool:
-        return _PATTERN_TYPE_SINK.search(content) is not None
-
-    def is_endpoint(content: str) -> bool:
-        return _PATTERN_TYPE_ENDPOINT.search(content) is not None
-
-    already_exists = glob.glob(f"{folder}/**/{name}.pipe")
-    if already_exists:
-        f = Path(already_exists[0])
-    else:
-        if is_copy(content):
-            pathname = "copies"
-        elif is_materialization(content):
-            pathname = "materializations"
-        elif is_sink(content):
-            pathname = "sinks"
-        elif is_endpoint(content):
-            pathname = "endpoints"
-        else:
-            pathname = "pipes"
-
-        base = Path(folder) / pathname
-        if not base.exists():
-            base.mkdir()
-        f = base / (f"{name}.pipe")
-    with open(f"{f}", "w") as file:
-        file.write(content)
-    click.echo(FeedbackManager.info_file_created(file=f.relative_to(folder)))
-    return f.relative_to(folder)
 
 
 def generate_connection_file(name: str, content: str, folder: str, skip_feedback: bool = False) -> Path:
@@ -422,102 +288,286 @@ def create_env_file(folder: str):
     env_file.write_text("")
 
 
-def create_rules(folder: str, source: str, agent: str):
-    if agent == "cursor":
-        extension = ".cursorrules"
-    elif agent == "windsurf":
-        extension = ".windsurfrules"
-    else:
-        extension = ".md"
+def _prompt_sdk(sdk: Optional[str]) -> str:
+    if sdk:
+        return sdk.lower()
 
-    rules_file = Path(folder) / extension
-    rules_content = rules_prompt(source)
-    rules_file.write_text(rules_content)
+    click.echo(FeedbackManager.highlight(message="\n? Select project type:"))
+    click.echo("  [1] typescript - Tinybird TypeScript SDK")
+    click.echo("  [2] python - Tinybird Python SDK")
+    click.echo("  [3] cli - Tinybird CLI datafiles project")
+    choice = click.prompt("\nSelect option", default=3, type=int)
+    if choice == 1:
+        return "typescript"
+    if choice == 2:
+        return "python"
+    if choice == 3:
+        return "cli"
+    click.echo(FeedbackManager.warning(message=f"Invalid option '{choice}'. Defaulting to {DEFAULT_SDK}."))
+    return DEFAULT_SDK
 
 
-def create_claude_rules(folder: str, source: str):
+def _prompt_mode(mode: Optional[str]) -> str:
+    if mode:
+        return mode.lower()
+
+    click.echo(FeedbackManager.highlight(message="\n? Select development mode:"))
+    click.echo("  [1] branch - Cloud branches mapped to your git feature branch")
+    click.echo("  [2] local - Run build/test against Tinybird Local")
+    click.echo("  [3] manual - Choose environment manually with flags")
+    choice = click.prompt("\nSelect option", default=3, type=int)
+    if choice == 1:
+        return "branch"
+    if choice == 2:
+        return "local"
+    if choice == 3:
+        return "manual"
+    click.echo(FeedbackManager.warning(message=f"Invalid option '{choice}'. Defaulting to {DEFAULT_MODE}."))
+    return DEFAULT_MODE
+
+
+def _prompt_folder(folder: Optional[str]) -> str:
+    if folder and folder.strip():
+        return folder.strip()
+
+    selected = click.prompt(
+        FeedbackManager.highlight(message=f"\n? Project folder [{DEFAULT_FOLDER}]"),
+        type=str,
+        default=DEFAULT_FOLDER,
+        show_default=False,
+    ).strip()
+    return selected or DEFAULT_FOLDER
+
+
+def _prompt_cicd_provider(cicd_provider: Optional[str]) -> str:
+    if cicd_provider:
+        return cicd_provider.lower()
+
+    click.echo(FeedbackManager.highlight(message="\n? Select CI/CD templates:"))
+    click.echo("  [1] github - Generate GitHub Actions workflows")
+    click.echo("  [2] gitlab - Generate GitLab CI templates")
+    click.echo("  [3] skip - Do not generate CI/CD templates")
+    choice = click.prompt("\nSelect option", default=3, type=int)
+    if choice == 1:
+        return "github"
+    if choice == 2:
+        return "gitlab"
+    if choice == 3:
+        return "skip"
+    click.echo(FeedbackManager.warning(message=f"Invalid option '{choice}'. Defaulting to {DEFAULT_CICD}."))
+    return DEFAULT_CICD
+
+
+def _prompt_login(should_login: Optional[bool]) -> bool:
+    if should_login is not None:
+        return should_login
+
+    return click.confirm(
+        FeedbackManager.highlight(message="\n? Do you want to login now? [Y/n]"),
+        default=True,
+        show_default=False,
+    )
+
+
+def _prompt_install_skills(should_install: Optional[bool]) -> bool:
+    if should_install is not None:
+        return should_install
+
+    return click.confirm(
+        FeedbackManager.highlight(message="\n? Do you want to install Tinybird agent skills? [Y/n]"),
+        default=True,
+        show_default=False,
+    )
+
+
+def _build_agent_skills_install_command(project_type: str) -> list[str]:
+    # Pass --yes to npx itself to avoid waiting on package-install confirmation.
+    command = ["npx", "--yes", *SKILLS_INSTALL_BASE_ARGS]
+    command.extend(["--skill", GLOBAL_AGENT_SKILL])
+    project_type_skill = PROJECT_TYPE_AGENT_SKILLS.get(project_type)
+    if project_type_skill:
+        command.extend(["--skill", project_type_skill])
+    command.append("--yes")
+    return command
+
+
+def _manual_agent_skills_install_command(project_type: str) -> str:
+    command = _build_agent_skills_install_command(project_type)
+    command = [part for part in command if part != "--yes"]
+    return " ".join(command)
+
+
+def install_agent_skills(project_type: str) -> bool:
+    command = _build_agent_skills_install_command(project_type)
+    manual_command = _manual_agent_skills_install_command(project_type)
+
     try:
-        is_claude_code_installed = shutil.which("claude") is not None
-        if is_claude_code_installed:
-            rules_content = claude_rules_prompt(source)
-            claude_file = Path(folder) / "CLAUDE.md"
-            claude_file.write_text(rules_content)
-    except Exception:
-        pass
-
-
-def get_context_file() -> Path:
-    context_file = Path(os.path.expanduser("~/.tb_create_context"))
-    if not context_file.exists():
-        context_file.touch()
-    return context_file
-
-
-def get_context() -> str:
-    context_file = get_context_file()
-    return context_file.read_text()
-
-
-def save_context(prompt: str, feedback: str):
-    context_file = get_context_file()
-    context_file.write_text(f"- {prompt}\n{feedback}")
-
-
-def create_resources_from_data(
-    data: str,
-    project: Project,
-    config: Dict[str, Any],
-    skip_pipes: bool = False,
-) -> List[Path]:
-    local_client = get_tinybird_local_client(config)
-    folder_path = project.path
-    path = folder_path / data
-    if not path.exists():
-        path = Path(data)
-    result: List[Path] = []
-    format = path.suffix.lstrip(".")
-    ds_file = _generate_datafile(str(path), local_client, format=format, force=True, folder=project.folder)
-    result.append(ds_file)
-    name = ds_file.stem
-    no_pipes = len(project.get_pipe_files()) == 0
-    if not skip_pipes and no_pipes:
-        pipe_file = generate_pipe_file(
-            f"{name}_endpoint",
-            f"""
-NODE endpoint
-SQL >
-    SELECT * from {name}
-TYPE ENDPOINT
-            """,
-            project.folder,
+        result = subprocess.run(
+            command,
+            check=False,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=SKILLS_INSTALL_TIMEOUT_SECONDS,
         )
-        result.append(pipe_file)
-    return result
-
-
-def create_resources_from_url(
-    url: str, project: Project, config: Dict[str, Any], skip_pipes: bool = False
-) -> List[Path]:
-    result: List[Path] = []
-    local_client = get_tinybird_local_client(config)
-    format = url.rsplit(".", maxsplit=1)[-1]
-    ds_file = _generate_datafile(url, local_client, format=format, force=True, folder=project.folder)
-    result.append(ds_file)
-    name = ds_file.stem
-    no_pipes = len(project.get_pipe_files()) == 0
-    if not skip_pipes and no_pipes:
-        pipe_file = generate_pipe_file(
-            f"{name}_endpoint",
-            f"""
-NODE endpoint
-SQL >
-    SELECT * from {name}
-TYPE ENDPOINT
-            """,
-            project.folder,
+    except FileNotFoundError:
+        click.echo(
+            FeedbackManager.warning(
+                message=(
+                    "△ Could not install Tinybird agent skills automatically because `npx` is not available. "
+                    f"Run manually: {manual_command}"
+                )
+            )
         )
-        result.append(pipe_file)
-    return result
+        return False
+    except subprocess.TimeoutExpired:
+        click.echo(
+            FeedbackManager.warning(
+                message=(
+                    f"△ Timed out while installing Tinybird agent skills automatically. Run manually: {manual_command}"
+                )
+            )
+        )
+        return False
+    except Exception as exc:
+        click.echo(
+            FeedbackManager.warning(
+                message=(
+                    f"△ Failed to install Tinybird agent skills automatically: {exc}. Run manually: {manual_command}"
+                )
+            )
+        )
+        return False
+
+    if result.returncode != 0:
+        click.echo(
+            FeedbackManager.warning(
+                message=(f"△ Failed to install Tinybird agent skills automatically. Run manually: {manual_command}")
+            )
+        )
+        return False
+
+    click.echo(FeedbackManager.success(message="✓ Tinybird agent skills installed!\n"))
+    return True
+
+
+def _has_credentials() -> bool:
+    # Intentionally read only `.tinyb` in the current working directory.
+    # Do not traverse parent folders for init login detection.
+    tinyb_path = Path(os.getcwd()) / ".tinyb"
+    if tinyb_path.exists():
+        try:
+            raw = json.loads(tinyb_path.read_text())
+            if isinstance(raw, dict) and (raw.get("token") or raw.get("user_token")):
+                return True
+        except Exception:
+            pass
+
+    return bool(os.environ.get("TB_TOKEN") or os.environ.get("TB_USER_TOKEN"))
+
+
+def _resolve_login_choice(skip_login: bool) -> bool:
+    if skip_login is True:
+        return False
+
+    if _has_credentials():
+        return False
+
+    return _prompt_login(None)
+
+
+def _resolve_install_skills_choice() -> bool:
+    if not sys.stdin.isatty():
+        return False
+    return _prompt_install_skills(None)
+
+
+def _show_init_summary(
+    selected_sdk: str,
+    selected_mode: str,
+    selected_folder: str,
+    config_status: str,
+    project_structure_status: str,
+    env_status: str,
+    cicd_status: str,
+) -> None:
+    click.echo(FeedbackManager.gray(message="\nProject type: ") + FeedbackManager.info(message=selected_sdk))
+    click.echo(FeedbackManager.gray(message="Development mode: ") + FeedbackManager.info(message=selected_mode))
+    click.echo(FeedbackManager.gray(message="Folder: ") + FeedbackManager.info(message=selected_folder))
+    click.echo(FeedbackManager.gray(message="Config: ") + FeedbackManager.info(message=config_status))
+    if selected_sdk == "cli":
+        click.echo(
+            FeedbackManager.gray(message="Project structure: ") + FeedbackManager.info(message=project_structure_status)
+        )
+    click.echo(FeedbackManager.gray(message=".env.local: ") + FeedbackManager.info(message=env_status))
+    click.echo(FeedbackManager.gray(message="CI/CD: ") + FeedbackManager.info(message=cicd_status))
+    click.echo(FeedbackManager.success(message="\n✓ Setup completed!"))
+
+
+def _resolve_folder_path(root_folder: str, folder: str) -> Path:
+    folder_path = Path(folder)
+    if folder_path.is_absolute():
+        return folder_path
+    return Path(root_folder) / folder_path
+
+
+def persist_tinybird_config(root_folder: str, project_type: str, dev_mode: str, folder: str) -> tuple[bool, bool]:
+    config_path = Path(root_folder) / "tinybird.config.json"
+    config_data: Dict[str, Any] = {}
+    created = not config_path.exists()
+    include = [folder]
+
+    if config_path.exists():
+        try:
+            config_data = json.loads(config_path.read_text())
+            if not isinstance(config_data, dict):
+                raise ValueError("tinybird.config.json must contain a JSON object")
+        except Exception as exc:
+            raise CLICreateException(FeedbackManager.error(message=f"Invalid tinybird.config.json: {exc}"))
+
+    if project_type == "typescript":
+        updates = {
+            "devMode": dev_mode,
+            "include": include,
+        }
+        keys_to_remove = ("type", "projectType", "project_type", "dev_mode", "sdk", "folder")
+        preferred_order = ("devMode", "include")
+    else:
+        updates = {
+            "dev_mode": dev_mode,
+            "include": include,
+        }
+        keys_to_remove = ("type", "projectType", "project_type", "devMode", "sdk", "folder")
+        preferred_order = ("dev_mode", "include")
+
+    changed = False
+    for key in keys_to_remove:
+        if key in config_data:
+            del config_data[key]
+            changed = True
+
+    for key, value in updates.items():
+        if config_data.get(key) != value:
+            config_data[key] = value
+            changed = True
+
+    # Keep the main init keys at the top for readability/consistency.
+    ordered_config: Dict[str, Any] = {}
+    for key in preferred_order:
+        if key in config_data:
+            ordered_config[key] = config_data[key]
+    for key, value in config_data.items():
+        if key not in ordered_config:
+            ordered_config[key] = value
+
+    if list(ordered_config.keys()) != list(config_data.keys()):
+        changed = True
+    config_data = ordered_config
+
+    if changed or created:
+        config_path.write_text(json.dumps(config_data, indent=2) + "\n")
+        return True, created
+
+    return False, False
 
 
 def generate_kafka_connection_with_secrets(

@@ -3,12 +3,11 @@ import typing
 from django.db.utils import IntegrityError
 
 
-db: typing.Dict[int, typing.Tuple[str, bool]] = {}
-sms_outbox: typing.List[typing.Dict] = []
+db: dict[int, tuple[str, bool]] = {}
+sms_outbox: list[dict] = []
 
 
 def clear():
-    global db
     db.clear()
     sms_outbox.clear()
 
@@ -20,7 +19,7 @@ def set_phone(user_id, phone: str, verified: bool):
     db[user_id] = (phone, verified)
 
 
-def get_phone(user_id) -> typing.Optional[typing.Tuple[str, bool]]:
+def get_phone(user_id) -> tuple[str, bool] | None:
     return db.get(user_id)
 
 

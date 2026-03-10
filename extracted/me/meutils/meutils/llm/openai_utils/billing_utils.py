@@ -24,7 +24,7 @@ from meutils.apis.utils import make_request
 from meutils.apis.oneapi.user import get_user_money
 from fastapi import status, HTTPException
 
-base_url = "https://api.chatfire.cn/flux/v1"
+base_url = "http://api.chatfire.cn/flux/v1"
 # base_url = "http://110.42.51.201:38886/flux/v1"
 
 
@@ -268,7 +268,7 @@ if __name__ == '__main__':
     # model = "doubao-seedance-1-0-pro-250528"
     model = "Wan-AI/Wan2.1-T2V-14B"
 
-    # arun(billing_for_async_task(model, task_id=task_id, n=3))
+    arun(billing_for_async_task(model, task_id=task_id, n=3))
     # arun(billing_for_async_task(task_id='fal-ai-sync'))
     # model = "doubao-seedance-1-0-lite-i2v-250428_5s_10"
     # model="doubao-seedance-1-0-lite-i2v-250428"
@@ -370,7 +370,7 @@ if __name__ == '__main__':
 
 
     #
-    print(get_billing_model(data))  # doubao-seedance-1-0-lite-i2v-250428_10s_720p
+    # print(get_billing_model(data))  # doubao-seedance-1-0-lite-i2v-250428_10s_720p
 
     # doubao-seedance-1-0-pro-250528_5s_1080p
     #

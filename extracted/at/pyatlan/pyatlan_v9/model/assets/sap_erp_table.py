@@ -102,8 +102,6 @@ class SapErpTable(Asset):
     INPUT_TO_SPARK_JOBS: ClassVar[Any] = None
     OUTPUT_FROM_SPARK_JOBS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "SapErpTable"
-
     sap_erp_table_type: Union[str, None, UnsetType] = UNSET
     """Type of the SAP ERP table."""
 
@@ -533,6 +531,9 @@ def _sap_erp_table_to_nested(sap_erp_table: SapErpTable) -> SapErpTableNested:
         is_incomplete=sap_erp_table.is_incomplete,
         provenance_type=sap_erp_table.provenance_type,
         home_id=sap_erp_table.home_id,
+        depth=sap_erp_table.depth,
+        immediate_upstream=sap_erp_table.immediate_upstream,
+        immediate_downstream=sap_erp_table.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -564,7 +565,6 @@ def _sap_erp_table_from_nested(nested: SapErpTableNested) -> SapErpTable:
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -573,6 +573,9 @@ def _sap_erp_table_from_nested(nested: SapErpTableNested) -> SapErpTable:
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_sap_erp_table_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

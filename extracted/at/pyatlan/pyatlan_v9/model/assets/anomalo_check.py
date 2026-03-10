@@ -104,8 +104,6 @@ class AnomaloCheck(Asset):
     INPUT_TO_SPARK_JOBS: ClassVar[Any] = None
     OUTPUT_FROM_SPARK_JOBS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "AnomaloCheck"
-
     anomalo_check_linked_asset_qualified_name: Union[str, None, UnsetType] = UNSET
     """QualifiedName of the asset associated with the check"""
 
@@ -566,6 +564,9 @@ def _anomalo_check_to_nested(anomalo_check: AnomaloCheck) -> AnomaloCheckNested:
         is_incomplete=anomalo_check.is_incomplete,
         provenance_type=anomalo_check.provenance_type,
         home_id=anomalo_check.home_id,
+        depth=anomalo_check.depth,
+        immediate_upstream=anomalo_check.immediate_upstream,
+        immediate_downstream=anomalo_check.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -599,7 +600,6 @@ def _anomalo_check_from_nested(nested: AnomaloCheckNested) -> AnomaloCheck:
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -608,6 +608,9 @@ def _anomalo_check_from_nested(nested: AnomaloCheckNested) -> AnomaloCheck:
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_anomalo_check_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

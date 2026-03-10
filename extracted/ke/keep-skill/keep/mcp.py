@@ -277,6 +277,9 @@ async def keep_list(
     until: Annotated[Optional[str], Field(
         description="Only items updated before this value (ISO duration or date).",
     )] = None,
+    sort: Annotated[Optional[str], Field(
+        description="Sort order: 'updated' (default), 'accessed', 'created', or 'id'.",
+    )] = None,
     limit: Annotated[int, Field(
         description="Max results to return.",
     )] = 10,
@@ -284,9 +287,12 @@ async def keep_list(
     """List recent items."""
     async with _lock:
         keeper = _get_keeper()
-        items = keeper.list_items(
+        kwargs: dict = dict(
             prefix=prefix, tags=tags, since=since, until=until, limit=limit,
         )
+        if sort:
+            kwargs["order_by"] = sort
+        items = keeper.list_items(**kwargs)
 
     if not items:
         return "No items found."
@@ -387,9 +393,9 @@ async def keep_prompt(
 
 @mcp.tool(
     description=(
-        "Run one continuation tick. Continuations are stateful multi-step memory interactions "
+        "Run one flow tick. Flows are stateful multi-step memory interactions "
         "with automatic refinement and decision support. "
-        "Pass a payload dict with the continuation request — see docs/CONTINUATIONS.md for the full schema. "
+        "Pass a payload dict with the flow request — see docs/FLOWS.md for the full schema. "
         "Common fields: cursor (omit to start new), top-level flow fields, overrides, work_results."
     ),
     annotations=_IDEMPOTENT,
@@ -397,14 +403,15 @@ async def keep_prompt(
 async def keep_continue(
     payload: Annotated[dict[str, Any], Field(
         description=(
-            "Continuation request object. "
-            "To start a new flow: {\"goal\": \"...\", \"profile\": \"query.auto\"}. "
+            "Flow request object. "
+            "To start a new flow: {\"goal\": \"...\", \"profile\": \"query.auto\"} "
+            "or {\"goal\": \"...\", \"template\": \"...\"}. "
             "To continue: {\"cursor\": \"...\"}. "
             "To submit work results: {\"cursor\": \"...\", \"work_results\": [...]}."
         ),
     )],
 ) -> str:
-    """Run one continuation tick."""
+    """Run one flow tick."""
     async with _lock:
         keeper = _get_keeper()
         try:
@@ -416,7 +423,7 @@ async def keep_continue(
 
 @mcp.tool(
     description=(
-        "Execute a pending work item from a continuation flow. "
+        "Execute a pending work item from a flow. "
         "Returns a work_result envelope with outputs and quality metrics."
     ),
     annotations=_IDEMPOTENT,
@@ -425,7 +432,7 @@ async def keep_continue_work(
     cursor: Annotated[str, Field(description="Cursor containing the flow context.")],
     work_id: Annotated[str, Field(description="Work item to execute.")],
 ) -> str:
-    """Execute a pending continuation work item."""
+    """Execute a pending flow work item."""
     async with _lock:
         keeper = _get_keeper()
         try:

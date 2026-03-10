@@ -86,6 +86,13 @@ def search_main(
         help="Filter by class name",
         rich_help_panel="🔍 Filters",
     ),
+    project_name: str | None = typer.Option(
+        None,
+        "--project-name",
+        "-P",
+        help="Filter results to a specific monorepo subproject",
+        rich_help_panel="🔍 Filters",
+    ),
     similarity_threshold: float | None = typer.Option(
         None,
         "--threshold",
@@ -119,6 +126,13 @@ def search_main(
         False,
         "--no-content",
         help="Don't show code content in results",
+        rich_help_panel="📊 Result Options",
+    ),
+    git_blame: bool = typer.Option(
+        False,
+        "--git-blame",
+        "-B",
+        help="Enrich results with git blame author info (post-search, efficient)",
         rich_help_panel="📊 Result Options",
     ),
     json_output: bool = typer.Option(
@@ -347,6 +361,7 @@ def search_main(
                     language=language,
                     function_name=function_name,
                     class_name=class_name,
+                    project_name=project_name,
                     similarity_threshold=similarity_threshold,
                     show_content=not no_content,
                     json_output=json_output,
@@ -364,6 +379,7 @@ def search_main(
                     rerank_top_n=rerank_top_n,
                     search_mode=search_mode,
                     hybrid_alpha=hybrid_alpha,
+                    git_blame=git_blame,
                 )
             )
 
@@ -486,6 +502,7 @@ async def run_search(
     language: str | None = None,
     function_name: str | None = None,
     class_name: str | None = None,
+    project_name: str | None = None,
     similarity_threshold: float | None = None,
     show_content: bool = True,
     json_output: bool = False,
@@ -503,6 +520,7 @@ async def run_search(
     rerank_top_n: int = 50,
     search_mode: str = "hybrid",
     hybrid_alpha: float = 0.7,
+    git_blame: bool = False,
 ) -> None:
     """Run semantic search with optional quality filters and quality-aware ranking."""
     # Load project configuration
@@ -541,6 +559,8 @@ async def run_search(
         filters["function_name"] = function_name
     if class_name:
         filters["class_name"] = class_name
+    if project_name:
+        filters["subproject_name"] = project_name
 
     try:
         async with database:
@@ -665,6 +685,12 @@ async def run_search(
                 logger.debug(
                     f"Quality-aware ranking applied with weight {quality_weight:.2f}"
                 )
+
+            # Enrich with git blame if requested
+            if git_blame and results:
+                from ...core.git_blame import enrich_with_git_blame
+
+                await enrich_with_git_blame(results, project_root)
 
             # Handle export if requested
             if export_format:

@@ -126,6 +126,21 @@ class BeakerStub(object):
                 request_serializer=beaker__pb2.UpdateWorkspaceSlotLimitPreemptibleRequest.SerializeToString,
                 response_deserializer=beaker__pb2.UpdateWorkspaceSlotLimitPreemptibleResponse.FromString,
                 _registered_method=True)
+        self.UpdateWorkspaceSetWorkspaceGroup = channel.unary_unary(
+                '/allenai.beaker.Beaker/UpdateWorkspaceSetWorkspaceGroup',
+                request_serializer=beaker__pb2.UpdateWorkspaceSetWorkspaceGroupRequest.SerializeToString,
+                response_deserializer=beaker__pb2.UpdateWorkspaceSetWorkspaceGroupResponse.FromString,
+                _registered_method=True)
+        self.GetWorkspacePermissions = channel.unary_unary(
+                '/allenai.beaker.Beaker/GetWorkspacePermissions',
+                request_serializer=beaker__pb2.GetWorkspacePermissionsRequest.SerializeToString,
+                response_deserializer=beaker__pb2.GetWorkspacePermissionsResponse.FromString,
+                _registered_method=True)
+        self.SetWorkspacePermission = channel.unary_unary(
+                '/allenai.beaker.Beaker/SetWorkspacePermission',
+                request_serializer=beaker__pb2.SetWorkspacePermissionRequest.SerializeToString,
+                response_deserializer=beaker__pb2.SetWorkspacePermissionResponse.FromString,
+                _registered_method=True)
         self.GetCluster = channel.unary_unary(
                 '/allenai.beaker.Beaker/GetCluster',
                 request_serializer=beaker__pb2.GetClusterRequest.SerializeToString,
@@ -196,6 +211,11 @@ class BeakerStub(object):
                 request_serializer=beaker__pb2.DeleteNodeRequest.SerializeToString,
                 response_deserializer=beaker__pb2.DeleteNodeResponse.FromString,
                 _registered_method=True)
+        self.HeartbeatNode = channel.unary_unary(
+                '/allenai.beaker.Beaker/HeartbeatNode',
+                request_serializer=beaker__pb2.HeartbeatNodeRequest.SerializeToString,
+                response_deserializer=beaker__pb2.HeartbeatNodeResponse.FromString,
+                _registered_method=True)
         self.GetJobBind = channel.unary_unary(
                 '/allenai.beaker.Beaker/GetJobBind',
                 request_serializer=beaker__pb2.GetJobBindRequest.SerializeToString,
@@ -220,6 +240,36 @@ class BeakerStub(object):
                 '/allenai.beaker.Beaker/RecordGPUHealth',
                 request_serializer=beaker__pb2.RecordGPUHealthRequest.SerializeToString,
                 response_deserializer=beaker__pb2.RecordGPUHealthResponse.FromString,
+                _registered_method=True)
+        self.RegisterHost = channel.unary_unary(
+                '/allenai.beaker.Beaker/RegisterHost',
+                request_serializer=beaker__pb2.RegisterHostRequest.SerializeToString,
+                response_deserializer=beaker__pb2.RegisterHostResponse.FromString,
+                _registered_method=True)
+        self.GetDesiredHostExecutorVersion = channel.unary_unary(
+                '/allenai.beaker.Beaker/GetDesiredHostExecutorVersion',
+                request_serializer=beaker__pb2.GetDesiredHostExecutorVersionRequest.SerializeToString,
+                response_deserializer=beaker__pb2.GetDesiredHostExecutorVersionResponse.FromString,
+                _registered_method=True)
+        self.SetDesiredHostExecutorVersion = channel.unary_unary(
+                '/allenai.beaker.Beaker/SetDesiredHostExecutorVersion',
+                request_serializer=beaker__pb2.SetDesiredHostExecutorVersionRequest.SerializeToString,
+                response_deserializer=beaker__pb2.SetDesiredHostExecutorVersionResponse.FromString,
+                _registered_method=True)
+        self.ResolveHostName = channel.unary_unary(
+                '/allenai.beaker.Beaker/ResolveHostName',
+                request_serializer=beaker__pb2.ResolveHostNameRequest.SerializeToString,
+                response_deserializer=beaker__pb2.ResolveHostNameResponse.FromString,
+                _registered_method=True)
+        self.ListHosts = channel.unary_unary(
+                '/allenai.beaker.Beaker/ListHosts',
+                request_serializer=beaker__pb2.ListHostsRequest.SerializeToString,
+                response_deserializer=beaker__pb2.ListHostsResponse.FromString,
+                _registered_method=True)
+        self.DeleteHost = channel.unary_unary(
+                '/allenai.beaker.Beaker/DeleteHost',
+                request_serializer=beaker__pb2.DeleteHostRequest.SerializeToString,
+                response_deserializer=beaker__pb2.DeleteHostResponse.FromString,
                 _registered_method=True)
         self.GetWorkload = channel.unary_unary(
                 '/allenai.beaker.Beaker/GetWorkload',
@@ -466,6 +516,41 @@ class BeakerStub(object):
                 request_serializer=beaker__pb2.UpdateBudgetRequest.SerializeToString,
                 response_deserializer=beaker__pb2.UpdateBudgetResponse.FromString,
                 _registered_method=True)
+        self.UpdateBudgetManagers = channel.unary_unary(
+                '/allenai.beaker.Beaker/UpdateBudgetManagers',
+                request_serializer=beaker__pb2.UpdateBudgetManagersRequest.SerializeToString,
+                response_deserializer=beaker__pb2.UpdateBudgetManagersResponse.FromString,
+                _registered_method=True)
+        self.CreateWorkspaceGroup = channel.unary_unary(
+                '/allenai.beaker.Beaker/CreateWorkspaceGroup',
+                request_serializer=beaker__pb2.CreateWorkspaceGroupRequest.SerializeToString,
+                response_deserializer=beaker__pb2.CreateWorkspaceGroupResponse.FromString,
+                _registered_method=True)
+        self.GetWorkspaceGroup = channel.unary_unary(
+                '/allenai.beaker.Beaker/GetWorkspaceGroup',
+                request_serializer=beaker__pb2.GetWorkspaceGroupRequest.SerializeToString,
+                response_deserializer=beaker__pb2.GetWorkspaceGroupResponse.FromString,
+                _registered_method=True)
+        self.ResolveWorkspaceGroupName = channel.unary_unary(
+                '/allenai.beaker.Beaker/ResolveWorkspaceGroupName',
+                request_serializer=beaker__pb2.ResolveWorkspaceGroupNameRequest.SerializeToString,
+                response_deserializer=beaker__pb2.ResolveWorkspaceGroupNameResponse.FromString,
+                _registered_method=True)
+        self.ListWorkspaceGroups = channel.unary_unary(
+                '/allenai.beaker.Beaker/ListWorkspaceGroups',
+                request_serializer=beaker__pb2.ListWorkspaceGroupsRequest.SerializeToString,
+                response_deserializer=beaker__pb2.ListWorkspaceGroupsResponse.FromString,
+                _registered_method=True)
+        self.DeleteWorkspaceGroup = channel.unary_unary(
+                '/allenai.beaker.Beaker/DeleteWorkspaceGroup',
+                request_serializer=beaker__pb2.DeleteWorkspaceGroupRequest.SerializeToString,
+                response_deserializer=beaker__pb2.DeleteWorkspaceGroupResponse.FromString,
+                _registered_method=True)
+        self.UpdateWorkspaceGroupManagers = channel.unary_unary(
+                '/allenai.beaker.Beaker/UpdateWorkspaceGroupManagers',
+                request_serializer=beaker__pb2.UpdateWorkspaceGroupManagersRequest.SerializeToString,
+                response_deserializer=beaker__pb2.UpdateWorkspaceGroupManagersResponse.FromString,
+                _registered_method=True)
         self.CreateQueue = channel.unary_unary(
                 '/allenai.beaker.Beaker/CreateQueue',
                 request_serializer=beaker__pb2.CreateQueueRequest.SerializeToString,
@@ -646,6 +731,24 @@ class BeakerServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def UpdateWorkspaceSetWorkspaceGroup(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetWorkspacePermissions(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SetWorkspacePermission(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def GetCluster(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -730,6 +833,12 @@ class BeakerServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def HeartbeatNode(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def GetJobBind(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -756,6 +865,52 @@ class BeakerServicer(object):
 
     def RecordGPUHealth(self, request, context):
         """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def RegisterHost(self, request, context):
+        """RegisterHost creates a new host entry.
+        Returns ALREADY_EXISTS if the host is already registered for the given org.
+        Returns NOT_FOUND if the org does not exist.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetDesiredHostExecutorVersion(self, request, context):
+        """GetDesiredHostExecutorVersion retrieves the desired executor version for a host.
+        Returns NOT_FOUND if the host is not registered.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SetDesiredHostExecutorVersion(self, request, context):
+        """SetDesiredHostExecutorVersion sets the desired executor version for a host.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ResolveHostName(self, request, context):
+        """ResolveHostName resolves a host by org and hostname.
+        Returns NOT_FOUND if the host is not registered.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ListHosts(self, request, context):
+        """ListHosts lists hosts with optional filtering by cluster or organization.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def DeleteHost(self, request, context):
+        """DeleteHost deletes a host.
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -1055,6 +1210,48 @@ class BeakerServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def UpdateBudgetManagers(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def CreateWorkspaceGroup(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetWorkspaceGroup(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ResolveWorkspaceGroupName(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ListWorkspaceGroups(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def DeleteWorkspaceGroup(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def UpdateWorkspaceGroupManagers(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def CreateQueue(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -1226,6 +1423,21 @@ def add_BeakerServicer_to_server(servicer, server):
                     request_deserializer=beaker__pb2.UpdateWorkspaceSlotLimitPreemptibleRequest.FromString,
                     response_serializer=beaker__pb2.UpdateWorkspaceSlotLimitPreemptibleResponse.SerializeToString,
             ),
+            'UpdateWorkspaceSetWorkspaceGroup': grpc.unary_unary_rpc_method_handler(
+                    servicer.UpdateWorkspaceSetWorkspaceGroup,
+                    request_deserializer=beaker__pb2.UpdateWorkspaceSetWorkspaceGroupRequest.FromString,
+                    response_serializer=beaker__pb2.UpdateWorkspaceSetWorkspaceGroupResponse.SerializeToString,
+            ),
+            'GetWorkspacePermissions': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetWorkspacePermissions,
+                    request_deserializer=beaker__pb2.GetWorkspacePermissionsRequest.FromString,
+                    response_serializer=beaker__pb2.GetWorkspacePermissionsResponse.SerializeToString,
+            ),
+            'SetWorkspacePermission': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetWorkspacePermission,
+                    request_deserializer=beaker__pb2.SetWorkspacePermissionRequest.FromString,
+                    response_serializer=beaker__pb2.SetWorkspacePermissionResponse.SerializeToString,
+            ),
             'GetCluster': grpc.unary_unary_rpc_method_handler(
                     servicer.GetCluster,
                     request_deserializer=beaker__pb2.GetClusterRequest.FromString,
@@ -1296,6 +1508,11 @@ def add_BeakerServicer_to_server(servicer, server):
                     request_deserializer=beaker__pb2.DeleteNodeRequest.FromString,
                     response_serializer=beaker__pb2.DeleteNodeResponse.SerializeToString,
             ),
+            'HeartbeatNode': grpc.unary_unary_rpc_method_handler(
+                    servicer.HeartbeatNode,
+                    request_deserializer=beaker__pb2.HeartbeatNodeRequest.FromString,
+                    response_serializer=beaker__pb2.HeartbeatNodeResponse.SerializeToString,
+            ),
             'GetJobBind': grpc.unary_unary_rpc_method_handler(
                     servicer.GetJobBind,
                     request_deserializer=beaker__pb2.GetJobBindRequest.FromString,
@@ -1320,6 +1537,36 @@ def add_BeakerServicer_to_server(servicer, server):
                     servicer.RecordGPUHealth,
                     request_deserializer=beaker__pb2.RecordGPUHealthRequest.FromString,
                     response_serializer=beaker__pb2.RecordGPUHealthResponse.SerializeToString,
+            ),
+            'RegisterHost': grpc.unary_unary_rpc_method_handler(
+                    servicer.RegisterHost,
+                    request_deserializer=beaker__pb2.RegisterHostRequest.FromString,
+                    response_serializer=beaker__pb2.RegisterHostResponse.SerializeToString,
+            ),
+            'GetDesiredHostExecutorVersion': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetDesiredHostExecutorVersion,
+                    request_deserializer=beaker__pb2.GetDesiredHostExecutorVersionRequest.FromString,
+                    response_serializer=beaker__pb2.GetDesiredHostExecutorVersionResponse.SerializeToString,
+            ),
+            'SetDesiredHostExecutorVersion': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetDesiredHostExecutorVersion,
+                    request_deserializer=beaker__pb2.SetDesiredHostExecutorVersionRequest.FromString,
+                    response_serializer=beaker__pb2.SetDesiredHostExecutorVersionResponse.SerializeToString,
+            ),
+            'ResolveHostName': grpc.unary_unary_rpc_method_handler(
+                    servicer.ResolveHostName,
+                    request_deserializer=beaker__pb2.ResolveHostNameRequest.FromString,
+                    response_serializer=beaker__pb2.ResolveHostNameResponse.SerializeToString,
+            ),
+            'ListHosts': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListHosts,
+                    request_deserializer=beaker__pb2.ListHostsRequest.FromString,
+                    response_serializer=beaker__pb2.ListHostsResponse.SerializeToString,
+            ),
+            'DeleteHost': grpc.unary_unary_rpc_method_handler(
+                    servicer.DeleteHost,
+                    request_deserializer=beaker__pb2.DeleteHostRequest.FromString,
+                    response_serializer=beaker__pb2.DeleteHostResponse.SerializeToString,
             ),
             'GetWorkload': grpc.unary_unary_rpc_method_handler(
                     servicer.GetWorkload,
@@ -1565,6 +1812,41 @@ def add_BeakerServicer_to_server(servicer, server):
                     servicer.UpdateBudget,
                     request_deserializer=beaker__pb2.UpdateBudgetRequest.FromString,
                     response_serializer=beaker__pb2.UpdateBudgetResponse.SerializeToString,
+            ),
+            'UpdateBudgetManagers': grpc.unary_unary_rpc_method_handler(
+                    servicer.UpdateBudgetManagers,
+                    request_deserializer=beaker__pb2.UpdateBudgetManagersRequest.FromString,
+                    response_serializer=beaker__pb2.UpdateBudgetManagersResponse.SerializeToString,
+            ),
+            'CreateWorkspaceGroup': grpc.unary_unary_rpc_method_handler(
+                    servicer.CreateWorkspaceGroup,
+                    request_deserializer=beaker__pb2.CreateWorkspaceGroupRequest.FromString,
+                    response_serializer=beaker__pb2.CreateWorkspaceGroupResponse.SerializeToString,
+            ),
+            'GetWorkspaceGroup': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetWorkspaceGroup,
+                    request_deserializer=beaker__pb2.GetWorkspaceGroupRequest.FromString,
+                    response_serializer=beaker__pb2.GetWorkspaceGroupResponse.SerializeToString,
+            ),
+            'ResolveWorkspaceGroupName': grpc.unary_unary_rpc_method_handler(
+                    servicer.ResolveWorkspaceGroupName,
+                    request_deserializer=beaker__pb2.ResolveWorkspaceGroupNameRequest.FromString,
+                    response_serializer=beaker__pb2.ResolveWorkspaceGroupNameResponse.SerializeToString,
+            ),
+            'ListWorkspaceGroups': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListWorkspaceGroups,
+                    request_deserializer=beaker__pb2.ListWorkspaceGroupsRequest.FromString,
+                    response_serializer=beaker__pb2.ListWorkspaceGroupsResponse.SerializeToString,
+            ),
+            'DeleteWorkspaceGroup': grpc.unary_unary_rpc_method_handler(
+                    servicer.DeleteWorkspaceGroup,
+                    request_deserializer=beaker__pb2.DeleteWorkspaceGroupRequest.FromString,
+                    response_serializer=beaker__pb2.DeleteWorkspaceGroupResponse.SerializeToString,
+            ),
+            'UpdateWorkspaceGroupManagers': grpc.unary_unary_rpc_method_handler(
+                    servicer.UpdateWorkspaceGroupManagers,
+                    request_deserializer=beaker__pb2.UpdateWorkspaceGroupManagersRequest.FromString,
+                    response_serializer=beaker__pb2.UpdateWorkspaceGroupManagersResponse.SerializeToString,
             ),
             'CreateQueue': grpc.unary_unary_rpc_method_handler(
                     servicer.CreateQueue,
@@ -2131,6 +2413,87 @@ class Beaker(object):
             _registered_method=True)
 
     @staticmethod
+    def UpdateWorkspaceSetWorkspaceGroup(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/allenai.beaker.Beaker/UpdateWorkspaceSetWorkspaceGroup',
+            beaker__pb2.UpdateWorkspaceSetWorkspaceGroupRequest.SerializeToString,
+            beaker__pb2.UpdateWorkspaceSetWorkspaceGroupResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetWorkspacePermissions(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/allenai.beaker.Beaker/GetWorkspacePermissions',
+            beaker__pb2.GetWorkspacePermissionsRequest.SerializeToString,
+            beaker__pb2.GetWorkspacePermissionsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SetWorkspacePermission(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/allenai.beaker.Beaker/SetWorkspacePermission',
+            beaker__pb2.SetWorkspacePermissionRequest.SerializeToString,
+            beaker__pb2.SetWorkspacePermissionResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
     def GetCluster(request,
             target,
             options=(),
@@ -2509,6 +2872,33 @@ class Beaker(object):
             _registered_method=True)
 
     @staticmethod
+    def HeartbeatNode(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/allenai.beaker.Beaker/HeartbeatNode',
+            beaker__pb2.HeartbeatNodeRequest.SerializeToString,
+            beaker__pb2.HeartbeatNodeResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
     def GetJobBind(request,
             target,
             options=(),
@@ -2633,6 +3023,168 @@ class Beaker(object):
             '/allenai.beaker.Beaker/RecordGPUHealth',
             beaker__pb2.RecordGPUHealthRequest.SerializeToString,
             beaker__pb2.RecordGPUHealthResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def RegisterHost(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/allenai.beaker.Beaker/RegisterHost',
+            beaker__pb2.RegisterHostRequest.SerializeToString,
+            beaker__pb2.RegisterHostResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetDesiredHostExecutorVersion(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/allenai.beaker.Beaker/GetDesiredHostExecutorVersion',
+            beaker__pb2.GetDesiredHostExecutorVersionRequest.SerializeToString,
+            beaker__pb2.GetDesiredHostExecutorVersionResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SetDesiredHostExecutorVersion(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/allenai.beaker.Beaker/SetDesiredHostExecutorVersion',
+            beaker__pb2.SetDesiredHostExecutorVersionRequest.SerializeToString,
+            beaker__pb2.SetDesiredHostExecutorVersionResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ResolveHostName(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/allenai.beaker.Beaker/ResolveHostName',
+            beaker__pb2.ResolveHostNameRequest.SerializeToString,
+            beaker__pb2.ResolveHostNameResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ListHosts(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/allenai.beaker.Beaker/ListHosts',
+            beaker__pb2.ListHostsRequest.SerializeToString,
+            beaker__pb2.ListHostsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def DeleteHost(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/allenai.beaker.Beaker/DeleteHost',
+            beaker__pb2.DeleteHostRequest.SerializeToString,
+            beaker__pb2.DeleteHostResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -3956,6 +4508,195 @@ class Beaker(object):
             '/allenai.beaker.Beaker/UpdateBudget',
             beaker__pb2.UpdateBudgetRequest.SerializeToString,
             beaker__pb2.UpdateBudgetResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def UpdateBudgetManagers(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/allenai.beaker.Beaker/UpdateBudgetManagers',
+            beaker__pb2.UpdateBudgetManagersRequest.SerializeToString,
+            beaker__pb2.UpdateBudgetManagersResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def CreateWorkspaceGroup(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/allenai.beaker.Beaker/CreateWorkspaceGroup',
+            beaker__pb2.CreateWorkspaceGroupRequest.SerializeToString,
+            beaker__pb2.CreateWorkspaceGroupResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetWorkspaceGroup(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/allenai.beaker.Beaker/GetWorkspaceGroup',
+            beaker__pb2.GetWorkspaceGroupRequest.SerializeToString,
+            beaker__pb2.GetWorkspaceGroupResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ResolveWorkspaceGroupName(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/allenai.beaker.Beaker/ResolveWorkspaceGroupName',
+            beaker__pb2.ResolveWorkspaceGroupNameRequest.SerializeToString,
+            beaker__pb2.ResolveWorkspaceGroupNameResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ListWorkspaceGroups(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/allenai.beaker.Beaker/ListWorkspaceGroups',
+            beaker__pb2.ListWorkspaceGroupsRequest.SerializeToString,
+            beaker__pb2.ListWorkspaceGroupsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def DeleteWorkspaceGroup(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/allenai.beaker.Beaker/DeleteWorkspaceGroup',
+            beaker__pb2.DeleteWorkspaceGroupRequest.SerializeToString,
+            beaker__pb2.DeleteWorkspaceGroupResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def UpdateWorkspaceGroupManagers(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/allenai.beaker.Beaker/UpdateWorkspaceGroupManagers',
+            beaker__pb2.UpdateWorkspaceGroupManagersRequest.SerializeToString,
+            beaker__pb2.UpdateWorkspaceGroupManagersResponse.FromString,
             options,
             channel_credentials,
             insecure,

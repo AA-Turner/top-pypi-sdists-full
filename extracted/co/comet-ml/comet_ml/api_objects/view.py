@@ -111,6 +111,9 @@ class View:
         - experiment_key: the experiment does not exist in the target project
         - project_id: cleared for clarity (not used during upsert anyway)
         - pinned_experiments: experiment keys are invalid in a different project
+        - experimentKey inside v2/v3: the backend only embeds a new experimentKey
+          into v2 if v2 does not already contain one, so the embedded key must be
+          cleared here to allow the destination experiment key to be set correctly
 
         The layout/configuration fields (query_state, chart_state, table_state)
         are preserved as-is. If those fields embed experiment keys in their JSON,
@@ -120,12 +123,22 @@ class View:
             A new View instance safe to pass to API.create_view or
             APIExperiment.create_view in a different context.
         """
+
+        def _strip_experiment_key(node):
+            if isinstance(node, dict) and "experimentKey" in node:
+                node = {k: v for k, v in node.items() if k != "experimentKey"}
+                if not node:
+                    return None
+            return node
+
         return replace(
             self,
             template_id=None,
             project_id=None,
             experiment_key=None,
             pinned_experiments=None,
+            v2=_strip_experiment_key(self.v2),
+            v3=_strip_experiment_key(self.v3),
         )
 
     @classmethod
@@ -150,9 +163,9 @@ class View:
             template_id=_get("templateId", "template_id"),
             project_id=_get("projectId", "project_id"),
             experiment_key=_get("experimentKey", "experiment_key"),
-            query_state=payload.get("experimentQueryState"),
-            chart_state=payload.get("dashboardChartState"),
-            table_state=payload.get("reactGridTableState"),
+            query_state=payload.get("experimentQueryState") or None,
+            chart_state=payload.get("dashboardChartState") or None,
+            table_state=payload.get("reactGridTableState") or None,
             v2=payload.get("v2"),
             v3=payload.get("v3"),
             source=payload.get("source"),

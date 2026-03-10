@@ -1,6 +1,5 @@
 # Copyright (c) 2025, Wentao Guo, Ted Zadouri, Tri Dao.
 
-import re
 from typing import Optional, Type, Tuple, Callable, Sequence
 from functools import partial
 
@@ -34,7 +33,7 @@ def cvt_copy(
 ) -> None:
     assert isinstance(src.iterator, cute.Pointer) and src.memspace == cute.AddressSpace.rmem
     if const_expr(src.element_type != dst.element_type):
-        src_cvt = cute.make_fragment_like(src, dst.element_type)
+        src_cvt = cute.make_rmem_tensor_like(src, dst.element_type)
         src_cvt.store(src.load().to(dst.element_type))
         src = src_cvt
     if const_expr(retile):
@@ -44,7 +43,7 @@ def cvt_copy(
 
 @dsl_user_op
 def load_s2r(src: cute.Tensor, *, loc=None, ip=None) -> cute.Tensor:
-    dst = cute.make_fragment_like(src, src.element_type, loc=loc, ip=ip)
+    dst = cute.make_rmem_tensor_like(src, src.element_type, loc=loc, ip=ip)
     cute.autovec_copy(src, dst, loc=loc, ip=ip)
     return dst
 
@@ -64,6 +63,16 @@ def load_s2r_retile(
     else:
         dst = dst_shape
     cute.copy(tiled_copy, src, tiled_copy.retile(dst), loc=loc, ip=ip)
+    return dst
+
+
+@dsl_user_op
+def load_t2r(
+    thr_copy: cute.ThrCopy, shape: cute.Shape, src: cute.Tensor, *, loc=None, ip=None
+) -> cute.Tensor:
+    cDst = cute.make_identity_tensor(shape)
+    dst = cute.make_rmem_tensor(thr_copy.partition_D(cDst).shape, src.element_type, loc=loc, ip=ip)
+    cute.copy(thr_copy, src, dst, loc=loc, ip=ip)
     return dst
 
 
@@ -155,28 +164,108 @@ def predicate_k(tAcA: cute.Tensor, limit: Int32) -> cute.Tensor:
 #     return cute.make_tiled_copy_tv(copy_atom, thr_layout, val_layout)
 
 
-def parse_swizzle_from_pointer(ptr: cute.Pointer) -> Tuple[int, int, int]:
-    """Extract swizzle parameters from a pointer's swizzle_type.
+# Ragged tensor trick for TMA: encodes variable-length sequences into a higher-rank
+# tensor so that TMA's out-of-bounds checking handles sequence boundaries.
+#
+# Given a tensor T with a ragged dimension (variable-length across batches), we create
+# a higher-rank tensor where the ragged dim is replaced with a fixed size `big_int`, and
+# extra dim(s) are appended. When indexing into a specific sequence at (offset, length),
+# `offset_ragged_tensor` computes coordinates such that:
+#   ragged_coord = big_int - length   (OOB check clamps reads past the sequence end)
+#   extra_coord(s) = f(offset, length) (selects the correct memory region)
+#
+# ptr_shift=True: 1-extra-dim approach (adds 1 dim, supports up to 4D input):
+#   Shape:  (*before, big_int, *after, max_int)
+#   Stride: (*original_strides, stride_r)     where stride_r = T.stride[ragged_dim]
+#   Pointer shifted backward by big_int * stride_r elements.
+#   Address for coords (big_int - length) in ragged dim, (offset + length) in extra dim:
+#     addr = (base - big_int * s_r) + (big_int - length) * s_r + (offset + length) * s_r
+#          = base + offset * s_r                                                      [correct]
+#   Works for epilogue TMA store. Does NOT work for TMA load with large big_int
+#   — the shifted pointer must land in physically mapped GPU memory.
+#
+# ptr_shift=False: 2-extra-dim approach (adds 2 dims, supports up to 3D input):
+#   Shape:  (*before, big_int, *after, max_int, max_int)
+#   Stride: (*before_strides, stride_r, *after_strides, 2^34 - stride_r, stride_r)
+#   No pointer shift. Uses 64-bit address wraparound to cancel the ragged offset.
+#   Let W = 2^34 - stride_r. Address for coords (big_int - length) in ragged dim,
+#   big_int in extra dim 0, (offset + length) in extra dim 1:
+#     addr = base + (big_int - length) * s_r + big_int * W + (offset + length) * s_r
+#          = base + big_int * (s_r + W) - length * s_r + (offset + length) * s_r
+#          = base + big_int * 2^34 + offset * s_r
+#   Since big_int = 2^30: big_int * 2^34 = 2^64 ≡ 0 (mod 2^64), so:
+#     addr = base + offset * s_r                                                      [correct]
+#   Works for all TMA paths since the base pointer is never shifted.
+#
+# Ragged tensor was adapted from the implementation from Triton, but here we have an option that
+# only needs 1 extra dimension instead of 2.
+# https://github.com/triton-lang/triton/blob/main/python/triton/tools/ragged_tma.py
+BIG_INT = 2**30
+MAX_INT = 2**31 - 1
+BIG_INT_INV = 2**64 // BIG_INT
 
-    The swizzle_type string has the form '!cute.swizzle<"S<b,m,s>">' where
-    b, m, s are the swizzle parameters (bits, base, shift).
 
-    Returns:
-        A cute.Swizzle object constructed from the extracted parameters
-
-    Raises:
-        ValueError: If the swizzle_type string cannot be parsed
-    """
-    # Ideally there should be a better API to get swizzle parameters, but we'll just parse
-    # the string here.
-    swizzle_str = str(ptr.type.swizzle_type)
-    # Extract the inner part "S<b,m,s>"
-    match = re.search(r"S<(\d+),(\d+),(\d+)>", swizzle_str)
-    if match:
-        b, m, s = int(match.group(1)), int(match.group(2)), int(match.group(3))
-        return b, m, s
+@dsl_user_op
+def create_ragged_tensor_for_tma(
+    T: cute.Tensor,
+    ragged_dim: int = 0,
+    ptr_shift: bool = False,
+    *,
+    loc=None,
+    ip=None,
+) -> cute.Tensor:
+    rank = cute.rank(T)
+    if ragged_dim < 0:
+        ragged_dim += rank
+    if ptr_shift:
+        assert rank <= 4, "ptr_shift ragged tensor only supports up to 4 dimensions"
+        new_shape = T.shape[:ragged_dim] + (BIG_INT,) + T.shape[ragged_dim + 1 :] + (MAX_INT,)
+        new_stride = T.stride + (T.stride[ragged_dim],)
+        ptr_offset = (None,) * ragged_dim + (-BIG_INT,) + (None,) * (rank - ragged_dim - 1)
+        new_ptr = cute.domain_offset(ptr_offset, T).iterator
+        return cute.make_tensor(new_ptr, cute.make_layout(new_shape, stride=new_stride))
     else:
-        raise ValueError(f"Could not parse swizzle_type: {swizzle_str}")
+        assert rank <= 3, "non-ptr_shift ragged tensor only supports up to 3 dimensions"
+        stride_r = T.stride[ragged_dim]
+        new_shape = (
+            T.shape[:ragged_dim] + (BIG_INT,) + T.shape[ragged_dim + 1 :] + (MAX_INT, MAX_INT)
+        )
+        new_stride = (
+            T.stride[:ragged_dim]
+            + (stride_r,)
+            + T.stride[ragged_dim + 1 :]
+            + (BIG_INT_INV - stride_r, stride_r)
+        )
+        return cute.make_tensor(T.iterator, cute.make_layout(new_shape, stride=new_stride))
+
+
+@dsl_user_op
+def offset_ragged_tensor(
+    T: cute.Tensor,
+    offset: Int32,
+    length: Int32,
+    ragged_dim: int = 0,
+    ptr_shift: bool = False,
+    *,
+    loc=None,
+    ip=None,
+) -> cute.Tensor:
+    rank = cute.rank(T)
+    if ragged_dim < 0:
+        ragged_dim += rank
+    big_int = cute.size(T, mode=[ragged_dim])
+    offset_val = big_int - length
+    if ptr_shift:
+        # 1-extra-dim: rank = original_rank + 1
+        assert rank >= ragged_dim + 2
+        offset_tuple = (None,) * ragged_dim + (offset_val,) + (None,) * (rank - ragged_dim - 2)
+        index_tuple = (None,) * (rank - 1) + (offset + length,)
+    else:
+        # 2-extra-dim: rank = original_rank + 2, last 2 modes are the wraparound dims
+        assert rank >= ragged_dim + 3
+        offset_tuple = (None,) * ragged_dim + (offset_val,) + (None,) * (rank - ragged_dim - 3)
+        index_tuple = (None,) * (rank - 2) + (big_int, offset + length)
+    return cute.domain_offset(offset_tuple, T[index_tuple])
 
 
 def swizzle_int(ptr_int: Int32, b: int, m: int, s: int) -> Int32:
@@ -186,15 +275,16 @@ def swizzle_int(ptr_int: Int32, b: int, m: int, s: int) -> Int32:
 
 
 def swizzle_ptr(ptr: cute.Pointer):
-    b, m, s = parse_swizzle_from_pointer(ptr)
-    ptr_int = swizzle_int(ptr.toint(), b, m, s)
+    swz = ptr.type.swizzle_type
+    ptr_int = swizzle_int(ptr.toint(), swz.num_bits, swz.num_base, swz.num_shift)
     return cute.make_ptr(ptr.dtype, ptr_int, ptr.memspace, assumed_align=ptr.alignment)
 
 
 def as_position_independent_swizzle_tensor(tensor: cute.Tensor) -> cute.Tensor:
     outer = tensor.layout
     width = tensor.element_type.width
-    inner = cute.make_swizzle(*parse_swizzle_from_pointer(tensor.iterator))
+    swizzle_type = tensor.iterator.type.swizzle_type
+    inner = cute.make_swizzle(swizzle_type.num_bits, swizzle_type.num_base, swizzle_type.num_shift)
     # Need to recast the swizzle from byte (e.g. <3, 4, 3> to element units (e.g. <3, 3, 3> for
     # for 16 bits and <3, 2, 3> for 32 bits)
     new_layout = cute.recast_layout(
@@ -619,6 +709,7 @@ def cpasync_bulk_get_copy_fn(
     return copy_bulk if const_expr(not single_stage) else copy_bulk_single_stage
 
 
+@dsl_user_op
 def tma_get_copy_fn(
     atom: cute.CopyAtom,
     cta_coord: cute.Coord,
@@ -627,6 +718,9 @@ def tma_get_copy_fn(
     dst_tensor: cute.Tensor,
     filter_zeros: bool = False,
     single_stage: bool = False,
+    *,
+    loc=None,
+    ip=None,
     **kwargs,
 ) -> Callable:
     src_is_smem = const_expr(
@@ -643,17 +737,23 @@ def tma_get_copy_fn(
         cta_layout,
         cute.group_modes(smem_tensor, 0, group_rank_smem),
         cute.group_modes(gmem_tensor, 0, group_rank_gmem),
+        loc=loc,
+        ip=ip,
     )
     if const_expr(filter_zeros):
         s = cute.filter_zeros(s)
         g = cute.filter_zeros(g)
     src, dst = (s, g) if src_is_smem else (g, s)
 
-    def copy_tma(src_idx, dst_idx, **new_kwargs):
-        cute.copy(atom, src[None, src_idx], dst[None, dst_idx], **new_kwargs, **kwargs)
+    @dsl_user_op
+    def copy_tma(src_idx, dst_idx, *, loc=None, ip=None, **new_kwargs):
+        cute.copy(
+            atom, src[None, src_idx], dst[None, dst_idx], **new_kwargs, **kwargs, loc=loc, ip=ip
+        )
 
-    def copy_tma_single_stage(**new_kwargs):
-        cute.copy(atom, src, dst, **new_kwargs, **kwargs)
+    @dsl_user_op
+    def copy_tma_single_stage(*, loc=None, ip=None, **new_kwargs):
+        cute.copy(atom, src, dst, **new_kwargs, **kwargs, loc=loc, ip=ip)
 
     return (copy_tma if const_expr(not single_stage) else copy_tma_single_stage), s, g
 

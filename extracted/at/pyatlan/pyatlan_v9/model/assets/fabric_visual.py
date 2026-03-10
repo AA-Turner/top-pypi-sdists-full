@@ -99,8 +99,6 @@ class FabricVisual(Asset):
     INPUT_TO_SPARK_JOBS: ClassVar[Any] = None
     OUTPUT_FROM_SPARK_JOBS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "FabricVisual"
-
     fabric_page_qualified_name: Union[str, None, UnsetType] = UNSET
     """Unique name of the Fabric page that contains this asset."""
 
@@ -509,6 +507,9 @@ def _fabric_visual_to_nested(fabric_visual: FabricVisual) -> FabricVisualNested:
         is_incomplete=fabric_visual.is_incomplete,
         provenance_type=fabric_visual.provenance_type,
         home_id=fabric_visual.home_id,
+        depth=fabric_visual.depth,
+        immediate_upstream=fabric_visual.immediate_upstream,
+        immediate_downstream=fabric_visual.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -542,7 +543,6 @@ def _fabric_visual_from_nested(nested: FabricVisualNested) -> FabricVisual:
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -551,6 +551,9 @@ def _fabric_visual_from_nested(nested: FabricVisualNested) -> FabricVisual:
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_fabric_visual_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

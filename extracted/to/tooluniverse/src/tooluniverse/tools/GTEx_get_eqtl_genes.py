@@ -11,7 +11,7 @@ from ._shared_client import get_shared_client
 def GTEx_get_eqtl_genes(
     operation: str,
     tissue_site_detail_id: Optional[list[str]] = None,
-    dataset_id: Optional[str] = "gtex_v10",
+    dataset_id: Optional[str] = "gtex_v8",
     page: Optional[int] = 0,
     items_per_page: Optional[int] = 250,
     *,

@@ -14,7 +14,7 @@ from meutils.hash_utils import md5
 from meutils.schemas.openai_types import TTSRequest
 
 from meutils.schemas.jimeng_types import BASE_URL_GLOBAL as BASE_URL, MODELS_MAP, FEISHU_URL
-from meutils.caches.redis_cache import cache
+from meutils.caches import rcache
 
 from fake_useragent import UserAgent
 
@@ -45,7 +45,7 @@ def get_headers(url, token: str = "693701c43e477b7c405cc7e2fef0ddbd"):
     return headers
 
 
-@cache(ttl=3600 // 2)
+@rcache(ttl=3600 // 2)
 async def get_upload_token(token, biz: Optional[str] = None):  # 3600 跨账号？
 
     if biz == "video":

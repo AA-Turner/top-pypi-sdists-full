@@ -45,6 +45,7 @@ from anyscale.client.openapi_client.models import (
     EditableCloudResource,
     EditableCloudResourceGCP,
     FileStorage,
+    GatewayCanaryWeightRequest,
     GCPConfig,
     GCPFileStoreConfig,
     NetworkingMode,
@@ -5637,3 +5638,41 @@ class CloudController(BaseController):
                 self._write_jobs_report_html(
                     out_file, filtered_results, end_time, total_jobs
                 )
+
+    # --- Gateway Migration ---
+
+    def start_gateway_migration(self, cloud_id: str) -> None:
+        self.api_client.start_gateway_migration_api_v2_clouds_cloud_id_gateway_migration_start_post(
+            cloud_id
+        )
+        click.echo(
+            f"Gateway migration started for cloud {cloud_id} (canary_weight=0, dual-stack)."
+        )
+
+    def set_gateway_canary_weight(self, cloud_id: str, weight: int) -> None:
+        if weight < 0 or weight > 100:
+            raise ClickException("Canary weight must be between 0 and 100.")
+
+        self.api_client.set_gateway_canary_weight_api_v2_clouds_cloud_id_gateway_migration_canary_weight_put(
+            cloud_id, GatewayCanaryWeightRequest(weight=weight)
+        )
+        click.echo(f"Gateway canary weight set to {weight}% for cloud {cloud_id}.")
+
+    def gateway_migration_status(self, cloud_id: str) -> None:
+        response = self.api_client.get_gateway_migration_status_api_v2_clouds_cloud_id_gateway_migration_status_get(
+            cloud_id
+        )
+        result = response.result
+        canary_weight = result.canary_weight
+        migration_started = result.migration_started
+        status_str = "not started"
+        if migration_started:
+            status_str = (
+                "done (HTTPRoute only)"
+                if canary_weight >= 100
+                else f"in progress (weight={canary_weight}%)"
+            )
+        click.echo(f"Cloud ID: {cloud_id}")
+        click.echo(f"  Gateway enabled: {result.enabled}")
+        click.echo(f"  Migration: {status_str}")
+        click.echo(f"  Canary weight: {canary_weight}%")

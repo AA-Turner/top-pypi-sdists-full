@@ -8,7 +8,7 @@ def assets_download(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Download the selected asset(s)
 
     :return: Result of the operator call.
@@ -18,7 +18,7 @@ def assign_action(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set this pose Action as active Action on the active Object
 
     :return: Result of the operator call.
@@ -55,7 +55,7 @@ def bundle_install(
     ]
     | None = "DEFAULT",
     sort_method: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Copy the current .blend file into an Asset Library. Only works on standalone .blend files (i.e. when no other files are referenced)
 
         :param asset_library_reference: asset_library_reference, (optional)
@@ -102,7 +102,7 @@ def catalog_delete(
     /,
     *,
     catalog_id: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove an asset catalog from the asset library (contained assets will not be affected and show up as unassigned)
 
     :param catalog_id: Catalog ID, ID of the catalog to delete (optional, never None)
@@ -115,7 +115,7 @@ def catalog_new(
     /,
     *,
     parent_path: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Create a new catalog to put assets in
 
     :param parent_path: Parent Path, Optional path defining the location to put the new catalog under (optional, never None)
@@ -126,7 +126,7 @@ def catalog_redo(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Redo the last undone edit to the asset catalogs
 
     :return: Result of the operator call.
@@ -136,7 +136,7 @@ def catalog_undo(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undo the last edit to the asset catalogs
 
     :return: Result of the operator call.
@@ -146,7 +146,7 @@ def catalog_undo_push(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Store the current state of the asset catalogs in the undo buffer
 
     :return: Result of the operator call.
@@ -156,7 +156,7 @@ def catalogs_save(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Make any edits to any catalogs permanent by writing the current set up to the asset library
 
     :return: Result of the operator call.
@@ -168,7 +168,7 @@ def clear(
     /,
     *,
     set_fake_user: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Delete all asset metadata and turn the selected asset data-blocks back into normal data-blocks
 
     :param set_fake_user: Set Fake User, Ensure the data-block is saved, even when it is no longer marked as asset (optional)
@@ -181,7 +181,7 @@ def clear_single(
     /,
     *,
     set_fake_user: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Delete all asset metadata and turn the asset data-block back into a normal data-block
 
     :param set_fake_user: Set Fake User, Ensure the data-block is saved, even when it is no longer marked as asset (optional)
@@ -192,7 +192,7 @@ def library_refresh(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Reread assets and asset catalogs from the asset library on disk
 
     :return: Result of the operator call.
@@ -202,7 +202,7 @@ def mark(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Enable easier reuse of selected data-blocks through the Asset Browser, with the help of customizable metadata (like previews, descriptions and tags)
 
     :return: Result of the operator call.
@@ -212,7 +212,7 @@ def mark_single(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Enable easier reuse of a data-block through the Asset Browser, with the help of customizable metadata (like previews, descriptions and tags)
 
     :return: Result of the operator call.
@@ -222,7 +222,7 @@ def open_containing_blend_file(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Open the blend file that contains the active asset
 
     :return: Result of the operator call.
@@ -236,7 +236,7 @@ def screenshot_preview(
     p1: collections.abc.Sequence[int] | None = (0, 0),
     p2: collections.abc.Sequence[int] | None = (0, 0),
     force_square: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Capture a screenshot to use as a preview for the selected asset
 
     :param p1: Point 1, First point of the screenshot in screenspace (array of 2 items, in [0, inf], optional)
@@ -249,7 +249,7 @@ def tag_add(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a new keyword tag to the active asset
 
     :return: Result of the operator call.
@@ -259,7 +259,7 @@ def tag_remove(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove an existing keyword tag from the active asset
 
     :return: Result of the operator call.

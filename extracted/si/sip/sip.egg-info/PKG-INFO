@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sip
-Version: 6.15.1
+Version: 6.15.2
 Summary: A Python bindings generator for C/C++ libraries
 Author-email: Phil Thompson <phil@riverbankcomputing.com>
 License-Expression: BSD-2-Clause

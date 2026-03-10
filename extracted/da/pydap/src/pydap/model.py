@@ -180,7 +180,7 @@ import numpy as np
 import requests
 import requests_cache
 
-from pydap.lib import _quote, decode_np_strings, tree, walk
+from pydap.lib import _quote, decode_np_strings, tree, unquote, walk
 from pydap.net import GET
 
 __all__ = [
@@ -270,29 +270,31 @@ class DapType(object):
         self.dataset = dataset
         self.id = path or "/"  # <-- KEY LINE!
 
-        if isinstance(self, BaseType):
-            if not self.parent:
-                self.parent = self.dataset
-            if type(self._data).__name__ == "BaseProxyDap4" and not hasattr(
-                self, "_original_data_args"
-            ):
-                # Store the original data for later use
-                self._original_data_args = (
-                    self._data.baseurl,
-                    self._data.id,
-                    self._data.dtype,
-                    self._data.shape,
-                    self._data.application,
-                    self._data.session,
-                    self._data.timeout,
-                    self._data.verify,
-                    self._data.checksums,
-                    self._data.user_charset,
-                    self._data.get_kwargs,
-                )
-        for child in self.children():
-            child_path = f"{path}/{child.name}" if path else f"/{child.name}"
-            child.assign_dataset_recursive(dataset, child_path)
+        if not isinstance(self, SequenceType):
+            # not necessary for sequences
+            if isinstance(self, BaseType):
+                if not self.parent:
+                    self.parent = self.dataset
+                if type(self._data).__name__ == "BaseProxyDap4" and not hasattr(
+                    self, "_original_data_args"
+                ):
+                    # Store the original data for later use
+                    self._original_data_args = (
+                        self._data.baseurl,
+                        self._data.id,
+                        self._data.dtype,
+                        self._data.shape,
+                        self._data.application,
+                        self._data.session,
+                        self._data.timeout,
+                        self._data.verify,
+                        self._data.checksums,
+                        self._data.user_charset,
+                        self._data.get_kwargs,
+                    )
+            for child in self.children():
+                child_path = f"{path}/{child.name}" if path else f"/{child.name}"
+                child.assign_dataset_recursive(dataset, child_path)
 
 
 class BatchPromise:
@@ -389,14 +391,21 @@ class BaseType(DapType):
     """A thin wrapper over Numpy arrays."""
 
     def __init__(
-        self, name="nameless", data=None, dims=None, attributes=None, **kwargs
+        self,
+        name="nameless",
+        data=None,
+        dims=None,
+        attributes=None,
+        dtype=None,
+        shape=None,
+        **kwargs,
     ):
         super(BaseType, self).__init__(name, attributes, **kwargs)
         self.data = data
         self.dims = [] if not dims else list(dims)
         # these are set when not data is present (eg, when parsing a DDS)
-        self._dtype = None
-        self._shape = ()
+        self._dtype = dtype
+        self._shape = () if not shape else shape
         self._itemsize = None
         self._nbytes = None
         self._is_registered_for_batch = False
@@ -425,7 +434,10 @@ class BaseType(DapType):
     @property
     def dtype(self):
         """Property that returns the data dtype."""
-        return self._data.dtype
+        try:
+            return self._data.dtype
+        except AttributeError:
+            return self._dtype
 
     @property
     def shape(self):
@@ -798,7 +810,7 @@ class StructureType(DapType, Mapping):
         out = {}
         for var in walk(self, GroupType):
             if var.type == "Group":
-                out.update({var.name: var.path})
+                out.update({var.path + var.name: var.path})
         return out
 
     def sequences(self) -> dict:
@@ -826,7 +838,13 @@ class StructureType(DapType, Mapping):
             else:
                 dims = []
             out.update(
-                {var.name: {"dtype": var.dtype, "shape": var.shape, "dims": dims}}
+                {
+                    unquote(var.name): {
+                        "dtype": var.dtype,
+                        "shape": var.shape,
+                        "dims": dims,
+                    }
+                }
             )
         return out
 
@@ -1040,12 +1058,8 @@ class DatasetType(StructureType):
             for i in range(1, len(parts)):
                 self[("/").join(parts[:i])]
         except KeyError:
-            warnings.warn(
-                """Failed to create `{}` because parent `{}` does not exist!
-                """.format(
-                    parts[-1], parts[-2]
-                )
-            )
+            warnings.warn("""Failed to create `{}` because parent `{}` does not exist!
+                """.format(parts[-1], parts[-2]))
             return None
         if "path" in attrs:
             del attrs["path"]
@@ -1362,14 +1376,14 @@ class SequenceType(StructureType):
     data = property(_get_data, _set_data)
 
     def iterdata(self):
-        for line in self.data:
+        for line in self._data:
             yield tuple(map(decode_np_strings, line))
 
     def __iter__(self):
         return self.iterdata()
 
     def __len__(self):
-        return len(self.data)
+        return len(self._data)
 
     def items(self):
         # This method should be removed in pydap 3.4

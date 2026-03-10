@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-cloud-vectorsearch
-Version: 0.6.0
+Version: 0.7.0
 Summary: Google Cloud Vectorsearch API client library
 Home-page: https://github.com/googleapis/google-cloud-python/tree/main/packages/google-cloud-vectorsearch
 Author: Google LLC

@@ -13,14 +13,14 @@ Functions:
 
 from enum import Enum
 
-from .__main__ import Mermaid, Position
+from .__main__ import Mermaid, MermaidError, Position
 from .configuration import Config
 from .graph import Graph
 from .icon import Icon
 from .style import Style
 from .utils import load, text_to_snake_case
 
-__version__: str = "0.8.3"
+__version__: str = "0.8.4"
 
 
 class Direction(Enum):
@@ -34,6 +34,7 @@ class Direction(Enum):
 
 __all__ = [
     "Mermaid",
+    "MermaidError",
     "load",
     "Direction",
     "Graph",

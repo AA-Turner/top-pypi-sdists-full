@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ferrox
-Version: 0.0.9
+Version: 0.0.10
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: MIT License
@@ -24,21 +24,29 @@ Requires-Python: >=3.11
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 Project-URL: Repository, https://github.com/periodiclabs/ferrox
 
-# ferrox
+# ferrox &nbsp; <img src="docs/assets/ferrox-logo.svg" alt="ferrox logo" width="50">
+
+[![Tests](https://github.com/periodiclabs/ferrox/actions/workflows/test.yml/badge.svg)](https://github.com/periodiclabs/ferrox/actions/workflows/test.yml)
+[![PyPI](https://img.shields.io/pypi/v/ferrox?logo=pypi&logoColor=white)](https://pypi.org/project/ferrox)
+[![npm](https://img.shields.io/npm/v/matterviz-wasm?logo=npm&logoColor=white)](https://www.npmjs.com/package/matterviz-wasm)
 
 High-performance base layer for computational materials science, written in Rust with Python and WebAssembly bindings. Provides 10-100x speedups for atomistic simulations.
 
 ## Features
 
-- **Structure I/O**: Parse CIF, POSCAR, extXYZ, LAMMPS, and more
-- **Structure Matching**: Fast deduplication and grouping with parallel processing
-- **Symmetry Analysis**: Space groups, Wyckoff positions, primitive/conventional cells
-- **Molecular Dynamics**: NVE/NVT integrators, thermostats, classical potentials
-- **Surface Science**: Slab generation, Miller indices, adsorption sites, Wulff shapes
-- **Defect Engineering**: Vacancies, substitutions, interstitials, Voronoi sites
-- **Trajectory Analysis**: RDF, MSD, diffusion coefficients, order parameters
-- **Properties**: XRD patterns, elastic tensors, coordination numbers
-- **Python bindings**: Drop-in compatible with pymatgen Structure dictionaries
+- **Structure I/O**: Parse CIF, POSCAR, extXYZ, LAMMPS, XDATCAR, and more ([source](src/io))
+- **Structure Matching**: Fast deduplication and grouping with parallel processing ([source](src/structure), [notebook](notebooks/06_rust_vs_python_struct_benchmark.py))
+- **Symmetry Analysis**: Space groups, Wyckoff positions, primitive/conventional cells ([notebook](notebooks/07_structure_properties_explorer.py))
+- **Molecular Dynamics**: NVE/NVT integrators, thermostats, geometry optimizers (FIRE) ([source](src/simulation), [notebook](notebooks/05_md_ensembles_diffusion.py))
+- **Surface Science**: Slab generation, Miller indices, adsorption sites, Wulff shapes ([source](src/analysis/surfaces))
+- **Defect Engineering**: Vacancies, substitutions, interstitials, Voronoi sites ([source](src/defects), [notebook](notebooks/09_distortions_shakenbreak.py))
+- **Trajectory Analysis**: RDF, MSD, diffusion coefficients, Steinhardt order parameters ([source](src/analysis))
+- **ML Training Data**: LMDB dataset storage with rkyv zero-copy reads, OCP/fairchem import ([source](src/io/lmdb), [notebook](notebooks/12_lmdb_training_data.py))
+- **Properties**: XRD, elastic tensors, coordination, convex hull, oxidation states ([source](src/analysis))
+- **Typed Units**: Runtime-checked physical quantities with unit conversion ([source](src/units), [notebook](notebooks/11_typed_units_walkthrough.py))
+- **Integrations**: Materials Project REST client, VASP CHGCAR/Fourier support ([source](src/io/mp.rs), [notebook](notebooks/10_chgcar_fourier_analysis.py))
+- **Python bindings**: Full OOP API with Structure, Lattice, Composition, Element classes ([source](src/python))
+- **WASM bindings**: Browser-ready WebAssembly build for web applications ([source](src/wasm))
 
 ## Installation
 
@@ -49,23 +57,19 @@ pip install ferrox
 ## Usage
 
 ```python
-import json
-from ferrox import StructureMatcher
-from pymatgen.core import Structure
+from ferrox import Structure, StructureMatcher
 
-# Create matcher with desired tolerances
+# Create structures
+s1 = Structure.from_prototype("rocksalt", ["Na", "Cl"], a=5.64)
+s2 = Structure.from_prototype("rocksalt", ["Na", "Cl"], a=5.65)
+
+# Compare with desired tolerances
 matcher = StructureMatcher(latt_len_tol=0.2, site_pos_tol=0.3, angle_tol=5.0)
-
-# Compare two structures
-s1 = Structure(...)
-s2 = Structure(...)
-is_match = matcher.fit(json.dumps(s1.as_dict()), json.dumps(s2.as_dict()))
+is_match = matcher.fit(s1, s2)
 
 # Batch deduplication
-structures = [s.as_dict() for s in my_structures]
-json_strs = [json.dumps(s) for s in structures]
-unique_indices = matcher.get_unique_indices(json_strs)
-groups = matcher.group(json_strs)
+unique_indices = matcher.get_unique_indices([s1, s2])
+groups = matcher.group([s1, s2])
 ```
 
 ## Development

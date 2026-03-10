@@ -97,8 +97,6 @@ class ADLS(Asset):
     INPUT_TO_SPARK_JOBS: ClassVar[Any] = None
     OUTPUT_FROM_SPARK_JOBS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "ADLS"
-
     adls_account_qualified_name: Union[str, None, UnsetType] = UNSET
     """Unique name of the account for this ADLS asset."""
 
@@ -492,6 +490,9 @@ def _adls_to_nested(adls: ADLS) -> ADLSNested:
         is_incomplete=adls.is_incomplete,
         provenance_type=adls.provenance_type,
         home_id=adls.home_id,
+        depth=adls.depth,
+        immediate_upstream=adls.immediate_upstream,
+        immediate_downstream=adls.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -521,7 +522,6 @@ def _adls_from_nested(nested: ADLSNested) -> ADLS:
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -530,6 +530,9 @@ def _adls_from_nested(nested: ADLSNested) -> ADLS:
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_adls_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

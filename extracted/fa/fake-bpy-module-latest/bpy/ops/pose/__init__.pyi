@@ -10,7 +10,7 @@ def armature_apply(
     /,
     *,
     selected: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Apply the current pose as the new rest pose
 
     :param selected: Selected Only, Only apply the selected bones (with propagation to children) (optional)
@@ -23,7 +23,7 @@ def autoside_names(
     /,
     *,
     axis: typing.Literal["XAXIS", "YAXIS", "ZAXIS"] | None = "XAXIS",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Automatically renames the selected bones according to which side of the target axis they fall on
 
         :param axis: Axis, Axis to tag names with (optional)
@@ -50,7 +50,7 @@ def blend_to_neighbor(
     channels: typing.Literal["ALL", "LOC", "ROT", "SIZE", "BBONE", "CUSTOM"]
     | None = "ALL",
     axis_lock: typing.Literal["FREE", "X", "Y", "Z"] | None = "FREE",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Blend from current position to previous or next keyframe
 
         :param factor: Factor, Weighting factor for which keyframe is favored more (in [0, 1], optional)
@@ -102,7 +102,7 @@ def blend_with_rest(
     channels: typing.Literal["ALL", "LOC", "ROT", "SIZE", "BBONE", "CUSTOM"]
     | None = "ALL",
     axis_lock: typing.Literal["FREE", "X", "Y", "Z"] | None = "FREE",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Make the current pose more similar to, or further away from, the rest pose
 
         :param factor: Factor, Weighting factor for which keyframe is favored more (in [0, 1], optional)
@@ -154,7 +154,7 @@ def breakdown(
     channels: typing.Literal["ALL", "LOC", "ROT", "SIZE", "BBONE", "CUSTOM"]
     | None = "ALL",
     axis_lock: typing.Literal["FREE", "X", "Y", "Z"] | None = "FREE",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Create a suitable breakdown pose on the current frame
 
         :param factor: Factor, Weighting factor for which keyframe is favored more (in [0, 1], optional)
@@ -200,8 +200,9 @@ def constraint_add(
     undo: bool | None = None,
     /,
     *,
-    type: Literal[bpy.stub_internal.rna_enums.ConstraintTypeItems] | None = "CHILD_OF",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    type: typing.Literal[bpy.stub_internal.rna_enums.ConstraintTypeItems]
+    | None = "CHILD_OF",
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a constraint to the active bone
 
     :param type: Type, (optional)
@@ -213,8 +214,9 @@ def constraint_add_with_targets(
     undo: bool | None = None,
     /,
     *,
-    type: Literal[bpy.stub_internal.rna_enums.ConstraintTypeItems] | None = "CHILD_OF",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    type: typing.Literal[bpy.stub_internal.rna_enums.ConstraintTypeItems]
+    | None = "CHILD_OF",
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a constraint to the active bone, with target (where applicable) set to the selected Objects/Bones
 
     :param type: Type, (optional)
@@ -225,7 +227,7 @@ def constraints_clear(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Clear all constraints from the selected bones
 
     :return: Result of the operator call.
@@ -235,7 +237,7 @@ def constraints_copy(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Copy constraints to other selected bones
 
     :return: Result of the operator call.
@@ -245,7 +247,7 @@ def copy(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Copy the current pose of the selected bones to the internal clipboard
 
     :return: Result of the operator call.
@@ -257,7 +259,7 @@ def flip_names(
     /,
     *,
     do_strip_numbers: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Flips (and corrects) the axis suffixes of the names of selected bones
 
     :param do_strip_numbers: Strip Numbers, Try to remove right-most dot-number from flipped names.Warning: May result in incoherent naming in some cases(optional)
@@ -270,7 +272,7 @@ def hide(
     /,
     *,
     unselected: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Tag selected bones to not be visible in Pose Mode
 
     :param unselected: Unselected, (optional)
@@ -283,7 +285,7 @@ def ik_add(
     /,
     *,
     with_targets: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add an IK Constraint to the active Bone. The target can be a selected bone or object
 
     :param with_targets: With Targets, Assign IK Constraint with targets derived from the select bones/objects (optional)
@@ -294,7 +296,7 @@ def ik_clear(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove all IK Constraints from selected bones
 
     :return: Result of the operator call.
@@ -304,7 +306,7 @@ def loc_clear(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Reset locations of selected bones to their default values
 
     :return: Result of the operator call.
@@ -317,7 +319,7 @@ def paste(
     *,
     flipped: bool | None = False,
     selected_mask: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Paste the stored pose on to the current pose
 
     :param flipped: Flipped on X-Axis, Paste the stored pose flipped on to current pose (optional)
@@ -330,12 +332,15 @@ def paths_calculate(
     undo: bool | None = None,
     /,
     *,
-    display_type: Literal[bpy.stub_internal.rna_enums.MotionpathDisplayTypeItems]
+    display_type: typing.Literal[bpy.stub_internal.rna_enums.MotionpathDisplayTypeItems]
     | None = "RANGE",
-    range: Literal[bpy.stub_internal.rna_enums.MotionpathRangeItems] | None = "SCENE",
-    bake_location: Literal[bpy.stub_internal.rna_enums.MotionpathBakeLocationItems]
+    range: typing.Literal[bpy.stub_internal.rna_enums.MotionpathRangeItems]
+    | None = "SCENE",
+    bake_location: typing.Literal[
+        bpy.stub_internal.rna_enums.MotionpathBakeLocationItems
+    ]
     | None = "HEADS",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Calculate paths for the selected bones
 
     :param display_type: Display Type, (optional)
@@ -350,7 +355,7 @@ def paths_clear(
     /,
     *,
     only_selected: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
 
     :param only_selected: Only Selected, Only clear motion paths of selected bones (optional)
@@ -361,7 +366,7 @@ def paths_range_update(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Update frame range for motion paths from the Scenes current frame range
 
     :return: Result of the operator call.
@@ -371,7 +376,7 @@ def paths_update(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Recalculate paths for bones that already have them
 
     :return: Result of the operator call.
@@ -392,7 +397,7 @@ def propagate(
     ]
     | None = "NEXT_KEY",
     end_frame: float | None = 250.0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Copy selected aspects of the current pose to subsequent poses already keyframed
 
         :param mode: Terminate Mode, Method used to determine when to stop propagating pose to keyframes (optional)
@@ -429,7 +434,7 @@ def push(
     channels: typing.Literal["ALL", "LOC", "ROT", "SIZE", "BBONE", "CUSTOM"]
     | None = "ALL",
     axis_lock: typing.Literal["FREE", "X", "Y", "Z"] | None = "FREE",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Exaggerate the current pose in regards to the breakdown pose
 
         :param factor: Factor, Weighting factor for which keyframe is favored more (in [0, 1], optional)
@@ -474,7 +479,7 @@ def quaternions_flip(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Flip quaternion values to achieve desired rotations, while maintaining the same orientations
 
     :return: Result of the operator call.
@@ -491,7 +496,7 @@ def relax(
     channels: typing.Literal["ALL", "LOC", "ROT", "SIZE", "BBONE", "CUSTOM"]
     | None = "ALL",
     axis_lock: typing.Literal["FREE", "X", "Y", "Z"] | None = "FREE",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Make the current pose more similar to its breakdown pose
 
         :param factor: Factor, Weighting factor for which keyframe is favored more (in [0, 1], optional)
@@ -538,7 +543,7 @@ def reveal(
     /,
     *,
     select: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Reveal all bones hidden in Pose Mode
 
     :param select: Select, (optional)
@@ -549,7 +554,7 @@ def rot_clear(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Reset rotations of selected bones to their default values
 
     :return: Result of the operator call.
@@ -560,9 +565,9 @@ def rotation_mode_set(
     undo: bool | None = None,
     /,
     *,
-    type: Literal[bpy.stub_internal.rna_enums.ObjectRotationModeItems]
+    type: typing.Literal[bpy.stub_internal.rna_enums.ObjectRotationModeItems]
     | None = "QUATERNION",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set the rotation representation used by selected bones
 
     :param type: Rotation Mode, (optional)
@@ -573,7 +578,7 @@ def scale_clear(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Reset scaling of selected bones to their default values
 
     :return: Result of the operator call.
@@ -585,7 +590,7 @@ def select_all(
     /,
     *,
     action: typing.Literal["TOGGLE", "SELECT", "DESELECT", "INVERT"] | None = "TOGGLE",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Toggle selection status of all bones
 
         :param action: Action, Selection action to execute (optional)
@@ -608,7 +613,7 @@ def select_constraint_target(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select bones used as targets for the currently selected bones
 
     :return: Result of the operator call.
@@ -630,7 +635,7 @@ def select_grouped(
         "SIBLINGS",
     ]
     | None = "COLLECTION",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select all visible bones grouped by similar properties
 
         :param extend: Extend, Extend selection instead of deselecting everything first (optional)
@@ -666,7 +671,7 @@ def select_hierarchy(
     *,
     direction: typing.Literal["PARENT", "CHILD"] | None = "PARENT",
     extend: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select immediate parent/children of selected bones
 
     :param direction: Direction, (optional)
@@ -678,7 +683,7 @@ def select_linked(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select all bones linked by connected parent/child relationships from the current selection
 
     :return: Result of the operator call.
@@ -690,7 +695,7 @@ def select_linked_pick(
     /,
     *,
     extend: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select bones linked by connected parent/child relationships under the mouse cursor
 
     :param extend: Extend, Extend selection instead of deselecting everything first (optional)
@@ -704,7 +709,7 @@ def select_mirror(
     *,
     only_active: bool | None = False,
     extend: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Mirror the bone selection
 
     :param only_active: Active Only, Only operate on the active bone (optional)
@@ -716,7 +721,7 @@ def select_parent(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select bones that are parents of the currently selected bones
 
     :return: Result of the operator call.
@@ -726,7 +731,7 @@ def selection_set_add(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Create a new empty Selection Set
 
     :return: Result of the operator call.
@@ -736,7 +741,7 @@ def selection_set_add_and_assign(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Create a new Selection Set with the currently selected bones
 
     :return: Result of the operator call.
@@ -746,7 +751,7 @@ def selection_set_assign(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add selected bones to Selection Set
 
     :return: Result of the operator call.
@@ -756,7 +761,7 @@ def selection_set_copy(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Copy the selected Selection Set(s) to the clipboard
 
     :return: Result of the operator call.
@@ -766,7 +771,7 @@ def selection_set_delete_all(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove all Selection Sets from this Armature
 
     :return: Result of the operator call.
@@ -776,7 +781,7 @@ def selection_set_deselect(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove Selection Set bones from current selection
 
     :return: Result of the operator call.
@@ -788,7 +793,7 @@ def selection_set_move(
     /,
     *,
     direction: typing.Literal["UP", "DOWN"] | None = "UP",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move the active Selection Set up/down the list of sets
 
     :param direction: Move Direction, Direction to move the active Selection Set: UP (default) or DOWN (optional)
@@ -799,7 +804,7 @@ def selection_set_paste(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add new Selection Set(s) from the clipboard
 
     :return: Result of the operator call.
@@ -809,7 +814,7 @@ def selection_set_remove(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove a Selection Set from this Armature
 
     :return: Result of the operator call.
@@ -819,7 +824,7 @@ def selection_set_remove_bones(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove the selected bones from all Selection Sets
 
     :return: Result of the operator call.
@@ -831,7 +836,7 @@ def selection_set_select(
     /,
     *,
     selection_set_index: int | None = -1,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select the bones from this Selection Set
 
     :param selection_set_index: Selection Set Index, Which Selection Set to select; -1 uses the active Selection Set (in [-inf, inf], optional)
@@ -842,7 +847,7 @@ def selection_set_unassign(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove selected bones from Selection Set
 
     :return: Result of the operator call.
@@ -852,7 +857,7 @@ def transforms_clear(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Reset location, rotation, and scaling of selected bones to their default values
 
     :return: Result of the operator call.
@@ -864,7 +869,7 @@ def user_transforms_clear(
     /,
     *,
     only_selected: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Reset pose bone transforms to keyframed state
 
     :param only_selected: Only Selected, Only visible/selected bones (optional)
@@ -875,7 +880,7 @@ def visual_transform_apply(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Apply final constrained position of pose bones to their transform
 
     :return: Result of the operator call.

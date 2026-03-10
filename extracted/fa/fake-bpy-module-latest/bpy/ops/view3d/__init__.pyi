@@ -13,7 +13,7 @@ def bone_select_menu(
     extend: bool | None = False,
     deselect: bool | None = False,
     toggle: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Menu bone selection
 
     :param name: Bone Name, (optional)
@@ -32,7 +32,7 @@ def camera_background_image_add(
     relative_path: bool | None = True,
     name: str | None = "",
     session_uid: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a new background image to the active camera
 
     :param filepath: Filepath, Path to image file (optional, never None, blend relative // prefix supported)
@@ -48,7 +48,7 @@ def camera_background_image_remove(
     /,
     *,
     index: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove a background image from the camera
 
     :param index: Index, Background image index to remove (in [0, inf], optional)
@@ -59,7 +59,7 @@ def camera_to_view(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set camera view to active view
 
     :return: Result of the operator call.
@@ -69,7 +69,7 @@ def camera_to_view_selected(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move the camera so selected objects are framed
 
     :return: Result of the operator call.
@@ -79,7 +79,7 @@ def clear_render_border(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Clear the boundaries of the border render and disable border render
 
     :return: Result of the operator call.
@@ -95,7 +95,7 @@ def clip_border(
     ymin: int | None = 0,
     ymax: int | None = 0,
     wait_for_input: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set the view clipping region
 
     :param xmin: X Min, (in [-inf, inf], optional)
@@ -110,7 +110,7 @@ def copybuffer(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Copy the selected objects to the internal clipboard
 
     :return: Result of the operator call.
@@ -123,7 +123,7 @@ def cursor3d(
     *,
     use_depth: bool | None = True,
     orientation: typing.Literal["NONE", "VIEW", "XFORM", "GEOM"] | None = "VIEW",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set the location of the 3D cursor
 
         :param use_depth: Surface Project, Project onto the surface (optional)
@@ -152,7 +152,7 @@ def dolly(
     my: int | None = 0,
     delta: int | None = 0,
     use_cursor_init: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Dolly in/out in the view
 
     :param mx: Region Position X, (in [0, inf], optional)
@@ -169,7 +169,7 @@ def drop_world(
     *,
     name: str | None = "",
     session_uid: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Drop a world into the scene
 
     :param name: Name, Name of the data-block to use by the operator (optional, never None)
@@ -181,7 +181,7 @@ def edit_mesh_extrude_individual_move(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Extrude each individual face separately along local normals
 
     :return: Result of the operator call.
@@ -191,7 +191,7 @@ def edit_mesh_extrude_manifold_normal(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Extrude manifold region along normals
 
     :return: Result of the operator call.
@@ -203,7 +203,7 @@ def edit_mesh_extrude_move_normal(
     /,
     *,
     dissolve_and_intersect: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Extrude region together along the average normal
 
     :param dissolve_and_intersect: Dissolve and Intersect, Dissolves adjacent faces and intersects new geometry (optional)
@@ -214,7 +214,7 @@ def edit_mesh_extrude_move_shrink_fatten(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Extrude region together along local normals
 
     :return: Result of the operator call.
@@ -224,7 +224,7 @@ def fly(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Interactively fly around the scene
 
     :return: Result of the operator call.
@@ -244,7 +244,7 @@ def interactive_add(
     plane_aspect_base: typing.Literal["FREE", "FIXED"] | None = "FREE",
     plane_aspect_depth: typing.Literal["FREE", "FIXED"] | None = "FREE",
     wait_for_input: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Interactively add an object
 
         :param primitive_type: Primitive, (optional)
@@ -286,7 +286,7 @@ def localview(
     /,
     *,
     frame_selected: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Toggle display of selected object(s) separately and centered in view
 
     :param frame_selected: Frame Selected, Move the view to frame the selected objects (optional)
@@ -297,7 +297,7 @@ def localview_remove_from(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move selected objects out of local view
 
     :return: Result of the operator call.
@@ -309,7 +309,7 @@ def move(
     /,
     *,
     use_cursor_init: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move the view
 
     :param use_cursor_init: Use Mouse Position, Allow the initial mouse position to be used (optional)
@@ -320,7 +320,7 @@ def navigate(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Interactively navigate around the scene (uses the mode (walk/fly) preference)
 
     :return: Result of the operator call.
@@ -330,7 +330,7 @@ def ndof_all(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Pan and rotate the view with the 3D mouse
 
     :return: Result of the operator call.
@@ -340,7 +340,7 @@ def ndof_orbit(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Orbit the view using the 3D mouse
 
     :return: Result of the operator call.
@@ -350,7 +350,7 @@ def ndof_orbit_zoom(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Orbit and zoom the view using the 3D mouse
 
     :return: Result of the operator call.
@@ -360,7 +360,7 @@ def ndof_pan(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Pan the view with the 3D mouse
 
     :return: Result of the operator call.
@@ -370,7 +370,7 @@ def object_as_camera(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set the active object as the active camera for this view or scene
 
     :return: Result of the operator call.
@@ -380,7 +380,7 @@ def object_mode_pie_or_toggle(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
 
     :return: Result of the operator call.
@@ -393,7 +393,7 @@ def pastebuffer(
     *,
     autoselect: bool | None = True,
     active_collection: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Paste objects from the internal clipboard
 
     :param autoselect: Select, Select pasted objects (optional)
@@ -411,7 +411,7 @@ def render_border(
     ymin: int | None = 0,
     ymax: int | None = 0,
     wait_for_input: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set the boundaries of the border render and enable border render
 
     :param xmin: X Min, (in [-inf, inf], optional)
@@ -428,7 +428,7 @@ def rotate(
     /,
     *,
     use_cursor_init: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Rotate the view
 
     :param use_cursor_init: Use Mouse Position, Allow the initial mouse position to be used (optional)
@@ -439,7 +439,7 @@ def ruler_add(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add ruler
 
     :return: Result of the operator call.
@@ -449,7 +449,7 @@ def ruler_remove(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
 
     :return: Result of the operator call.
@@ -469,7 +469,7 @@ def select(
     enumerate: bool | None = False,
     object: bool | None = False,
     location: collections.abc.Sequence[int] | None = (0, 0),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select and activate item(s)
 
     :param extend: Extend, Extend selection instead of deselecting everything first (optional)
@@ -495,7 +495,7 @@ def select_box(
     ymax: int | None = 0,
     wait_for_input: bool | None = True,
     mode: typing.Literal["SET", "ADD", "SUB", "XOR", "AND"] | None = "SET",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select items using box selection
 
         :param xmin: X Min, (in [-inf, inf], optional)
@@ -532,7 +532,7 @@ def select_circle(
     radius: int | None = 25,
     wait_for_input: bool | None = True,
     mode: typing.Literal["SET", "ADD", "SUB"] | None = "SET",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select items using circle selection
 
         :param x: X, (in [-inf, inf], optional)
@@ -562,7 +562,7 @@ def select_lasso(
     smooth_stroke_factor: float | None = 0.75,
     smooth_stroke_radius: int | None = 35,
     mode: typing.Literal["SET", "ADD", "SUB", "XOR", "AND"] | None = "SET",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select items using lasso selection
 
         :param path: Path, (optional)
@@ -597,7 +597,7 @@ def select_menu(
     extend: bool | None = False,
     deselect: bool | None = False,
     toggle: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Menu object selection
 
     :param name: Object Name, (optional)
@@ -611,7 +611,7 @@ def smoothview(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
 
     :return: Result of the operator call.
@@ -621,7 +621,7 @@ def snap_cursor_to_active(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Snap 3D cursor to the active item
 
     :return: Result of the operator call.
@@ -631,7 +631,7 @@ def snap_cursor_to_center(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Snap 3D cursor to the world origin
 
     :return: Result of the operator call.
@@ -641,7 +641,7 @@ def snap_cursor_to_grid(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Snap 3D cursor to the nearest grid division
 
     :return: Result of the operator call.
@@ -651,7 +651,7 @@ def snap_cursor_to_selected(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Snap 3D cursor to the middle of the selected item(s)
 
     :return: Result of the operator call.
@@ -661,7 +661,7 @@ def snap_selected_to_active(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Snap selected item(s) to the active item
 
     :return: Result of the operator call.
@@ -674,7 +674,7 @@ def snap_selected_to_cursor(
     *,
     use_offset: bool | None = True,
     use_rotation: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Snap selected item(s) to the 3D cursor
 
     :param use_offset: Offset, If the selection should be snapped as a whole or by each object center (optional)
@@ -686,7 +686,7 @@ def snap_selected_to_grid(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Snap selected item(s) to their nearest grid division
 
     :return: Result of the operator call.
@@ -696,7 +696,7 @@ def toggle_matcap_flip(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Flip MatCap
 
     :return: Result of the operator call.
@@ -709,7 +709,7 @@ def toggle_shading(
     *,
     type: typing.Literal["WIREFRAME", "SOLID", "MATERIAL", "RENDERED"]
     | None = "WIREFRAME",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Toggle shading type in 3D viewport
 
         :param type: Type, Shading type to toggle (optional)
@@ -732,7 +732,7 @@ def toggle_xray(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Transparent scene display. Allow selecting through items
 
     :return: Result of the operator call.
@@ -745,7 +745,7 @@ def transform_gizmo_set(
     *,
     extend: bool | None = False,
     type: set[typing.Literal["TRANSLATE", "ROTATE", "SCALE"]] | None = set(),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set the current transform gizmo
 
     :param extend: Extend, (optional)
@@ -760,7 +760,7 @@ def view_all(
     *,
     use_all_regions: bool | None = False,
     center: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """View all objects in scene
 
     :param use_all_regions: All Regions, View selected for all regions (optional)
@@ -777,7 +777,7 @@ def view_axis(
     | None = "LEFT",
     align_active: bool | None = False,
     relative: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Use a preset viewpoint
 
         :param type: View, Preset viewpoint to use (optional)
@@ -808,7 +808,7 @@ def view_camera(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Toggle the camera view
 
     :return: Result of the operator call.
@@ -818,7 +818,7 @@ def view_center_camera(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Center the camera view, resizing the view to fit its bounds
 
     :return: Result of the operator call.
@@ -828,7 +828,7 @@ def view_center_cursor(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Center the view so that the cursor is in the middle of the view
 
     :return: Result of the operator call.
@@ -838,7 +838,7 @@ def view_center_lock(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Center the view lock offset
 
     :return: Result of the operator call.
@@ -848,7 +848,7 @@ def view_center_pick(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Center the view to the Z-depth position under the mouse cursor
 
     :return: Result of the operator call.
@@ -858,7 +858,7 @@ def view_lock_clear(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Clear all view locking
 
     :return: Result of the operator call.
@@ -868,7 +868,7 @@ def view_lock_to_active(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Lock the view to the active object/bone
 
     :return: Result of the operator call.
@@ -882,7 +882,7 @@ def view_orbit(
     angle: float | None = 0.0,
     type: typing.Literal["ORBITLEFT", "ORBITRIGHT", "ORBITUP", "ORBITDOWN"]
     | None = "ORBITLEFT",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Orbit the view
 
         :param angle: Roll, (in [-inf, inf], optional)
@@ -908,7 +908,7 @@ def view_pan(
     /,
     *,
     type: typing.Literal["PANLEFT", "PANRIGHT", "PANUP", "PANDOWN"] | None = "PANLEFT",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Pan the view in a given direction
 
         :param type: Pan, Direction of View Pan (optional)
@@ -931,7 +931,7 @@ def view_persportho(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Switch the current view from perspective/orthographic projection
 
     :return: Result of the operator call.
@@ -944,7 +944,7 @@ def view_roll(
     *,
     angle: float | None = 0.0,
     type: typing.Literal["ANGLE", "LEFT", "RIGHT"] | None = "ANGLE",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Roll the view
 
         :param angle: Roll, (in [-inf, inf], optional)
@@ -967,7 +967,7 @@ def view_selected(
     /,
     *,
     use_all_regions: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move the view to the selection center
 
     :param use_all_regions: All Regions, View selected for all regions (optional)
@@ -978,7 +978,7 @@ def walk(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Interactively walk around the scene
 
     :return: Result of the operator call.
@@ -993,7 +993,7 @@ def zoom(
     my: int | None = 0,
     delta: int | None = 0,
     use_cursor_init: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Zoom in/out in the view
 
     :param mx: Region Position X, (in [0, inf], optional)
@@ -1014,7 +1014,7 @@ def zoom_border(
     ymax: int | None = 0,
     wait_for_input: bool | None = True,
     zoom_out: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Zoom in the view to the nearest object contained in the border
 
     :param xmin: X Min, (in [-inf, inf], optional)
@@ -1030,7 +1030,7 @@ def zoom_camera_1_to_1(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Match the camera to 1:1 to the render output
 
     :return: Result of the operator call.

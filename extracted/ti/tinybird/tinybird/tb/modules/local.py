@@ -8,8 +8,15 @@ import jwt
 import requests
 from docker.client import DockerClient
 
+from tinybird.tb.client import AuthNoTokenException
 from tinybird.tb.modules.cli import cli
-from tinybird.tb.modules.common import echo_json, update_cli
+from tinybird.tb.modules.common import (
+    _get_workspace_plan_name,
+    echo_json,
+    echo_safe_humanfriendly_tables_format_smart_table,
+    update_cli,
+)
+from tinybird.tb.modules.config import CLIConfig
 from tinybird.tb.modules.exceptions import CLILocalException
 from tinybird.tb.modules.feedback_manager import FeedbackManager
 from tinybird.tb.modules.info import get_local_info
@@ -18,6 +25,7 @@ from tinybird.tb.modules.local_common import (
     TB_LOCAL_ADDRESS,
     get_docker_client,
     get_existing_container_with_matching_env,
+    get_local_tokens,
     start_tinybird_local,
 )
 from tinybird.tb.modules.local_logs import (
@@ -33,6 +41,10 @@ from tinybird.tb.modules.local_logs import (
     redis_is_ready,
     server_is_ready,
 )
+
+
+def _get_local_project_config() -> CLIConfig:
+    return CLIConfig.get_project_config()
 
 
 def stop_tinybird_local(docker_client: DockerClient) -> None:
@@ -60,6 +72,50 @@ def remove_tinybird_local(docker_client: DockerClient, persist_data: bool) -> No
         pass
 
 
+def clear_local_workspace() -> None:
+    """Clear current local workspace by deleting and recreating it."""
+    config = _get_local_project_config()
+    tokens = get_local_tokens()
+
+    user_token = tokens["user_token"]
+    admin_token = tokens["admin_token"]
+    user_client = config.get_client(host=TB_LOCAL_ADDRESS, token=user_token)
+    ws_name = config.get("name")
+    if not ws_name:
+        raise AuthNoTokenException()
+
+    user_workspaces = requests.get(
+        f"{TB_LOCAL_ADDRESS}/v1/user/workspaces?with_organization=true&token={admin_token}"
+    ).json()
+    user_org_id = user_workspaces.get("organization_id", {})
+    local_workspaces = user_workspaces.get("workspaces", [])
+
+    ws = next((ws for ws in local_workspaces if ws["name"] == ws_name), None)
+
+    if not ws:
+        raise CLILocalException(FeedbackManager.error(message=f"Workspace '{ws_name}' not found."))
+
+    requests.delete(f"{TB_LOCAL_ADDRESS}/v1/workspaces/{ws['id']}?token={user_token}&hard_delete_confirmation=yes")
+    user_workspaces = user_client.user_workspaces(version="v1")
+    ws = next((ws for ws in user_workspaces["workspaces"] if ws["name"] == ws_name), None)
+
+    if ws:
+        raise CLILocalException(
+            FeedbackManager.error(message=f"Workspace '{ws_name}' was not cleared properly. Please try again.")
+        )
+
+    user_client.create_workspace(ws_name, assign_to_organization_id=user_org_id, version="v1")
+    user_workspaces = requests.get(f"{TB_LOCAL_ADDRESS}/v1/user/workspaces?token={admin_token}").json()
+    ws = next((ws for ws in user_workspaces["workspaces"] if ws["name"] == ws_name), None)
+
+    if not ws:
+        raise CLILocalException(
+            FeedbackManager.error(message=f"Workspace '{ws_name}' was not cleared properly. Please try again.")
+        )
+
+    click.echo(FeedbackManager.success(message=f"✓ Workspace '{ws_name}' cleared"))
+
+
 @cli.command()
 def update() -> None:
     """Update Tinybird CLI to the latest version."""
@@ -85,6 +141,34 @@ def stop() -> None:
     docker_client = get_docker_client()
     stop_tinybird_local(docker_client)
     click.echo(FeedbackManager.success(message="✓ Tinybird Local stopped."))
+
+
+@local.command(name="ls")
+def local_ls() -> None:
+    """List all Tinybird Local workspaces you have access to."""
+    config = _get_local_project_config()
+    tokens = get_local_tokens()
+    local_client = config.get_client(host=TB_LOCAL_ADDRESS, token=tokens["user_token"])
+
+    response = local_client.user_workspaces(version="v1")
+
+    columns = ["name", "id", "role", "plan", "current"]
+    current_workspace_name = config.get("name")
+    table = []
+    click.echo(FeedbackManager.info_workspaces())
+
+    for workspace in response.get("workspaces", []):
+        table.append(
+            [
+                workspace.get("name", ""),
+                workspace.get("id", ""),
+                workspace.get("role", ""),
+                _get_workspace_plan_name(workspace.get("plan")),
+                current_workspace_name == workspace.get("name"),
+            ]
+        )
+
+    echo_safe_humanfriendly_tables_format_smart_table(table, column_names=columns)
 
 
 @local.command()
@@ -264,6 +348,22 @@ def restart(use_aws_creds: bool, volumes_path: str, skip_new_version: bool, yes:
     click.echo(FeedbackManager.info(message="✓ Tinybird Local stopped"))
     start_tinybird_local(docker_client, use_aws_creds, volumes_path, skip_new_version)
     click.echo(FeedbackManager.success(message="✓ Tinybird Local is ready!"))
+
+
+@local.command(
+    name="clear",
+    short_help="Clear all resources and deployments inside the current Tinybird Local workspace.",
+)
+@click.option("--yes", is_flag=True, default=False, help="Don't ask for confirmation")
+def clear(yes: bool) -> None:
+    """Clear current local workspace."""
+    confirmed = yes or click.confirm(
+        FeedbackManager.warning(message="Are you sure you want to clear the workspace? [y/N]:"),
+        show_default=False,
+        prompt_suffix="",
+    )
+    if confirmed:
+        clear_local_workspace()
 
 
 @local.command()

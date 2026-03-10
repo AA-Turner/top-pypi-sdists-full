@@ -159,7 +159,7 @@ async def refund_tasks(task_id: Optional[str] = None):  # 只补偿一次
 
 if __name__ == '__main__':
     pass
-    # arun(polling_tasks())
+    arun(polling_tasks())
     # arun(get_tasks(action="jimeng-video-3.0", status="FAILURE"))
     # arun(get_tasks(action="jimeng-video-3.0", return_ids=True))
 
@@ -167,4 +167,4 @@ if __name__ == '__main__':
 
     # arun(refund_tasks())
 
-    arun(get_tasks("", channel_id="21503", status="UNFINISHED", return_ids=True))
+    # arun(get_tasks("", channel_id="21503", status="UNFINISHED", return_ids=True))

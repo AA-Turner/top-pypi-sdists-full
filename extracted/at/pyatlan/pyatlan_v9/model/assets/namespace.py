@@ -79,8 +79,6 @@ class Namespace(Asset):
     SCHEMA_REGISTRY_SUBJECTS: ClassVar[Any] = None
     SODA_CHECKS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "Namespace"
-
     anomalo_checks: Union[List[RelatedAnomaloCheck], None, UnsetType] = UNSET
     """Checks that run on this asset."""
 
@@ -363,6 +361,9 @@ def _namespace_to_nested(namespace: Namespace) -> NamespaceNested:
         is_incomplete=namespace.is_incomplete,
         provenance_type=namespace.provenance_type,
         home_id=namespace.home_id,
+        depth=namespace.depth,
+        immediate_upstream=namespace.immediate_upstream,
+        immediate_downstream=namespace.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -394,7 +395,6 @@ def _namespace_from_nested(nested: NamespaceNested) -> Namespace:
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -403,6 +403,9 @@ def _namespace_from_nested(nested: NamespaceNested) -> Namespace:
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_namespace_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

@@ -1,23 +1,23 @@
-from typing import Optional
-
 from django.apps import apps
+
+from allauth.core.internal.cryptokit import UserCodeFormat
 
 
 class AppSettings:
-    def __init__(self, prefix):
+    def __init__(self, prefix: str) -> None:
         self.prefix = prefix
 
-    def _setting(self, name, dflt):
+    def _setting(self, name: str, dflt):
         from allauth.utils import get_setting
 
         return get_setting(self.prefix + name, dflt)
 
     @property
-    def SITES_ENABLED(self):
+    def SITES_ENABLED(self) -> bool:
         return apps.is_installed("django.contrib.sites")
 
     @property
-    def SOCIALACCOUNT_ENABLED(self):
+    def SOCIALACCOUNT_ENABLED(self) -> bool:
         return apps.is_installed("allauth.socialaccount")
 
     @property
@@ -27,15 +27,15 @@ class AppSettings:
         return get_setting("SOCIALACCOUNT_ONLY", False)
 
     @property
-    def MFA_ENABLED(self):
+    def MFA_ENABLED(self) -> bool:
         return apps.is_installed("allauth.mfa")
 
     @property
-    def USERSESSIONS_ENABLED(self):
+    def USERSESSIONS_ENABLED(self) -> bool:
         return apps.is_installed("allauth.usersessions")
 
     @property
-    def HEADLESS_ENABLED(self):
+    def HEADLESS_ENABLED(self) -> bool:
         return apps.is_installed("allauth.headless")
 
     @property
@@ -59,7 +59,7 @@ class AppSettings:
         return self._setting("TRUSTED_PROXY_COUNT", 0)
 
     @property
-    def TRUSTED_CLIENT_IP_HEADER(self) -> Optional[str]:
+    def TRUSTED_CLIENT_IP_HEADER(self) -> str | None:
         """
         If your service is running behind a trusted proxy that sets a custom header
         containing the client IP address, specify that header name here. The client
@@ -67,6 +67,14 @@ class AppSettings:
         Examples: ``"CF-Connecting-IP"`` (Cloudflare), ``"X-Real-IP"`` (nginx).
         """
         return self._setting("TRUSTED_CLIENT_IP_HEADER", None)
+
+    @property
+    def USER_CODE_FORMAT(self) -> UserCodeFormat:
+        """
+        Controls the format of user-facing verification codes (e.g. email
+        verification, phone verification, login codes).
+        """
+        return self._setting("USER_CODE_FORMAT", {})
 
 
 _app_settings = AppSettings("ALLAUTH_")

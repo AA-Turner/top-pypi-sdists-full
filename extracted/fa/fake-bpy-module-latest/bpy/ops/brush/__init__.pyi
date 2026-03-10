@@ -9,12 +9,14 @@ def asset_activate(
     undo: bool | None = None,
     /,
     *,
-    asset_library_type: Literal[bpy.stub_internal.rna_enums.AssetLibraryTypeItems]
+    asset_library_type: typing.Literal[
+        bpy.stub_internal.rna_enums.AssetLibraryTypeItems
+    ]
     | None = "LOCAL",
     asset_library_identifier: str | None = "",
     relative_asset_identifier: str | None = "",
     use_toggle: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Activate a brush asset as current sculpt and paint tool
 
     :param asset_library_type: Asset Library Type, (optional)
@@ -28,7 +30,7 @@ def asset_delete(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Delete the active brush asset
 
     :return: Result of the operator call.
@@ -42,7 +44,7 @@ def asset_edit_metadata(
     catalog_path: str | None = "",
     author: str | None = "",
     description: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Edit asset information like the catalog, preview image, tags, or author
 
     :param catalog_path: Catalog, The assets catalog path (optional, never None)
@@ -83,7 +85,7 @@ def asset_load_preview(
     ]
     | None = "DEFAULT",
     sort_method: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Choose a preview image for the brush
 
         :param filepath: File Path, Path to file (optional, never None)
@@ -129,7 +131,7 @@ def asset_revert(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Revert the active brush settings to the default values from the asset library
 
     :return: Result of the operator call.
@@ -139,7 +141,7 @@ def asset_save(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Update the active brush asset in the asset library with current settings
 
     :return: Result of the operator call.
@@ -153,7 +155,7 @@ def asset_save_as(
     name: str | None = "",
     asset_library_reference: str | None = "",
     catalog_path: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Save a copy of the active brush asset into the default asset library, and make it the active brush
 
     :param name: Name, Name for the new brush asset (optional, never None)
@@ -168,7 +170,7 @@ def scale_size(
     /,
     *,
     scalar: float | None = 1.0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Change brush size by a scalar
 
     :param scalar: Scalar, Factor to scale brush size by (in [0, 2], optional)
@@ -182,7 +184,7 @@ def stencil_control(
     *,
     mode: typing.Literal["TRANSLATION", "SCALE", "ROTATION"] | None = "TRANSLATION",
     texmode: typing.Literal["PRIMARY", "SECONDARY"] | None = "PRIMARY",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Control the stencil brush
 
     :param mode: Tool, (optional)
@@ -198,7 +200,7 @@ def stencil_fit_image_aspect(
     use_repeat: bool | None = True,
     use_scale: bool | None = True,
     mask: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """When using an image texture, adjust the stencil size to fit the image aspect ratio
 
     :param use_repeat: Use Repeat, Use repeat mapping values (optional)
@@ -213,7 +215,7 @@ def stencil_reset_transform(
     /,
     *,
     mask: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Reset the stencil transformation to the default
 
     :param mask: Modify Mask Stencil, Modify either the primary or mask stencil (optional)

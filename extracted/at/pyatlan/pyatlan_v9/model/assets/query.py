@@ -144,8 +144,6 @@ class Query(Asset):
     INPUT_TO_SPARK_JOBS: ClassVar[Any] = None
     OUTPUT_FROM_SPARK_JOBS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "Query"
-
     raw_query: Union[str, None, UnsetType] = UNSET
     """Deprecated. See 'longRawQuery' instead."""
 
@@ -384,6 +382,7 @@ class Query(Asset):
         collection_qualified_name: str | None = None,
         parent_folder_qualified_name: str | None = None,
     ) -> "Query":
+
         validate_required_fields(["name"], [name])
         if not (parent_folder_qualified_name or collection_qualified_name):
             raise ValueError(
@@ -428,6 +427,7 @@ class Query(Asset):
         collection_qualified_name: str,
         parent_qualified_name: str,
     ) -> "Query":
+
         validate_required_fields(
             ["name", "collection_qualified_name", "parent_qualified_name"],
             [name, collection_qualified_name, parent_qualified_name],
@@ -925,6 +925,9 @@ def _query_to_nested(query: Query) -> QueryNested:
         is_incomplete=query.is_incomplete,
         provenance_type=query.provenance_type,
         home_id=query.home_id,
+        depth=query.depth,
+        immediate_upstream=query.immediate_upstream,
+        immediate_downstream=query.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -954,7 +957,6 @@ def _query_from_nested(nested: QueryNested) -> Query:
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -963,6 +965,9 @@ def _query_from_nested(nested: QueryNested) -> Query:
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_query_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

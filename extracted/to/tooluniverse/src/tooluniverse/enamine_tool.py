@@ -41,6 +41,9 @@ class EnamineTool(BaseTool):
     def run(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Execute Enamine query based on operation type."""
         operation = arguments.get("operation", "")
+        # Auto-fill operation from tool config const if not provided by user
+        if not operation:
+            operation = self.get_schema_const_operation()
 
         if operation == "search_catalog":
             return self._search_catalog(arguments)

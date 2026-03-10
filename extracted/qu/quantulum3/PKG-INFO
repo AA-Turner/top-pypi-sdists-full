@@ -1,44 +1,48 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: quantulum3
-Version: 0.9.2
+Version: 0.10.0
 Summary: Extract quantities from unstructured text.
-Home-page: https://github.com/nielstron/quantulum3
-Download-URL: https://github.com/nielstron/quantulum3/tarball/master
-Author: Marco Lagi, nielstron, sohrabtowfighi, grhawk and Rodrigo Castro
-Author-email: n.muendler@web.de
-License: MIT
+Author-email: "Marco Lagi, nielstron, sohrabtowfighi, grhawk and Rodrigo Castro" <n.muendler@web.de>
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/nielstron/quantulum3
+Project-URL: Repository, https://github.com/nielstron/quantulum3
+Project-URL: Issues, https://github.com/nielstron/quantulum3/issues
+Project-URL: Changelog, https://github.com/nielstron/quantulum3/blob/master/CHANGES
 Keywords: information extraction,quantities,units,measurements,nlp,natural language processing,text mining,text processing
+Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
+Classifier: Natural Language :: English
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
-Classifier: Development Status :: 3 - Alpha
-Classifier: Natural Language :: English
-Classifier: Topic :: Text Processing :: Linguistic
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Scientific/Engineering
+Classifier: Topic :: Text Processing :: Linguistic
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: AUTHORS
 Requires-Dist: inflect
 Requires-Dist: num2words
 Provides-Extra: classifier
-Requires-Dist: numpy; extra == "classifier"
-Requires-Dist: scipy; extra == "classifier"
-Requires-Dist: scikit-learn; extra == "classifier"
 Requires-Dist: joblib; extra == "classifier"
-Requires-Dist: wikipedia; extra == "classifier"
+Requires-Dist: numpy; extra == "classifier"
+Requires-Dist: scikit-learn; extra == "classifier"
+Requires-Dist: scipy; extra == "classifier"
 Requires-Dist: stemming; extra == "classifier"
+Requires-Dist: wikipedia; extra == "classifier"
+Dynamic: license-file
 
 # quantulum3
 
- [![Travis master build state](https://app.travis-ci.com/nielstron/quantulum3.svg?branch=master "Travis master build state")](https://app.travis-ci.com/nielstron/quantulum3)
+ [![CI](https://github.com/nielstron/quantulum3/actions/workflows/ci.yml/badge.svg)](https://github.com/nielstron/quantulum3/actions/workflows/ci.yml)
  [![Coverage Status](https://coveralls.io/repos/github/nielstron/quantulum3/badge.svg?branch=master)](https://coveralls.io/github/nielstron/quantulum3?branch=master)
  [![PyPI version](https://badge.fury.io/py/quantulum3.svg)](https://pypi.org/project/quantulum3/)
  ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/quantulum3.svg)
@@ -64,10 +68,22 @@ the fork of [sohrabtowfighi](https://github.com/sohrabtowfighi/quantulum).
 pip install quantulum3
 ```
 
+Or with `uv`:
+
+```bash
+uv add quantulum3
+```
+
 To install dependencies for using or training the disambiguation classifier, use
 
 ```bash
 pip install quantulum3[classifier]
+```
+
+Or with `uv`:
+
+```bash
+uv add "quantulum3[classifier]"
 ```
 
 The disambiguation classifier is used when the parser find two or more units that are a match for the text.
@@ -248,12 +264,18 @@ Use `quantulum3-training` on the command line, the script `quantulum3/scripts/tr
 quantulum3-training --lang <language> --data <path/to/training/file.json> --output <path/to/output/file.joblib>
 ```
 
+With `uv`, you can run the installed entry point without activating an environment:
+
+```bash
+uv run quantulum3-training --lang <language> --data <path/to/training/file.json> --output <path/to/output/file.joblib>
+```
+
 You can pass multiple training files in to the training command. The output is in joblib format.
 
 To use your custom model, pass the path to the trained model file to the
 parser:
 
-```pyton
+```python
 parser = Parser.parse(<text>, classifier_path="path/to/model.joblib")
 ```
 
@@ -384,25 +406,23 @@ All fields are case sensitive.
 
 ### Contributing
 
-`dev` build: 
+`dev` build:
 
-[![Travis dev build state](https://travis-ci.com/nielstron/quantulum3.svg?branch=dev "Travis dev build state")](https://travis-ci.com/nielstron/quantulum3)
+[![CI](https://github.com/nielstron/quantulum3/actions/workflows/ci.yml/badge.svg?branch=dev)](https://github.com/nielstron/quantulum3/actions/workflows/ci.yml)
 [![Coverage Status](https://coveralls.io/repos/github/nielstron/quantulum3/badge.svg?branch=dev)](https://coveralls.io/github/nielstron/quantulum3?branch=dev)
 
 If you'd like to contribute follow these steps:
 1. Clone a fork of this project into your workspace
-2. Run `pip install -e .` at the root of your development folder.
-3. `pip install pipenv` and `pipenv shell`
-4. Inside the project folder run `pipenv install --dev`
-5. Make your changes
-6. Run `scripts/format.sh` and `scripts/build.py` from the package root directory.
-7. Test your changes with `python3 setup.py test` 
-(Optional, will be done automatically after pushing)
-8. Create a Pull Request when having commited and pushed your changes
+2. Run `uv sync --extra classifier`
+3. Commit the generated `uv.lock` changes when dependencies change
+4. Make your changes
+5. Run `scripts/format.sh` and `uv run scripts/build.py` from the package root directory. The build step regenerates `common-words.json` and `clf.joblib`.
+6. Test your changes with `uv run pytest`
+7. Create a Pull Request when you have committed and pushed your changes
 
 ### Language support
 
-[![Travis dev build state](https://travis-ci.com/nielstron/quantulum3.svg?branch=language_support "Travis dev build state")](https://travis-ci.com/nielstron/quantulum3)
+[![CI](https://github.com/nielstron/quantulum3/actions/workflows/ci.yml/badge.svg?branch=language_support)](https://github.com/nielstron/quantulum3/actions/workflows/ci.yml)
 [![Coverage Status](https://coveralls.io/repos/github/nielstron/quantulum3/badge.svg?branch=language_support)](https://coveralls.io/github/nielstron/quantulum3?branch=dev)
 
 There is a branch for language support, namely `language_support`.

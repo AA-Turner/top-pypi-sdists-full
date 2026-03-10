@@ -20,6 +20,8 @@ import tempfile
 import warnings
 from io import BufferedReader, BytesIO
 from itertools import chain
+from pathlib import Path
+from xml.etree import ElementTree as ET
 
 import numpy
 import requests
@@ -40,20 +42,37 @@ from pydap.lib import (
     fix_slice,
     hyperslab,
     old_BytesReader,
+    unquote,
     walk,
 )
-from pydap.model import BaseType, DapDecodedArray, GridType, SequenceType, StructureType
+from pydap.model import (
+    BaseType,
+    DapDecodedArray,
+    DatasetType,
+    GridType,
+    GroupType,
+    SequenceType,
+    StructureType,
+)
 from pydap.net import GET
 from pydap.parsers import parse_ce
 from pydap.parsers.das import add_attributes, parse_das
 from pydap.parsers.dds import dds_to_dataset
-from pydap.parsers.dmr import dmr_to_dataset
+from pydap.parsers.dmr import DMRPPParser, dmr_to_dataset
 from pydap.responses.dods import DAP2_response_dtypemap
 
 try:
     import httpx
 except ImportError:
     httpx = None
+
+try:
+    from netCDF4 import Dataset
+
+    HAVE_NETCDF4 = True
+except Exception:
+    Dataset = None
+    HAVE_NETCDF4 = False
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
@@ -70,6 +89,7 @@ class DAPHandler(BaseHandler):
         application=None,
         session=None,
         output_grid=True,
+        flat=True,
         timeout=DEFAULT_TIMEOUT,
         verify=True,
         checksums=True,
@@ -81,45 +101,66 @@ class DAPHandler(BaseHandler):
         self.application = application
         self.session = session
         self.output_grid = output_grid
+        self.flat = flat
         self.timeout = timeout
         self.verify = verify
         self.checksums = checksums
         self.user_charset = user_charset
-        self.url = url
-
-        # urlparse returns an additional var compared to
-        # urlsplit: `param`. Will toss it.
-        scheme, netloc, path, _, query, fragment = urlparse(self.url)
-        self.scheme = scheme
-        self.netloc = netloc
-        self.path = path
-        self.query = query
-        self.fragment = fragment
-
-        if protocol:
-            if protocol not in ["dap2", "dap4"]:
-                raise TypeError("protocol must be one of `dap2` or `dap4")
-            self.protocol = protocol
-            if self.scheme == protocol:
-                # the other alternative occurs during testing
-                # the server - only when protocol and scheme match,
-                # should pydap change the scheme provided by user
-                self.scheme = "https"
-        else:
-            self.protocol = self.determine_protocol()
         self.get_kwargs = get_kwargs or {}
 
-        self.projection, self.selection = parse_ce(self.query, self.protocol)
-        arg = (
-            self.scheme,
-            self.netloc,
-            self.path,
-            "",
-            "&".join(self.selection),
-            self.fragment,
-        )
-        self.base_url = urlunparse(arg)
-        self.make_dataset()
+        if url.endswith(".dmrpp") and not url.startswith("dap4"):
+            self.protocol = "dap4"
+            if url.startswith("http://") or url.startswith("https://"):
+                r = session.get(url, stream=True)
+                dmrpp = io.BytesIO(r.content)
+                dmrpp_instance = DMRPPParser(root=ET.parse(dmrpp).getroot())
+            else:
+                dmrpp = open(url).read()
+                dmrpp_instance = DMRPPParser(root=ET.fromstring(dmrpp))
+            self.projection = []
+            self.dataset = dmrpp_instance.to_dataset()
+            self.base_url = dmrpp_instance.opendap_url
+
+            if not self.base_url:
+                # some dmrpps do not have the opendap url embedded in their
+                if url.endswith(".dap.dmrpp"):
+                    self.base_url = url.removesuffix(".dap.dmrpp")
+                else:
+                    self.base_url = url.removesuffix(".dmrpp")
+        else:
+            self.url = url
+            # urlparse returns an additional var compared to
+            # urlsplit: `param`. Will toss it.
+            scheme, netloc, path, _, query, fragment = urlparse(self.url)
+            self.scheme = scheme
+            self.netloc = netloc
+            self.path = path
+            self.query = query
+            self.fragment = fragment
+
+            if protocol:
+                if protocol not in ["dap2", "dap4"]:
+                    raise TypeError("protocol must be one of `dap2` or `dap4")
+                self.protocol = protocol
+                if self.scheme == protocol:
+                    # the other alternative occurs during testing
+                    # the server - only when protocol and scheme match,
+                    # should pydap change the scheme provided by user
+                    self.scheme = "https"
+            else:
+                self.protocol = self.determine_protocol()
+
+            self.projection, self.selection = parse_ce(self.query, self.protocol)
+            arg = (
+                self.scheme,
+                self.netloc,
+                self.path,
+                "",
+                "&".join(self.selection),
+                self.fragment,
+            )
+            self.base_url = urlunparse(arg)
+            self.make_dataset()
         self.add_proxies()
 
     def determine_protocol(self):
@@ -183,7 +224,7 @@ class DAPHandler(BaseHandler):
             get_kwargs=self.get_kwargs,
         )
         dmr = safe_charset_text(r, self.user_charset)
-        self.dataset = dmr_to_dataset(dmr)
+        self.dataset = dmr_to_dataset(dmr, self.flat)
 
     def dataset_from_dap2(self):
         # escape for certain characters
@@ -241,10 +282,24 @@ class DAPHandler(BaseHandler):
     def add_dap4_proxies(self):
         # remove any projection from the base_url, leaving selections
         for var in walk(self.dataset, BaseType):
-            if var.path is not None:
-                var_name = var.path + "/" + var.name
+            if hasattr(var, "parent") and isinstance(var.parent, StructureType):
+                if var.parent.type == "Group":
+                    var_name = var.parent.id + "/" + var.name
+                elif isinstance(var.parent, DatasetType):
+                    var_name = var.name
+                elif var.parent.type == "Structure" or isinstance(
+                    var.parent, SequenceType
+                ):
+                    var_name = var.parent.id + "." + var.name
             else:
-                var_name = var.name
+                if var.path is not None:
+                    var_name = (
+                        var.path + "/" + var.name
+                        if var.path[-1] != "/"
+                        else var.path + var.name
+                    )
+                else:
+                    var_name = var.name
             var.data = BaseProxyDap4(
                 self.base_url,
                 var_name,
@@ -256,6 +311,13 @@ class DAPHandler(BaseHandler):
                 verify=self.verify,
                 checksums=self.checksums,
                 get_kwargs={**self.get_kwargs, "stream": True},
+            )
+
+        for var in walk(self.dataset, SequenceType):
+            warnings.warn(
+                f"The remote file contains Sequence `{var.name}`"
+                ". Sequences in DAP4 are not fully supported and their"
+                " use may lead to unexpected results."
             )
 
         self.dataset.assign_dataset_recursive(self.dataset)
@@ -534,7 +596,6 @@ class BaseProxyDap4(BaseProxyDap2):
             _vars += [] if concat_dim is None else concat_dim
             if self.id not in _vars and "debug" not in self.session.cache.cache_name:
                 cache_kwargs = {"skip": True}
-
         r = GET(
             url,
             self.application,
@@ -887,38 +948,42 @@ def get_count(variable):
     return count
 
 
-def decode_variable(buffer, start, stop, variable, endian):
+def decode_variable(buffer, start, variable, endian):
     dtype = variable.dtype
-    dtype = dtype.newbyteorder(endian)
     if dtype.kind == "S":
-        data = numpy.array(decode_utf8_string_array(buffer)).astype(dtype.kind)
-        data = data.reshape(variable.shape)
-        return data
+        DATA = []
+        stop = start
+        for i in range(int(numpy.prod(variable.shape))):
+            string, stop = decode_utf8_string_array(buffer, start=stop)
+            DATA.append(numpy.array(string).astype(dtype.kind))
+        data = numpy.array(DATA).reshape(variable.shape)
+        return data, stop
     else:
+        stop = get_count(variable) + start
+        dtype = dtype.newbyteorder(endian)
         data = numpy.frombuffer(buffer[start:stop], dtype=dtype)
         data = data.reshape(variable.shape)
-        return DapDecodedArray(data)
+        return DapDecodedArray(data), stop
 
 
-def decode_utf8_string_array(buffer):
-    offset = 0
+def decode_utf8_string_array(buffer, start=0):
+    offset = start
     strings = []
 
-    while offset < len(buffer) - 4:  # last four elements are the checksums
-        # 1. Read 8-byte little-endian length
-        length_bytes = buffer[offset : offset + 8]
-        strlen = int.from_bytes(length_bytes, byteorder="little")
-        offset += 8
+    # 1. Read 8-byte little-endian length
+    length_bytes = buffer[offset : offset + 8]
+    strlen = int.from_bytes(length_bytes, byteorder="little")
+    offset += 8
 
-        # 2. Read the UTF-8 string
-        str_bytes = buffer[offset : offset + strlen]
-        offset += strlen
+    # 2. Read the UTF-8 string
+    str_bytes = buffer[offset : offset + strlen]
+    offset += strlen
 
-        # 3. Decode the bytes to Python string (UTF-8)
-        decoded_str = str_bytes.decode("utf-8")
-        strings.append(decoded_str)
+    # 3. Decode the bytes to Python string (UTF-8)
+    decoded_str = str_bytes.decode("utf-8")
+    strings.append(decoded_str)
 
-    return strings
+    return strings, offset
 
 
 def stream2bytearray(data):
@@ -982,10 +1047,22 @@ class UNPACKDAP4DATA(object):
             See `pydap.net.get.open_dap_file`
     """
 
-    def __init__(self, r, checksums=True, user_charset="ascii"):
+    def __init__(
+        self,
+        r,
+        checksums=True,
+        user_charset="ascii",
+        output_path: str | None = None,
+        dmrVersion: str | None = None,
+    ):
         self.user_charset = user_charset
         self.checksums = checksums
         self.r = r
+        self.output_path = Path(output_path) if output_path else output_path
+        self.nc = None
+        self._dims_cache: dict[tuple[str, tuple[int, ...]], list[str]] = {}
+        self.dmrVersion = dmrVersion
+
         try:
             iterator = self.iter_body()
             CHUNK_SIZE = 1048576
@@ -999,7 +1076,14 @@ class UNPACKDAP4DATA(object):
                 tmp.seek(0)
                 self.raw = BytesReader(tmp)
                 self.dmr, self.endianness = self.safe_dmr_and_data()
-                dataset = dmr_to_dataset(self.dmr)
+                dataset = dmr_to_dataset(self.dmr, dmrVersion=self.dmrVersion)
+                if self.output_path is not None:
+                    if not HAVE_NETCDF4:
+                        raise ImportError(
+                            "NetCDF4 is required for streaming output. "
+                            "Install with: pip install netCDF4"
+                        )
+                    self._init_netcdf_from_dmr(dataset)
                 self.dataset = self.unpack_dap4_data(dataset)
         except TypeError:
             if isinstance(r, webob_Response):
@@ -1015,13 +1099,11 @@ class UNPACKDAP4DATA(object):
                 self.r = webob_Response()  # make empty response
                 self.raw = BytesReader(r.read())
             else:
-                raise TypeError(
-                    """
+                raise TypeError("""
                     Unrecognized file type object for unpacking dap4 binary data.
                     Acceptable formats are `webob.response.Response` and
                     `io.BufferedReader`
-                    """
-                )
+                    """)
             self.dmr, self.endianness = self.safe_dmr_and_data()
             # need to split dmr from data
             dataset = dmr_to_dataset(self.dmr)
@@ -1058,10 +1140,190 @@ class UNPACKDAP4DATA(object):
                 get_charset(self.r, self.user_charset)
             )
         else:
-            dmr = self.raw.read(dmr_length).decode(self.user_charset)
+            dmr = self.raw.read(dmr_length)
+            # figure out encoding defined in the xml header
+            match = re.search(rb'encoding=["\']([^"\']+)["\']', dmr)
+            if match:
+                encoding = match.group(1).decode("ascii")
+            else:
+                encoding = self.user_charset
+            dmr = dmr.decode(encoding)
         # get endianness from first chunk
         _, _, endianness = decode_chunktype(chunk_type)
         return dmr, endianness
+
+    def _init_netcdf_from_dmr(self, dataset):
+        """Create an empty netCDF4 file from a DMR description.
+
+        Requires the optional dependency `netCDF4`.
+        """
+
+        if not HAVE_NETCDF4:
+            raise ImportError(
+                "The 'netCDF4' package is required to initialize a netCDF file "
+                "from a DMR response. Currently it is not installed."
+            )
+
+        FILL_KEYS = {"missing_value", "fmissing_value"}  # keep _FillValue
+
+        filename = unquote(dataset.name)
+        if "nc4" in filename.split("."):
+            # filename may have nc4.h5 or something
+            # retain only the first extension in name
+            # to avoid nc4.nc4
+            filename = ".".join(filename.split(".nc4")[:-1] + ["nc4"])
+        if not filename.endswith(".nc4"):
+            filename = str(Path(filename).with_suffix("")) + ".nc4"
+
+        self.nc = Dataset(self.output_path / filename, "w")
+        # start at root
+        # create dimensions
+        for name, size in dataset.dimensions.items():
+            self.nc.createDimension(name, size)
+        # create variables
+        for var in dataset.variables():
+            _FillValue = dataset[var].attributes.pop("_FillValue", None)
+            dtype = dataset[var].dtype
+            _dims = [dim.split("/")[1] for dim in dataset[var].dims]
+            args = {
+                "varname": var,
+                "datatype": dtype,
+                "fill_value": _FillValue,
+            }
+            if len(_dims) != len(dataset[var].shape):
+                _dims = self._get_or_create_dims_for_var(var, dataset[var])
+            ncvar = self.nc.createVariable(**args, dimensions=_dims)
+
+            # copy attributes
+            for k, v in dataset[var].attributes.items():
+                if k in {"Maps", "path"}:
+                    continue
+                if k in FILL_KEYS:  # avoid writing multiple fill values
+                    continue
+                ncvar.setncattr(k, v)
+
+        # now identify groups and begin to populate
+        variables = [
+            var for var in walk(dataset, BaseType) if isinstance(var.parent, GroupType)
+        ]
+        groups = list(set([var.parent.id for var in variables]))
+
+        for gr in groups:
+            self.nc.createGroup(unquote(gr[1:]))
+            for dim, size in dataset[gr[1:]].dimensions.items():
+                self.nc[unquote(gr[1:])].createDimension(dim, size)
+
+        for var in variables:
+            parent = unquote(var.parent.id[1:])
+            dtype = var.dtype
+            _FillValue = var.attributes.pop("_FillValue", None)
+            args = {
+                "varname": var.name,
+                "datatype": dtype,
+                "fill_value": _FillValue,
+            }
+
+            _dims = [dim.split("/")[1] for dim in var.dims]
+            # copy attributes
+            if len(_dims) != len(dataset[var.id].shape):
+                _dims = self._get_or_create_dims_for_var(var, dataset[var.id])
+            ncvar = self.nc[parent].createVariable(**args, dimensions=_dims)
+
+            # copy attributes
+            for k, v in dataset[var.id].attributes.items():
+                if k in {"Maps", "path"}:
+                    continue
+                if k in FILL_KEYS:  # avoid writing multiple fill values
+                    continue
+                ncvar.setncattr(k, v)
+
+    def _next_phony_dim_name(self) -> str:
+        if self.nc is None:
+            raise RuntimeError(
+                "self.nc is not initialized yet; cannot create dimensions."
+            )
+        i = 0
+        while f"dim{i}" in self.nc.dimensions:
+            i += 1
+        return f"dim{i}"
+
+    def _ensure_nc_dim(self, dim_name: str, size: int) -> str:
+        if dim_name not in self.nc.dimensions:
+            self.nc.createDimension(dim_name, size)
+        return dim_name
+
+    def _infer_dims_from_parent(
+        self, parent_dims: dict, shape: tuple[int, ...]
+    ) -> list[str] | None:
+        if not parent_dims:
+            return None
+
+        items = list(parent_dims.items())  # preserve parent ordering if any
+        chosen: list[str] = []
+        used: set[str] = set()
+
+        for axis_size in shape:
+            match = None
+            for name, dim_size in items:
+                if name in used:
+                    continue
+                if int(dim_size) == int(axis_size):
+                    match = name
+                    break
+            if match is None:
+                return None
+            chosen.append(match)
+            used.add(match)
+
+        return chosen
+
+    def _get_or_create_dims_for_var(self, varname: str, data_obj) -> list[str]:
+        """
+        Decide dims for this variable and ensure they exist in the output netCDF.
+        Reuses group-scoped dims when possible.
+        """
+        shape = tuple(int(s) for s in data_obj.shape)
+        rank = len(shape)
+
+        group_path = data_obj.parent.id
+
+        # 1) Honor usable variable dims if present
+
+        var_dims = data_obj.dims
+        if len(var_dims) == rank:
+            parent = getattr(data_obj, "parent", None)
+            parent_dims = getattr(parent, "dimensions", {}) or {}
+            for d, axis_size in zip(var_dims, shape):
+                self._ensure_nc_dim(d, int(parent_dims.get(d, axis_size)))
+            return var_dims
+
+        # 2) Cache hit: same group + same shape
+        key = (group_path, shape)
+        cached = self._dims_cache.get(key)
+        if cached is not None:
+            for d, axis_size in zip(cached, shape):
+                self._ensure_nc_dim(d, axis_size)
+            return cached
+
+        # 3) Infer from parent group dimensions
+        parent = getattr(data_obj, "parent", None)
+        parent_dims = getattr(parent, "dimensions", {}) or {}
+        inferred = self._infer_dims_from_parent(parent_dims, shape)
+        if inferred is not None:
+            for d, axis_size in zip(inferred, shape):
+                self._ensure_nc_dim(d, int(parent_dims.get(d, axis_size)))
+            self._dims_cache[key] = inferred
+            return inferred
+
+        # 4) Fallback: create phony dims, but cache for reuse
+        phony: list[str] = []
+        for axis_size in shape:
+            d = self._next_phony_dim_name()
+            self._ensure_nc_dim(d, axis_size)
+            phony.append(d)
+
+        self._dims_cache[key] = phony
+        return phony
 
     def unpack_dap4_data(self, dataset):
         """
@@ -1073,17 +1335,23 @@ class UNPACKDAP4DATA(object):
         buffer = stream2bytearray(self.raw)
         start = 0
         for variable in walk(dataset, BaseType):
-            count = get_count(variable)
-            stop = start + count
-            data = decode_variable(
+            data, stop = decode_variable(
                 buffer,
                 start=start,
-                stop=stop,
                 variable=variable,
                 endian=self.endianness,
             )
-            variable._set_data(data)
-
+            if self.nc is not None:
+                name = variable.id.split("/")[-1]
+                if isinstance(variable.parent, DatasetType):
+                    ncvar = self.nc.variables[name]
+                else:
+                    parent = unquote(variable.parent.id[1:])
+                    ncvar = self.nc[parent].variables[name]
+                ncvar[...] = data
+                variable._set_data(None)
+            else:
+                variable._set_data(data)
             if self.checksums:
                 checksum = numpy.frombuffer(
                     buffer[stop : stop + 4], dtype=checksum_dtype
@@ -1092,4 +1360,6 @@ class UNPACKDAP4DATA(object):
 
             # Jump over the 4 byte chunk_header
             start = stop + 4
+        if self.nc is not None:
+            self.nc.close()
         return dataset

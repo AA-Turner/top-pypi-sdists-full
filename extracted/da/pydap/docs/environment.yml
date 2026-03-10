@@ -3,13 +3,14 @@ channels:
 - conda-forge
 dependencies:
 - python=3.11
-- jupyter-book
+- jupyter-book<2.0
 - jupyterlab
 - matplotlib
 - cartopy
 - xarray
 - dask
 - earthaccess
-- h5netcdf
+- netcdf4
+- pip
 - pip:
   - git+https://github.com/pydap/pydap.git

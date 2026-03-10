@@ -15,6 +15,11 @@ def _build_request_args(
     limit: int | None = 10000,
     cursor: str | None = None,
     offset: int | None = None,
+    search: str | None = None,
+    errors_only: bool | None = False,
+    atif_only: bool | None = False,
+    checkpoint_only: bool | None = False,
+    plato_type: str | None = None,
     x_api_key: str | None = None,
 ) -> dict[str, Any]:
     """Build request arguments."""
@@ -27,6 +32,16 @@ def _build_request_args(
         params["cursor"] = cursor
     if offset is not None:
         params["offset"] = offset
+    if search is not None:
+        params["search"] = search
+    if errors_only is not None:
+        params["errors_only"] = errors_only
+    if atif_only is not None:
+        params["atif_only"] = atif_only
+    if checkpoint_only is not None:
+        params["checkpoint_only"] = checkpoint_only
+    if plato_type is not None:
+        params["plato_type"] = plato_type
 
     headers: dict[str, str] = {}
     if x_api_key is not None:
@@ -46,6 +61,11 @@ def sync(
     limit: int | None = 10000,
     cursor: str | None = None,
     offset: int | None = None,
+    search: str | None = None,
+    errors_only: bool | None = False,
+    atif_only: bool | None = False,
+    checkpoint_only: bool | None = False,
+    plato_type: str | None = None,
     x_api_key: str | None = None,
 ) -> SessionLogsResponse:
     """Get logs/events for a session with cursor-based pagination.
@@ -58,6 +78,11 @@ def sync(
         limit=limit,
         cursor=cursor,
         offset=offset,
+        search=search,
+        errors_only=errors_only,
+        atif_only=atif_only,
+        checkpoint_only=checkpoint_only,
+        plato_type=plato_type,
         x_api_key=x_api_key,
     )
 
@@ -72,6 +97,11 @@ async def asyncio(
     limit: int | None = 10000,
     cursor: str | None = None,
     offset: int | None = None,
+    search: str | None = None,
+    errors_only: bool | None = False,
+    atif_only: bool | None = False,
+    checkpoint_only: bool | None = False,
+    plato_type: str | None = None,
     x_api_key: str | None = None,
 ) -> SessionLogsResponse:
     """Get logs/events for a session with cursor-based pagination.
@@ -84,6 +114,11 @@ async def asyncio(
         limit=limit,
         cursor=cursor,
         offset=offset,
+        search=search,
+        errors_only=errors_only,
+        atif_only=atif_only,
+        checkpoint_only=checkpoint_only,
+        plato_type=plato_type,
         x_api_key=x_api_key,
     )
 

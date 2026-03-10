@@ -123,8 +123,6 @@ class S3Object(Asset):
     INPUT_TO_SPARK_JOBS: ClassVar[Any] = None
     OUTPUT_FROM_SPARK_JOBS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "S3Object"
-
     s3_object_last_modified_time: Union[int, None, UnsetType] = UNSET
     """Time (epoch) at which this object was last updated, in milliseconds, or when it was created if it has never been modified."""
 
@@ -846,6 +844,9 @@ def _s3_object_to_nested(s3_object: S3Object) -> S3ObjectNested:
         is_incomplete=s3_object.is_incomplete,
         provenance_type=s3_object.provenance_type,
         home_id=s3_object.home_id,
+        depth=s3_object.depth,
+        immediate_upstream=s3_object.immediate_upstream,
+        immediate_downstream=s3_object.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -877,7 +878,6 @@ def _s3_object_from_nested(nested: S3ObjectNested) -> S3Object:
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -886,6 +886,9 @@ def _s3_object_from_nested(nested: S3ObjectNested) -> S3Object:
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_s3_object_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

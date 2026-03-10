@@ -8,7 +8,9 @@ chemicals and proteins, combining data from various sources.
 API Documentation: http://stitch.embl.de/
 """
 
+import warnings
 import requests
+import urllib3
 from typing import Dict, Any
 from .base_tool import BaseTool
 from .tool_registry import register_tool
@@ -76,12 +78,22 @@ class STITCHTool(BaseTool):
         }
 
         try:
-            response = requests.get(
-                f"{STITCH_BASE_URL}/json/interactions",
-                params=params,
-                timeout=self.timeout,
-                verify=False,
-            )
+            with warnings.catch_warnings():
+                warnings.simplefilter(
+                    "ignore", urllib3.exceptions.InsecureRequestWarning
+                )
+                response = requests.get(
+                    f"{STITCH_BASE_URL}/json/interactions",
+                    params=params,
+                    timeout=self.timeout,
+                    verify=False,
+                )
+            if response.status_code == 404:
+                return {
+                    "error": f"No interactions found for {identifiers} in STITCH. "
+                    "Try using CID identifiers (e.g., 'CIDm00002244' for aspirin) "
+                    "or check compound names at http://stitch.embl.de/"
+                }
             response.raise_for_status()
             return {"interactions": response.json()}
         except requests.RequestException as e:
@@ -108,12 +120,21 @@ class STITCHTool(BaseTool):
         }
 
         try:
-            response = requests.get(
-                f"{STITCH_BASE_URL}/json/network",
-                params=params,
-                timeout=self.timeout,
-                verify=False,
-            )
+            with warnings.catch_warnings():
+                warnings.simplefilter(
+                    "ignore", urllib3.exceptions.InsecureRequestWarning
+                )
+                response = requests.get(
+                    f"{STITCH_BASE_URL}/json/network",
+                    params=params,
+                    timeout=self.timeout,
+                    verify=False,
+                )
+            if response.status_code == 404:
+                return {
+                    "error": f"No interactors found for {identifiers} in STITCH. "
+                    "Try using CID identifiers or check compound names at http://stitch.embl.de/"
+                }
             response.raise_for_status()
             return {"interactors": response.json()}
         except requests.RequestException as e:
@@ -133,12 +154,21 @@ class STITCHTool(BaseTool):
         params = {"identifier": identifier, "species": arguments.get("species", 9606)}
 
         try:
-            response = requests.get(
-                f"{STITCH_BASE_URL}/json/resolve",
-                params=params,
-                timeout=self.timeout,
-                verify=False,
-            )
+            with warnings.catch_warnings():
+                warnings.simplefilter(
+                    "ignore", urllib3.exceptions.InsecureRequestWarning
+                )
+                response = requests.get(
+                    f"{STITCH_BASE_URL}/json/resolve",
+                    params=params,
+                    timeout=self.timeout,
+                    verify=False,
+                )
+            if response.status_code == 404:
+                return {
+                    "error": f"Identifier '{identifier}' not found in STITCH. "
+                    "Try using CID identifiers or check at http://stitch.embl.de/"
+                }
             response.raise_for_status()
             return {"matches": response.json()}
         except requests.RequestException as e:

@@ -1,5 +1,5 @@
 [dependencies]
-version = "20260208"
+version = "20260216"
 bootstrap_version = "20250801"
 
 [ninja]
@@ -20,7 +20,7 @@ dependencies = [
 [vala]
 scope = "toolchain"
 name = "Vala"
-version = "9feabf0f8076c33b702d7cba612edfe0c1e45a00"
+version = "172348fa9123ff4a95d541c5f9e56837434c4b6e"
 url = "https://github.com/frida/vala.git"
 dependencies = [
     "glib",
@@ -329,7 +329,7 @@ url = "https://github.com/frida/nghttp2.git"
 [libsoup]
 when = "machine.os != 'none'"
 name = "libsoup"
-version = "80dc080951c9037aef51a40ffbe4508d3ce98d1b"
+version = "4fd67869310b9de8fe2947bc8504ccbcf1abf285"
 url = "https://github.com/frida/libsoup.git"
 options = [
     "-Dgssapi=disabled",

@@ -104,8 +104,6 @@ class APIQuery(Asset):
     INPUT_TO_SPARK_JOBS: ClassVar[Any] = None
     OUTPUT_FROM_SPARK_JOBS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "APIQuery"
-
     api_input_field_count: Union[int, None, UnsetType] = UNSET
     """Count of the APIField of this query that are input to it."""
 
@@ -602,6 +600,9 @@ def _api_query_to_nested(api_query: APIQuery) -> APIQueryNested:
         is_incomplete=api_query.is_incomplete,
         provenance_type=api_query.provenance_type,
         home_id=api_query.home_id,
+        depth=api_query.depth,
+        immediate_upstream=api_query.immediate_upstream,
+        immediate_downstream=api_query.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -633,7 +634,6 @@ def _api_query_from_nested(nested: APIQueryNested) -> APIQuery:
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -642,6 +642,9 @@ def _api_query_from_nested(nested: APIQueryNested) -> APIQuery:
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_api_query_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

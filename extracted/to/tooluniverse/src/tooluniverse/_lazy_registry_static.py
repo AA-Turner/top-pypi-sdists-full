@@ -252,6 +252,7 @@ STATIC_LAZY_REGISTRY = {
     "HarmonizomeTool": "harmonizome_tool",
     "HealthDisparitiesTool": "health_disparities_tool",
     "HumanBaseTool": "humanbase_tool",
+    "ICiteSearchPublicationsTool": "icite_tool",
     "IBMRXNTool": "ibmrxn_tool",
     "ICD10Tool": "icd_tool",
     "ICDTool": "icd_tool",

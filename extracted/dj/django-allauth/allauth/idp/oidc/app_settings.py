@@ -1,17 +1,18 @@
-from typing import Optional
+from allauth import app_settings as allauth_settings
+from allauth.core.internal.cryptokit import UserCodeFormat
 
 
 class AppSettings:
-    def __init__(self, prefix):
+    def __init__(self, prefix: str) -> None:
         self.prefix = prefix
 
-    def _setting(self, name, dflt):
+    def _setting(self, name: str, dflt):
         from allauth.utils import get_setting
 
         return get_setting(f"{self.prefix}{name}", dflt)
 
     @property
-    def ADAPTER(self):
+    def ADAPTER(self) -> str:
         return self._setting(
             "ADAPTER",
             "allauth.idp.oidc.adapter.DefaultOIDCAdapter",
@@ -50,7 +51,11 @@ class AppSettings:
         return self._setting("DEVICE_CODE_INTERVAL", 5)
 
     @property
-    def RATE_LIMITS(self):
+    def USER_CODE_FORMAT(self) -> UserCodeFormat:
+        return self._setting("USER_CODE_FORMAT", allauth_settings.USER_CODE_FORMAT)
+
+    @property
+    def RATE_LIMITS(self) -> dict:
         rls = self._setting("RATE_LIMITS", {})
         if rls is False:
             return {}
@@ -62,7 +67,7 @@ class AppSettings:
         return ret
 
     @property
-    def RP_INITIATED_LOGOUT_ASKS_FOR_OP_LOGOUT(self):
+    def RP_INITIATED_LOGOUT_ASKS_FOR_OP_LOGOUT(self) -> bool:
         """
         At https://openid.net/specs/openid-connect-rpinitiated-1_0.html
 
@@ -75,7 +80,7 @@ class AppSettings:
         return self._setting("RP_INITIATED_LOGOUT_ASKS_FOR_OP_LOGOUT", True)
 
     @property
-    def USERINFO_ENDPOINT(self) -> Optional[str]:
+    def USERINFO_ENDPOINT(self) -> str | None:
         """
         This setting can be used to point the ``userinfo_endpoint`` value as
         returned in the ".well-known/openid-configuration" to a custom URL.

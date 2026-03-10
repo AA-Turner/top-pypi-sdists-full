@@ -9,7 +9,7 @@ def add_simple_uvs(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add cube map UVs on mesh
 
     :return: Result of the operator call.
@@ -36,14 +36,14 @@ def add_texture_paint_slot(
     width: int | None = 1024,
     height: int | None = 1024,
     alpha: bool | None = True,
-    generated_type: Literal[bpy.stub_internal.rna_enums.ImageGeneratedTypeItems]
+    generated_type: typing.Literal[bpy.stub_internal.rna_enums.ImageGeneratedTypeItems]
     | None = "BLANK",
     float: bool | None = False,
-    domain: Literal[bpy.stub_internal.rna_enums.ColorAttributeDomainItems]
+    domain: typing.Literal[bpy.stub_internal.rna_enums.ColorAttributeDomainItems]
     | None = "POINT",
-    data_type: Literal[bpy.stub_internal.rna_enums.ColorAttributeTypeItems]
+    data_type: typing.Literal[bpy.stub_internal.rna_enums.ColorAttributeTypeItems]
     | None = "FLOAT_COLOR",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a paint slot
 
     :param type: Material Layer Type, Material layer type of new paint slot (optional)
@@ -64,7 +64,7 @@ def brush_colors_flip(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Swap primary and secondary brush colors
 
     :return: Result of the operator call.
@@ -76,7 +76,7 @@ def face_select_all(
     /,
     *,
     action: typing.Literal["TOGGLE", "SELECT", "DESELECT", "INVERT"] | None = "TOGGLE",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Change selection for all faces
 
         :param action: Action, Selection action to execute (optional)
@@ -101,7 +101,7 @@ def face_select_hide(
     /,
     *,
     unselected: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Hide selected faces
 
     :param unselected: Unselected, Hide unselected rather than selected objects (optional)
@@ -114,7 +114,7 @@ def face_select_less(
     /,
     *,
     face_step: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Deselect Faces connected to existing selection
 
     :param face_step: Face Step, Also deselect faces that only touch on a corner (optional)
@@ -125,7 +125,7 @@ def face_select_linked(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select linked faces
 
     :return: Result of the operator call.
@@ -137,7 +137,7 @@ def face_select_linked_pick(
     /,
     *,
     deselect: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select linked faces under the cursor
 
     :param deselect: Deselect, Deselect rather than select items (optional)
@@ -151,7 +151,7 @@ def face_select_loop(
     *,
     select: bool | None = True,
     extend: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select face loop under the cursor
 
     :param select: Select, If false, faces will be deselected (optional)
@@ -165,7 +165,7 @@ def face_select_more(
     /,
     *,
     face_step: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select Faces connected to existing selection
 
     :param face_step: Face Step, Also select faces that only touch on a corner (optional)
@@ -178,7 +178,7 @@ def face_vert_reveal(
     /,
     *,
     select: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Reveal hidden faces and vertices
 
     :param select: Select, Specifies whether the newly revealed geometry should be selected (optional)
@@ -191,7 +191,7 @@ def grab_clone(
     /,
     *,
     delta: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move the clone source image
 
     :param delta: Delta, Delta offset of clone image in 0.0 to 1.0 coordinates (array of 2 items, in [-inf, inf], optional)
@@ -211,7 +211,7 @@ def hide_show(
     action: typing.Literal["HIDE", "SHOW"] | None = "HIDE",
     area: typing.Literal["OUTSIDE", "Inside"] | None = "Inside",
     use_front_faces_only: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Hide/show some vertices
 
         :param xmin: X Min, (in [-inf, inf], optional)
@@ -243,7 +243,7 @@ def hide_show_all(
     /,
     *,
     action: typing.Literal["HIDE", "SHOW"] | None = "HIDE",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Hide/show all vertices
 
         :param action: Visibility Action, Whether to hide or show vertices (optional)
@@ -268,7 +268,7 @@ def hide_show_lasso_gesture(
     action: typing.Literal["HIDE", "SHOW"] | None = "HIDE",
     area: typing.Literal["OUTSIDE", "Inside"] | None = "Inside",
     use_front_faces_only: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Hide/show some vertices
 
         :param path: Path, (optional)
@@ -308,7 +308,7 @@ def hide_show_line_gesture(
     area: typing.Literal["OUTSIDE", "Inside"] | None = "Inside",
     use_front_faces_only: bool | None = False,
     use_limit_to_segment: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Hide/show some vertices
 
         :param xstart: X Start, (in [-inf, inf], optional)
@@ -342,7 +342,7 @@ def hide_show_masked(
     /,
     *,
     action: typing.Literal["HIDE", "SHOW"] | None = "HIDE",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Hide/show all masked vertices above a threshold
 
         :param action: Visibility Action, Whether to hide or show vertices (optional)
@@ -364,7 +364,7 @@ def hide_show_polyline_gesture(
     action: typing.Literal["HIDE", "SHOW"] | None = "HIDE",
     area: typing.Literal["OUTSIDE", "Inside"] | None = "Inside",
     use_front_faces_only: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Hide/show some vertices
 
         :param path: Path, (optional)
@@ -392,7 +392,7 @@ def image_from_view(
     /,
     *,
     filepath: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Make an image from biggest 3D view for reprojection
 
     :param filepath: File Path, Name of the file (optional, never None)
@@ -408,7 +408,7 @@ def image_paint(
     mode: typing.Literal["NORMAL", "INVERT"] | None = "NORMAL",
     brush_toggle: typing.Literal["None", "SMOOTH", "ERASE", "MASK"] | None = "None",
     pen_flip: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Paint a stroke into the image
 
         :param stroke: Stroke, (optional)
@@ -449,7 +449,7 @@ def mask_box_gesture(
     use_front_faces_only: bool | None = False,
     mode: typing.Literal["VALUE", "VALUE_INVERSE", "INVERT"] | None = "VALUE",
     value: float | None = 1.0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Mask within a rectangle defined by the cursor
 
         :param xmin: X Min, (in [-inf, inf], optional)
@@ -479,7 +479,7 @@ def mask_flood_fill(
     *,
     mode: typing.Literal["VALUE", "VALUE_INVERSE", "INVERT"] | None = "VALUE",
     value: float | None = 0.0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Fill the whole mask with a given value, or invert its values
 
         :param mode: Mode, (optional)
@@ -508,7 +508,7 @@ def mask_lasso_gesture(
     use_front_faces_only: bool | None = False,
     mode: typing.Literal["VALUE", "VALUE_INVERSE", "INVERT"] | None = "VALUE",
     value: float | None = 1.0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Mask within a shape defined by the cursor
 
         :param path: Path, (optional)
@@ -545,7 +545,7 @@ def mask_line_gesture(
     use_limit_to_segment: bool | None = False,
     mode: typing.Literal["VALUE", "VALUE_INVERSE", "INVERT"] | None = "VALUE",
     value: float | None = 1.0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Mask to one side of a line defined by the cursor
 
         :param xstart: X Start, (in [-inf, inf], optional)
@@ -579,7 +579,7 @@ def mask_polyline_gesture(
     use_front_faces_only: bool | None = False,
     mode: typing.Literal["VALUE", "VALUE_INVERSE", "INVERT"] | None = "VALUE",
     value: float | None = 1.0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Mask within a shape defined by the cursor
 
         :param path: Path, (optional)
@@ -604,7 +604,7 @@ def project_image(
     /,
     *,
     image: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Project an edited render from the active camera back onto the object
 
     :param image: Image, (optional)
@@ -619,7 +619,7 @@ def sample_color(
     location: collections.abc.Sequence[int] | None = (0, 0),
     merged: bool | None = False,
     palette: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Use the mouse to sample a color in the image
 
     :param location: Location, (array of 2 items, in [0, inf], optional)
@@ -632,7 +632,7 @@ def texture_paint_toggle(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Toggle texture paint mode in 3D view
 
     :return: Result of the operator call.
@@ -644,7 +644,7 @@ def vert_select_all(
     /,
     *,
     action: typing.Literal["TOGGLE", "SELECT", "DESELECT", "INVERT"] | None = "TOGGLE",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Change selection for all vertices
 
         :param action: Action, Selection action to execute (optional)
@@ -669,7 +669,7 @@ def vert_select_hide(
     /,
     *,
     unselected: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Hide selected vertices
 
     :param unselected: Unselected, Hide unselected rather than selected vertices (optional)
@@ -682,7 +682,7 @@ def vert_select_less(
     /,
     *,
     face_step: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Deselect Vertices connected to existing selection
 
     :param face_step: Face Step, Also deselect faces that only touch on a corner (optional)
@@ -693,7 +693,7 @@ def vert_select_linked(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select linked vertices
 
     :return: Result of the operator call.
@@ -705,7 +705,7 @@ def vert_select_linked_pick(
     /,
     *,
     select: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select linked vertices under the cursor
 
     :param select: Select, Whether to select or deselect linked vertices under the cursor (optional)
@@ -719,7 +719,7 @@ def vert_select_loop(
     *,
     select: bool | None = True,
     extend: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select vertex loop under the cursor
 
     :param select: Select, If false, vertices will be deselected (optional)
@@ -733,7 +733,7 @@ def vert_select_more(
     /,
     *,
     face_step: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select Vertices connected to existing selection
 
     :param face_step: Face Step, Also select faces that only touch on a corner (optional)
@@ -746,7 +746,7 @@ def vert_select_ungrouped(
     /,
     *,
     extend: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select vertices without a group
 
     :param extend: Extend, Extend the selection (optional)
@@ -760,7 +760,7 @@ def vertex_color_brightness_contrast(
     *,
     brightness: float | None = 0.0,
     contrast: float | None = 0.0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Adjust vertex color brightness/contrast
 
     :param brightness: Brightness, (in [-100, 100], optional)
@@ -779,7 +779,7 @@ def vertex_color_dirt(
     dirt_angle: float | None = 0.0,
     dirt_only: bool | None = False,
     normalize: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Generate a dirt map gradient based on cavity
 
     :param blur_strength: Blur Strength, Blur strength per iteration (in [0.01, 1], optional)
@@ -795,7 +795,7 @@ def vertex_color_from_weight(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Convert active weight into gray scale vertex colors
 
     :return: Result of the operator call.
@@ -809,7 +809,7 @@ def vertex_color_hsv(
     h: float | None = 0.5,
     s: float | None = 1.0,
     v: float | None = 1.0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Adjust vertex color Hue/Saturation/Value
 
     :param h: Hue, (in [0, 1], optional)
@@ -822,7 +822,7 @@ def vertex_color_invert(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Invert RGB values
 
     :return: Result of the operator call.
@@ -835,7 +835,7 @@ def vertex_color_levels(
     *,
     offset: float | None = 0.0,
     gain: float | None = 1.0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Adjust levels of vertex colors
 
     :param offset: Offset, Value to add to colors (in [-1, 1], optional)
@@ -849,7 +849,7 @@ def vertex_color_set(
     /,
     *,
     use_alpha: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Fill the active vertex color layer with the current paint color
 
     :param use_alpha: Affect Alpha, Set color completely opaque instead of reusing existing alpha (optional)
@@ -860,7 +860,7 @@ def vertex_color_smooth(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Smooth colors across vertices
 
     :return: Result of the operator call.
@@ -876,7 +876,7 @@ def vertex_paint(
     brush_toggle: typing.Literal["None", "SMOOTH", "ERASE", "MASK"] | None = "None",
     pen_flip: bool | None = False,
     override_location: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Paint a stroke in the active color attribute layer
 
         :param stroke: Stroke, (optional)
@@ -909,7 +909,7 @@ def vertex_paint_toggle(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Toggle the vertex paint mode in 3D view
 
     :return: Result of the operator call.
@@ -923,7 +923,7 @@ def visibility_filter(
     action: typing.Literal["GROW", "SHRINK"] | None = "GROW",
     iterations: int | None = 1,
     auto_iteration_count: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Edit the visibility of the current mesh
 
         :param action: Action, (optional)
@@ -942,7 +942,7 @@ def visibility_invert(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Invert the visibility of all vertices
 
     :return: Result of the operator call.
@@ -954,7 +954,7 @@ def weight_from_bones(
     /,
     *,
     type: typing.Literal["AUTOMATIC", "ENVELOPES"] | None = "AUTOMATIC",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set the weights of the groups matching the attached armatures selected bones, using the distance between the vertices and the bones
 
         :param type: Type, Method to use for assigning weights (optional)
@@ -979,7 +979,7 @@ def weight_gradient(
     yend: int | None = 0,
     flip: bool | None = False,
     cursor: int | None = 5,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Draw a line to apply a weight gradient to selected vertices
 
     :param type: Type, (optional)
@@ -1002,7 +1002,7 @@ def weight_paint(
     brush_toggle: typing.Literal["None", "SMOOTH", "ERASE", "MASK"] | None = "None",
     pen_flip: bool | None = False,
     override_location: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Paint a stroke in the current vertex groups weights
 
         :param stroke: Stroke, (optional)
@@ -1035,7 +1035,7 @@ def weight_paint_toggle(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Toggle weight paint mode in 3D view
 
     :return: Result of the operator call.
@@ -1045,7 +1045,7 @@ def weight_sample(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Use the mouse to sample a weight in the 3D view
 
     :return: Result of the operator call.
@@ -1055,7 +1055,7 @@ def weight_sample_group(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select one of the vertex groups available under current mouse position
 
     :return: Result of the operator call.
@@ -1065,7 +1065,7 @@ def weight_set(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Fill the active vertex group with the current paint weight
 
     :return: Result of the operator call.

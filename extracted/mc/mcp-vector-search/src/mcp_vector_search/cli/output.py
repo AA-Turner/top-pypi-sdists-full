@@ -189,6 +189,8 @@ def print_search_results(
             header += f" → [cyan]{result.function_name}()[/cyan]"
         if result.class_name:
             header += f" in [yellow]{result.class_name}[/yellow]"
+        if result.subproject_name:
+            header += f" [dim magenta][{result.subproject_name}][/dim magenta]"
 
         # Add location
         location = f"[dim]{result.location}[/dim]"
@@ -214,6 +216,11 @@ def print_search_results(
             # Pure semantic search: show only similarity score
             similarity = f"[green]{result.similarity_score:.2%}[/green]"
             metadata_parts.append(f"Similarity: {similarity}")
+
+        # Show git blame info if available
+        if result.last_author:
+            blame_date = f" ({result.last_modified})" if result.last_modified else ""
+            metadata_parts.append(f"[dim]👤 {result.last_author}{blame_date}[/dim]")
 
         console.print(f"  {' | '.join(metadata_parts)}")
 

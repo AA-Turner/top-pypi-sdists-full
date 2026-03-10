@@ -60,7 +60,7 @@ def _flops(lhs, rhs, *, group_sizes) -> int:
   """Returns the floating-point operations."""
   del lhs  # Unused.
   _, k, n = rhs.shape
-  return 2 * sum(group_sizes.value) * k * n
+  return 2 * int(sum(group_sizes.value)) * k * n
 
 
 _IMPLS = dict(
@@ -93,12 +93,6 @@ def _register_benchmarks():
     name = arg_spec.full_name
     spec = arg_spec.args
     for impl_name in _BENCHMARK_IMPLS.value:
-      if 'mosaic' in impl_name and (
-          not gpu_utils.has_mosaic_gpu_support()
-          or isinstance(spec['lhs'], qwix.QArray)
-          or not isinstance(spec['rhs'], qwix.QArray)
-      ):
-        continue
       if impl_name == 'xla_only_group0' and name != 'compute_bound':
         continue
       if impl_name == 'xla_even_groups' and name != 'memory_bound':

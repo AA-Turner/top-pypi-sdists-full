@@ -109,8 +109,6 @@ class AnaplanLineItem(Asset):
     INPUT_TO_SPARK_JOBS: ClassVar[Any] = None
     OUTPUT_FROM_SPARK_JOBS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "AnaplanLineItem"
-
     anaplan_line_item_formula: Union[str, None, UnsetType] = UNSET
     """Formula of the AnaplanLineItem from the source system."""
 
@@ -608,6 +606,9 @@ def _anaplan_line_item_to_nested(
         is_incomplete=anaplan_line_item.is_incomplete,
         provenance_type=anaplan_line_item.provenance_type,
         home_id=anaplan_line_item.home_id,
+        depth=anaplan_line_item.depth,
+        immediate_upstream=anaplan_line_item.immediate_upstream,
+        immediate_downstream=anaplan_line_item.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -641,7 +642,6 @@ def _anaplan_line_item_from_nested(nested: AnaplanLineItemNested) -> AnaplanLine
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -650,6 +650,9 @@ def _anaplan_line_item_from_nested(nested: AnaplanLineItemNested) -> AnaplanLine
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_anaplan_line_item_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

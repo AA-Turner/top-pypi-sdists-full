@@ -108,8 +108,6 @@ class QlikDataset(Asset):
     INPUT_TO_SPARK_JOBS: ClassVar[Any] = None
     OUTPUT_FROM_SPARK_JOBS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "QlikDataset"
-
     qlik_dataset_technical_name: Union[str, None, UnsetType] = UNSET
     """Technical name of this asset."""
 
@@ -577,6 +575,9 @@ def _qlik_dataset_to_nested(qlik_dataset: QlikDataset) -> QlikDatasetNested:
         is_incomplete=qlik_dataset.is_incomplete,
         provenance_type=qlik_dataset.provenance_type,
         home_id=qlik_dataset.home_id,
+        depth=qlik_dataset.depth,
+        immediate_upstream=qlik_dataset.immediate_upstream,
+        immediate_downstream=qlik_dataset.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -608,7 +609,6 @@ def _qlik_dataset_from_nested(nested: QlikDatasetNested) -> QlikDataset:
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -617,6 +617,9 @@ def _qlik_dataset_from_nested(nested: QlikDatasetNested) -> QlikDataset:
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_qlik_dataset_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

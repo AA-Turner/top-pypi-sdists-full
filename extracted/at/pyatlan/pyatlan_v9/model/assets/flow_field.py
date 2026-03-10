@@ -111,8 +111,6 @@ class FlowField(Asset):
     INPUT_TO_SPARK_JOBS: ClassVar[Any] = None
     OUTPUT_FROM_SPARK_JOBS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "FlowField"
-
     flow_dataset_name: Union[str, None, UnsetType] = UNSET
     """Simple name of the ephemeral dataset in which this field is contained."""
 
@@ -615,6 +613,9 @@ def _flow_field_to_nested(flow_field: FlowField) -> FlowFieldNested:
         is_incomplete=flow_field.is_incomplete,
         provenance_type=flow_field.provenance_type,
         home_id=flow_field.home_id,
+        depth=flow_field.depth,
+        immediate_upstream=flow_field.immediate_upstream,
+        immediate_downstream=flow_field.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -646,7 +647,6 @@ def _flow_field_from_nested(nested: FlowFieldNested) -> FlowField:
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -655,6 +655,9 @@ def _flow_field_from_nested(nested: FlowFieldNested) -> FlowField:
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_flow_field_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

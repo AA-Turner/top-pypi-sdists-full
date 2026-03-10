@@ -13,7 +13,7 @@ def GTEx_get_gene_expression(
     gencode_id: str | list[str],
     tissue_site_detail_id: Optional[list[str]] = None,
     attribute_subset: Optional[str] = None,
-    dataset_id: Optional[str] = "gtex_v10",
+    dataset_id: Optional[str] = "gtex_v8",
     page: Optional[int] = 0,
     items_per_page: Optional[int] = 250,
     *,

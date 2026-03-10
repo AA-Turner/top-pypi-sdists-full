@@ -344,7 +344,7 @@ impl PyMPOpenData {
         limit=None,
         **match_kwargs,
     ))]
-    #[allow(clippy::too_many_arguments)]
+
     fn search(
         &mut self,
         py: Python<'_>,
@@ -402,10 +402,10 @@ impl PyMPOpenData {
         let py_dicts: Vec<Py<PyAny>> = if let Some(ref func) = filter_fn {
             let mut filtered = Vec::new();
             for doc in &results {
-                if let Some(cap) = limit {
-                    if filtered.len() >= cap {
-                        break;
-                    }
+                if let Some(cap) = limit
+                    && filtered.len() >= cap
+                {
+                    break;
                 }
                 let py_dict = json_value_to_py(py, doc);
                 let keep: bool = func.call1(py, (&py_dict,))?.extract(py)?;

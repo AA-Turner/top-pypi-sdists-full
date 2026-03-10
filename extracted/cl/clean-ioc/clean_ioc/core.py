@@ -26,10 +26,13 @@ from typing import MutableSequence as TypingMutableSequence
 from typing import Sequence as TypingSequence
 from uuid import uuid4
 
-from theutilitybelt.functional.predicate import always_true
-from theutilitybelt.functional.utils import constant
-from theutilitybelt.typing.generics import GenericTypeMap, get_generic_bases, try_to_map_generic_args_to_open_type
-from theutilitybelt.typing.utils import get_subclasses
+from funcie import always_true, constant
+from typetoolbox import get_subclasses
+from typetoolbox.generics import (
+    GenericTypeMap,
+    get_generic_bases,
+    try_to_map_generic_args_to_specialization,
+)
 
 from clean_ioc.generic_utils import map_type_vars_to_parent
 from clean_ioc.utils import singleton
@@ -642,7 +645,7 @@ class Dependency:
                     registration_list_modifier=self.settings.list_modifier,
                 )
                 sequence_node = DependencyNode(
-                    service_type=self.service_type,  # pyright: ignore[reportArgumentType]
+                    service_type=self.service_type,  # pyright: ignore[reportArgumentType]  # ty:ignore[invalid-argument-type]
                     implementation=self.generic_collection_type,
                     lifespan=Lifespan.transient,
                 )
@@ -656,7 +659,7 @@ class Dependency:
                 return collection
 
             reg = context.find_registration(
-                service_type=self.service_type,  # pyright: ignore[reportArgumentType]
+                service_type=self.service_type,  # pyright: ignore[reportArgumentType]  # ty:ignore[invalid-argument-type]
                 registration_filter=self.settings.filter,
                 parent_node=dependency_node,
             )
@@ -684,7 +687,7 @@ class Dependency:
                     registration_list_modifier=self.settings.list_modifier,
                 )
                 sequence_node = DependencyNode(
-                    service_type=self.service_type,  # pyright: ignore[reportArgumentType]
+                    service_type=self.service_type,  # pyright: ignore[reportArgumentType]  # ty:ignore[invalid-argument-type]
                     implementation=self.generic_collection_type,
                     lifespan=Lifespan.transient,
                 )
@@ -699,7 +702,7 @@ class Dependency:
                 return collection
 
             reg = context.find_registration(
-                service_type=self.service_type,  # pyright: ignore[reportArgumentType]
+                service_type=self.service_type,  # pyright: ignore[reportArgumentType]  # ty:ignore[invalid-argument-type]
                 registration_filter=self.settings.filter,
                 parent_node=dependency_node,
             )
@@ -1366,7 +1369,7 @@ class _Registry:
         service_types = service_type if isinstance(service_type, Iterable) else (service_type,)
 
         for st in service_types:
-            self._pre_configurations[st].appendleft(pre_configuration)
+            self._pre_configurations[st].appendleft(pre_configuration)  # ty:ignore[invalid-argument-type]
 
     def get_registrations(self, service_type: type):
         return self._registrations[service_type]
@@ -1496,13 +1499,76 @@ class Resolver(Protocol):
         self,
         service_type: type[TService],
         filter: RegistrationFilter = default_registration_filter,
-    ) -> TService: ...
+    ) -> TService:
+        """
+        Resolve and return an instance for ``service_type``.
+
+        Args:
+            service_type:
+                The target type to resolve.
+            filter:
+                Registration filter used when multiple registrations exist for
+                ``service_type``.
+
+        Returns:
+            The resolved service instance.
+
+        Raises:
+            CannotResolveError:
+                If no matching registration can be found for the service or a
+                nested dependency.
+
+        Examples:
+            Resolve a concrete service:
+
+            ```python
+            service = resolver.resolve(UserService)
+            ```
+
+            Resolve a named registration:
+
+            ```python
+            from clean_ioc.registration_filters import with_name
+
+            gateway = resolver.resolve(PaymentGateway, filter=with_name("stripe"))
+            ```
+        """
+        ...
 
     async def resolve_async(
         self,
         service_type: type[TService],
         filter: RegistrationFilter = default_registration_filter,
-    ) -> TService: ...
+    ) -> TService:
+        """
+        Resolve and return an instance for ``service_type`` asynchronously.
+
+        This is the async counterpart to ``resolve(...)`` and should be used
+        when dependency creation includes async factories or async generators.
+
+        Args:
+            service_type:
+                The target type to resolve.
+            filter:
+                Registration filter used when multiple registrations exist for
+                ``service_type``.
+
+        Returns:
+            The resolved service instance.
+
+        Raises:
+            CannotResolveError:
+                If no matching registration can be found for the service or a
+                nested dependency.
+
+        Examples:
+            Resolve asynchronously:
+
+            ```python
+            handler = await resolver.resolve_async(MessageHandler)
+            ```
+        """
+        ...
 
 
 class Registrator(Protocol):
@@ -1519,7 +1585,83 @@ class Registrator(Protocol):
         tags: Iterable[Tag] | None = None,
         parent_node_filter: NodeFilter = default_parent_node_filter,
         scoped_teardown: Callable[[TService], Any] | None = None,
-    ) -> str: ...
+    ) -> str:
+        """
+        Register a dependency for a service type and return its registration ID.
+
+        The registration target can be provided in four different ways:
+
+        1. ``implementation_type``:
+           Maps ``service_type`` to a concrete implementation class.
+        2. ``factory``:
+           Uses a callable to build the instance. Factory parameters are injected
+           using normal dependency resolution and type hints.
+        3. ``instance``:
+           Uses a pre-built object instance.
+        4. no target supplied:
+           Treats ``service_type`` as its own concrete implementation.
+
+        Args:
+            service_type:
+                The abstraction/type used during resolution.
+            implementation_type:
+                Concrete class to instantiate for ``service_type``.
+            factory:
+                Callable used to create instances. Can be sync/async and supports
+                generator/contextmanager patterns handled by activators.
+            instance:
+                Pre-constructed object to return for this registration.
+            lifespan:
+                Controls reuse semantics (``transient``, ``once_per_graph``,
+                ``scoped``, ``singleton``).
+            name:
+                Optional name used by registration filters to disambiguate
+                multiple registrations of the same service.
+            dependency_config:
+                Per-parameter overrides for dependency resolution and value
+                injection.
+            tags:
+                Optional metadata used by registration filters.
+            parent_node_filter:
+                Predicate that must match the current parent dependency node for
+                this registration to be considered during resolution.
+            scoped_teardown:
+                Optional teardown callback to run for scoped/singleton cached
+                instances when scopes are cleaned up.
+
+        Returns:
+            A unique registration ID string.
+
+        Examples:
+            Register implementation mapping:
+
+            ```python
+            container.register(IService, ServiceImpl)
+            ```
+
+            Register concrete type:
+
+            ```python
+            container.register(ServiceImpl)
+            ```
+
+            Register factory (sync or async callable):
+
+            ```python
+            def build_service(repo: Repo) -> ServiceImpl:
+                return ServiceImpl(repo)
+
+            container.register(IService, factory=build_service)
+            ```
+
+            Register pre-built instance:
+
+            ```python
+            config = AppConfig(env="prod")
+            container.register(AppConfig, instance=config)
+            ```
+        """
+        ...
 
 
 class ScopeCreator(Protocol):
@@ -1553,6 +1695,42 @@ class Scope:
         service_type: type[TService],
         filter: RegistrationFilter = default_registration_filter,
     ) -> TService:
+        """
+        Resolve and return an instance for ``service_type``.
+
+        This creates a new dependency graph for the call, resolves the graph
+        root using the selected registration, and returns the built instance.
+
+        Args:
+            service_type:
+                The target type to resolve.
+            filter:
+                Optional registration filter used to choose a registration when
+                multiple registrations are available.
+
+        Returns:
+            The resolved instance of ``service_type``.
+
+        Raises:
+            CannotResolveError:
+                If no registration matches ``service_type`` and ``filter``, or
+                if any nested dependency cannot be resolved.
+
+        Examples:
+            Basic resolution:
+
+            ```python
+            service = container.resolve(UserService)
+            ```
+
+            Resolve a named registration:
+
+            ```python
+            from clean_ioc.registration_filters import with_name
+
+            gateway = container.resolve(PaymentGateway, filter=with_name("stripe"))
+            ```
+        """
         graph = self.resolve_dependency_graph(service_type, filter)
         return graph.instance
 
@@ -1561,22 +1739,51 @@ class Scope:
         service_type: type[TService],
         filter: RegistrationFilter = default_registration_filter,
     ) -> TService:
+        """
+        Resolve and return an instance for ``service_type`` asynchronously.
+
+        This behaves like ``resolve(...)`` but executes the async resolution
+        path, allowing async factories and async generator-based dependencies to
+        be activated correctly.
+
+        Args:
+            service_type:
+                The target type to resolve.
+            filter:
+                Optional registration filter used to choose a registration when
+                multiple registrations are available.
+
+        Returns:
+            The resolved instance of ``service_type``.
+
+        Raises:
+            CannotResolveError:
+                If no registration matches ``service_type`` and ``filter``, or
+                if any nested dependency cannot be resolved.
+
+        Examples:
+            Async resolution:
+
+            ```python
+            service = await container.resolve_async(UserService)
+            ```
+        """
         graph = await self.resolve_dependency_graph_async(service_type, filter)
         return graph.instance
 
     def call(self, fn: Callable[..., TReturn]) -> TReturn:
         name: str = str(uuid4())
         with self.new_scope() as scope:
-            scope.register(Callable, fn, name=name)  # type: ignore
-            return scope.resolve(Callable, filter=lambda r: r.name == name)  # type: ignore
+            scope.register(Callable, fn, name=name)
+            return scope.resolve(Callable, filter=lambda r: r.name == name)
 
     async def call_async(self, fn: Callable[..., TReturn]) -> TReturn:
         name: str = str(uuid4())
         with self.new_scope() as scope:
-            scope.register(Callable, fn, name=name)  # type: ignore
+            scope.register(Callable, fn, name=name)
 
-            return await scope.resolve_async(  # type: ignore
-                Callable,  # type: ignore
+            return await scope.resolve_async(
+                Callable,
                 filter=lambda r: r.name == name,
             )
 
@@ -1636,6 +1843,78 @@ class Scope:
         parent_node_filter: NodeFilter = default_parent_node_filter,
         scoped_teardown: Callable[[TService], Any] | None = None,
     ) -> str:
+        """
+        Register a dependency for ``service_type`` and return the registration ID.
+
+        Resolution behavior is determined by which target argument is provided:
+
+        - ``instance``: register a pre-built object.
+        - ``factory``: register a callable that creates the object.
+        - ``implementation_type``: map service type to a concrete implementation.
+        - none of the above: register ``service_type`` as its own implementation.
+
+        Precedence is ``instance`` > ``factory`` > ``implementation_type`` >
+        concrete ``service_type``.
+
+        Args:
+            service_type:
+                The type requested during ``resolve(...)``.
+            implementation_type:
+                Optional concrete class to instantiate for ``service_type``.
+            factory:
+                Optional creation callable. Parameters are dependency-injected.
+                Async factories and generator/contextmanager patterns are
+                supported by the internal activator system.
+            instance:
+                Optional already-created object.
+            lifespan:
+                Instance reuse policy.
+            name:
+                Optional registration name for filter-based selection.
+            dependency_config:
+                Argument-level overrides for dependency resolution/value
+                factories.
+            tags:
+                Optional metadata attached to the registration.
+            parent_node_filter:
+                Restricts when this registration is eligible based on the
+                current parent node in the dependency graph.
+            scoped_teardown:
+                Optional teardown callback for scoped/singleton registrations.
+
+        Returns:
+            The registration ID that can later be used for diagnostics or
+            resolution by ID.
+
+        Examples:
+            Register implementation mapping:
+
+            ```python
+            container.register(IService, ServiceImpl)
+            ```
+
+            Register concrete type:
+
+            ```python
+            container.register(ServiceImpl)
+            ```
+
+            Register factory:
+
+            ```python
+            def build_service(repo: Repo) -> ServiceImpl:
+                return ServiceImpl(repo)
+
+            container.register(IService, factory=build_service)
+            ```
+
+            Register pre-built instance:
+
+            ```python
+            config = AppConfig(env="prod")
+            container.register(AppConfig, instance=config)
+            ```
+        """
         if instance is not None:
             return self._registry.register_instance(
                 service_type=service_type,
@@ -1708,6 +1987,66 @@ class Scope:
         dependency_config: DependencyConfig = {},
         position: int = 0,
     ) -> None:
+        """
+        Register a decorator for a service type.
+
+        Decorators are applied during resolution after the base registration is
+        created. Multiple decorators form a chain, where each decorator receives
+        the previously built instance.
+
+        Args:
+            service_type:
+                The service type whose registrations can be decorated.
+            decorator_type:
+                Decorator class or callable used to wrap the resolved service.
+                Non-decorated parameters are dependency-injected.
+            registration_filter:
+                Predicate used to decide whether the decorator applies to a
+                specific registration.
+            decorator_node_filter:
+                Predicate used to decide whether the decorator applies for the
+                current decorated node in the dependency graph.
+            decorated_arg:
+                Name of the decorator argument that should receive the wrapped
+                instance. If omitted, it is auto-detected by matching
+                ``service_type`` in the decorator signature annotations.
+            dependency_config:
+                Optional dependency overrides for decorator parameters.
+            position:
+                Ordering value for decorator application. Lower values are
+                applied first; ties are resolved by registration insertion order.
+
+        Examples:
+            Register a class decorator:
+
+            ```python
+            container.register(Service, ServiceImpl)
+            container.register_decorator(Service, LoggingDecorator)
+            ```
+
+            Register a decorator with explicit wrapped-arg name:
+
+            ```python
+            container.register_decorator(
+                Service,
+                LoggingDecorator,
+                decorated_arg="child",
+                position=10,
+            )
+            ```
+
+            Register with filters:
+
+            ```python
+            from clean_ioc.registration_filters import has_tag
+
+            container.register_decorator(
+                Service,
+                LoggingDecorator,
+                registration_filter=has_tag("channel", "api"),
+            )
+            ```
+        """
         self._registry.register_decorator(
             service_type=service_type,
             decorator_type=decorator_type,
@@ -1718,7 +2057,9 @@ class Scope:
             position=position,
         )
 
-    def add_singleton_node(self, registration: _Registration, node: DependencyNode) -> Scope: ...
+    def add_singleton_node(
+        self, registration: _Registration, node: DependencyNode
+    ) -> Scope: ...  # ty:ignore[empty-body]
 
     def find_singleton_node(self, registration_id: str) -> DependencyNode | None: ...
 
@@ -1738,7 +2079,7 @@ class Scope:
         """
 
         registrations = [r for r in self._registry.get_registrations(service_type) if filter(r)]
-        registrations = list_modifier(registrations)  # type: ignore
+        registrations = list_modifier(registrations)
         return [r.id for r in registrations]
 
     def find_registrations(
@@ -1826,9 +2167,9 @@ class Scope:
         return self._scoped_instances
 
     @property
-    def singleton_instances(self) -> dict[str, DependencyNode]: ...
+    def singleton_instances(self) -> dict[str, DependencyNode]: ...  # ty:ignore[empty-body]
 
-    def new_scope(self) -> Scope: ...
+    def new_scope(self) -> Scope: ...  # ty:ignore[empty-body]
 
 
 class ChildScope(Scope):
@@ -1949,7 +2290,7 @@ class Container(Scope):
     def _get_target_generic_base(generic_service_type: type, subclass: type):
         return next(
             (
-                try_to_map_generic_args_to_open_type(b, subclass)
+                try_to_map_generic_args_to_specialization(b, subclass)
                 for b in get_generic_bases(
                     subclass,
                     lambda t: getattr(t, "__origin__", None) == generic_service_type,
@@ -2011,20 +2352,73 @@ class Container(Scope):
         decorated_node_filter: NodeFilter = default_decorated_node_filter,
         position: int = 0,
     ) -> None:
+        """
+        Register decorators across all discovered subclasses of an open generic service.
+
+        For each discovered subclass of ``generic_service_type``, Clean IoC maps
+        that subclass to its concrete closed generic base and registers a
+        decorator for that concrete service type.
+
+        If ``generic_decorator_type`` is open generic, it is concretized per
+        subclass mapping before registration.
+
+        Args:
+            generic_service_type:
+                Open generic service base (for example ``Handler`` when
+                resolving ``Handler[UserCreated]``).
+            generic_decorator_type:
+                Decorator type to apply. Can be open generic or concrete.
+            subclass_type_filter:
+                Predicate to limit which discovered subclasses are included.
+            decorated_arg:
+                Name of the decorator argument that receives the wrapped service
+                instance. If omitted, auto-detection is used.
+            dependency_config:
+                Optional dependency overrides for decorator parameters.
+            registration_filter:
+                Predicate used to select which matching registrations should be
+                decorated.
+            decorated_node_filter:
+                Predicate used to select where in dependency graphs the decorator
+                should be applied.
+            position:
+                Ordering value for decorator application.
+
+        Examples:
+            Register an open-generic decorator for all mapped handlers:
+
+            ```python
+            container.register_generic_subclasses(Handler)
+            container.register_generic_decorator(Handler, LoggingHandlerDecorator)
+            ```
+
+            Register with explicit wrapped arg and ordering:
+
+            ```python
+            container.register_generic_decorator(
+                Handler,
+                LoggingHandlerDecorator,
+                decorated_arg="child",
+                position=5,
+            )
+            ```
+        """
         full_type_filter = ~is_abstract & ~name_starts_with("__DecoratedGeneric__") & subclass_type_filter
         subclasses = get_subclasses(generic_service_type, filter=full_type_filter)
         decorator_generic_map = GenericTypeMap(generic_decorator_type)
-        decorator_is_open_generic = decorator_generic_map.is_generic_mapping_open()
+        decorator_is_open_generic = decorator_generic_map.is_mapping_generic()
 
         for subclass in subclasses:
-            target_generic_base = try_to_map_generic_args_to_open_type(generic_service_type, subclass)
+            target_generic_base = try_to_map_generic_args_to_specialization(generic_service_type, subclass)
             if target_generic_base:
                 if decorator_is_open_generic:
-                    concrete_decorator = try_to_map_generic_args_to_open_type(generic_decorator_type, subclass)
-                    DecoratedType = create_generic_decorator_type(concrete_decorator)  # noqa: N806
+                    concrete_decorator = try_to_map_generic_args_to_specialization(generic_decorator_type, subclass)
+                    DecoratedType = create_generic_decorator_type(  # noqa: N806
+                        concrete_decorator  # ty:ignore[invalid-argument-type]
+                    )
 
                     self.register_decorator(
-                        target_generic_base,
+                        target_generic_base,  # ty:ignore[invalid-argument-type]
                         DecoratedType,
                         decorated_arg=decorated_arg,
                         dependency_config=dependency_config,
@@ -2034,7 +2428,7 @@ class Container(Scope):
                     )
                 else:
                     self.register_decorator(
-                        target_generic_base,
+                        target_generic_base,  # ty:ignore[invalid-argument-type]
                         generic_decorator_type,
                         decorated_arg=decorated_arg,
                         dependency_config=dependency_config,

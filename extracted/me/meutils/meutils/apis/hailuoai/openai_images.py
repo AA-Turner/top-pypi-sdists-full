@@ -186,6 +186,7 @@ if __name__ == '__main__':
     # token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NzIzNTA5NjUsInVzZXIiOnsiaWQiOiI0Njk4ODIxOTY3NDM1Mjg0NDkiLCJuYW1lIjoiYWZzbCBkcnF2IiwiYXZhdGFyIjoiIiwiZGV2aWNlSUQiOiIzMTE2NzAxODUwMDg0ODg0NTIiLCJpc0Fub255bW91cyI6ZmFsc2V9fQ.3pO0O36-um2fQs0ML0eHwpi0D7rV5yjmnjcpuiZcNKw"
     token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NzIzNTA5NjUsInVzZXIiOnsiaWQiOiI0Njk4ODIxOTY3NDM1Mjg0NDkiLCJuYW1lIjoiYWZzbCBkcnF2IiwiYXZhdGFyIjoiIiwiZGV2aWNlSUQiOiIzMTE2NzAxODUwMDg0ODg0NTIiLCJpc0Fub255bW91cyI6ZmFsc2V9fQ.3pO0O36-um2fQs0ML0eHwpi0D7rV5yjmnjcpuiZcNKw"
     token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NzU1MzI2NjAsInVzZXIiOnsiaWQiOiIzMDI4MzM4Njc3NzE5NDkwNTgiLCJuYW1lIjoibWUgYmV0dGVyIiwiYXZhdGFyIjoiIiwiZGV2aWNlSUQiOiIzMDI4MzM3NTk1MTI3NjQ0MTciLCJpc0Fub255bW91cyI6ZmFsc2V9fQ.L5H98MBYB88Gdfokq3O7f5rCMrt19ONTl3hkjgvWcK0"
+    token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NzU3NDU3NTksInVzZXIiOnsiaWQiOiI0ODQxNjM2NzE3MDE4MzE2ODgiLCJuYW1lIjoi5p2wIOiigSIsImF2YXRhciI6IiIsImRldmljZUlEIjoiMzAyODMzNzU5NTEyNzY0NDE3IiwiaXNBbm9ueW1vdXMiOmZhbHNlfX0.U3oQESgf7qReJ_18WbP5FiGhzrl-eBCaw5K3K6nQD28"
     model = "nano-banana2"
     # model = "nano-banana2_2k"
     # model = "nano-banana2_4k"
@@ -214,6 +215,7 @@ if __name__ == '__main__':
     request = ImageRequest(**data)
 
     model = "mj_v7_4K"
+    # mj_niji7
     request = ImageRequest(
         model=model,
         n=1,
@@ -248,4 +250,4 @@ if __name__ == '__main__':
     # task_id = "472571658445312008"
     task_id = "20251225095015"
     # arun(get_task(task_id=task_id, token=token))
-    "MiniMax-M2.5-highspeed"
+

@@ -33,9 +33,10 @@ from webob.dec import wsgify
 from webob.exc import HTTPForbidden, HTTPNotFound
 from webob.static import DirectoryApp, FileApp
 
-from ..exceptions import ExtensionNotSupportedError
-from ..handlers.lib import get_handler, load_handlers
-from ..lib import __version__, unquote
+from pydap.exceptions import ExtensionNotSupportedError
+from pydap.handlers.lib import get_handler, load_handlers
+from pydap.lib import __version__, unquote
+
 from .ssf import ServerSideFunctions
 
 
@@ -235,8 +236,14 @@ class StaticMiddleware(object):
 
         content_type, content_encoding = mimetypes.guess_type(full_path)
         package += (".").join([""] + parts)
+        if content_encoding is None:
+            body = (importlib.resources.files(package) / resource).read_bytes()
+        else:
+            body = importlib.resources.read_text(
+                package, resource, encoding=content_encoding
+            )
         return Response(
-            body=importlib.resources.read_text(package, resource),
+            body=body,
             content_type=content_type,
             content_encoding=content_encoding,
         )

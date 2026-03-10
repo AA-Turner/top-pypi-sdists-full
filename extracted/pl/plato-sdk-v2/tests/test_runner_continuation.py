@@ -156,6 +156,28 @@ class TestRunWithoutContinuation:
         assert exec_ctx.config.get("continue_session") is not True
 
     @pytest.mark.asyncio
+    async def test_display_name_passed_to_runtime_contexts(self):
+        agent_cfg = _make_agent_config()
+        runtime = FakeRuntime()
+        runner = AgentRunner(agent_cfg, runtime, display_name="backend-builder")
+
+        await runner.run("do something specific")
+
+        assert runtime.prepare_calls[0].display_name == "backend-builder"
+        assert runtime.execute_calls[0].display_name == "backend-builder"
+
+    @pytest.mark.asyncio
+    async def test_run_display_name_override_takes_precedence(self):
+        agent_cfg = _make_agent_config()
+        runtime = FakeRuntime()
+        runner = AgentRunner(agent_cfg, runtime, display_name="default-name")
+
+        await runner.run("do something specific", display_name="override-name")
+
+        assert runtime.prepare_calls[0].display_name == "override-name"
+        assert runtime.execute_calls[0].display_name == "override-name"
+
+    @pytest.mark.asyncio
     async def test_cleanup_on_error(self):
         agent_cfg = _make_agent_config()
         runtime = FakeRuntime()

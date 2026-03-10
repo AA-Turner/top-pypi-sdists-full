@@ -318,7 +318,7 @@ class AttentionTestBase(parameterized.TestCase):
     q, k, v = numerics.random_initialize((q, k, v))
     self._run_test_with_inputs(q, k, v, atol=2e-6)
 
-  @parameterized.parameters((8, 256), (256, 8), (8, 8))
+  @parameterized.parameters((8, 256), (256, 8), (7, 8))
   def test_small_sequences(self, seq_q, seq_kv):
     self._test_small_sequences(seq_q, seq_kv)
 
@@ -368,6 +368,9 @@ class AttentionTestBase(parameterized.TestCase):
 
   def test_non_power_of_two_head_dim(self):
     self._run_test((2, 1024, 4, 48))
+
+  def test_small_non_power_of_two_head_dim(self):
+    self._run_test((2, 1024, 4, 24))
 
   @pytest.mark.long
   @parameterized.parameters(

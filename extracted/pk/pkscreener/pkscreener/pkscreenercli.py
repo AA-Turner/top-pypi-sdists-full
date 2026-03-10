@@ -514,7 +514,7 @@ class ApplicationRunner:
         # Handle options processing
         if self.args.options is not None:
             self.args.options = self.args.options.replace("::", ":").replace('"', "").replace("'", "")
-            if self.args.options.upper().startswith("C") or "C:" in self.args.options.upper():
+            if str(self.args.options).upper().startswith("C") or "C:" in str(self.args.options).upper():
                 self.args.runintradayanalysis = True
             self.args, _ = self._update_progress_status()
         
@@ -744,34 +744,27 @@ class ApplicationRunner:
 # =============================================================================
 
 def _get_debug_args():
-    """Get debug arguments from command line."""
-    import csv
-    import re
+    """Get debug arguments from command line - fixed version."""
+    import sys
+    import shlex
     
-    def re_split(s):
-        def strip_quotes(s):
-            if s and (s[0] == '"' or s[0] == "'") and s[0] == s[-1]:
-                return s[1:-1]
-            return s
-        return [strip_quotes(p).replace('\\"', '"').replace("\\'", "'")
-                for p in re.findall(r'(?:[^"\s]*"(?:\\.|[^"])*"[^"\s]*)+|(?:[^\'\s]*\'(?:\\.|[^\'])*\'[^\'\s]*)+|[^\s]+', s)]
-    
-    global args
     try:
         if args is not None:
-            args = list(args)
-        return args
+            # If args is already set, use it
+            if isinstance(args, str):
+                # Split the string properly, respecting quotes
+                return shlex.split(args)
+            return list(args) if args else []
     except NameError:
+        # Get from sys.argv
         args = sys.argv[1:]
-        if isinstance(args, list):
-            if len(args) == 1:
-                return re_split(args[0])
-            return args
-        return None
-    except TypeError:
+        # If there's only one argument and it contains spaces, split it
+        if len(args) == 1 and ' ' in args[0]:
+            return shlex.split(args[0])
         return args
     except Exception:
-        return None
+        pass
+    return []
 
 
 def _exit_gracefully(config_manager, arg_parser):
@@ -801,11 +794,11 @@ def _exit_gracefully(config_manager, arg_parser):
         # Reset config if needed
         argsv = arg_parser.parse_known_args()
         args = argsv[0]
-        if args is not None and args.options is not None and not args.options.upper().startswith("T"):
+        if args is not None and args.options is not None and not str(args.options).upper().startswith("T"):
             resetConfigToDefault(force=True)
         
         if "PKDevTools_Default_Log_Level" in os.environ.keys():
-            if args is None or (args is not None and args.options is not None and "|" not in args.options):
+            if args is None or (args is not None and args.options is not None and "|" not in str(args.options)):
                 del os.environ['PKDevTools_Default_Log_Level']
         
         config_manager.logsEnabled = False
@@ -836,13 +829,14 @@ def _remove_old_instances():
 # =============================================================================
 
 # Global state
+
 args = None
 argParser = ArgumentParser.create_parser()
 configManager = ConfigManager.tools()
 
 # Parse initial arguments
 args = _get_debug_args()
-argsv = argParser.parse_known_args(args=args)
+argsv = argParser.parse_known_args(args=args) if args is not None else argParser.parse_known_args()
 args = argsv[0]
 
 

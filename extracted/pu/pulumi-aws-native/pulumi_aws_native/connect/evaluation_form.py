@@ -37,6 +37,7 @@ class EvaluationFormArgs:
                  target_configuration: Optional[pulumi.Input['EvaluationFormTargetConfigurationArgs']] = None):
         """
         The set of arguments for constructing a EvaluationForm resource.
+
         :param pulumi.Input[_builtins.str] instance_arn: The identifier of the Amazon Connect instance.
         :param pulumi.Input[Sequence[pulumi.Input['EvaluationFormBaseItemArgs']]] items: Items that are part of the evaluation form. The total number of sections and questions must not exceed 100 each. Questions must be contained in a section.
                 *Minimum size*: 1
@@ -48,6 +49,7 @@ class EvaluationFormArgs:
         :param pulumi.Input[_builtins.str] description: The description of the evaluation form.
                 *Length Constraints*: Minimum length of 0. Maximum length of 1024.
         :param pulumi.Input['EvaluationFormLanguageConfigurationArgs'] language_configuration: Configuration for language settings of this evaluation form.
+        :param pulumi.Input['EvaluationFormEvaluationReviewConfigurationArgs'] review_configuration: Configuration for evaluation review settings of this evaluation form.
         :param pulumi.Input['EvaluationFormScoringStrategyArgs'] scoring_strategy: A scoring strategy of the evaluation form.
         :param pulumi.Input[Sequence[pulumi.Input['_root_inputs.TagArgs']]] tags: The tags used to organize, track, or control access for this resource. For example, { "tags": {"key1":"value1", "key2":"value2"} }.
         :param pulumi.Input['EvaluationFormTargetConfigurationArgs'] target_configuration: Configuration that specifies the target for this evaluation form.
@@ -162,6 +164,9 @@ class EvaluationFormArgs:
     @_builtins.property
     @pulumi.getter(name="reviewConfiguration")
     def review_configuration(self) -> Optional[pulumi.Input['EvaluationFormEvaluationReviewConfigurationArgs']]:
+        """
+        Configuration for evaluation review settings of this evaluation form.
+        """
         return pulumi.get(self, "review_configuration")
 
     @review_configuration.setter
@@ -226,6 +231,7 @@ class EvaluationForm(pulumi.CustomResource):
         """
         Creates an evaluation form for the specified CON instance.
 
+
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[Union['EvaluationFormAutoEvaluationConfigurationArgs', 'EvaluationFormAutoEvaluationConfigurationArgsDict']] auto_evaluation_configuration: The automatic evaluation configuration of an evaluation form.
@@ -236,6 +242,7 @@ class EvaluationForm(pulumi.CustomResource):
                 *Minimum size*: 1
                 *Maximum size*: 100
         :param pulumi.Input[Union['EvaluationFormLanguageConfigurationArgs', 'EvaluationFormLanguageConfigurationArgsDict']] language_configuration: Configuration for language settings of this evaluation form.
+        :param pulumi.Input[Union['EvaluationFormEvaluationReviewConfigurationArgs', 'EvaluationFormEvaluationReviewConfigurationArgsDict']] review_configuration: Configuration for evaluation review settings of this evaluation form.
         :param pulumi.Input[Union['EvaluationFormScoringStrategyArgs', 'EvaluationFormScoringStrategyArgsDict']] scoring_strategy: A scoring strategy of the evaluation form.
         :param pulumi.Input['EvaluationFormStatus'] status: The status of the evaluation form.
                 *Allowed values*: ``DRAFT`` | ``ACTIVE``
@@ -251,6 +258,7 @@ class EvaluationForm(pulumi.CustomResource):
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
         Creates an evaluation form for the specified CON instance.
+
 
         :param str resource_name: The name of the resource.
         :param EvaluationFormArgs args: The arguments to use to populate this resource's properties.
@@ -397,6 +405,9 @@ class EvaluationForm(pulumi.CustomResource):
     @_builtins.property
     @pulumi.getter(name="reviewConfiguration")
     def review_configuration(self) -> pulumi.Output[Optional['outputs.EvaluationFormEvaluationReviewConfiguration']]:
+        """
+        Configuration for evaluation review settings of this evaluation form.
+        """
         return pulumi.get(self, "review_configuration")
 
     @_builtins.property

@@ -88,12 +88,12 @@ class PMCTool(BaseTool):
         if not isinstance(article_ids, dict):
             article_ids = {}
 
-        pmcid = self._normalize_pmcid(article_ids.get("pmc") or pmc_numeric_id)
-        pmid = (
-            article_ids.get("pubmed")
-            if isinstance(article_ids.get("pubmed"), str)
-            else None
+        pmcid = self._normalize_pmcid(
+            article_ids.get("pmcid") or article_ids.get("pmc") or pmc_numeric_id
         )
+        # NCBI esummary XML uses "pmid" as the key (not "pubmed")
+        raw_pmid = article_ids.get("pmid") or article_ids.get("pubmed")
+        pmid = raw_pmid if isinstance(raw_pmid, str) else None
         doi = (
             article_ids.get("doi") if isinstance(article_ids.get("doi"), str) else None
         )
@@ -299,17 +299,31 @@ class PMCTool(BaseTool):
                     for r in results
                     if isinstance(r, dict) and r.get("pmid")
                 ]
-                abstract_map = self._fetch_pubmed_abstracts(pmids)
-                if abstract_map:
+                if pmids:
+                    abstract_map = self._fetch_pubmed_abstracts(pmids)
+                    if abstract_map:
+                        for r in results:
+                            if not isinstance(r, dict):
+                                continue
+                            pmid = r.get("pmid")
+                            if pmid and abstract_map.get(str(pmid)):
+                                r["abstract"] = abstract_map.get(str(pmid))
+                                r["abstract_source"] = "PubMed"
+                                if isinstance(r.get("data_quality"), dict):
+                                    r["data_quality"]["has_abstract"] = True
+
+                # Warn when no PMIDs are available to fetch abstracts
+                papers_without_abstract = sum(
+                    1 for r in results if isinstance(r, dict) and not r.get("abstract")
+                )
+                if papers_without_abstract == len(results):
                     for r in results:
-                        if not isinstance(r, dict):
-                            continue
-                        pmid = r.get("pmid")
-                        if pmid and abstract_map.get(str(pmid)):
-                            r["abstract"] = abstract_map.get(str(pmid))
-                            r["abstract_source"] = "PubMed"
-                            if isinstance(r.get("data_quality"), dict):
-                                r["data_quality"]["has_abstract"] = True
+                        if isinstance(r, dict):
+                            r["abstract_note"] = (
+                                "Abstracts unavailable: PMC esummary did not return "
+                                "PubMed IDs for these articles. Try PubMed_search_articles "
+                                "for abstract access."
+                            )
 
             return results[:limit]
 

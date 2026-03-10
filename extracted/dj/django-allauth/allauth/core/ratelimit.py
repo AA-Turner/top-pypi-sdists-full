@@ -1,5 +1,3 @@
-from typing import Optional
-
 from django.conf import settings
 from django.http import HttpResponse
 
@@ -10,7 +8,7 @@ from allauth.core.internal.ratelimit import Rate  # noqa
 from allauth.utils import import_callable
 
 
-def clear(request, *, action, key=None, user=None):
+def clear(request, *, action: str, key=None, user=None) -> None:
     from allauth.account import app_settings
 
     _impl.clear(
@@ -66,7 +64,7 @@ def respond_429(request) -> HttpResponse:
     return handler429(request)
 
 
-def consume_or_429(request, *args, **kwargs) -> Optional[HttpResponse]:
+def consume_or_429(request, *args, **kwargs) -> HttpResponse | None:
     if not consume(request, *args, **kwargs):
         return respond_429(request)
     return None

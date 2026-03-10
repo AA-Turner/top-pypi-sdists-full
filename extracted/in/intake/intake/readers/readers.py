@@ -212,7 +212,7 @@ class FileByteReader(FileReader):
 class FileTextReader(FileReader):
     """The contents of file(s) as str"""
 
-    output_instance = "builtin:str"
+    output_instance = "builtins:str"
     implements = {datatypes.FileData}
 
     def discover(self, data=None, encoding=None, **kwargs):
@@ -389,34 +389,40 @@ class DuckDB(BaseReader):
     imports = {"duckdb"}
     output_instance = "duckdb:DuckDBPyRelation"  # can be converted to pandas with .df
     func_doc = "duckdb:query"
+    implements = {datatypes.SQLQuery}
     _dd = {}  # hold the engines, so results are still valid
 
     def discover(self, **kwargs):
         return self.read().limit(10)
 
-    def _duck(self, data):
+    @classmethod
+    def _duck(cls, data, conn=None):
         import duckdb
 
-        conn = getattr(data, "conn", {})  # only SQL type normally has this
-        if isinstance(conn, str):
-            # https://duckdb.org/docs/extensions/
-            if conn.startswith("sqlite:"):
-                duckdb.connect(":default:").execute("INSTALL sqlite;LOAD sqlite;")
-                conn = re.sub("^sqlite3?:/{0,3}", "", conn)
-                conn = {"database": conn}
-            elif conn.startswith("postgres") and str(conn) not in self._dd:
-                d = duckdb.connect()
-                d.execute("INSTALL postgres;LOAD postgres;")
-                # extra params possible here https://duckdb.org/docs/extensions/postgres_scanner#usage
-                d.execute(f"CALL postgres_attach('{conn}');")
-                self._dd[str(conn)] = d
-        if str(conn) not in self._dd:
-            self._dd[str(conn)] = duckdb.connect(
-                **conn
-            )  # connection must be cached for results to be usable
+        conn = getattr(data, "conn", conn) or {}  # only SQL type normally has this
+        if str(conn) not in cls._dd:
+            # TODO:  separate engine creation and caching?
+            if isinstance(conn, str):
+                # https://duckdb.org/docs/extensions/
+                if conn.startswith("sqlite:"):
+                    duckdb.connect(":default:").execute("INSTALL sqlite;LOAD sqlite;")
+                    conn1 = re.sub("^sqlite3?:/{0,3}", "", conn)
+                    conn1 = {"database": conn1}
+                    d = duckdb.connect(**conn1)
+                elif conn.startswith("postgres"):
+                    d = duckdb.connect()
+                    d.execute("INSTALL postgres;LOAD postgres;")
+                    # extra params possible here https://duckdb.org/docs/extensions/postgres_scanner#usage
+                    d.execute(f"CALL postgres_attach('{conn}');")
+                else:
+                    d = duckdb.connect(conn)
+            else:
+                d = duckdb.connect(**conn)
+            cls._dd[str(conn)] = d  # connection must be cached for results to be usable
+        d = cls._dd[str(conn)]
         if isinstance(data, datatypes.FileData) and "://" in data.url:
-            self._dd[str(conn)].execute("INSTALL httpfs;LOAD httpfs;")
-        return self._dd[str(conn)]
+            d.execute("INSTALL httpfs;LOAD httpfs;")
+        return d
 
 
 class DuckParquet(DuckDB, FileReader):
@@ -1250,6 +1256,7 @@ class XArrayDatasetReader(FileReader):
         datatypes.NetCDF3,
         datatypes.HDF5,
         datatypes.GRIB2,
+        datatypes.IcechunkRepo,
         datatypes.Zarr,
         datatypes.OpenDAP,
         datatypes.TileDB,
@@ -1264,7 +1271,7 @@ class XArrayDatasetReader(FileReader):
         from xarray import open_dataset, open_mfdataset
 
         if "engine" not in kw:
-            if isinstance(data, datatypes.Zarr):
+            if isinstance(data, (datatypes.Zarr, datatypes.IcechunkRepo)):
                 kw["engine"] = "zarr"
                 if data.root and "group" not in kw:
                     kw["group"] = data.root
@@ -1282,6 +1289,18 @@ class XArrayDatasetReader(FileReader):
             kw.setdefault("engine", "h5netcdf")
             if getattr(data, "path", False):
                 kw["group"] = data.path
+        if isinstance(data, datatypes.IcechunkRepo):
+            import icechunk
+
+            url = f"{data.url}_storage" if "storage" not in data.url else data.url
+            store_cls = getattr(icechunk, url)
+            store = store_cls(**(data.storage_options or {}))
+            repo = icechunk.Repository.open(store)
+            session = repo.readonly_session(data.ref)
+            zarr_store = session.store
+            kw.get("backend_kwargs", {}).pop("storage_options", None)
+            kw.setdefault("backend_kwargs", {})["consolidated"] = False
+            return open_dataset(zarr_store, **kw)
         auth = kw.pop("auth", "")
         if isinstance(data, datatypes.OpenDAP) and auth and kw.get("engine", "") == "pydap":
             import requests
@@ -1304,7 +1323,9 @@ class XArrayDatasetReader(FileReader):
                 ofs = data.url
             elif open_local:
                 ofs = fsspec.open_local(data.url, **(data.storage_options or {}))
-            elif is_fsspec_url(data.url[0]):
+            elif (isinstance(data.url, str) and is_fsspec_url(data.url)) or is_fsspec_url(
+                data.url[0]
+            ):
                 ofs = [
                     _.open() for _ in fsspec.open_files(data.url, **(data.storage_options or {}))
                 ]
@@ -1428,8 +1449,9 @@ class GeoPandasTabular(FileReader):
     output_instance = "geopandas:GeoDataFrame"
     imports = {"geopandas", "pyarrow"}
     implements = {datatypes.Parquet, datatypes.Feather2}
-    func = "geopands:read_parquet"
-    other_funcs = {"geopands:read_feather"}
+    func = "geopandas:read_parquet"
+    other_funcs = {"geopandas:read_feather"}
+    url_arg = "path"
 
     def _read(self, data, **kwargs):
         import geopandas

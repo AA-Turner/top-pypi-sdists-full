@@ -87,6 +87,7 @@ def test_imports() -> None:
         UsernamePasswordTokenProvider,
     )
     from astrapy.constants import (
+        DatabaseStatus,
         DefaultIdType,
         Environment,
         MapEncodingMode,
@@ -114,6 +115,16 @@ def test_imports() -> None:
         DataAPITime,
         DataAPITimestamp,
         DataAPIVector,
+    )
+    from astrapy.event_observers import (
+        ObservableError,
+        ObservableEvent,
+        ObservableEventType,
+        ObservableRequest,
+        ObservableResponse,
+        ObservableWarning,
+        Observer,
+        event_collector,
     )
     from astrapy.exceptions import (
         CollectionDeleteManyException,

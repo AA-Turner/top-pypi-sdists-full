@@ -3487,6 +3487,26 @@ class MemoryStream(System.IO.Stream):
         ...
 
 
+class FileHandleType(IntEnum):
+    """This class has no documentation."""
+
+    UNKNOWN = 0
+
+    REGULAR_FILE = 1
+
+    PIPE = 2
+
+    SOCKET = 3
+
+    CHARACTER_DEVICE = 4
+
+    DIRECTORY = 5
+
+    SYMBOLIC_LINK = 6
+
+    BLOCK_DEVICE = 7
+
+
 class BinaryWriter(System.Object, System.IDisposable, System.IAsyncDisposable):
     """This class has no documentation."""
 

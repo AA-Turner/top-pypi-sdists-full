@@ -1,7 +1,7 @@
 """Voice and model management types."""
 
 import datetime
-from typing import List, Literal
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -57,7 +57,7 @@ class Voice(BaseModel):
         created_at: Timestamp when the model was created
         updated_at: Timestamp when the model was last updated
         languages: List of supported language codes (e.g., ["en", "zh"])
-        visibility: Model visibility. Options: "public", "private", "unlisted"
+        visibility: Model visibility. Options: "public", "private", "unlist"
         lock_visibility: Whether visibility setting is locked
         like_count: Number of likes the model has received
         mark_count: Number of bookmarks/favorites
@@ -75,11 +75,11 @@ class Voice(BaseModel):
     cover_image: str
     train_mode: TrainMode
     state: ModelState
-    tags: List[str]
-    samples: List[Sample]
+    tags: list[str]
+    samples: list[Sample]
     created_at: datetime.datetime
     updated_at: datetime.datetime
-    languages: List[str]
+    languages: list[str]
     visibility: Visibility
     lock_visibility: bool
     like_count: int

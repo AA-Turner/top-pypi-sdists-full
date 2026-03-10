@@ -133,7 +133,7 @@ def _quote_scalar_tag_value(value) -> str:
 
 
 def _render_edge_ref_value(ref: EdgeRef) -> str:
-    r"""Render an edge reference as: id [date] \"summary\"."""
+    """Render an edge reference as: id [date] "summary"."""
     ref_id = _shell_quote_id(ref.source_id)
     date_part = f" [{ref.date}]" if ref.date else ""
     summary_part = _quote_scalar_tag_value(ref.summary or "")
@@ -1303,7 +1303,7 @@ def find(
         help="Token budget for rich context output (includes parts and versions)"
     )] = None,
 ):
-    r"""Find notes by hybrid search (semantic + full-text) or similarity.
+    """Find notes by hybrid search (semantic + full-text) or similarity.
 
     \b
     Examples:
@@ -1376,7 +1376,7 @@ def list_recent(
     )] = None,
     sort: Annotated[str, typer.Option(
         "--sort",
-        help="Sort order: 'updated' (default) or 'accessed'"
+        help="Sort order: 'updated' (default), 'accessed', 'created', or 'id'"
     )] = "updated",
     since: SinceOption = None,
     until: UntilOption = None,
@@ -1397,7 +1397,7 @@ def list_recent(
         help="Include hidden system notes (IDs starting with '.')"
     )] = False,
 ):
-    r"""List recent notes, filter by tags, or list tag keys/values.
+    """List recent notes, filter by tags, or list tag keys/values.
 
     \b
     Examples:
@@ -1407,6 +1407,8 @@ def list_recent(
         keep list session-*            # All session-* items (glob)
         keep list *auth*               # Items with 'auth' anywhere in ID
         keep list --sort accessed      # Recent notes (by access time)
+        keep list --sort created       # Sort by creation time
+        keep list --sort id            # Sort alphabetically by ID
         keep list --tag foo            # Notes with tag 'foo' (any value)
         keep list --tag foo=bar        # Notes with tag foo=bar
         keep list --tag foo --tag bar  # Notes with both tags
@@ -1501,7 +1503,7 @@ def tag(
     )] = None,
     store: StoreOption = None,
 ):
-    r"""Add, update, or remove tags on existing notes.
+    """Add, update, or remove tags on existing notes.
 
     Does not re-process the note - only updates tags.
 
@@ -1743,7 +1745,7 @@ def put(
         help="Re-process even if content is unchanged"
     )] = False,
 ):
-    r"""Add or update a note in the store.
+    """Add or update a note in the store.
 
     \b
     Input modes (auto-detected):
@@ -1870,7 +1872,7 @@ def now(
         help="Max similar/meta notes to show (default 3)"
     )] = 3,
 ):
-    r"""Get or set the current working intentions.
+    """Get or set the current working intentions.
 
     With no arguments, displays the current intentions.
     With content, replaces it.
@@ -2116,7 +2118,7 @@ def prompt(
     )] = None,
     store: StoreOption = None,
 ):
-    r"""Render an agent prompt with injected context.
+    """Render an agent prompt with injected context.
 
     \b
     The prompt doc may contain {get} and {find} placeholders:
@@ -2293,7 +2295,7 @@ def get(
     )] = 10,
     store: StoreOption = None,
 ):
-    r"""Retrieve note(s) by ID.
+    """Retrieve note(s) by ID.
 
     Accepts one or more IDs. Version identifiers: Append @V{N} to get a specific version.
     N>=0 selects from current; N<0 selects from oldest archived (-1 oldest).
@@ -2589,7 +2591,7 @@ def del_cmd(
     id: Annotated[list[str], typer.Argument(help="ID(s) of note(s) to delete")],
     store: StoreOption = None,
 ):
-    r"""Delete the current version of note(s), or a specific version.
+    """Delete the current version of note(s), or a specific version.
 
     Without @V{N}: reverts to the previous version (or fully deletes if no history).
     With @V{N}: deletes that specific archived version; other versions remain.
@@ -2919,7 +2921,7 @@ def _format_config_with_defaults(cfg, store_path: Path) -> str:
     return "\n".join(lines)
 
 
-@app.command()
+@app.command(hidden=True, deprecated=True)
 def validate(
     id: Annotated[Optional[list[str]], typer.Argument(
         help="System doc ID(s) to validate (e.g. '.tag/act', '.meta/related')"
@@ -2928,21 +2930,52 @@ def validate(
         "--all", "-a",
         help="Validate all system docs"
     )] = False,
+    diagram: Annotated[bool, typer.Option(
+        "--diagram",
+        help="Print Mermaid state-transition diagram for .state/* docs"
+    )] = False,
     store: StoreOption = None,
 ):
-    r"""Validate system documents with parser-based semantics.
+    """Validate system documents with parser-based semantics.
 
-    Checks .tag/*, .meta/*, and .prompt/* documents for structural
-    correctness. Reports errors (will cause runtime failures) and
-    warnings (may cause unexpected behavior).
+    Checks .tag/*, .meta/*, .prompt/*, and .state/* documents for
+    structural correctness. Reports errors (will cause runtime failures)
+    and warnings (may cause unexpected behavior).
 
     \b
     Examples:
         keep validate .tag/act               # Validate one doc
         keep validate .tag/act .meta/related  # Validate several
         keep validate --all                   # Validate all system docs
+        keep validate --diagram              # Mermaid state diagram
     """
     from .validate import validate_system_doc
+
+    if diagram:
+        from .validate import state_doc_diagram
+        from .system_docs import SYSTEM_DOC_DIR, _filename_to_id, _load_frontmatter
+        state_docs: dict[str, str] = {}
+        # Load from store if available, else from disk
+        try:
+            kp = _get_keeper(store)
+            doc_coll = kp._resolve_doc_collection()
+            for rec in kp._document_store.query_by_id_prefix(doc_coll, ".state/"):
+                name = str(getattr(rec, "id", "")).removeprefix(".state/")
+                body = str(getattr(rec, "summary", "") or "").strip()
+                if name and body:
+                    state_docs[name] = body
+        except Exception:
+            pass
+        # Fall back to / supplement with bundled files
+        if not state_docs:
+            for path in sorted(SYSTEM_DOC_DIR.glob("state-*.md")):
+                doc_id = _filename_to_id(path.name)
+                name = doc_id.removeprefix(".state/")
+                content, _ = _load_frontmatter(path)
+                if content.strip():
+                    state_docs[name] = content
+        typer.echo(state_doc_diagram(state_docs))
+        return
 
     kp = _get_keeper(store)
 
@@ -2952,7 +2985,7 @@ def validate(
     docs_by_id: dict[str, tuple[str, dict]] = {}  # id -> (summary, tags)
     if all_docs:
         doc_coll = kp._resolve_doc_collection()
-        for prefix in (".tag/", ".meta/", ".prompt/"):
+        for prefix in (".tag/", ".meta/", ".prompt/", ".state/"):
             for rec in kp._document_store.query_by_id_prefix(doc_coll, prefix):
                 doc_id = str(getattr(rec, "id", ""))
                 if doc_id:
@@ -3014,9 +3047,13 @@ def config(
         "--setup",
         help="Run interactive setup wizard (provider and tool selection)"
     )] = False,
+    state_diagram: Annotated[bool, typer.Option(
+        "--state-diagram",
+        help="Print Mermaid state-transition diagram for .state/* docs"
+    )] = False,
     store: StoreOption = None,
 ):
-    r"""Show configuration. Optionally get a specific value by path.
+    """Show configuration. Optionally get a specific value by path.
 
     \b
     Examples:
@@ -3030,6 +3067,7 @@ def config(
         keep config providers.embedding  # Embedding provider name
         keep config --setup      # Re-run interactive setup wizard
         keep config --reset-system-docs  # Reset bundled system docs
+        keep config --state-diagram  # Mermaid state-transition diagram
     """
     # Handle setup wizard
     if setup:
@@ -3044,6 +3082,33 @@ def config(
             config_dir = get_config_dir()
         store_path = Path(actual_store).resolve() if actual_store else None
         run_wizard(config_dir, store_path, restart_command="keep config --setup")
+        return
+
+    # Handle state diagram
+    if state_diagram:
+        from .validate import state_doc_diagram
+        from .system_docs import SYSTEM_DOC_DIR, _filename_to_id, _load_frontmatter
+        state_docs: dict[str, str] = {}
+        # Load from store if available, else from disk
+        try:
+            kp = _get_keeper(store)
+            doc_coll = kp._resolve_doc_collection()
+            for rec in kp._document_store.query_by_id_prefix(doc_coll, ".state/"):
+                name = str(getattr(rec, "id", "")).removeprefix(".state/")
+                body = str(getattr(rec, "summary", "") or "").strip()
+                if name and body:
+                    state_docs[name] = body
+        except Exception:
+            pass
+        # Fall back to / supplement with bundled files
+        if not state_docs:
+            for p in sorted(SYSTEM_DOC_DIR.glob("state-*.md")):
+                doc_id = _filename_to_id(p.name)
+                name = doc_id.removeprefix(".state/")
+                content, _ = _load_frontmatter(p)
+                if content.strip():
+                    state_docs[name] = content
+        typer.echo(state_doc_diagram(state_docs))
         return
 
     # Handle system docs reset - requires full Keeper initialization
@@ -3166,6 +3231,7 @@ def pending_cmd(
         _daemon_logger = logging.getLogger("keep.cli.daemon")
         pid_path = kp._processor_pid_path
         processor_lock = ModelLock(kp._store_path / ".processor.lock")
+        flow_worker_id = f"pending-daemon:{os.getpid()}"
         shutdown_requested = False
 
         if not processor_lock.acquire(blocking=False):
@@ -3185,31 +3251,66 @@ def pending_cmd(
         try:
             pid_path.write_text(str(os.getpid()))
             while not shutdown_requested:
+                flow_result = kp.process_pending_work(
+                    limit=50,
+                    worker_id=flow_worker_id,
+                    lease_seconds=180,
+                )
                 result = kp.process_pending(limit=50)
                 delegated = result.get("delegated", 0)
                 _daemon_logger.info(
-                    "Daemon batch: processed=%d failed=%d delegated=%d",
+                    "Daemon batch: processed=%d failed=%d delegated=%d flow_processed=%d flow_failed=%d",
                     result["processed"], result["failed"], delegated,
+                    int(flow_result.get("processed", 0)),
+                    int(flow_result.get("failed", 0)) + int(flow_result.get("dead_lettered", 0)),
                 )
-                if result["processed"] == 0 and result["failed"] == 0 and delegated == 0:
+                flow_activity = (
+                    int(flow_result.get("claimed", 0)) > 0
+                    or int(flow_result.get("processed", 0)) > 0
+                    or int(flow_result.get("failed", 0)) > 0
+                    or int(flow_result.get("dead_lettered", 0)) > 0
+                )
+                if result["processed"] == 0 and result["failed"] == 0 and delegated == 0 and not flow_activity:
                     # Check for outstanding delegated tasks before exiting
-                    has_delegated = hasattr(kp._pending_queue, "count_delegated") and kp._pending_queue.count_delegated() > 0
-                    if has_delegated:
-                        # Delegated tasks outstanding — poll less aggressively
-                        _daemon_logger.info("Waiting for %d delegated tasks", kp._pending_queue.count_delegated())
+                    delegated_remaining = kp._pending_queue.count_delegated() if hasattr(kp._pending_queue, "count_delegated") else 0
+                    flow_remaining = kp.pending_work_count() if hasattr(kp, "pending_work_count") else 0
+                    if delegated_remaining > 0:
+                        _daemon_logger.info("Waiting for %d delegated tasks", delegated_remaining)
                         time.sleep(5)
+                        continue
+                    if flow_remaining > 0:
+                        _daemon_logger.info("Waiting for %d flow work items", flow_remaining)
+                        time.sleep(1)
                         continue
 
                     # Items may have been enqueued after our last dequeue
                     # (e.g. OCR enqueued while we were processing a summarize).
                     # Wait briefly and check once more before exiting.
                     time.sleep(1)
+                    flow_result = kp.process_pending_work(
+                        limit=50,
+                        worker_id=flow_worker_id,
+                        lease_seconds=180,
+                    )
                     result = kp.process_pending(limit=50)
-                    if result["processed"] == 0 and result["failed"] == 0 and result.get("delegated", 0) == 0:
+                    flow_activity = (
+                        int(flow_result.get("claimed", 0)) > 0
+                        or int(flow_result.get("processed", 0)) > 0
+                        or int(flow_result.get("failed", 0)) > 0
+                        or int(flow_result.get("dead_lettered", 0)) > 0
+                    )
+                    if (
+                        result["processed"] == 0
+                        and result["failed"] == 0
+                        and result.get("delegated", 0) == 0
+                        and not flow_activity
+                    ):
                         break
                     _daemon_logger.info(
-                        "Daemon batch (drain): processed=%d failed=%d",
+                        "Daemon batch (drain): processed=%d failed=%d flow_processed=%d flow_failed=%d",
                         result["processed"], result["failed"],
+                        int(flow_result.get("processed", 0)),
+                        int(flow_result.get("failed", 0)) + int(flow_result.get("dead_lettered", 0)),
                     )
         finally:
             _daemon_logger.info("Daemon shutting down")
@@ -3247,13 +3348,14 @@ def pending_cmd(
 
     # Interactive mode: show status, ensure daemon running, tail log
     pending_count = kp.pending_count()
+    flow_pending_count = kp.pending_work_count() if hasattr(kp, "pending_work_count") else 0
 
     # Show failed and processing items
     queue_stats = kp._pending_queue.stats()
     failed_count = queue_stats.get("failed", 0)
     processing_count = queue_stats.get("processing", 0)
 
-    if pending_count == 0 and processing_count == 0:
+    if pending_count == 0 and processing_count == 0 and flow_pending_count == 0:
         if failed_count:
             typer.echo(f"Nothing pending. {failed_count} failed (use --retry to requeue).", err=True)
             # Show first few failed items
@@ -3289,6 +3391,12 @@ def _queue_status_line(kp, queue_stats: dict) -> str:
     processing = queue_stats.get("processing", 0)
     delegated = queue_stats.get("delegated", 0)
     failed = queue_stats.get("failed", 0)
+    flow_pending = 0
+    if hasattr(kp, "pending_work_count"):
+        try:
+            flow_pending = int(kp.pending_work_count())
+        except Exception:
+            flow_pending = 0
 
     by_type = kp.pending_stats_by_type()
     type_parts = ", ".join(f"{c} {t}" for t, c in sorted(by_type.items()))
@@ -3298,6 +3406,8 @@ def _queue_status_line(kp, queue_stats: dict) -> str:
         parts.append(f"{processing} processing")
     if delegated:
         parts.append(f"{delegated} delegated")
+    if flow_pending:
+        parts.append(f"{flow_pending} flow")
 
     line = ", ".join(parts)
     if type_parts:
@@ -3330,7 +3440,12 @@ def _tail_ops_log(log_path: Path, kp) -> None:
                     idle_checks += 1
                     if idle_checks >= 5 and not kp._is_processor_running():
                         stats = kp._pending_queue.stats()
-                        if stats.get("pending", 0) == 0 and stats.get("processing", 0) == 0:
+                        flow_pending = kp.pending_work_count() if hasattr(kp, "pending_work_count") else 0
+                        if (
+                            stats.get("pending", 0) == 0
+                            and stats.get("processing", 0) == 0
+                            and flow_pending == 0
+                        ):
                             typer.echo("Done.", err=True)
                         else:
                             typer.echo(_queue_status_line(kp, stats), err=True)
@@ -3351,11 +3466,11 @@ def continue_cmd(
     )],
     store: StoreOption = None,
 ):
-    """Run one local continuation tick (API-first preview)."""
+    """Run one local flow tick (API-first preview)."""
     kp = _get_keeper(store)
     if not hasattr(kp, "continue_flow"):
         typer.echo(
-            "Error: continuation API is only available in local mode for now.",
+            "Error: flow API is only available in local mode for now.",
             err=True,
         )
         kp.close()
@@ -3382,11 +3497,11 @@ def continue_work_cmd(
     work_id: Annotated[str, typer.Argument(help="Work item ID")],
     store: StoreOption = None,
 ):
-    """Execute a pending local continuation work item and return work_result JSON."""
+    """Execute a pending local flow work item and return work_result JSON."""
     kp = _get_keeper(store)
     if not hasattr(kp, "continue_run_work"):
         typer.echo(
-            "Error: continuation work runner is only available in local mode for now.",
+            "Error: flow work runner is only available in local mode for now.",
             err=True,
         )
         kp.close()
@@ -3514,6 +3629,9 @@ def data_import(
 @app.command(hidden=True)
 def doctor(
     store: StoreOption = None,
+    log: Annotated[bool, typer.Option(
+        "--log", "-l", help="Tail the ops log (Ctrl-C to stop)"
+    )] = False,
     use_faulthandler: Annotated[bool, typer.Option(
         "--faulthandler", help="Enable faulthandler for native crash traces"
     )] = False,
@@ -3521,6 +3639,31 @@ def doctor(
     """Diagnostic checks for debugging setup and crash issues."""
     import platform
     import time
+
+    if log:
+        from .paths import get_config_dir, get_default_store_path
+        from .config import load_or_create_config
+        actual_store = store if store is not None else _get_store_override()
+        config_dir = Path(actual_store).resolve() if actual_store else get_config_dir()
+        cfg = load_or_create_config(config_dir)
+        sp = Path(get_default_store_path(cfg) if actual_store is None else actual_store)
+        log_path = sp / "keep-ops.log"
+        if not log_path.exists():
+            typer.echo(f"No ops log at {log_path}", err=True)
+            raise typer.Exit(1)
+        typer.echo(f"Tailing {log_path} (Ctrl-C to stop)\n", err=True)
+        try:
+            with open(log_path) as f:
+                f.seek(0, 2)  # seek to end
+                while True:
+                    line = f.readline()
+                    if line:
+                        typer.echo(line.rstrip())
+                    else:
+                        time.sleep(0.3)
+        except (KeyboardInterrupt, EOFError):
+            pass
+        return
 
     if use_faulthandler:
         import faulthandler
@@ -3705,6 +3848,45 @@ def doctor(
     finally:
         if tmp_dir:
             shutil.rmtree(tmp_dir, ignore_errors=True)
+
+    # 12. System doc validation
+    if store_path:
+        try:
+            from .validate import validate_system_doc
+            kp = _get_keeper(store)
+            doc_coll = kp._resolve_doc_collection()
+            docs_by_id: dict[str, tuple[str, dict]] = {}
+            for sys_prefix in (".tag/", ".meta/", ".prompt/", ".state/"):
+                for rec in kp._document_store.query_by_id_prefix(doc_coll, sys_prefix):
+                    doc_id = str(getattr(rec, "id", ""))
+                    if doc_id:
+                        summary = str(getattr(rec, "summary", "") or "")
+                        raw_tags = getattr(rec, "tags", None)
+                        tags_dict = dict(raw_tags) if isinstance(raw_tags, dict) else {}
+                        docs_by_id[doc_id] = (summary, tags_dict)
+            if docs_by_id:
+                errors = 0
+                warnings = 0
+                bad_docs = []
+                for doc_id in sorted(docs_by_id):
+                    content, tags_dict = docs_by_id[doc_id]
+                    result = validate_system_doc(doc_id, content, tags_dict)
+                    errors += len(result.errors)
+                    warnings += len(result.warnings)
+                    if result.errors:
+                        bad_docs.append(doc_id)
+                if errors:
+                    fail(f"System docs: {len(docs_by_id)} docs, {errors} error(s) in {', '.join(bad_docs)}")
+                elif warnings:
+                    ok(f"System docs: {len(docs_by_id)} docs, {warnings} warning(s)")
+                else:
+                    ok(f"System docs: {len(docs_by_id)} docs validated")
+            else:
+                ok("System docs: none found (new store)")
+        except Exception as e:
+            fail(f"System docs: {e}")
+    else:
+        ok("System docs: skipped (no store path)")
 
     typer.echo()
 

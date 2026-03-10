@@ -7,7 +7,10 @@ import logging
 import os
 import re
 import shutil
+import socket
+import subprocess
 import sys
+from glob import glob
 from os import environ, getcwd
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
@@ -26,7 +29,6 @@ from tinybird.tb.client import (
     TinyB,
 )
 from tinybird.tb.config import get_clickhouse_host
-from tinybird.tb.modules.agent import run_agent
 from tinybird.tb.modules.common import (
     CatchAuthExceptions,
     CLIException,
@@ -36,16 +38,17 @@ from tinybird.tb.modules.common import (
     force_echo,
     getenv_bool,
     try_update_config_with_remote,
-    warn_prompt_ai_deprecation,
 )
 from tinybird.tb.modules.config import CURRENT_VERSION, CLIConfig
 from tinybird.tb.modules.datafile.build import build_graph
 from tinybird.tb.modules.datafile.pull import folder_pull
 from tinybird.tb.modules.exceptions import CLIChException
 from tinybird.tb.modules.feedback_manager import FeedbackManager
-from tinybird.tb.modules.local_common import get_tinybird_local_client
+from tinybird.tb.modules.local_common import TB_LOCAL_HOST, TB_LOCAL_PORT, get_tinybird_local_client
 from tinybird.tb.modules.login_common import check_current_folder_in_sessions
 from tinybird.tb.modules.project import Project
+from tinybird.tb.modules.py_project import PythonVirtualProject, get_python_virtual_project
+from tinybird.tb.modules.ts_project import TypescriptVirtualProject, get_typescript_virtual_project
 
 __old_click_echo = click.echo
 __old_click_secho = click.secho
@@ -53,52 +56,444 @@ DEFAULT_PATTERNS: List[Tuple[str, Union[str, Callable[[str], str]]]] = [
     (r"p\.ey[A-Za-z0-9-_\.]+", lambda v: f"{v[:4]}...{v[-8:]}")
 ]
 VERSION = f"{__cli__.__version__} (rev {__cli__.__revision__})"
+DEV_MODE_MANUAL = "manual"
+DEV_MODE_LOCAL = "local"
+DEV_MODE_BRANCH = "branch"
+DEV_MODE_VALUES = {DEV_MODE_MANUAL, DEV_MODE_LOCAL, DEV_MODE_BRANCH}
+DEV_MODE_ROUTED_COMMANDS = {"build", "deploy"}
+SDK_PROJECT_ROUTED_COMMANDS = {"build", "deploy", "preview"}
+TS_PROJECT_ROUTED_COMMANDS = SDK_PROJECT_ROUTED_COMMANDS
+COMMANDS_ALWAYS_CLOUD = {"infra", "branch", "environment", "workspace", "preview"}
+PROJECT_TYPE_TYPESCRIPT = "typescript"
+PROJECT_TYPE_PYTHON = "python"
+PROJECT_TYPE_CLI = "cli"
+PROJECT_TYPES = {PROJECT_TYPE_TYPESCRIPT, PROJECT_TYPE_PYTHON, PROJECT_TYPE_CLI}
+CLI_PROJECT_MARKERS = (
+    "datasources",
+    "pipes",
+    "endpoints",
+    "fixtures",
+    "tests",
+    "connections",
+    "materializations",
+    "copies",
+    "sinks",
+)
+PROJECT_TYPE_SCAN_EXTENSIONS_PYTHON = {".py"}
+PROJECT_TYPE_SCAN_EXTENSIONS_TYPESCRIPT = {".ts", ".tsx", ".mts", ".cts"}
+PROJECT_TYPE_SCAN_IGNORED_DIRS = {
+    ".git",
+    ".hg",
+    ".svn",
+    "__pycache__",
+    ".venv",
+    "venv",
+    ".e",
+    "node_modules",
+    ".pytest_cache",
+    ".mypy_cache",
+}
+PROJECT_TYPE_SCAN_MAX_FILES = 5000
+PROJECT_CONFIG_FILES = (
+    "tinybird.config.py",
+    "tinybird_config.py",
+    "tinybird.config.mjs",
+    "tinybird.config.cjs",
+    "tinybird.config.json",
+    "tinybird.json",
+)
+JSON_PROJECT_CONFIG_FILES = ("tinybird.config.json", "tinybird.json")
 
 
-def _get_raw_cli_args(ctx: Context) -> List[str]:
-    root_ctx = ctx.find_root()
-    root_obj = root_ctx.obj if isinstance(root_ctx.obj, dict) else {}
-    raw_args = root_obj.get("_tb_raw_args")
-    if isinstance(raw_args, list):
-        return raw_args
-    return sys.argv[1:]
-
-
-def _argv_has_option(args: List[str], flag: str) -> bool:
-    return any(arg == flag or arg.startswith(f"{flag}=") for arg in args)
-
-
-def _argv_has_sequence(args: List[str], command_parts: List[str]) -> bool:
-    sequence_len = len(command_parts)
-    return any(args[i : i + sequence_len] == command_parts for i in range(len(args) - sequence_len + 1))
-
-
-def _should_warn_prompt_ai_deprecation(
-    ctx: Context,
-    is_agent_mode: bool,
-    is_prompt_mode: bool,
-) -> bool:
-    raw_args = _get_raw_cli_args(ctx)
-
-    if is_agent_mode or is_prompt_mode:
-        return True
-
-    if ctx.invoked_subcommand == "mock":
-        return True
-
-    if ctx.invoked_subcommand == "test" and _argv_has_sequence(raw_args, ["test", "create"]):
-        return True
-
-    if ctx.invoked_subcommand == "create" and (
-        _argv_has_option(raw_args, "--prompt") or _argv_has_option(raw_args, "-p")
-    ):
-        return True
-
-    return (
-        ctx.invoked_subcommand == "datasource"
-        and _argv_has_sequence(raw_args, ["datasource", "create"])
-        and _argv_has_option(raw_args, "--prompt")
+def _get_branch_from_ci_env() -> Optional[str]:
+    ci_env_keys = (
+        "VERCEL_GIT_COMMIT_REF",
+        "CI_COMMIT_BRANCH",
+        "CIRCLE_BRANCH",
+        "BUILD_SOURCEBRANCHNAME",
+        "BITBUCKET_BRANCH",
+        "TRAVIS_BRANCH",
     )
+    for key in ci_env_keys:
+        branch = os.environ.get(key)
+        if branch:
+            return branch
+
+    github_branch = os.environ.get("GITHUB_HEAD_REF") or os.environ.get("GITHUB_REF_NAME")
+    if github_branch:
+        return github_branch
+
+    jenkins_branch = os.environ.get("GIT_BRANCH")
+    if jenkins_branch:
+        return jenkins_branch.replace("origin/", "", 1)
+
+    return None
+
+
+def get_current_git_branch() -> Optional[str]:
+    try:
+        # `symbolic-ref --short HEAD` works for regular and unborn branches.
+        branch = subprocess.check_output(
+            ["git", "symbolic-ref", "--short", "HEAD"],
+            stderr=subprocess.PIPE,
+            text=True,
+        ).strip()
+        if branch:
+            return branch
+    except Exception:
+        pass
+
+    try:
+        branch = subprocess.check_output(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            stderr=subprocess.PIPE,
+            text=True,
+        ).strip()
+        if branch != "HEAD":
+            return branch
+    except Exception:
+        pass
+
+    return _get_branch_from_ci_env()
+
+
+def is_main_git_branch(branch_name: Optional[str]) -> bool:
+    return branch_name in {"main", "master"}
+
+
+def sanitize_branch_name(branch_name: str) -> str:
+    sanitized = re.sub(r"[^a-zA-Z0-9_]", "_", branch_name)
+    sanitized = re.sub(r"_+", "_", sanitized)
+    return sanitized.strip("_")
+
+
+def get_tinybird_branch_name_from_git_branch(branch_name: Optional[str]) -> Optional[str]:
+    if not branch_name:
+        return None
+    sanitized = sanitize_branch_name(branch_name)
+    return sanitized or None
+
+
+def get_tinybird_branch_name() -> Optional[str]:
+    return get_tinybird_branch_name_from_git_branch(get_current_git_branch())
+
+
+def is_tinybird_local_running(timeout_seconds: float = 0.2) -> bool:
+    try:
+        with socket.create_connection((TB_LOCAL_HOST, TB_LOCAL_PORT), timeout=timeout_seconds):
+            return True
+    except OSError:
+        return False
+
+
+def is_datasource_create_invocation(command: Optional[str], argv: List[str]) -> bool:
+    if command != "datasource":
+        return False
+    return any(argv[i] == "datasource" and argv[i + 1] == "create" for i in range(len(argv) - 1))
+
+
+def resolve_datasource_create_target(
+    command: Optional[str],
+    argv: List[str],
+    explicit_env_selector: bool,
+    effective_cloud: bool,
+) -> Tuple[bool, bool]:
+    if effective_cloud or explicit_env_selector or not is_datasource_create_invocation(command, argv):
+        return effective_cloud, False
+
+    if is_tinybird_local_running():
+        return effective_cloud, False
+
+    return True, True
+
+
+def validate_env_selector_for_command(command: Optional[str], env_flags_in_argv: List[str]) -> None:
+    if command in COMMANDS_ALWAYS_CLOUD and "--local" in env_flags_in_argv:
+        raise CLIException(
+            FeedbackManager.error(
+                message=(
+                    f"`tb {command}` is a cloud-only command and cannot be used with `--local`. "
+                    "Remove `--local` and run it against Tinybird Cloud."
+                )
+            )
+        )
+
+
+def get_dev_mode(config: Dict[str, Any]) -> str:
+    raw_mode = config.get("dev_mode", DEV_MODE_MANUAL)
+    if raw_mode is None:
+        return DEV_MODE_MANUAL
+
+    mode = str(raw_mode).lower()
+    if mode not in DEV_MODE_VALUES:
+        raise CLIException(
+            FeedbackManager.error(
+                message=(f"Invalid dev_mode '{raw_mode}'. Allowed values are: manual, local, branch.")
+            )
+        )
+    return mode
+
+
+def get_project_folder_from_tinybird_config(start_dir: str) -> Optional[str]:
+    config_path, raw = _read_project_json_config(start_dir)
+    if not config_path or not isinstance(raw, dict):
+        return None
+
+    folder = raw.get("folder")
+    if isinstance(folder, str) and folder.strip():
+        folder_path = Path(folder.strip())
+        if not folder_path.is_absolute():
+            folder_path = config_path.parent / folder_path
+        return str(folder_path)
+
+    include = raw.get("include")
+    include_entries: List[str] = []
+    if isinstance(include, str):
+        include_entries = [include]
+    elif isinstance(include, list):
+        include_entries = [entry for entry in include if isinstance(entry, str)]
+
+    if any(entry.strip() for entry in include_entries):
+        return str(config_path.parent)
+
+    return None
+
+
+def get_dev_mode_from_tinybird_config(start_dir: str) -> Optional[str]:
+    _, raw = _read_project_json_config(start_dir)
+    if not isinstance(raw, dict):
+        return None
+
+    raw_mode = raw.get("devMode")
+    if raw_mode is None:
+        raw_mode = raw.get("dev_mode")
+    if not isinstance(raw_mode, str):
+        return None
+
+    mode = raw_mode.strip().lower()
+    if mode not in DEV_MODE_VALUES:
+        return None
+    return mode
+
+
+def find_project_config_file(start_dir: Path) -> Optional[Path]:
+    current = start_dir.resolve()
+    while True:
+        for filename in PROJECT_CONFIG_FILES:
+            candidate = current / filename
+            if candidate.exists():
+                return candidate
+        if current.parent == current:
+            return None
+        current = current.parent
+
+
+def find_project_json_config_file(start_dir: Path) -> Optional[Path]:
+    current = start_dir.resolve()
+    while True:
+        for filename in JSON_PROJECT_CONFIG_FILES:
+            candidate = current / filename
+            if candidate.exists():
+                return candidate
+        if current.parent == current:
+            return None
+        current = current.parent
+
+
+def _read_project_json_config(start_dir: str) -> Tuple[Optional[Path], Optional[Dict[str, Any]]]:
+    config_path = find_project_json_config_file(Path(start_dir))
+    if not config_path or config_path.suffix != ".json":
+        return None, None
+
+    try:
+        with open(config_path) as file:
+            raw = json.loads(file.read())
+    except (OSError, json.JSONDecodeError):
+        return config_path, None
+
+    if not isinstance(raw, dict):
+        return config_path, None
+
+    return config_path, raw
+
+
+def _iter_project_type_scan_targets(config_path: Path, raw_config: Dict[str, Any]) -> List[Path]:
+    base_path = config_path.parent
+    targets: List[Path] = []
+    seen: set[Path] = set()
+
+    def add_target(candidate: Path) -> None:
+        resolved = candidate.resolve()
+        if resolved in seen:
+            return
+        seen.add(resolved)
+        targets.append(resolved)
+
+    folder = raw_config.get("folder")
+    if isinstance(folder, str) and folder.strip():
+        folder_path = Path(folder.strip())
+        if not folder_path.is_absolute():
+            folder_path = base_path / folder_path
+        add_target(folder_path)
+
+    include = raw_config.get("include")
+    include_entries: List[str] = []
+    if isinstance(include, str):
+        include_entries = [include]
+    elif isinstance(include, list):
+        include_entries = [entry for entry in include if isinstance(entry, str)]
+
+    for entry in include_entries:
+        include_path = entry.strip()
+        if not include_path:
+            continue
+        if any(char in include_path for char in "*?[]"):
+            pattern = include_path if os.path.isabs(include_path) else str(base_path / include_path)
+            for match in glob(pattern, recursive=True):
+                add_target(Path(match))
+            continue
+
+        resolved_path = Path(include_path)
+        if not resolved_path.is_absolute():
+            resolved_path = base_path / resolved_path
+        add_target(resolved_path)
+
+    return targets
+
+
+def _paths_contain_extensions(paths: List[Path], extensions: set[str]) -> bool:
+    if not paths:
+        return False
+
+    scanned_files = 0
+    normalized_extensions = {ext.lower() for ext in extensions}
+    for path in paths:
+        if path.is_file():
+            if path.suffix.lower() in normalized_extensions:
+                return True
+            scanned_files += 1
+            if scanned_files > PROJECT_TYPE_SCAN_MAX_FILES:
+                return False
+            continue
+
+        if not path.is_dir():
+            continue
+
+        for _root, dirs, files in os.walk(path):
+            dirs[:] = [d for d in dirs if d not in PROJECT_TYPE_SCAN_IGNORED_DIRS]
+            for filename in files:
+                scanned_files += 1
+                if scanned_files > PROJECT_TYPE_SCAN_MAX_FILES:
+                    return False
+                if Path(filename).suffix.lower() in normalized_extensions:
+                    return True
+
+    return False
+
+
+def get_project_type_from_tinybird_config(start_dir: str) -> Optional[str]:
+    config_path = find_project_config_file(Path(start_dir))
+    if config_path:
+        if config_path.name in {"tinybird.config.mjs", "tinybird.config.cjs"}:
+            return PROJECT_TYPE_TYPESCRIPT
+        if config_path.name in {"tinybird.config.py", "tinybird_config.py"}:
+            return PROJECT_TYPE_PYTHON
+        if config_path.suffix == ".json":
+            json_path, raw_config = _read_project_json_config(start_dir)
+            if json_path and raw_config:
+                scan_targets = _iter_project_type_scan_targets(json_path, raw_config)
+                if _paths_contain_extensions(scan_targets, PROJECT_TYPE_SCAN_EXTENSIONS_PYTHON):
+                    return PROJECT_TYPE_PYTHON
+                if _paths_contain_extensions(scan_targets, PROJECT_TYPE_SCAN_EXTENSIONS_TYPESCRIPT):
+                    return PROJECT_TYPE_TYPESCRIPT
+                return PROJECT_TYPE_CLI
+
+    if any((Path(start_dir).resolve() / marker).exists() for marker in CLI_PROJECT_MARKERS):
+        return PROJECT_TYPE_CLI
+
+    return None
+
+
+def _set_config_to_main_workspace(config: Dict[str, Any], staging: bool) -> None:
+    client = _get_tb_client(config.get("token", ""), config["host"], staging=staging)
+    response = client.user_workspaces_and_branches(version="v1")
+    workspaces = response.get("workspaces", [])
+    if not workspaces:
+        raise CLIException(FeedbackManager.error(message="No workspaces found for current credentials."))
+
+    current_workspace_id = config.get("id", response.get("id"))
+    current_workspace = next((ws for ws in workspaces if ws.get("id") == current_workspace_id), None)
+    if not current_workspace:
+        current_workspace = next((ws for ws in workspaces if ws.get("current")), None)
+    if not current_workspace:
+        current_workspace = workspaces[0]
+
+    main_workspace = current_workspace
+    if current_workspace.get("is_branch"):
+        main_workspace_id = current_workspace.get("main")
+        main_workspace = next((ws for ws in workspaces if ws.get("id") == main_workspace_id), None)
+
+    if not main_workspace:
+        raise CLIException(FeedbackManager.error(message="Unable to resolve the main workspace for deployment target."))
+
+    main_workspace_token = main_workspace.get("token")
+    if not main_workspace_token:
+        raise CLIException(
+            FeedbackManager.error(message="Unable to resolve main workspace token for deployment target.")
+        )
+
+    config["id"] = main_workspace.get("id", config.get("id", ""))
+    config["name"] = main_workspace.get("name", config.get("name", ""))
+    config["token"] = main_workspace_token
+
+
+def resolve_dev_mode_target(
+    command: Optional[str],
+    config: Dict[str, Any],
+    cloud: bool,
+    branch: Optional[str],
+    staging: bool,
+    explicit_env_selector: bool,
+) -> Tuple[bool, Optional[str], str]:
+    effective_cloud = cloud or bool(branch)
+    effective_branch = branch
+    dev_mode = get_dev_mode(config)
+
+    if explicit_env_selector or command not in DEV_MODE_ROUTED_COMMANDS or dev_mode == DEV_MODE_MANUAL:
+        return effective_cloud, effective_branch, dev_mode
+
+    if command == "build":
+        if dev_mode == DEV_MODE_LOCAL:
+            return False, None, dev_mode
+
+        git_branch = get_current_git_branch()
+        if is_main_git_branch(git_branch):
+            raise CLIException(
+                FeedbackManager.error(
+                    message=(
+                        "Cannot deploy to main workspace with 'tb build'. "
+                        "Use 'tb deploy' to deploy to production, or switch to a feature branch."
+                    )
+                )
+            )
+
+        tinybird_branch = get_tinybird_branch_name_from_git_branch(git_branch)
+        if not tinybird_branch:
+            raise CLIException(
+                FeedbackManager.error(
+                    message=(
+                        "Cannot resolve a Tinybird branch from your current git branch. "
+                        "Switch to a feature branch or use manual mode."
+                    )
+                )
+            )
+        return True, tinybird_branch, dev_mode
+
+    if command == "deploy":
+        _set_config_to_main_workspace(config, staging=staging)
+        return True, None, dev_mode
+
+    return effective_cloud, effective_branch, dev_mode
 
 
 @click.group(
@@ -131,17 +526,6 @@ def _should_warn_prompt_ai_deprecation(
     "--output", type=click.Choice(["human", "json", "csv"], case_sensitive=False), default="human", help="Output format"
 )
 @click.option("--max-depth", type=int, default=3, help="Maximum depth of the project files.")
-@click.option(
-    "--dangerously-skip-permissions",
-    is_flag=True,
-    default=False,
-    help="Skip permissions check in Tinybird Code.",
-)
-@click.option(
-    "--prompt",
-    "-p",
-    help="Run Tinybird Code in prompt mode with the provided input and exit.",
-)
 @click.version_option(version=VERSION)
 @click.pass_context
 def cli(
@@ -157,11 +541,9 @@ def cli(
     staging: bool,
     output: str,
     max_depth: int,
-    dangerously_skip_permissions: bool,
-    prompt: Optional[str] = None,
 ) -> None:
     """
-    Run just `tb` to use Tinybird Code to interact with your project.
+    Tinybird Forward CLI.
     """
 
     # We need to unpatch for our tests not to break
@@ -175,9 +557,8 @@ def cli(
     if getenv_bool("TB_DISABLE_SSL_CHECKS", False):
         click.echo(FeedbackManager.warning_disabled_ssl_checks())
 
-    is_agent_mode = ctx.invoked_subcommand is None
-    is_prompt_mode = prompt is not None
-    if not environ.get("PYTEST", None) and version_warning and not token and not is_agent_mode:
+    has_subcommand = ctx.invoked_subcommand is not None
+    if not environ.get("PYTEST", None) and version_warning and not token and has_subcommand:
         latest_version = CheckPypi().get_latest_version()
         if latest_version:
             if "x.y.z" in CURRENT_VERSION:
@@ -196,8 +577,7 @@ def cli(
     if debug:
         logging.basicConfig(level=logging.DEBUG)
 
-    # Check for conflicting environment flags
-    # Users should not use multiple environment selectors at the same time
+    # Check for conflicting environment flags.
     env_flags_in_argv = [arg for arg in sys.argv if arg in ("--cloud", "--local") or arg.startswith("--branch")]
     if len(env_flags_in_argv) > 1:
         raise CLIException(
@@ -206,6 +586,8 @@ def cli(
                 "Please use only one of the following: --cloud, --local, --branch=<branch_name>."
             )
         )
+    explicit_env_selector = len(env_flags_in_argv) > 0
+    validate_env_selector_for_command(ctx.invoked_subcommand, env_flags_in_argv)
 
     config_temp = CLIConfig.get_project_config()
 
@@ -233,19 +615,51 @@ def cli(
     config = get_config(host, token, user_token=user_token, config_file=config_temp._path)
     client = _get_tb_client(config.get("token", ""), config["host"])
 
-    # Calculate project folder path properly
-    tinyb_dir = os.path.dirname(config_temp._path)  # Directory containing .tinyb file
-    cwd_config = config.get("cwd", ".")
+    tinybird_dev_mode = get_dev_mode_from_tinybird_config(os.getcwd())
+    if tinybird_dev_mode:
+        config["dev_mode"] = tinybird_dev_mode
 
-    if os.path.isabs(cwd_config):
-        # If cwd is absolute, use it directly
-        folder = cwd_config
-    else:
-        # If cwd is relative, resolve it relative to .tinyb directory
-        folder = os.path.normpath(os.path.join(tinyb_dir, cwd_config))
+    # Resolve project folder from tinybird.config.json (preferred) or legacy .tinyb cwd.
+    folder = get_project_folder_from_tinybird_config(os.getcwd())
+    if not folder:
+        tinyb_dir = os.path.dirname(config_temp._path)  # Directory containing .tinyb file
+        cwd_config = config.get("cwd", ".")
+
+        if os.path.isabs(cwd_config):
+            folder = cwd_config
+        else:
+            folder = os.path.normpath(os.path.join(tinyb_dir, cwd_config))
 
     project = Project(folder=folder, workspace_name=config.get("name", ""), max_depth=max_depth)
-    config["path"] = str(project.path)
+
+    project_type = get_project_type_from_tinybird_config(os.getcwd())
+
+    sdk_virtual_project: Optional[Union[PythonVirtualProject, TypescriptVirtualProject]] = None
+    if ctx.invoked_subcommand in SDK_PROJECT_ROUTED_COMMANDS:
+        try:
+            if project_type == PROJECT_TYPE_PYTHON:
+                sdk_virtual_project = get_python_virtual_project(
+                    project_folder=folder,
+                    workspace_name=config.get("name", ""),
+                    max_depth=max_depth,
+                )
+                if sdk_virtual_project:
+                    project = sdk_virtual_project.project
+                    ctx.ensure_object(dict)["_python_virtual_project"] = sdk_virtual_project
+            elif project_type == PROJECT_TYPE_TYPESCRIPT:
+                sdk_virtual_project = get_typescript_virtual_project(
+                    project_folder=folder,
+                    workspace_name=config.get("name", ""),
+                    max_depth=max_depth,
+                )
+                if sdk_virtual_project:
+                    project = sdk_virtual_project.project
+                    ctx.ensure_object(dict)["_typescript_virtual_project"] = sdk_virtual_project
+        except Exception as exc:
+            raise CLIException(str(exc))
+
+    # Keep config path pointing to the user project root even when using a virtual SDK project.
+    config["path"] = folder if sdk_virtual_project else str(project.path)
     # If they have passed a token or host as parameter and it's different that record in .tinyb, refresh the workspace id
     if token or host:
         try:
@@ -264,38 +678,73 @@ def cli(
 
     ctx.ensure_object(dict)["project"] = project
 
-    if _should_warn_prompt_ai_deprecation(ctx, is_agent_mode, is_prompt_mode):
-        warn_prompt_ai_deprecation()
+    if not has_subcommand:
+        click.echo(ctx.get_help())
+        return
+
+    effective_cloud, effective_branch, dev_mode = resolve_dev_mode_target(
+        command=ctx.invoked_subcommand,
+        config=config,
+        cloud=cloud,
+        branch=branch,
+        staging=staging,
+        explicit_env_selector=explicit_env_selector,
+    )
+    effective_cloud, switched_datasource_create_to_cloud = resolve_datasource_create_target(
+        command=ctx.invoked_subcommand,
+        argv=sys.argv,
+        explicit_env_selector=explicit_env_selector,
+        effective_cloud=effective_cloud,
+    )
+
+    if switched_datasource_create_to_cloud:
+        click.echo(
+            FeedbackManager.gray(
+                message=("Tinybird Local is not running. Running `tb datasource create` against Tinybird Cloud.")
+            )
+        )
+
+    if not explicit_env_selector and dev_mode != DEV_MODE_MANUAL and ctx.invoked_subcommand in DEV_MODE_ROUTED_COMMANDS:
+        if ctx.invoked_subcommand == "build" and dev_mode == DEV_MODE_BRANCH and effective_branch:
+            click.echo(
+                FeedbackManager.gray(
+                    message=f"Using dev_mode=branch. Running build against Tinybird branch '{effective_branch}'."
+                )
+            )
+        elif ctx.invoked_subcommand == "build" and dev_mode == DEV_MODE_LOCAL:
+            click.echo(FeedbackManager.gray(message="Using dev_mode=local. Running build against Tinybird Local."))
+        elif ctx.invoked_subcommand == "deploy":
+            click.echo(
+                FeedbackManager.gray(message=f"Using dev_mode={dev_mode}. Running deploy against Tinybird Cloud main.")
+            )
 
     client = create_ctx_client(
         ctx,
         config,
-        cloud or bool(branch),
+        effective_cloud,
         staging,
         project=project,
         show_warnings=version_warning,
-        branch=branch,
+        branch=effective_branch,
+        create_branch_if_missing=(
+            not explicit_env_selector
+            and ctx.invoked_subcommand == "build"
+            and dev_mode == DEV_MODE_BRANCH
+            and bool(effective_branch)
+        ),
     )
 
     if client:
         ctx.ensure_object(dict)["client"] = client
 
-    ctx.ensure_object(dict)["env"] = get_target_env(cloud, branch)
-    ctx.ensure_object(dict)["branch"] = branch
+    force_cloud_env = ctx.invoked_subcommand in COMMANDS_ALWAYS_CLOUD
+    ctx.ensure_object(dict)["env"] = get_target_env(effective_cloud or force_cloud_env, effective_branch)
+    ctx.ensure_object(dict)["branch"] = effective_branch
+    ctx.ensure_object(dict)["dev_mode"] = dev_mode
     ctx.ensure_object(dict)["output"] = output
 
     # Check if current folder is tracked from previous sessions
     check_current_folder_in_sessions(ctx)
-
-    if is_agent_mode or is_prompt_mode:
-        if any(arg in sys.argv for arg in ["--cloud", "--local", "--branch"]):
-            raise CLIException(
-                FeedbackManager.error(
-                    message="Tinybird Code does not support --cloud, --local or --branch flags. It will choose the correct environment based on your prompts."
-                )
-            )
-
-        run_agent(config, project, dangerously_skip_permissions, prompt=prompt)
 
 
 @cli.command(hidden=True)
@@ -566,12 +1015,16 @@ def create_ctx_client(
     project: Project,
     show_warnings: bool = True,
     branch: Optional[str] = None,
+    create_branch_if_missing: bool = False,
 ):
     commands_without_ctx_client = [
         "auth",
+        "binary",
         "check",
+        "create",
         "local",
         "login",
+        "mock",
         "logout",
         "update",
         "upgrade",
@@ -584,26 +1037,20 @@ def create_ctx_client(
         "fmt",
         "init",
         "project",
+        "preview",
     ]
     command = ctx.invoked_subcommand
     if not command or command in commands_without_ctx_client:
         return None
 
-    commands_always_cloud = ["infra", "branch", "environment"]
-    commands_always_local = ["create"]
     command_always_test = ["test"]
 
-    if (
-        (cloud or command in commands_always_cloud)
-        and command not in commands_always_local
-        and command not in command_always_test
-    ):
+    if (cloud or command in COMMANDS_ALWAYS_CLOUD) and command not in command_always_test:
         if show_warnings:
-            click.echo(
-                FeedbackManager.gray(
-                    message=f"Running against Tinybird Cloud: Workspace {config.get('name', 'default')}"
-                )
-            )
+            target_message = f"Running against Tinybird Cloud: Workspace {config.get('name', 'default')}"
+            if branch:
+                target_message = f"{target_message} | branch {branch}"
+            click.echo(FeedbackManager.gray(message=target_message))
 
         method = None
         if ctx.params.get("token"):
@@ -613,10 +1060,15 @@ def create_ctx_client(
         if method and show_warnings:
             click.echo(FeedbackManager.gray(message=f"Authentication method: {method}"))
 
-        return _get_tb_client(config.get("token", ""), config["host"], staging=staging, branch=branch)
-    local = command in commands_always_local
+        return _get_tb_client(
+            config.get("token", ""),
+            config["host"],
+            staging=staging,
+            branch=branch,
+            create_branch_if_missing=create_branch_if_missing,
+        )
     test = command in command_always_test
-    if show_warnings and not local and command not in commands_always_local and command:
+    if show_warnings and command:
         click.echo(FeedbackManager.gray(message="Running against Tinybird Local"))
     return get_tinybird_local_client(config, test=test, staging=staging)
 
@@ -655,4 +1107,5 @@ def get_config(
     config["host"] = host or config.get("host", "https://api.europe-west2.gcp.tinybird.co")
     config["workspaces"] = config.get("workspaces", [])
     config["cwd"] = config.get("cwd", getcwd())
+    config["dev_mode"] = get_dev_mode(config)
     return config

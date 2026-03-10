@@ -8,7 +8,7 @@ def add(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a new time marker
 
     :return: Result of the operator call.
@@ -18,7 +18,7 @@ def camera_bind(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Bind the selected camera to a marker on the current frame
 
     :return: Result of the operator call.
@@ -30,7 +30,7 @@ def delete(
     /,
     *,
     confirm: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Delete selected time marker(s)
 
     :param confirm: Confirm, Prompt for confirmation (optional)
@@ -43,7 +43,7 @@ def duplicate(
     /,
     *,
     frames: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Duplicate selected time marker(s)
 
     :param frames: Frames, (in [-inf, inf], optional)
@@ -56,7 +56,7 @@ def make_links_scene(
     /,
     *,
     scene: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Copy selected markers to another scene
 
     :param scene: Scene, (optional)
@@ -70,7 +70,7 @@ def move(
     *,
     frames: int | None = 0,
     tweak: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move selected time marker(s)
 
     :param frames: Frames, (in [-inf, inf], optional)
@@ -84,7 +84,7 @@ def rename(
     /,
     *,
     name: str | None = "RenamedMarker",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Rename first selected time marker
 
     :param name: Name, New name for marker (optional, never None)
@@ -102,7 +102,7 @@ def select(
     mouse_y: int | None = 0,
     extend: bool | None = False,
     camera: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select time marker(s)
 
     :param wait_to_deselect_others: Wait to Deselect Others, (optional)
@@ -120,7 +120,7 @@ def select_all(
     /,
     *,
     action: typing.Literal["TOGGLE", "SELECT", "DESELECT", "INVERT"] | None = "TOGGLE",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Change selection of all time markers
 
         :param action: Action, Selection action to execute (optional)
@@ -151,7 +151,7 @@ def select_box(
     wait_for_input: bool | None = True,
     mode: typing.Literal["SET", "ADD", "SUB"] | None = "SET",
     tweak: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select all time markers using box selection
 
         :param xmin: X Min, (in [-inf, inf], optional)
@@ -180,7 +180,7 @@ def select_leftright(
     *,
     mode: typing.Literal["LEFT", "RIGHT"] | None = "LEFT",
     extend: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select markers on and left/right of the current frame
 
     :param mode: Mode, (optional)

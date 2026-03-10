@@ -97,8 +97,6 @@ class FabricReport(Asset):
     INPUT_TO_SPARK_JOBS: ClassVar[Any] = None
     OUTPUT_FROM_SPARK_JOBS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "FabricReport"
-
     fabric_column_count: Union[int, None, UnsetType] = UNSET
     """Number of columns in this asset."""
 
@@ -488,6 +486,9 @@ def _fabric_report_to_nested(fabric_report: FabricReport) -> FabricReportNested:
         is_incomplete=fabric_report.is_incomplete,
         provenance_type=fabric_report.provenance_type,
         home_id=fabric_report.home_id,
+        depth=fabric_report.depth,
+        immediate_upstream=fabric_report.immediate_upstream,
+        immediate_downstream=fabric_report.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -521,7 +522,6 @@ def _fabric_report_from_nested(nested: FabricReportNested) -> FabricReport:
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -530,6 +530,9 @@ def _fabric_report_from_nested(nested: FabricReportNested) -> FabricReport:
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_fabric_report_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

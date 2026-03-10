@@ -91,8 +91,6 @@ class Tableau(Asset):
     INPUT_TO_SPARK_JOBS: ClassVar[Any] = None
     OUTPUT_FROM_SPARK_JOBS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "Tableau"
-
     tableau_project_hierarchy_qualified_names: Union[List[str], None, UnsetType] = UNSET
     """Array of qualified names representing the project hierarchy for this Tableau asset."""
 
@@ -446,6 +444,9 @@ def _tableau_to_nested(tableau: Tableau) -> TableauNested:
         is_incomplete=tableau.is_incomplete,
         provenance_type=tableau.provenance_type,
         home_id=tableau.home_id,
+        depth=tableau.depth,
+        immediate_upstream=tableau.immediate_upstream,
+        immediate_downstream=tableau.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -475,7 +476,6 @@ def _tableau_from_nested(nested: TableauNested) -> Tableau:
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -484,6 +484,9 @@ def _tableau_from_nested(nested: TableauNested) -> Tableau:
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_tableau_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

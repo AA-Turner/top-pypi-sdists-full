@@ -391,12 +391,22 @@ class ClinGenTool(BaseTool):
                     or variant_str in str(v.get("HGVS Expressions", "")).upper()
                 ]
 
-            return {
+            result = {
                 "status": "success",
                 "data": data[:100],
                 "total": len(data),
                 "source": "ClinGen Evidence Repository",
             }
+            if not data and gene:
+                result["note"] = (
+                    f"No variant classifications found for {gene}. "
+                    "The ClinGen Evidence Repository only contains variants "
+                    "curated by Variant Curation Expert Panels (VCEPs). "
+                    "Not all genes have active VCEPs. Try ClinGen_get_gene_validity "
+                    "for gene-disease validity or clinvar_search_variants for "
+                    "ClinVar variant classifications."
+                )
+            return result
         except requests.exceptions.Timeout:
             return {"status": "error", "error": f"Timeout after {self.timeout}s"}
         except requests.exceptions.HTTPError as e:

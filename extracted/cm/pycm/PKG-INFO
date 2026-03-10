@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: pycm
-Version: 4.5
+Version: 4.6
 Summary: Multi-class confusion matrix library in Python
 Home-page: https://github.com/sepandhaghighi/pycm
-Download-URL: https://github.com/sepandhaghighi/pycm/tarball/v4.5
+Download-URL: https://github.com/sepandhaghighi/pycm/tarball/v4.6
 Author: PyCM Development Team
 Author-email: info@pycm.io
 License: MIT
@@ -23,6 +23,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Education
 Classifier: Intended Audience :: End Users/Desktop
@@ -136,10 +137,10 @@ PyCM is the swiss-army knife of confusion matrices, targeted mainly at data scie
 ### PyPI
 
 - Check [Python Packaging User Guide](https://packaging.python.org/installing/)
-- Run `pip install pycm==4.5`
+- Run `pip install pycm==4.6`
 
 ### Source code
-- Download [Version 4.5](https://github.com/sepandhaghighi/pycm/archive/v4.5.zip) or [Latest Source](https://github.com/sepandhaghighi/pycm/archive/dev.zip)
+- Download [Version 4.6](https://github.com/sepandhaghighi/pycm/archive/v4.6.zip) or [Latest Source](https://github.com/sepandhaghighi/pycm/archive/dev.zip)
 - Run `pip install .`
 
 ### Conda
@@ -420,6 +421,48 @@ Class2       0            10
 >>> auc_trp[2]
 0.29166666666666663
 ```
+### Precision curve
+
+`PCurve`, added in `version 4.6`, is devised to compute the Precision curve in which the Y axis represents the Precision, and the X axis represents the discrimination thresholds applied to a classifier. Thus, the highest precision happens at the top right of the curve. Precision curve is a graphical representation of binary classifiers' performance. In PyCM, `PCurve` binarizes the output based on the "One vs. Rest" strategy to provide an extension of this curve for multi-class classifiers. Getting the actual labels vector, the target probability estimates of the positive classes, and the list of ordered labels of classes, this method is able to compute and plot Precision per different discrimination thresholds and compute the area under the curve.
+
+```pycon
+>>> crv = PCurve(actual_vector = np.array([1, 1, 2, 2]), probs = np.array([[0.1, 0.9], [0.4, 0.6], [0.35, 0.65], [0.8, 0.2]]), classes=[2, 1])
+>>> crv.thresholds
+[0.1, 0.2, 0.35, 0.4, 0.6, 0.65, 0.8, 0.9]
+>>> auc_trp = crv.area()
+>>> auc_trp[1]
+0.5458333333333333
+>>> auc_trp[2]
+0.5375000000000001
+```
+### Recall curve
+
+`RCurve`, added in `version 4.6`, is devised to compute the Recall curve in which the Y axis represents the Recall, and the X axis represents the discrimination thresholds applied to a classifier. Thus, the highest recall happens at the top left of the curve, and a larger area under the curve represents better performance. Recall curve is a graphical representation of binary classifiers' performance. In PyCM, `RCurve` binarizes the output based on the "One vs. Rest" strategy to provide an extension of this curve for multi-class classifiers. Getting the actual labels vector, the target probability estimates of the positive classes, and the list of ordered labels of classes, this method is able to compute and plot Recall per different discrimination thresholds and compute the area under the curve.
+
+```pycon
+>>> crv = RCurve(actual_vector = np.array([1, 1, 2, 2]), probs = np.array([[0.1, 0.9], [0.4, 0.6], [0.35, 0.65], [0.8, 0.2]]), classes=[2, 1])
+>>> crv.thresholds
+[0.1, 0.2, 0.35, 0.4, 0.6, 0.65, 0.8, 0.9]
+>>> auc_trp = crv.area()
+>>> auc_trp[1]
+0.6625000000000001
+>>> auc_trp[2]
+0.5125
+```
+
+### F1 curve
+`F1Curve`, added in `version 4.6`, is devised to compute the F1 curve in which the Y axis represents the F1-score, and the X axis represents the discrimination thresholds applied to a classifier. F1 curve is a graphical representation of binary classifiers' performance. In PyCM, `F1Curve` binarizes the output based on the "One vs. Rest" strategy to provide an extension of this curve for multi-class classifiers. Getting the actual labels vector, the target probability estimates of the positive classes, and the list of ordered labels of classes, this method is able to compute and plot F1-score per different discrimination thresholds and compute the area under the curve.
+
+```pycon
+>>> crv = F1Curve(actual_vector = np.array([1, 1, 2, 2]), probs = np.array([[0.1, 0.9], [0.4, 0.6], [0.35, 0.65], [0.8, 0.2]]), classes=[2, 1])
+>>> crv.thresholds
+[0.1, 0.2, 0.35, 0.4, 0.6, 0.65, 0.8, 0.9]
+>>> auc_trp = crv.area()
+>>> auc_trp[1]
+0.5633333333333334
+>>> auc_trp[2]
+0.5091666666666667
+```
 
 ### Parameter recommender
 
@@ -618,6 +661,23 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+## [4.6] - 2026-03-09
+### Added
+- `PCurve` class
+- `RCurve` class
+- `F1Curve` class
+### Changed
+- `Python 3.14` added to `test.yml`
+- `x_axis` parameter added to `Curve` class
+- `y_axis` parameter added to `Curve` class
+- `Curve` class axis precision bug fixed
+- `ROCCurve` class `area` method bug fixed
+- Document modified
+- Document build system updated
+- Integer overflow bug fixed
+- `numpy.trapz` deprecation bug fixed
+- Test system modified
+- Interpretation functions `NaN` bug fixed
 ## [4.5] - 2025-10-15
 ### Added
 - `optimal_thresholds` method in `ROCCurve` class
@@ -1407,7 +1467,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - TPR
 - documents and `README.md`
 
-[Unreleased]: https://github.com/sepandhaghighi/pycm/compare/v4.5...dev
+[Unreleased]: https://github.com/sepandhaghighi/pycm/compare/v4.6...dev
+[4.6]: https://github.com/sepandhaghighi/pycm/compare/v4.5...v4.6
 [4.5]: https://github.com/sepandhaghighi/pycm/compare/v4.4...v4.5
 [4.4]: https://github.com/sepandhaghighi/pycm/compare/v4.3...v4.4
 [4.3]: https://github.com/sepandhaghighi/pycm/compare/v4.2...v4.3

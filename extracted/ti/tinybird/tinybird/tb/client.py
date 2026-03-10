@@ -12,7 +12,6 @@ import requests.adapters
 from requests import Response
 from urllib3 import Retry
 
-from tinybird.ch_utils.constants import COPY_ENABLED_TABLE_FUNCTIONS
 from tinybird.tb.modules.telemetry import add_telemetry_event
 
 HOST = "https://api.tinybird.co"
@@ -1174,29 +1173,12 @@ class TinyB:
         return self._req(f"/v0/integrations/{service}/policies/read-access-policy?{urlencode(params)}")
 
     def sql_get_format(self, sql: str, with_clickhouse_format: bool = False) -> str:
-        try:
-            if with_clickhouse_format:
-                from tinybird.sql_toolset import format_sql
-
-                return format_sql(sql)
-            else:
-                return self._sql_get_format_remote(sql, with_clickhouse_format)
-        except ModuleNotFoundError:
-            return self._sql_get_format_remote(sql, with_clickhouse_format)
+        return self._sql_get_format_remote(sql, with_clickhouse_format)
 
     def _sql_get_format_remote(self, sql: str, with_clickhouse_format: bool = False) -> str:
         params = {"with_clickhouse_format": "true" if with_clickhouse_format else "false"}
         result = self._req(f"/v0/sql_format?q={quote(sql, safe='')}&{urlencode(params)}")
         return result["q"]
-
-    @staticmethod
-    def _sql_get_used_tables_local(sql: str, raising: bool = False, is_copy: Optional[bool] = False) -> List[str]:
-        from tinybird.sql_toolset import sql_get_used_tables
-
-        tables = sql_get_used_tables(
-            sql, raising, table_functions=False, function_allow_list=COPY_ENABLED_TABLE_FUNCTIONS if is_copy else None
-        )
-        return [t[1] if t[0] == "" else f"{t[0]}.{t[1]}" for t in tables]
 
     def _sql_get_used_tables_remote(
         self, sql: str, raising: bool = False, is_copy: Optional[bool] = False
@@ -1212,16 +1194,7 @@ class TinyB:
 
     # Get used tables from a query. Does not include table functions
     def sql_get_used_tables(self, sql: str, raising: bool = False, is_copy: Optional[bool] = False) -> List[str]:
-        try:
-            return self._sql_get_used_tables_local(sql, raising, is_copy)
-        except ModuleNotFoundError:
-            return self._sql_get_used_tables_remote(sql, raising, is_copy)
-
-    @staticmethod
-    def _replace_tables_local(q: str, replacements):
-        from tinybird.sql_toolset import replace_tables, replacements_to_tuples
-
-        return replace_tables(q, replacements_to_tuples(replacements))
+        return self._sql_get_used_tables_remote(sql, raising, is_copy)
 
     def _replace_tables_remote(self, q: str, replacements):
         params = {
@@ -1232,10 +1205,7 @@ class TinyB:
         return result["query"]
 
     def replace_tables(self, q: str, replacements):
-        try:
-            return self._replace_tables_local(q, replacements)
-        except ModuleNotFoundError:
-            return self._replace_tables_remote(q, replacements)
+        return self._replace_tables_remote(q, replacements)
 
     def get_connection(self, **kwargs):
         result = self._req("/v0/connectors")

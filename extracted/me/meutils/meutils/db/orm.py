@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import Field, Session, SQLModel, create_engine, select, insert, update
 
+# todo 不同的数据库
 engine = create_async_engine(
     os.getenv("MYSQL_URL"),
     future=True,
@@ -24,12 +25,38 @@ engine = create_async_engine(
 )
 
 
-async def create_db_and_tables() -> None:
-    meta = SQLModel.metadata
+def get_engine(name_or_url):
+    url = os.getenv(f"{name_or_url.upper()}_URL") or name_or_url
+    engine = create_async_engine(
+        url,
+        future=True,
+        # 连接池优化
+        pool_size=16,  # 基础连接：2核建议10-15个
+        max_overflow=16,  # 溢出连接：总共不超过20-25个
+        pool_recycle=3600,  # 1小时回收，合理
+        pool_pre_ping=True,  # 新增：连接前检查健康，避免超时连接
+        echo=False,  # 生产环境关闭
+        # 可选：连接超时设置
+        connect_args={
+            "connect_timeout": 10,  # 连接超时（秒）
+        },
 
-    async with engine.begin() as conn:
-        # await conn.run_sync(meta.drop_all) # 清空 慎用
-        await conn.run_sync(meta.create_all)
+        execution_options={
+            "timeout": 30,  # 语句执行超时（秒）
+        },
+    )
+    return engine
+
+
+async def ping(engine):
+    try:
+        async with engine.connect() as conn:
+            await conn.execute(select(1))
+        logger.debug("数据库连接正常")
+    except Exception as e:
+        logger.error(f"数据库连接失败: {e}")
+        raise
+
 
 
 async def get_session():
@@ -157,11 +184,14 @@ if __name__ == '__main__':
         # "key": "610d41b8-0b6e-4fba-8439-f5178b733f3a",
         "id": 21249,
     }
+
+
     def update_fn(data):
         data.key = "k1\nk2\nk3"
         return data
 
-    arun(update_or_insert(OneapiChannel, filter_kwargs, update_fn))
+
+    # arun(update_or_insert(OneapiChannel, filter_kwargs, update_fn))
 
     filter_kwargs = {
         "id": "1",
@@ -183,12 +213,17 @@ if __name__ == '__main__':
             # statement = select(OneapiToken).filter_by(**filter_kwargs)
             statement = select(OneapiChannel).filter_by(**filter_kwargs)
 
-
-
             result = await session.exec(statement)
             if result:
                 logger.debug(result.first())
             # await session.commit()
 
-
     # arun(main())
+
+    url = "mysql+aiomysql://root:Chatfirechatfire.@101.47.67.68/rix"
+
+
+    e = get_engine(url)
+
+
+    arun(ping(e))

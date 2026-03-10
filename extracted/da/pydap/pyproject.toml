@@ -27,7 +27,8 @@ dependencies = [
   "scipy",
   "Webob",
   "beautifulsoup4",
-  "lxml"
+  "lxml",
+  "Jinja2"
 ]
 description = "A pure python implementation of the Data Access Protocol."
 dynamic = ["version"]
@@ -47,8 +48,8 @@ density = "pydap.wsgi.functions:density"
 mean = "pydap.wsgi.functions:mean"
 
 [project.entry-points."pydap.handler"]
-csv = "pydap.handlers.csv:CSVHandler"
-nc = "pydap.handlers.netcdf:NetCDFHandler"
+csv = "pydap.handlers.csv_handler:CSVHandler"
+nc = "pydap.handlers.netcdf_handler:NetCDFHandler"
 
 [project.entry-points."pydap.response"]
 asc = "pydap.responses.ascii:ASCIIResponse"
@@ -63,7 +64,7 @@ ver = "pydap.responses.version:VersionResponse"
 [project.optional-dependencies]
 docs = ['Sphinx', 'Pygments', "pandoc", "sphinx_rtd_theme", "nbsphinx", "numpydoc"]
 netcdf = ['netCDF4']
-server = ['werkzeug>=2.2.2', 'gunicorn', 'PasteDeploy', 'docopt-ng', 'cryptography', 'gsw', 'coards', 'Jinja2']
+server = ['werkzeug>=2.2.2', 'gunicorn', 'PasteDeploy', 'docopt-ng', 'cryptography', 'gsw', 'coards']
 
 [tool.isort]
 profile = "black"

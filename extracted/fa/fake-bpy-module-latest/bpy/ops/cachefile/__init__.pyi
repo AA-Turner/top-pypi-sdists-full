@@ -35,7 +35,7 @@ def layer_add(
     ]
     | None = "DEFAULT",
     sort_method: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add an override layer to the archive
 
         :param filepath: File Path, Path to file (optional, never None)
@@ -82,7 +82,7 @@ def layer_move(
     /,
     *,
     direction: typing.Literal["UP", "DOWN"] | None = "UP",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move layer in the list, layers further down the list will overwrite data from the layers higher up
 
     :param direction: Direction, Direction to move the active layer towards (optional)
@@ -93,7 +93,7 @@ def layer_remove(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove an override layer from the archive
 
     :return: Result of the operator call.
@@ -130,7 +130,7 @@ def open(
     ]
     | None = "DEFAULT",
     sort_method: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Load a cache file
 
         :param filepath: File Path, Path to file (optional, never None)
@@ -175,7 +175,7 @@ def reload(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Update objects paths list with new data from the archive
 
     :return: Result of the operator call.

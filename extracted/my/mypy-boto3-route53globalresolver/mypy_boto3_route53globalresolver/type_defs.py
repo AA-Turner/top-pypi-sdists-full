@@ -3,7 +3,7 @@ Type annotations for route53globalresolver service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_route53globalresolver/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -31,6 +31,7 @@ from .literals import (
     FirewallBlockResponseType,
     FirewallRuleActionType,
     FirewallRulesFailOpenTypeType,
+    GlobalResolverIpAddressTypeType,
     HostedZoneAssociationStatusType,
     IpAddressTypeType,
     ProfileResourceStatusType,
@@ -363,6 +364,7 @@ class CreateGlobalResolverInputTypeDef(TypedDict):
     regions: Sequence[str]
     clientToken: NotRequired[str]
     description: NotRequired[str]
+    ipAddressType: NotRequired[GlobalResolverIpAddressTypeType]
     observabilityRegion: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
 
@@ -507,6 +509,8 @@ GlobalResolversItemTypeDef = TypedDict(
         "ipv4Addresses": list[str],
         "observabilityRegion": NotRequired[str],
         "description": NotRequired[str],
+        "ipv6Addresses": NotRequired[list[str]],
+        "ipAddressType": NotRequired[GlobalResolverIpAddressTypeType],
     },
 )
 HostedZoneAssociationSummaryTypeDef = TypedDict(
@@ -664,6 +668,7 @@ class UpdateGlobalResolverInputTypeDef(TypedDict):
     name: NotRequired[str]
     observabilityRegion: NotRequired[str]
     description: NotRequired[str]
+    ipAddressType: NotRequired[GlobalResolverIpAddressTypeType]
 
 
 class UpdateHostedZoneAssociationInputTypeDef(TypedDict):
@@ -781,7 +786,9 @@ CreateGlobalResolverOutputTypeDef = TypedDict(
         "createdAt": datetime,
         "description": str,
         "dnsName": str,
+        "ipAddressType": GlobalResolverIpAddressTypeType,
         "ipv4Addresses": list[str],
+        "ipv6Addresses": list[str],
         "name": str,
         "observabilityRegion": str,
         "regions": list[str],
@@ -881,6 +888,8 @@ DeleteGlobalResolverOutputTypeDef = TypedDict(
         "updatedAt": datetime,
         "status": CRResourceStatusType,
         "ipv4Addresses": list[str],
+        "ipv6Addresses": list[str],
+        "ipAddressType": GlobalResolverIpAddressTypeType,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -1040,6 +1049,8 @@ GetGlobalResolverOutputTypeDef = TypedDict(
         "updatedAt": datetime,
         "status": CRResourceStatusType,
         "ipv4Addresses": list[str],
+        "ipv6Addresses": list[str],
+        "ipAddressType": GlobalResolverIpAddressTypeType,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -1190,6 +1201,8 @@ UpdateGlobalResolverOutputTypeDef = TypedDict(
         "updatedAt": datetime,
         "status": CRResourceStatusType,
         "ipv4Addresses": list[str],
+        "ipv6Addresses": list[str],
+        "ipAddressType": GlobalResolverIpAddressTypeType,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )

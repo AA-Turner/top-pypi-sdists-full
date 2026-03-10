@@ -19,7 +19,7 @@ def bvh(
     | None = "NATIVE",
     root_transform_only: bool | None = False,
     sort_children_by_names: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Save a BVH motion capture file from an armature
 
         :param filepath: File Path, Filepath used for exporting the file (optional, never None)

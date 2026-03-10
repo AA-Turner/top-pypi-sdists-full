@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.19.20.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-03-05T21:57:32.361160                                                            #
+# Generated on 2026-03-09T17:10:37.660488                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -10,6 +10,7 @@ from __future__ import annotations
 from .s3_proxy import get_aws_client_with_s3_proxy as get_aws_client_with_s3_proxy
 from .s3_proxy import get_S3_with_s3_proxy as get_S3_with_s3_proxy
 from .... import profilers as profilers
+from ..plugins.profilers.gpu_profile_decorator import gpu_profile as gpu_profile
 from ..plugins.snowflake.snowflake import Snowflake as Snowflake
 from ..plugins.checkpoint_datastores.nebius import nebius_checkpoints as nebius_checkpoints
 from ..plugins.checkpoint_datastores.coreweave import coreweave_checkpoints as coreweave_checkpoints

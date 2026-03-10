@@ -25,6 +25,14 @@ class AuthRole(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     AUTH_ROLE_SYSTEM: _ClassVar[AuthRole]
     AUTH_ROLE_ADMIN: _ClassVar[AuthRole]
 
+class WorkspacePermission(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    WORKSPACE_PERMISSION_UNSPECIFIED: _ClassVar[WorkspacePermission]
+    WORKSPACE_PERMISSION_NONE: _ClassVar[WorkspacePermission]
+    WORKSPACE_PERMISSION_READ: _ClassVar[WorkspacePermission]
+    WORKSPACE_PERMISSION_WRITE: _ClassVar[WorkspacePermission]
+    WORKSPACE_PERMISSION_FULL_CONTROL: _ClassVar[WorkspacePermission]
+
 class GpuType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     GPU_TYPE_UNSPECIFIED: _ClassVar[GpuType]
@@ -177,6 +185,11 @@ AUTH_ROLE_DEACTIVATED: AuthRole
 AUTH_ROLE_SCIENTIST: AuthRole
 AUTH_ROLE_SYSTEM: AuthRole
 AUTH_ROLE_ADMIN: AuthRole
+WORKSPACE_PERMISSION_UNSPECIFIED: WorkspacePermission
+WORKSPACE_PERMISSION_NONE: WorkspacePermission
+WORKSPACE_PERMISSION_READ: WorkspacePermission
+WORKSPACE_PERMISSION_WRITE: WorkspacePermission
+WORKSPACE_PERMISSION_FULL_CONTROL: WorkspacePermission
 GPU_TYPE_UNSPECIFIED: GpuType
 GPU_TYPE_NVIDIA_H100: GpuType
 GPU_TYPE_NVIDIA_A100_80GB: GpuType
@@ -285,6 +298,14 @@ class Interval(_message.Message):
     finish: _timestamp_pb2.Timestamp
     def __init__(self, start: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., finish: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
 
+class Reference(_message.Message):
+    __slots__ = ("id", "full_name")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    FULL_NAME_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    full_name: str
+    def __init__(self, id: _Optional[str] = ..., full_name: _Optional[str] = ...) -> None: ...
+
 class User(_message.Message):
     __slots__ = ("id", "created", "name", "display_name", "pronouns", "user_details")
     ID_FIELD_NUMBER: _ClassVar[int]
@@ -302,14 +323,12 @@ class User(_message.Message):
     def __init__(self, id: _Optional[str] = ..., created: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., name: _Optional[str] = ..., display_name: _Optional[str] = ..., pronouns: _Optional[str] = ..., user_details: _Optional[_Union[UserDetails, _Mapping]] = ...) -> None: ...
 
 class UserDetails(_message.Message):
-    __slots__ = ("email", "role", "report_group")
+    __slots__ = ("email", "role")
     EMAIL_FIELD_NUMBER: _ClassVar[int]
     ROLE_FIELD_NUMBER: _ClassVar[int]
-    REPORT_GROUP_FIELD_NUMBER: _ClassVar[int]
     email: str
     role: AuthRole
-    report_group: str
-    def __init__(self, email: _Optional[str] = ..., role: _Optional[_Union[AuthRole, str]] = ..., report_group: _Optional[str] = ...) -> None: ...
+    def __init__(self, email: _Optional[str] = ..., role: _Optional[_Union[AuthRole, str]] = ...) -> None: ...
 
 class Organization(_message.Message):
     __slots__ = ("id", "created", "name", "display_name", "description")
@@ -326,7 +345,7 @@ class Organization(_message.Message):
     def __init__(self, id: _Optional[str] = ..., created: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., name: _Optional[str] = ..., display_name: _Optional[str] = ..., description: _Optional[str] = ...) -> None: ...
 
 class Workspace(_message.Message):
-    __slots__ = ("id", "created", "name", "description", "owner_org", "owner_user", "author_org", "author_user", "modified", "archived", "size", "maximum_workload_priority", "budget_id", "slot_limit_preemptible", "slot_limit_non_preemptible", "assigned_slots_preemptible", "assigned_slots_non_preemptible", "queued_slots_preemptible", "queued_slots_non_preemptible")
+    __slots__ = ("id", "created", "name", "description", "owner_org", "owner_user", "author_org", "author_user", "modified", "archived", "size", "maximum_workload_priority", "budget_id", "slot_limit_preemptible", "slot_limit_non_preemptible", "assigned_slots_preemptible", "assigned_slots_non_preemptible", "queued_slots_preemptible", "queued_slots_non_preemptible", "workspace_group")
     class WorkspaceItemCount(_message.Message):
         __slots__ = ("datasets", "experiments", "groups", "images", "environments")
         DATASETS_FIELD_NUMBER: _ClassVar[int]
@@ -359,6 +378,7 @@ class Workspace(_message.Message):
     ASSIGNED_SLOTS_NON_PREEMPTIBLE_FIELD_NUMBER: _ClassVar[int]
     QUEUED_SLOTS_PREEMPTIBLE_FIELD_NUMBER: _ClassVar[int]
     QUEUED_SLOTS_NON_PREEMPTIBLE_FIELD_NUMBER: _ClassVar[int]
+    WORKSPACE_GROUP_FIELD_NUMBER: _ClassVar[int]
     id: str
     created: _timestamp_pb2.Timestamp
     name: str
@@ -378,7 +398,8 @@ class Workspace(_message.Message):
     assigned_slots_non_preemptible: int
     queued_slots_preemptible: int
     queued_slots_non_preemptible: int
-    def __init__(self, id: _Optional[str] = ..., created: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., name: _Optional[str] = ..., description: _Optional[str] = ..., owner_org: _Optional[_Union[Organization, _Mapping]] = ..., owner_user: _Optional[_Union[User, _Mapping]] = ..., author_org: _Optional[_Union[Organization, _Mapping]] = ..., author_user: _Optional[_Union[User, _Mapping]] = ..., modified: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., archived: bool = ..., size: _Optional[_Union[Workspace.WorkspaceItemCount, _Mapping]] = ..., maximum_workload_priority: _Optional[_Union[JobPriority, str]] = ..., budget_id: _Optional[str] = ..., slot_limit_preemptible: _Optional[int] = ..., slot_limit_non_preemptible: _Optional[int] = ..., assigned_slots_preemptible: _Optional[int] = ..., assigned_slots_non_preemptible: _Optional[int] = ..., queued_slots_preemptible: _Optional[int] = ..., queued_slots_non_preemptible: _Optional[int] = ...) -> None: ...
+    workspace_group: Reference
+    def __init__(self, id: _Optional[str] = ..., created: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., name: _Optional[str] = ..., description: _Optional[str] = ..., owner_org: _Optional[_Union[Organization, _Mapping]] = ..., owner_user: _Optional[_Union[User, _Mapping]] = ..., author_org: _Optional[_Union[Organization, _Mapping]] = ..., author_user: _Optional[_Union[User, _Mapping]] = ..., modified: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., archived: bool = ..., size: _Optional[_Union[Workspace.WorkspaceItemCount, _Mapping]] = ..., maximum_workload_priority: _Optional[_Union[JobPriority, str]] = ..., budget_id: _Optional[str] = ..., slot_limit_preemptible: _Optional[int] = ..., slot_limit_non_preemptible: _Optional[int] = ..., assigned_slots_preemptible: _Optional[int] = ..., assigned_slots_non_preemptible: _Optional[int] = ..., queued_slots_preemptible: _Optional[int] = ..., queued_slots_non_preemptible: _Optional[int] = ..., workspace_group: _Optional[_Union[Reference, _Mapping]] = ...) -> None: ...
 
 class NodeShape(_message.Message):
     __slots__ = ("cpu_count", "memory_bytes", "gpu_count", "gpu_type")
@@ -663,7 +684,7 @@ class KernelLog(_message.Message):
     def __init__(self, timestamp: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., message: _Optional[str] = ...) -> None: ...
 
 class Node(_message.Message):
-    __slots__ = ("id", "created", "cluster_id", "hostname", "expiry", "cordon_details", "node_resources", "account_id", "heartbeat")
+    __slots__ = ("id", "created", "cluster_id", "hostname", "expiry", "cordon_details", "node_resources", "account_id", "heartbeat", "executor_version")
     ID_FIELD_NUMBER: _ClassVar[int]
     CREATED_FIELD_NUMBER: _ClassVar[int]
     CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
@@ -673,6 +694,7 @@ class Node(_message.Message):
     NODE_RESOURCES_FIELD_NUMBER: _ClassVar[int]
     ACCOUNT_ID_FIELD_NUMBER: _ClassVar[int]
     HEARTBEAT_FIELD_NUMBER: _ClassVar[int]
+    EXECUTOR_VERSION_FIELD_NUMBER: _ClassVar[int]
     id: str
     created: _timestamp_pb2.Timestamp
     cluster_id: str
@@ -682,7 +704,8 @@ class Node(_message.Message):
     node_resources: NodeResources
     account_id: str
     heartbeat: _timestamp_pb2.Timestamp
-    def __init__(self, id: _Optional[str] = ..., created: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., cluster_id: _Optional[str] = ..., hostname: _Optional[str] = ..., expiry: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., cordon_details: _Optional[_Union[CordonDetails, _Mapping]] = ..., node_resources: _Optional[_Union[NodeResources, _Mapping]] = ..., account_id: _Optional[str] = ..., heartbeat: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
+    executor_version: str
+    def __init__(self, id: _Optional[str] = ..., created: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., cluster_id: _Optional[str] = ..., hostname: _Optional[str] = ..., expiry: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., cordon_details: _Optional[_Union[CordonDetails, _Mapping]] = ..., node_resources: _Optional[_Union[NodeResources, _Mapping]] = ..., account_id: _Optional[str] = ..., heartbeat: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., executor_version: _Optional[str] = ...) -> None: ...
 
 class JobStatus(_message.Message):
     __slots__ = ("status", "created", "scheduled", "started", "exited", "failed", "finalized", "canceled", "exit_code", "message", "canceled_for", "canceled_code", "idle_since", "ready", "failed_scheduling_message")
@@ -1345,20 +1368,44 @@ class SchedulerRun(_message.Message):
     def __init__(self, input: _Optional[_Union[SchedulerInput, _Mapping]] = ..., output: _Optional[_Union[SchedulerOutput, _Mapping]] = ...) -> None: ...
 
 class Budget(_message.Message):
-    __slots__ = ("id", "organization_id", "name", "organization_name", "deprecated", "full_name")
+    __slots__ = ("id", "organization_id", "name", "organization_name", "deprecated", "full_name", "managers")
     ID_FIELD_NUMBER: _ClassVar[int]
     ORGANIZATION_ID_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     ORGANIZATION_NAME_FIELD_NUMBER: _ClassVar[int]
     DEPRECATED_FIELD_NUMBER: _ClassVar[int]
     FULL_NAME_FIELD_NUMBER: _ClassVar[int]
+    MANAGERS_FIELD_NUMBER: _ClassVar[int]
     id: str
     organization_id: str
     name: str
     organization_name: str
     deprecated: bool
     full_name: str
-    def __init__(self, id: _Optional[str] = ..., organization_id: _Optional[str] = ..., name: _Optional[str] = ..., organization_name: _Optional[str] = ..., deprecated: bool = ..., full_name: _Optional[str] = ...) -> None: ...
+    managers: _containers.RepeatedCompositeFieldContainer[Reference]
+    def __init__(self, id: _Optional[str] = ..., organization_id: _Optional[str] = ..., name: _Optional[str] = ..., organization_name: _Optional[str] = ..., deprecated: bool = ..., full_name: _Optional[str] = ..., managers: _Optional[_Iterable[_Union[Reference, _Mapping]]] = ...) -> None: ...
+
+class WorkspaceGroup(_message.Message):
+    __slots__ = ("id", "created", "modified", "name", "full_name", "organization", "author", "budget", "managers")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    CREATED_FIELD_NUMBER: _ClassVar[int]
+    MODIFIED_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    FULL_NAME_FIELD_NUMBER: _ClassVar[int]
+    ORGANIZATION_FIELD_NUMBER: _ClassVar[int]
+    AUTHOR_FIELD_NUMBER: _ClassVar[int]
+    BUDGET_FIELD_NUMBER: _ClassVar[int]
+    MANAGERS_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    created: _timestamp_pb2.Timestamp
+    modified: _timestamp_pb2.Timestamp
+    name: str
+    full_name: str
+    organization: Reference
+    author: Reference
+    budget: Reference
+    managers: _containers.RepeatedCompositeFieldContainer[Reference]
+    def __init__(self, id: _Optional[str] = ..., created: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., modified: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., name: _Optional[str] = ..., full_name: _Optional[str] = ..., organization: _Optional[_Union[Reference, _Mapping]] = ..., author: _Optional[_Union[Reference, _Mapping]] = ..., budget: _Optional[_Union[Reference, _Mapping]] = ..., managers: _Optional[_Iterable[_Union[Reference, _Mapping]]] = ...) -> None: ...
 
 class Queue(_message.Message):
     __slots__ = ("id", "name", "created", "workspace_id", "author_id", "input_schema", "output_schema", "batch_size", "max_claimed_entries", "wait_timeout", "full_name")
@@ -1551,16 +1598,12 @@ class ListUsersResponse(_message.Message):
     def __init__(self, next_page_token: _Optional[str] = ..., users: _Optional[_Iterable[_Union[User, _Mapping]]] = ...) -> None: ...
 
 class CreateUserRequest(_message.Message):
-    __slots__ = ("name", "email", "google_uid", "report_group")
+    __slots__ = ("name", "email")
     NAME_FIELD_NUMBER: _ClassVar[int]
     EMAIL_FIELD_NUMBER: _ClassVar[int]
-    GOOGLE_UID_FIELD_NUMBER: _ClassVar[int]
-    REPORT_GROUP_FIELD_NUMBER: _ClassVar[int]
     name: str
     email: str
-    google_uid: str
-    report_group: str
-    def __init__(self, name: _Optional[str] = ..., email: _Optional[str] = ..., google_uid: _Optional[str] = ..., report_group: _Optional[str] = ...) -> None: ...
+    def __init__(self, name: _Optional[str] = ..., email: _Optional[str] = ...) -> None: ...
 
 class CreateUserResponse(_message.Message):
     __slots__ = ("user",)
@@ -1685,7 +1728,7 @@ class ResolveWorkspaceNameResponse(_message.Message):
 class ListWorkspacesRequest(_message.Message):
     __slots__ = ("next_page_token", "options")
     class Opts(_message.Message):
-        __slots__ = ("sort_clause", "page_size", "organization_id", "author_id", "only_archived", "include_workspace_size", "workload_author_id", "name_or_description_substring")
+        __slots__ = ("sort_clause", "page_size", "organization_id", "author_id", "only_archived", "include_workspace_size", "workload_author_id", "name_or_description_substring", "workspace_group_id")
         class SortClause(_message.Message):
             __slots__ = ("sort_order", "created", "name", "recent_workload_activity", "maximum_workload_priority")
             SORT_ORDER_FIELD_NUMBER: _ClassVar[int]
@@ -1707,6 +1750,7 @@ class ListWorkspacesRequest(_message.Message):
         INCLUDE_WORKSPACE_SIZE_FIELD_NUMBER: _ClassVar[int]
         WORKLOAD_AUTHOR_ID_FIELD_NUMBER: _ClassVar[int]
         NAME_OR_DESCRIPTION_SUBSTRING_FIELD_NUMBER: _ClassVar[int]
+        WORKSPACE_GROUP_ID_FIELD_NUMBER: _ClassVar[int]
         sort_clause: ListWorkspacesRequest.Opts.SortClause
         page_size: int
         organization_id: str
@@ -1715,7 +1759,8 @@ class ListWorkspacesRequest(_message.Message):
         include_workspace_size: bool
         workload_author_id: str
         name_or_description_substring: str
-        def __init__(self, sort_clause: _Optional[_Union[ListWorkspacesRequest.Opts.SortClause, _Mapping]] = ..., page_size: _Optional[int] = ..., organization_id: _Optional[str] = ..., author_id: _Optional[str] = ..., only_archived: bool = ..., include_workspace_size: bool = ..., workload_author_id: _Optional[str] = ..., name_or_description_substring: _Optional[str] = ...) -> None: ...
+        workspace_group_id: str
+        def __init__(self, sort_clause: _Optional[_Union[ListWorkspacesRequest.Opts.SortClause, _Mapping]] = ..., page_size: _Optional[int] = ..., organization_id: _Optional[str] = ..., author_id: _Optional[str] = ..., only_archived: bool = ..., include_workspace_size: bool = ..., workload_author_id: _Optional[str] = ..., name_or_description_substring: _Optional[str] = ..., workspace_group_id: _Optional[str] = ...) -> None: ...
     NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
     OPTIONS_FIELD_NUMBER: _ClassVar[int]
     next_page_token: str
@@ -2224,6 +2269,109 @@ class RecordGPUHealthResponse(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
 
+class RegisterHostRequest(_message.Message):
+    __slots__ = ("hostname", "org_id", "cluster_id")
+    HOSTNAME_FIELD_NUMBER: _ClassVar[int]
+    ORG_ID_FIELD_NUMBER: _ClassVar[int]
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    hostname: str
+    org_id: str
+    cluster_id: str
+    def __init__(self, hostname: _Optional[str] = ..., org_id: _Optional[str] = ..., cluster_id: _Optional[str] = ...) -> None: ...
+
+class RegisterHostResponse(_message.Message):
+    __slots__ = ("host_id",)
+    HOST_ID_FIELD_NUMBER: _ClassVar[int]
+    host_id: str
+    def __init__(self, host_id: _Optional[str] = ...) -> None: ...
+
+class GetDesiredHostExecutorVersionRequest(_message.Message):
+    __slots__ = ("host_id",)
+    HOST_ID_FIELD_NUMBER: _ClassVar[int]
+    host_id: str
+    def __init__(self, host_id: _Optional[str] = ...) -> None: ...
+
+class GetDesiredHostExecutorVersionResponse(_message.Message):
+    __slots__ = ("desired_executor_version",)
+    DESIRED_EXECUTOR_VERSION_FIELD_NUMBER: _ClassVar[int]
+    desired_executor_version: str
+    def __init__(self, desired_executor_version: _Optional[str] = ...) -> None: ...
+
+class SetDesiredHostExecutorVersionRequest(_message.Message):
+    __slots__ = ("host_id", "desired_executor_version")
+    HOST_ID_FIELD_NUMBER: _ClassVar[int]
+    DESIRED_EXECUTOR_VERSION_FIELD_NUMBER: _ClassVar[int]
+    host_id: str
+    desired_executor_version: str
+    def __init__(self, host_id: _Optional[str] = ..., desired_executor_version: _Optional[str] = ...) -> None: ...
+
+class SetDesiredHostExecutorVersionResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class ResolveHostNameRequest(_message.Message):
+    __slots__ = ("org_name", "hostname")
+    ORG_NAME_FIELD_NUMBER: _ClassVar[int]
+    HOSTNAME_FIELD_NUMBER: _ClassVar[int]
+    org_name: str
+    hostname: str
+    def __init__(self, org_name: _Optional[str] = ..., hostname: _Optional[str] = ...) -> None: ...
+
+class ResolveHostNameResponse(_message.Message):
+    __slots__ = ("host_id",)
+    HOST_ID_FIELD_NUMBER: _ClassVar[int]
+    host_id: str
+    def __init__(self, host_id: _Optional[str] = ...) -> None: ...
+
+class ListHostsRequest(_message.Message):
+    __slots__ = ("next_page_token", "options")
+    class Opts(_message.Message):
+        __slots__ = ("cluster_id", "organization_id", "page_size")
+        CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+        ORGANIZATION_ID_FIELD_NUMBER: _ClassVar[int]
+        PAGE_SIZE_FIELD_NUMBER: _ClassVar[int]
+        cluster_id: str
+        organization_id: str
+        page_size: int
+        def __init__(self, cluster_id: _Optional[str] = ..., organization_id: _Optional[str] = ..., page_size: _Optional[int] = ...) -> None: ...
+    NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    OPTIONS_FIELD_NUMBER: _ClassVar[int]
+    next_page_token: str
+    options: ListHostsRequest.Opts
+    def __init__(self, next_page_token: _Optional[str] = ..., options: _Optional[_Union[ListHostsRequest.Opts, _Mapping]] = ...) -> None: ...
+
+class ListHostsResponse(_message.Message):
+    __slots__ = ("next_page_token", "hosts")
+    NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    HOSTS_FIELD_NUMBER: _ClassVar[int]
+    next_page_token: str
+    hosts: _containers.RepeatedCompositeFieldContainer[HostInfo]
+    def __init__(self, next_page_token: _Optional[str] = ..., hosts: _Optional[_Iterable[_Union[HostInfo, _Mapping]]] = ...) -> None: ...
+
+class HostInfo(_message.Message):
+    __slots__ = ("id", "hostname", "cluster_id", "desired_executor_version", "org_id")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    HOSTNAME_FIELD_NUMBER: _ClassVar[int]
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    DESIRED_EXECUTOR_VERSION_FIELD_NUMBER: _ClassVar[int]
+    ORG_ID_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    hostname: str
+    cluster_id: str
+    desired_executor_version: str
+    org_id: str
+    def __init__(self, id: _Optional[str] = ..., hostname: _Optional[str] = ..., cluster_id: _Optional[str] = ..., desired_executor_version: _Optional[str] = ..., org_id: _Optional[str] = ...) -> None: ...
+
+class DeleteHostRequest(_message.Message):
+    __slots__ = ("host_id",)
+    HOST_ID_FIELD_NUMBER: _ClassVar[int]
+    host_id: str
+    def __init__(self, host_id: _Optional[str] = ...) -> None: ...
+
+class DeleteHostResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
 class DeleteNodeRequest(_message.Message):
     __slots__ = ("node_id",)
     NODE_ID_FIELD_NUMBER: _ClassVar[int]
@@ -2231,6 +2379,20 @@ class DeleteNodeRequest(_message.Message):
     def __init__(self, node_id: _Optional[str] = ...) -> None: ...
 
 class DeleteNodeResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class HeartbeatNodeRequest(_message.Message):
+    __slots__ = ("node_id", "ttl", "executor_version")
+    NODE_ID_FIELD_NUMBER: _ClassVar[int]
+    TTL_FIELD_NUMBER: _ClassVar[int]
+    EXECUTOR_VERSION_FIELD_NUMBER: _ClassVar[int]
+    node_id: str
+    ttl: _duration_pb2.Duration
+    executor_version: str
+    def __init__(self, node_id: _Optional[str] = ..., ttl: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., executor_version: _Optional[str] = ...) -> None: ...
+
+class HeartbeatNodeResponse(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
 
@@ -3288,6 +3450,172 @@ class UpdateBudgetResponse(_message.Message):
     BUDGET_FIELD_NUMBER: _ClassVar[int]
     budget: Budget
     def __init__(self, budget: _Optional[_Union[Budget, _Mapping]] = ...) -> None: ...
+
+class UpdateBudgetManagersRequest(_message.Message):
+    __slots__ = ("budget_id", "manager_ids")
+    BUDGET_ID_FIELD_NUMBER: _ClassVar[int]
+    MANAGER_IDS_FIELD_NUMBER: _ClassVar[int]
+    budget_id: str
+    manager_ids: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, budget_id: _Optional[str] = ..., manager_ids: _Optional[_Iterable[str]] = ...) -> None: ...
+
+class UpdateBudgetManagersResponse(_message.Message):
+    __slots__ = ("budget",)
+    BUDGET_FIELD_NUMBER: _ClassVar[int]
+    budget: Budget
+    def __init__(self, budget: _Optional[_Union[Budget, _Mapping]] = ...) -> None: ...
+
+class CreateWorkspaceGroupRequest(_message.Message):
+    __slots__ = ("name", "budget_id")
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    BUDGET_ID_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    budget_id: str
+    def __init__(self, name: _Optional[str] = ..., budget_id: _Optional[str] = ...) -> None: ...
+
+class CreateWorkspaceGroupResponse(_message.Message):
+    __slots__ = ("workspace_group",)
+    WORKSPACE_GROUP_FIELD_NUMBER: _ClassVar[int]
+    workspace_group: WorkspaceGroup
+    def __init__(self, workspace_group: _Optional[_Union[WorkspaceGroup, _Mapping]] = ...) -> None: ...
+
+class GetWorkspaceGroupRequest(_message.Message):
+    __slots__ = ("workspace_group_id",)
+    WORKSPACE_GROUP_ID_FIELD_NUMBER: _ClassVar[int]
+    workspace_group_id: str
+    def __init__(self, workspace_group_id: _Optional[str] = ...) -> None: ...
+
+class GetWorkspaceGroupResponse(_message.Message):
+    __slots__ = ("workspace_group",)
+    WORKSPACE_GROUP_FIELD_NUMBER: _ClassVar[int]
+    workspace_group: WorkspaceGroup
+    def __init__(self, workspace_group: _Optional[_Union[WorkspaceGroup, _Mapping]] = ...) -> None: ...
+
+class ResolveWorkspaceGroupNameRequest(_message.Message):
+    __slots__ = ("organization_name", "workspace_group_name")
+    ORGANIZATION_NAME_FIELD_NUMBER: _ClassVar[int]
+    WORKSPACE_GROUP_NAME_FIELD_NUMBER: _ClassVar[int]
+    organization_name: str
+    workspace_group_name: str
+    def __init__(self, organization_name: _Optional[str] = ..., workspace_group_name: _Optional[str] = ...) -> None: ...
+
+class ResolveWorkspaceGroupNameResponse(_message.Message):
+    __slots__ = ("workspace_group_id",)
+    WORKSPACE_GROUP_ID_FIELD_NUMBER: _ClassVar[int]
+    workspace_group_id: str
+    def __init__(self, workspace_group_id: _Optional[str] = ...) -> None: ...
+
+class ListWorkspaceGroupsRequest(_message.Message):
+    __slots__ = ("next_page_token", "options")
+    class Opts(_message.Message):
+        __slots__ = ("organization_id", "budget_id", "sort_clause", "page_size")
+        class SortClause(_message.Message):
+            __slots__ = ("sort_order", "name", "created")
+            SORT_ORDER_FIELD_NUMBER: _ClassVar[int]
+            NAME_FIELD_NUMBER: _ClassVar[int]
+            CREATED_FIELD_NUMBER: _ClassVar[int]
+            sort_order: SortOrder
+            name: _empty_pb2.Empty
+            created: _empty_pb2.Empty
+            def __init__(self, sort_order: _Optional[_Union[SortOrder, str]] = ..., name: _Optional[_Union[_empty_pb2.Empty, _Mapping]] = ..., created: _Optional[_Union[_empty_pb2.Empty, _Mapping]] = ...) -> None: ...
+        ORGANIZATION_ID_FIELD_NUMBER: _ClassVar[int]
+        BUDGET_ID_FIELD_NUMBER: _ClassVar[int]
+        SORT_CLAUSE_FIELD_NUMBER: _ClassVar[int]
+        PAGE_SIZE_FIELD_NUMBER: _ClassVar[int]
+        organization_id: str
+        budget_id: str
+        sort_clause: ListWorkspaceGroupsRequest.Opts.SortClause
+        page_size: int
+        def __init__(self, organization_id: _Optional[str] = ..., budget_id: _Optional[str] = ..., sort_clause: _Optional[_Union[ListWorkspaceGroupsRequest.Opts.SortClause, _Mapping]] = ..., page_size: _Optional[int] = ...) -> None: ...
+    NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    OPTIONS_FIELD_NUMBER: _ClassVar[int]
+    next_page_token: str
+    options: ListWorkspaceGroupsRequest.Opts
+    def __init__(self, next_page_token: _Optional[str] = ..., options: _Optional[_Union[ListWorkspaceGroupsRequest.Opts, _Mapping]] = ...) -> None: ...
+
+class ListWorkspaceGroupsResponse(_message.Message):
+    __slots__ = ("workspace_groups", "next_page_token")
+    WORKSPACE_GROUPS_FIELD_NUMBER: _ClassVar[int]
+    NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    workspace_groups: _containers.RepeatedCompositeFieldContainer[WorkspaceGroup]
+    next_page_token: str
+    def __init__(self, workspace_groups: _Optional[_Iterable[_Union[WorkspaceGroup, _Mapping]]] = ..., next_page_token: _Optional[str] = ...) -> None: ...
+
+class DeleteWorkspaceGroupRequest(_message.Message):
+    __slots__ = ("workspace_group_id",)
+    WORKSPACE_GROUP_ID_FIELD_NUMBER: _ClassVar[int]
+    workspace_group_id: str
+    def __init__(self, workspace_group_id: _Optional[str] = ...) -> None: ...
+
+class DeleteWorkspaceGroupResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class UpdateWorkspaceGroupManagersRequest(_message.Message):
+    __slots__ = ("workspace_group_id", "manager_ids")
+    WORKSPACE_GROUP_ID_FIELD_NUMBER: _ClassVar[int]
+    MANAGER_IDS_FIELD_NUMBER: _ClassVar[int]
+    workspace_group_id: str
+    manager_ids: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, workspace_group_id: _Optional[str] = ..., manager_ids: _Optional[_Iterable[str]] = ...) -> None: ...
+
+class UpdateWorkspaceGroupManagersResponse(_message.Message):
+    __slots__ = ("workspace_group",)
+    WORKSPACE_GROUP_FIELD_NUMBER: _ClassVar[int]
+    workspace_group: WorkspaceGroup
+    def __init__(self, workspace_group: _Optional[_Union[WorkspaceGroup, _Mapping]] = ...) -> None: ...
+
+class UpdateWorkspaceSetWorkspaceGroupRequest(_message.Message):
+    __slots__ = ("workspace_id", "workspace_group_id")
+    WORKSPACE_ID_FIELD_NUMBER: _ClassVar[int]
+    WORKSPACE_GROUP_ID_FIELD_NUMBER: _ClassVar[int]
+    workspace_id: str
+    workspace_group_id: str
+    def __init__(self, workspace_id: _Optional[str] = ..., workspace_group_id: _Optional[str] = ...) -> None: ...
+
+class UpdateWorkspaceSetWorkspaceGroupResponse(_message.Message):
+    __slots__ = ("workspace",)
+    WORKSPACE_FIELD_NUMBER: _ClassVar[int]
+    workspace: Workspace
+    def __init__(self, workspace: _Optional[_Union[Workspace, _Mapping]] = ...) -> None: ...
+
+class WorkspacePermissionEntry(_message.Message):
+    __slots__ = ("permission", "user_id", "org_id")
+    PERMISSION_FIELD_NUMBER: _ClassVar[int]
+    USER_ID_FIELD_NUMBER: _ClassVar[int]
+    ORG_ID_FIELD_NUMBER: _ClassVar[int]
+    permission: WorkspacePermission
+    user_id: str
+    org_id: str
+    def __init__(self, permission: _Optional[_Union[WorkspacePermission, str]] = ..., user_id: _Optional[str] = ..., org_id: _Optional[str] = ...) -> None: ...
+
+class GetWorkspacePermissionsRequest(_message.Message):
+    __slots__ = ("workspace_id",)
+    WORKSPACE_ID_FIELD_NUMBER: _ClassVar[int]
+    workspace_id: str
+    def __init__(self, workspace_id: _Optional[str] = ...) -> None: ...
+
+class GetWorkspacePermissionsResponse(_message.Message):
+    __slots__ = ("permissions",)
+    PERMISSIONS_FIELD_NUMBER: _ClassVar[int]
+    permissions: _containers.RepeatedCompositeFieldContainer[WorkspacePermissionEntry]
+    def __init__(self, permissions: _Optional[_Iterable[_Union[WorkspacePermissionEntry, _Mapping]]] = ...) -> None: ...
+
+class SetWorkspacePermissionRequest(_message.Message):
+    __slots__ = ("workspace_id", "permission", "user_id", "org_id")
+    WORKSPACE_ID_FIELD_NUMBER: _ClassVar[int]
+    PERMISSION_FIELD_NUMBER: _ClassVar[int]
+    USER_ID_FIELD_NUMBER: _ClassVar[int]
+    ORG_ID_FIELD_NUMBER: _ClassVar[int]
+    workspace_id: str
+    permission: WorkspacePermission
+    user_id: str
+    org_id: str
+    def __init__(self, workspace_id: _Optional[str] = ..., permission: _Optional[_Union[WorkspacePermission, str]] = ..., user_id: _Optional[str] = ..., org_id: _Optional[str] = ...) -> None: ...
+
+class SetWorkspacePermissionResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
 
 class GetGPUUsageReportRequest(_message.Message):
     __slots__ = ("next_page_token", "options")

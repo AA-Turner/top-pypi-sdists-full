@@ -585,7 +585,13 @@ class WorkloadSDK(BaseSDK):
                     f"Connection '{conn_config.name}' not found. Please check that the "
                     f"connection exists in your organization settings and has the correct name."
                 )
-            connection_ids.append(fetched_connections[0].id)
+            user_conn_id = fetched_connections[0].user_connection_id
+            if not user_conn_id:
+                raise ValueError(
+                    f"You are not connected to '{conn_config.name}'. "
+                    f"Please connect via the Integrations page before using this connection."
+                )
+            connection_ids.append(user_conn_id)
 
         return connection_ids
 

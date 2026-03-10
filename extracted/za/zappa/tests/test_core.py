@@ -1606,6 +1606,61 @@ class TestZappa(unittest.TestCase):
             finally:
                 os.chdir(current_dir)
 
+    def test_zappa_init_django_excludes_app_function(self):
+        """
+        Regression test for https://github.com/zappa/Zappa/issues/1404
+        Django projects should have django_settings but NOT app_function
+        in the generated zappa_settings.json.
+        """
+        current_dir = os.getcwd()
+        with tempfile.TemporaryDirectory(prefix="zappa_test") as tempdir:
+            try:
+                os.chdir(tempdir)
+                tempdir = Path(tempdir)
+
+                settings_filepath = tempdir / "zappa_settings.json"
+
+                zappa_cli = ZappaCLI()
+
+                # Mock Django as importable so has_django=True
+                django_mock = mock.MagicMock()
+                with mock.patch.dict("sys.modules", {"django": django_mock}), mock.patch(
+                    "zappa.cli.ZappaCLI._get_init_env", return_value="dev"
+                ), mock.patch(
+                    "zappa.cli.ZappaCLI._get_init_profile",
+                    return_value=("default", {"region": "us-east-1"}),
+                ), mock.patch(
+                    "zappa.cli.detect_django_settings",
+                    return_value=["my_project.settings"],
+                ), mock.patch(
+                    "zappa.cli.ZappaCLI._get_init_django_settings",
+                    return_value="my_project.settings",
+                ), mock.patch(
+                    "zappa.cli.ZappaCLI._get_init_bucket",
+                    return_value="my-zappa-bucket",
+                ), mock.patch(
+                    "zappa.cli.ZappaCLI._get_init_global_settings",
+                    return_value=["n", False],
+                ), mock.patch(
+                    "zappa.cli.ZappaCLI._get_init_confirm", return_value="y"
+                ):
+                    zappa_cli.init()
+
+                self.assertTrue(settings_filepath.exists())
+
+                with settings_filepath.open("r") as f:
+                    zappa_settings = json.load(f)
+
+                dev_settings = zappa_settings["dev"]
+                self.assertEqual(dev_settings["django_settings"], "my_project.settings")
+                self.assertNotIn(
+                    "app_function",
+                    dev_settings,
+                    "Django projects must not have app_function in settings (issue #1404)",
+                )
+            finally:
+                os.chdir(current_dir)
+
     def test_cli_sanity(self):
         zappa_cli = ZappaCLI()
         return
@@ -2373,6 +2428,95 @@ class TestZappa(unittest.TestCase):
 
         colorized_string = zappa_cli.colorize_invoke_command(plain_string)
         self.assertEqual(final_string, colorized_string)
+
+    @mock.patch("zappa.cli.ZappaCLI.format_lambda_response")
+    @mock.patch("zappa.core.Zappa.invoke_lambda_function")
+    def test_invoke_with_payload(self, mock_invoke, mock_format):
+        """Test that --payload merges JSON into the invoke event."""
+        mock_invoke.return_value = {"StatusCode": 200}
+        mock_format.return_value = "ok"
+
+        zappa_cli = ZappaCLI()
+        zappa_cli.api_stage = "dev"
+        zappa_cli.lambda_name = "test-func"
+        zappa_cli.zappa = mock.MagicMock()
+        zappa_cli.zappa.invoke_lambda_function = mock_invoke
+
+        zappa_cli.invoke(
+            "my_app.my_function",
+            payload='{"key1": "value1", "key2": "value2"}',
+        )
+
+        call_args = mock_invoke.call_args
+        sent_payload = json.loads(call_args[0][1])
+        self.assertEqual(sent_payload["command"], "my_app.my_function")
+        self.assertEqual(sent_payload["key1"], "value1")
+        self.assertEqual(sent_payload["key2"], "value2")
+
+    @mock.patch("zappa.cli.ZappaCLI.format_lambda_response")
+    @mock.patch("zappa.core.Zappa.invoke_lambda_function")
+    def test_invoke_with_payload_raw_python(self, mock_invoke, mock_format):
+        """Test that --payload works with --raw."""
+        mock_invoke.return_value = {"StatusCode": 200}
+        mock_format.return_value = "ok"
+
+        zappa_cli = ZappaCLI()
+        zappa_cli.api_stage = "dev"
+        zappa_cli.lambda_name = "test-func"
+        zappa_cli.zappa = mock.MagicMock()
+        zappa_cli.zappa.invoke_lambda_function = mock_invoke
+
+        zappa_cli.invoke(
+            "print('hello')",
+            raw_python=True,
+            payload='{"extra": "data"}',
+        )
+
+        call_args = mock_invoke.call_args
+        sent_payload = json.loads(call_args[0][1])
+        self.assertEqual(sent_payload["raw_command"], "print('hello')")
+        self.assertEqual(sent_payload["extra"], "data")
+
+    def test_invoke_with_invalid_payload_json(self):
+        """Test that invalid JSON in --payload raises ClickException."""
+        zappa_cli = ZappaCLI()
+        zappa_cli.api_stage = "dev"
+        zappa_cli.lambda_name = "test-func"
+        zappa_cli.zappa = mock.MagicMock()
+
+        with self.assertRaises(ClickException) as cm:
+            zappa_cli.invoke("my_app.my_function", payload="not-valid-json")
+        self.assertIn("--payload must be valid JSON", str(cm.exception))
+
+    def test_invoke_with_non_dict_payload(self):
+        """Test that a non-dict JSON payload raises ClickException."""
+        zappa_cli = ZappaCLI()
+        zappa_cli.api_stage = "dev"
+        zappa_cli.lambda_name = "test-func"
+        zappa_cli.zappa = mock.MagicMock()
+
+        with self.assertRaises(ClickException) as cm:
+            zappa_cli.invoke("my_app.my_function", payload='["a", "b"]')
+        self.assertIn("--payload must be a JSON object", str(cm.exception))
+
+    @mock.patch("zappa.cli.ZappaCLI.format_lambda_response")
+    @mock.patch("zappa.core.Zappa.invoke_lambda_function")
+    def test_invoke_without_payload(self, mock_invoke, mock_format):
+        """Test that invoke without --payload works as before."""
+        mock_invoke.return_value = {"StatusCode": 200}
+        mock_format.return_value = "ok"
+
+        zappa_cli = ZappaCLI()
+        zappa_cli.api_stage = "dev"
+        zappa_cli.lambda_name = "test-func"
+        zappa_cli.zappa = mock.MagicMock()
+        zappa_cli.zappa.invoke_lambda_function = mock_invoke
+
+        zappa_cli.invoke("my_app.my_function")
+
+        call_args = mock_invoke.call_args
+        sent_payload = json.loads(call_args[0][1])
+        self.assertEqual(sent_payload, {"command": "my_app.my_function"})
 
     @mock.patch("zappa.cli.ZappaCLI.colorize_invoke_command")
     @mock.patch("zappa.cli.ZappaCLI.format_invoke_command")
@@ -3790,6 +3934,39 @@ class TestZappa(unittest.TestCase):
         boto_mock.client().add_permission.assert_not_called()
         boto_mock.client().create_function_url_config.assert_not_called()
         boto_mock.client().update_function_url_config.assert_not_called()
+
+    @mock.patch("botocore.client")
+    def test_delete_lambda_function_url_unsupported_region(self, client):
+        """In regions where Lambda Function URLs are not supported,
+        list_function_url_configs raises ClientError. delete_lambda_function_url
+        should catch it and return early without attempting any deletes."""
+        boto_mock = mock.MagicMock()
+        zappa_core = Zappa(
+            boto_session=boto_mock,
+            profile_name="test",
+            aws_region="eu-south-2",
+            load_credentials=True,
+        )
+        function_name = "abc"
+        function_arn = "arn:aws:lambda:eu-south-2:123456789:function:{}".format(function_name)
+
+        error_response = {
+            "Error": {
+                "Code": "AccessDeniedException",
+                "Message": "User is not authorized to perform: lambda:ListFunctionUrlConfigs",
+            }
+        }
+        zappa_core.lambda_client.list_function_url_configs.side_effect = botocore.exceptions.ClientError(
+            error_response, "ListFunctionUrlConfigs"
+        )
+
+        # Should not raise — returns early
+        zappa_core.delete_lambda_function_url(function_name=function_arn)
+
+        # Verify no delete or policy operations were attempted
+        boto_mock.client().delete_function_url_config.assert_not_called()
+        boto_mock.client().get_policy.assert_not_called()
+        boto_mock.client().remove_permission.assert_not_called()
 
     # Issue #1407: API Gateway v2 update returns 500 on status check
     # https://github.com/zappa/Zappa/issues/1407

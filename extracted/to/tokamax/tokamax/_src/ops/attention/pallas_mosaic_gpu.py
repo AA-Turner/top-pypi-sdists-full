@@ -20,8 +20,6 @@ from typing import Any, ClassVar, TypeAlias
 
 import immutabledict
 import jax
-import jax.experimental.pallas as pl
-from jax.extend import backend
 import jax.numpy as jnp
 from jaxtyping import Array, Bool, Float, Int  # pylint: disable=g-multiple-import,g-importing-member
 from tokamax._src import batching
@@ -32,11 +30,15 @@ from tokamax._src import shape as shape_lib
 from tokamax._src.ops import op
 from tokamax._src.ops.attention import base
 from tokamax._src.ops.attention import pallas_mosaic_gpu_common as common
+from tokamax._src.ops.attention import pallas_mosaic_gpu_kernel_sm100 as sm100
 from tokamax._src.ops.attention import pallas_mosaic_gpu_kernel_sm90 as sm90
 from tokamax._src.ops.attention import pallas_mosaic_gpu_vjp as vjp
 from typing_extensions import override
 
-Config = common.Config
+# TODO: Make attention Config a pydantic discriminated union.
+ConfigSM90 = sm90.Config
+ConfigSM100 = sm100.Config
+Config = ConfigSM90 | ConfigSM100
 Key: TypeAlias = immutabledict.immutabledict[str, Any]
 Mask = base.Mask
 PagingInfo = base.PagingInfo
@@ -48,50 +50,42 @@ def _broadcast_to_rank(x, rank):
   return None if x is None else jax.lax.broadcast_to_rank(x, rank)
 
 
-def _decompose_mask(mask, q, k, q_indices, k_indices):
-  """Decomposes `mask` into a mask array, `is_causal`, `k_start` and `k_end`."""
-  if mask is None:
-    return None, False, None, None
-
-  is_causal = False
-  k_start = None
-  k_end = None
-
-  if k_indices is None:
-    mask, is_causal, k_start, k_end = mask.take("is_causal", "k_start", "k_end")
-
-    # Fold `is_causal` into `k_end`. If `q_indices` is not `None`, then this is
-    # necessary for correctness. Otherwise, it is a performance optimization.
-    if is_causal and (q_indices is not None or k_end is not None):
-      if q_indices is None:
-        q_indices = jnp.arange(q.shape[-3])
-      k_end_ = q_indices + 1
-      k_end = k_end_ if k_end is None else jnp.minimum(k_end, k_end_)
-      is_causal = False
-
-    if k_start is not None:
-      k_start = jax.lax.broadcast_to_rank(k_start, 2)
-    if k_end is not None:
-      k_end = jax.lax.broadcast_to_rank(k_end, 2)
-
-  q_len_or_indices = q.shape[-3] if q_indices is None else q_indices
-  k_len_or_indices = k.shape[-3] if k_indices is None else k_indices
-  mask = mask.as_array(q_len_or_indices, k_len_or_indices)
-  return mask, is_causal, k_start, k_end
+def _get_kernel_module():
+  if not gpu_utils.has_mosaic_gpu_support():
+    raise NotImplementedError("Mosaic GPU not supported on this platform.")
+  if not (gpu_utils.is_sm90() or gpu_utils.is_sm100()):
+    raise NotImplementedError("Only supported for sm90 and sm100 GPUs.")
+  return sm100 if gpu_utils.is_sm100() else sm90
 
 
 @dataclasses.dataclass(frozen=True)
 class PallasMosaicGpuFlashAttention(base.DotProductAttention[Config, Key]):
-  """Flash attention with Mosaic GPU."""
+  """Flash attention with Mosaic GPU.
+
+  Attributes:
+    use_base2: If `True`, use base-2 exponential and logarithms.
+    use_stable_softmax: If `True`, use stable softmax, where the maximum value
+      will be subtracted from the logits before applying the softmax function,
+      improving numerical stability. If `AUTO` (the default), then stable
+      softmax will be `True` unless `logits_soft_cap` is not `None`, in which
+      case it will depend upon the value of `logits_soft_cap`.
+    rescale_threshold: The threshold for rescaling the accumulator when using
+      stable softmax. We have a rescaling factor, `alpha` where `alpha =
+      exp(prev_max - new_max)`. If `alpha < rescale_threshold`, we rescale the
+      accumulator. By default, it is `1`, which means rescaling happens every
+      time the maximum seen value changes. However, it can be set to a lower
+      value to perform rescaling less often, at the potential cost of numerical
+      stability. It is ignored when not using stable softmax.
+  """
 
   config_cls: ClassVar[type[Config]] = Config
   supports_symbolic_shapes: ClassVar[bool] = False
-  use_base2: bool = True
   use_stable_softmax: bool | type[base.AUTO] = base.AUTO
+  rescale_threshold: float = 1.0
 
   def __post_init__(self):
     if self.vjp is None:
-      vjp_ = vjp.PallasMosaicGpuFlashAttentionVjp(use_base2=self.use_base2)
+      vjp_ = vjp.PallasMosaicGpuFlashAttentionVjp()
       object.__setattr__(self, "vjp", vjp_)
 
   @jaxtyping.jaxtyped
@@ -121,11 +115,9 @@ class PallasMosaicGpuFlashAttention(base.DotProductAttention[Config, Key]):
     if not gpu_utils.has_mosaic_gpu_support():
       raise NotImplementedError("Mosaic GPU not supported on this platform.")
 
-    compute_capability = float(backend.get_default_device().compute_capability)
-
-    if compute_capability < 9.0 or compute_capability >= 10.0:
+    if not (gpu_utils.is_sm90() or gpu_utils.is_sm100()):
       raise NotImplementedError(
-          "Mosaic GPU backend only supported for sm90 GPUs for now."
+          "Mosaic GPU backend only supported for sm90+ GPUs for now."
       )
 
     supported_dtypes = (jnp.float32, jnp.float16, jnp.bfloat16)
@@ -163,31 +155,42 @@ class PallasMosaicGpuFlashAttention(base.DotProductAttention[Config, Key]):
     v = cast(v, weights_v_dot_precision)
 
     orig_seq_len_q = q.shape[-3]
-    if config.fold_q_sequence_heads:
-      q, bias, mask, dropout_mask, q_indices = base.fold_q_sequence_heads(
+    if isinstance(config, common.ConfigBase) and config.fold_q_sequence_heads:
+      q, bias, mask, _, q_indices = base.fold_q_sequence_heads(
           q, bias, mask, dropout_mask, q_indices, k.shape[-3], k.shape[-2]
       )
 
-    mask, is_causal, k_start, k_end = _decompose_mask(
+    mask, is_causal, k_start, k_end = common.decompose_mask(
         mask, q, k, q_indices, k_indices
     )
 
     use_stable_softmax = self.use_stable_softmax
-    if use_stable_softmax is base.AUTO:
-      use_stable_softmax = base.needs_stable_softmax(
-          logits_dtype, logits_soft_cap
-      )
+
+    if isinstance(config, ConfigSM100):
+      kernel_module = sm100
+      out_dtype = q.dtype
+      if use_stable_softmax is base.AUTO:
+        # TODO: Support sm100 with unstable softmax.
+        use_stable_softmax = True
+    elif isinstance(config, ConfigSM90):
+      kernel_module = sm90
+      if use_stable_softmax is base.AUTO:
+        use_stable_softmax = base.needs_stable_softmax(
+            logits_dtype, logits_soft_cap
+        )
+    else:
+      raise TypeError(f"Unsupported config type: {type(config)}")
 
     f = functools.partial(
-        sm90.flash_attention_kernel,
+        kernel_module.flash_attention_kernel,
         is_causal=is_causal,
         logits_soft_cap=logits_soft_cap,
         logits_scale=logits_scale,
         out_dtype=out_dtype,
         normalize_output=normalize_output,
         return_residuals=return_residuals,
-        use_base2=self.use_base2,
         use_stable_softmax=use_stable_softmax,
+        rescale_threshold=self.rescale_threshold,
         config=config,
     )
     bias = _broadcast_to_rank(bias, q.ndim)
@@ -226,63 +229,12 @@ class PallasMosaicGpuFlashAttention(base.DotProductAttention[Config, Key]):
     return out, residuals
 
   @override
-  def _get_heuristics_config(self, ba: op.BoundArguments):
-    q, k, v = ba.args
-    head_dim = k.shape[-1]
-    head_dim_out = v.shape[-1]
-
-    mask = ba.kwargs["mask"]
-    q_indices = ba.kwargs["q_indices"]
-    k_indices = ba.kwargs["k_indices"]
-    mask, *_ = jax.eval_shape(_decompose_mask, mask, q, k, q_indices, k_indices)
-    # 32-bit floats are downcast to 16-bit before the kernel call.
-    dtype_bits = jnp.finfo(jnp.bfloat16).bits
-
-    def shared_mem_usage_bytes(block_q, block_kv, num_stages):
-      bytes_per_stage = (
-          block_kv * head_dim * dtype_bits // 8
-          + block_kv * head_dim_out * dtype_bits // 8
-      )
-      if (bias := ba.kwargs["bias"]) is not None:
-        bytes_per_stage += (
-            2 * block_q * block_kv * jnp.finfo(bias.dtype).bits // 8
-        )
-      # FIXME: This is an overestimate for broadcast masks.
-      if mask is not None:
-        bytes_per_stage += 2 * block_q * block_kv
-      return (
-          2 * block_q * head_dim * dtype_bits // 8
-          + num_stages * bytes_per_stage
-          + 1000  # Add some extra for barriers.
-      )
-
-    if shared_mem_usage_bytes(64, 128, 2) < 227 * 1024:
-      return Config(block_q=64, block_kv=128, num_stages=2)
-
-    # This is a pretty good option that works for most cases.
-    return Config(block_q=64, block_kv=64, num_stages=2)
+  def _get_heuristics_config(self, ba: op.BoundArguments) -> Config:
+    return _get_kernel_module().get_heuristics_config(ba)
 
   @override
   def _get_autotuning_configs(self, ba: op.BoundArguments) -> set[Config]:
-    q, k, _ = ba.args
-    block_qs = set([
-        min(x, pl.next_power_of_2(q.shape[-3] // 2))
-        for x in [64, 128, 256]
-        if q.shape[-3] % (x * 2) == 0  # 2 * block_q must divide seq_len_q.
-    ])
-    block_kvs = set([
-        min(x, pl.next_power_of_2(k.shape[-3]))
-        for x in [64, 128, 256]
-        if k.shape[-3] % x == 0  # block_kv must divide seq_len_kv.
-    ])
-    configs = set()
-    for block_q in block_qs:
-      for block_kv in block_kvs:
-        for num_stages in [2, 3, 4]:
-          configs.add(
-              Config(block_q=block_q, block_kv=block_kv, num_stages=num_stages)
-          )
-    return configs
+    return _get_kernel_module().get_autotuning_configs(ba)
 
   @override
   def supported_on(self, device: jax.Device) -> bool:

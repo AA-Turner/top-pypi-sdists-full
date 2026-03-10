@@ -110,8 +110,6 @@ class APISpec(Asset):
     INPUT_TO_SPARK_JOBS: ClassVar[Any] = None
     OUTPUT_FROM_SPARK_JOBS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "APISpec"
-
     api_spec_terms_of_service_url: Union[str, None, UnsetType] = msgspec.field(
         default=UNSET, name="apiSpecTermsOfServiceURL"
     )
@@ -626,6 +624,9 @@ def _api_spec_to_nested(api_spec: APISpec) -> APISpecNested:
         is_incomplete=api_spec.is_incomplete,
         provenance_type=api_spec.provenance_type,
         home_id=api_spec.home_id,
+        depth=api_spec.depth,
+        immediate_upstream=api_spec.immediate_upstream,
+        immediate_downstream=api_spec.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -655,7 +656,6 @@ def _api_spec_from_nested(nested: APISpecNested) -> APISpec:
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -664,6 +664,9 @@ def _api_spec_from_nested(nested: APISpecNested) -> APISpec:
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_api_spec_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 import ssl
+import threading
 import warnings
 from typing import Any, Dict, Literal, Optional, Tuple, Union
 
@@ -18,11 +19,14 @@ from requests_cache import BaseCache, CachedSession
 from urllib3 import Retry
 from webob.request import Request as webob_Request
 
-from pydap.lib import DEFAULT_TIMEOUT, __version__, _quote
+from pydap import __version__
+from pydap.lib import DEFAULT_TIMEOUT, _quote
 
 _BEARER_RE = re.compile(r"^\s*Bearer\s+.+", re.IGNORECASE)
 
 Backend = Literal["sqlite", "filesystem", "memory"]
+
+_thread_local = threading.local()
 
 
 def GET(
@@ -375,6 +379,7 @@ def new_session_with_same_store(base: CachedSession, **cache_kwargs) -> CachedSe
     return CachedSession(
         backend=backend,
         cache_name=cache_name,
+        fast_save=True,  # reduces write locking
         **cache_kwargs,
     )
 
@@ -425,7 +430,7 @@ def build_session(
         retry_args.setdefault("allowed_methods", ["GET"])
 
     retries = Retry(**retry_args)
-    adapter = HTTPAdapter(max_retries=retries)
+    adapter = HTTPAdapter(max_retries=retries, pool_connections=200, pool_maxsize=200)
 
     # Mount the adapter to the session
     s.mount("http://", adapter)
@@ -462,3 +467,117 @@ def cache_store_id(obj: Union[CachedSession, BaseCache]) -> Tuple[Backend, str]:
         return kind, str(getattr(cache, "cache_dir"))
     if kind == "memory":
         return kind, getattr(cache, "cache_name", type(cache).__name__)
+
+
+def extract_session_state(session):
+    """
+    Extract reusable session state including auth, headers, cookies, TLS verify,
+    and (if the session is a CachedSession) its backend and cache_name.
+
+    Returns a dict suitable for restore_session().
+    """
+    state = dict(
+        headers=dict(session.headers),
+        cookies=dict(session.cookies),
+        auth=session.auth,
+        verify=session.verify,
+        cache_name=None,
+        backend=None,
+        cache_kwargs={},
+    )
+
+    if isinstance(session, CachedSession):
+        cache = session.cache
+        state["backend"] = detect_backend(session)
+        state["cache_name"] = cache.cache_name
+
+        if hasattr(cache, "wal"):
+            state["cache_kwargs"]["sqlite_wal"] = cache.wal
+
+        # If fast_save was used
+        if hasattr(cache, "fast_save"):
+            state["cache_kwargs"]["fast_save"] = cache.fast_save
+
+    return state
+
+
+def get_thread_session(session_state=None):
+    """
+    Return a thread-local requests.Session, initializing it once per thread
+    using session_state.
+    """
+    if not hasattr(_thread_local, "session"):
+        s = requests.Session()
+
+        if session_state is not None:
+            # headers
+            s.headers.update(session_state.get("headers", {}))
+
+            # cookies
+            s.cookies.update(session_state.get("cookies", {}))
+
+            # auth / TLS options
+            s.auth = session_state.get("auth")
+            s.verify = session_state.get("verify", True)
+
+        _thread_local.session = s
+
+    return _thread_local.session
+
+
+def get_session(session_state=None):
+    if session_state:
+        # you might want one restored session per thread too
+        if not hasattr(_thread_local, "session"):
+            _thread_local.session = restore_session(session_state)
+    else:
+        if not hasattr(_thread_local, "session"):
+            _thread_local.session = create_session()
+    return _thread_local.session
+
+
+def restore_session(session_state):
+    """
+    Restore a session (either CachedSession or plain Session)
+    from the dictionary produced by extract_session_state().
+
+    If session_state["cache_name"] is not None, reconstruct a CachedSession.
+    Otherwise return a plain requests.Session().
+    """
+
+    cache_name = session_state.get("cache_name")
+    backend = session_state.get("backend")
+    cache_kwargs = session_state.get("cache_kwargs", {})
+
+    if cache_name is not None and backend is not None:
+        s = CachedSession(
+            cache_name=cache_name,
+            backend=backend,
+            **cache_kwargs,
+        )
+
+    else:
+        s = create_session()
+
+    s.headers.update(session_state.get("headers", {}))
+    s.cookies.update(session_state.get("cookies", {}))
+    s.auth = session_state.get("auth")
+    s.verify = session_state.get("verify")
+
+    # Handle retry arguments separately
+    retry_args = {}
+    retry_args.setdefault("total", 5)
+    retry_args.setdefault("status", 2)
+    retry_args.setdefault("connect", 1)
+    retry_args.setdefault("status_forcelist", [500, 502, 503, 504])
+    retry_args.setdefault("backoff_factor", 0.1)
+    retry_args.setdefault("allowed_methods", ["GET"])
+
+    retries = Retry(**retry_args)
+    adapter = HTTPAdapter(max_retries=retries, pool_connections=200, pool_maxsize=200)
+
+    # Mount the adapter to the session
+    s.mount("http://", adapter)
+    s.mount("https://", adapter)
+
+    return s

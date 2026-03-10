@@ -11,7 +11,7 @@ def denoise_animation(
     *,
     input_filepath: str | None = "",
     output_filepath: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Denoise rendered animation sequence using current scene and view layer settings. Requires denoising data passes and output to OpenEXR multilayer files
 
     :param input_filepath: Input Filepath, File path for image to denoise. If not specified, uses the render file path and frame range from the scene (optional, never None)
@@ -27,7 +27,7 @@ def merge_images(
     input_filepath1: str | None = "",
     input_filepath2: str | None = "",
     output_filepath: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Combine OpenEXR multi-layer images rendered with different sample ranges into one image with reduced noise
 
     :param input_filepath1: Input Filepath, File path for image to merge (optional, never None)
@@ -40,7 +40,7 @@ def use_shading_nodes(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Enable nodes on a light
 
     :return: Result of the operator call.

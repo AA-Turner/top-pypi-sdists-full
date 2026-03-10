@@ -20,6 +20,8 @@ from tqdm import tqdm
 from filelock import FileLock
 from tqdm.utils import CallbackIOWrapper
 
+from together._utils._logs import logger
+
 from ...types import FileType, FilePurpose, FileResponse
 from ..._types import RequestOptions
 from ..constants import (
@@ -36,6 +38,7 @@ from ..constants import (
     DOWNLOAD_MAX_RETRY_DELAY,
     MULTIPART_UPLOAD_TIMEOUT,
     DOWNLOAD_INITIAL_RETRY_DELAY,
+    MULTIPART_UPLOAD_WRITE_TIMEOUT,
 )
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..types.error import DownloadError, FileTypeError
@@ -602,11 +605,15 @@ class MultipartUploadManager(SyncAPIResource):
 
         part_headers = part_info.get("Headers", {})
 
+        timeout = httpx.Timeout(
+            MULTIPART_UPLOAD_TIMEOUT,
+            write=MULTIPART_UPLOAD_WRITE_TIMEOUT,
+        )
         response = self._client._client.put(
             url=upload_url,
             content=part_data,
             headers=part_headers,
-            timeout=MULTIPART_UPLOAD_TIMEOUT,
+            timeout=timeout,
         )
         response.raise_for_status()
 
@@ -652,6 +659,7 @@ class MultipartUploadManager(SyncAPIResource):
         if response.status_code == 200:
             response_data = response.json()
             file_data = response_data.get("file", response_data)
+            file_data["object"] = "file"
             return FileResponse(**file_data)
         else:
             raise APIStatusError(
@@ -670,7 +678,7 @@ class MultipartUploadManager(SyncAPIResource):
 
         self._client.post(
             path=f"{url}/multipart/abort",
-            cast_to=dict,
+            cast_to=httpx.Response,
             body=payload,
             options={"headers": {"Content-Type": "application/json"}},
         )
@@ -1003,12 +1011,16 @@ class AsyncMultipartUploadManager(AsyncAPIResource):
 
         part_headers = part_info.get("Headers", {})
 
+        timeout = httpx.Timeout(
+            MULTIPART_UPLOAD_TIMEOUT,
+            write=MULTIPART_UPLOAD_WRITE_TIMEOUT,
+        )
         with httpx.Client() as client:
             response = client.put(
                 url=upload_url,
                 content=part_data,
                 headers=part_headers,
-                timeout=MULTIPART_UPLOAD_TIMEOUT,
+                timeout=timeout,
             )
         response.raise_for_status()
 
@@ -1050,6 +1062,7 @@ class AsyncMultipartUploadManager(AsyncAPIResource):
         if response.status_code == 200:
             response_data = response.json()
             file_data = response_data.get("file", response_data)
+            file_data["object"] = "file"
             return FileResponse(**file_data)
         else:
             raise APIStatusError(
@@ -1068,7 +1081,7 @@ class AsyncMultipartUploadManager(AsyncAPIResource):
 
         await self._client.post(
             path=f"{url}/multipart/abort",
-            cast_to=dict,
+            cast_to=httpx.Response,
             body=payload,
             options={"headers": {"Content-Type": "application/json"}},
         )
@@ -1105,6 +1118,7 @@ def _calculate_file_checksum(file_path: Path, algorithm: str = "sha256", block_s
         str: The hexadecimal representation of the file checksum.
     """
     # Create a hash object with the specified algorithm name
+    logger.debug("Starting file checksum calculation")
     try:
         hasher = hashlib.new(algorithm)
     except ValueError:
@@ -1114,8 +1128,10 @@ def _calculate_file_checksum(file_path: Path, algorithm: str = "sha256", block_s
     with open(file_path, "rb") as f:
         # Read the file in chunks and update the hash object
         for chunk in iter(lambda: f.read(block_size), b""):
+            logger.debug(f"Updating hash with chunk of size {len(chunk)}")
             hasher.update(chunk)
 
+    logger.debug(f"hash complete.")
     # Return the hexadecimal digest of the hash
     return hasher.hexdigest()
 

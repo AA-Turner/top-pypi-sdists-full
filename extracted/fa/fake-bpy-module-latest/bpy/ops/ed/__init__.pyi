@@ -8,7 +8,7 @@ def flush_edits(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Flush edit data from active editing modes
 
     :return: Result of the operator call.
@@ -18,7 +18,7 @@ def lib_id_fake_user_toggle(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Save this data-block even if it has no users
 
     :return: Result of the operator call.
@@ -28,7 +28,7 @@ def lib_id_generate_preview(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Create an automatic preview for the selected data-block
 
     :return: Result of the operator call.
@@ -38,7 +38,7 @@ def lib_id_generate_preview_from_object(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Create a preview for this asset by rendering the active object
 
     :return: Result of the operator call.
@@ -76,7 +76,7 @@ def lib_id_load_custom_preview(
     ]
     | None = "DEFAULT",
     sort_method: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Choose an image to help identify the data-block visually
 
         :param filepath: File Path, Path to file (optional, never None)
@@ -122,7 +122,7 @@ def lib_id_override_editable_toggle(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set if this library override data-block can be edited
 
     :return: Result of the operator call.
@@ -132,7 +132,7 @@ def lib_id_remove_preview(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove the preview of this data-block
 
     :return: Result of the operator call.
@@ -142,7 +142,7 @@ def lib_id_unlink(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove a usage of a data-block, clearing the assignment
 
     :return: Result of the operator call.
@@ -152,7 +152,7 @@ def redo(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Redo previous action
 
     :return: Result of the operator call.
@@ -162,7 +162,7 @@ def undo(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undo previous action
 
     :return: Result of the operator call.
@@ -174,7 +174,7 @@ def undo_history(
     /,
     *,
     item: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undo or redo specific action in history
 
     :param item: Item, (in [0, inf], optional)
@@ -187,7 +187,7 @@ def undo_push(
     /,
     *,
     message: str | None = "Add an undo step *function may be moved*",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add an undo state (internal use only)
 
     :param message: Undo Message, (optional, never None)
@@ -198,7 +198,7 @@ def undo_redo(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undo and redo previous action
 
     :return: Result of the operator call.

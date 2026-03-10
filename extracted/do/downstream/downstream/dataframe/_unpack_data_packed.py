@@ -1,5 +1,7 @@
 import io
 import logging
+import multiprocessing
+import os
 import pathlib
 import typing
 import uuid
@@ -8,6 +10,7 @@ import warnings
 import numpy as np
 import polars as pl
 
+from .._auxlib._iter_slices import iter_slices
 from .._auxlib._unpack_hex_bits import unpack_hex_bits
 from ._impl._check_expected_columns import check_expected_columns
 
@@ -122,7 +125,89 @@ def _deserialize_h_matrix(h_matrix_str: str) -> np.ndarray:
     return h_matrix
 
 
-def _apply_data_parity0(df: pl.DataFrame) -> pl.DataFrame:
+def _compute_parity_chunk(
+    concat_hex: str,
+    h_matrix: np.ndarray,
+    bits_per_row: int,
+) -> np.ndarray:
+    """Compute parity violations for a single chunk of concatenated hex data.
+
+    Designed to be picklable for use with multiprocessing.Pool.
+
+    Parameters
+    ----------
+    concat_hex : str
+        Concatenated hex strings for all rows in this chunk.
+    h_matrix : np.ndarray
+        H matrix (num_rules x bits_per_row).
+    bits_per_row : int
+        Number of bits per row in the data.
+
+    Returns
+    -------
+    np.ndarray
+        Per-row violation counts.
+    """
+    all_bits = unpack_hex_bits(concat_hex)
+    data_matrix = all_bits.reshape(-1, bits_per_row)
+    syndromes = (data_matrix @ h_matrix.T) % 2
+    return np.sum(syndromes, axis=1)
+
+
+def _compute_parity_chunk_ipc(args: tuple) -> np.ndarray:
+    """Compute parity violations by reading a chunk from an IPC file.
+
+    Workers read their slice from a shared Arrow IPC file on disk,
+    avoiding serialization of large hex strings through the
+    multiprocessing pipe.
+
+    Parameters
+    ----------
+    args : tuple
+        (ipc_path, chunk_slice, h_matrix, bits_per_row) tuple, packed
+        for compatibility with ``pool.imap``.
+
+    Returns
+    -------
+    np.ndarray
+        Per-row violation counts.
+    """
+    ipc_path, chunk_slice, h_matrix, bits_per_row = args
+    chunk = pl.scan_ipc(ipc_path)[chunk_slice]
+    concat_hex = chunk.select(pl.col("data_hex").str.join("")).collect().item()
+    return _compute_parity_chunk(concat_hex, h_matrix, bits_per_row)
+
+
+def _divvy_parity_work(
+    group: pl.LazyFrame,
+    chunk_slices: typing.Iterable[slice],
+    ipc_path: str,
+    h_matrix: np.ndarray,
+    bits_per_row: int,
+) -> typing.Iterator[tuple]:
+    """Write group data to a temp IPC file and yield imap args.
+
+    Yields (ipc_path, chunk_slice, h_matrix, bits_per_row) tuples.
+    """
+    logging.info(f" - writing parity group to IPC file {ipc_path}...")
+    group.select("data_hex").lazy().sink_ipc(ipc_path, compression="lz4")
+    logging.info(f" - parity group IPC file written to {ipc_path}")
+
+    for chunk_slice in chunk_slices:
+        yield ipc_path, chunk_slice, h_matrix, bits_per_row
+
+
+def _extract_chunk_indices(chunk: pl.LazyFrame) -> np.ndarray:
+    """Extract parity chunk index array from a LazyFrame chunk."""
+    logging.info(" - collecting parity chunk indices...")
+    return chunk.select("_downstream_parity_idx").collect().to_numpy().ravel()
+
+
+def _apply_data_parity0(
+    df: pl.DataFrame,
+    mp_pool_size: int,
+    mp_context: str,
+) -> pl.DataFrame:
     """Apply downstream_data_parity0_rule to compute parity syndrome.
 
     If 'downstream_data_parity0_rule' column is present, computes the
@@ -132,7 +217,26 @@ def _apply_data_parity0(df: pl.DataFrame) -> pl.DataFrame:
     Groups by unique H matrix strings to deserialize each only once,
     then performs vectorized bulk computation across all rows sharing
     the same H matrix.
+
+    Processing is chunked to avoid exceeding Arrow's 2^31 byte utf8
+    limit when concatenating data_hex strings for large datasets.
+    The chunk size is calculated from each group's hex string length.
+
+    Parameters
+    ----------
+    df : pl.DataFrame
+        Input DataFrame with 'downstream_data_parity0_rule' column.
+    mp_pool_size : int
+        Number of worker processes to use for parity computation.
+        When 1, processing is sequential (no multiprocessing overhead).
+        When > 1, chunks are processed in parallel using a
+        multiprocessing pool.
+    mp_context : str
+        Multiprocessing start method (e.g., "spawn", "fork", "forkserver").
     """
+    if mp_pool_size == 0:
+        raise NotImplementedError("mp_pool_size=0 is not yet supported")
+
     df_len = df.lazy().select(pl.len()).collect().item()
     parity_result = np.zeros(df_len, dtype=int)
 
@@ -165,29 +269,18 @@ def _apply_data_parity0(df: pl.DataFrame) -> pl.DataFrame:
         group = indexed.filter(
             pl.col("downstream_data_parity0_rule") == h_matrix_str,
         )
-        num_rows = group.select(pl.len()).collect().item()
-        indices = (
-            group.select("_downstream_parity_idx").collect().to_numpy().ravel()
-        )
+        nrow_group = group.select(pl.len()).collect().item()
 
-        logging.info(f" - deserializing H matrix for {num_rows} row(s)...")
+        logging.info(f" - deserializing H matrix for {nrow_group} row(s)...")
         h_matrix = _deserialize_h_matrix(str(h_matrix_str))
         logging.info(f" - H matrix has {h_matrix.shape[0]} parity rule(s)...")
 
-        logging.info(f" - concatenating data_hex for {num_rows} row(s)...")
-        concat_hex = (
-            group.select(pl.col("data_hex").str.join("")).collect().item()
-        )
         hex_len = (
             group.select(pl.col("data_hex").str.len_bytes().first())
             .collect()
             .item()
         )
-        logging.info(" - converting hex to bits...")
-        all_bits = unpack_hex_bits(concat_hex)
-
         bits_per_row = hex_len * 4
-        data_matrix = all_bits.reshape(num_rows, bits_per_row)
 
         if h_matrix.shape[1] != bits_per_row:
             raise ValueError(
@@ -196,17 +289,66 @@ def _apply_data_parity0(df: pl.DataFrame) -> pl.DataFrame:
                 f"H matrix: {h_matrix_str!r}",
             )
 
-        logging.info(f" - computing syndromes for {num_rows} row(s)...")
-        syndromes = (data_matrix @ h_matrix.T) % 2
-        row_violations = np.sum(syndromes, axis=1)
-        total_violations = int(np.sum(row_violations))
+        # default is half of Arrow's 2^31 max string bytes
+        max_concat = int(
+            os.environ.get(
+                "DOWNSTREAM_PARITY_MAX_CONCAT_BYTES",
+                2**31 // 2,
+            ),
+        )
+        nrow_chunk = max(1, max_concat // hex_len)
+        logging.info(
+            f" - parity chunking: {max_concat=} {nrow_chunk=}"
+            f" for {nrow_group=}...",
+        )
+        total_violations, total_violating_rows = 0, 0
+
+        num_chunks = -(-nrow_group // nrow_chunk)
+        logging.info(
+            f" - dispatching {num_chunks} parity chunk(s) across"
+            f" {mp_pool_size} worker(s)...",
+        )
+
+        ipc_path = f"/tmp/downstream_parity_{uuid.uuid4()}.arrow"  # nosec B108
+        imap_args = _divvy_parity_work(
+            group,
+            iter_slices(nrow_group, nrow_chunk),
+            ipc_path,
+            h_matrix,
+            bits_per_row,
+        )
+
+        group_slices = map(
+            group.__getitem__, iter_slices(nrow_group, nrow_chunk)
+        )
+
+        try:
+            with multiprocessing.get_context(mp_context).Pool(
+                processes=mp_pool_size,
+            ) as pool:
+                for i, (chunk_indices, row_violations) in enumerate(
+                    zip(
+                        map(_extract_chunk_indices, group_slices),
+                        pool.imap(_compute_parity_chunk_ipc, imap_args),
+                    ),
+                ):
+                    logging.info(
+                        " - received parity chunk result"
+                        f" ({i + 1} / {num_chunks})...",
+                    )
+                    total_violations += int(np.sum(row_violations))
+                    total_violating_rows += int(
+                        np.count_nonzero(row_violations),
+                    )
+                    parity_result[chunk_indices] = row_violations
+        finally:
+            pathlib.Path(ipc_path).unlink(missing_ok=True)
+
         logging.info(
             f" - data parity0: {total_violations} rule violation(s) "
             f"across {h_matrix.shape[0]} rule(s) occurring in "
-            f"{int(np.count_nonzero(row_violations))} "
-            f"row(s)",
+            f"{total_violating_rows} row(s)",
         )
-        parity_result[indices] = row_violations
 
     return df.with_columns(
         downstream_data_parity0_result=pl.Series(
@@ -384,6 +526,8 @@ def _finalize_result_schema(
 def unpack_data_packed(
     df: pl.DataFrame,
     *,
+    mp_context: str = "spawn",
+    mp_pool_size: int = 1,
     result_schema: typing.Literal["coerce", "relax", "shrink"] = "coerce",
 ) -> pl.DataFrame:
     """Unpack data with dstream buffer and counter serialized into a single
@@ -458,6 +602,16 @@ def unpack_data_packed(
             - Polars expression to validate unpacked data.
         - 'downstream_version' : pl.Categorical
             - Version of downstream library used to curate data items.
+
+    mp_context : str, default "spawn"
+        Multiprocessing start method (e.g., "spawn", "fork", "forkserver").
+
+    mp_pool_size : int, default 1
+        Number of worker processes for parity computation.
+
+        When 1 (default), processing is sequential with no
+        multiprocessing overhead. When > 1, parity check chunks are
+        dispatched to a multiprocessing pool for parallel computation.
 
     result_schema : Literal['coerce', 'relax', 'shrink'], default 'coerce'
         How should dtypes in the output DataFrame be handled?
@@ -534,7 +688,11 @@ def unpack_data_packed(
 
     if "downstream_data_parity0_rule" in schema_names:
         logging.info(" - computing downstream_data_parity0_result...")
-        df = _apply_data_parity0(df)
+        df = _apply_data_parity0(
+            df,
+            mp_pool_size=mp_pool_size,
+            mp_context=mp_context,
+        )
     else:
         logging.info(" - downstream_data_parity0_rule not found in df")
 
@@ -556,9 +714,7 @@ def unpack_data_packed(
     df = _extract_from_data_hex(df)
 
     logging.info(" - un-dilating T...")
-    df = df.with_columns(
-        dstream_T_raw=pl.col("dstream_T"),
-    ).with_columns(
+    df = df.with_columns(dstream_T_raw=pl.col("dstream_T")).with_columns(
         dstream_T=pl.col("dstream_T") // pl.col("dstream_T_dilation"),
     )
 

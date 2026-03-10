@@ -44,9 +44,9 @@ def checkpoint_from_proto(
 
     channel_values = {}
     if request_checkpoint.channel_values:
-        channel_values = {
-            k: value_from_proto(v) for k, v in request_checkpoint.channel_values.items()
-        }
+        for k, v in request_checkpoint.channel_values.items():
+            if v.WhichOneof("val") is not None:
+                channel_values[k] = value_from_proto(v)
 
     updated_channels = list(request_checkpoint.updated_channels)
     return Checkpoint(

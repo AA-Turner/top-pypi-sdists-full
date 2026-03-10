@@ -18,6 +18,9 @@ uv sync
 echo "Authenticating with UiPath..."
 uv run uipath auth --client-id="$CLIENT_ID" --client-secret="$CLIENT_SECRET" --base-url="$BASE_URL"
 
+echo "Initializing UiPath project..."
+uv run uipath init
+
 # Generate dynamic values
 PR_NUMBER=${GITHUB_PR_NUMBER:-"local"}
 UNIQUE_ID=$(cat /proc/sys/kernel/random/uuid)

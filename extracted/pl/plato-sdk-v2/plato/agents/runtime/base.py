@@ -19,6 +19,7 @@ class AgentContext(BaseModel):
     image: str
     config: dict
     instruction: str
+    display_name: str | None = None
     workspace: str | None = None
     # Runtime config (vm/docker with resource specs) — passed to agent as env var
     runtime: dict | None = None

@@ -146,8 +146,6 @@ class DremioFolder(Asset):
     INPUT_TO_SPARK_JOBS: ClassVar[Any] = None
     OUTPUT_FROM_SPARK_JOBS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "DremioFolder"
-
     dremio_parent_asset_type: Union[str, None, UnsetType] = UNSET
     """Type of top level asset that contains this folder."""
 
@@ -830,6 +828,9 @@ def _dremio_folder_to_nested(dremio_folder: DremioFolder) -> DremioFolderNested:
         is_incomplete=dremio_folder.is_incomplete,
         provenance_type=dremio_folder.provenance_type,
         home_id=dremio_folder.home_id,
+        depth=dremio_folder.depth,
+        immediate_upstream=dremio_folder.immediate_upstream,
+        immediate_downstream=dremio_folder.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -863,7 +864,6 @@ def _dremio_folder_from_nested(nested: DremioFolderNested) -> DremioFolder:
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -872,6 +872,9 @@ def _dremio_folder_from_nested(nested: DremioFolderNested) -> DremioFolder:
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_dremio_folder_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

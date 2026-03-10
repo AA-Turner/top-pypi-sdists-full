@@ -8,7 +8,7 @@ def assign_default_button(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set this propertys current value as the new default
 
     :return: Result of the operator call.
@@ -20,7 +20,7 @@ def button_execute(
     /,
     *,
     skip_depressed: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Presses active button
 
     :param skip_depressed: Skip Depressed, (optional)
@@ -31,7 +31,7 @@ def button_string_clear(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Unsets the text of the active button
 
     :return: Result of the operator call.
@@ -41,7 +41,7 @@ def copy_as_driver_button(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Create a new driver with this property as input, and copy it to the internal clipboard. Use Paste Driver to add it to the target property, or Paste Driver Variables to extend an existing driver
 
     :return: Result of the operator call.
@@ -53,7 +53,7 @@ def copy_data_path_button(
     /,
     *,
     full_path: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Copy the RNA data path for this property to the clipboard
 
     :param full_path: full_path, Copy full data path (optional)
@@ -66,7 +66,7 @@ def copy_driver_to_selected_button(
     /,
     *,
     all: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Copy the propertys driver from the active item to the same property of all selected items, if the same property exists
 
     :param all: All, Copy to selected the drivers of all elements of the array (optional)
@@ -77,7 +77,7 @@ def copy_python_command_button(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Copy the Python command matching this button
 
     :return: Result of the operator call.
@@ -89,7 +89,7 @@ def copy_to_selected_button(
     /,
     *,
     all: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Copy the propertys value from the active item to the same property of all selected items if the same property exists
 
     :param all: All, Copy to selected all elements of the array (optional)
@@ -104,7 +104,7 @@ def drop_color(
     color: collections.abc.Sequence[float] | None = (0.0, 0.0, 0.0, 0.0),
     gamma: bool | None = False,
     has_alpha: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Drop colors to buttons
 
     :param color: Color, Source color (array of 4 items, in [0, inf], optional)
@@ -119,7 +119,7 @@ def drop_material(
     /,
     *,
     session_uid: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Drag material to Material slots in Properties
 
     :param session_uid: Session UID, Session UID of the data-block to use by the operator (in [-inf, inf], optional)
@@ -132,7 +132,7 @@ def drop_name(
     /,
     *,
     string: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Drop name to button
 
     :param string: String, The string value to drop into the button (optional, never None)
@@ -143,7 +143,7 @@ def editsource(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Edit UI source code of the active button
 
     :return: Result of the operator call.
@@ -153,7 +153,7 @@ def eyedropper_bone(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Sample a bone from the 3D View or the Outliner to store in a property
 
     :return: Result of the operator call.
@@ -165,7 +165,7 @@ def eyedropper_color(
     /,
     *,
     prop_data_path: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Sample a color from the Blender window to store in a property
 
     :param prop_data_path: Data Path, Path of property to be set with the depth (optional, never None)
@@ -176,7 +176,7 @@ def eyedropper_colorramp(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Sample a color band
 
     :return: Result of the operator call.
@@ -186,7 +186,7 @@ def eyedropper_colorramp_point(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Point-sample a color band
 
     :return: Result of the operator call.
@@ -198,7 +198,7 @@ def eyedropper_depth(
     /,
     *,
     prop_data_path: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Sample depth from the 3D view
 
     :param prop_data_path: Data Path, Path of property to be set with the depth (optional, never None)
@@ -214,7 +214,7 @@ def eyedropper_driver(
         "SINGLE_MANY", "DIRECT", "MATCH", "NONE_ALL", "NONE_SINGLE"
     ]
     | None = "SINGLE_MANY",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Pick a property to use as a driver target
 
         :param mapping_type: Mapping Type, Method used to match target and driven properties (optional)
@@ -243,7 +243,7 @@ def eyedropper_grease_pencil_color(
     *,
     mode: typing.Literal["MATERIAL", "PALETTE", "BRUSH"] | None = "MATERIAL",
     material_mode: typing.Literal["STROKE", "FILL", "BOTH"] | None = "STROKE",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Sample a color from the Blender Window and create Grease Pencil material
 
     :param mode: Mode, (optional)
@@ -255,7 +255,7 @@ def eyedropper_id(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Sample a data-block from the 3D View to store in a property
 
     :return: Result of the operator call.
@@ -265,7 +265,7 @@ def jump_to_target_button(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Switch to the target object or bone
 
     :return: Result of the operator call.
@@ -275,7 +275,7 @@ def list_start_filter(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Start entering filter text for the list in focus
 
     :return: Result of the operator call.
@@ -287,7 +287,7 @@ def override_add_button(
     /,
     *,
     all: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Create an override operation
 
     :param all: All, Add overrides for all elements of the array (optional)
@@ -298,7 +298,7 @@ def override_idtemplate_clear(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Delete the selected local override and relink its usages to the linked data-block if possible, else reset it and mark it as non editable
 
     :return: Result of the operator call.
@@ -308,7 +308,7 @@ def override_idtemplate_make(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Create a local override of the selected linked data-block, and its hierarchy of dependencies
 
     :return: Result of the operator call.
@@ -318,7 +318,7 @@ def override_idtemplate_reset(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Reset the selected local override to its linked reference values
 
     :return: Result of the operator call.
@@ -330,7 +330,7 @@ def override_remove_button(
     /,
     *,
     all: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove an override operation
 
     :param all: All, Reset to default values all elements of the array (optional)
@@ -341,7 +341,7 @@ def reloadtranslation(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Force a full reload of UI translation
 
     :return: Result of the operator call.
@@ -353,7 +353,7 @@ def reset_default_button(
     /,
     *,
     all: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Reset this propertys value to its default value
 
     :param all: All, Reset to default values all elements of the array (optional)
@@ -364,7 +364,7 @@ def unset_property_button(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Clear the property and use default or generated value in operators
 
     :return: Result of the operator call.
@@ -374,7 +374,7 @@ def view_drop(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Drag and drop onto a data-set or item within the data-set
 
     :return: Result of the operator call.
@@ -384,7 +384,7 @@ def view_item_delete(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Delete selected list item
 
     :return: Result of the operator call.
@@ -394,7 +394,7 @@ def view_item_rename(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Rename the active item in the data-set view
 
     :return: Result of the operator call.
@@ -411,7 +411,7 @@ def view_item_select(
     mouse_y: int | None = 0,
     extend: bool | None = False,
     range_select: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Activate selected view item
 
     :param wait_to_deselect_others: Wait to Deselect Others, (optional)
@@ -427,7 +427,7 @@ def view_scroll(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
 
     :return: Result of the operator call.
@@ -437,7 +437,7 @@ def view_start_filter(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Start entering filter text for the data-set in focus
 
     :return: Result of the operator call.

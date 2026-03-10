@@ -10,7 +10,7 @@ def action_pushdown(
     /,
     *,
     track_index: int | None = -1,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Push action down onto the top of the NLA stack as a new strip
 
     :param track_index: Track Index, Index of NLA action track to perform pushdown operation on (in [-1, inf], optional)
@@ -23,7 +23,7 @@ def action_sync_length(
     /,
     *,
     active: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Synchronize the length of the referenced Action with the length used in the strip
 
     :param active: Active Strip Only, Only sync the active length for the active strip (optional)
@@ -36,7 +36,7 @@ def action_unlink(
     /,
     *,
     force_delete: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Unlink this action from the active action slot (and/or exit Tweak Mode)
 
     :param force_delete: Force Delete, Clear Fake User and remove copy stashed in this data-blocks NLA stack (optional)
@@ -49,7 +49,7 @@ def actionclip_add(
     /,
     *,
     action: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add an Action-Clip strip (i.e. an NLA Strip referencing an Action) to the active track
 
     :param action: Action, (optional)
@@ -60,7 +60,7 @@ def apply_scale(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Apply scaling of selected strips to their referenced Actions
 
     :return: Result of the operator call.
@@ -85,7 +85,7 @@ def bake(
         typing.Literal["LOCATION", "ROTATION", "SCALE", "BBONE", "PROPS"]
     ]
     | None = {"BBONE", "LOCATION", "PROPS", "ROTATION", "SCALE"},
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Bake all selected objects location/scale/rotation animation to an action
 
         :param frame_start: Start Frame, Start frame for baking (in [0, 300000], optional)
@@ -129,7 +129,7 @@ def channels_click(
     /,
     *,
     extend: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Handle clicks to select NLA tracks
 
     :param extend: Extend Select, (optional)
@@ -140,7 +140,7 @@ def clear_scale(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Reset scaling of selected strips
 
     :return: Result of the operator call.
@@ -157,7 +157,7 @@ def click_select(
     mouse_y: int | None = 0,
     extend: bool | None = False,
     deselect_all: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Handle clicks to select NLA Strips
 
     :param wait_to_deselect_others: Wait to Deselect Others, (optional)
@@ -173,7 +173,7 @@ def delete(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Delete selected strips
 
     :return: Result of the operator call.
@@ -185,7 +185,7 @@ def duplicate(
     /,
     *,
     linked: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Duplicate selected NLA-Strips, adding the new strips to new track(s)
 
     :param linked: Linked, When duplicating strips, assign new copies of the actions they use (optional)
@@ -199,7 +199,7 @@ def duplicate_linked_move(
     *,
     NLA_OT_duplicate: dict[str, typing.Any] | None = {},
     TRANSFORM_OT_translate: dict[str, typing.Any] | None = {},
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Duplicate Linked selected NLA-Strips, adding the new strips to new track(s)
 
     :param NLA_OT_duplicate: Duplicate Strips, Duplicate selected NLA-Strips, adding the new strips to new track(s) (optional, `bpy.ops.nla.duplicate` keyword arguments)
@@ -214,7 +214,7 @@ def duplicate_move(
     *,
     NLA_OT_duplicate: dict[str, typing.Any] | None = {},
     TRANSFORM_OT_translate: dict[str, typing.Any] | None = {},
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Duplicate selected NLA-Strips, adding the new strips to new track(s)
 
     :param NLA_OT_duplicate: Duplicate Strips, Duplicate selected NLA-Strips, adding the new strips to new track(s) (optional, `bpy.ops.nla.duplicate` keyword arguments)
@@ -227,9 +227,10 @@ def fmodifier_add(
     undo: bool | None = None,
     /,
     *,
-    type: Literal[bpy.stub_internal.rna_enums.FmodifierTypeItems] | None = "NULL",
+    type: typing.Literal[bpy.stub_internal.rna_enums.FmodifierTypeItems]
+    | None = "NULL",
     only_active: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add F-Modifier to the active/selected NLA-Strips
 
     :param type: Type, (optional)
@@ -241,7 +242,7 @@ def fmodifier_copy(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Copy the F-Modifier(s) of the active NLA-Strip
 
     :return: Result of the operator call.
@@ -254,7 +255,7 @@ def fmodifier_paste(
     *,
     only_active: bool | None = True,
     replace: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add copied F-Modifiers to the selected NLA-Strips
 
     :param only_active: Only Active, Only paste F-Modifiers on active strip (optional)
@@ -268,7 +269,7 @@ def make_single_user(
     /,
     *,
     confirm: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Make linked action local to each strip
 
     :param confirm: Confirm, Prompt for confirmation (optional)
@@ -279,7 +280,7 @@ def meta_add(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add new meta-strips incorporating the selected strips
 
     :return: Result of the operator call.
@@ -289,7 +290,7 @@ def meta_remove(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Separate out the strips held by the selected meta-strips
 
     :return: Result of the operator call.
@@ -299,7 +300,7 @@ def move_down(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move selected strips down a track if theres room
 
     :return: Result of the operator call.
@@ -309,7 +310,7 @@ def move_up(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move selected strips up a track if theres room
 
     :return: Result of the operator call.
@@ -319,7 +320,7 @@ def mute_toggle(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Mute or un-mute selected strips
 
     :return: Result of the operator call.
@@ -329,7 +330,7 @@ def previewrange_set(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set Preview Range based on extents of selected strips
 
     :return: Result of the operator call.
@@ -341,7 +342,7 @@ def select_all(
     /,
     *,
     action: typing.Literal["TOGGLE", "SELECT", "DESELECT", "INVERT"] | None = "TOGGLE",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select or deselect all NLA-Strips
 
         :param action: Action, Selection action to execute (optional)
@@ -373,7 +374,7 @@ def select_box(
     ymax: int | None = 0,
     wait_for_input: bool | None = True,
     mode: typing.Literal["SET", "ADD", "SUB"] | None = "SET",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Use box selection to grab NLA-Strips
 
         :param axis_range: Axis Range, (optional)
@@ -403,7 +404,7 @@ def select_leftright(
     *,
     mode: typing.Literal["CHECK", "LEFT", "RIGHT"] | None = "CHECK",
     extend: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select strips to the left or the right of the current frame
 
     :param mode: Mode, (optional)
@@ -415,7 +416,7 @@ def selected_objects_add(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Make selected objects appear in NLA Editor by adding Animation Data
 
     :return: Result of the operator call.
@@ -428,7 +429,7 @@ def snap(
     *,
     type: typing.Literal["CFRA", "NEAREST_FRAME", "NEAREST_SECOND", "NEAREST_MARKER"]
     | None = "CFRA",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move start of strips to specified time
 
     :param type: Type, (optional)
@@ -439,7 +440,7 @@ def soundclip_add(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a strip for controlling when speaker plays its sound clip
 
     :return: Result of the operator call.
@@ -449,7 +450,7 @@ def split(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Split selected strips at their midpoints
 
     :return: Result of the operator call.
@@ -459,7 +460,7 @@ def swap(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Swap order of selected strips within tracks
 
     :return: Result of the operator call.
@@ -471,7 +472,7 @@ def tracks_add(
     /,
     *,
     above_selected: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add NLA-Tracks above/after the selected tracks
 
     :param above_selected: Above Selected, Add a new NLA Track above every existing selected one (optional)
@@ -482,7 +483,7 @@ def tracks_delete(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Delete selected NLA-Tracks and the strips they contain
 
     :return: Result of the operator call.
@@ -492,7 +493,7 @@ def transition_add(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a transition strip between two adjacent selected strips
 
     :return: Result of the operator call.
@@ -505,7 +506,7 @@ def tweakmode_enter(
     *,
     isolate_action: bool | None = False,
     use_upper_stack_evaluation: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Enter tweaking mode for the action referenced by the active strip to edit its keyframes
 
     :param isolate_action: Isolate Action, Enable solo on the NLA Track containing the active strip, to edit it without seeing the effects of the NLA stack (optional)
@@ -519,7 +520,7 @@ def tweakmode_exit(
     /,
     *,
     isolate_action: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Exit tweaking mode for the action referenced by the active strip
 
     :param isolate_action: Isolate Action, Disable solo on any of the NLA Tracks after exiting tweak mode to get things back to normal (optional)
@@ -530,7 +531,7 @@ def view_all(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Reset viewable area to show full strips range
 
     :return: Result of the operator call.
@@ -540,7 +541,7 @@ def view_frame(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move the view to the current frame
 
     :return: Result of the operator call.
@@ -550,7 +551,7 @@ def view_selected(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Reset viewable area to show selected strips range
 
     :return: Result of the operator call.

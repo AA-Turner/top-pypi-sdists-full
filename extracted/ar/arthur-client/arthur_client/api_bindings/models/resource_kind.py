@@ -44,7 +44,6 @@ class ResourceKind(str, Enum):
     WEBHOOK = 'webhook'
     CUSTOM_AGGREGATION = 'custom_aggregation'
     CUSTOM_AGGREGATION_TEST = 'custom_aggregation_test'
-    UNREGISTERED_AGENT = 'unregistered_agent'
     AGENT = 'agent'
 
     @classmethod

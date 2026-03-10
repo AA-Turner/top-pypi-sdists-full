@@ -10,6 +10,8 @@ def explode_lookup_packed(
     df: pl.DataFrame,
     *,
     calc_Tbar_argv: bool = False,
+    mp_context: str = "spawn",
+    mp_pool_size: int = 1,
     value_type: typing.Literal["hex", "uint64", "uint32", "uint16", "uint8"],
     result_schema: typing.Literal["coerce", "relax", "shrink"] = "coerce",
 ) -> pl.DataFrame:
@@ -24,6 +26,13 @@ def explode_lookup_packed(
     calc_Tbar_argv : bool, default False
         Include column indicating sorted order of `Tbar` values within each
         buffer.
+    mp_context : str, default "spawn"
+        Multiprocessing start method (e.g., "spawn", "fork", "forkserver").
+    mp_pool_size : int, default 1
+        Number of worker processes for parity computation.
+        When 1 (default), processing is sequential with no multiprocessing
+        overhead. When > 1, parity check chunks are dispatched to a
+        multiprocessing pool for parallel computation.
     value_type : {'hex', 'uint64', 'uint32', 'uint16', 'uint8'}
         Type of the packed data values. Determines how the packed data is
         interpreted.
@@ -37,7 +46,12 @@ def explode_lookup_packed(
         DataFrame with one row per data item, containing the original data and
         the corresponding `Tbar` value.
     """
-    df = unpack_data_packed(df, result_schema=result_schema)
+    df = unpack_data_packed(
+        df,
+        mp_context=mp_context,
+        mp_pool_size=mp_pool_size,
+        result_schema=result_schema,
+    )
     return explode_lookup_unpacked(
         df,
         calc_Tbar_argv=calc_Tbar_argv,

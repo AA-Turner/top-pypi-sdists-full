@@ -8,7 +8,7 @@ def autocomplete(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Show a list of used text in the open document
 
     :return: Result of the operator call.
@@ -20,7 +20,7 @@ def comment_toggle(
     /,
     *,
     type: typing.Literal["TOGGLE", "COMMENT", "UNCOMMENT"] | None = "TOGGLE",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
 
     :param type: Type, Add or remove comments (optional)
@@ -33,7 +33,7 @@ def convert_whitespace(
     /,
     *,
     type: typing.Literal["SPACES", "TABS"] | None = "SPACES",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Convert whitespaces by type
 
     :param type: Type, Type of whitespace to convert to (optional)
@@ -44,7 +44,7 @@ def copy(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Copy selected text to clipboard
 
     :return: Result of the operator call.
@@ -57,7 +57,7 @@ def cursor_set(
     *,
     x: int | None = 0,
     y: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set cursor position
 
     :param x: X, (in [-inf, inf], optional)
@@ -69,7 +69,7 @@ def cut(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Cut selected text to clipboard
 
     :return: Result of the operator call.
@@ -84,7 +84,7 @@ def delete(
         "NEXT_CHARACTER", "PREVIOUS_CHARACTER", "NEXT_WORD", "PREVIOUS_WORD"
     ]
     | None = "NEXT_CHARACTER",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Delete text by cursor position
 
     :param type: Type, Which part of the text to delete (optional)
@@ -95,7 +95,7 @@ def duplicate_line(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Duplicate the current line
 
     :return: Result of the operator call.
@@ -105,7 +105,7 @@ def find(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Find specified text
 
     :return: Result of the operator call.
@@ -115,7 +115,7 @@ def find_set_selected(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Find specified text and set as selected
 
     :return: Result of the operator call.
@@ -125,7 +125,7 @@ def indent(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Indent selected text
 
     :return: Result of the operator call.
@@ -135,7 +135,7 @@ def indent_or_autocomplete(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Indent selected text or autocomplete
 
     :return: Result of the operator call.
@@ -147,7 +147,7 @@ def insert(
     /,
     *,
     text: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Insert text at cursor position
 
     :param text: Text, Text to insert at the cursor position (optional, never None)
@@ -160,7 +160,7 @@ def jump(
     /,
     *,
     line: int | None = 1,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Jump cursor to line
 
     :param line: Line, Line number to jump to (in [1, inf], optional)
@@ -175,7 +175,7 @@ def jump_to_file_at_point(
     filepath: str | None = "",
     line: int | None = 0,
     column: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Jump to a file for the text editor
 
     :param filepath: Filepath, (optional, never None)
@@ -188,7 +188,7 @@ def line_break(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Insert line break at cursor position
 
     :return: Result of the operator call.
@@ -198,7 +198,7 @@ def line_number(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """The current line number
 
     :return: Result of the operator call.
@@ -208,7 +208,7 @@ def make_internal(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Make active text file internal
 
     :return: Result of the operator call.
@@ -234,7 +234,7 @@ def move(
         "NEXT_PAGE",
     ]
     | None = "LINE_BEGIN",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move cursor to position type
 
     :param type: Type, Where to move cursor to (optional)
@@ -247,7 +247,7 @@ def move_lines(
     /,
     *,
     direction: typing.Literal["UP", "DOWN"] | None = "DOWN",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move the currently selected line(s) up/down
 
     :param direction: Direction, (optional)
@@ -274,7 +274,7 @@ def move_select(
         "NEXT_PAGE",
     ]
     | None = "LINE_BEGIN",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move the cursor while selecting
 
     :param type: Type, Where to move cursor to, to make a selection (optional)
@@ -285,7 +285,7 @@ def new(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Create a new text data-block
 
     :return: Result of the operator call.
@@ -331,7 +331,7 @@ def open(
     ]
     | None = "",
     internal: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Open a new text data-block
 
         :param filepath: File Path, Path to file (optional, never None)
@@ -395,7 +395,7 @@ def overwrite_toggle(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Toggle overwrite while typing
 
     :return: Result of the operator call.
@@ -407,7 +407,7 @@ def paste(
     /,
     *,
     selection: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Paste text from clipboard
 
     :param selection: Selection, Paste text selected elsewhere rather than copied (X11/Wayland only) (optional)
@@ -418,7 +418,7 @@ def reload(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Reload active text data-block from its file
 
     :return: Result of the operator call.
@@ -430,7 +430,7 @@ def replace(
     /,
     *,
     all: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Replace text with the specified text
 
     :param all: Replace All, Replace all occurrences (optional)
@@ -441,7 +441,7 @@ def replace_set_selected(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Replace text with specified text and set as selected
 
     :return: Result of the operator call.
@@ -454,7 +454,7 @@ def resolve_conflict(
     *,
     resolution: typing.Literal["IGNORE", "RELOAD", "SAVE", "MAKE_INTERNAL"]
     | None = "IGNORE",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """When external text is out of sync, resolve the conflict
 
     :param resolution: Resolution, How to solve conflict due to differences in internal and external text (optional)
@@ -465,7 +465,7 @@ def run_script(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Run active script
 
     :return: Result of the operator call.
@@ -475,7 +475,7 @@ def save(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Save active text data-block
 
     :return: Result of the operator call.
@@ -511,7 +511,7 @@ def save_as(
     ]
     | None = "DEFAULT",
     sort_method: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Save active text file with options
 
         :param filepath: File Path, Path to file (optional, never None)
@@ -557,7 +557,7 @@ def scroll(
     /,
     *,
     lines: int | None = 1,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
 
     :param lines: Lines, Number of lines to scroll (in [-inf, inf], optional)
@@ -570,7 +570,7 @@ def scroll_bar(
     /,
     *,
     lines: int | None = 1,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
 
     :param lines: Lines, Number of lines to scroll (in [-inf, inf], optional)
@@ -581,7 +581,7 @@ def select_all(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select all text
 
     :return: Result of the operator call.
@@ -591,7 +591,7 @@ def select_line(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select text by line
 
     :return: Result of the operator call.
@@ -601,7 +601,7 @@ def select_word(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select word under cursor
 
     :return: Result of the operator call.
@@ -611,7 +611,7 @@ def selection_set(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set text selection
 
     :return: Result of the operator call.
@@ -621,7 +621,7 @@ def start_find(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Start searching text
 
     :return: Result of the operator call.
@@ -633,7 +633,7 @@ def to_3d_object(
     /,
     *,
     split_lines: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Create 3D text object from active text data-block
 
     :param split_lines: Split Lines, Create one object per line in the text (optional)
@@ -644,7 +644,7 @@ def unindent(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Unindent selected text
 
     :return: Result of the operator call.
@@ -654,7 +654,7 @@ def unlink(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Unlink active text data-block
 
     :return: Result of the operator call.
@@ -664,7 +664,7 @@ def update_shader(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Update users of this shader, such as custom cameras and script nodes, with its new sockets and options
 
     :return: Result of the operator call.

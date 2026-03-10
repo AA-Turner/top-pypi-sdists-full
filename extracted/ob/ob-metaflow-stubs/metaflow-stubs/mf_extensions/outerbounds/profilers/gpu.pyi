@@ -1,18 +1,13 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.19.20.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-03-05T21:57:32.382297                                                            #
+# Generated on 2026-03-09T17:10:37.682066                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
 import typing
 
-from ....plugins.cards.card_modules.components import Markdown as Markdown
-from ....plugins.cards.card_modules.components import Table as Table
-from ....plugins.cards.card_modules.components import VegaChart as VegaChart
-from ....metaflow_current import current as current
-from ....plugins.cards.card_modules.components import Image as Image
 
 MEM_COLOR: str
 
@@ -87,7 +82,7 @@ class GPUMonitor(object, metaclass=type):
     If the caller of this class wishes to read the GPU usage, they can call the `read` method which will return the readings in a dictionary format.
     The `read` method will aggregate the readings from the `_current_readings` and `_past_readings`.
     """
-    def __init__(self, interval = 1, duration = 300):
+    def __init__(self, interval = 1, duration = 300, max_samples_per_gpu = None):
         ...
     @property
     def _current_file(self):
@@ -102,29 +97,21 @@ class GPUMonitor(object, metaclass=type):
         ...
     def current_process_is_running(self):
         ...
-    def read(self):
+    def read(self, max_points = None):
         ...
     def cleanup(self):
         ...
     ...
 
 class GPUProfiler(object, metaclass=type):
-    def __init__(self, interval = 1, monitor_batch_duration = 200, artifact_name = 'gpu_profile_data', max_check_timeout = 60):
+    @staticmethod
+    def read_gpu_info():
+        """
+        Query nvidia-smi for driver info, device list, and interconnect topology.
+        
+        Returns a dict with keys:
+            driver_version, cuda_version, error, devices, interconnect
+        """
         ...
-    def finish(self):
-        ...
-    ...
-
-class gpu_profile(object, metaclass=type):
-    def __init__(self, include_artifacts = True, artifact_prefix = 'gpu_profile_', interval = 1):
-        ...
-    def __call__(self, f):
-        ...
-    ...
-
-def translate_to_vegalite(tstamps, vals, description, y_label, legend, line_color = None, percentage_format = False):
-    ...
-
-def profile_plots(device_id, ts, gpu, mem_used, mem_total):
     ...
 

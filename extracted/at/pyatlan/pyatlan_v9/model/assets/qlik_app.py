@@ -108,8 +108,6 @@ class QlikApp(Asset):
     INPUT_TO_SPARK_JOBS: ClassVar[Any] = None
     OUTPUT_FROM_SPARK_JOBS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "QlikApp"
-
     qlik_has_section_access: Union[bool, None, UnsetType] = UNSET
     """Whether section access or data masking is enabled on the source (true) or not (false)."""
 
@@ -575,6 +573,9 @@ def _qlik_app_to_nested(qlik_app: QlikApp) -> QlikAppNested:
         is_incomplete=qlik_app.is_incomplete,
         provenance_type=qlik_app.provenance_type,
         home_id=qlik_app.home_id,
+        depth=qlik_app.depth,
+        immediate_upstream=qlik_app.immediate_upstream,
+        immediate_downstream=qlik_app.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -604,7 +605,6 @@ def _qlik_app_from_nested(nested: QlikAppNested) -> QlikApp:
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -613,6 +613,9 @@ def _qlik_app_from_nested(nested: QlikAppNested) -> QlikApp:
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_qlik_app_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

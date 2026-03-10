@@ -28,10 +28,10 @@ fn validate_lj_params(sigma: f64, epsilon: f64, cutoff: Option<f64>) -> PyResult
     if !epsilon.is_finite() {
         return Err(PyValueError::new_err("epsilon must be finite"));
     }
-    if let Some(cut) = cutoff {
-        if !cut.is_finite() || cut <= 0.0 {
-            return Err(PyValueError::new_err("cutoff must be positive and finite"));
-        }
+    if let Some(cut) = cutoff
+        && (!cut.is_finite() || cut <= 0.0)
+    {
+        return Err(PyValueError::new_err("cutoff must be positive and finite"));
     }
     Ok(())
 }

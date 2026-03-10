@@ -229,8 +229,6 @@ class IcebergColumn(Asset):
     INPUT_TO_SPARK_JOBS: ClassVar[Any] = None
     OUTPUT_FROM_SPARK_JOBS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "IcebergColumn"
-
     iceberg_parent_namespace_qualified_name: Union[str, None, UnsetType] = UNSET
     """Unique name of the immediate parent namespace in which this asset exists."""
 
@@ -1511,6 +1509,9 @@ def _iceberg_column_to_nested(iceberg_column: IcebergColumn) -> IcebergColumnNes
         is_incomplete=iceberg_column.is_incomplete,
         provenance_type=iceberg_column.provenance_type,
         home_id=iceberg_column.home_id,
+        depth=iceberg_column.depth,
+        immediate_upstream=iceberg_column.immediate_upstream,
+        immediate_downstream=iceberg_column.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -1544,7 +1545,6 @@ def _iceberg_column_from_nested(nested: IcebergColumnNested) -> IcebergColumn:
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -1553,6 +1553,9 @@ def _iceberg_column_from_nested(nested: IcebergColumnNested) -> IcebergColumn:
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_iceberg_column_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

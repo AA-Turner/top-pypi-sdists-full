@@ -1,6 +1,6 @@
 import dataclasses
 import uuid
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from django.contrib.auth import get_user_model
 from django.db import models
@@ -36,7 +36,7 @@ class DefaultHeadlessAdapter(BaseAdapter):
         "invalid_url": "Invalid URL.",
     }
 
-    def serialize_user(self, user) -> Dict[str, Any]:
+    def serialize_user(self, user) -> dict[str, Any]:
         """
         Returns the basic user data. Note that this data is also exposed in
         partly authenticated scenario's (e.g. password reset, email
@@ -52,7 +52,7 @@ class DefaultHeadlessAdapter(BaseAdapter):
             if v not in ("", None)
         }
 
-    def get_frontend_url(self, urlname, **kwargs):
+    def get_frontend_url(self, urlname: str, **kwargs) -> str | None:
         """Return the frontend URL for the given URL name."""
         return default_get_frontend_url(self.request, urlname, **kwargs)
 
@@ -143,5 +143,5 @@ class DefaultHeadlessAdapter(BaseAdapter):
         return dataclasses.make_dataclass("User", fields)
 
 
-def get_adapter():
+def get_adapter() -> DefaultHeadlessAdapter:
     return import_attribute(app_settings.ADAPTER)()

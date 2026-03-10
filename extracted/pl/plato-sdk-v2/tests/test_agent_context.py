@@ -20,11 +20,13 @@ class TestAgentContext:
             image="test:latest",
             config={"key": "value"},
             instruction="hello",
+            display_name="backend-builder",
         )
         data = ctx.model_dump()
         restored = AgentContext(**data)
         assert restored.instruction == "hello"
         assert restored.config == {"key": "value"}
+        assert restored.display_name == "backend-builder"
 
     def test_config_dict_carries_continue_session(self):
         """continue_session flows through the config dict, not as a field."""

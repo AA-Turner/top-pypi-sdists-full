@@ -108,8 +108,6 @@ class CubeField(Asset):
     INPUT_TO_SPARK_JOBS: ClassVar[Any] = None
     OUTPUT_FROM_SPARK_JOBS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "CubeField"
-
     cube_parent_field_name: Union[str, None, UnsetType] = UNSET
     """Name of the parent field in which this field is nested."""
 
@@ -583,6 +581,9 @@ def _cube_field_to_nested(cube_field: CubeField) -> CubeFieldNested:
         is_incomplete=cube_field.is_incomplete,
         provenance_type=cube_field.provenance_type,
         home_id=cube_field.home_id,
+        depth=cube_field.depth,
+        immediate_upstream=cube_field.immediate_upstream,
+        immediate_downstream=cube_field.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -614,7 +615,6 @@ def _cube_field_from_nested(nested: CubeFieldNested) -> CubeField:
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -623,6 +623,9 @@ def _cube_field_from_nested(nested: CubeFieldNested) -> CubeField:
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_cube_field_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

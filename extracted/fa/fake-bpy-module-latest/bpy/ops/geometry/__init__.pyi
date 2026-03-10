@@ -10,9 +10,11 @@ def attribute_add(
     /,
     *,
     name: str | None = "",
-    domain: Literal[bpy.stub_internal.rna_enums.AttributeDomainItems] | None = "POINT",
-    data_type: Literal[bpy.stub_internal.rna_enums.AttributeTypeItems] | None = "FLOAT",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    domain: typing.Literal[bpy.stub_internal.rna_enums.AttributeDomainItems]
+    | None = "POINT",
+    data_type: typing.Literal[bpy.stub_internal.rna_enums.AttributeTypeItems]
+    | None = "FLOAT",
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add attribute to geometry
 
     :param name: Name, Name of new attribute (optional, never None)
@@ -27,9 +29,11 @@ def attribute_convert(
     /,
     *,
     mode: typing.Literal["GENERIC", "VERTEX_GROUP"] | None = "GENERIC",
-    domain: Literal[bpy.stub_internal.rna_enums.AttributeDomainItems] | None = "POINT",
-    data_type: Literal[bpy.stub_internal.rna_enums.AttributeTypeItems] | None = "FLOAT",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    domain: typing.Literal[bpy.stub_internal.rna_enums.AttributeDomainItems]
+    | None = "POINT",
+    data_type: typing.Literal[bpy.stub_internal.rna_enums.AttributeTypeItems]
+    | None = "FLOAT",
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Change how the attribute is stored
 
     :param mode: Mode, (optional)
@@ -42,7 +46,7 @@ def attribute_remove(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove attribute from geometry
 
     :return: Result of the operator call.
@@ -54,12 +58,12 @@ def color_attribute_add(
     /,
     *,
     name: str | None = "",
-    domain: Literal[bpy.stub_internal.rna_enums.ColorAttributeDomainItems]
+    domain: typing.Literal[bpy.stub_internal.rna_enums.ColorAttributeDomainItems]
     | None = "POINT",
-    data_type: Literal[bpy.stub_internal.rna_enums.ColorAttributeTypeItems]
+    data_type: typing.Literal[bpy.stub_internal.rna_enums.ColorAttributeTypeItems]
     | None = "FLOAT_COLOR",
     color: collections.abc.Sequence[float] | None = (0.0, 0.0, 0.0, 1.0),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add color attribute to geometry
 
     :param name: Name, Name of new color attribute (optional, never None)
@@ -74,11 +78,11 @@ def color_attribute_convert(
     undo: bool | None = None,
     /,
     *,
-    domain: Literal[bpy.stub_internal.rna_enums.ColorAttributeDomainItems]
+    domain: typing.Literal[bpy.stub_internal.rna_enums.ColorAttributeDomainItems]
     | None = "POINT",
-    data_type: Literal[bpy.stub_internal.rna_enums.ColorAttributeTypeItems]
+    data_type: typing.Literal[bpy.stub_internal.rna_enums.ColorAttributeTypeItems]
     | None = "FLOAT_COLOR",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Change how the color attribute is stored
 
     :param domain: Domain, Type of element that attribute is stored on (optional)
@@ -90,7 +94,7 @@ def color_attribute_duplicate(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Duplicate color attribute
 
     :return: Result of the operator call.
@@ -100,7 +104,7 @@ def color_attribute_remove(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove color attribute from geometry
 
     :return: Result of the operator call.
@@ -112,7 +116,7 @@ def color_attribute_render_set(
     /,
     *,
     name: str | None = "Color",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set default color attribute used for rendering
 
     :param name: Name, Name of color attribute (optional, never None)
@@ -125,7 +129,7 @@ def geometry_randomization(
     /,
     *,
     value: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Toggle geometry randomization for debugging purposes
 
     :param value: Value, Randomize the order of geometry elements (e.g. vertices or edges) after some operations where there are no guarantees about the order. This avoids accidentally depending on something that may change in the future (optional)

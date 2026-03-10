@@ -3,16 +3,16 @@
 from decimal import Decimal
 
 from fishaudio.types import (
-    Voice,
-    PaginatedResponse,
     ASRResponse,
     ASRSegment,
     Credits,
     Package,
-    ReferenceAudio,
+    PaginatedResponse,
     Prosody,
+    ReferenceAudio,
     TTSConfig,
     TTSRequest,
+    Voice,
 )
 
 
@@ -168,8 +168,8 @@ class TestTTSTypes:
 class TestVoiceVisibility:
     """Test Voice model with updated visibility."""
 
-    def test_voice_with_unlisted_visibility(self, sample_voice_response):
-        """Test Voice model with 'unlisted' visibility."""
-        sample_voice_response["visibility"] = "unlisted"
+    def test_voice_with_unlist_visibility(self, sample_voice_response):
+        """Test Voice model with 'unlist' visibility."""
+        sample_voice_response["visibility"] = "unlist"
         voice = Voice.model_validate(sample_voice_response)
-        assert voice.visibility == "unlisted"
+        assert voice.visibility == "unlist"

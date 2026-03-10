@@ -2382,11 +2382,23 @@ async def handle_message_stream(
                                 },
                                 "final": True,
                             }
-                            # Add interrupt artifact if present
+                            # Emit interrupt artifact as separate event
                             if isinstance(result, dict) and "__interrupt__" in result:
-                                completed["artifacts"] = [
-                                    _create_interrupt_artifact(result["__interrupt__"])
-                                ]
+                                yield (
+                                    b"message",
+                                    {
+                                        "jsonrpc": "2.0",
+                                        "id": rpc_id,
+                                        "result": {
+                                            "taskId": task_id,
+                                            "contextId": context_id,
+                                            "kind": "artifact-update",
+                                            "artifact": _create_interrupt_artifact(
+                                                result["__interrupt__"]
+                                            ),
+                                        },
+                                    },
+                                )
                             yield (
                                 b"message",
                                 {"jsonrpc": "2.0", "id": rpc_id, "result": completed},
@@ -2472,11 +2484,23 @@ async def handle_message_stream(
                 },
                 "final": True,
             }
-            # Add interrupt artifact if present
+            # Emit interrupt artifact as separate event
             if isinstance(result, dict) and "__interrupt__" in result:
-                fallback["artifacts"] = [
-                    _create_interrupt_artifact(result["__interrupt__"])
-                ]
+                yield (
+                    b"message",
+                    {
+                        "jsonrpc": "2.0",
+                        "id": rpc_id,
+                        "result": {
+                            "taskId": task_id,
+                            "contextId": context_id,
+                            "kind": "artifact-update",
+                            "artifact": _create_interrupt_artifact(
+                                result["__interrupt__"]
+                            ),
+                        },
+                    },
+                )
             yield (b"message", {"jsonrpc": "2.0", "id": rpc_id, "result": fallback})
         except Exception as e:
             await logger.aerror(
@@ -2498,10 +2522,26 @@ async def handle_message_stream(
     legacy = getattr(request.state, "a2a_legacy", False)
 
     async def consume_():
+        pending_artifacts: list[Any] = []
         async for chunk in stream_body():
             if legacy:
                 event_type, data = chunk
-                chunk = (event_type, _downgrade_response(data))
+                data = _downgrade_response(data)
+                # Legacy clients expect artifacts embedded in status-update,
+                # not as separate artifact-update events.
+                result = data.get("result", {}) if isinstance(data, dict) else {}
+                if isinstance(result, dict) and result.get("kind") == "artifact-update":
+                    pending_artifacts.append(result.get("artifact"))
+                    continue
+                if (
+                    isinstance(result, dict)
+                    and result.get("kind") == "status-update"
+                    and result.get("final")
+                    and pending_artifacts
+                ):
+                    result["artifacts"] = pending_artifacts
+                    pending_artifacts = []
+                chunk = (event_type, data)
             await logger.adebug("A2A.stream_body: Yielding chunk", chunk=chunk)
             yield chunk
 

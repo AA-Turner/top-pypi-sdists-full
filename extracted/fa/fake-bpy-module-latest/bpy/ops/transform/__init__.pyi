@@ -20,7 +20,7 @@ def bbone_resize(
     mirror: bool | None = False,
     release_confirm: bool | None = False,
     use_accurate: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Scale selected bendy bones display size
 
     :param value: Display Size, (array of 3 items, in [-inf, inf], optional)
@@ -42,7 +42,7 @@ def bend(
     value: collections.abc.Sequence[float] | None = (0.0),
     mirror: bool | None = False,
     use_proportional_edit: bool | None = False,
-    proportional_edit_falloff: Literal[
+    proportional_edit_falloff: typing.Literal[
         bpy.stub_internal.rna_enums.ProportionalFalloffItems
     ]
     | None = "SMOOTH",
@@ -58,7 +58,7 @@ def bend(
     ),
     release_confirm: bool | None = False,
     use_accurate: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Bend selected items between the 3D cursor and the mouse
 
     :param value: Angle, (array of 1 items, in [-inf, inf], optional)
@@ -85,7 +85,7 @@ def create_orientation(
     use_view: bool | None = False,
     use: bool | None = False,
     overwrite: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Create transformation orientation from selection
 
     :param name: Name, Name of the new custom orientation (optional, never None)
@@ -99,7 +99,7 @@ def delete_orientation(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Delete transformation orientation
 
     :return: Result of the operator call.
@@ -114,7 +114,7 @@ def edge_bevelweight(
     snap: bool | None = False,
     release_confirm: bool | None = False,
     use_accurate: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Change the bevel weight of edges
 
     :param value: Factor, (in [-1, 1], optional)
@@ -133,7 +133,7 @@ def edge_crease(
     snap: bool | None = False,
     release_confirm: bool | None = False,
     use_accurate: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Change the crease of edges
 
     :param value: Factor, (in [-1, 1], optional)
@@ -155,11 +155,10 @@ def edge_slide(
     use_clamp: bool | None = True,
     mirror: bool | None = False,
     snap: bool | None = False,
-    snap_elements: set[Literal[bpy.stub_internal.rna_enums.SnapElementItems]] | None = {
-        "INCREMENT"
-    },
+    snap_elements: set[typing.Literal[bpy.stub_internal.rna_enums.SnapElementItems]]
+    | None = {"INCREMENT"},
     use_snap_project: bool | None = False,
-    snap_target: Literal[bpy.stub_internal.rna_enums.SnapSourceItems]
+    snap_target: typing.Literal[bpy.stub_internal.rna_enums.SnapSourceItems]
     | None = "CLOSEST",
     use_snap_self: bool | None = True,
     use_snap_edit: bool | None = True,
@@ -173,7 +172,7 @@ def edge_slide(
     correct_uv: bool | None = True,
     release_confirm: bool | None = False,
     use_accurate: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Slide an edge loop along a mesh
 
     :param value: Factor, (in [-10, 10], optional)
@@ -201,7 +200,7 @@ def from_gizmo(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Transform selected items by mode type
 
     :return: Result of the operator call.
@@ -226,7 +225,7 @@ def mirror(
     ),
     release_confirm: bool | None = False,
     use_accurate: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Mirror selected items around one or more axes
 
     :param orient_type: Orientation, Transformation orientation (optional)
@@ -248,7 +247,7 @@ def push_pull(
     value: float | None = 0.0,
     mirror: bool | None = False,
     use_proportional_edit: bool | None = False,
-    proportional_edit_falloff: Literal[
+    proportional_edit_falloff: typing.Literal[
         bpy.stub_internal.rna_enums.ProportionalFalloffItems
     ]
     | None = "SMOOTH",
@@ -263,7 +262,7 @@ def push_pull(
     ),
     release_confirm: bool | None = False,
     use_accurate: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Push/Pull selected items
 
     :param value: Distance, (in [-inf, inf], optional)
@@ -299,7 +298,7 @@ def resize(
     constraint_axis: collections.abc.Sequence[bool] | None = (False, False, False),
     mirror: bool | None = False,
     use_proportional_edit: bool | None = False,
-    proportional_edit_falloff: Literal[
+    proportional_edit_falloff: typing.Literal[
         bpy.stub_internal.rna_enums.ProportionalFalloffItems
     ]
     | None = "SMOOTH",
@@ -307,11 +306,10 @@ def resize(
     use_proportional_connected: bool | None = False,
     use_proportional_projected: bool | None = False,
     snap: bool | None = False,
-    snap_elements: set[Literal[bpy.stub_internal.rna_enums.SnapElementItems]] | None = {
-        "INCREMENT"
-    },
+    snap_elements: set[typing.Literal[bpy.stub_internal.rna_enums.SnapElementItems]]
+    | None = {"INCREMENT"},
     use_snap_project: bool | None = False,
-    snap_target: Literal[bpy.stub_internal.rna_enums.SnapSourceItems]
+    snap_target: typing.Literal[bpy.stub_internal.rna_enums.SnapSourceItems]
     | None = "CLOSEST",
     use_snap_self: bool | None = True,
     use_snap_edit: bool | None = True,
@@ -333,7 +331,7 @@ def resize(
     ),
     release_confirm: bool | None = False,
     use_accurate: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Scale (resize) selected items
 
     :param value: Scale, (array of 3 items, in [-inf, inf], optional)
@@ -373,7 +371,7 @@ def rotate(
     /,
     *,
     value: float | None = 0.0,
-    orient_axis: Literal[bpy.stub_internal.rna_enums.AxisXyzItems] | None = "Z",
+    orient_axis: typing.Literal[bpy.stub_internal.rna_enums.AxisXyzItems] | None = "Z",
     orient_type: str | None = "GLOBAL",
     orient_matrix: collections.abc.Sequence[collections.abc.Sequence[float]]
     | mathutils.Matrix
@@ -382,7 +380,7 @@ def rotate(
     constraint_axis: collections.abc.Sequence[bool] | None = (False, False, False),
     mirror: bool | None = False,
     use_proportional_edit: bool | None = False,
-    proportional_edit_falloff: Literal[
+    proportional_edit_falloff: typing.Literal[
         bpy.stub_internal.rna_enums.ProportionalFalloffItems
     ]
     | None = "SMOOTH",
@@ -390,11 +388,10 @@ def rotate(
     use_proportional_connected: bool | None = False,
     use_proportional_projected: bool | None = False,
     snap: bool | None = False,
-    snap_elements: set[Literal[bpy.stub_internal.rna_enums.SnapElementItems]] | None = {
-        "INCREMENT"
-    },
+    snap_elements: set[typing.Literal[bpy.stub_internal.rna_enums.SnapElementItems]]
+    | None = {"INCREMENT"},
     use_snap_project: bool | None = False,
-    snap_target: Literal[bpy.stub_internal.rna_enums.SnapSourceItems]
+    snap_target: typing.Literal[bpy.stub_internal.rna_enums.SnapSourceItems]
     | None = "CLOSEST",
     use_snap_self: bool | None = True,
     use_snap_edit: bool | None = True,
@@ -413,7 +410,7 @@ def rotate(
     ),
     release_confirm: bool | None = False,
     use_accurate: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Rotate selected items
 
     :param value: Angle, (in [-inf, inf], optional)
@@ -450,7 +447,7 @@ def rotate_normal(
     /,
     *,
     value: float | None = 0.0,
-    orient_axis: Literal[bpy.stub_internal.rna_enums.AxisXyzItems] | None = "Z",
+    orient_axis: typing.Literal[bpy.stub_internal.rna_enums.AxisXyzItems] | None = "Z",
     orient_type: str | None = "GLOBAL",
     orient_matrix: collections.abc.Sequence[collections.abc.Sequence[float]]
     | mathutils.Matrix
@@ -460,7 +457,7 @@ def rotate_normal(
     mirror: bool | None = False,
     release_confirm: bool | None = False,
     use_accurate: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Rotate custom normal of selected items
 
     :param value: Angle, (in [-inf, inf], optional)
@@ -481,7 +478,7 @@ def select_orientation(
     /,
     *,
     orientation: str | None = "GLOBAL",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select transformation orientation
 
     :param orientation: Orientation, Transformation orientation (optional)
@@ -502,7 +499,7 @@ def seq_slide(
     view2d_edge_pan: bool | None = False,
     release_confirm: bool | None = False,
     use_accurate: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Slide a sequence strip in time
 
     :param value: Offset, (array of 2 items, in [-inf, inf], optional)
@@ -523,8 +520,9 @@ def shear(
     /,
     *,
     angle: float | None = 0.0,
-    orient_axis: Literal[bpy.stub_internal.rna_enums.AxisXyzItems] | None = "Z",
-    orient_axis_ortho: Literal[bpy.stub_internal.rna_enums.AxisXyzItems] | None = "X",
+    orient_axis: typing.Literal[bpy.stub_internal.rna_enums.AxisXyzItems] | None = "Z",
+    orient_axis_ortho: typing.Literal[bpy.stub_internal.rna_enums.AxisXyzItems]
+    | None = "X",
     orient_type: str | None = "GLOBAL",
     orient_matrix: collections.abc.Sequence[collections.abc.Sequence[float]]
     | mathutils.Matrix
@@ -532,7 +530,7 @@ def shear(
     orient_matrix_type: str | None = "GLOBAL",
     mirror: bool | None = False,
     use_proportional_edit: bool | None = False,
-    proportional_edit_falloff: Literal[
+    proportional_edit_falloff: typing.Literal[
         bpy.stub_internal.rna_enums.ProportionalFalloffItems
     ]
     | None = "SMOOTH",
@@ -543,7 +541,7 @@ def shear(
     gpencil_strokes: bool | None = False,
     release_confirm: bool | None = False,
     use_accurate: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Shear selected items along the given axis
 
     :param angle: Angle, (in [-inf, inf], optional)
@@ -574,7 +572,7 @@ def shrink_fatten(
     use_even_offset: bool | None = False,
     mirror: bool | None = False,
     use_proportional_edit: bool | None = False,
-    proportional_edit_falloff: Literal[
+    proportional_edit_falloff: typing.Literal[
         bpy.stub_internal.rna_enums.ProportionalFalloffItems
     ]
     | None = "SMOOTH",
@@ -584,7 +582,7 @@ def shrink_fatten(
     snap: bool | None = False,
     release_confirm: bool | None = False,
     use_accurate: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Shrink/fatten selected vertices along normals
 
     :param value: Offset, (in [-inf, inf], optional)
@@ -615,7 +613,7 @@ def skin_resize(
     constraint_axis: collections.abc.Sequence[bool] | None = (False, False, False),
     mirror: bool | None = False,
     use_proportional_edit: bool | None = False,
-    proportional_edit_falloff: Literal[
+    proportional_edit_falloff: typing.Literal[
         bpy.stub_internal.rna_enums.ProportionalFalloffItems
     ]
     | None = "SMOOTH",
@@ -623,11 +621,10 @@ def skin_resize(
     use_proportional_connected: bool | None = False,
     use_proportional_projected: bool | None = False,
     snap: bool | None = False,
-    snap_elements: set[Literal[bpy.stub_internal.rna_enums.SnapElementItems]] | None = {
-        "INCREMENT"
-    },
+    snap_elements: set[typing.Literal[bpy.stub_internal.rna_enums.SnapElementItems]]
+    | None = {"INCREMENT"},
     use_snap_project: bool | None = False,
-    snap_target: Literal[bpy.stub_internal.rna_enums.SnapSourceItems]
+    snap_target: typing.Literal[bpy.stub_internal.rna_enums.SnapSourceItems]
     | None = "CLOSEST",
     use_snap_self: bool | None = True,
     use_snap_edit: bool | None = True,
@@ -640,7 +637,7 @@ def skin_resize(
     ),
     release_confirm: bool | None = False,
     use_accurate: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Scale selected vertices skin radii
 
     :param value: Scale, (array of 3 items, in [-inf, inf], optional)
@@ -676,7 +673,7 @@ def tilt(
     value: float | None = 0.0,
     mirror: bool | None = False,
     use_proportional_edit: bool | None = False,
-    proportional_edit_falloff: Literal[
+    proportional_edit_falloff: typing.Literal[
         bpy.stub_internal.rna_enums.ProportionalFalloffItems
     ]
     | None = "SMOOTH",
@@ -686,7 +683,7 @@ def tilt(
     snap: bool | None = False,
     release_confirm: bool | None = False,
     use_accurate: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Tilt selected control vertices of 3D curve
 
     :param value: Angle, (in [-inf, inf], optional)
@@ -710,7 +707,7 @@ def tosphere(
     value: float | None = 0.0,
     mirror: bool | None = False,
     use_proportional_edit: bool | None = False,
-    proportional_edit_falloff: Literal[
+    proportional_edit_falloff: typing.Literal[
         bpy.stub_internal.rna_enums.ProportionalFalloffItems
     ]
     | None = "SMOOTH",
@@ -726,7 +723,7 @@ def tosphere(
     ),
     release_confirm: bool | None = False,
     use_accurate: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move selected items outward in a spherical shape around geometric center
 
     :param value: Factor, (in [0, 1], optional)
@@ -752,7 +749,7 @@ def trackball(
     value: collections.abc.Sequence[float] | None = (0.0, 0.0),
     mirror: bool | None = False,
     use_proportional_edit: bool | None = False,
-    proportional_edit_falloff: Literal[
+    proportional_edit_falloff: typing.Literal[
         bpy.stub_internal.rna_enums.ProportionalFalloffItems
     ]
     | None = "SMOOTH",
@@ -768,7 +765,7 @@ def trackball(
     ),
     release_confirm: bool | None = False,
     use_accurate: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Trackball style rotation of selected items
 
     :param value: Angle, (array of 2 items, in [-inf, inf], optional)
@@ -791,7 +788,7 @@ def transform(
     undo: bool | None = None,
     /,
     *,
-    mode: Literal[bpy.stub_internal.rna_enums.TransformModeTypeItems]
+    mode: typing.Literal[bpy.stub_internal.rna_enums.TransformModeTypeItems]
     | None = "TRANSLATION",
     value: collections.abc.Sequence[float] | mathutils.Vector | None = (
         0.0,
@@ -799,18 +796,20 @@ def transform(
         0.0,
         0.0,
     ),
-    orient_axis: Literal[bpy.stub_internal.rna_enums.AxisXyzItems] | None = "Z",
-    orient_type: Literal[bpy.stub_internal.rna_enums.TransformOrientationItems]
+    orient_axis: typing.Literal[bpy.stub_internal.rna_enums.AxisXyzItems] | None = "Z",
+    orient_type: typing.Literal[bpy.stub_internal.rna_enums.TransformOrientationItems]
     | None = "GLOBAL",
     orient_matrix: collections.abc.Sequence[collections.abc.Sequence[float]]
     | mathutils.Matrix
     | None = ((0.0, 0.0, 0.0), (0.0, 0.0, 0.0), (0.0, 0.0, 0.0)),
-    orient_matrix_type: Literal[bpy.stub_internal.rna_enums.TransformOrientationItems]
+    orient_matrix_type: typing.Literal[
+        bpy.stub_internal.rna_enums.TransformOrientationItems
+    ]
     | None = "GLOBAL",
     constraint_axis: collections.abc.Sequence[bool] | None = (False, False, False),
     mirror: bool | None = False,
     use_proportional_edit: bool | None = False,
-    proportional_edit_falloff: Literal[
+    proportional_edit_falloff: typing.Literal[
         bpy.stub_internal.rna_enums.ProportionalFalloffItems
     ]
     | None = "SMOOTH",
@@ -818,11 +817,10 @@ def transform(
     use_proportional_connected: bool | None = False,
     use_proportional_projected: bool | None = False,
     snap: bool | None = False,
-    snap_elements: set[Literal[bpy.stub_internal.rna_enums.SnapElementItems]] | None = {
-        "INCREMENT"
-    },
+    snap_elements: set[typing.Literal[bpy.stub_internal.rna_enums.SnapElementItems]]
+    | None = {"INCREMENT"},
     use_snap_project: bool | None = False,
-    snap_target: Literal[bpy.stub_internal.rna_enums.SnapSourceItems]
+    snap_target: typing.Literal[bpy.stub_internal.rna_enums.SnapSourceItems]
     | None = "CLOSEST",
     use_snap_self: bool | None = True,
     use_snap_edit: bool | None = True,
@@ -851,7 +849,7 @@ def transform(
     release_confirm: bool | None = False,
     use_accurate: bool | None = False,
     use_automerge_and_split: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Transform selected items by mode type
 
     :param mode: Mode, (optional)
@@ -895,17 +893,19 @@ def translate(
     /,
     *,
     value: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0, 0.0),
-    orient_type: Literal[bpy.stub_internal.rna_enums.TransformOrientationItems]
+    orient_type: typing.Literal[bpy.stub_internal.rna_enums.TransformOrientationItems]
     | None = "GLOBAL",
     orient_matrix: collections.abc.Sequence[collections.abc.Sequence[float]]
     | mathutils.Matrix
     | None = ((0.0, 0.0, 0.0), (0.0, 0.0, 0.0), (0.0, 0.0, 0.0)),
-    orient_matrix_type: Literal[bpy.stub_internal.rna_enums.TransformOrientationItems]
+    orient_matrix_type: typing.Literal[
+        bpy.stub_internal.rna_enums.TransformOrientationItems
+    ]
     | None = "GLOBAL",
     constraint_axis: collections.abc.Sequence[bool] | None = (False, False, False),
     mirror: bool | None = False,
     use_proportional_edit: bool | None = False,
-    proportional_edit_falloff: Literal[
+    proportional_edit_falloff: typing.Literal[
         bpy.stub_internal.rna_enums.ProportionalFalloffItems
     ]
     | None = "SMOOTH",
@@ -913,11 +913,10 @@ def translate(
     use_proportional_connected: bool | None = False,
     use_proportional_projected: bool | None = False,
     snap: bool | None = False,
-    snap_elements: set[Literal[bpy.stub_internal.rna_enums.SnapElementItems]] | None = {
-        "INCREMENT"
-    },
+    snap_elements: set[typing.Literal[bpy.stub_internal.rna_enums.SnapElementItems]]
+    | None = {"INCREMENT"},
     use_snap_project: bool | None = False,
-    snap_target: Literal[bpy.stub_internal.rna_enums.SnapSourceItems]
+    snap_target: typing.Literal[bpy.stub_internal.rna_enums.SnapSourceItems]
     | None = "CLOSEST",
     use_snap_self: bool | None = True,
     use_snap_edit: bool | None = True,
@@ -944,7 +943,7 @@ def translate(
     use_accurate: bool | None = False,
     use_automerge_and_split: bool | None = False,
     translate_origin: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move selected items
 
     :param value: Move, (array of 3 items, in [-inf, inf], optional)
@@ -991,7 +990,7 @@ def vert_crease(
     snap: bool | None = False,
     release_confirm: bool | None = False,
     use_accurate: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Change the crease of vertices
 
     :param value: Factor, (in [-1, 1], optional)
@@ -1017,11 +1016,10 @@ def vert_slide(
     ),
     mirror: bool | None = False,
     snap: bool | None = False,
-    snap_elements: set[Literal[bpy.stub_internal.rna_enums.SnapElementItems]] | None = {
-        "INCREMENT"
-    },
+    snap_elements: set[typing.Literal[bpy.stub_internal.rna_enums.SnapElementItems]]
+    | None = {"INCREMENT"},
     use_snap_project: bool | None = False,
-    snap_target: Literal[bpy.stub_internal.rna_enums.SnapSourceItems]
+    snap_target: typing.Literal[bpy.stub_internal.rna_enums.SnapSourceItems]
     | None = "CLOSEST",
     use_snap_self: bool | None = True,
     use_snap_edit: bool | None = True,
@@ -1035,7 +1033,7 @@ def vert_slide(
     correct_uv: bool | None = True,
     release_confirm: bool | None = False,
     use_accurate: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Slide a vertex along a mesh
 
     :param value: Factor, (in [-10, 10], optional)
@@ -1069,7 +1067,7 @@ def vertex_random(
     normal: float | None = 0.0,
     seed: int | None = 0,
     wait_for_input: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Randomize vertices
 
     :param offset: Amount, Distance to offset (in [-inf, inf], optional)
@@ -1098,7 +1096,7 @@ def vertex_warp(
         (0.0, 0.0, 0.0, 0.0),
     ),
     center: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0, 0.0),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Warp vertices around the cursor
 
     :param warp_angle: Warp Angle, Amount to warp about the cursor (in [-inf, inf], optional)

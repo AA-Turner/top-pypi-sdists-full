@@ -133,12 +133,12 @@ fn find_interstitial_sites(
     min_dist: Option<f64>,
     symprec: f64,
 ) -> PyResult<Vec<Py<PyDict>>> {
-    if let Some(md) = min_dist {
-        if !md.is_finite() || md <= 0.0 {
-            return Err(PyValueError::new_err(format!(
-                "min_dist must be positive and finite, got {md}"
-            )));
-        }
+    if let Some(md) = min_dist
+        && (!md.is_finite() || md <= 0.0)
+    {
+        return Err(PyValueError::new_err(format!(
+            "min_dist must be positive and finite, got {md}"
+        )));
     }
     if !symprec.is_finite() || symprec <= 0.0 {
         return Err(PyValueError::new_err(format!(

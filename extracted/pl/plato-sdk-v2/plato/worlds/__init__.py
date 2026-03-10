@@ -75,9 +75,29 @@ from plato.worlds.durable import (
     load_durable,
     load_durable_path,
 )
+from plato.worlds.human_annotation import (
+    AnnotationWorkspaceItem,
+    HumanAnnotationRequest,
+    RequiresHumanAnnotation,
+)
 from plato.worlds.models import Observation, StepResult
 from plato.worlds.result_store import ResultStore
 from plato.worlds.runner import run_world
+from plato.worlds.verifier import (
+    VerificationOutputContract,
+    VerifierMode,
+    VerifierOutput,
+    VerifierResult,
+    VerifierRunContext,
+    VerifierRuntimeConfig,
+    get_verifier_run_context,
+    reset_verifier_run_context,
+    run_with_verifier_scope,
+    set_verifier_run_context,
+    verifier,
+    verifier_mode_for_stage,
+    verifier_scope,
+)
 
 __all__ = [
     # Base
@@ -118,8 +138,26 @@ __all__ = [
     "FromArg",
     "load_durable",
     "load_durable_path",
+    # Human annotation
+    "AnnotationWorkspaceItem",
+    "HumanAnnotationRequest",
+    "RequiresHumanAnnotation",
     # Result store
     "ResultStore",
+    # Verifier runtime
+    "VerificationOutputContract",
+    "VerifierMode",
+    "VerifierOutput",
+    "VerifierRunContext",
+    "VerifierRuntimeConfig",
+    "VerifierResult",
+    "get_verifier_run_context",
+    "set_verifier_run_context",
+    "reset_verifier_run_context",
+    "run_with_verifier_scope",
+    "verifier",
+    "verifier_scope",
+    "verifier_mode_for_stage",
     # Runner
     "run_world",
 ]

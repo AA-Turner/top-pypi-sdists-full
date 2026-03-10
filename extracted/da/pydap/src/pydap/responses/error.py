@@ -10,7 +10,7 @@ from traceback import print_exception
 
 from webob import Response
 
-from ..lib import __version__, encode
+from pydap.lib import __version__, encode
 
 
 class ErrorResponse(object):
@@ -29,12 +29,10 @@ class ErrorResponse(object):
 
         # build error message
         code = getattr(info[0], "code", -1)
-        self.body = str(
-            """Error {{
+        self.body = str("""Error {{
     code = {0};
     message = {1};
-}}"""
-        ).format(code, message)
+}}""").format(code, message)
 
     def __call__(self, environ, start_response):
         res = Response()

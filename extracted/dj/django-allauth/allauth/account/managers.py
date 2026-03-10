@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from datetime import timedelta
-from typing import Optional
+from typing import TYPE_CHECKING
 
 from django.db import models, transaction
 from django.db.models import Q
@@ -9,8 +11,12 @@ from django.utils import timezone
 from . import app_settings
 
 
-class EmailAddressManager(models.Manager):
-    def can_add_email(self, user):
+if TYPE_CHECKING:
+    from .models import EmailAddress  # noqa: F401
+
+
+class EmailAddressManager(models.Manager["EmailAddress"]):
+    def can_add_email(self, user) -> bool:
         ret = True
         if app_settings.CHANGE_EMAIL:
             #  We always allow adding an email in this case, regardless of
@@ -73,7 +79,7 @@ class EmailAddressManager(models.Manager):
         except self.model.DoesNotExist:
             return None
 
-    def get_primary_email(self, user) -> Optional[str]:
+    def get_primary_email(self, user) -> str | None:
         from allauth.account.utils import user_email
 
         primary = self.get_primary(user)
@@ -90,7 +96,7 @@ class EmailAddressManager(models.Manager):
             address.user for address in self.filter(verified=True, email=email.lower())
         ]
 
-    def fill_cache_for_user(self, user, addresses):
+    def fill_cache_for_user(self, user, addresses) -> None:
         """
         In a multi-db setup, inserting records and re-reading them later
         on may result in not being able to find newly inserted
@@ -115,7 +121,7 @@ class EmailAddressManager(models.Manager):
                     return address
             raise self.model.DoesNotExist()
 
-    def is_verified(self, email):
+    def is_verified(self, email: str) -> bool:
         return self.filter(email=email.lower(), verified=True).exists()
 
     def lookup(self, emails):
@@ -135,5 +141,5 @@ class EmailConfirmationManager(models.Manager):
         )
         return Q(sent__lt=sent_threshold)
 
-    def delete_expired_confirmations(self):
+    def delete_expired_confirmations(self) -> None:
         self.all_expired().delete()

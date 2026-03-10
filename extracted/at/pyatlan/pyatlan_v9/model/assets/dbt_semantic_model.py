@@ -117,8 +117,6 @@ class DbtSemanticModel(Asset):
     INPUT_TO_SPARK_JOBS: ClassVar[Any] = None
     OUTPUT_FROM_SPARK_JOBS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "DbtSemanticModel"
-
     dbt_alias: Union[str, None, UnsetType] = UNSET
     """Alias of this asset in dbt."""
 
@@ -643,6 +641,9 @@ def _dbt_semantic_model_to_nested(
         is_incomplete=dbt_semantic_model.is_incomplete,
         provenance_type=dbt_semantic_model.provenance_type,
         home_id=dbt_semantic_model.home_id,
+        depth=dbt_semantic_model.depth,
+        immediate_upstream=dbt_semantic_model.immediate_upstream,
+        immediate_downstream=dbt_semantic_model.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -676,7 +677,6 @@ def _dbt_semantic_model_from_nested(nested: DbtSemanticModelNested) -> DbtSemant
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -685,6 +685,9 @@ def _dbt_semantic_model_from_nested(nested: DbtSemanticModelNested) -> DbtSemant
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_dbt_semantic_model_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

@@ -99,8 +99,6 @@ class File(Asset):
     INPUT_TO_SPARK_JOBS: ClassVar[Any] = None
     OUTPUT_FROM_SPARK_JOBS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "File"
-
     file_type: Union[str, None, UnsetType] = UNSET
     """Type (extension) of the file."""
 
@@ -579,6 +577,9 @@ def _file_to_nested(file: File) -> FileNested:
         is_incomplete=file.is_incomplete,
         provenance_type=file.provenance_type,
         home_id=file.home_id,
+        depth=file.depth,
+        immediate_upstream=file.immediate_upstream,
+        immediate_downstream=file.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -608,7 +609,6 @@ def _file_from_nested(nested: FileNested) -> File:
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -617,6 +617,9 @@ def _file_from_nested(nested: FileNested) -> File:
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_file_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

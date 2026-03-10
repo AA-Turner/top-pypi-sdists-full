@@ -1,15 +1,14 @@
 Metadata-Version: 2.4
 Name: xblock-google-drive
-Version: 0.8.1
+Version: 0.8.2
 Summary: An XBlock which allows embedding of Google documents and calendar within an edX course
 Home-page: https://github.com/openedx/xblock-google-drive
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Framework :: Django
 Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.2
-Requires-Python: >=3.11
+Requires-Python: >=3.12
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: Django

@@ -169,6 +169,24 @@ async def inclusao_pedidos_raizen(task: RpaRetornoProcessoDTO):
                         await locator_input.blur() 
                     else:
                         logger.print(f"Input para o produto '{nome_produto}' não encontrado na tela.")
+                    try:
+                        if config_entrada['diasFaturamento'] != 1:
+                            # select prazo
+                            prazo_input = page.locator('.orders-fuels-list__row').filter(has_text=nome_produto)
+                                                # .locator('//*[@id="orders-fuels-list-button-payment-term-obj"]')
+                            dropdown = prazo_input.locator('#orders-fuels-list-button-payment-term-obj')
+                            # await dropdown.scrolll_into_view_if_needed()
+                            await dropdown.click()
+                            # option = page.locator("button.dropdown-item", has_text=" 1 Dia ").first
+                        # else:
+                            target_text = f" {str(config_entrada['diasFaturamento'])} Dias "
+                            # option = page.locator("button.dropdown-item", has_text=f" {str(config_entrada['diasFaturamento'])} Dias ").first
+                            option = page.locator("button.dropdown-item").filter(has_text=target_text).locator("visible=true").first
+                            await option.scroll_into_view_if_needed()
+                            await option.click(force=True)
+                    except:
+                        await capture_and_send_screenshot(task.historico_id, "Erro")
+                        raise Exception(f"Opção de {str(config_entrada['diasFaturamento'])} Dia(s) não encontrada")
             except Exception as e:
                 await capture_and_send_screenshot(task.historico_id, "Erro preenchendo combustiveis")
                 raise Exception(f"Erro ao preencher combustiveis: {str(e)}")

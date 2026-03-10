@@ -43,14 +43,15 @@ class PredictBase(object):
                             # NPU often requires static shapes. 
                             # Different shapes for detection vs recognition
                             if "det" in model_dir.lower():
-                                self.force_shape = (1, 3, 640, 640)
+                                self.force_shape = (1, 3, 960, 960)
                             elif "rec" in model_dir.lower():
                                 self.force_shape = (1, 3, 48, 320)
                             elif "cls" in model_dir.lower():
                                 self.force_shape = (1, 3, 48, 192)
 
                             if self.force_shape:
-                                model.reshape({input_layer.any_name: self.force_shape})
+                                self.logger.info(f'openvino force shape {model_dir} from {input_layer} to {self.force_shape}')
+                                model.reshape({input_layer.any_name: self.force_shape})                                
                         except Exception:
                             self.force_shape = None 
                     else:

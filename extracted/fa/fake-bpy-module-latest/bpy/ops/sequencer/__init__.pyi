@@ -17,11 +17,13 @@ def add_scene_strip_from_scene_asset(
     overlap: bool | None = False,
     overlap_shuffle_override: bool | None = False,
     skip_locked_or_muted_channels: bool | None = True,
-    asset_library_type: Literal[bpy.stub_internal.rna_enums.AssetLibraryTypeItems]
+    asset_library_type: typing.Literal[
+        bpy.stub_internal.rna_enums.AssetLibraryTypeItems
+    ]
     | None = "LOCAL",
     asset_library_identifier: str | None = "",
     relative_asset_identifier: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a strip using a duplicate of this scene asset as the source
 
     :param move_strips: Move Strips, Automatically begin translating strips with the mouse after adding them to the timeline (optional)
@@ -52,7 +54,7 @@ def box_blade(
     ignore_selection: bool | None = True,
     ignore_connections: bool | None = False,
     remove_gaps: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Draw a box around the parts of strips you want to cut away
 
         :param xmin: X Min, (in [-inf, inf], optional)
@@ -102,7 +104,7 @@ def change_effect_type(
         "COMPOSITOR",
     ]
     | None = "CROSS",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Replace effect strip with another that takes the same number of inputs
 
         :param type: Type, Strip effect type (optional)
@@ -194,7 +196,7 @@ def change_path(
     | None = "DEFAULT",
     sort_method: str | None = "",
     use_placeholders: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
 
         :param filepath: File Path, Path to file (optional, never None)
@@ -244,7 +246,7 @@ def change_scene(
     /,
     *,
     scene: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Change Scene assigned to Strip
 
     :param scene: Scene, (optional)
@@ -257,7 +259,7 @@ def connect(
     /,
     *,
     toggle: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Link selected strips together for simplified group selection
 
     :param toggle: Toggle, Toggle strip connections (optional)
@@ -268,7 +270,7 @@ def copy(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Copy the selected strips to the internal clipboard
 
     :return: Result of the operator call.
@@ -278,7 +280,7 @@ def crossfade_sounds(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Do cross-fading volume animation of two selected sound strips
 
     :return: Result of the operator call.
@@ -290,7 +292,7 @@ def cursor_set(
     /,
     *,
     location: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set 2D cursor location
 
     :param location: Location, Cursor location in normalized preview coordinates (array of 2 items, in [-inf, inf], optional)
@@ -301,7 +303,7 @@ def deinterlace_selected_movies(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Deinterlace all selected movie sources
 
     :return: Result of the operator call.
@@ -313,7 +315,7 @@ def delete(
     /,
     *,
     delete_data: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Delete selected strips from the sequencer
 
     :param delete_data: Delete Data, After removing the Strip, delete the associated data also (optional)
@@ -324,7 +326,7 @@ def disconnect(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Unlink selected strips so that they can be selected individually
 
     :return: Result of the operator call.
@@ -336,7 +338,7 @@ def duplicate(
     /,
     *,
     linked: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Duplicate the selected strips
 
     :param linked: Linked, Duplicate strip but not strip data, linking to the original data (optional)
@@ -350,7 +352,7 @@ def duplicate_move(
     *,
     SEQUENCER_OT_duplicate: dict[str, typing.Any] | None = {},
     TRANSFORM_OT_seq_slide: dict[str, typing.Any] | None = {},
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Duplicate selected strips and move them
 
     :param SEQUENCER_OT_duplicate: Duplicate Strips, Duplicate the selected strips (optional, `bpy.ops.sequencer.duplicate` keyword arguments)
@@ -365,7 +367,7 @@ def duplicate_move_linked(
     *,
     SEQUENCER_OT_duplicate: dict[str, typing.Any] | None = {},
     TRANSFORM_OT_seq_slide: dict[str, typing.Any] | None = {},
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Duplicate selected strips, but not their data, and move them
 
     :param SEQUENCER_OT_duplicate: Duplicate Strips, Duplicate the selected strips (optional, `bpy.ops.sequencer.duplicate` keyword arguments)
@@ -407,7 +409,7 @@ def effect_strip_add(
     overlap_shuffle_override: bool | None = False,
     skip_locked_or_muted_channels: bool | None = True,
     color: collections.abc.Sequence[float] | mathutils.Color | None = (0.0, 0.0, 0.0),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add an effect to the sequencer, most are applied on top of existing strips
 
         :param type: Type, Sequencer effect type (optional)
@@ -484,7 +486,7 @@ def enable_proxies(
     proxy_75: bool | None = False,
     proxy_100: bool | None = False,
     overwrite: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Enable selected proxies on all selected Movie and Image strips
 
     :param proxy_25: 25%, (optional)
@@ -525,7 +527,7 @@ def export_subtitles(
     ]
     | None = "DEFAULT",
     sort_method: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Export .srt file containing text strips
 
         :param filepath: File Path, Path to file (optional, never None)
@@ -573,7 +575,7 @@ def fades_add(
     duration_seconds: float | None = 1.0,
     type: typing.Literal["IN_OUT", "IN", "OUT", "CURSOR_FROM", "CURSOR_TO"]
     | None = "IN_OUT",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Adds or updates a fade animation for either visual or audio strips
 
         :param duration_seconds: Fade Duration, Duration of the fade in seconds (in [0.01, inf], optional)
@@ -600,7 +602,7 @@ def fades_clear(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Removes fade animation from selected strips
 
     :return: Result of the operator call.
@@ -612,7 +614,7 @@ def gap_insert(
     /,
     *,
     frames: int | None = 10,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Insert gap at current frame to first strips at the right, independent of selection or locked state of strips
 
     :param frames: Frames, Frames to insert after current strip (in [0, inf], optional)
@@ -625,7 +627,7 @@ def gap_remove(
     /,
     *,
     all: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove gap at current frame to first strip at the right, independent of selection or locked state of strips
 
     :param all: All Gaps, Do all gaps to right of current frame (optional)
@@ -681,14 +683,14 @@ def image_strip_add(
     overlap: bool | None = False,
     overlap_shuffle_override: bool | None = False,
     skip_locked_or_muted_channels: bool | None = True,
-    fit_method: Literal[bpy.stub_internal.rna_enums.StripScaleMethodItems]
+    fit_method: typing.Literal[bpy.stub_internal.rna_enums.StripScaleMethodItems]
     | None = "FIT",
     set_view_transform: bool | None = True,
     image_import_type: typing.Literal["DETECT", "SEQUENCE", "INDIVIDUAL"]
     | None = "DETECT",
     use_sequence_detection: bool | None = True,
     use_placeholders: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add an image or image sequence to the sequencer
 
         :param directory: Directory, Directory of the file (optional, never None)
@@ -777,7 +779,7 @@ def images_separate(
     /,
     *,
     length: int | None = 1,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """On image sequence strips, it returns a strip for each image
 
     :param length: Length, Length of each frame (in [1, inf], optional)
@@ -788,7 +790,7 @@ def lock(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Lock strips so they cannot be transformed
 
     :return: Result of the operator call.
@@ -807,7 +809,7 @@ def mask_strip_add(
     overlap_shuffle_override: bool | None = False,
     skip_locked_or_muted_channels: bool | None = True,
     mask: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a mask strip to the sequencer
 
     :param move_strips: Move Strips, Automatically begin translating strips with the mouse after adding them to the timeline (optional)
@@ -825,7 +827,7 @@ def meta_make(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Group selected strips into a meta-strip
 
     :return: Result of the operator call.
@@ -835,7 +837,7 @@ def meta_separate(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Put the contents of a meta-strip back in the sequencer
 
     :return: Result of the operator call.
@@ -845,7 +847,7 @@ def meta_toggle(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Toggle a meta-strip (to edit enclosed strips)
 
     :return: Result of the operator call.
@@ -900,13 +902,13 @@ def movie_strip_add(
     overlap: bool | None = False,
     overlap_shuffle_override: bool | None = False,
     skip_locked_or_muted_channels: bool | None = True,
-    fit_method: Literal[bpy.stub_internal.rna_enums.StripScaleMethodItems]
+    fit_method: typing.Literal[bpy.stub_internal.rna_enums.StripScaleMethodItems]
     | None = "FIT",
     set_view_transform: bool | None = True,
     adjust_playback_rate: bool | None = True,
     sound: bool | None = True,
     use_framerate: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a movie strip to the sequencer
 
         :param filepath: File Path, Path to file (optional, never None)
@@ -993,7 +995,7 @@ def movieclip_strip_add(
     overlap_shuffle_override: bool | None = False,
     skip_locked_or_muted_channels: bool | None = True,
     clip: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a movieclip strip to the sequencer
 
     :param move_strips: Move Strips, Automatically begin translating strips with the mouse after adding them to the timeline (optional)
@@ -1013,7 +1015,7 @@ def mute(
     /,
     *,
     unselected: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Mute (un)selected strips
 
     :param unselected: Unselected, Mute unselected rather than selected strips (optional)
@@ -1024,7 +1026,7 @@ def offset_clear(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Clear strip in/out offsets from the start and end of content
 
     :return: Result of the operator call.
@@ -1038,7 +1040,7 @@ def paste(
     keep_offset: bool | None = False,
     x: int | None = 0,
     y: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Paste strips from the internal clipboard
 
     :param keep_offset: Keep Offset, Keep strip offset relative to the current frame when pasting (optional)
@@ -1054,7 +1056,7 @@ def preview_duplicate_move(
     *,
     SEQUENCER_OT_duplicate: dict[str, typing.Any] | None = {},
     TRANSFORM_OT_translate: dict[str, typing.Any] | None = {},
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Duplicate selected strips and move them
 
     :param SEQUENCER_OT_duplicate: Duplicate Strips, Duplicate the selected strips (optional, `bpy.ops.sequencer.duplicate` keyword arguments)
@@ -1069,7 +1071,7 @@ def preview_duplicate_move_linked(
     *,
     SEQUENCER_OT_duplicate: dict[str, typing.Any] | None = {},
     TRANSFORM_OT_translate: dict[str, typing.Any] | None = {},
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Duplicate selected strips, but not their data, and move them
 
     :param SEQUENCER_OT_duplicate: Duplicate Strips, Duplicate the selected strips (optional, `bpy.ops.sequencer.duplicate` keyword arguments)
@@ -1081,7 +1083,7 @@ def reassign_inputs(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Reassign the inputs for the effect strip
 
     :return: Result of the operator call.
@@ -1091,7 +1093,7 @@ def rebuild_proxy(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Rebuild all selected proxies and timecode indices
 
     :return: Result of the operator call.
@@ -1101,7 +1103,7 @@ def refresh_all(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Refresh the sequencer editor
 
     :return: Result of the operator call.
@@ -1113,7 +1115,7 @@ def reload(
     /,
     *,
     adjust_length: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Reload strips in the sequencer
 
     :param adjust_length: Adjust Length, Adjust length of strips to their data length (optional)
@@ -1124,7 +1126,7 @@ def rename_channel(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
 
     :return: Result of the operator call.
@@ -1134,7 +1136,7 @@ def rendersize(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set render size and aspect from active strip
 
     :return: Result of the operator call.
@@ -1147,7 +1149,7 @@ def retiming_add_freeze_frame_slide(
     *,
     SEQUENCER_OT_retiming_freeze_frame_add: dict[str, typing.Any] | None = {},
     TRANSFORM_OT_seq_slide: dict[str, typing.Any] | None = {},
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add freeze frame and move it
 
     :param SEQUENCER_OT_retiming_freeze_frame_add: Add Freeze Frame, Add freeze frame (optional, `bpy.ops.sequencer.retiming_freeze_frame_add` keyword arguments)
@@ -1162,7 +1164,7 @@ def retiming_add_transition_slide(
     *,
     SEQUENCER_OT_retiming_transition_add: dict[str, typing.Any] | None = {},
     TRANSFORM_OT_seq_slide: dict[str, typing.Any] | None = {},
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add smooth transition between 2 retimed segments and change its duration
 
     :param SEQUENCER_OT_retiming_transition_add: Add Speed Transition, Add smooth transition between 2 retimed segments (optional, `bpy.ops.sequencer.retiming_transition_add` keyword arguments)
@@ -1176,7 +1178,7 @@ def retiming_freeze_frame_add(
     /,
     *,
     duration: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add freeze frame
 
     :param duration: Duration, Duration of freeze frame segment (in [0, inf], optional)
@@ -1189,7 +1191,7 @@ def retiming_key_add(
     /,
     *,
     timeline_frame: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add retiming Key
 
     :param timeline_frame: Timeline Frame, Frame where key will be added (in [0, inf], optional)
@@ -1200,7 +1202,7 @@ def retiming_key_delete(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Delete selected retiming keys from the sequencer
 
     :return: Result of the operator call.
@@ -1210,7 +1212,7 @@ def retiming_reset(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Reset strip retiming
 
     :return: Result of the operator call.
@@ -1222,7 +1224,7 @@ def retiming_segment_speed_set(
     /,
     *,
     speed: float | None = 100.0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set speed of retimed segment
 
     :param speed: Speed, New speed of retimed segment (in [0.001, inf], optional)
@@ -1233,7 +1235,7 @@ def retiming_show(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Show retiming keys in selected strips
 
     :return: Result of the operator call.
@@ -1245,7 +1247,7 @@ def retiming_transition_add(
     /,
     *,
     duration: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add smooth transition between 2 retimed segments
 
     :param duration: Duration, Duration of freeze frame segment (in [0, inf], optional)
@@ -1258,7 +1260,7 @@ def sample(
     /,
     *,
     size: int | None = 1,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Use mouse to sample color in current frame
 
     :param size: Sample Size, (in [1, 128], optional)
@@ -1269,7 +1271,7 @@ def scene_frame_range_update(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Update frame range of scene strip
 
     :return: Result of the operator call.
@@ -1288,7 +1290,7 @@ def scene_strip_add(
     overlap_shuffle_override: bool | None = False,
     skip_locked_or_muted_channels: bool | None = True,
     scene: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a strip re-using this scene as the source
 
     :param move_strips: Move Strips, Automatically begin translating strips with the mouse after adding them to the timeline (optional)
@@ -1315,7 +1317,7 @@ def scene_strip_add_new(
     overlap_shuffle_override: bool | None = False,
     skip_locked_or_muted_channels: bool | None = True,
     type: typing.Literal["NEW", "EMPTY", "LINK_COPY", "FULL_COPY"] | None = "NEW",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a strip using a new scene as the source
 
         :param move_strips: Move Strips, Automatically begin translating strips with the mouse after adding them to the timeline (optional)
@@ -1360,7 +1362,7 @@ def select(
     linked_time: bool | None = False,
     side_of_frame: bool | None = False,
     ignore_connections: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select a strip (last selected becomes the "active strip")
 
     :param wait_to_deselect_others: Wait to Deselect Others, (optional)
@@ -1386,7 +1388,7 @@ def select_all(
     /,
     *,
     action: typing.Literal["TOGGLE", "SELECT", "DESELECT", "INVERT"] | None = "TOGGLE",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select or deselect all strips
 
         :param action: Action, Selection action to execute (optional)
@@ -1419,7 +1421,7 @@ def select_box(
     tweak: bool | None = False,
     include_handles: bool | None = False,
     ignore_connections: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select strips using box selection
 
         :param xmin: X Min, (in [-inf, inf], optional)
@@ -1454,7 +1456,7 @@ def select_circle(
     wait_for_input: bool | None = True,
     mode: typing.Literal["SET", "ADD", "SUB"] | None = "SET",
     ignore_connections: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select strips using circle selection
 
         :param x: X, (in [-inf, inf], optional)
@@ -1486,7 +1488,7 @@ def select_grouped(
     | None = "TYPE",
     extend: bool | None = False,
     use_active_channel: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select all strips grouped by various properties
 
         :param type: Type, (optional)
@@ -1526,7 +1528,7 @@ def select_handle(
     mouse_x: int | None = 0,
     mouse_y: int | None = 0,
     ignore_connections: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select strip handle
 
     :param wait_to_deselect_others: Wait to Deselect Others, (optional)
@@ -1546,7 +1548,7 @@ def select_handles(
         "LEFT", "RIGHT", "BOTH", "LEFT_NEIGHBOR", "RIGHT_NEIGHBOR", "BOTH_NEIGHBORS"
     ]
     | None = "BOTH",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select gizmo handles on the sides of the selected strip
 
     :param side: Side, The side of the handle that is selected (optional)
@@ -1563,7 +1565,7 @@ def select_lasso(
     smooth_stroke_factor: float | None = 0.75,
     smooth_stroke_radius: int | None = 35,
     mode: typing.Literal["SET", "ADD", "SUB"] | None = "SET",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select strips using lasso selection
 
         :param path: Path, (optional)
@@ -1587,7 +1589,7 @@ def select_less(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Shrink the current selection of adjacent selected strips
 
     :return: Result of the operator call.
@@ -1597,7 +1599,7 @@ def select_linked(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select all strips adjacent to the current selection
 
     :return: Result of the operator call.
@@ -1609,7 +1611,7 @@ def select_linked_pick(
     /,
     *,
     extend: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select a chain of linked strips nearest to the mouse pointer
 
     :param extend: Extend, Extend the selection (optional)
@@ -1620,7 +1622,7 @@ def select_more(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select more strips adjacent to the current selection
 
     :return: Result of the operator call.
@@ -1632,7 +1634,7 @@ def select_side(
     /,
     *,
     side: typing.Literal["MOUSE", "LEFT", "RIGHT", "BOTH", "NO_CHANGE"] | None = "BOTH",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select strips on the nominated side of the selected strips
 
     :param side: Side, The side to which the selection is applied (optional)
@@ -1646,7 +1648,7 @@ def select_side_of_frame(
     *,
     extend: bool | None = False,
     side: typing.Literal["LEFT", "RIGHT", "CURRENT"] | None = "LEFT",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select strips relative to the current frame
 
         :param extend: Extend, Extend the selection (optional)
@@ -1669,7 +1671,7 @@ def set_range_to_strips(
     /,
     *,
     preview: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set the frame range to the selected strips start and end
 
     :param preview: Preview, Set the preview range instead (optional)
@@ -1685,7 +1687,7 @@ def slip(
     slip_keyframes: bool | None = False,
     use_cursor_position: bool | None = False,
     ignore_connections: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Slip the contents of selected strips
 
     :param offset: Offset, Offset to the data of the strip (in [-inf, inf], optional)
@@ -1703,7 +1705,7 @@ def snap(
     frame: int | None = 0,
     side: typing.Literal["LEFT", "RIGHT"] | None = "LEFT",
     keep_offset: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Snap strips to the current frame, using the active strip as the anchor, and the mouse cursor relative to the playhead to determine the side of the playhead to snap to
 
     :param frame: Frame, Frame where selected strips will be snapped (in [-inf, inf], optional)
@@ -1761,7 +1763,7 @@ def sound_strip_add(
     skip_locked_or_muted_channels: bool | None = True,
     cache: bool | None = False,
     mono: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a sound strip to the sequencer
 
         :param filepath: File Path, Path to file (optional, never None)
@@ -1843,7 +1845,7 @@ def split(
     | None = "MOUSE",
     ignore_selection: bool | None = False,
     ignore_connections: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Split the selected strips in two
 
     :param frame: Frame, Frame where selected strips will be split (in [-inf, inf], optional)
@@ -1862,7 +1864,7 @@ def split_multicam(
     /,
     *,
     camera: int | None = 1,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Split multicam strip and select camera
 
     :param camera: Camera, (in [1, 32], optional)
@@ -1874,8 +1876,8 @@ def strip_color_tag_set(
     undo: bool | None = None,
     /,
     *,
-    color: Literal[bpy.stub_internal.rna_enums.StripColorItems] | None = "NONE",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    color: typing.Literal[bpy.stub_internal.rna_enums.StripColorItems] | None = "NONE",
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set a color tag for the selected strips
 
     :param color: Color Tag, (optional)
@@ -1889,7 +1891,7 @@ def strip_jump(
     *,
     next: bool | None = True,
     center: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move frame to next or previous edit point
 
     :param next: Next Strip, (optional)
@@ -1903,7 +1905,7 @@ def strip_modifier_add(
     /,
     *,
     type: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a modifier to the strip
 
     :param type: Type, (optional)
@@ -1917,7 +1919,7 @@ def strip_modifier_copy(
     *,
     type: typing.Literal["REPLACE", "APPEND"] | None = "REPLACE",
     modifier: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Copy modifiers of the active strip to all selected strips
 
         :param type: Type, (optional)
@@ -1937,7 +1939,7 @@ def strip_modifier_duplicate(
     /,
     *,
     modifier: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Duplicate (active) modifier of the active strip
 
     :param modifier: Modifier, Name of the modifier to duplicate. If empty duplicate the active modifier (optional, never None)
@@ -1951,7 +1953,7 @@ def strip_modifier_equalizer_redefine(
     *,
     graphs: typing.Literal["SIMPLE", "DOUBLE", "TRIPLE"] | None = "SIMPLE",
     name: str | None = "Name",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Redefine equalizer graphs
 
         :param graphs: Graphs, Number of graphs (optional)
@@ -1975,7 +1977,7 @@ def strip_modifier_move(
     *,
     name: str | None = "Name",
     direction: typing.Literal["UP", "DOWN"] | None = "UP",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move modifier up and down in the stack
 
         :param name: Name, Name of modifier to remove (optional, never None)
@@ -1996,7 +1998,7 @@ def strip_modifier_move_to_index(
     *,
     modifier: str | None = "",
     index: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Change the strip modifiers index in the stack so it evaluates after the set number of others
 
     :param modifier: Modifier, Name of the modifier to edit (optional, never None)
@@ -2010,7 +2012,7 @@ def strip_modifier_remove(
     /,
     *,
     name: str | None = "Name",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove a modifier from the strip
 
     :param name: Name, Name of modifier to remove (optional, never None)
@@ -2023,7 +2025,7 @@ def strip_modifier_set_active(
     /,
     *,
     modifier: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Activate the strip modifier to use as the context
 
     :param modifier: Modifier, Name of the strip modifier to edit (optional, never None)
@@ -2036,7 +2038,7 @@ def strip_transform_clear(
     /,
     *,
     property: typing.Literal["POSITION", "SCALE", "ROTATION", "ALL"] | None = "ALL",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Reset image transformation to default value
 
         :param property: Property, Strip transform property to be reset (optional)
@@ -2060,9 +2062,9 @@ def strip_transform_fit(
     undo: bool | None = None,
     /,
     *,
-    fit_method: Literal[bpy.stub_internal.rna_enums.StripScaleMethodItems]
+    fit_method: typing.Literal[bpy.stub_internal.rna_enums.StripScaleMethodItems]
     | None = "FIT",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
 
     :param fit_method: Fit Method, Mode for fitting the image to the canvas (optional)
@@ -2075,7 +2077,7 @@ def swap(
     /,
     *,
     side: typing.Literal["LEFT", "RIGHT"] | None = "RIGHT",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Swap active strip with strip to the right or left
 
     :param side: Side, Side of the strip to swap (optional)
@@ -2086,7 +2088,7 @@ def swap_data(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Swap 2 sequencer strips
 
     :return: Result of the operator call.
@@ -2096,7 +2098,7 @@ def swap_inputs(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Swap the two inputs of the effect strip
 
     :return: Result of the operator call.
@@ -2121,7 +2123,7 @@ def text_cursor_move(
     ]
     | None = "LINE_BEGIN",
     select_text: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move cursor in text
 
     :param type: Type, Where to move cursor to, to make a selection (optional)
@@ -2135,7 +2137,7 @@ def text_cursor_set(
     /,
     *,
     select_text: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set cursor position in text
 
     :param select_text: Select Text, Select text while moving cursor (optional)
@@ -2149,7 +2151,7 @@ def text_delete(
     *,
     type: typing.Literal["NEXT_OR_SELECTION", "PREVIOUS_OR_SELECTION"]
     | None = "NEXT_OR_SELECTION",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Delete text at cursor position
 
     :param type: Type, Which part of the text to delete (optional)
@@ -2160,7 +2162,7 @@ def text_deselect_all(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Deselect all characters
 
     :return: Result of the operator call.
@@ -2170,7 +2172,7 @@ def text_edit_copy(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Copy text to clipboard
 
     :return: Result of the operator call.
@@ -2180,7 +2182,7 @@ def text_edit_cut(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Cut text to clipboard
 
     :return: Result of the operator call.
@@ -2190,7 +2192,7 @@ def text_edit_mode_toggle(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Toggle text editing
 
     :return: Result of the operator call.
@@ -2200,7 +2202,7 @@ def text_edit_paste(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Paste text from clipboard
 
     :return: Result of the operator call.
@@ -2212,7 +2214,7 @@ def text_insert(
     /,
     *,
     string: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Insert text at cursor position
 
     :param string: String, String to be inserted at cursor position (optional, never None)
@@ -2223,7 +2225,7 @@ def text_line_break(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Insert line break at cursor position
 
     :return: Result of the operator call.
@@ -2233,7 +2235,7 @@ def text_select_all(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select all characters
 
     :return: Result of the operator call.
@@ -2243,7 +2245,7 @@ def unlock(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Unlock strips so they can be transformed
 
     :return: Result of the operator call.
@@ -2255,7 +2257,7 @@ def unmute(
     /,
     *,
     unselected: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Unmute (un)selected strips
 
     :param unselected: Unselected, Unmute unselected rather than selected strips (optional)
@@ -2266,7 +2268,7 @@ def view_all(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """View all the strips in the sequencer
 
     :return: Result of the operator call.
@@ -2276,7 +2278,7 @@ def view_all_preview(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Zoom preview to fit in the area
 
     :return: Result of the operator call.
@@ -2286,7 +2288,7 @@ def view_frame(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move the view to the current frame
 
     :return: Result of the operator call.
@@ -2302,7 +2304,7 @@ def view_ghost_border(
     ymin: int | None = 0,
     ymax: int | None = 0,
     wait_for_input: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set the boundaries of the border used for offset view
 
     :param xmin: X Min, (in [-inf, inf], optional)
@@ -2317,7 +2319,7 @@ def view_selected(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Zoom the sequencer on the selected strips
 
     :return: Result of the operator call.
@@ -2329,7 +2331,7 @@ def view_zoom_ratio(
     /,
     *,
     ratio: float | None = 1.0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Change zoom ratio of sequencer preview
 
     :param ratio: Ratio, Zoom ratio, 1.0 is 1:1, higher is zoomed in, lower is zoomed out (in [-inf, inf], optional)

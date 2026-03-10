@@ -360,6 +360,9 @@ def flash_attention_kernel(
   if max_logit_value_ref is not None:  # already ensures max_logit_const is None
     max_logit_estimate = max_logit_value_ref[0, h]
 
+  if config.use_base2_exp and max_logit_estimate is not None:
+    max_logit_estimate *= LOG2E
+
   @pl.when(should_initialize)
   def init():
     o_scratch_ref[...] = jnp.zeros_like(o_scratch_ref)
@@ -367,6 +370,8 @@ def flash_attention_kernel(
     sink = None
     if sinks_ref is not None:
       sink = sinks_ref[0, h].astype(m_scratch_ref.dtype)
+      if config.use_base2_exp:
+        sink *= LOG2E
 
     if sinks_ref is None and max_logit_estimate is None:
       m_scratch_ref[...] = jnp.full_like(m_scratch_ref, mask_value)
@@ -461,7 +466,6 @@ def flash_attention_kernel(
       v = v_ref[slice_k, :]
     else:
       v = v_ref[:, slice_k]
-    v = v.astype(float32)
     o_curr = lax.dot_general(s_curr, v, sv_dims)
 
     if max_logit_estimate is None:
@@ -593,6 +597,8 @@ def _splash_attention_forward(
   dynamic_grid = mask_info.active_rows is not None
 
   if segment_ids is not None:
+    assert isinstance(segment_ids.q, jax.Array)  # for pytype
+    assert isinstance(segment_ids.kv, jax.Array)  # for pytype
     if segment_ids.q.shape != (q_seq_len,):
       raise ValueError(
           "Invalid shape for q segment_ids: "
@@ -826,9 +832,12 @@ def _splash_attention_forward(
   )
 
   if dynamic_grid:
-    grid = (num_q_heads, mask_info.num_active_blocks[0])
+    num_active_blocks = mask_info.num_active_blocks[0]
+    grid = (num_q_heads, num_active_blocks)
+    is_empty_attention_block = num_active_blocks == 0
   else:
     grid = (num_q_heads, kv_steps * (q_seq_len // bq))
+    is_empty_attention_block = False
 
   with jax.named_scope(kernel_name):
     all_out = pl.pallas_call(
@@ -889,13 +898,24 @@ def _splash_attention_forward(
     )
   out, logsumexp, l_linear, max_logits = all_out
 
+  # If there is no compute to do within an attention block, then we want to
+  # initialize the output and residuals to default values. Otherwise, we will
+  # read uninitialized memory. This is a common case in ring attention.
+  def init_if_empty(x: jax.Array, value: float) -> jax.Array:
+    if not dynamic_grid:
+      return x
+
+    return jnp.where(is_empty_attention_block, value, x)
+
+  out = init_if_empty(out, 0.0)
+
   if save_residuals:
     assert max_logits is not None
-    max_logits = max_logits[..., 0]
+    max_logits = init_if_empty(max_logits[..., 0], mask_value)
 
     if fuse_reciprocal:
       assert logsumexp is not None
-      logsumexp = logsumexp[..., 0]
+      logsumexp = init_if_empty(logsumexp[..., 0], mask_value)
     else:
       assert l_linear is not None
       log = jnp.log2 if config.use_base2_exp else jnp.log
@@ -1577,7 +1597,7 @@ def _splash_attention_bwd_dkv(
     in_specs.append(None)
 
   dq_reduction_steps = config.dq_reduction_steps
-  if kv_steps <= 3 and dq_reduction_steps == 3:
+  if not dynamic_grid and kv_steps <= 3 and dq_reduction_steps == 3:
     dq_reduction_steps = None
 
   dq = dq_alias_spec = None
@@ -1805,7 +1825,7 @@ def _splash_attention_bwd(
     fwd_mask_sparsity: float,
     dkv_mask_sparsity: float,
     res: base.SplashResidualsType,
-    do: jax.Array,
+    grads: jax.Array | tuple[jax.Array, dict[str, jax.Array]],
 ) -> tuple[
     MaskInfo | None,  # fwd_mask_info
     MaskInfo | None,  # dvk_mask_info
@@ -1816,6 +1836,13 @@ def _splash_attention_bwd(
     jax.Array | None,  # segment_ids
     jax.Array | None,  # max_logit_estimate
 ]:
+  # If `save_residuals` is True, `_splash_attention_fwd` returns `(out, stats)`,
+  # so we unpack the gradients, otherwise it returns `out` and `grads` is just
+  # `do`.
+  if save_residuals:
+    do, _ = grads
+  else:
+    do = grads
   del save_residuals, fwd_mask_sparsity
   if not config.has_backward_blocks:
     raise ValueError("Need to specify backward blocks.")
@@ -1946,30 +1973,26 @@ class SplashAttentionKernel:
     if self.fwd_mask_info.block_mask is not None:
       block_mask_shape = self.fwd_mask_info.block_mask.shape
       try:
-        shard_shape = sharding.shard_shape(block_mask_shape)
+        sharding.shard_shape(block_mask_shape)
       except ValueError as exc:
         raise ValueError(
             "The sharding must divide the mask blocks evenly between devices"
         ) from exc
-    # Only q sequence sharding is supported.
-    spec = sharding.spec
-    assert len(spec) == 1
+
+    if len(sharding.spec) != 1:
+      raise ValueError("Only q sequence sharding is supported.")
+
+    _resolve_spec = lambda x: sharding.spec if x is not None else None
     mask_info_specs = MaskInfo(  # pytype: disable=wrong-arg-types
-        mask_next=spec if self.fwd_mask_info.mask_next is not None else None,
-        active_rows=spec
-        if self.fwd_mask_info.active_rows is not None
-        else None,
-        active_cols=spec
-        if self.fwd_mask_info.active_cols is not None
-        else None,
-        num_active_blocks=spec
-        if self.fwd_mask_info.num_active_blocks is not None
-        else None,
-        block_mask=spec if self.fwd_mask_info.block_mask is not None else None,
+        mask_next=_resolve_spec(self.fwd_mask_info.mask_next),
+        active_rows=_resolve_spec(self.fwd_mask_info.active_rows),
+        active_cols=_resolve_spec(self.fwd_mask_info.active_cols),
+        num_active_blocks=_resolve_spec(self.fwd_mask_info.num_active_blocks),
+        block_mask=_resolve_spec(self.fwd_mask_info.block_mask),
         partial_mask_blocks=jax.sharding.PartitionSpec()  # replicated
         if self.fwd_mask_info.partial_mask_blocks is not None
         else None,
-        q_sequence=spec if self.fwd_mask_info.q_sequence is not None else None,
+        q_sequence=_resolve_spec(self.fwd_mask_info.q_sequence),
     )
     return SplashAttentionKernel(
         mask_info_specs,

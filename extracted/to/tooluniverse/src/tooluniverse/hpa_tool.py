@@ -1033,43 +1033,6 @@ class HPAGetProteinInteractionsTool(HPASearchApiTool):
             ),
         }
 
-        # Use 'ppi' column to retrieve protein-protein interactions
-        columns = "g,gs,ppi"
-        result = self._make_api_request(gene_name, columns)
-
-        if "error" in result:
-            return result
-
-        if not result or not isinstance(result, list):
-            return {"error": f"No interaction data found for gene '{gene_name}'"}
-
-        gene_data = result[0]
-        interactions_str = gene_data.get("Protein-protein interaction", "")
-
-        if not interactions_str or interactions_str == "N/A":
-            return {
-                "gene": gene_data.get("Gene", gene_name),
-                "gene_synonym": gene_data.get("Gene synonym", ""),
-                "interactions": "No interaction data found.",
-                "interactor_count": 0,
-                "interactors": [],
-            }
-
-        # Parse interaction string (usually semicolon or comma separated)
-        interactors = [
-            i.strip()
-            for i in interactions_str.replace(";", ",").split(",")
-            if i.strip()
-        ]
-
-        return {
-            "gene": gene_data.get("Gene", gene_name),
-            "gene_synonym": gene_data.get("Gene synonym", ""),
-            "interactor_count": len(interactors),
-            "interactors": interactors,
-            "interaction_summary": f"Found {len(interactors)} protein interaction partners",
-        }
-
 
 @register_tool("HPAGetRnaExpressionByTissueTool")
 class HPAGetRnaExpressionByTissueTool(HPAJsonApiTool):

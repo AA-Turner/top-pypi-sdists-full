@@ -16,6 +16,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
+          # Check out the tag that triggered the workflow so hatch-vcs sees exact tag
+          ref: ${{ github.ref }}
           # Required for hatch-vcs to detect version from tags
           fetch-depth: 0
 
@@ -33,7 +35,14 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-uv-
 
+      # Extract version early so it can be used in subsequent steps
+      - name: Set version from tag
+        id: set_version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+
       - name: Install dependencies
+        env:
+          SETUPTOOLS_SCM_PRETEND_VERSION: ${{ steps.set_version.outputs.version }}
         run: uv sync --extra dev --group build
 
       - name: Run linting
@@ -45,10 +54,17 @@ jobs:
       - name: Run tests
         run: uv run pytest
 
+      - name: Verify we're on the tag (so hatch-vcs uses tag version)
+        run: |
+          git describe --exact-match HEAD || (echo "::error::HEAD is not exactly on tag ${{ github.ref_name }}"; exit 1)
+          echo "Building version from tag: ${{ github.ref_name }}"
+
       - name: Clean previous builds
-        run: git clean -xfd dist build *.egg-info || true
+        run: git clean -fd
 
       - name: Build package
+        env:
+          SETUPTOOLS_SCM_PRETEND_VERSION: ${{ steps.set_version.outputs.version }}
         run: uv run python -m build
 
       - name: Upload build artifacts

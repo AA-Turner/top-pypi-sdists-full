@@ -2911,7 +2911,7 @@ class DefaultApi(object):
     def callback_api_v2_entra_callback_get(self, state, **kwargs):  # noqa: E501
         """Callback  # noqa: E501
 
-        Handle OAuth callback from Microsoft Entra.  This endpoint: 1. Validates the state parameter 2. Exchanges the authorization code for tokens 3. Validates the ID token 4. Finds or creates the user 5. Creates a session and sets the session cookie 6. Redirects to the console (or to registration page with error on failure)  On authorization errors (user denied consent, etc.), Microsoft redirects here with error/error_description instead of a code (RFC 6749 §4.1.2.1).  Args:     state: State parameter for CSRF validation     code: Authorization code from Microsoft (absent on error)     error: OAuth error code (present when user denies consent or auth fails)     error_description: Human-readable error description  Returns:     Redirect to console home page on success, or registration page with error on failure  # noqa: E501
+        Handle OAuth callback from Microsoft Entra.  This endpoint: 1. Validates the state parameter 2. Exchanges the authorization code for tokens 3. Validates the ID token 4. If the user's email belongs to multiple organizations, creates a magic    link and redirects to the org picker 5. Otherwise finds or creates the user, creates a session, and redirects    to the console  On authorization errors (user denied consent, etc.), Microsoft redirects here with error/error_description instead of a code (RFC 6749 §4.1.2.1).  Args:     state: State parameter for CSRF validation     code: Authorization code from Microsoft (absent on error)     error: OAuth error code (present when user denies consent or auth fails)     error_description: Human-readable error description  Returns:     Redirect to console home page on success, org picker on multi-org,     or registration page with error on failure  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.callback_api_v2_entra_callback_get(state, async_req=True)
@@ -2939,7 +2939,7 @@ class DefaultApi(object):
     def callback_api_v2_entra_callback_get_with_http_info(self, state, **kwargs):  # noqa: E501
         """Callback  # noqa: E501
 
-        Handle OAuth callback from Microsoft Entra.  This endpoint: 1. Validates the state parameter 2. Exchanges the authorization code for tokens 3. Validates the ID token 4. Finds or creates the user 5. Creates a session and sets the session cookie 6. Redirects to the console (or to registration page with error on failure)  On authorization errors (user denied consent, etc.), Microsoft redirects here with error/error_description instead of a code (RFC 6749 §4.1.2.1).  Args:     state: State parameter for CSRF validation     code: Authorization code from Microsoft (absent on error)     error: OAuth error code (present when user denies consent or auth fails)     error_description: Human-readable error description  Returns:     Redirect to console home page on success, or registration page with error on failure  # noqa: E501
+        Handle OAuth callback from Microsoft Entra.  This endpoint: 1. Validates the state parameter 2. Exchanges the authorization code for tokens 3. Validates the ID token 4. If the user's email belongs to multiple organizations, creates a magic    link and redirects to the org picker 5. Otherwise finds or creates the user, creates a session, and redirects    to the console  On authorization errors (user denied consent, etc.), Microsoft redirects here with error/error_description instead of a code (RFC 6749 §4.1.2.1).  Args:     state: State parameter for CSRF validation     code: Authorization code from Microsoft (absent on error)     error: OAuth error code (present when user denies consent or auth fails)     error_description: Human-readable error description  Returns:     Redirect to console home page on success, org picker on multi-org,     or registration page with error on failure  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.callback_api_v2_entra_callback_get_with_http_info(state, async_req=True)
@@ -3947,6 +3947,124 @@ class DefaultApi(object):
             post_params=form_params,
             files=local_var_files,
             response_type='ExperimentalworkspaceResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def connect_to_databricks_config_api_v2_integrations_connections_databricks_connect_post(self, databricks_connect_request, **kwargs):  # noqa: E501
+        """Connect To Databricks Config  # noqa: E501
+
+        Connect to an existing Databricks connection config. Creates user's connection and returns OAuth URL.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.connect_to_databricks_config_api_v2_integrations_connections_databricks_connect_post(databricks_connect_request, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param DatabricksConnectRequest databricks_connect_request: (required)
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: OauthAuthUrlResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.connect_to_databricks_config_api_v2_integrations_connections_databricks_connect_post_with_http_info(databricks_connect_request, **kwargs)  # noqa: E501
+
+    def connect_to_databricks_config_api_v2_integrations_connections_databricks_connect_post_with_http_info(self, databricks_connect_request, **kwargs):  # noqa: E501
+        """Connect To Databricks Config  # noqa: E501
+
+        Connect to an existing Databricks connection config. Creates user's connection and returns OAuth URL.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.connect_to_databricks_config_api_v2_integrations_connections_databricks_connect_post_with_http_info(databricks_connect_request, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param DatabricksConnectRequest databricks_connect_request: (required)
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(OauthAuthUrlResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'databricks_connect_request'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method connect_to_databricks_config_api_v2_integrations_connections_databricks_connect_post" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'databricks_connect_request' is set
+        if self.api_client.client_side_validation and ('databricks_connect_request' not in local_var_params or  # noqa: E501
+                                                        local_var_params['databricks_connect_request'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `databricks_connect_request` when calling `connect_to_databricks_config_api_v2_integrations_connections_databricks_connect_post`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        if 'databricks_connect_request' in local_var_params:
+            body_params = local_var_params['databricks_connect_request']
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # HTTP header `Content-Type`
+        header_params['Content-Type'] = self.api_client.select_header_content_type(  # noqa: E501
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/integrations/connections/databricks/connect', 'POST',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='OauthAuthUrlResponse',  # noqa: E501
             auth_settings=auth_settings,
             async_req=local_var_params.get('async_req'),
             _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
@@ -8567,6 +8685,120 @@ class DefaultApi(object):
             _request_timeout=local_var_params.get('_request_timeout'),
             collection_formats=collection_formats)
 
+    def delete_databricks_config_api_v2_integrations_connections_databricks_config_config_id_delete(self, config_id, **kwargs):  # noqa: E501
+        """Delete Databricks Config  # noqa: E501
+
+        Delete a Databricks connection config and cascade to all its connections and tokens. Admin only.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.delete_databricks_config_api_v2_integrations_connections_databricks_config_config_id_delete(config_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str config_id: (required)
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: DatabricksconfigdeleteresponseResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.delete_databricks_config_api_v2_integrations_connections_databricks_config_config_id_delete_with_http_info(config_id, **kwargs)  # noqa: E501
+
+    def delete_databricks_config_api_v2_integrations_connections_databricks_config_config_id_delete_with_http_info(self, config_id, **kwargs):  # noqa: E501
+        """Delete Databricks Config  # noqa: E501
+
+        Delete a Databricks connection config and cascade to all its connections and tokens. Admin only.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.delete_databricks_config_api_v2_integrations_connections_databricks_config_config_id_delete_with_http_info(config_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str config_id: (required)
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(DatabricksconfigdeleteresponseResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'config_id'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method delete_databricks_config_api_v2_integrations_connections_databricks_config_config_id_delete" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'config_id' is set
+        if self.api_client.client_side_validation and ('config_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['config_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `config_id` when calling `delete_databricks_config_api_v2_integrations_connections_databricks_config_config_id_delete`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+        if 'config_id' in local_var_params:
+            path_params['config_id'] = local_var_params['config_id']  # noqa: E501
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/integrations/connections/databricks/config/{config_id}', 'DELETE',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='DatabricksconfigdeleteresponseResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
     def delete_databricks_connection_api_v2_integrations_connections_databricks_connection_id_delete(self, connection_id, **kwargs):  # noqa: E501
         """Delete Databricks Connection  # noqa: E501
 
@@ -11621,6 +11853,120 @@ class DefaultApi(object):
             post_params=form_params,
             files=local_var_files,
             response_type=None,  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def disconnect_databricks_connection_api_v2_integrations_connections_databricks_connection_id_disconnect_post(self, connection_id, **kwargs):  # noqa: E501
+        """Disconnect Databricks Connection  # noqa: E501
+
+        Disconnect from a Databricks connection. Soft-deletes the connection and removes OAuth tokens.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.disconnect_databricks_connection_api_v2_integrations_connections_databricks_connection_id_disconnect_post(connection_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str connection_id: (required)
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: DatabricksconnectionresponseResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.disconnect_databricks_connection_api_v2_integrations_connections_databricks_connection_id_disconnect_post_with_http_info(connection_id, **kwargs)  # noqa: E501
+
+    def disconnect_databricks_connection_api_v2_integrations_connections_databricks_connection_id_disconnect_post_with_http_info(self, connection_id, **kwargs):  # noqa: E501
+        """Disconnect Databricks Connection  # noqa: E501
+
+        Disconnect from a Databricks connection. Soft-deletes the connection and removes OAuth tokens.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.disconnect_databricks_connection_api_v2_integrations_connections_databricks_connection_id_disconnect_post_with_http_info(connection_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str connection_id: (required)
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(DatabricksconnectionresponseResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'connection_id'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method disconnect_databricks_connection_api_v2_integrations_connections_databricks_connection_id_disconnect_post" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'connection_id' is set
+        if self.api_client.client_side_validation and ('connection_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['connection_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `connection_id` when calling `disconnect_databricks_connection_api_v2_integrations_connections_databricks_connection_id_disconnect_post`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+        if 'connection_id' in local_var_params:
+            path_params['connection_id'] = local_var_params['connection_id']  # noqa: E501
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/integrations/connections/databricks/{connection_id}/disconnect', 'POST',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='DatabricksconnectionresponseResponse',  # noqa: E501
             auth_settings=auth_settings,
             async_req=local_var_params.get('async_req'),
             _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
@@ -19586,6 +19932,120 @@ class DefaultApi(object):
             post_params=form_params,
             files=local_var_files,
             response_type='ClustereventsoutputResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def get_gateway_migration_status_api_v2_clouds_cloud_id_gateway_migration_status_get(self, cloud_id, **kwargs):  # noqa: E501
+        """Get Gateway Migration Status  # noqa: E501
+
+        Get the gateway migration status for the cloud.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_gateway_migration_status_api_v2_clouds_cloud_id_gateway_migration_status_get(cloud_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str cloud_id: (required)
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: GatewaymigrationstatusResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.get_gateway_migration_status_api_v2_clouds_cloud_id_gateway_migration_status_get_with_http_info(cloud_id, **kwargs)  # noqa: E501
+
+    def get_gateway_migration_status_api_v2_clouds_cloud_id_gateway_migration_status_get_with_http_info(self, cloud_id, **kwargs):  # noqa: E501
+        """Get Gateway Migration Status  # noqa: E501
+
+        Get the gateway migration status for the cloud.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_gateway_migration_status_api_v2_clouds_cloud_id_gateway_migration_status_get_with_http_info(cloud_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str cloud_id: (required)
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(GatewaymigrationstatusResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'cloud_id'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method get_gateway_migration_status_api_v2_clouds_cloud_id_gateway_migration_status_get" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'cloud_id' is set
+        if self.api_client.client_side_validation and ('cloud_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['cloud_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `cloud_id` when calling `get_gateway_migration_status_api_v2_clouds_cloud_id_gateway_migration_status_get`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+        if 'cloud_id' in local_var_params:
+            path_params['cloud_id'] = local_var_params['cloud_id']  # noqa: E501
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/clouds/{cloud_id}/gateway-migration/status', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='GatewaymigrationstatusResponse',  # noqa: E501
             auth_settings=auth_settings,
             async_req=local_var_params.get('async_req'),
             _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
@@ -31856,16 +32316,16 @@ class DefaultApi(object):
     def list_databricks_connections_api_v2_integrations_connections_databricks_get(self, **kwargs):  # noqa: E501
         """List Databricks Connections  # noqa: E501
 
-        List Databricks connections. Non-admins see their own connections; admins see all.  # noqa: E501
+        List Databricks connection configs with the calling user's own connection status.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.list_databricks_connections_api_v2_integrations_connections_databricks_get(async_req=True)
         >>> result = thread.get()
 
         :param async_req bool: execute request asynchronously
-        :param ValidationStatus validation_status: Filter by validation status
+        :param ValidationStatus validation_status: Filter by the user's connection validation status
         :param ConnectionType connection_type: Filter by connection type
-        :param str name: Search for connection with a name that equals the provided value
+        :param str name: Search for connection config with a name that equals the provided value
         :param _preload_content: if False, the urllib3.HTTPResponse object will
                                  be returned without reading/decoding response
                                  data. Default is True.
@@ -31873,7 +32333,7 @@ class DefaultApi(object):
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
                                  (connection, read) timeouts.
-        :return: ListDatabricksConnections
+        :return: DatabricksconnectionconfigitemListResponse
                  If the method is called asynchronously,
                  returns the request thread.
         """
@@ -31883,16 +32343,16 @@ class DefaultApi(object):
     def list_databricks_connections_api_v2_integrations_connections_databricks_get_with_http_info(self, **kwargs):  # noqa: E501
         """List Databricks Connections  # noqa: E501
 
-        List Databricks connections. Non-admins see their own connections; admins see all.  # noqa: E501
+        List Databricks connection configs with the calling user's own connection status.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.list_databricks_connections_api_v2_integrations_connections_databricks_get_with_http_info(async_req=True)
         >>> result = thread.get()
 
         :param async_req bool: execute request asynchronously
-        :param ValidationStatus validation_status: Filter by validation status
+        :param ValidationStatus validation_status: Filter by the user's connection validation status
         :param ConnectionType connection_type: Filter by connection type
-        :param str name: Search for connection with a name that equals the provided value
+        :param str name: Search for connection config with a name that equals the provided value
         :param _return_http_data_only: response data without head status code
                                        and headers
         :param _preload_content: if False, the urllib3.HTTPResponse object will
@@ -31902,7 +32362,7 @@ class DefaultApi(object):
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
                                  (connection, read) timeouts.
-        :return: tuple(ListDatabricksConnections, status_code(int), headers(HTTPHeaderDict))
+        :return: tuple(DatabricksconnectionconfigitemListResponse, status_code(int), headers(HTTPHeaderDict))
                  If the method is called asynchronously,
                  returns the request thread.
         """
@@ -31965,7 +32425,7 @@ class DefaultApi(object):
             body=body_params,
             post_params=form_params,
             files=local_var_files,
-            response_type='ListDatabricksConnections',  # noqa: E501
+            response_type='DatabricksconnectionconfigitemListResponse',  # noqa: E501
             auth_settings=auth_settings,
             async_req=local_var_params.get('async_req'),
             _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
@@ -43590,6 +44050,133 @@ class DefaultApi(object):
             _request_timeout=local_var_params.get('_request_timeout'),
             collection_formats=collection_formats)
 
+    def set_gateway_canary_weight_api_v2_clouds_cloud_id_gateway_migration_canary_weight_put(self, cloud_id, gateway_canary_weight_request, **kwargs):  # noqa: E501
+        """Set Gateway Canary Weight  # noqa: E501
+
+        Set the gateway migration canary weight (0-100) for traffic splitting. 100 = migration done.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.set_gateway_canary_weight_api_v2_clouds_cloud_id_gateway_migration_canary_weight_put(cloud_id, gateway_canary_weight_request, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str cloud_id: (required)
+        :param GatewayCanaryWeightRequest gateway_canary_weight_request: (required)
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: None
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.set_gateway_canary_weight_api_v2_clouds_cloud_id_gateway_migration_canary_weight_put_with_http_info(cloud_id, gateway_canary_weight_request, **kwargs)  # noqa: E501
+
+    def set_gateway_canary_weight_api_v2_clouds_cloud_id_gateway_migration_canary_weight_put_with_http_info(self, cloud_id, gateway_canary_weight_request, **kwargs):  # noqa: E501
+        """Set Gateway Canary Weight  # noqa: E501
+
+        Set the gateway migration canary weight (0-100) for traffic splitting. 100 = migration done.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.set_gateway_canary_weight_api_v2_clouds_cloud_id_gateway_migration_canary_weight_put_with_http_info(cloud_id, gateway_canary_weight_request, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str cloud_id: (required)
+        :param GatewayCanaryWeightRequest gateway_canary_weight_request: (required)
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: None
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'cloud_id',
+            'gateway_canary_weight_request'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method set_gateway_canary_weight_api_v2_clouds_cloud_id_gateway_migration_canary_weight_put" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'cloud_id' is set
+        if self.api_client.client_side_validation and ('cloud_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['cloud_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `cloud_id` when calling `set_gateway_canary_weight_api_v2_clouds_cloud_id_gateway_migration_canary_weight_put`")  # noqa: E501
+        # verify the required parameter 'gateway_canary_weight_request' is set
+        if self.api_client.client_side_validation and ('gateway_canary_weight_request' not in local_var_params or  # noqa: E501
+                                                        local_var_params['gateway_canary_weight_request'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `gateway_canary_weight_request` when calling `set_gateway_canary_weight_api_v2_clouds_cloud_id_gateway_migration_canary_weight_put`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+        if 'cloud_id' in local_var_params:
+            path_params['cloud_id'] = local_var_params['cloud_id']  # noqa: E501
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        if 'gateway_canary_weight_request' in local_var_params:
+            body_params = local_var_params['gateway_canary_weight_request']
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # HTTP header `Content-Type`
+        header_params['Content-Type'] = self.api_client.select_header_content_type(  # noqa: E501
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/clouds/{cloud_id}/gateway-migration/canary-weight', 'PUT',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type=None,  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
     def set_resource_quota_status_api_v2_resource_quotas_resource_quota_id_status_patch(self, resource_quota_id, resource_quota_status, **kwargs):  # noqa: E501
         """Set Resource Quota Status  # noqa: E501
 
@@ -44306,6 +44893,120 @@ class DefaultApi(object):
             post_params=form_params,
             files=local_var_files,
             response_type='object',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def start_gateway_migration_api_v2_clouds_cloud_id_gateway_migration_start_post(self, cloud_id, **kwargs):  # noqa: E501
+        """Start Gateway Migration  # noqa: E501
+
+        Start gateway migration. Creates GatewayMigrationConfig with canary_weight=0 (dual-stack, no traffic shift).  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.start_gateway_migration_api_v2_clouds_cloud_id_gateway_migration_start_post(cloud_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str cloud_id: (required)
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: None
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.start_gateway_migration_api_v2_clouds_cloud_id_gateway_migration_start_post_with_http_info(cloud_id, **kwargs)  # noqa: E501
+
+    def start_gateway_migration_api_v2_clouds_cloud_id_gateway_migration_start_post_with_http_info(self, cloud_id, **kwargs):  # noqa: E501
+        """Start Gateway Migration  # noqa: E501
+
+        Start gateway migration. Creates GatewayMigrationConfig with canary_weight=0 (dual-stack, no traffic shift).  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.start_gateway_migration_api_v2_clouds_cloud_id_gateway_migration_start_post_with_http_info(cloud_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str cloud_id: (required)
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: None
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'cloud_id'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method start_gateway_migration_api_v2_clouds_cloud_id_gateway_migration_start_post" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'cloud_id' is set
+        if self.api_client.client_side_validation and ('cloud_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['cloud_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `cloud_id` when calling `start_gateway_migration_api_v2_clouds_cloud_id_gateway_migration_start_post`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+        if 'cloud_id' in local_var_params:
+            path_params['cloud_id'] = local_var_params['cloud_id']  # noqa: E501
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/clouds/{cloud_id}/gateway-migration/start', 'POST',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type=None,  # noqa: E501
             auth_settings=auth_settings,
             async_req=local_var_params.get('async_req'),
             _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501

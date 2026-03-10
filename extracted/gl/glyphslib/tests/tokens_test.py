@@ -107,7 +107,7 @@ expander = TokenExpander(TESTFONT, master)
         ('$[category like "Separator"]', "Sacute", False),
         ('$[leftKerningGroup like "H"]', "A", False),
         ('$[rightKerningGroup like "L"]', "A", False),
-        ('$[unicode beginswith "41"]', "A", False),  # beginswith, endswith, contains
+        ('$[unicode beginswith "0041"]', "A", False),  # beginswith, endswith, contains
         ('$[note contains "love it"]', "A.sc", False),  # glyph note
         ("$[countOfUnicodes > 1]", "space", False),
         ("$[countOfLayers > 2]", "C D E F G H space", False),
@@ -138,6 +138,18 @@ expander = TokenExpander(TESTFONT, master)
             False,
         ),  # special layers = color, brace and bracket layers
         # ('$[isHangulKeyGlyph == no]', "", False),
+        ('$[tags contains "TestTag"]', "", False),
+        ('$[tags contains "TestTag1"]', "A E", False),
+        ('$[tags contains "TestTag2"]', "D E", False),
+        ('$[tags contains "TestTag3"]', "A", False),
+        ('$["TestTag1" in tags]', "A E", False),
+        ('$["TestTag2" in tags]', "D E", False),
+        ('$["TestTag" in tags]', "", False),
+        ("$[countOfLayers between {2, 2}]", "A I A.sc Sacute", False),
+        ("$[countOfLayers between {3, 3}]", "C D E F G H space", False),
+        ('$[script in {"latin"}]', "A C", False),
+        ('$[script in {"latin",}]', "", True),
+        ('$[nme endswith ".sc"]', "", True),
     ],
 )
 def test_token_expander(test_input, expected, throws):

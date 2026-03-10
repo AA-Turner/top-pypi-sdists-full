@@ -123,6 +123,55 @@ class RCSBSearchTool(BaseTool):
             },
         }
 
+    def _enrich_text_results(self, results: list) -> list:
+        """Fetch title, resolution, and method for text search PDB IDs."""
+        if not results:
+            return results
+        pdb_ids = [r["pdb_id"] for r in results if r.get("pdb_id")]
+        if not pdb_ids:
+            return results
+        try:
+            # Use RCSB GraphQL API to batch-fetch metadata
+            graphql_url = "https://data.rcsb.org/graphql"
+            query_str = """
+            query($ids: [String!]!) {
+              entries(entry_ids: $ids) {
+                rcsb_id
+                struct { title }
+                rcsb_entry_info {
+                  resolution_combined
+                  experimental_method
+                }
+              }
+            }
+            """
+            resp = requests.post(
+                graphql_url,
+                json={"query": query_str, "variables": {"ids": pdb_ids}},
+                timeout=10,
+            )
+            if resp.status_code != 200:
+                return results
+            entries = resp.json().get("data", {}).get("entries", [])
+            metadata = {}
+            for entry in entries:
+                if not entry:
+                    continue
+                pdb_id = entry.get("rcsb_id", "")
+                info = entry.get("rcsb_entry_info") or {}
+                resolution = info.get("resolution_combined")
+                metadata[pdb_id] = {
+                    "title": (entry.get("struct") or {}).get("title"),
+                    "resolution": resolution[0] if resolution else None,
+                    "method": info.get("experimental_method"),
+                }
+            for r in results:
+                meta = metadata.get(r.get("pdb_id"), {})
+                r.update({k: v for k, v in meta.items() if v is not None})
+        except Exception:
+            pass  # Return results without metadata on failure
+        return results
+
     def _build_text_query(self, search_text: str, max_results: int) -> Dict[str, Any]:
         """
         Build text search query.
@@ -453,6 +502,11 @@ class RCSBSearchTool(BaseTool):
                     "results": [],
                     "message": message,
                 }
+
+            # Feature-79B-003: Enrich text search results with metadata
+            # (title, resolution, method) from RCSB data API
+            if query_type == "text":
+                results = self._enrich_text_results(results)
 
             result_dict = {
                 "query": query,

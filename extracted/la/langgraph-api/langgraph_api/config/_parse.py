@@ -60,29 +60,46 @@ def parse_thread_ttl(value: str | None) -> ThreadTTLConfig | None:
 
 
 def parse_checkpointer(value: str | None) -> CheckpointerConfig | None:
+    default_backend = os.environ.get("LS_DEFAULT_CHECKPOINTER_BACKEND")
+    if default_backend is not None:
+        default_backend = default_backend.strip() or None
+    if default_backend is not None and default_backend not in {"default", "mongo"}:
+        raise ValueError("LS_DEFAULT_CHECKPOINTER_BACKEND must be 'default' or 'mongo'")
+
     if not value:
-        return None
+        raw: dict[str, object] | None
+        raw = {"backend": default_backend} if default_backend else None
+        if raw is None:
+            return None
+    else:
+        raw = orjson.loads(value)
+        if not isinstance(raw, dict):
+            raise ValueError("CheckpointerConfig must be a JSON object")
 
-    raw = orjson.loads(value)
-    if not isinstance(raw, dict):
-        raise ValueError("CheckpointerConfig must be a JSON object")
-
-    # Handle backend defaults.
-    if "backend" not in raw:
-        if "path" in raw:
-            raw = {**raw, "backend": "custom"}
-        else:
-            raw = {**raw, "backend": "default"}
+        # Missing backend means the app did not make a backend choice yet.
+        # Fall back to the platform default when provided.
+        if "backend" not in raw:
+            if "path" in raw:
+                raw = {**raw, "backend": "custom"}
+            elif default_backend:
+                raw = {**raw, "backend": default_backend}
+            else:
+                raw = {**raw, "backend": "default"}
 
     # For mongo backend, resolve URI from environment if not provided.
     if raw.get("backend") == "mongo" and not raw.get("uri"):
         uri = os.environ.get("LS_MONGODB_URI") or os.environ.get("MONGODB_URI")
         if uri:
             raw = {**raw, "uri": uri}
+        elif not value:
+            raise ValueError(
+                "LS_DEFAULT_CHECKPOINTER_BACKEND='mongo' requires "
+                "LS_MONGODB_URI or MONGODB_URI to be set"
+            )
         else:
             raise ValueError(
                 "LANGGRAPH_CHECKPOINTER backend='mongo' requires a MongoDB URI: "
-                "set 'uri' in the config, or LS_MONGODB_URI / MONGODB_URI environment variable"
+                "set LS_MONGODB_URI or MONGODB_URI, or set 'uri' in the config explicitly"
             )
 
     parsed = TypeAdapter(CheckpointerConfig).validate_python(raw)

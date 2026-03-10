@@ -242,6 +242,7 @@ class PrivateJobSDK(WorkloadSDK):
                 image_uri=config.image_uri,
                 registry_login_secret=config.registry_login_secret,
                 ray_version=config.ray_version,
+                cloud_id=cloud_id,
             )
 
         if self._image_sdk.enable_image_build_for_tracked_requirements:

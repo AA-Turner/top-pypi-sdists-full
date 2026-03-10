@@ -119,8 +119,6 @@ class DbtMeasure(Asset):
     INPUT_TO_SPARK_JOBS: ClassVar[Any] = None
     OUTPUT_FROM_SPARK_JOBS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "DbtMeasure"
-
     dbt_semantic_model_qualified_name: Union[str, None, UnsetType] = UNSET
     """Qualified name of the dbt semantic model this measure belongs to."""
 
@@ -687,6 +685,9 @@ def _dbt_measure_to_nested(dbt_measure: DbtMeasure) -> DbtMeasureNested:
         is_incomplete=dbt_measure.is_incomplete,
         provenance_type=dbt_measure.provenance_type,
         home_id=dbt_measure.home_id,
+        depth=dbt_measure.depth,
+        immediate_upstream=dbt_measure.immediate_upstream,
+        immediate_downstream=dbt_measure.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -718,7 +719,6 @@ def _dbt_measure_from_nested(nested: DbtMeasureNested) -> DbtMeasure:
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -727,6 +727,9 @@ def _dbt_measure_from_nested(nested: DbtMeasureNested) -> DbtMeasure:
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_dbt_measure_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

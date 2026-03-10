@@ -17,10 +17,12 @@ class SearchJobsIndexResponse200IndexMetadata:
     Attributes:
         indexed_until (Union[Unset, datetime.datetime]): Datetime of the most recently indexed job
         lost_lock_ownership (Union[Unset, bool]): Is the current indexer service being replaced
+        max_index_time_window_secs (Union[Unset, float]): Maximum time window in seconds for indexing
     """
 
     indexed_until: Union[Unset, datetime.datetime] = UNSET
     lost_lock_ownership: Union[Unset, bool] = UNSET
+    max_index_time_window_secs: Union[Unset, float] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -29,6 +31,7 @@ class SearchJobsIndexResponse200IndexMetadata:
             indexed_until = self.indexed_until.isoformat()
 
         lost_lock_ownership = self.lost_lock_ownership
+        max_index_time_window_secs = self.max_index_time_window_secs
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -37,6 +40,8 @@ class SearchJobsIndexResponse200IndexMetadata:
             field_dict["indexed_until"] = indexed_until
         if lost_lock_ownership is not UNSET:
             field_dict["lost_lock_ownership"] = lost_lock_ownership
+        if max_index_time_window_secs is not UNSET:
+            field_dict["max_index_time_window_secs"] = max_index_time_window_secs
 
         return field_dict
 
@@ -52,9 +57,12 @@ class SearchJobsIndexResponse200IndexMetadata:
 
         lost_lock_ownership = d.pop("lost_lock_ownership", UNSET)
 
+        max_index_time_window_secs = d.pop("max_index_time_window_secs", UNSET)
+
         search_jobs_index_response_200_index_metadata = cls(
             indexed_until=indexed_until,
             lost_lock_ownership=lost_lock_ownership,
+            max_index_time_window_secs=max_index_time_window_secs,
         )
 
         search_jobs_index_response_200_index_metadata.additional_properties = d

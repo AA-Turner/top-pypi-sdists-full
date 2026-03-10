@@ -293,106 +293,6 @@ class Structure:
         r"""
         Selling S6 representation [bc, ac, ab, ad, bd, cd] (canonicalized).
         """
-    def get_spacegroup_number(self, symprec: float = 0.01) -> int:
-        r"""
-        Space group number (1-230).
-        """
-    def get_spacegroup_symbol(self, symprec: float = 0.01) -> str:
-        r"""
-        Hermann-Mauguin short symbol.
-        """
-    def get_hall_number(self, symprec: float = 0.01) -> int:
-        r"""
-        Hall number (1-530).
-        """
-    def get_crystal_system(self, symprec: float = 0.01) -> str:
-        r"""
-        Crystal system string.
-        """
-    def get_pearson_symbol(self, symprec: float = 0.01) -> str:
-        r"""
-        Pearson symbol (e.g. "cF8").
-        """
-    def get_bravais_class(self, symprec: float = 0.01) -> str:
-        r"""
-        Bravais class (e.g. "cF", "tI", "oP").
-        """
-    def get_lattice_system(self, symprec: float = 0.01) -> str:
-        r"""
-        Lattice system (e.g. "cubic", "hexagonal").
-        """
-    def get_crystal_family(self, symprec: float = 0.01) -> str:
-        r"""
-        Crystal family (e.g. "cubic", "hexagonal").
-        """
-    def is_centrosymmetric(self, symprec: float = 0.01) -> bool:
-        r"""
-        Whether centrosymmetric.
-        """
-    def is_polar(self, symprec: float = 0.01) -> bool:
-        r"""
-        Whether polar.
-        """
-    def is_chiral(self, symprec: float = 0.01) -> bool:
-        r"""
-        Whether chiral (Sohncke group).
-        """
-    def is_piezoelectric_allowed(self, symprec: float = 0.01) -> bool:
-        r"""
-        Whether piezoelectricity is symmetry-allowed.
-        Non-centrosymmetric except point group 432 (O), whose high symmetry
-        forces all piezoelectric tensor coefficients to zero.
-        """
-    def is_shg_allowed(self, symprec: float = 0.01) -> bool:
-        r"""
-        Whether SHG is symmetry-allowed (non-centrosymmetric).
-        """
-    def get_num_symmetry_operations(self, symprec: float = 0.01) -> int:
-        r"""
-        Number of symmetry operations.
-        """
-    def get_num_unique_sites(self, symprec: float = 0.01) -> int:
-        r"""
-        Number of symmetry-unique sites.
-        """
-    def get_wyckoff_letters(self, symprec: float = 0.01) -> list[str]:
-        r"""
-        Wyckoff letters for each site.
-        """
-    def get_wyckoff_histogram(self, symprec: float = 0.01) -> dict[str, Any]:
-        r"""
-        Wyckoff histogram: {letter: count}.
-        """
-    def get_site_symmetry_symbols(self, symprec: float = 0.01) -> list[str]:
-        r"""
-        Site symmetry symbols.
-        """
-    def get_magnetic_analysis(
-        self, threshold: float = 0.05, symprec: float = 0.01
-    ) -> dict[str, Any]:
-        r"""
-        Magnetic analysis results as a dict.
-        """
-    def get_all_metadata(
-        self,
-        symprec: float = 0.01,
-        reduce_tol: float = 1e-05,
-        mag_threshold: float = 0.05,
-        disorder_tol: float = 0.001,
-    ) -> dict[str, Any]:
-        r"""
-        Get all structure metadata as a comprehensive dict.
-
-        Computes the symmetry dataset once and extracts all fields in a single pass.
-        """
-    def get_protostructure_label(self, symprec: float = 0.01) -> str:
-        r"""
-        Get AFLOW-style protostructure label.
-        """
-    def get_point_group(self, symprec: float = 0.01) -> str:
-        r"""
-        Point group symbol (e.g. "m-3m", "4/mmm").
-        """
     def make_supercell(
         self, scaling: Sequence[int] | Sequence[Sequence[int]]
     ) -> Structure:
@@ -596,6 +496,106 @@ class Structure:
     ) -> Structure:
         r"""
         Apply a translation to all sites.
+        """
+    def get_spacegroup_number(self, symprec: float = 0.01) -> int:
+        r"""
+        Space group number (1-230).
+        """
+    def get_spacegroup_symbol(self, symprec: float = 0.01) -> str:
+        r"""
+        Hermann-Mauguin short symbol.
+        """
+    def get_hall_number(self, symprec: float = 0.01) -> int:
+        r"""
+        Hall number (1-530).
+        """
+    def get_crystal_system(self, symprec: float = 0.01) -> str:
+        r"""
+        Crystal system string.
+        """
+    def get_pearson_symbol(self, symprec: float = 0.01) -> str:
+        r"""
+        Pearson symbol (e.g. "cF8").
+        """
+    def get_bravais_class(self, symprec: float = 0.01) -> str:
+        r"""
+        Bravais class (e.g. "cF", "tI", "oP").
+        """
+    def get_lattice_system(self, symprec: float = 0.01) -> str:
+        r"""
+        Lattice system (e.g. "cubic", "hexagonal").
+        """
+    def get_crystal_family(self, symprec: float = 0.01) -> str:
+        r"""
+        Crystal family (e.g. "cubic", "hexagonal").
+        """
+    def is_centrosymmetric(self, symprec: float = 0.01) -> bool:
+        r"""
+        Whether centrosymmetric.
+        """
+    def is_polar(self, symprec: float = 0.01) -> bool:
+        r"""
+        Whether polar.
+        """
+    def is_chiral(self, symprec: float = 0.01) -> bool:
+        r"""
+        Whether chiral (Sohncke group).
+        """
+    def is_piezoelectric_allowed(self, symprec: float = 0.01) -> bool:
+        r"""
+        Whether piezoelectricity is symmetry-allowed.
+        Non-centrosymmetric except point group 432 (O), whose high symmetry
+        forces all piezoelectric tensor coefficients to zero.
+        """
+    def is_shg_allowed(self, symprec: float = 0.01) -> bool:
+        r"""
+        Whether SHG is symmetry-allowed (non-centrosymmetric).
+        """
+    def get_num_symmetry_operations(self, symprec: float = 0.01) -> int:
+        r"""
+        Number of symmetry operations.
+        """
+    def get_num_unique_sites(self, symprec: float = 0.01) -> int:
+        r"""
+        Number of symmetry-unique sites.
+        """
+    def get_wyckoff_letters(self, symprec: float = 0.01) -> list[str]:
+        r"""
+        Wyckoff letters for each site.
+        """
+    def get_wyckoff_histogram(self, symprec: float = 0.01) -> dict[str, Any]:
+        r"""
+        Wyckoff histogram: {letter: count}.
+        """
+    def get_site_symmetry_symbols(self, symprec: float = 0.01) -> list[str]:
+        r"""
+        Site symmetry symbols.
+        """
+    def get_magnetic_analysis(
+        self, threshold: float = 0.05, symprec: float = 0.01
+    ) -> dict[str, Any]:
+        r"""
+        Magnetic analysis results as a dict.
+        """
+    def get_all_metadata(
+        self,
+        symprec: float = 0.01,
+        reduce_tol: float = 1e-05,
+        mag_threshold: float = 0.05,
+        disorder_tol: float = 0.001,
+    ) -> dict[str, Any]:
+        r"""
+        Get all structure metadata as a comprehensive dict.
+
+        Computes the symmetry dataset once and extracts all fields in a single pass.
+        """
+    def get_protostructure_label(self, symprec: float = 0.01) -> str:
+        r"""
+        Get AFLOW-style protostructure label.
+        """
+    def get_point_group(self, symprec: float = 0.01) -> str:
+        r"""
+        Point group symbol (e.g. "m-3m", "4/mmm").
         """
 
 @final

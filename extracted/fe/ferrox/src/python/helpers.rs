@@ -8,6 +8,7 @@ use crate::composition::Composition;
 use crate::defects;
 use crate::io::{parse_structure_json, structure_to_pymatgen_json};
 use crate::structure::{ReductionAlgo, Structure};
+use crate::units::UnitSymbol;
 
 /// Accept either an int (ITA number) or string (HM symbol) as spacegroup input.
 pub struct SpacegroupInput(pub String);
@@ -89,6 +90,113 @@ impl<'a, 'py> FromPyObject<'a, 'py> for StructureJson {
             "Expected a JSON string, dict, or object with as_dict() method (e.g. pymatgen Structure/Molecule)",
         ))
     }
+}
+
+macro_rules! define_quantity_input {
+    ($name:ident, $doc:expr, $target_unit:expr, $param:expr
+     $(, validate: $validate:expr)?) => {
+        #[doc = $doc]
+        pub struct $name(pub f64);
+
+        impl pyo3_stub_gen::PyStubType for $name {
+            fn type_input() -> pyo3_stub_gen::TypeInfo {
+                pyo3_stub_gen::TypeInfo::with_module("float | Quantity", "typing".into())
+            }
+            fn type_output() -> pyo3_stub_gen::TypeInfo {
+                pyo3_stub_gen::TypeInfo::with_module("float", "builtins".into())
+            }
+        }
+
+        impl<'a, 'py> FromPyObject<'a, 'py> for $name {
+            type Error = PyErr;
+
+            fn extract(ob: pyo3::Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
+                let value = extract_quantity_or_float(&ob, $target_unit, $param)?;
+                $($validate(value, $param)?;)?
+                Ok(Self(value))
+            }
+        }
+    };
+}
+
+fn validate_non_negative(value: f64, name: &str) -> PyResult<()> {
+    if value < 0.0 {
+        return Err(PyValueError::new_err(format!(
+            "{name} must be non-negative, got {value}"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_positive(value: f64, name: &str) -> PyResult<()> {
+    if value <= 0.0 {
+        return Err(PyValueError::new_err(format!(
+            "{name} must be positive, got {value}"
+        )));
+    }
+    Ok(())
+}
+
+define_quantity_input!(
+    TemperatureInput,
+    "Unit-aware non-negative temperature input extracted as Kelvin.",
+    UnitSymbol::Kelvin, "temperature",
+    validate: validate_non_negative
+);
+
+define_quantity_input!(
+    PositiveTemperatureInput,
+    "Unit-aware positive temperature input extracted as Kelvin (for thermostats).",
+    UnitSymbol::Kelvin, "temperature",
+    validate: validate_positive
+);
+
+define_quantity_input!(
+    PositiveTimeInput,
+    "Unit-aware positive time input extracted as femtoseconds.",
+    UnitSymbol::Femtosecond, "time",
+    validate: validate_positive
+);
+
+define_quantity_input!(
+    PressureInput,
+    "Unit-aware pressure input extracted as GPa.",
+    UnitSymbol::Gigapascal,
+    "pressure"
+);
+
+/// Extract a `float | Quantity` argument, converting to the target unit.
+fn extract_quantity_or_float<'a, 'py>(
+    obj: &pyo3::Borrowed<'a, 'py, PyAny>,
+    target_unit: UnitSymbol,
+    parameter_name: &str,
+) -> PyResult<f64> {
+    use super::units::{PyQuantity, coerce_raw_float, map_units_error_to_pyerr};
+
+    if let Ok(quantity_ref) = obj.extract::<PyRef<'_, PyQuantity>>() {
+        let value = quantity_ref
+            .inner
+            .to_unit_symbol(target_unit)
+            .map_err(map_units_error_to_pyerr)?;
+        return validate_finite(value, parameter_name);
+    }
+    if let Ok(raw_value) = obj.extract::<f64>() {
+        let dimension = target_unit.dimension();
+        let value = coerce_raw_float(obj.py(), raw_value, dimension, parameter_name)?;
+        return validate_finite(value, parameter_name);
+    }
+    Err(pyo3::exceptions::PyTypeError::new_err(format!(
+        "{parameter_name} expects float or Quantity"
+    )))
+}
+
+fn validate_finite(value: f64, parameter_name: &str) -> PyResult<f64> {
+    if !value.is_finite() {
+        return Err(PyValueError::new_err(format!(
+            "{parameter_name} must be finite, got {value}"
+        )));
+    }
+    Ok(value)
 }
 
 /// Parse an element symbol, returning a PyResult.
@@ -385,12 +493,12 @@ pub fn validate_opt<F>(value: Option<f64>, name: &str, constraint: &str, check: 
 where
     F: FnOnce(f64) -> bool,
 {
-    if let Some(val) = value {
-        if !val.is_finite() || !check(val) {
-            return Err(PyValueError::new_err(format!(
-                "{name} must be finite and {constraint}, got {val}"
-            )));
-        }
+    if let Some(val) = value
+        && (!val.is_finite() || !check(val))
+    {
+        return Err(PyValueError::new_err(format!(
+            "{name} must be finite and {constraint}, got {val}"
+        )));
     }
     Ok(())
 }

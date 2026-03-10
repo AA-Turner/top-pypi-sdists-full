@@ -12,6 +12,7 @@ from ._ferrox import (
     elastic as elastic,
     io as io,
     lattice as lattice,
+    lmdb as lmdb,
     md as md,
     neighbors as neighbors,
     optimizers as optimizers,
@@ -25,6 +26,7 @@ from ._ferrox import (
     surfaces as surfaces,
     symmetry as symmetry,
     trajectory as trajectory,
+    units as units,
     vasp as vasp,
     xrd as xrd,
 )
@@ -42,3 +44,5 @@ Lattice = lattice.Lattice
 Species = species.Species
 Structure = structure.Structure
 StructureMatcher = structure.StructureMatcher
+set_unit_mode = units.set_unit_mode
+get_unit_mode = units.get_unit_mode

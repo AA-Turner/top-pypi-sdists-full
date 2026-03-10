@@ -89,8 +89,58 @@ class DuckToPandas(BaseConverter):
     instances = {"duckdb:DuckDBPyRelation": "pandas:DataFrame"}
     func = "duckdb:DuckDBPyConnection.df"
 
-    def run(self, x, *args, **kwargs):
-        return x.df()
+    def run(self, x, *args, with_arrow=True, **kwargs):
+        if with_arrow:
+            import pandas as pd
+
+            table = x.to_arrow_table()
+            data = {
+                col: pd.Series(pd.arrays.ArrowExtensionArray(val))
+                for col, val in zip(table.column_names, table.columns)
+            }
+            return pd.DataFrame(data)
+        else:
+            return x.df()
+
+
+class PandasToDuck(BaseConverter):
+    """Save content of pandas dataframe to Duck internal storage
+
+    Value of ``table`` can be used to point to attached database or
+    output file.
+    """
+
+    instances = {"pandas:DataFrame": "duckdb:DuckDBPyRelation"}
+    func = "duckdb:df"
+
+    def run(
+        self,
+        x,
+        table: str,
+        conn: dict | str | None = None,
+        *args,
+        comment: str = None,
+        overwrite=True,
+        **kwargs,
+    ):
+        # TODO: more options like metadata
+        import duckdb
+        from intake.readers.datatypes import SQLQuery
+
+        duck = readers.DuckSQL._duck(None, conn=conn)
+        out = duckdb.df(x, connection=duck)
+        duck.register(view_name="temp_view", python_object=out)
+        duck.sql(
+            f"CREATE {'OR REPLACE' if overwrite else ''} "
+            f"TABLE '{table}' AS SELECT * FROM 'temp_view';"
+        )
+        if comment is not None:
+            # https://duckdb.org/docs/stable/sql/data_types/
+            #   literal_types.html#escape-string-literals
+            comment = str(comment).replace("'", "''")
+            duck.sql(f"COMMENT ON TABLE '{table}' IS '{comment}';")
+        out = readers.DuckSQL(SQLQuery(conn=conn, query=f"SELECT * FROM '{table}'"))
+        return out
 
 
 class DaskDFToPandas(BaseConverter):
@@ -683,7 +733,7 @@ class PipelineExecution:
             return self.data
 
 
-def conversions_graph(avoid=None):
+def conversions_graph(avoid=None, allow_wildcard=True):
     avoid = avoid or conf["reader_avoid"]
     if isinstance(avoid, str):
         avoid = [avoid]
@@ -711,7 +761,11 @@ def conversions_graph(avoid=None):
         if any(re.findall(_.lower(), cls.qname().lower()) for _ in avoid):
             continue
         for inttype, outtype in cls.instances.items():
-            if inttype != ".*" and inttype != outtype:
+            if (
+                isinstance(outtype, str)
+                and inttype != outtype
+                and (allow_wildcard or "*" not in inttype)
+            ):
                 graph.add_nodes_from((inttype, outtype))
                 graph.add_edge(inttype, outtype, label=cls.qname())
 
@@ -722,7 +776,7 @@ def plot_conversion_graph(filename) -> None:
     # TODO: return a PNG datatype or something else?
     import networkx as nx
 
-    g = conversions_graph()
+    g = conversions_graph(allow_wildcard=False)
     a = nx.nx_agraph.to_agraph(g)  # requires pygraphviz
     a.draw(filename, prog="fdp")
 

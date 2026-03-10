@@ -2974,6 +2974,389 @@ class KnowledgeGraph:
             logger.error(f"Failed to get call graph for {function_id}: {e}")
             return []
 
+    async def trace_execution_flow(
+        self,
+        entry_point: str,
+        depth: int = 3,
+        direction: str = "outgoing",
+        max_nodes: int = 100,
+    ) -> dict[str, Any]:
+        """Trace call chain from an entry point up to N hops.
+
+        Args:
+            entry_point: Function name or entity ID to start from
+            depth: Maximum call chain depth (default 3, hard cap 8)
+            direction: "outgoing" = what it calls, "incoming" = what calls it,
+                       "both" = full call neighborhood
+            max_nodes: Maximum nodes in result subgraph (default 100)
+
+        Returns:
+            dict with keys:
+                entry: {id, name, entity_type, file_path, start_line} or None
+                nodes: list of {id, name, entity_type, file_path, start_line, depth}
+                edges: list of {from_id, to_id, from_name, to_name, depth}
+                paths: list of lists of node ids (each an ordered call chain)
+                total_nodes: int
+                depth_reached: int
+                truncated: bool (True if max_nodes hit)
+        """
+        if not self._initialized:
+            await self.initialize()
+
+        depth = min(max(depth, 1), 8)  # clamp 1..8
+
+        # Resolve entry point to entity
+        entry_id = entry_point
+        if not entry_point.startswith(("entity:", "module:", "class:", "function:")):
+            resolved = await self.find_entity_by_name(entry_point)
+            if resolved:
+                entry_id = resolved
+            else:
+                logger.warning(f"Could not find entity matching '{entry_point}'")
+                return {
+                    "entry": None,
+                    "nodes": [],
+                    "edges": [],
+                    "paths": [],
+                    "total_nodes": 0,
+                    "depth_reached": 0,
+                    "truncated": False,
+                }
+
+        # Fetch entry node metadata
+        try:
+            entry_result = self.conn.execute(
+                "MATCH (e:CodeEntity {id: $id}) RETURN e.id, e.name, e.entity_type, e.file_path LIMIT 1",
+                {"id": entry_id},
+            )
+            if not entry_result.has_next():
+                return {
+                    "entry": None,
+                    "nodes": [],
+                    "edges": [],
+                    "paths": [],
+                    "total_nodes": 0,
+                    "depth_reached": 0,
+                    "truncated": False,
+                }
+            row = entry_result.get_next()
+            entry_node = {
+                "id": row[0],
+                "name": row[1],
+                "entity_type": row[2],
+                "file_path": row[3],
+                "start_line": None,
+            }
+        except Exception as e:
+            logger.error(f"Failed to fetch entry node {entry_id}: {e}")
+            return {
+                "entry": None,
+                "nodes": [],
+                "edges": [],
+                "paths": [],
+                "total_nodes": 0,
+                "depth_reached": 0,
+                "truncated": False,
+            }
+
+        # BFS traversal — Kuzu variable-length path queries can explode on large graphs,
+        # so we do iterative BFS in Python with cycle detection per path.
+        # nodes_by_id: id -> node dict with depth
+        nodes_by_id: dict[str, dict[str, Any]] = {}
+        edges: list[dict[str, Any]] = []
+        paths: list[list[str]] = []
+        depth_reached = 0
+        truncated = False
+
+        # Queue entries: (node_id, current_depth, path_so_far)
+        queue: list[tuple[str, int, list[str]]] = [(entry_id, 0, [entry_id])]
+
+        while queue:
+            current_id, current_depth, current_path = queue.pop(0)
+
+            if current_depth >= depth:
+                # Record this as a completed path
+                if len(current_path) > 1:
+                    paths.append(current_path)
+                continue
+
+            if len(nodes_by_id) >= max_nodes:
+                truncated = True
+                break
+
+            # Query one hop from current node
+            try:
+                if direction == "outgoing":
+                    q = "MATCH (n:CodeEntity {id: $id})-[:CALLS]->(m:CodeEntity) RETURN m.id, m.name, m.entity_type, m.file_path"
+                elif direction == "incoming":
+                    q = "MATCH (m:CodeEntity)-[:CALLS]->(n:CodeEntity {id: $id}) RETURN m.id, m.name, m.entity_type, m.file_path"
+                else:  # both
+                    q = """
+                        MATCH (n:CodeEntity {id: $id})-[:CALLS]->(m:CodeEntity)
+                        RETURN m.id, m.name, m.entity_type, m.file_path
+                        UNION
+                        MATCH (m:CodeEntity)-[:CALLS]->(n:CodeEntity {id: $id})
+                        RETURN m.id, m.name, m.entity_type, m.file_path
+                    """
+                result = self.conn.execute(q, {"id": current_id})
+            except Exception as e:
+                logger.error(f"BFS query failed at {current_id}: {e}")
+                continue
+
+            neighbors: list[tuple[str, str, str, str]] = []
+            while result.has_next():
+                r = result.get_next()
+                neighbors.append((r[0], r[1], r[2], r[3]))
+
+            if not neighbors and len(current_path) > 1:
+                # Leaf node — record path
+                paths.append(current_path)
+                continue
+
+            found_any = False
+            for n_id, n_name, n_type, n_file in neighbors:
+                # Record edge
+                edge = {
+                    "from_id": current_id,
+                    "to_id": n_id,
+                    "from_name": nodes_by_id.get(current_id, entry_node).get(
+                        "name", current_id
+                    ),
+                    "to_name": n_name,
+                    "depth": current_depth + 1,
+                }
+                # Dedup edges
+                if not any(
+                    e["from_id"] == current_id and e["to_id"] == n_id for e in edges
+                ):
+                    edges.append(edge)
+
+                # Add node if not already visited globally
+                if n_id not in nodes_by_id:
+                    nodes_by_id[n_id] = {
+                        "id": n_id,
+                        "name": n_name,
+                        "entity_type": n_type,
+                        "file_path": n_file,
+                        "start_line": None,
+                        "depth": current_depth + 1,
+                    }
+                    depth_reached = max(depth_reached, current_depth + 1)
+
+                # Cycle check: don't revisit nodes IN THE CURRENT PATH
+                if n_id not in current_path:
+                    new_path = current_path + [n_id]
+                    queue.append((n_id, current_depth + 1, new_path))
+                    found_any = True
+
+            if not found_any and len(current_path) > 1:
+                paths.append(current_path)
+
+        # Deduplicate paths (same sequence of ids)
+        seen_paths: set[tuple[str, ...]] = set()
+        unique_paths: list[list[str]] = []
+        for p in paths:
+            key = tuple(p)
+            if key not in seen_paths:
+                seen_paths.add(key)
+                unique_paths.append(p)
+
+        return {
+            "entry": entry_node,
+            "nodes": list(nodes_by_id.values()),
+            "edges": edges,
+            "paths": unique_paths[:50],  # cap paths returned
+            "total_nodes": len(nodes_by_id),
+            "depth_reached": depth_reached,
+            "truncated": truncated,
+        }
+
+    # ------------------------------------------------------------------
+    # Temporal query methods (v1)
+    #
+    # V1 semantic: each entity is tagged with the most recent commit that
+    # touched its file at kg_build time.  These methods answer "what
+    # existed as of commit X?" by checking ancestry via git.
+    # ------------------------------------------------------------------
+
+    async def get_entities_at_commit(
+        self,
+        commit_sha: str,
+        repo_root: Path,
+    ) -> list[dict[str, Any]]:
+        """Return entities whose stored commit_sha is an ancestor of commit_sha.
+
+        V1 note: reflects the most recent commit at last ``kg_build`` time,
+        not full git history.  Entities with an empty commit_sha are excluded.
+
+        Args:
+            commit_sha: The reference git commit SHA.
+            repo_root: Repository root for git operations.
+
+        Returns:
+            List of dicts with keys: id, name, entity_type, file_path, commit_sha.
+        """
+        from .git_utils import is_ancestor_commit
+
+        if not self._initialized:
+            await self.initialize()
+
+        try:
+            # Step 1: collect all distinct non-empty commit SHAs stored in the KG.
+            result = self.conn.execute(
+                "MATCH (e:CodeEntity) WHERE e.commit_sha <> '' "
+                "RETURN DISTINCT e.commit_sha"
+            )
+            all_shas: list[str] = []
+            while result.has_next():
+                row = result.get_next()
+                sha = row[0]
+                if sha:
+                    all_shas.append(sha)
+
+            # Step 2: filter to SHAs that are ancestors of (or equal to) commit_sha.
+            ancestor_shas = [
+                sha
+                for sha in all_shas
+                if is_ancestor_commit(sha, commit_sha, repo_root)
+            ]
+
+            if not ancestor_shas:
+                return []
+
+            # Step 3: fetch all entities with those commit SHAs.
+            entities: list[dict[str, Any]] = []
+            for sha in ancestor_shas:
+                r2 = self.conn.execute(
+                    "MATCH (e:CodeEntity) WHERE e.commit_sha = $sha "
+                    "RETURN e.id, e.name, e.entity_type, e.file_path, e.commit_sha",
+                    {"sha": sha},
+                )
+                while r2.has_next():
+                    row = r2.get_next()
+                    entities.append(
+                        {
+                            "id": row[0],
+                            "name": row[1],
+                            "entity_type": row[2],
+                            "file_path": row[3],
+                            "commit_sha": row[4],
+                        }
+                    )
+
+            return entities
+
+        except Exception as e:
+            logger.error(f"get_entities_at_commit failed: {e}")
+            return []
+
+    async def get_callers_at_commit(
+        self,
+        entity_name: str,
+        commit_sha: str,
+        repo_root: Path,
+    ) -> list[dict[str, Any]]:
+        """Return CALLS edges whose calling entity's commit_sha is an ancestor of commit_sha.
+
+        V1 note: reflects the most recent commit at last ``kg_build`` time,
+        not full git history.
+
+        Args:
+            entity_name: Name of the callee entity.
+            commit_sha: The reference git commit SHA.
+            repo_root: Repository root for git operations.
+
+        Returns:
+            List of dicts: caller_name, caller_file, caller_commit_sha, callee_name.
+        """
+        from .git_utils import is_ancestor_commit
+
+        if not self._initialized:
+            await self.initialize()
+
+        try:
+            result = self.conn.execute(
+                """
+                MATCH (caller:CodeEntity)-[:CALLS]->(e:CodeEntity)
+                WHERE e.name = $name
+                RETURN caller.name, caller.file_path, caller.commit_sha, e.name
+                """,
+                {"name": entity_name},
+            )
+
+            rows: list[tuple[str, str, str, str]] = []
+            while result.has_next():
+                row = result.get_next()
+                rows.append((row[0], row[1], row[2] or "", row[3]))
+
+            callers: list[dict[str, Any]] = []
+            for caller_name, caller_file, caller_sha, callee_name in rows:
+                if caller_sha and is_ancestor_commit(caller_sha, commit_sha, repo_root):
+                    callers.append(
+                        {
+                            "caller_name": caller_name,
+                            "caller_file": caller_file,
+                            "caller_commit_sha": caller_sha,
+                            "callee_name": callee_name,
+                        }
+                    )
+
+            return callers
+
+        except Exception as e:
+            logger.error(f"get_callers_at_commit failed for '{entity_name}': {e}")
+            return []
+
+    async def get_entity_history(self, entity_name: str) -> list[dict[str, Any]]:
+        """Return the entity's recorded commit metadata.
+
+        V1 note: each entity stores the commit recorded at last ``kg_build``
+        time — not a full git log.  One entry per distinct commit_sha for the
+        given name (handles renamed entities stored under different IDs).
+
+        Args:
+            entity_name: Entity name to look up.
+
+        Returns:
+            List of dicts: name, entity_type, file_path, commit_sha.
+            Empty list if entity not found or KG not initialized.
+        """
+        if not self._initialized:
+            await self.initialize()
+
+        try:
+            result = self.conn.execute(
+                """
+                MATCH (e:CodeEntity)
+                WHERE e.name = $name
+                RETURN e.name, e.entity_type, e.file_path, e.commit_sha
+                """,
+                {"name": entity_name},
+            )
+
+            seen: set[str] = set()
+            history: list[dict[str, Any]] = []
+            while result.has_next():
+                row = result.get_next()
+                sha = row[3] or ""
+                key = f"{row[2]}:{sha}"
+                if key not in seen:
+                    seen.add(key)
+                    history.append(
+                        {
+                            "name": row[0],
+                            "entity_type": row[1],
+                            "file_path": row[2],
+                            "commit_sha": sha,
+                        }
+                    )
+
+            return history
+
+        except Exception as e:
+            logger.error(f"get_entity_history failed for '{entity_name}': {e}")
+            return []
+
     async def get_inheritance_tree(self, class_name_or_id: str) -> list[dict[str, Any]]:
         """Get class hierarchy (parents and children).
 
@@ -4564,6 +4947,146 @@ class KnowledgeGraph:
                 continue
 
         return samples
+
+    def delete_entities_for_files(self, file_paths: list[str]) -> int:
+        """Delete all entities and their relationships for the given file paths.
+
+        Kuzu does not support DETACH DELETE, so edges must be deleted before nodes.
+        Deletes edges where source OR target entity belongs to the given files, then
+        deletes the node records themselves.
+
+        Args:
+            file_paths: List of relative file path strings to purge from the KG.
+
+        Returns:
+            Total number of entity nodes deleted.
+        """
+        if not file_paths:
+            return 0
+
+        if not self._initialized:
+            raise RuntimeError(
+                "KnowledgeGraph not initialized. Call initialize_sync() first."
+            )
+
+        # Escape single-quotes in file paths and build an inline list literal.
+        # Kuzu supports `WHERE x.file_path IN ['a', 'b', ...]` syntax.
+        escaped = [p.replace("'", "\\'") for p in file_paths]
+        path_list = "[" + ", ".join(f"'{p}'" for p in escaped) + "]"
+
+        deleted_nodes = 0
+
+        # --- 1. Delete edges that touch any affected CodeEntity node ---
+        # Code-to-code relationship tables (CodeEntity -> CodeEntity)
+        code_rel_types = ["CALLS", "IMPORTS", "INHERITS", "CONTAINS"]
+        for rel_type in code_rel_types:
+            try:
+                self._execute_query(
+                    f"""
+                    MATCH (a:CodeEntity)-[r:{rel_type}]->(b:CodeEntity)
+                    WHERE a.file_path IN {path_list}
+                       OR b.file_path IN {path_list}
+                    DELETE r
+                    """
+                )
+            except Exception as e:
+                logger.debug(
+                    f"delete_entities_for_files: {rel_type} edge delete skipped: {e}"
+                )
+
+        # Doc-to-doc relationship (DocSection -> DocSection)
+        try:
+            self._execute_query(
+                f"""
+                MATCH (a:DocSection)-[r:FOLLOWS]->(b:DocSection)
+                WHERE a.file_path IN {path_list}
+                   OR b.file_path IN {path_list}
+                DELETE r
+                """
+            )
+        except Exception as e:
+            logger.debug(f"delete_entities_for_files: FOLLOWS edge delete skipped: {e}")
+
+        # Doc-to-code relationships (DocSection -> CodeEntity)
+        for rel_type in ["REFERENCES", "DOCUMENTS"]:
+            try:
+                self._execute_query(
+                    f"""
+                    MATCH (a:DocSection)-[r:{rel_type}]->(b:CodeEntity)
+                    WHERE a.file_path IN {path_list}
+                       OR b.file_path IN {path_list}
+                    DELETE r
+                    """
+                )
+            except Exception as e:
+                logger.debug(
+                    f"delete_entities_for_files: {rel_type} edge delete skipped: {e}"
+                )
+
+        # Doc-to-doc CONTAINS_SECTION (Document -> DocSection)
+        try:
+            self._execute_query(
+                f"""
+                MATCH (a:Document)-[r:CONTAINS_SECTION]->(b:DocSection)
+                WHERE a.file_path IN {path_list}
+                   OR b.file_path IN {path_list}
+                DELETE r
+                """
+            )
+        except Exception as e:
+            logger.debug(
+                f"delete_entities_for_files: CONTAINS_SECTION edge delete skipped: {e}"
+            )
+
+        # --- 2. Delete CodeEntity nodes ---
+        try:
+            result = self._execute_query(
+                f"""
+                MATCH (e:CodeEntity)
+                WHERE e.file_path IN {path_list}
+                DELETE e
+                """
+            )
+            # Kuzu does not reliably return a row count from DELETE; count via prior MATCH
+            _ = result
+        except Exception as e:
+            logger.warning(
+                f"delete_entities_for_files: CodeEntity node delete failed: {e}"
+            )
+
+        # --- 3. Delete DocSection nodes ---
+        try:
+            self._execute_query(
+                f"""
+                MATCH (d:DocSection)
+                WHERE d.file_path IN {path_list}
+                DELETE d
+                """
+            )
+        except Exception as e:
+            logger.debug(
+                f"delete_entities_for_files: DocSection node delete skipped: {e}"
+            )
+
+        # --- 4. Delete Document nodes ---
+        try:
+            self._execute_query(
+                f"""
+                MATCH (d:Document)
+                WHERE d.file_path IN {path_list}
+                DELETE d
+                """
+            )
+        except Exception as e:
+            logger.debug(
+                f"delete_entities_for_files: Document node delete skipped: {e}"
+            )
+
+        logger.info(
+            "delete_entities_for_files: purged entities/edges for %d file(s)",
+            len(file_paths),
+        )
+        return deleted_nodes
 
     def close_sync(self):
         """Close database connection (synchronous)."""

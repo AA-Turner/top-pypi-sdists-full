@@ -19,7 +19,6 @@ from functools import partial  # pylint: disable=g-importing-member
 from typing import ClassVar
 
 import jax
-from jax.extend import backend
 import jax.numpy as jnp
 from tokamax._src import gpu_utils
 from tokamax._src import precision as precision_lib
@@ -28,6 +27,8 @@ from tokamax._src.ops import op
 from tokamax._src.ops.ragged_dot import base
 import tokamax._src.ops.ragged_dot.pallas_mosaic_gpu_common as common
 import tokamax._src.ops.ragged_dot.pallas_mosaic_gpu_kernel_sm100 as sm100
+import tokamax._src.ops.ragged_dot.pallas_mosaic_gpu_kernel_sm100_fp8_quant as sm100_fp8_quant
+import tokamax._src.ops.ragged_dot.pallas_mosaic_gpu_kernel_sm100_i8_quant as sm100_i8_quant
 import tokamax._src.ops.ragged_dot.pallas_mosaic_gpu_kernel_sm100_quant as sm100_quant
 import tokamax._src.ops.ragged_dot.pallas_mosaic_gpu_kernel_sm100_quant_post_scale as sm100_quant_post_scale
 import tokamax._src.ops.ragged_dot.pallas_mosaic_gpu_kernel_sm90 as sm90
@@ -80,11 +81,17 @@ class PallasMosaicGpuRaggedDot(base.RaggedDot[Config, None]):
       rhs = rhs.mT  # TODO: Fuse transpose into kernel.
       ragged_dot_dimension_numbers = base.DEFAULT_RAGGED_DOT_DIM_NUMS
 
-    lhs = quantization.as_array(lhs)
     # None of the kernels support zero point yet.
+    lhs = quantization.as_array_or_qarray_without_zero_point(lhs)
     rhs = quantization.as_array_or_qarray_without_zero_point(rhs)
 
+    fn = None
+
     if gpu_utils.is_sm90():
+      # sm90 doesn't support lhs to be QArray.
+      if isinstance(lhs, QArray):
+        lhs = quantization.as_array(lhs)
+
       if ragged_dot_dimension_numbers == base.DEFAULT_RAGGED_DOT_DIM_NUMS:
         if isinstance(rhs, QArray):
           if not precision_lib.is_default(lhs.dtype, rhs.dtype, precision):
@@ -125,10 +132,19 @@ class PallasMosaicGpuRaggedDot(base.RaggedDot[Config, None]):
             "Only default `ragged_dot_dimension_numbers` supported."
         )
       if isinstance(rhs, QArray):
-        if config.post_scale:
-          fn = sm100_quant_post_scale.ragged_dot_gpu_quant_post_scale_blackwell_kernel  # pylint: disable=line-too-long
-        else:
-          fn = sm100_quant.ragged_dot_gpu_quant_blackwell_kernel
+        if isinstance(lhs, QArray):
+          if lhs.qtype == jnp.int8:
+            fn = sm100_i8_quant.ragged_dot_gpu_i8_quant_blackwell_kernel
+          elif lhs.qtype == jnp.float8_e4m3fn:
+            fn = sm100_fp8_quant.ragged_dot_gpu_fp8_quant_blackwell_kernel
+          else:
+            # dequantize lhs to fallback to non-lhs-quantized kernel
+            lhs = quantization.as_array(lhs)
+        if isinstance(lhs, jax.Array):
+          if config.post_scale:
+            fn = sm100_quant_post_scale.ragged_dot_gpu_quant_post_scale_blackwell_kernel  # pylint: disable=line-too-long
+          else:
+            fn = sm100_quant.ragged_dot_gpu_quant_blackwell_kernel
       else:
         fn = sm100.ragged_dot_gpu_non_quant_blackwell_kernel
     else:
@@ -139,6 +155,12 @@ class PallasMosaicGpuRaggedDot(base.RaggedDot[Config, None]):
 
     if preferred_element_type is None:
       preferred_element_type = jnp.promote_types(lhs.dtype, rhs.dtype)
+
+    if fn is None:
+      raise NotImplementedError(
+          f"Unsupported config: {config=} {ragged_dot_dimension_numbers=}"
+          f" {lhs.dtype=} {rhs.dtype=} {preferred_element_type=} {precision=}"
+      )
 
     dot_out = fn(
         lhs,
@@ -156,13 +178,13 @@ class PallasMosaicGpuRaggedDot(base.RaggedDot[Config, None]):
 
   @override
   def _get_heuristics_config(self, ba: op.BoundArguments) -> Config:
-    _, rhs = ba.args
+    lhs, rhs = ba.args
+    # avoid OOMs by having too large block_k
+    block_k = (
+        min(rhs.scale_tile_shape[1], 256) if isinstance(rhs, QArray) else 128
+    )
 
     if gpu_utils.is_sm90():
-      # avoid OOMs by having too large block_k
-      block_k = (
-          min(rhs.scale_tile_shape[1], 256) if isinstance(rhs, QArray) else 128
-      )
       return Config(
           block_m=64,
           block_n=64,
@@ -178,10 +200,29 @@ class PallasMosaicGpuRaggedDot(base.RaggedDot[Config, None]):
       )
     elif gpu_utils.is_sm100():
       if isinstance(rhs, QArray):
+        if isinstance(lhs, QArray):
+          if lhs.qtype == jnp.int8:
+            return Config(
+                block_m=16,
+                block_n=128,
+                block_k=block_k,
+                num_stages=2,
+                split_k=1,
+                grid_block_n=1,
+            )
+          elif lhs.qtype == jnp.float8_e4m3fn:
+            return Config(
+                block_m=16,
+                block_n=128,
+                block_k=block_k,
+                num_stages=2,
+                split_k=1,
+                grid_block_n=1,
+            )
         return Config(
             block_m=64,
             block_n=128,
-            block_k=256,
+            block_k=block_k,
             num_stages=2,
             split_k=1,
             grid_block_n=1,
@@ -205,8 +246,7 @@ class PallasMosaicGpuRaggedDot(base.RaggedDot[Config, None]):
 
   @override
   def _get_autotuning_configs(self, ba: op.BoundArguments) -> set[Config]:
-    device = backend.get_default_device()
-    if float(getattr(device, "compute_capability", "9.0")) >= 10.0:
+    if gpu_utils.is_sm100():
       return self._get_sm100_autotuning_configs(ba)
     return self._get_sm90_autotuning_configs(ba)
 
@@ -226,98 +266,148 @@ class PallasMosaicGpuRaggedDot(base.RaggedDot[Config, None]):
     out_dtype_bits = jnp.finfo(out_dtype).bits
     out_swizzle_elems = (128 * 8) // out_dtype_bits
 
-    warp_specialized = [True, False] if isinstance(rhs, QArray) else [True]
+    if isinstance(rhs, QArray):
+      ws_async_store_options = ((False, False), (True, False), (True, True))
+    else:
+      ws_async_store_options = ((False, False),)
 
     configs = set()
     for persistent in [True, False]:
-      for ws in warp_specialized:
-        for async_store in [True, False]:
-          for block_k in [128, 256, 512]:
-            if (block_k * rhs_dtype_bits) % (128 * 8) or (
-                block_k * lhs_dtype_bits
-            ) % (128 * 8):
-              continue
-            if scale_tile_shape != 0 and scale_tile_shape % block_k != 0:
-              continue
-            for block_m in [128, 64, 32, 16]:
-              for num_stages in [4, 2]:
-                for grid_minor_dim in [
-                    common.MatmulDimension.M,
-                    common.MatmulDimension.N,
-                ]:
-                  for grid_tile_width in [1, 2, 4, 8]:
-                    configs.add(
-                        Config(
-                            block_m=block_m,
-                            block_n=out_swizzle_elems,
-                            block_k=block_k,
-                            num_stages=num_stages,
-                            warp_specialized=ws,
-                            persistent=persistent,
-                            split_k=1,
-                            async_store=async_store,
-                            grid_block_n=grid_tile_width,
-                            grid_minor_dim=grid_minor_dim,
-                            grid_tile_width=grid_tile_width,
-                        )
-                    )
-    return configs
-
-  def _get_sm100_autotuning_configs(self, ba: op.BoundArguments) -> set[Config]:
-    del ba  # Unused.
-    configs = set()
-    # Configs for prefill
-    for block_k in [128, 256]:
-      for num_stages in [2, 4]:
-        for grid_minor_dim in [
-            common.MatmulDimension.M,
-            common.MatmulDimension.N,
-        ]:
-          for grid_tile_width in [1, 2, 4, 8]:
-            for split_m in [1, 2]:
-              configs.add(
-                  Config(
-                      block_m=128,
-                      block_n=128,
-                      block_k=block_k,
-                      num_stages=num_stages,
-                      split_k=1,
-                      grid_block_n=1,
-                      warp_specialized=True,
-                      persistent=False,
-                      collective=True,
-                      grid_minor_dim=grid_minor_dim,
-                      grid_tile_width=grid_tile_width,
-                      split_m=split_m,
-                  )
-              )
-
-    # Config for generate
-    for block_m in [8, 16, 32, 64]:
-      for num_stages in [2, 4]:
-        for grid_minor_dim in [
-            common.MatmulDimension.M,
-            common.MatmulDimension.N,
-        ]:
-          for grid_tile_width in [1, 2, 4, 8]:
-            for split_m in [1, 2]:
-              for collective in [True, False]:
-                for post_scale in [True, False]:
+      for warp_specialized, async_store in ws_async_store_options:
+        for block_k in [128, 256, 512]:
+          if (block_k * rhs_dtype_bits) % (128 * 8) or (
+              block_k * lhs_dtype_bits
+          ) % (128 * 8):
+            continue
+          if scale_tile_shape != 0 and scale_tile_shape % block_k != 0:
+            continue
+          for block_m in [128, 64, 32, 16]:
+            for num_stages in [4, 2]:
+              for grid_minor_dim in [
+                  common.MatmulDimension.M,
+                  common.MatmulDimension.N,
+              ]:
+                for grid_tile_width in [1, 2, 4, 8]:
                   configs.add(
                       Config(
                           block_m=block_m,
-                          block_n=128,
-                          block_k=256,
+                          block_n=out_swizzle_elems,
+                          block_k=block_k,
                           num_stages=num_stages,
+                          warp_specialized=warp_specialized,
+                          persistent=persistent,
                           split_k=1,
-                          warp_specialized=True,
-                          collective=collective,
-                          split_m=split_m,
-                          grid_tile_width=grid_tile_width,
+                          async_store=async_store,
+                          grid_block_n=grid_tile_width,
                           grid_minor_dim=grid_minor_dim,
-                          post_scale=post_scale,
+                          grid_tile_width=grid_tile_width,
                       )
                   )
+    return configs
+
+  def _get_sm100_autotuning_configs(self, ba: op.BoundArguments) -> set[Config]:
+    lhs, rhs = ba.args[:2]
+    lhs_dtype_bits = jnp.finfo(lhs.dtype).bits
+    if isinstance(rhs, QArray):
+      rhs_dtype_bits = jnp.iinfo(rhs.qvalue.dtype).bits
+      scale_tile_shape = rhs.scale_tile_shape[1]
+    else:
+      rhs_dtype_bits = jnp.finfo(rhs.dtype).bits
+      scale_tile_shape = 0
+
+    block_k_choices = []
+    for block_k in [128, 256, 512]:
+      if (block_k * rhs_dtype_bits) % (128 * 8) or (
+          block_k * lhs_dtype_bits
+      ) % (128 * 8):
+        continue
+      if scale_tile_shape != 0 and scale_tile_shape % block_k != 0:
+        continue
+      block_k_choices.append(block_k)
+    grid_minor_dim_choices = [
+        common.MatmulDimension.M,
+        common.MatmulDimension.N,
+    ]
+    grid_tile_width_choices = [1, 2, 4, 8]
+
+    configs = set()
+
+    def _generate_configs(
+        configs,
+        block_m_choices: list[int],
+        block_k_choices: list[int],
+        num_stages_choices: list[int],
+        grid_minor_dim_choices: list[common.MatmulDimension],
+        grid_tile_width_choices: list[int],
+        split_m_choices: list[int],
+        collective_choices: list[bool],
+        post_scale_choices: list[bool],
+    ):
+      for block_m in block_m_choices:
+        for block_k in block_k_choices:
+          for num_stages in num_stages_choices:
+            for grid_minor_dim in grid_minor_dim_choices:
+              for grid_tile_width in grid_tile_width_choices:
+                for split_m in split_m_choices:
+                  for collective in collective_choices:
+                    for post_scale in post_scale_choices:
+                      configs.add(
+                          Config(
+                              block_m=block_m,
+                              block_n=128,
+                              block_k=block_k,
+                              num_stages=num_stages,
+                              split_k=1,
+                              grid_block_n=grid_tile_width,
+                              warp_specialized=True,
+                              persistent=False,
+                              collective=collective,
+                              post_scale=post_scale,
+                              grid_minor_dim=grid_minor_dim,
+                              grid_tile_width=grid_tile_width,
+                              split_m=split_m,
+                          )
+                      )
+      return configs
+
+    if isinstance(lhs, QArray):
+      if lhs.qtype in [jnp.int8, jnp.float8_e4m3fn]:
+        configs = _generate_configs(
+            configs,
+            block_m_choices=[8, 16, 32],
+            block_k_choices=[128, 256, 512],
+            num_stages_choices=[2, 4],
+            grid_minor_dim_choices=grid_minor_dim_choices,
+            grid_tile_width_choices=grid_tile_width_choices,
+            split_m_choices=[1],
+            collective_choices=[False],
+            post_scale_choices=[False],
+        )
+    else:
+      # Configs for prefill
+      configs = _generate_configs(
+          configs,
+          block_m_choices=[128],
+          block_k_choices=block_k_choices,
+          num_stages_choices=[2, 4],
+          grid_minor_dim_choices=grid_minor_dim_choices,
+          grid_tile_width_choices=grid_tile_width_choices,
+          split_m_choices=[1],
+          collective_choices=[True, False],
+          post_scale_choices=[False],
+      )
+      # Config for generate
+      configs = _generate_configs(
+          configs,
+          block_m_choices=[8, 16, 32, 64],
+          block_k_choices=block_k_choices,
+          num_stages_choices=[2, 4],
+          grid_minor_dim_choices=grid_minor_dim_choices,
+          grid_tile_width_choices=grid_tile_width_choices,
+          split_m_choices=[1],
+          collective_choices=[True, False],
+          post_scale_choices=[True, False],
+      )
     return configs
 
   @override

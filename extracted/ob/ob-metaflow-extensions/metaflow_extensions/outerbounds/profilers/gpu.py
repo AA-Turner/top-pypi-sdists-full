@@ -1,21 +1,13 @@
-from metaflow.cards import Markdown, Table, VegaChart
-from functools import wraps
-import threading
-from datetime import datetime
-from metaflow import current
-from metaflow.cards import Table, Markdown, VegaChart, Image
 import time
 from typing import List, Dict, Any, Union
 import re
 import os
 import uuid
 import json
-import sys
 from tempfile import TemporaryDirectory
 from subprocess import check_output, Popen
 import subprocess
 from datetime import datetime, timedelta
-from functools import wraps
 from collections import namedtuple
 
 # Card plot styles
@@ -140,11 +132,15 @@ class GPUMonitor:
 
     _past_readings: Dict[str, Any] = {}
 
-    def __init__(self, interval=1, duration=300) -> None:
+    # Approximate bytes per sample per GPU (4 Python str objects + list pointers).
+    BYTES_PER_SAMPLE = 258
+
+    def __init__(self, interval=1, duration=300, max_samples_per_gpu=None) -> None:
         self._tempdir = TemporaryDirectory(prefix="gpu_card_monitor", dir="./")
         self._interval = interval
         self._duration = duration
         self._finished = False
+        self._max_samples = max_samples_per_gpu
 
     @property
     def _current_file(self):
@@ -253,10 +249,34 @@ class GPUMonitor:
                 past[gpu_id][field].extend(current[gpu_id][field])
         return past
 
-    def read(self):
-        return self._make_full_reading(
+    @staticmethod
+    def _downsample(readings, max_points):
+        """
+        Stride-sample each GPU's field arrays to at most `max_points` entries.
+        Preserves the first and last point so time range is accurate.
+        """
+        for gpu_id in readings:
+            n = len(readings[gpu_id].get("timestamp", []))
+            if n <= max_points:
+                continue
+            stride = max(1, (n - 1) // (max_points - 1))
+            indices = list(range(0, n, stride))
+            if indices[-1] != n - 1:
+                indices.append(n - 1)
+            for field in MONITOR_FIELDS:
+                if field in readings[gpu_id]:
+                    readings[gpu_id][field] = [
+                        readings[gpu_id][field][i] for i in indices
+                    ]
+        return readings
+
+    def read(self, max_points=None):
+        full = self._make_full_reading(
             self._current_readings, json.loads(json.dumps(self._past_readings))
         )
+        if max_points is not None and max_points > 0:
+            return self._downsample(full, max_points)
+        return full
 
     def _update_past_readings(self):
         if self._current_readings is None:
@@ -265,6 +285,20 @@ class GPUMonitor:
             self._current_readings, json.loads(json.dumps(self._past_readings))
         )
         self._current_readings = None
+        if self._max_samples is not None:
+            self._trim_past_readings()
+
+    def _trim_past_readings(self):
+        """Ring-buffer trim: keep only the last _max_samples entries per GPU."""
+        for gpu_id in self._past_readings:
+            n = len(self._past_readings[gpu_id].get("timestamp", []))
+            if n <= self._max_samples:
+                continue
+            for field in MONITOR_FIELDS:
+                if field in self._past_readings[gpu_id]:
+                    self._past_readings[gpu_id][field] = self._past_readings[gpu_id][
+                        field
+                    ][-self._max_samples :]
 
     def cleanup(self):
         self._finished = True
@@ -277,314 +311,20 @@ class GPUMonitor:
             time.sleep(self._interval)
 
 
-def _get_ts_range(_range):
-    if _range == "":
-        return "*No readings available*"
-    return "*Time range of charts: %s*" % _range
-
-
-def _update_utilization(results, md_dict):
-    for device, data in results["profile"].items():
-        if device not in md_dict:
-            print(
-                "Device %s not found in the GPU card layout. Skipping..." % device,
-                file=sys.stderr,
-            )
-            continue
-        md_dict[device]["gpu"].update(
-            "%2.1f%%" % max(map(float, data["gpu_utilization"]))
-        )
-        md_dict[device]["memory"].update("%dMB" % max(map(float, data["memory_used"])))
-
-
-def _update_charts(results, md_dict):
-    for device, data in results["profile"].items():
-        try:
-            if device not in md_dict:
-                continue
-            gpu_plot, mem_plot, ts_range = profile_plots(
-                device,
-                data["timestamp"],
-                data["gpu_utilization"],
-                data["memory_used"],
-                data["memory_total"],
-            )
-            md_dict[device]["gpu"].update(gpu_plot)
-            md_dict[device]["memory"].update(mem_plot)
-            md_dict[device]["reading_duration"].update(_get_ts_range(ts_range))
-        except ValueError as e:
-            # This is thrown when the date is unparsable. We can just safely ignore this.
-            print("ValueError: Could not parse date \n%s" % str(e), file=sys.stderr)
-
-
 # This code is adapted from: https://github.com/outerbounds/monitorbench
 class GPUProfiler:
-    def __init__(
-        self,
-        interval=1,
-        monitor_batch_duration=200,
-        artifact_name="gpu_profile_data",
-        max_check_timeout=60,
-    ):
-        self._interval = interval
-        self.max_check_timeout = max_check_timeout
-        self._monitor_batch_duration = monitor_batch_duration
-        self.artifact_name = artifact_name
-        self._started_at = datetime.now().astimezone().strftime("%Y-%m-%dT%H:%M:%S %z")
-        self._card_setup_finished = False
-        self._card_comps = {
-            "max_utilization": {},
-            "charts": {},
-            "reading_duration": {},
-            "error_component": None,
-        }
-        self._monitor_started = False
-        self._start_monitor()
-
-    def _start_monitor(self):
-        self.driver_ver, self.cuda_ver, self.error = self._read_versions()
-        if self.error:
-            self.devices = []
-            return
-        else:
-            (
-                self.interconnect_data,
-                self.interconnect_legend,
-            ) = self._read_multi_gpu_interconnect()
-            self.devices = self._read_devices()
-            self._monitor = GPUMonitor(
-                interval=self._interval, duration=self._monitor_batch_duration
-            )
-            self._monitor_thread = threading.Thread(
-                target=self._monitor._monitor_update_thread, daemon=True
-            )
-            self.error = None
-            self._monitor_thread.start()
-            self._monitor_started = True
-
-    def finish(self):
-        ret = {
-            "error": self.error,
-            "cuda_version": self.cuda_ver,
-            "driver_version": self.driver_ver,
-        }
-        if self.error:
-            return ret
-        else:
-            ret["devices"] = self.devices
-            ret["profile"] = self._monitor.read()
-            ret["interconnect"] = {
-                "data": self.interconnect_data,
-                "legend": self.interconnect_legend,
-            }
-            self._monitor.cleanup()
-            return ret
-
-    def _make_reading(self):
-        ret = {
-            "error": self.error,
-            "cuda_version": self.cuda_ver,
-            "driver_version": self.driver_ver,
-        }
-        if self.error:
-            return ret
-        else:
-            ret["devices"] = self.devices
-            ret["profile"] = self._monitor.read()
-            ret["interconnect"] = {
-                "data": self.interconnect_data,
-                "legend": self.interconnect_legend,
-            }
-            return ret
-
-    def _update_card(self):
-        if len(self.devices) == 0:
-            current.card["gpu_profile"].clear()
-            current.card["gpu_profile"].append(
-                Markdown("# GPU profile for `%s`" % current.pathspec)
-            )
-            current.card["gpu_profile"].append(
-                Markdown("_Started at: %s_" % self._started_at)
-            )
-            current.card["gpu_profile"].append(
-                Markdown("## GPU profile failed: %s" % self.error)
-            )
-            current.card["gpu_profile"].refresh()
-
-            return
-
-        _check_time = 0
-        stop_checking = False
-        # Before writing anything to the card, we need to make sure that:
-        # 1. GPU Monitor has started.
-        # 2. Monitor can record readings
-        # 3. Card is setup
-        while True:
-
-            if stop_checking:
-                time.sleep(self._interval)
-                continue
-
-            # There is a possibility that the `monitor` thread is not started yet
-            # because it somehow crashed at the very start.
-            if not self._monitor_started and _check_time > self.max_check_timeout:
-                current.card["gpu_profile"].clear()
-                current.card["gpu_profile"].append(
-                    Markdown("## GPU profile failed: %s" % self.error)
-                )
-                current.card["gpu_profile"].refresh()
-                stop_checking = True
-
-            # Try restarting monitor if it hasn't started yet
-            if not self._monitor_started:
-                self._start_monitor()
-                _check_time += self._interval
-                time.sleep(self._interval)
-                continue
-
-            # Ensure that we are getting well formatted readings
-            readings = self._make_reading()
-
-            if readings is None:
-                print("GPU Profiler readings are none", file=sys.stderr)
-                time.sleep(self._interval)
-                continue
-
-            # ensure that the card is setup
-            if not self._card_setup_finished:
-                self._setup_card()
-                time.sleep(self._interval)
-                continue
-
-            _update_utilization(readings, self._card_comps["max_utilization"])
-            _update_charts(readings, self._card_comps["charts"])
-            current.card["gpu_profile"].refresh()
-            time.sleep(self._interval)
-
-    def _setup_card(self):
-        from metaflow import current
-
-        results = self._make_reading()
-        if "profile" not in results:
-            if self._card_comps["error_component"] is None:
-                self._card_comps["error_component"] = Markdown(
-                    "## GPU profile failed: %s" % results["error"]
-                )
-                current.card["gpu_profile"].append(self._card_comps["error_component"])
-            else:
-                self._card_comps["error_component"].update(
-                    Markdown("## GPU profile failed: %s" % results["error"])
-                )
-                current.card["gpu_profile"].refresh()
-            return
-
-        els = current.card["gpu_profile"]
-        self._card_comps["error_component"] = None
-        els.clear()
-
-        current.card["gpu_profile"].append(
-            Markdown("# GPU profile for `%s`" % current.pathspec)
-        )
-        current.card["gpu_profile"].append(
-            Markdown(
-                "_Started at: %s_"
-                % datetime.now().astimezone().strftime("%Y-%m-%dT%H:%M:%S %z")
-            )
-        )
-
-        def _drivers():
-            els.append(Markdown("## Drivers"))
-            els.append(
-                Table(
-                    [[results["cuda_version"], results["driver_version"]]],
-                    headers=["NVidia driver version", "CUDA version"],
-                )
-            )
-
-        def _devices():
-            els.append(Markdown("## Devices"))
-            rows = [
-                [d["device_id"], d["name"], d["memory"]] for d in results["devices"]
-            ]
-            els.append(Table(rows, headers=["Device ID", "Device type", "GPU memory"]))
-
-        def _interconnect():
-            if results["interconnect"]["data"] and results["interconnect"]["legend"]:
-                els.append(Markdown("## Interconnect"))
-                interconnect_data = results["interconnect"]["data"]
-                rows = list(interconnect_data.values())
-                rows = [list(transpose_row) for transpose_row in list(zip(*rows))]
-                els.append(Table(rows, headers=list(interconnect_data.keys())))
-                els.append(Markdown("#### Legend"))
-                els.append(
-                    Table(
-                        [list(results["interconnect"]["legend"].values())],
-                        headers=list(results["interconnect"]["legend"].keys()),
-                    )
-                )
-
-        def _utilization():
-            els.append(Markdown("## Maximum utilization"))
-            rows = {}
-            for d in results["devices"]:
-                rows[d["device_id"]] = {
-                    "gpu": Markdown("0%"),
-                    "memory": Markdown("0MB"),
-                }
-            _rows = [[Markdown(k)] + list(v.values()) for k, v in rows.items()]
-            els.append(
-                Table(data=_rows, headers=["Device ID", "Max GPU %", "Max memory"])
-            )
-            els.append(
-                Markdown(f"Detailed data saved in an artifact `{self.artifact_name}`")
-            )
-            return rows
-
-        def _plots():
-            els.append(Markdown("## GPU utilization and memory usage over time"))
-
-            rows = {}
-            for d in results["devices"]:
-                gpu_plot, mem_plot, ts_range = profile_plots(
-                    d["device_id"], [], [], [], []
-                )
-                rows[d["device_id"]] = {
-                    "gpu": VegaChart(gpu_plot),
-                    "memory": VegaChart(mem_plot),
-                    "reading_duration": Markdown(_get_ts_range(ts_range)),
-                }
-            for k, v in rows.items():
-                els.append(Markdown("### GPU Utilization for device : %s" % k))
-                els.append(v["reading_duration"])
-                els.append(
-                    Table(
-                        data=[
-                            [Markdown("GPU Utilization"), v["gpu"]],
-                            [Markdown("Memory usage"), v["memory"]],
-                        ]
-                    )
-                )
-            return rows
-
-        _drivers()
-        _devices()
-        _interconnect()
-        self._card_comps["max_utilization"] = _utilization()
-        self._card_comps["charts"] = _plots()
-        self._card_setup_finished = True
-
-    def _read_versions(self):
+    @staticmethod
+    def _read_versions():
         def parse(r, s):
             return r.search(s).group(1).strip().decode("utf-8")
 
         try:
             result = subprocess.run(
                 ["nvidia-smi"],
-                check=True,  # This will raise a CalledProcessError if the command fails
-                stdout=subprocess.PIPE,  # Capture stdout
-                stderr=subprocess.PIPE,  # Capture stderr
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
             )
-            # Access the standard output
             out = result.stdout
             return parse(DRIVER_VER, out), parse(CUDA_VER, out), None
         except FileNotFoundError:
@@ -602,7 +342,8 @@ class GPUProfiler:
         except Exception as e:
             return None, None, "nvidia-smi error (unknown error) \n%s" % str(e)
 
-    def _read_devices(self):
+    @staticmethod
+    def _read_devices():
         out = check_output(
             [
                 "nvidia-smi",
@@ -617,7 +358,8 @@ class GPUProfiler:
             for l in out.decode("utf-8").splitlines()
         ]
 
-    def _read_multi_gpu_interconnect(self):
+    @staticmethod
+    def _read_multi_gpu_interconnect():
         """
         parse output of `nvidia-smi tomo -m`, such as this sample:
 
@@ -665,121 +407,32 @@ class GPUProfiler:
         except:
             return None, None
 
+    @staticmethod
+    def read_gpu_info():
+        """
+        Query nvidia-smi for driver info, device list, and interconnect topology.
 
-class gpu_profile:
-    def __init__(
-        self,
-        include_artifacts=True,
-        artifact_prefix="gpu_profile_",
-        interval=1,
-    ):
-        self.include_artifacts = include_artifacts
-        self.artifact_prefix = artifact_prefix
-        self.interval = interval
-
-    def __call__(self, f):
-        @wraps(f)
-        def func(s):
-            return f(s)
-
-        from metaflow import gpu_profile
-
-        return gpu_profile(
-            include_artifacts=self.include_artifacts,
-            artifact_prefix=self.artifact_prefix,
-            interval=self.interval,
-        )(func)
-
-
-def translate_to_vegalite(
-    tstamps,
-    vals,
-    description,
-    y_label,
-    legend,
-    line_color=None,
-    percentage_format=False,
-):
-    # Preprocessing for Vega-Lite
-    # Assuming tstamps is a list of datetime objects and vals is a list of values
-    data = [{"tstamps": str(t), "vals": v} for t, v in zip(tstamps, vals)]
-
-    # Base Vega-Lite spec
-    vega_lite_spec = {
-        "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
-        "description": description,
-        "data": {"values": data},
-        "width": 600,
-        "height": 400,
-        "encoding": {
-            "x": {"field": "tstamps", "type": "temporal", "axis": {"title": "Time"}},
-            "y": {
-                "field": "vals",
-                "type": "quantitative",
-                "axis": {
-                    "title": y_label,
-                    **({"format": "%"} if percentage_format else {}),
-                },
-            },
-        },
-        "layer": [
-            {
-                "mark": {
-                    "type": "line",
-                    "color": line_color if line_color else "blue",
-                    "tooltip": True,
-                    "description": legend,  # Adding legend as description
-                },
-                "encoding": {"tooltip": [{"field": "tstamps"}, {"field": "vals"}]},
+        Returns a dict with keys:
+            driver_version, cuda_version, error, devices, interconnect
+        """
+        driver_ver, cuda_ver, error = GPUProfiler._read_versions()
+        if error:
+            return {
+                "driver_version": None,
+                "cuda_version": None,
+                "error": error,
+                "devices": [],
+                "interconnect": None,
             }
-        ],
-    }
-
-    return vega_lite_spec
-
-
-def profile_plots(device_id, ts, gpu, mem_used, mem_total):
-    tstamps = [datetime.strptime(t, NVIDIA_TS_FORMAT) for t in ts]
-    gpu = [i / 100 for i in list(map(float, gpu))]
-    mem = [float(used) / float(total) for used, total in zip(mem_used, mem_total)]
-    time_stamp_range = ""
-    if len(tstamps) > 1:
-        max_time = max(tstamps).strftime(NVIDIA_TS_FORMAT)
-        min_time = min(tstamps).strftime(NVIDIA_TS_FORMAT)
-        time_stamp_range = "%s to %s" % (min_time, max_time)
-
-    gpu_plot = translate_to_vegalite(
-        tstamps,
-        gpu,
-        "GPU utilization",
-        "GPU utilization",
-        "device: %s" % device_id,
-        line_color=GPU_COLOR,
-        percentage_format=True,
-    )
-    mem_plot = translate_to_vegalite(
-        tstamps,
-        mem,
-        "Percentage Memory utilization",
-        "Percentage Memory utilization",
-        "device: %s" % device_id,
-        line_color=MEM_COLOR,
-        percentage_format=True,
-    )
-    return gpu_plot, mem_plot, time_stamp_range
-
-
-if __name__ == "__main__":
-    prof = GPUProfiler(monitor_batch_duration=10)
-
-    def _write_json_file(data, filename):
-        with open(filename, "w") as f:
-            json.dump(data, f, indent=4)
-
-    import time
-
-    for i in range(15):
-        time.sleep(1)
-        _write_json_file(prof._monitor.read(), "gpu_profile.json")
-
-    print(json.dumps(prof.finish()))
+        devices = GPUProfiler._read_devices()
+        ic_data, ic_legend = GPUProfiler._read_multi_gpu_interconnect()
+        interconnect = None
+        if ic_data and ic_legend:
+            interconnect = {"data": ic_data, "legend": ic_legend}
+        return {
+            "driver_version": driver_ver,
+            "cuda_version": cuda_ver,
+            "error": None,
+            "devices": devices,
+            "interconnect": interconnect,
+        }

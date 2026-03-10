@@ -24,7 +24,7 @@ def primitive_nurbs_surface_circle_add(
         0.0,
     ),
     scale: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0, 0.0),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Construct a NURBS surface circle
 
         :param radius: Radius, (in [0, inf], optional)
@@ -64,7 +64,7 @@ def primitive_nurbs_surface_curve_add(
         0.0,
     ),
     scale: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0, 0.0),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Construct a NURBS surface curve
 
         :param radius: Radius, (in [0, inf], optional)
@@ -104,7 +104,7 @@ def primitive_nurbs_surface_cylinder_add(
         0.0,
     ),
     scale: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0, 0.0),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Construct a NURBS surface cylinder
 
         :param radius: Radius, (in [0, inf], optional)
@@ -144,7 +144,7 @@ def primitive_nurbs_surface_sphere_add(
         0.0,
     ),
     scale: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0, 0.0),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Construct a NURBS surface sphere
 
         :param radius: Radius, (in [0, inf], optional)
@@ -184,7 +184,7 @@ def primitive_nurbs_surface_surface_add(
         0.0,
     ),
     scale: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0, 0.0),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Construct a NURBS surface patch
 
         :param radius: Radius, (in [0, inf], optional)
@@ -224,7 +224,7 @@ def primitive_nurbs_surface_torus_add(
         0.0,
     ),
     scale: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0, 0.0),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Construct a NURBS surface torus
 
         :param radius: Radius, (in [0, inf], optional)

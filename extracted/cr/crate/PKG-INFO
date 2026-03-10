@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: crate
-Version: 2.1.1
+Version: 2.1.2
 Summary: CrateDB Python Client
 Author-email: "Crate.io" <office@crate.io>
 License-Expression: Apache-2.0

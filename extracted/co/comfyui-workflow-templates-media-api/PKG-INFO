@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: comfyui-workflow-templates-media-api
-Version: 0.3.60
+Version: 0.3.61
 Summary: Media bundle containing API-driven workflow assets
 License-Expression: MIT
 Requires-Python: >=3.9

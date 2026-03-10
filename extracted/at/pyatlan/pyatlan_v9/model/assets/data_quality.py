@@ -91,8 +91,6 @@ class DataQuality(Asset):
     INPUT_TO_SPARK_JOBS: ClassVar[Any] = None
     OUTPUT_FROM_SPARK_JOBS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "DataQuality"
-
     dq_is_part_of_contract: Union[bool, None, UnsetType] = UNSET
     """Whether this data quality is part of contract (true) or not (false)."""
 
@@ -444,6 +442,9 @@ def _data_quality_to_nested(data_quality: DataQuality) -> DataQualityNested:
         is_incomplete=data_quality.is_incomplete,
         provenance_type=data_quality.provenance_type,
         home_id=data_quality.home_id,
+        depth=data_quality.depth,
+        immediate_upstream=data_quality.immediate_upstream,
+        immediate_downstream=data_quality.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -475,7 +476,6 @@ def _data_quality_from_nested(nested: DataQualityNested) -> DataQuality:
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -484,6 +484,9 @@ def _data_quality_from_nested(nested: DataQualityNested) -> DataQuality:
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_data_quality_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

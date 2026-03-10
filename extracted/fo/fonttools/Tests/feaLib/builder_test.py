@@ -86,6 +86,7 @@ class BuilderTest(unittest.TestCase):
         variable_mark_anchor duplicate_lookup_reference
         contextual_inline_multi_sub_format_2
         contextual_inline_format_4
+        chain_context_multi_subst_class
         duplicate_language_stmt
         CursivePosSubtable
         MarkBasePosSubtable
@@ -98,6 +99,7 @@ class BuilderTest(unittest.TestCase):
         empty_filter_sets_and_mark_classes
         combo_mult_and_lig_sub
         identical_feature_lookups
+        cvparam_null
     """.split()
 
     VARFONT_AXES = [
@@ -1333,6 +1335,22 @@ class BuilderTest(unittest.TestCase):
         var_region_axis_wdth = var_region_list.Region[1].VarRegionAxis[1]
         assert self.get_region(var_region_axis_wght) == (0.0, 0.90625, 1.0)
         assert self.get_region(var_region_axis_wdth) == (0.0, 0.5, 1.0)
+
+    def test_variable_scalar_duplicate_location(self):
+        features = """
+            languagesystem DFLT dflt;
+
+            feature kern {
+                pos two <0 (wght=200:10 wght=200,wdth=100:20) 0 0>;
+            } kern;
+        """
+
+        font = self.make_mock_vf()
+
+        with self.assertRaisesRegex(
+            FeatureLibError, "Failed to compute deltas for variable scalar"
+        ):
+            addOpenTypeFeaturesFromString(font, features)
 
     def test_ligatureCaretByPos_variable_scalar(self):
         """Test that the `avar` table is consulted when normalizing user-space

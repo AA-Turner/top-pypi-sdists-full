@@ -175,8 +175,6 @@ class DremioPhysicalDataset(Asset):
     INPUT_TO_SPARK_JOBS: ClassVar[Any] = None
     OUTPUT_FROM_SPARK_JOBS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "DremioPhysicalDataset"
-
     dremio_id: Union[str, None, UnsetType] = UNSET
     """Source ID of this asset in Dremio."""
 
@@ -1081,6 +1079,9 @@ def _dremio_physical_dataset_to_nested(
         is_incomplete=dremio_physical_dataset.is_incomplete,
         provenance_type=dremio_physical_dataset.provenance_type,
         home_id=dremio_physical_dataset.home_id,
+        depth=dremio_physical_dataset.depth,
+        immediate_upstream=dremio_physical_dataset.immediate_upstream,
+        immediate_downstream=dremio_physical_dataset.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -1116,7 +1117,6 @@ def _dremio_physical_dataset_from_nested(
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -1125,6 +1125,9 @@ def _dremio_physical_dataset_from_nested(
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_dremio_physical_dataset_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

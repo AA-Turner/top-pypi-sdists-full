@@ -69,6 +69,7 @@ __all__ = [
     'GatewayTargetToolSchema1Properties',
     'GatewayWorkloadIdentityDetails',
     'InterceptorConfigurationProperties',
+    'MemoryContentConfiguration',
     'MemoryCustomConfigurationInput',
     'MemoryCustomMemoryStrategy',
     'MemoryEpisodicMemoryStrategy',
@@ -78,6 +79,7 @@ __all__ = [
     'MemoryEpisodicOverrideReflectionConfigurationInput',
     'MemoryEpisodicReflectionConfigurationInput',
     'MemoryInvocationConfigurationInput',
+    'MemoryKinesisResource',
     'MemoryMessageBasedTriggerInput',
     'MemorySelfManagedConfiguration',
     'MemorySemanticMemoryStrategy',
@@ -85,6 +87,8 @@ __all__ = [
     'MemorySemanticOverrideConsolidationConfigurationInput',
     'MemorySemanticOverrideExtractionConfigurationInput',
     'MemoryStrategy',
+    'MemoryStreamDeliveryResource',
+    'MemoryStreamDeliveryResources',
     'MemorySummaryMemoryStrategy',
     'MemorySummaryOverride',
     'MemorySummaryOverrideConsolidationConfigurationInput',
@@ -105,6 +109,8 @@ __all__ = [
     'OnlineEvaluationConfigRule',
     'OnlineEvaluationConfigSamplingConfig',
     'OnlineEvaluationConfigSessionConfig',
+    'PolicyCedarPolicy',
+    'PolicyDefinition',
     'RuntimeAgentRuntimeArtifact',
     'RuntimeAuthorizerConfiguration',
     'RuntimeAuthorizingClaimMatchValueType',
@@ -151,6 +157,7 @@ class BrowserCustomBrowserNetworkConfiguration(dict):
                  vpc_config: Optional['outputs.BrowserCustomVpcConfig'] = None):
         """
         Network configuration for browser
+
         :param 'BrowserCustomBrowserNetworkMode' network_mode: The network mode.
         """
         pulumi.set(__self__, "network_mode", network_mode)
@@ -217,6 +224,7 @@ class BrowserCustomRecordingConfig(dict):
                  s3_location: Optional['outputs.BrowserCustomS3Location'] = None):
         """
         Recording configuration for browser
+
         :param _builtins.bool enabled: The recording configuration for a browser. This structure defines how browser sessions are recorded.
         :param 'BrowserCustomS3Location' s3_location: The S3 location.
         """
@@ -252,6 +260,7 @@ class BrowserCustomS3Location(dict):
                  prefix: _builtins.str):
         """
         S3 Location Configuration
+
         :param _builtins.str bucket: The S3 location bucket name.
         :param _builtins.str prefix: The S3 location object prefix.
         """
@@ -346,6 +355,7 @@ class CodeInterpreterCustomCodeInterpreterNetworkConfiguration(dict):
                  vpc_config: Optional['outputs.CodeInterpreterCustomVpcConfig'] = None):
         """
         Network configuration for code interpreter
+
         :param 'CodeInterpreterCustomCodeInterpreterNetworkMode' network_mode: The network mode.
         """
         pulumi.set(__self__, "network_mode", network_mode)
@@ -440,6 +450,7 @@ class EvaluatorBedrockEvaluatorModelConfig(dict):
                  inference_config: Optional['outputs.EvaluatorInferenceConfiguration'] = None):
         """
         The configuration for using Amazon Bedrock models in evaluator assessments.
+
         :param _builtins.str model_id: The identifier of the Amazon Bedrock model to use for evaluation.
         :param Any additional_model_request_fields: Additional model-specific request fields.
         """
@@ -481,6 +492,7 @@ class EvaluatorCategoricalScaleDefinition(dict):
                  label: _builtins.str):
         """
         A categorical rating scale option.
+
         :param _builtins.str definition: The description that explains what this categorical rating represents.
         :param _builtins.str label: The label of this categorical rating option.
         """
@@ -569,6 +581,7 @@ class EvaluatorInferenceConfiguration(dict):
                  top_p: Optional[_builtins.float] = None):
         """
         The inference configuration parameters that control model behavior during evaluation.
+
         :param _builtins.int max_tokens: The maximum number of tokens to generate in the model response.
         :param _builtins.float temperature: The temperature value that controls randomness in the model's responses.
         :param _builtins.float top_p: The top-p sampling parameter that controls the diversity of the model's responses.
@@ -635,6 +648,7 @@ class EvaluatorLlmAsAJudgeEvaluatorConfig(dict):
                  rating_scale: 'outputs.EvaluatorRatingScale'):
         """
         The configuration for LLM-as-a-Judge evaluation.
+
         :param _builtins.str instructions: The evaluation instructions that guide the language model in assessing agent performance.
         """
         pulumi.set(__self__, "instructions", instructions)
@@ -706,6 +720,7 @@ class EvaluatorNumericalScaleDefinition(dict):
                  value: _builtins.float):
         """
         A numerical rating scale option.
+
         :param _builtins.str definition: The description that explains what this numerical rating represents.
         :param _builtins.str label: The label that describes this numerical rating option.
         :param _builtins.float value: The numerical value for this rating scale option.
@@ -2079,6 +2094,36 @@ class InterceptorConfigurationProperties(dict):
 
 
 @pulumi.output_type
+class MemoryContentConfiguration(dict):
+    def __init__(__self__, *,
+                 type: 'MemoryContentConfigurationType',
+                 level: Optional['MemoryContentConfigurationLevel'] = None):
+        """
+        :param 'MemoryContentConfigurationType' type: The type of content to deliver
+        :param 'MemoryContentConfigurationLevel' level: The level of content detail to deliver
+        """
+        pulumi.set(__self__, "type", type)
+        if level is not None:
+            pulumi.set(__self__, "level", level)
+
+    @_builtins.property
+    @pulumi.getter
+    def type(self) -> 'MemoryContentConfigurationType':
+        """
+        The type of content to deliver
+        """
+        return pulumi.get(self, "type")
+
+    @_builtins.property
+    @pulumi.getter
+    def level(self) -> Optional['MemoryContentConfigurationLevel']:
+        """
+        The level of content detail to deliver
+        """
+        return pulumi.get(self, "level")
+
+
+@pulumi.output_type
 class MemoryCustomConfigurationInput(dict):
     @staticmethod
     def __key_warning(key: str):
@@ -2592,6 +2637,44 @@ class MemoryInvocationConfigurationInput(dict):
 
 
 @pulumi.output_type
+class MemoryKinesisResource(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "contentConfigurations":
+            suggest = "content_configurations"
+        elif key == "dataStreamArn":
+            suggest = "data_stream_arn"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in MemoryKinesisResource. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        MemoryKinesisResource.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        MemoryKinesisResource.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 content_configurations: Sequence['outputs.MemoryContentConfiguration'],
+                 data_stream_arn: _builtins.str):
+        pulumi.set(__self__, "content_configurations", content_configurations)
+        pulumi.set(__self__, "data_stream_arn", data_stream_arn)
+
+    @_builtins.property
+    @pulumi.getter(name="contentConfigurations")
+    def content_configurations(self) -> Sequence['outputs.MemoryContentConfiguration']:
+        return pulumi.get(self, "content_configurations")
+
+    @_builtins.property
+    @pulumi.getter(name="dataStreamArn")
+    def data_stream_arn(self) -> _builtins.str:
+        return pulumi.get(self, "data_stream_arn")
+
+
+@pulumi.output_type
 class MemoryMessageBasedTriggerInput(dict):
     @staticmethod
     def __key_warning(key: str):
@@ -2947,6 +3030,31 @@ class MemoryStrategy(dict):
     @pulumi.getter(name="userPreferenceMemoryStrategy")
     def user_preference_memory_strategy(self) -> Optional['outputs.MemoryUserPreferenceMemoryStrategy']:
         return pulumi.get(self, "user_preference_memory_strategy")
+
+
+@pulumi.output_type
+class MemoryStreamDeliveryResource(dict):
+    def __init__(__self__, *,
+                 kinesis: Optional['outputs.MemoryKinesisResource'] = None):
+        if kinesis is not None:
+            pulumi.set(__self__, "kinesis", kinesis)
+
+    @_builtins.property
+    @pulumi.getter
+    def kinesis(self) -> Optional['outputs.MemoryKinesisResource']:
+        return pulumi.get(self, "kinesis")
+
+
+@pulumi.output_type
+class MemoryStreamDeliveryResources(dict):
+    def __init__(__self__, *,
+                 resources: Sequence['outputs.MemoryStreamDeliveryResource']):
+        pulumi.set(__self__, "resources", resources)
+
+    @_builtins.property
+    @pulumi.getter
+    def resources(self) -> Sequence['outputs.MemoryStreamDeliveryResource']:
+        return pulumi.get(self, "resources")
 
 
 @pulumi.output_type
@@ -3458,6 +3566,7 @@ class OnlineEvaluationConfigCloudWatchLogsInputConfig(dict):
                  service_names: Sequence[_builtins.str]):
         """
         The configuration for reading agent traces from CloudWatch logs.
+
         :param Sequence[_builtins.str] log_group_names: The list of CloudWatch log group names to monitor for agent traces.
         :param Sequence[_builtins.str] service_names: The list of service names to filter traces within the specified log groups.
         """
@@ -3507,6 +3616,7 @@ class OnlineEvaluationConfigCloudWatchOutputConfig(dict):
                  log_group_name: Optional[_builtins.str] = None):
         """
         The CloudWatch configuration for writing evaluation results.
+
         :param _builtins.str log_group_name: The CloudWatch log group name for evaluation results.
         """
         if log_group_name is not None:
@@ -3582,6 +3692,7 @@ class OnlineEvaluationConfigEvaluatorReference(dict):
                  evaluator_id: _builtins.str):
         """
         The reference to an evaluator used in online evaluation configurations.
+
         :param _builtins.str evaluator_id: The unique identifier of the evaluator.
         """
         pulumi.set(__self__, "evaluator_id", evaluator_id)
@@ -3606,6 +3717,7 @@ class OnlineEvaluationConfigFilter(dict):
                  value: 'outputs.OnlineEvaluationConfigFilterValue'):
         """
         The filter that applies conditions to agent traces during online evaluation.
+
         :param _builtins.str key: The key or field name to filter on within the agent trace data.
         :param 'OnlineEvaluationConfigFilterOperator' operator: The comparison operator to use for filtering.
         """
@@ -3667,6 +3779,7 @@ class OnlineEvaluationConfigFilterValue(dict):
                  string_value: Optional[_builtins.str] = None):
         """
         The value used in filter comparisons.
+
         :param _builtins.bool boolean_value: The boolean value for true/false filtering conditions.
         :param _builtins.float double_value: The numeric value for numerical filtering.
         :param _builtins.str string_value: The string value for text-based filtering.
@@ -3769,6 +3882,7 @@ class OnlineEvaluationConfigRule(dict):
                  session_config: Optional['outputs.OnlineEvaluationConfigSessionConfig'] = None):
         """
         The evaluation rule that defines sampling configuration, filtering criteria, and session detection settings.
+
         :param Sequence['OnlineEvaluationConfigFilter'] filters: The list of filters that determine which agent traces should be included in the evaluation.
         """
         pulumi.set(__self__, "sampling_config", sampling_config)
@@ -3822,6 +3936,7 @@ class OnlineEvaluationConfigSamplingConfig(dict):
                  sampling_percentage: _builtins.float):
         """
         The configuration that controls what percentage of agent traces are sampled for evaluation.
+
         :param _builtins.float sampling_percentage: The percentage of agent traces to sample for evaluation.
         """
         pulumi.set(__self__, "sampling_percentage", sampling_percentage)
@@ -3861,6 +3976,7 @@ class OnlineEvaluationConfigSessionConfig(dict):
                  session_timeout_minutes: _builtins.int):
         """
         The configuration that defines how agent sessions are detected.
+
         :param _builtins.int session_timeout_minutes: The number of minutes of inactivity after which an agent session is considered complete.
         """
         pulumi.set(__self__, "session_timeout_minutes", session_timeout_minutes)
@@ -3872,6 +3988,47 @@ class OnlineEvaluationConfigSessionConfig(dict):
         The number of minutes of inactivity after which an agent session is considered complete.
         """
         return pulumi.get(self, "session_timeout_minutes")
+
+
+@pulumi.output_type
+class PolicyCedarPolicy(dict):
+    """
+    A Cedar policy statement within the AgentCore Policy system.
+    """
+    def __init__(__self__, *,
+                 statement: _builtins.str):
+        """
+        A Cedar policy statement within the AgentCore Policy system.
+
+        :param _builtins.str statement: The Cedar policy statement that defines the authorization logic.
+        """
+        pulumi.set(__self__, "statement", statement)
+
+    @_builtins.property
+    @pulumi.getter
+    def statement(self) -> _builtins.str:
+        """
+        The Cedar policy statement that defines the authorization logic.
+        """
+        return pulumi.get(self, "statement")
+
+
+@pulumi.output_type
+class PolicyDefinition(dict):
+    """
+    The definition structure for policies. Encapsulates different policy formats.
+    """
+    def __init__(__self__, *,
+                 cedar: 'outputs.PolicyCedarPolicy'):
+        """
+        The definition structure for policies. Encapsulates different policy formats.
+        """
+        pulumi.set(__self__, "cedar", cedar)
+
+    @_builtins.property
+    @pulumi.getter
+    def cedar(self) -> 'outputs.PolicyCedarPolicy':
+        return pulumi.get(self, "cedar")
 
 
 @pulumi.output_type
@@ -3946,6 +4103,7 @@ class RuntimeAuthorizerConfiguration(dict):
                  custom_jwt_authorizer: Optional['outputs.RuntimeCustomJwtAuthorizerConfiguration'] = None):
         """
         Configuration for the authorizer
+
         :param 'RuntimeCustomJwtAuthorizerConfiguration' custom_jwt_authorizer: Represents inbound authorization configuration options used to authenticate incoming requests.
         """
         if custom_jwt_authorizer is not None:
@@ -4244,6 +4402,7 @@ class RuntimeCustomJwtAuthorizerConfiguration(dict):
                  custom_claims: Optional[Sequence['outputs.RuntimeCustomClaimValidationType']] = None):
         """
         Configuration for custom JWT authorizer
+
         :param _builtins.str discovery_url: The configuration authorization.
         :param Sequence[_builtins.str] allowed_audience: Represents inbound authorization configuration options used to authenticate incoming requests.
         :param Sequence[_builtins.str] allowed_clients: Represents individual client IDs that are validated in the incoming JWT token validation process.
@@ -4322,6 +4481,7 @@ class RuntimeLifecycleConfiguration(dict):
                  max_lifetime: Optional[_builtins.int] = None):
         """
         Configuration for managing the lifecycle of runtime sessions and resources
+
         :param _builtins.int idle_runtime_session_timeout: Timeout in seconds for idle runtime sessions
         :param _builtins.int max_lifetime: Maximum lifetime in seconds for runtime sessions
         """
@@ -4456,6 +4616,7 @@ class RuntimeS3Location(dict):
                  version_id: Optional[_builtins.str] = None):
         """
         S3 Location Configuration
+
         :param _builtins.str bucket: S3 bucket name
         :param _builtins.str prefix: S3 object key prefix
         :param _builtins.str version_id: S3 object version ID
@@ -4558,6 +4719,7 @@ class RuntimeWorkloadIdentityDetails(dict):
                  workload_identity_arn: _builtins.str):
         """
         Configuration for workload identity
+
         :param _builtins.str workload_identity_arn: The Amazon Resource Name (ARN) for the workload identity.
         """
         pulumi.set(__self__, "workload_identity_arn", workload_identity_arn)

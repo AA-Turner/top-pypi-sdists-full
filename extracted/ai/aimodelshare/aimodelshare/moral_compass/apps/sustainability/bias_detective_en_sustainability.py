@@ -85,14 +85,15 @@ def fetch_user_history(username, token):
 
 
 # ============================================================================
-# 4. MODULE DEFINITIONS — 6-PAGE AI COST EXPLORER
+# 4. MODULE DEFINITIONS — 7-PAGE AI COST EXPLORER
 # ============================================================================
 # Page 0: Intro/Hook — no quiz
-# Page 1: Per-Prompt Cost (slider) — quiz t1
-# Page 2: Training Costs (model selector) — quiz t2
-# Page 3: Water Crisis (animated bars) — quiz t3
-# Page 4: Global Scale (stat tabs) — quiz t4
-# Page 5: Action Plan (checkboxes) — no quiz
+# Page 1: Guiding Principle (OEIAC) — no quiz
+# Page 2: Per-Prompt Cost (slider) — quiz t1
+# Page 3: Training Costs (model selector) — quiz t2
+# Page 4: Water Crisis (animated bars) — quiz t3
+# Page 5: Global Scale (stat tabs) — quiz t4
+# Page 6: Action Plan (checkboxes) — no quiz
 # ============================================================================
 
 MODULES = [
@@ -125,22 +126,62 @@ MODULES = [
         """,
     },
     # ─────────────────────────────────────────────
-    # MODULE 1 — EVERY SINGLE PROMPT
+    # MODULE 1 — YOUR GUIDING PRINCIPLE
     # ─────────────────────────────────────────────
     {
         "id": 1,
+        "title": "Your Guiding Principle",
+        "html": """
+            <div class="scenario-box" style="border:none; background:transparent; box-shadow:none; padding:0;">
+                <div class="ace-reveal" style="animation-delay:0s;">
+                    <div style="background:var(--ace-accent-highlight); border-left:4px solid var(--ace-accent); border-radius:16px; padding:20px 24px; margin-bottom:8px;">
+                        <p style="margin:0; font-size:1.05rem; line-height:1.6; color:var(--ace-text);">
+                            <strong style="color:var(--ace-accent);">Sustainability: Your Guiding Principle.</strong><br>
+                            AI is powerful, but power comes with responsibility. Before building AI, we need to ask: is this good for people and the planet? Experts at the Catalan Observatory for Ethics in AI <strong>OEIAC (UdG)</strong> created 7 principles for building AI safely. In this investigation, you'll focus on one:
+                        </p>
+                        <p style="margin:16px 0 0 0; font-size:1.1rem; line-height:1.6; color:var(--ace-text);">
+                            <strong>Sustainability</strong> &mdash; A major part of the sustainability principle is that AI systems must not cause long-term harm to the environment.
+                        </p>
+                        <p style="margin:16px 0 0 0; font-size:1.05rem; line-height:1.6; color:var(--ace-accent); font-weight:600;">
+                            Your job? Find out what AI really costs the planet.
+                        </p>
+                    </div>
+                </div>
+                <div class="ace-reveal" style="animation-delay:0.15s;">
+                    <details style="background:var(--ace-input-bg); border:1px solid var(--ace-border-color); border-radius:16px; padding:16px 20px; cursor:pointer;">
+                        <summary style="font-weight:700; color:var(--ace-text-dim); font-size:0.95rem;">&#128736;&#65039; Reference: Other AI Ethics Principles (OEIAC)</summary>
+                        <div style="margin-top:15px; font-size:0.9rem; display:grid; grid-template-columns:1fr 1fr; gap:15px; color:var(--ace-text);">
+                            <div>
+                                <strong>Justice &amp; Equity</strong><br>Ensure AI treats all groups fairly and does not discriminate.<br><br>
+                                <strong>Transparency &amp; Explainability</strong><br>Make AI reasoning clear so decisions can be inspected.<br><br>
+                                <strong>Security &amp; Non-maleficence</strong><br>Minimize harmful mistakes; plan for failure.
+                            </div>
+                            <div>
+                                <strong>Responsibility &amp; Accountability</strong><br>Assign clear owners and maintain audit trails.<br><br>
+                                <strong>Autonomy</strong><br>Provide appeals processes and alternatives to AI decisions.<br><br>
+                                <strong>Privacy</strong><br>Use only necessary data; justify use of sensitive attributes.
+                            </div>
+                        </div>
+                    </details>
+                </div>
+            </div>
+        """,
+    },
+    # ─────────────────────────────────────────────
+    # MODULE 2 — EVERY SINGLE PROMPT
+    # ─────────────────────────────────────────────
+    {
+        "id": 2,
         "title": "Every Single Prompt",
         "html": """
             <div class="scenario-box" style="border:none; background:transparent; box-shadow:none; padding:0;">
                 <div class="ace-reveal" style="animation-delay:0s;">
                     <div class="ace-section-label">01 / Every Single Prompt</div>
-                    <h2 class="ace-heading">One question to ChatGPT = <span style="color:var(--ace-accent);">one bottle of water</span></h2>
+                    <h2 class="ace-heading" style="min-height:2.4em;"><span id="ace-m1-typewriter-text"></span><span style="display:inline-block; width:2px; height:1.1em; background:var(--ace-accent); margin-left:2px; animation:aceBlink 0.7s step-end infinite; vertical-align:text-bottom;"></span></h2>
                 </div>
-                <div class="ace-reveal" style="animation-delay:0.2s;">
-                    <p class="ace-paragraph">Researchers at UC Riverside found that a ~100-word AI prompt uses about <strong style="color:var(--ace-text); font-weight:600;">half a liter of water</strong> &mdash; roughly one standard water bottle. That water cools the massive server chips. The energy? About the same as watching TV for <strong style="color:var(--ace-text); font-weight:600;">9 seconds</strong>.</p>
+                <div id="ace-m1-reveal-content" style="opacity:0; transform:translateY(20px); transition:opacity 0.6s ease, transform 0.6s ease;">
+                    <p class="ace-paragraph">Researchers at UC Riverside found that a ~100-word AI prompt (a question or instruction you type into a chatbot like ChatGPT) uses about <strong style="color:var(--ace-text); font-weight:600;">half a liter of water</strong> &mdash; roughly one standard water bottle. That water cools the massive server chips. The energy? About the same as watching TV for <strong style="color:var(--ace-text); font-weight:600;">9 seconds</strong>.</p>
                     <p class="ace-paragraph" style="font-size:1rem;">Doesn't sound like much, right? But think about how many prompts you send in a day...</p>
-                </div>
-                <div class="ace-reveal" style="animation-delay:0.4s;">
                     <div class="ace-card">
                         <label style="display:block; font-size:1rem; color:var(--ace-text-dim); margin-bottom:16px; font-weight:600;">How many AI prompts do you send per day?</label>
                         <input type="range" id="ace-prompt-slider" min="1" max="200" value="1" style="width:100%; cursor:pointer;" oninput="aceUpdatePromptCalc(this.value)">
@@ -151,8 +192,6 @@ MODULES = [
                         <div id="ace-prompt-stats" style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-top:20px;">
                         </div>
                     </div>
-                </div>
-                <div class="ace-reveal" style="animation-delay:0.6s;">
                     <button onclick="aceToggleComparison()" id="ace-compare-btn" style="margin-top:20px; padding:12px 20px; font-size:0.95rem; font-weight:600; background:transparent; border:1px solid var(--ace-input-border); border-radius:12px; color:var(--ace-accent); cursor:pointer; transition:all 0.3s; font-family:'Outfit',sans-serif;">
                         Show comparison with Google Search
                     </button>
@@ -182,10 +221,10 @@ MODULES = [
         """,
     },
     # ─────────────────────────────────────────────
-    # MODULE 2 — TRAINING THE BEAST
+    # MODULE 3 — TRAINING THE BEAST
     # ─────────────────────────────────────────────
     {
-        "id": 2,
+        "id": 3,
         "title": "Training the Beast",
         "html": """
             <div class="scenario-box" style="border:none; background:transparent; box-shadow:none; padding:0;">
@@ -195,6 +234,7 @@ MODULES = [
                 </div>
                 <div class="ace-reveal" style="animation-delay:0.2s;">
                     <p class="ace-paragraph">Training a large AI model means feeding it the entire internet &mdash; books, websites, code &mdash; over weeks on thousands of GPUs running 24/7. Training GPT-3 alone used enough electricity to <strong style="color:var(--ace-text); font-weight:600;">power 120 U.S. homes for a year</strong>.</p>
+                    <p class="ace-paragraph">But training only happens once. After that, 200 million people use it every single day &mdash; and all those small questions add up to <strong style="color:var(--ace-text); font-weight:600;">far more energy</strong> than the training ever cost.</p>
                 </div>
                 <div class="ace-reveal" style="animation-delay:0.4s;">
                     <div style="font-size:1rem; color:var(--ace-text-dim); margin-bottom:12px; font-weight:600;">Tap a model to see its training footprint</div>
@@ -225,10 +265,10 @@ MODULES = [
         """,
     },
     # ─────────────────────────────────────────────
-    # MODULE 3 — WATER: THE HIDDEN COST
+    # MODULE 4 — WATER: THE HIDDEN COST
     # ─────────────────────────────────────────────
     {
-        "id": 3,
+        "id": 4,
         "title": "Water: The Hidden Cost",
         "html": """
             <div class="scenario-box" style="border:none; background:transparent; box-shadow:none; padding:0;">
@@ -237,7 +277,9 @@ MODULES = [
                     <h2 class="ace-heading">AI could drink more water than <span style="color:var(--ace-accent);">all the world's bottled water</span></h2>
                 </div>
                 <div class="ace-reveal" style="animation-delay:0.2s;">
-                    <p class="ace-paragraph">A 2025 study found that AI's global water footprint could reach <strong style="color:var(--ace-text); font-weight:600;">312 to 764 billion liters per year</strong> &mdash; comparable to the entire world's annual bottled water consumption. Meanwhile, only <strong style="color:var(--ace-accent); font-weight:700;">0.5% of Earth's water</strong> is accessible freshwater.</p>
+                    <p class="ace-paragraph">A 2025 study estimates that AI's global water footprint could reach <strong style="color:var(--ace-text); font-weight:600;">312 to 764 billion liters per year</strong> &mdash; an amount comparable to the world's total annual bottled water consumption.</p>
+                    <p class="ace-paragraph">Much of this demand comes from data centers that rely on increasing amounts of freshwater to cool their systems, placing growing pressure on local water supplies.</p>
+                    <p class="ace-paragraph">All this when only <strong style="color:var(--ace-accent); font-weight:700;">0.5% of the world's water</strong> is accessible freshwater.</p>
                 </div>
                 <div class="ace-reveal" style="animation-delay:0.4s;">
                     <div class="ace-card">
@@ -273,16 +315,16 @@ MODULES = [
         """,
     },
     # ─────────────────────────────────────────────
-    # MODULE 4 — ZOOM OUT: GLOBAL SCALE
+    # MODULE 5 — ZOOM OUT: GLOBAL SCALE
     # ─────────────────────────────────────────────
     {
-        "id": 4,
+        "id": 5,
         "title": "Zoom Out",
         "html": """
             <div class="scenario-box" style="border:none; background:transparent; box-shadow:none; padding:0;">
                 <div class="ace-reveal" style="animation-delay:0s;">
                     <div class="ace-section-label">04 / Zoom Out</div>
-                    <h2 class="ace-heading">AI's appetite is the size of <span style="color:var(--ace-warning);">entire countries</span></h2>
+                    <h2 class="ace-heading">AI's energy appetite is the size of <span style="color:var(--ace-warning);">entire countries</span></h2>
                 </div>
                 <div class="ace-reveal" style="animation-delay:0.2s;">
                     <p class="ace-paragraph">Data centers already use about <strong style="color:var(--ace-text); font-weight:600;">1.5% of global electricity</strong> &mdash; projected to nearly triple by 2030. The U.S. alone holds 45.6% of the world's data centers.</p>
@@ -301,10 +343,10 @@ MODULES = [
         """,
     },
     # ─────────────────────────────────────────────
-    # MODULE 5 — YOUR MOVE: ACTION PLAN
+    # MODULE 6 — YOUR MOVE: ACTION PLAN
     # ─────────────────────────────────────────────
     {
-        "id": 5,
+        "id": 6,
         "title": "Your Move",
         "html": """
             <div class="scenario-box" style="border:none; background:transparent; box-shadow:none; padding:0;">
@@ -339,53 +381,53 @@ MODULES = [
 
 
 # ============================================================================
-# 5. QUIZ CONFIG — 4 QUIZZES ON MODULES 1-4, TASK IDs t1-t4
+# 5. QUIZ CONFIG — 4 QUIZZES ON MODULES 2-5, TASK IDs t1-t4
 # ============================================================================
 
 QUIZ_CONFIG = {
-    1: {
-        "t": "t1",
-        "q": "You just learned that a single AI prompt uses ~0.5L of water and ~10 Wh of energy. A classmate says: *\"That's basically nothing \u2014 it doesn't matter.\"* **What's the strongest counter?**",
-        "o": [
-            "A) Your classmate is right \u2014 half a liter and 10 watt-hours are negligible, even at scale, compared to industries like transportation.",
-            "B) One prompt is small, but 200 million users sending 50+ prompts/day means billions of liters of water and terawatt-hours of energy per year \u2014 invisible costs add up.",
-            "C) The real problem is only water, not energy \u2014 electricity comes from the grid, but water is lost forever through evaporation.",
-        ],
-        "a": "B) One prompt is small, but 200 million users sending 50+ prompts/day means billions of liters of water and terawatt-hours of energy per year \u2014 invisible costs add up.",
-        "success": "<strong>Score Unlocked!</strong> Tiny per-prompt costs become massive at scale. 200M users \u00d7 50 prompts = real environmental impact.",
-    },
     2: {
-        "t": "t2",
-        "q": "GPT-4 used ~62,000 MWh for training \u2014 that's 48x more than GPT-3. But after training, users send 200M+ queries/day (inference). **Which costs more over time?**",
+        "t": "t1",
+        "q": "A friend says: *\u2018One AI question only uses about a bottle of water \u2014 who cares?\u2019* Why should you care?",
         "o": [
-            "A) Training is always the bigger cost \u2014 each new model requires retraining from scratch, and models keep getting larger every year.",
-            "B) Inference overtakes training within days because low-cost-per-query \u00d7 massive volume = total energy that dwarfs training and never stops growing.",
-            "C) They're roughly equal \u2014 training is a one-time spike, but inference is so efficient per query that the totals balance out over a year.",
+            "A) Your friend is right \u2014 one bottle is nothing.",
+            "B) One question is tiny, but 200 million people asking 50+ questions a day adds up to billions of bottles of water every year. Small things become huge when everyone does them.",
+            "C) Water doesn\u2019t matter \u2014 the real problem is only electricity.",
         ],
-        "a": "B) Inference overtakes training within days because low-cost-per-query \u00d7 massive volume = total energy that dwarfs training and never stops growing.",
-        "success": "Key insight unlocked. Training GPT-3 took months of energy \u2014 users matched it in just 11 days of inference.",
+        "a": "B) One question is tiny, but 200 million people asking 50+ questions a day adds up to billions of bottles of water every year. Small things become huge when everyone does them.",
+        "success": "<strong>Nailed it!</strong> One question is small. But 200 million people asking 50+ questions a day? That adds up fast.",
     },
     3: {
-        "t": "t3",
-        "q": "A single large data center uses 5 million gallons of freshwater per day, and only 0.5% of Earth's water is accessible freshwater. **Why does AI's water use raise environmental justice concerns?**",
+        "t": "t2",
+        "q": "Training an AI model like GPT-4 uses a huge amount of energy \u2014 like powering 6,000 homes for a year. But after training is done, 200 million people use it every day. Which uses more energy over time \u2014 building the AI or everyone using it?",
         "o": [
-            "A) It doesn't \u2014 data centers use municipal water they pay for, just like any other business. The market allocates water fairly.",
-            "B) Data centers consume freshwater from the same rivers and aquifers that communities depend on \u2014 often in drought-prone areas where families are already rationing water.",
-            "C) The water is returned to the water cycle through evaporation, so total global freshwater supply is unchanged. The concern is energy, not water.",
+            "A) Building it uses more \u2014 training is the expensive part.",
+            "B) Everyone using it uses way more. Each question costs a little energy, but millions of people asking all day, every day adds up to far more than the training ever did.",
+            "C) They\u2019re about the same.",
         ],
-        "a": "B) Data centers consume freshwater from the same rivers and aquifers that communities depend on \u2014 often in drought-prone areas where families are already rationing water.",
-        "success": "Water crisis confirmed. In Mesa, Arizona, families shortened showers during a 1,200-year drought while Microsoft evaporated 56M gallons/year nearby.",
+        "a": "B) Everyone using it uses way more. Each question costs a little energy, but millions of people asking all day, every day adds up to far more than the training ever did.",
+        "success": "<strong>Exactly!</strong> Training GPT-3 took months of energy. Once people started using it, they used that same amount in just 11 days.",
     },
     4: {
-        "t": "t4",
-        "q": "AI data centers already use ~1.5% of global electricity, projected to nearly triple by 2030. Dublin banned new data centers in 2022 because they threatened 18% of Ireland's grid. **What does this tell us?**",
+        "t": "t3",
+        "q": "A single data center uses 5 million gallons of freshwater every day. That water comes from the same rivers and wells that people in the area drink from. Why is this a problem?",
         "o": [
-            "A) It tells us data centers should be banned everywhere \u2014 no amount of economic benefit justifies this level of energy consumption.",
-            "B) AI's energy appetite has grown so large that it now competes with entire countries for electricity, forcing governments to choose between tech growth and grid stability.",
-            "C) Dublin overreacted \u2014 1.5% of global electricity is small, and renewables will scale fast enough to cover the growth without any policy intervention.",
+            "A) It\u2019s not \u2014 the data center pays for the water, so it\u2019s fair.",
+            "B) In places running low on water, families are already cutting back. A data center drinking millions of gallons a day makes it even harder for everyone else.",
+            "C) The water goes back into the air as steam, so none is really lost.",
         ],
-        "a": "B) AI's energy appetite has grown so large that it now competes with entire countries for electricity, forcing governments to choose between tech growth and grid stability.",
-        "success": "Scale mapped. AI now uses as much electricity as entire nations \u2014 and it's growing faster than renewable energy can keep up.",
+        "a": "B) In places running low on water, families are already cutting back. A data center drinking millions of gallons a day makes it even harder for everyone else.",
+        "success": "<strong>That\u2019s right.</strong> In Mesa, Arizona, families were shortening their showers during a major drought \u2014 while a Microsoft data center nearby was turning 56 million gallons of their water into steam every year.",
+    },
+    5: {
+        "t": "t4",
+        "q": "AI data centers already use about 1.5% of all the electricity in the world \u2014 and that's expected to nearly triple by 2030. In 2022, Dublin (Ireland's capital) banned new data centers because they were using so much electricity that homes and businesses might not have enough. **What does this tell us?**",
+        "o": [
+            "A) Data centers should be banned everywhere \u2014 they use way too much electricity and it\u2019s not worth it.",
+            "B) AI now uses so much electricity that it competes with entire countries for power, and governments have to make tough choices about it.",
+            "C) Dublin overreacted \u2014 1.5% isn\u2019t that much, and solar and wind energy will catch up on their own.",
+        ],
+        "a": "B) AI now uses so much electricity that it competes with entire countries for power, and governments have to make tough choices about it.",
+        "success": "AI now uses as much electricity as entire countries \u2014 and it's growing faster than renewable energy can keep up.",
     },
 }
 
@@ -629,7 +671,7 @@ def render_top_dashboard(data, module_id):
         count_completed = len(data.get("completed_task_ids", []) or [])
     progress_pct = min(100, int((count_completed / TOTAL_COURSE_TASKS) * 100))
 
-    if module_id <= 3:
+    if module_id <= 4:
         phase_label = "PHASE 1: Individual Impact"
         phase_color = "#6366f1"
     else:
@@ -753,7 +795,7 @@ css = """
     --ace-input-border: rgba(0, 0, 0, 0.1);
     --ace-hover-bg: rgba(0, 0, 0, 0.05);
     --ace-progress-line: rgba(0, 0, 0, 0.1);
-    --ace-bar-text: #fff;
+    --ace-bar-text: #0f172a;
     --ace-success-bg: rgba(5, 150, 105, 0.08);
     --ace-error-bg: rgba(220, 38, 38, 0.08);
     --ace-success-highlight: rgba(5, 150, 105, 0.15);
@@ -786,6 +828,31 @@ css = """
         --ace-error-highlight: rgba(244, 63, 94, 0.15);
         --ace-accent-highlight: rgba(56, 189, 248, 0.1);
     }
+}
+.dark {
+    --ace-bg: #0f172a;
+    --ace-card-bg: rgba(30, 41, 59, 0.7);
+    --ace-accent: #38bdf8;
+    --ace-accent-glow: rgba(56, 189, 248, 0.3);
+    --ace-success: #10b981;
+    --ace-warning: #fbbf24;
+    --ace-error: #f43f5e;
+    --ace-text: #f8fafc;
+    --ace-text-dim: #94a3b8;
+    --ace-bg-gradient-1: rgba(56, 189, 248, 0.05);
+    --ace-bg-gradient-2: rgba(16, 185, 129, 0.05);
+    --ace-card-shadow: rgba(0, 0, 0, 0.5);
+    --ace-border-color: rgba(255, 255, 255, 0.05);
+    --ace-input-bg: rgba(255, 255, 255, 0.05);
+    --ace-input-border: rgba(255, 255, 255, 0.1);
+    --ace-hover-bg: rgba(255, 255, 255, 0.08);
+    --ace-progress-line: rgba(255, 255, 255, 0.1);
+    --ace-bar-text: #fff;
+    --ace-success-bg: rgba(16, 185, 129, 0.08);
+    --ace-error-bg: rgba(244, 63, 94, 0.08);
+    --ace-success-highlight: rgba(16, 185, 129, 0.15);
+    --ace-error-highlight: rgba(244, 63, 94, 0.15);
+    --ace-accent-highlight: rgba(56, 189, 248, 0.1);
 }
 
 /* ACE Animations */
@@ -1040,6 +1107,8 @@ css = """
     #nav-loading-overlay { background: rgba(15, 23, 42, 0.9); }
     .nav-spinner { border-color: rgba(148, 163, 184, 0.4); border-top-color: var(--color-accent); }
 }
+.dark #nav-loading-overlay { background: rgba(15, 23, 42, 0.9); }
+.dark .nav-spinner { border-color: rgba(148, 163, 184, 0.4); border-top-color: var(--color-accent); }
 
 /* Points chip + quiz CTA */
 .points-chip {
@@ -1082,9 +1151,11 @@ CLIENT_JS = """
 })();
 
 // === Module 0: Typewriter ===
-(function aceInitTypewriter(){
+function aceInitTypewriter(){
     var el = document.getElementById('ace-typewriter-text');
     if (!el) { setTimeout(aceInitTypewriter, 200); return; }
+    if (el.dataset.init === '1') return;
+    el.dataset.init = '1';
     var full = "Every time you use AI, something invisible happens...";
     var i = 0;
     var iv = setInterval(function(){
@@ -1092,7 +1163,31 @@ CLIENT_JS = """
         el.textContent = full.slice(0, i);
         if (i >= full.length) clearInterval(iv);
     }, 45);
-})();
+} aceInitTypewriter();
+
+// === Module 1: Heading Typewriter ===
+function aceInitM1Typewriter(){
+    var el = document.getElementById('ace-m1-typewriter-text');
+    if (!el) { setTimeout(aceInitM1Typewriter, 200); return; }
+    if (el.dataset.init === '1') return;
+    el.dataset.init = '1';
+    var part1 = "One question to ChatGPT = ";
+    var part2 = "one bottle of water";
+    var i = 0, total = part1.length + part2.length;
+    var iv = setInterval(function(){
+        i++;
+        if (i <= part1.length) {
+            el.innerHTML = part1.slice(0, i);
+        } else {
+            el.innerHTML = part1 + '<span style="color:var(--ace-accent);">' + part2.slice(0, i - part1.length) + '</span>';
+        }
+        if (i >= total) {
+            clearInterval(iv);
+            var content = document.getElementById('ace-m1-reveal-content');
+            if (content) { content.style.opacity = '1'; content.style.transform = 'translateY(0)'; }
+        }
+    }, 45);
+} aceInitM1Typewriter();
 
 // === Module 1: Prompt Calculator ===
 function aceUpdatePromptCalc(val) {
@@ -1104,13 +1199,13 @@ function aceUpdatePromptCalc(val) {
     var e = (pc * 0.01).toFixed(2);
     var tv = pc * 9;
     var bottles = Math.round(w / 0.5);
-    var yearL = Math.round(w * 365);
-    var yearBottles = Math.round(yearL / 0.5);
+    var co2 = (pc * 0.4).toFixed(1);
+    var yearKm = ((co2 * 365) / 121).toFixed(1);
     countEl.textContent = pc + ' prompt' + (pc > 1 ? 's' : '') + '/day';
     var stats = [
         {l:'Water Used', v:w+'L', i:'\\ud83d\\udca7', s:bottles+' bottles'},
         {l:'Energy Used', v:e+' kWh', i:'\\u26a1', s:tv+'s of TV'},
-        {l:'Per Year', v:yearL+'L', i:'\\ud83d\\udcc5', s:yearBottles+' bottles'}
+        {l:'CO\\u2082 Emitted', v:co2+'g', i:'\\ud83c\\udf2b\\ufe0f', s:yearKm+' km driven/yr'}
     ];
     var html = '';
     for (var idx = 0; idx < stats.length; idx++) {
@@ -1138,18 +1233,23 @@ function aceToggleComparison() {
         btn.style.background = 'transparent';
     }
 }
-(function aceInitPrompt(){
-    if (!document.getElementById('ace-prompt-count')) { setTimeout(aceInitPrompt, 200); return; }
+function aceInitPrompt(){
+    var el = document.getElementById('ace-prompt-count');
+    if (!el) { setTimeout(aceInitPrompt, 200); return; }
+    if (el.dataset.init === '1') return;
+    el.dataset.init = '1';
     aceUpdatePromptCalc(1);
-})();
+} aceInitPrompt();
 
 // === Module 2: Training ===
-(function aceInitTraining(){
+function aceInitTraining(){
     var barsEl = document.getElementById('ace-training-bars');
     if (!barsEl) { setTimeout(aceInitTraining, 200); return; }
+    if (barsEl.dataset.init === '1') return;
+    barsEl.dataset.init = '1';
     var models = [
         {name:'GPT-3', energy:1287, water:700000, co2:502, year:2020, icon:'\\u{1F916}', fact:"That's like driving a car around the Earth 60 times"},
-        {name:'GPT-4', energy:62000, water:34000000, co2:24000, year:2023, icon:'\\u{1F9E0}', fact:"Equivalent to ~5,400 U.S. homes' annual electricity"},
+        {name:'GPT-4', energy:62000, water:34000000, co2:24000, year:2023, icon:'\\u{1F9E0}', fact:"Equivalent to ~6,000 U.S. homes' annual electricity"},
         {name:'Llama 3', energy:39000, water:21000000, co2:15000, year:2024, icon:'\\u{1F999}', fact:'Could fill 8 Olympic swimming pools with the water used'}
     ];
     var selected = -1;
@@ -1209,13 +1309,15 @@ function aceToggleComparison() {
             + '<span style="font-size:0.75rem; color:var(--ace-bar-text); font-weight:700;">' + b.v + '</span></div></div></div>';
     }
     barsEl.innerHTML = barHtml;
-})();
+} aceInitTraining();
 
 // === Module 3: Water Crisis ===
-(function aceInitWater(){
+function aceInitWater(){
     var barContainer = document.getElementById('ace-water-bars');
     var quizEl = document.getElementById('ace-water-quiz');
     if (!barContainer || !quizEl) { setTimeout(aceInitWater, 200); return; }
+    if (barContainer.dataset.init === '1') return;
+    barContainer.dataset.init = '1';
     // Animated water bars
     var html = '';
     for (var i = 0; i < 50; i++) {
@@ -1267,13 +1369,15 @@ function aceToggleComparison() {
             }
         }
     };
-})();
+} aceInitWater();
 
 // === Module 4: Global Scale ===
-(function aceInitScale(){
+function aceInitScale(){
     var tabsEl = document.getElementById('ace-scale-tabs');
     var bdEl = document.getElementById('ace-energy-breakdown');
     if (!tabsEl || !bdEl) { setTimeout(aceInitScale, 200); return; }
+    if (tabsEl.dataset.init === '1') return;
+    tabsEl.dataset.init = '1';
     var categories = [
         {l:"AI's total energy in 2025", v:'~200 TWh/yr', d:"The entire United Kingdom's electricity", i:'\\ud83c\\uddec\\ud83c\\udde7'},
         {l:"AI's CO\\u2082 emissions", v:'~56M tons/yr', d:"New York City's total annual emissions", i:'\\ud83d\\uddfd'},
@@ -1322,12 +1426,14 @@ function aceToggleComparison() {
             + '<span style="font-size:0.75rem; color:var(--ace-bar-text); font-weight:700;">' + x.p + '%</span></div></div></div>';
     }
     bdEl.innerHTML = bdHtml;
-})();
+} aceInitScale();
 
 // === Module 5: Action Plan ===
-(function aceInitActions(){
+function aceInitActions(){
     var container = document.getElementById('ace-actions');
     if (!container) { setTimeout(aceInitActions, 200); return; }
+    if (container.dataset.init === '1') return;
+    container.dataset.init = '1';
     var actions = [
         {id:'search', l:'Google it first', d:"Use a regular search when you don't need AI", p:30, i:'\\ud83d\\udd0d'},
         {id:'specific', l:'Be specific', d:'Clear prompts = fewer follow-ups = less energy', p:15, i:'\\ud83c\\udfaf'},
@@ -1382,7 +1488,35 @@ function aceToggleComparison() {
         renderActions();
     };
     renderActions();
-})();
+} aceInitActions();
+
+// === Re-init after back-navigation (Gradio may re-render HTML, wiping dynamic content) ===
+function _aceDoReinit(){
+    var tw = document.getElementById('ace-typewriter-text');
+    if (tw && !tw.textContent.trim()) { delete tw.dataset.init; aceInitTypewriter(); }
+    var m1tw = document.getElementById('ace-m1-typewriter-text');
+    if (m1tw && !m1tw.textContent.trim()) {
+        delete m1tw.dataset.init;
+        var m1c = document.getElementById('ace-m1-reveal-content');
+        if (m1c) { m1c.style.opacity = '0'; m1c.style.transform = 'translateY(20px)'; }
+        aceInitM1Typewriter();
+    }
+    var pc = document.getElementById('ace-prompt-count');
+    var ps = document.getElementById('ace-prompt-stats');
+    if (pc && ps && ps.children.length === 0) { delete pc.dataset.init; aceInitPrompt(); }
+    var bars = document.getElementById('ace-training-bars');
+    if (bars && bars.children.length === 0) { delete bars.dataset.init; aceInitTraining(); }
+    var wb = document.getElementById('ace-water-bars');
+    if (wb && wb.children.length === 0) { delete wb.dataset.init; aceInitWater(); }
+    var tabs = document.getElementById('ace-scale-tabs');
+    if (tabs && tabs.children.length === 0) { delete tabs.dataset.init; aceInitScale(); }
+    var acts = document.getElementById('ace-actions');
+    if (acts && acts.children.length === 0) { delete acts.dataset.init; aceInitActions(); }
+}
+function aceReinitAll(){
+    _aceDoReinit();
+    setTimeout(_aceDoReinit, 800);
+}
 """
 
 HEAD_HTML = (
@@ -1427,24 +1561,6 @@ def create_bias_detective_en_sustainability_app(theme_primary_hue: str = "indigo
             # Top dashboard
             out_top = gr.HTML()
 
-            with gr.Accordion("How is the Moral Compass Score calculated?", open=False):
-                gr.HTML("""
-                    <div style="padding:12px; font-size:0.92rem; line-height:1.6;">
-                        <div style="font-weight:700; margin-bottom:8px;">Formula:</div>
-                        <div style="background:var(--background-fill-secondary); padding:12px 16px; border-radius:8px; font-family:monospace; font-size:1rem; margin-bottom:10px; border:1px solid var(--border-color-primary);">
-                            Moral Compass Score = Accuracy x (Steps Completed / Total Steps)
-                        </div>
-                        <ul style="margin:0; padding-left:20px;">
-                            <li><strong>Accuracy</strong> &mdash; Your model's accuracy score from Activity 4 (0 to 1).</li>
-                            <li><strong>Steps Completed</strong> &mdash; How many investigation steps you've answered correctly so far.</li>
-                            <li><strong>Total Steps</strong> &mdash; The total number of quiz questions across the investigation.</li>
-                        </ul>
-                        <div style="margin-top:10px; padding:8px 12px; background:rgba(99,102,241,0.08); border-radius:6px; font-size:0.88rem;">
-                            Your score increases as you progress through the investigation. A perfect score means high model accuracy <em>and</em> completing all ethical reasoning steps.
-                        </div>
-                    </div>
-                """)
-
             # Module containers
             module_ui_elements = {}
             quiz_wiring_queue = []
@@ -1457,7 +1573,7 @@ def create_bias_detective_en_sustainability_app(theme_primary_hue: str = "indigo
                 ) as mod_col:
                     gr.HTML(mod["html"])
 
-                    # Quiz content — only for modules in QUIZ_CONFIG (1-4)
+                    # Quiz content — only for modules in QUIZ_CONFIG (2-5)
                     if i in QUIZ_CONFIG:
                         q_data = QUIZ_CONFIG[i]
 
@@ -1483,11 +1599,36 @@ def create_bias_detective_en_sustainability_app(theme_primary_hue: str = "indigo
                         next_label = (
                             "Next \u25b6\ufe0f"
                             if i < len(MODULES) - 1
-                            else "\U0001f389 Investigation Complete!"
+                            else "PROCEED TO ACTIVITY 7 →"
                         )
                         btn_next = gr.Button(next_label, variant="primary")
 
                     module_ui_elements[i] = (mod_col, btn_prev, btn_next)
+
+            gr.HTML("""
+                <details style="background:var(--background-fill-secondary); border-radius:16px;
+                                border:1px solid var(--border-color-primary); margin:8px 0 12px 0; opacity:0.7;">
+                    <summary style="padding:14px 24px; cursor:pointer; text-transform:uppercase; letter-spacing:1.5px;
+                                    color:var(--body-text-color-subdued); font-size:0.78rem; font-weight:700;
+                                    text-align:center; list-style:none;">
+                        &#9656; The Moral Compass Formula
+                    </summary>
+                    <div style="padding:0 24px 24px 24px; text-align:center;">
+                        <div style="font-size:1.3rem; font-weight:700; margin:12px 0; font-family:'Outfit',sans-serif;">
+                            Moral Compass Score =
+                            <span style="background:rgba(5,150,105,0.15); color:var(--ace-success); padding:4px 10px; border-radius:6px;">
+                                [ Accuracy ]</span>
+                            &times;
+                            <span style="background:rgba(2,132,199,0.15); color:var(--ace-accent); padding:4px 10px; border-radius:6px;">
+                                [ Sustainability % ]</span>
+                        </div>
+                        <p style="font-size:0.95rem; margin:12px 0 0 0; color:var(--body-text-color-subdued);">
+                            <strong>Sustainability %</strong> reflects your Moral Compass progress through the investigation.<br/>
+                            If your Sustainability % is <strong>0%</strong>, your Moral Compass Score is <strong>0</strong>.
+                        </p>
+                    </div>
+                </details>
+            """)
 
             # Leaderboard at bottom
             leaderboard_html = gr.HTML()
@@ -1646,6 +1787,7 @@ def create_bias_detective_en_sustainability_app(theme_primary_hue: str = "indigo
                       overlay.style.opacity = '0';
                       setTimeout(() => {{ overlay.style.display = 'none'; }}, 300);
                     }}
+                    setTimeout(function(){{ if(typeof aceReinitAll==='function') aceReinitAll(); }}, 300);
                   }}
                 }}, 90);
               }} catch(e) {{ console.warn('nav-js error', e); }}
@@ -1660,16 +1802,26 @@ def create_bias_detective_en_sustainability_app(theme_primary_hue: str = "indigo
                 prev_col = module_ui_elements[i - 1][0]
                 prev_target_id = f"module-{i-1}"
 
-                def make_prev_handler(p_col, c_col, target_id):
+                def make_prev_dashboard_handler(prev_idx):
+                    def wrapper_prev(user, tok, team, tasks):
+                        data, _ = ensure_table_and_get_data(user, tok, team, tasks)
+                        return render_top_dashboard(data, prev_idx)
+                    return wrapper_prev
+
+                def make_prev_nav_generator(p_col, c_col):
                     def navigate_prev():
                         yield gr.update(visible=False), gr.update(visible=False)
                         yield gr.update(visible=True), gr.update(visible=False)
                     return navigate_prev
 
                 prev_btn.click(
-                    fn=make_prev_handler(prev_col, curr_col, prev_target_id),
-                    outputs=[prev_col, curr_col],
+                    fn=make_prev_dashboard_handler(i - 1),
+                    inputs=[username_state, token_state, team_state, task_list_state],
+                    outputs=[out_top],
                     js=nav_js(prev_target_id, "Loading..."),
+                ).then(
+                    fn=make_prev_nav_generator(prev_col, curr_col),
+                    outputs=[prev_col, curr_col],
                 )
 
             if i < len(MODULES) - 1:
@@ -1698,6 +1850,14 @@ def create_bias_detective_en_sustainability_app(theme_primary_hue: str = "indigo
                     fn=make_nav_generator(curr_col, next_col),
                     outputs=[curr_col, next_col],
                 )
+
+        # Navigate to next activity from last module
+        last_idx = len(MODULES) - 1
+        _, _, last_next = module_ui_elements[last_idx]
+        last_next.click(
+            fn=None,
+            js="() => { try { window.parent.postMessage('navigate-to-activity-7', '*'); } catch(e) {} }"
+        )
 
         return demo
 

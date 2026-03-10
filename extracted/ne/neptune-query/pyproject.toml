@@ -33,7 +33,7 @@ documentation = "https://docs.neptune.ai/"
 license = "Apache License 2.0"
 name = "neptune-query"
 readme = "README.md"
-version = "1.13.0"
+version = "1.14.0"
 classifiers = [
     "Development Status :: 4 - Beta",
     "Environment :: Console",
@@ -47,6 +47,7 @@ classifiers = [
     "Operating System :: Unix",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Programming Language :: Python :: Implementation :: CPython",
+    "Typing :: Typed",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 keywords = [

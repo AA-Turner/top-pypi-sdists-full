@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: BSD-2-Clause
 
-# Copyright (c) 2025 Phil Thompson <phil@riverbankcomputing.com>
+# Copyright (c) 2026 Phil Thompson <phil@riverbankcomputing.com>
 
 
 from ...specification import (AccessSpecifier, ArgumentType, CodeBlock,
@@ -8,12 +8,6 @@ from ...specification import (AccessSpecifier, ArgumentType, CodeBlock,
         WrappedClass)
 
 from ..formatters import fmt_argument_as_cpp_type, fmt_class_as_scoped_name
-
-
-def arg_is_small_enum(arg):
-    """ Return True if an argument refers to a small C++11 enum. """
-
-    return arg.type is ArgumentType.ENUM and arg.definition.enum_base_type is not None
 
 
 def callable_overloads(member, overloads):
@@ -51,6 +45,17 @@ def get_class_flags(spec, klass, py_debug):
     flags.append('SIP_TYPE_NAMESPACE' if klass.iface_file.type is IfaceFileType.NAMESPACE else 'SIP_TYPE_CLASS')
 
     return '|'.join(flags)
+
+
+def get_class_from_void(spec, klass):
+    """ Return an assignment statement from a void * variable to a class
+    instance variable.
+    """
+
+    klass_type = scoped_class_name(spec, klass)
+    cast = get_type_from_void(spec, klass_type, 'sipCppV')
+
+    return f'{klass_type} *sipCpp = {cast}'
 
 
 def get_const_cast(spec, type, value):
@@ -154,7 +159,29 @@ def get_enum_member(spec, enum_member):
 
         scope_s += '::'
 
-    return f'static_cast<int>({scope_s}{enum_member.cpp_name})'
+    return scope_s + enum_member.cpp_name
+
+
+def get_function_table(members):
+    """ Return a sorted list of relevant functions for a namespace. """
+
+    return sorted(members, key=lambda m: m.py_name.name)
+
+
+def get_mapped_type_flags(mapped_type):
+    """ Return the flags for a mapped type. """
+
+    flags = []
+
+    if mapped_type.handles_none:
+        flags.append('SIP_TYPE_ALLOW_NONE')
+
+    if mapped_type.needs_user_state:
+        flags.append('SIP_TYPE_USER_STATE')
+
+    flags.append('SIP_TYPE_MAPPED')
+
+    return '|'.join(flags)
 
 
 def get_named_value_decl(spec, scope, type, name):

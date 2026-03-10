@@ -439,6 +439,9 @@ class ModelCallEvent(BaseTelemetryEvent):
     # Task associated with the model call
     task: Literal["classification", "regression"]
 
+    # Install ID of the user
+    install_id: str = field(default_factory=_get_install_id, init=False)
+
     # Version of the PyTorch
     torch_version: str = field(default_factory=_get_torch_version, init=False)
 

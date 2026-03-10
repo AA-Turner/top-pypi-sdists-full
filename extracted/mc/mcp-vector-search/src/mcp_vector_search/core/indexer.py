@@ -5,16 +5,12 @@ Phase 2: Embed chunks, store to vectors.lance (resumable, incremental)
 """
 
 import asyncio
-import gc
-import json
 import os
-import shutil
 import sys
 import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -25,207 +21,46 @@ from ..analysis.trends import TrendTracker
 from ..config.settings import ProjectConfig
 from ..parsers.registry import get_parser_registry
 from ..utils.monorepo import MonorepoDetector
-from .bm25_backend import BM25Backend
+from .atomic_rebuild import AtomicRebuildManager
+from .bm25_builder import build_bm25_index as _build_bm25_index_fn
+from .chunk_dict import build_hierarchy_path as _build_hierarchy_path_fn
+from .chunk_dict import chunk_to_storage_dict
 from .chunk_processor import ChunkProcessor
+from .chunking_runner import run_phase1_chunking
 from .chunks_backend import ChunksBackend, compute_file_hash
-from .context_builder import build_contextual_text
 from .database import VectorDatabase
 from .directory_index import DirectoryIndex
+from .embedding_runner import run_phase2_embedding
 from .exceptions import (
-    DatabaseError,
     DatabaseInitializationError,
     IndexingError,
     ParsingError,
 )
 from .file_discovery import FileDiscovery
+from .file_move_detector import detect_file_moves as _detect_file_moves_fn
+from .index_cleanup import (  # re-exported for backward compatibility
+    cleanup_stale_locks,
+    cleanup_stale_progress,
+    cleanup_stale_transactions,
+)
+from .index_cleanup import (
+    run_auto_migrations as _run_auto_migrations_fn,
+)
 from .index_metadata import IndexMetadata
 from .memory_monitor import MemoryMonitor
 from .metrics import get_metrics_tracker
 from .metrics_collector import IndexerMetricsCollector
-from .models import CodeChunk, IndexResult, IndexStats, ProjectStatus
+from .models import (
+    CodeChunk,
+    HealthStatus,  # noqa: F401  # re-exported; avoids LanceDB in package __init__
+    IndexResult,
+    IndexStats,
+    ProjectStatus,
+)
+from .pipeline import IndexPipeline
 from .relationships import RelationshipStore
 from .resource_manager import calculate_optimal_workers
 from .vectors_backend import VectorsBackend
-
-
-def cleanup_stale_locks(project_dir: Path) -> None:
-    """Remove stale SQLite journal files that indicate interrupted transactions.
-
-    Journal files (-journal, -wal, -shm) can be left behind if indexing is
-    interrupted or crashes, preventing future database access. This function
-    safely removes stale lock files at index startup.
-
-    Args:
-        project_dir: Project root directory containing .mcp-vector-search/
-    """
-    mcp_dir = project_dir / ".mcp-vector-search"
-    if not mcp_dir.exists():
-        return
-
-    # SQLite journal file extensions that indicate locks/transactions
-    lock_extensions = ["-journal", "-wal", "-shm"]
-
-    removed_count = 0
-    for ext in lock_extensions:
-        lock_path = mcp_dir / f"chroma.sqlite3{ext}"
-        if lock_path.exists():
-            try:
-                lock_path.unlink()
-                logger.warning(f"Removed stale database lock file: {lock_path.name}")
-                removed_count += 1
-            except Exception as e:
-                logger.error(f"Failed to remove stale lock file {lock_path}: {e}")
-
-    if removed_count > 0:
-        logger.info(
-            f"Cleaned up {removed_count} stale lock files (indexing can now proceed)"
-        )
-
-
-def cleanup_stale_transactions(index_path: Path, stale_age_seconds: int = 3600) -> None:
-    """Remove stale LanceDB transaction files from crashed previous runs.
-
-    LanceDB writes *.txn files inside {table}/_transactions/ directories while a
-    write is in progress. If the process crashes mid-transaction these files are
-    left behind and cause the next run to fail during table initialisation with
-    an OS-level exit code (e.g. 120) that is indistinguishable from a signal.
-
-    This helper removes transaction files that are older than *stale_age_seconds*
-    (default: 1 hour). It is intentionally non-fatal — any OSError is swallowed
-    so a failed cleanup never blocks indexing.
-
-    Args:
-        index_path: Root of the index directory (contains the ``lance/`` sub-dir).
-        stale_age_seconds: Files older than this many seconds are considered stale
-            and will be removed. Default is 3600 (one hour).
-    """
-    import glob
-
-    lance_dir = index_path / "lance"
-    if not lance_dir.exists():
-        return
-
-    txn_pattern = str(lance_dir / "**" / "_transactions" / "*.txn")
-    stale_cutoff = time.time() - stale_age_seconds
-    cleaned = 0
-    for txn_file in glob.glob(txn_pattern, recursive=True):
-        try:
-            if os.path.getmtime(txn_file) < stale_cutoff:
-                os.remove(txn_file)
-                cleaned += 1
-                logger.debug("Removed stale LanceDB transaction file: %s", txn_file)
-        except OSError:
-            pass  # Non-fatal: never block indexing over a cleanup failure
-
-    if cleaned:
-        logger.info(
-            "Cleaned up %d stale LanceDB transaction file(s) from previous crashed run",
-            cleaned,
-        )
-
-
-def cleanup_stale_progress(index_path: Path, stale_age_seconds: int = 3600) -> None:
-    """Remove a stale progress.json left by a crashed indexing run.
-
-    If progress.json reports ``phase: "chunking"`` with zero files processed and
-    the file itself is older than *stale_age_seconds* it almost certainly belongs
-    to a run that crashed at initialisation (before any real work was done).
-    Leaving it around causes subsequent runs to display misleading progress.
-
-    Args:
-        index_path: Root of the index directory (contains ``.mcp-vector-search/``).
-        stale_age_seconds: Files older than this many seconds are considered stale.
-            Default is 3600 (one hour).
-    """
-    progress_file = index_path / ".mcp-vector-search" / "progress.json"
-    if not progress_file.exists():
-        return
-
-    try:
-        age = time.time() - os.path.getmtime(str(progress_file))
-        if age < stale_age_seconds:
-            return  # Recent file — leave it alone
-
-        with open(progress_file) as fh:
-            data = json.load(fh)
-
-        phase = data.get("phase", "")
-        chunking = data.get("chunking", {})
-        processed_files = chunking.get("processed_files", -1)
-
-        if phase == "chunking" and processed_files == 0:
-            os.remove(str(progress_file))
-            logger.info(
-                "Removed stale progress.json (phase=chunking, 0 files processed, "
-                "age=%.0f s) — likely left by a crashed previous run",
-                age,
-            )
-    except Exception:
-        pass  # Non-fatal: never block indexing over a cleanup failure
-
-
-def _detect_filesystem_type(db_path: Path) -> str:
-    """Detect filesystem type of the database path for I/O optimization.
-
-    Returns: "nfs" for NFS/EFS/CIFS mounts, "nvme" for local NVMe, "default" otherwise.
-
-    Non-fatal: any error causes fallback to "default".
-    """
-    try:
-        # Linux: parse /proc/mounts to find the mount for db_path
-        if Path("/proc/mounts").exists():
-            db_str = str(db_path.resolve())
-            best_mount = ""
-            best_fstype = "default"
-            best_source = ""
-
-            with open("/proc/mounts") as f:
-                for line in f:
-                    parts = line.split()
-                    if len(parts) < 3:
-                        continue
-                    source = parts[0]
-                    mount_point = parts[1]
-                    fstype = parts[2].lower()
-                    # Find longest matching mount point for db_path
-                    if db_str.startswith(mount_point) and len(mount_point) > len(
-                        best_mount
-                    ):
-                        best_mount = mount_point
-                        best_fstype = fstype
-                        best_source = source
-
-            if best_fstype in ("nfs", "nfs4", "cifs", "smbfs", "efs"):
-                return "nfs"
-
-            # Check for NVMe: source device name contains "nvme" (e.g. /dev/nvme0n1p1)
-            # OR mount point path suggests a dedicated NVMe mount (e.g. /mnt/nvme)
-            if "nvme" in best_source.lower() or "/nvme" in best_mount.lower():
-                return "nvme"
-
-        # macOS / fallback: use stat -f to detect network filesystems
-        import subprocess
-
-        result = subprocess.run(  # nosec B607
-            ["stat", "-f", "-c", "%T", str(db_path.resolve())],
-            capture_output=True,
-            text=True,
-            check=False,
-            timeout=2,
-        )
-        if result.returncode == 0:
-            fstype = result.stdout.strip().lower()
-            if "nfs" in fstype or "smbfs" in fstype or "cifs" in fstype:
-                return "nfs"
-
-        return "default"
-    except Exception:
-        return "default"
-
-
-# HealthStatus lives in models.py to avoid pulling LanceDB into the package
-# __init__.py import chain (which would break the KG subprocess).
-from .models import HealthStatus  # noqa: F401, E402
 
 
 @dataclass
@@ -702,73 +537,18 @@ class SemanticIndexer:
     async def _run_auto_migrations(self) -> None:
         """Check and run pending database migrations automatically.
 
-        This method is called during indexer initialization to ensure
-        the database schema is up-to-date before indexing begins.
-
-        Only runs migrations that are needed (check_needed() returns True).
-        Logs warnings if migrations fail but doesn't stop indexing.
+        Delegates to :func:`core.index_cleanup.run_auto_migrations`.
         """
-        try:
-            from ..migrations import MigrationRunner
-            from ..migrations.v2_3_0_two_phase import TwoPhaseArchitectureMigration
-
-            # Create migration runner
-            runner = MigrationRunner(self.project_root)
-
-            # Register migrations that might be needed
-            runner.register_migrations([TwoPhaseArchitectureMigration()])
-
-            # Get pending migrations
-            pending = runner.get_pending_migrations()
-
-            if not pending:
-                logger.debug("No pending migrations, schema is up-to-date")
-                return
-
-            logger.info(
-                f"Found {len(pending)} pending migration(s), running automatically..."
-            )
-
-            # Run pending migrations
-            for migration in pending:
-                logger.info(
-                    f"Running migration: {migration.name} (v{migration.version})"
-                )
-
-                result = runner.run_migration(migration, dry_run=False, force=False)
-
-                if result.status.value == "success":
-                    logger.info(f"✓ Migration {migration.name} completed successfully")
-                    if result.metadata:
-                        for key, value in result.metadata.items():
-                            logger.debug(f"  {key}: {value}")
-                elif result.status.value == "skipped":
-                    logger.debug(
-                        f"⊘ Migration {migration.name} skipped: {result.message}"
-                    )
-                elif result.status.value == "failed":
-                    logger.warning(
-                        f"✗ Migration {migration.name} failed: {result.message}\n"
-                        "  Continuing with indexing, but you may encounter issues.\n"
-                        "  Run 'mcp-vector-search migrate' to fix manually."
-                    )
-
-        except Exception as e:
-            logger.warning(
-                f"Auto-migration check failed: {e}\n"
-                "  Continuing with indexing, but you may encounter schema issues.\n"
-                "  Run 'mcp-vector-search migrate' to fix manually."
-            )
+        await _run_auto_migrations_fn(self.project_root)
 
     async def _index_with_pipeline(
         self, force_reindex: bool = False
     ) -> tuple[int, int, int]:
         """Index files using pipeline parallelism to overlap Phase 1 and Phase 2.
 
-        This method implements a producer-consumer pattern where:
-        - Producer: Chunks files in batches and puts them on a queue
-        - Consumer: Embeds chunks from the queue concurrently
-        - Result: Parsing and embedding overlap for 30-50% speedup
+        Performs file discovery, change detection, and batch-deletion of stale
+        chunks, then delegates the producer-consumer pipeline execution to
+        :class:`~.pipeline.IndexPipeline`.
 
         Args:
             force_reindex: Whether to reindex all files
@@ -797,6 +577,7 @@ class SemanticIndexer:
 
         # Filter files that need indexing
         files_to_index = all_files
+        file_hash_cache: dict[Path, str] = {}
         if not force_reindex:
             logger.info(
                 f"Incremental change detection: checking {len(all_files)} files..."
@@ -873,28 +654,10 @@ class SemanticIndexer:
                     logger.info(f"BM25 index already exists at {bm25_path}")
             return 0, 0, 0
 
-        # PIPELINE IMPLEMENTATION: Producer-consumer pattern
-        files_indexed = 0
-        chunks_created = 0
-        chunks_embedded = 0
-
-        # Get metrics tracker
-        metrics_tracker = get_metrics_tracker()
-
-        # File batch size for parsing: use self.batch_size (configurable, not hardcoded)
-        file_batch_size = self.batch_size
-
-        # Number of concurrent producer tasks (each handles a slice of files_to_process)
-        num_producers = self._indexer_config.num_producers
-
-        # --- Prepare files_to_process and batch-delete old chunks BEFORE launching producers ---
-        # This is done once in the main scope so all producers share the same list.
-        # files_to_index was already filtered by the outer _index_with_pipeline scope
-        # (get_all_indexed_file_hashes + _detect_file_moves + change detection loop).
+        # --- Prepare files_to_process and batch-delete old chunks BEFORE launching pipeline ---
         logger.info(
-            f"📄 Phase 1: Chunking {len(files_to_index)} files (parsing and extracting code structure)..."
+            f"Phase 1: Chunking {len(files_to_index)} files (parsing and extracting code structure)..."
         )
-        phase_start_time = time.time()
 
         files_to_delete = []
         files_to_process = []
@@ -928,599 +691,26 @@ class SemanticIndexer:
                     f"Batch deleted {deleted_count} old chunks for {len(files_to_delete)} files"
                 )
 
-        # Clamp num_producers to the actual number of files (avoid empty producers)
-        effective_num_producers = max(1, min(num_producers, len(files_to_process)))
-        if effective_num_producers < num_producers:
-            logger.debug(
-                f"Clamping producers from {num_producers} to {effective_num_producers} "
-                f"(only {len(files_to_process)} files to process)"
-            )
-
-        # FIX 3 (HIGH): Auto-scale queue depth to num_producers * 4.
-        # With depth=4 and 4 producers each producer gets ~1 slot, eliminating
-        # pipelining benefit.  N*4 gives each producer 4 batches of lookahead.
-        queue_maxsize = self._indexer_config.queue_depth or (
-            effective_num_producers * 4
+        pipeline = IndexPipeline(
+            files_to_process=files_to_process,
+            files_to_index=files_to_index,
+            chunks_backend=self.chunks_backend,
+            vectors_backend=self.vectors_backend,
+            database=self.database,
+            chunk_processor=self.chunk_processor,
+            memory_monitor=self.memory_monitor,
+            progress_tracker=self.progress_tracker,
+            project_root=self.project_root,
+            mcp_dir=self._mcp_dir,
+            indexer_config=self._indexer_config,
+            metadata=self.metadata,
+            batch_size=self.batch_size,
+            embed_batch_size=self.embed_batch_size,
+            use_multiprocessing=self.use_multiprocessing,
+            atomic_rebuild_active=self._atomic_rebuild_active,
+            get_embedding_model_name=self.get_embedding_model_name,
         )
-        chunk_queue: asyncio.Queue = asyncio.Queue(maxsize=queue_maxsize)
-
-        # FIX 1 (CRITICAL RELIABILITY): Cancellation event so producers can detect
-        # that the consumer has crashed and stop blocking on chunk_queue.put().
-        pipeline_cancel = asyncio.Event()
-
-        # FIX 6 (HIGH): LPT scheduling — sort files by descending size so large
-        # files distribute evenly across producers (Longest Processing Time heuristic).
-        try:
-            files_to_process.sort(
-                key=lambda x: x[0].stat().st_size if x[0].exists() else 0,
-                reverse=True,
-            )
-        except OSError:
-            pass  # Non-fatal: proceed with original order
-
-        async def chunk_producer(producer_id: int, file_slice: list) -> None:
-            """Producer: Parse and chunk a slice of files, put batches on queue.
-
-            Args:
-                producer_id: Index of this producer (0-based, for logging)
-                file_slice: Subset of files_to_process this producer owns
-            """
-            nonlocal files_indexed, chunks_created
-
-            with metrics_tracker.phase("parsing") as parsing_metrics:
-                # Process files in batches and put on queue
-                for batch_start in range(0, len(file_slice), file_batch_size):
-                    # Check if pipeline was cancelled (consumer crashed)
-                    if pipeline_cancel.is_set():
-                        logger.warning(
-                            "Producer %d: pipeline cancelled, stopping", producer_id
-                        )
-                        return
-
-                    # Check if consumer is still alive
-                    if consumer_task.done():
-                        exc = consumer_task.exception()
-                        logger.error(
-                            f"Consumer died unexpectedly: {exc}. Stopping producer {producer_id}."
-                        )
-                        return
-
-                    batch_end = min(batch_start + file_batch_size, len(file_slice))
-                    batch = file_slice[batch_start:batch_end]
-
-                    batch_chunks = []
-                    batch_files_processed = 0
-
-                    # FIX 2 (CRITICAL PERFORMANCE): Use process pool for batch parsing.
-                    # parse_files_multiprocess() uses ProcessPoolExecutor giving 6-12x
-                    # speedup on multi-core machines vs. serial per-file await.
-                    batch_paths = [fp for fp, _rel, _hash in batch]
-                    rel_paths = {fp: rel for fp, rel, _hash in batch}
-                    file_hashes = {fp: fh for fp, _rel, fh in batch}
-
-                    if self.use_multiprocessing and len(batch_paths) > 1:
-                        parse_results = (
-                            await self.chunk_processor.parse_files_multiprocess(
-                                batch_paths
-                            )
-                        )
-                    else:
-                        # Fallback: parse sequentially for single-file batches or
-                        # when multiprocessing is disabled
-                        parse_results = []
-                        for fp in batch_paths:
-                            try:
-                                chunks = await self.chunk_processor.parse_file(fp)
-                                parse_results.append((fp, chunks, None))
-                            except Exception as exc:
-                                parse_results.append((fp, [], exc))
-
-                    # FIX 8 (LOW): Throttle memory checks to every 10 files to
-                    # avoid 200-500ms of psutil syscall overhead at 50K files.
-                    for idx, (file_path, chunks, parse_error) in enumerate(
-                        parse_results
-                    ):
-                        rel_path = rel_paths.get(file_path, str(file_path))
-                        file_hash = file_hashes.get(file_path, "")
-
-                        if idx % 10 == 0:
-                            is_ok, usage_pct, status = (
-                                self.memory_monitor.check_memory_limit()
-                            )
-                            if not is_ok:
-                                logger.warning(
-                                    f"Memory limit exceeded during chunking "
-                                    f"({usage_pct * 100:.1f}% of {self.memory_monitor.max_memory_gb:.1f}GB), "
-                                    "waiting for memory to free up..."
-                                )
-                                await self.memory_monitor.wait_for_memory_available(
-                                    target_pct=self.memory_monitor.warn_threshold
-                                )
-
-                        if parse_error:
-                            logger.error(
-                                f"Failed to chunk file {file_path}: {parse_error}"
-                            )
-                            continue
-
-                        try:
-                            if not chunks:
-                                # Use TRACE to avoid cluttering progress displays
-                                logger.trace(f"No chunks extracted from {file_path}")
-                                continue
-
-                            # Build hierarchical relationships (CPU-bound, run in thread pool)
-                            chunks_with_hierarchy = await asyncio.to_thread(
-                                self.chunk_processor.build_chunk_hierarchy, chunks
-                            )
-
-                            # Convert CodeChunk objects to dicts for storage
-                            chunk_dicts = []
-                            for chunk in chunks_with_hierarchy:
-                                chunk_dict = {
-                                    "chunk_id": chunk.chunk_id,
-                                    "file_path": rel_path,
-                                    "content": chunk.content,
-                                    "language": chunk.language,
-                                    "start_line": chunk.start_line,
-                                    "end_line": chunk.end_line,
-                                    "start_char": 0,
-                                    "end_char": 0,
-                                    "chunk_type": chunk.chunk_type,
-                                    "name": chunk.function_name
-                                    or chunk.class_name
-                                    or "",
-                                    "parent_name": "",
-                                    "hierarchy_path": self._build_hierarchy_path(chunk),
-                                    "docstring": chunk.docstring or "",
-                                    "signature": "",
-                                    "complexity": int(chunk.complexity_score),
-                                    "token_count": len(chunk.content.split()),
-                                    "last_author": chunk.last_author or "",
-                                    "last_modified": chunk.last_modified or "",
-                                    "commit_hash": chunk.commit_hash or "",
-                                    "calls": chunk.calls or [],
-                                    "imports": [
-                                        json.dumps(imp)
-                                        if isinstance(imp, dict)
-                                        else imp
-                                        for imp in (chunk.imports or [])
-                                    ],
-                                    "inherits_from": chunk.inherits_from or [],
-                                }
-                                chunk_dicts.append(chunk_dict)
-
-                            # Accumulate chunks for a single batched write after the
-                            # full batch is parsed.  file_hash is injected here so
-                            # add_chunks_batch() can deduplicate per-file.  This mirrors
-                            # the two-pass path (see _flush_pending_chunks / add_chunks_batch).
-                            # NOTE: the old per-file add_chunks() call was the primary cause
-                            # of GPU starvation: 512 sequential EFS writes (25-100s) per
-                            # batch while the GPU sat idle.
-                            if chunk_dicts:
-                                for cd in chunk_dicts:
-                                    cd["file_hash"] = file_hash
-                                batch_chunks.extend(chunk_dicts)
-                                batch_files_processed += 1
-                                logger.trace(
-                                    f"Chunked {len(chunk_dicts)} chunks from {rel_path}"
-                                )
-
-                        except Exception as e:
-                            logger.error(f"Failed to chunk file {file_path}: {e}")
-                            continue
-
-                    # Write all accumulated batch chunks to chunks.lance in ONE call.
-                    # This replaces N per-file add_chunks() calls with a single
-                    # add_chunks_batch() call per batch, eliminating the primary source
-                    # of GPU starvation (N×EFS writes → 1×EFS write per batch).
-                    if batch_chunks:
-                        count = await self.chunks_backend.add_chunks_batch(batch_chunks)
-                        chunks_created += count
-
-                    files_indexed += batch_files_processed
-
-                    # Put batch on queue for embedding.
-                    # FIX 1 (CRITICAL RELIABILITY): Race put() against pipeline_cancel
-                    # so producers don't hang forever if the consumer crashes and the
-                    # queue is full.
-                    if batch_chunks:
-                        # Show progress bar if tracker is available
-                        if self.progress_tracker:
-                            self.progress_tracker.progress_bar_with_eta(
-                                current=files_indexed,
-                                total=len(files_to_process),
-                                prefix="Parsing files",
-                                start_time=phase_start_time,
-                            )
-                        else:
-                            logger.info(
-                                f"Phase 1 progress: {files_indexed}/{len(files_to_process)} files, "
-                                f"{chunks_created} chunks | Queuing {len(batch_chunks)} chunks for embedding"
-                            )
-                        put_task = asyncio.ensure_future(
-                            chunk_queue.put(
-                                {
-                                    "chunks": batch_chunks,
-                                    "batch_size": len(batch_chunks),
-                                }
-                            )
-                        )
-                        cancel_task = asyncio.ensure_future(pipeline_cancel.wait())
-                        done, pending = await asyncio.wait(
-                            [put_task, cancel_task],
-                            return_when=asyncio.FIRST_COMPLETED,
-                        )
-                        for t in pending:
-                            t.cancel()
-                            try:
-                                await t
-                            except asyncio.CancelledError:
-                                pass
-                        if pipeline_cancel.is_set():
-                            logger.warning(
-                                "Producer %d: pipeline cancelled, stopping", producer_id
-                            )
-                            return
-                        # Yield to event loop to let consumer process the batch
-                        await asyncio.sleep(0)
-
-                # Update metrics for this producer's share
-                parsing_metrics.item_count = files_indexed
-
-            # Track chunking separately (each producer updates the shared metric)
-            with metrics_tracker.phase("chunking") as chunking_metrics:
-                chunking_metrics.item_count = chunks_created
-
-            # Log this producer's completion
-            self.memory_monitor.log_memory_summary()
-            logger.info(
-                f"✓ Producer {producer_id} complete: processed slice of {len(file_slice)} files"
-            )
-
-            # Each producer sends its own sentinel so the consumer knows when ALL are done
-            await chunk_queue.put(None)
-
-        async def embed_consumer():
-            """Consumer: Take chunks from queue, embed, and store to vectors.lance."""
-            nonlocal chunks_embedded
-
-            logger.info(
-                "🧠 Phase 2: Embedding pending chunks (GPU processing for semantic search)..."
-            )
-
-            embedding_batch_size = (
-                self.embed_batch_size
-            )  # GPU embedding batch size (separate from file batch size)
-            consecutive_errors = 0  # Track consecutive errors to detect fatal issues
-            # Track start time for ETA calculation
-            embed_start_time = time.time()
-
-            # Batched LanceDB writes: buffer chunks to reduce fragment count
-            # Use configured write_batch_size if set; otherwise auto-detect from filesystem type.
-            if self._indexer_config.write_batch_size is not None:
-                write_batch_size = self._indexer_config.write_batch_size
-            else:
-                _fs_type = _detect_filesystem_type(self._mcp_dir / "lance")
-                _fs_batch_defaults: dict[str, int] = {
-                    "nfs": 16384,
-                    "nvme": 1024,
-                    "default": 4096,
-                }
-                write_batch_size = _fs_batch_defaults[_fs_type]
-                if _fs_type != "default":
-                    logger.info(
-                        "Detected %s filesystem: write_batch_size=%d",
-                        _fs_type.upper(),
-                        write_batch_size,
-                    )
-            write_buffer: list[dict] = []
-
-            # Count sentinels: one per producer — consumer stops after all producers finish
-            sentinels_received = 0
-
-            with metrics_tracker.phase("embedding") as embedding_metrics:
-                try:
-                    while sentinels_received < effective_num_producers:
-                        # Get next batch from queue (blocks until available)
-                        batch_data = await chunk_queue.get()
-
-                        # Check for completion signal from a producer
-                        if batch_data is None:
-                            sentinels_received += 1
-                            logger.debug(
-                                f"Received sentinel {sentinels_received}/{effective_num_producers} from producers"
-                            )
-                            continue
-
-                        chunks = batch_data["chunks"]
-
-                        if not chunks:
-                            continue
-
-                        # Process chunks in embedding batches
-                        for emb_batch_start in range(
-                            0, len(chunks), embedding_batch_size
-                        ):
-                            emb_batch_end = min(
-                                emb_batch_start + embedding_batch_size, len(chunks)
-                            )
-                            emb_batch = chunks[emb_batch_start:emb_batch_end]
-
-                            # Check memory before embedding
-                            usage_pct = self.memory_monitor.get_memory_usage_pct()
-
-                            # Proactively reduce batch size if memory is high
-                            while usage_pct > 0.90 and embedding_batch_size > 100:
-                                embedding_batch_size = embedding_batch_size // 2
-                                logger.warning(
-                                    f"⚠️  Memory at {usage_pct * 100:.1f}%, proactively reducing batch to {embedding_batch_size}"
-                                )
-                                usage_pct = self.memory_monitor.get_memory_usage_pct()
-
-                            if usage_pct > 0.90:
-                                logger.warning(
-                                    f"Memory usage at {usage_pct * 100:.1f}%, waiting for memory to drop..."
-                                )
-                                try:
-                                    await asyncio.wait_for(
-                                        self.memory_monitor.wait_for_memory_available(
-                                            target_pct=0.80
-                                        ),
-                                        timeout=120.0,  # 2 minute timeout
-                                    )
-                                except TimeoutError:
-                                    logger.warning(
-                                        "Memory wait timed out after 120s, proceeding anyway"
-                                    )
-
-                            try:
-                                # Generate embeddings using context-enriched text.
-                                # build_contextual_text() prepends file path, language,
-                                # class/function context, imports, and docstring to each
-                                # chunk before embedding, improving retrieval quality by
-                                # 35–49% (contextual RAG research).  The stored
-                                # chunk["content"] field is NOT modified — only the text
-                                # sent to the embedding model is enriched.
-                                contents = [build_contextual_text(c) for c in emb_batch]
-
-                                # Check memory before expensive embedding
-                                is_ok, usage_pct, status = (
-                                    self.memory_monitor.check_memory_limit()
-                                )
-                                if not is_ok:
-                                    logger.warning(
-                                        f"Memory limit exceeded before embedding "
-                                        f"({usage_pct * 100:.1f}% of {self.memory_monitor.max_memory_gb:.1f}GB). "
-                                        "Waiting for memory..."
-                                    )
-                                    try:
-                                        await asyncio.wait_for(
-                                            self.memory_monitor.wait_for_memory_available(
-                                                target_pct=self.memory_monitor.warn_threshold
-                                            ),
-                                            timeout=120.0,  # 2 minute timeout
-                                        )
-                                    except TimeoutError:
-                                        logger.warning(
-                                            "Memory wait timed out after 120s, proceeding anyway"
-                                        )
-
-                                # FIX 4 (HIGH): Wrap the synchronous embedding call in
-                                # asyncio.to_thread so the event loop thread is not
-                                # blocked for 100ms-2s per batch.  Progress display,
-                                # memory monitoring, and cancellation can run during
-                                # the embedding without this blocking them.
-                                vectors = None
-                                if hasattr(self.database, "_embedding_function"):
-                                    vectors = await asyncio.to_thread(
-                                        self.database._embedding_function, contents
-                                    )
-                                elif hasattr(self.database, "_collection") and hasattr(
-                                    self.database._collection, "_embedding_function"
-                                ):
-                                    vectors = await asyncio.to_thread(
-                                        self.database._collection._embedding_function,
-                                        contents,
-                                    )
-                                elif hasattr(self.database, "embedding_function"):
-                                    vectors = await asyncio.to_thread(
-                                        self.database.embedding_function.embed_documents,
-                                        contents,
-                                    )
-                                else:
-                                    logger.error(
-                                        "Cannot access embedding function from database, skipping batch"
-                                    )
-                                    continue
-
-                                if vectors is None:
-                                    raise ValueError("Failed to generate embeddings")
-
-                                # Add to write buffer
-                                for chunk, vec in zip(emb_batch, vectors, strict=True):
-                                    write_buffer.append(
-                                        {
-                                            "chunk_id": chunk["chunk_id"],
-                                            "vector": vec,
-                                            "file_path": chunk["file_path"],
-                                            "content": chunk["content"],
-                                            "language": chunk["language"],
-                                            "start_line": chunk["start_line"],
-                                            "end_line": chunk["end_line"],
-                                            "chunk_type": chunk["chunk_type"],
-                                            "name": chunk["name"],
-                                            "hierarchy_path": chunk["hierarchy_path"],
-                                        }
-                                    )
-                                chunks_embedded += len(emb_batch)
-
-                                # Flush write buffer when it reaches write_batch_size
-                                # This reduces LanceDB fragment count and EFS I/O amplification
-                                if len(write_buffer) >= write_batch_size:
-                                    model_name = self.get_embedding_model_name()
-                                    await self.vectors_backend.add_vectors(
-                                        write_buffer, model_version=model_name
-                                    )
-                                    logger.debug(
-                                        f"Flushed {len(write_buffer)} vectors to LanceDB"
-                                    )
-                                    write_buffer = []
-
-                                # Reset consecutive error counter on success
-                                consecutive_errors = 0
-
-                                # Periodic GC to release Arrow/LanceDB buffers that
-                                # CPython's reference-counter may not catch immediately.
-                                # Runs every 10 000 embedded chunks to keep overhead low.
-                                if (
-                                    chunks_embedded % 10_000 == 0
-                                    and chunks_embedded > 0
-                                ):
-                                    import gc
-
-                                    gc.collect()
-                                    logger.debug(
-                                        "GC collect at %d embedded chunks (Arrow buffer cleanup)",
-                                        chunks_embedded,
-                                    )
-
-                                # Show progress bar if tracker is available
-                                # Note: We use chunks_created as an estimate of total (may update as producer runs)
-                                if self.progress_tracker and chunks_created > 0:
-                                    self.progress_tracker.progress_bar_with_eta(
-                                        current=chunks_embedded,
-                                        total=chunks_created,
-                                        prefix="Embedding chunks",
-                                        start_time=embed_start_time,
-                                    )
-                                else:
-                                    logger.info(
-                                        f"Phase 2 progress: {chunks_embedded} chunks embedded"
-                                    )
-
-                            except Exception as e:
-                                consecutive_errors += 1
-                                logger.error(
-                                    f"Failed to embed batch (consecutive errors: {consecutive_errors}): {e}"
-                                )
-
-                                # Fail after too many consecutive errors to avoid silent hangs
-                                if consecutive_errors >= 3:
-                                    logger.error(
-                                        f"Too many consecutive embedding errors ({consecutive_errors}), "
-                                        "stopping consumer to prevent silent failure"
-                                    )
-                                    raise
-
-                                continue
-
-                finally:
-                    # FIX 1 (CRITICAL RELIABILITY): Signal producers that the
-                    # consumer is exiting (whether normally or due to an error) so
-                    # they stop blocking on chunk_queue.put().
-                    pipeline_cancel.set()
-
-                    # Always flush remaining write buffer even if an exception occurred
-                    if write_buffer:
-                        try:
-                            model_name = self.get_embedding_model_name()
-                            await self.vectors_backend.add_vectors(
-                                write_buffer, model_version=model_name
-                            )
-                            logger.debug(
-                                f"Flushed remaining {len(write_buffer)} vectors to LanceDB"
-                            )
-                        except Exception as flush_err:
-                            # FIX 7 (MEDIUM): Mark lost chunk IDs for re-embedding on
-                            # next run instead of silently losing vectors forever.
-                            lost_ids = [
-                                c["chunk_id"] for c in write_buffer if "chunk_id" in c
-                            ]
-                            logger.error(
-                                "CRITICAL: Failed to flush %d vectors to LanceDB: %s",
-                                len(lost_ids),
-                                flush_err,
-                            )
-                            if lost_ids and hasattr(self, "chunks_backend"):
-                                try:
-                                    await self.chunks_backend.mark_chunks_error(
-                                        lost_ids, str(flush_err)
-                                    )
-                                except Exception:
-                                    pass
-                        write_buffer = []
-
-                # Update metrics
-                embedding_metrics.item_count = chunks_embedded
-
-            logger.info(f"✓ Phase 2 complete: {chunks_embedded} chunks embedded")
-
-        # Split files_to_process into num_producers roughly equal slices (stride-based)
-        # Stride-based (round-robin) distributes files evenly while keeping similar
-        # file types together for better cache locality in the parser.
-        producer_slices = [
-            files_to_process[i::effective_num_producers]
-            for i in range(effective_num_producers)
-        ]
-        logger.info(
-            f"Starting pipeline: {effective_num_producers} producer(s) + 1 consumer "
-            f"(Phase 1 parsing and Phase 2 embedding will overlap)"
-        )
-
-        # Run producer and consumer concurrently with pipeline parallelism
-        # Consumer must be created FIRST so producer tasks can reference it
-        consumer_task = asyncio.create_task(embed_consumer())
-
-        # Create one producer task per slice
-        producer_tasks = [
-            asyncio.create_task(chunk_producer(i, producer_slices[i]))
-            for i in range(effective_num_producers)
-        ]
-
-        # Wait for all tasks to complete with proper error handling.
-        # FIX 5 (HIGH): Use return_exceptions=True so a second simultaneous
-        # failure is not swallowed when the first exception is raised.
-        all_tasks = producer_tasks + [consumer_task]
-        results = await asyncio.gather(*all_tasks, return_exceptions=True)
-        exceptions = [
-            r
-            for r in results
-            if isinstance(r, BaseException)
-            and not isinstance(r, asyncio.CancelledError)
-        ]
-        if exceptions:
-            logger.error(f"Pipeline task failed: {exceptions[0]}")
-            # Log any additional simultaneous failures
-            for exc in exceptions[1:]:
-                logger.error("Additional pipeline task failure: %s", exc)
-
-            # Cancel all remaining tasks if one fails
-            for task in all_tasks:
-                if not task.done():
-                    task.cancel()
-                    try:
-                        await task
-                    except asyncio.CancelledError:
-                        pass
-
-            # Re-raise the first exception
-            raise exceptions[0]
-
-        # Update metadata for backward compatibility
-        if files_indexed > 0:
-            metadata_dict = self.metadata.load()
-            for file_path in files_to_index:
-                try:
-                    metadata_dict[str(file_path)] = os.path.getmtime(file_path)
-                except OSError:
-                    pass
-            self.metadata.save(metadata_dict)
-
-        # CLEANUP: Shutdown persistent ProcessPoolExecutor after indexing completes
-        self.chunk_processor.close()
-
-        return files_indexed, chunks_created, chunks_embedded
+        return await pipeline.run()
 
     def _detect_file_moves(
         self,
@@ -1529,102 +719,14 @@ class SemanticIndexer:
     ) -> tuple[list[tuple[str, str, str]], set[str], dict[Path, str]]:
         """Detect file moves/renames by matching content hashes.
 
-        Compares the set of currently indexed paths against on-disk paths.
-        When an indexed path is gone but a new path has the same SHA-256
-        content hash, we treat that as a move rather than a delete+add.
-
-        Only unambiguous 1-to-1 moves are handled.  If multiple indexed
-        paths share the same hash, they are matched by sorted name order —
-        this covers batch directory-rename scenarios while staying safe.
-
-        Also returns the file_path → hash mapping computed during the scan
-        so callers can reuse it for change detection without re-hashing.
-
-        Args:
-            current_files: All currently-discoverable files on disk
-            indexed_file_hashes: Mapping of rel_path → file_hash from the DB
-
-        Returns:
-            Tuple of:
-            - List of (old_path, new_path, file_hash) for each detected move
-            - Set of old_path strings that were moved (exclude from normal
-              delete/re-process flow after caller reloads hashes)
-            - Dict mapping absolute Path → hash for all scanned files
-              (reusable by change detection to avoid double-hashing)
+        Delegates to :func:`core.file_move_detector.detect_file_moves`.
         """
-        import time as _time
-
-        # Reverse index: hash → set of paths currently in the DB
-        hash_to_indexed: dict[str, set[str]] = {}
-        for path, hash_val in indexed_file_hashes.items():
-            hash_to_indexed.setdefault(hash_val, set()).add(path)
-
-        # Build set of relative paths that exist on disk right now, and a
-        # reverse map from hash → set of on-disk relative paths.
-        # Also cache file_path → hash so callers skip double-hashing.
-        current_rel_paths: set[str] = set()
-        current_hash_to_paths: dict[str, set[str]] = {}
-        file_hash_cache: dict[Path, str] = {}
-        total = len(current_files)
-        scan_start = _time.time()
-        for idx, file_path in enumerate(current_files, start=1):
-            try:
-                rel_path = str(file_path.relative_to(self.project_root))
-                current_rel_paths.add(rel_path)
-                file_hash = compute_file_hash(file_path)
-                current_hash_to_paths.setdefault(file_hash, set()).add(rel_path)
-                file_hash_cache[file_path] = file_hash
-            except Exception:  # nosec B112
-                continue
-
-            # Progress feedback during hashing
-            if self.progress_tracker:
-                self.progress_tracker.progress_bar_with_eta(
-                    current=idx,
-                    total=total,
-                    prefix="Scanning files",
-                    start_time=scan_start,
-                )
-            elif idx % 500 == 0:
-                logger.info(f"Scanning files: {idx:,}/{total:,} hashed")
-
-        if total >= 500:
-            logger.info(f"Scanned {total:,} files in {_time.time() - scan_start:.1f}s")
-
-        # Find moves: indexed paths that are no longer on disk (orphaned) paired
-        # with new on-disk paths that share the same hash and are not yet indexed
-        moves: list[tuple[str, str, str]] = []
-        moved_old_paths: set[str] = set()
-
-        for hash_val, indexed_paths in hash_to_indexed.items():
-            # Paths in DB that are no longer on disk at their original location
-            orphaned = indexed_paths - current_rel_paths
-            if not orphaned:
-                continue
-
-            # On-disk paths with the same hash that are not yet in the DB
-            new_paths = current_hash_to_paths.get(hash_val, set()) - set(
-                indexed_file_hashes.keys()
-            )
-            if not new_paths:
-                continue
-
-            if len(orphaned) == 1 and len(new_paths) == 1:
-                # Unambiguous 1-to-1 move
-                old_path = next(iter(orphaned))
-                new_path = next(iter(new_paths))
-                moves.append((old_path, new_path, hash_val))
-                moved_old_paths.add(old_path)
-            elif len(orphaned) == len(new_paths):
-                # Same number of orphaned and new paths with matching hash
-                # (e.g., directory rename).  Match by sorted name for stability.
-                for old_p, new_p in zip(
-                    sorted(orphaned), sorted(new_paths), strict=True
-                ):
-                    moves.append((old_p, new_p, hash_val))
-                    moved_old_paths.add(old_p)
-
-        return moves, moved_old_paths, file_hash_cache
+        return _detect_file_moves_fn(
+            project_root=self.project_root,
+            current_files=current_files,
+            indexed_file_hashes=indexed_file_hashes,
+            progress_tracker=self.progress_tracker,
+        )
 
     async def _phase1_chunk_files(
         self,
@@ -1634,8 +736,7 @@ class SemanticIndexer:
     ) -> tuple[int, int]:
         """Phase 1: Parse and chunk files, store to chunks.lance.
 
-        This phase is fast and durable - no expensive embedding generation.
-        Incremental updates are supported via file_hash change detection.
+        Thin delegate to :func:`~.chunking_runner.run_phase1_chunking`.
 
         Args:
             files: Files to process
@@ -1651,349 +752,23 @@ class SemanticIndexer:
         Returns:
             Tuple of (files_processed, chunks_created)
         """
-        files_processed = 0
-        chunks_created = 0
-
-        logger.info(
-            f"📄 Phase 1: Chunking {len(files)} files (parsing and extracting code structure)..."
+        return await run_phase1_chunking(
+            files=files,
+            chunks_backend=self.chunks_backend,
+            vectors_backend=self.vectors_backend,
+            project_root=self.project_root,
+            chunk_processor=self.chunk_processor,
+            memory_monitor=self.memory_monitor,
+            progress_tracker=self.progress_tracker,
+            atomic_rebuild_active=self._atomic_rebuild_active,
+            detect_file_moves_fn=self._detect_file_moves,
+            force=force,
+            file_hash_cache=file_hash_cache,
         )
-
-        # Get metrics tracker
-        metrics_tracker = get_metrics_tracker()
-
-        # Track start time for progress bar ETA
-        phase_start_time = time.time()
-
-        with metrics_tracker.phase("parsing") as parsing_metrics:
-            # OPTIMIZATION: Collect files that need deletion and batch delete upfront
-            # This avoids O(n) delete_file_chunks() calls that each load the database
-            files_to_delete = []
-            files_to_process = []
-
-            # When file_hash_cache is provided the caller already ran change
-            # detection — every file in `files` needs processing.  Skip the
-            # redundant get_all_indexed_file_hashes / _detect_file_moves /
-            # per-file hash loop to avoid duplicate "Scanning files" bars and
-            # wasted DB round-trips.
-            caller_prefiltered = file_hash_cache is not None
-
-            if caller_prefiltered:
-                # Caller has already filtered; build files_to_process directly.
-                _fhc: dict[Path, str] = file_hash_cache  # type: ignore[assignment]
-                for file_path in files:
-                    try:
-                        file_hash = _fhc.get(file_path) or compute_file_hash(file_path)
-                        rel_path = str(file_path.relative_to(self.project_root))
-                        files_to_delete.append(rel_path)
-                        files_to_process.append((file_path, rel_path, file_hash))
-                    except Exception as e:
-                        logger.error(f"Failed to check file {file_path}: {e}")
-                        continue
-            else:
-                # Standalone call: run full change detection (backward-compatible).
-
-                # OPTIMIZATION: Load all indexed file hashes ONCE for O(1) per-file lookup
-                # This replaces 39K per-file database queries with a single scan
-                indexed_file_hashes: dict[str, str] = {}
-                _local_fhc: dict[Path, str] = {}
-                if not force:
-                    logger.info("Loading indexed file hashes for change detection...")
-                    indexed_file_hashes = (
-                        await self.chunks_backend.get_all_indexed_file_hashes()
-                    )
-                    logger.info(
-                        f"Loaded {len(indexed_file_hashes)} indexed files for change detection"
-                    )
-
-                # Detect file moves/renames — update metadata instead of re-chunking
-                if not force:
-                    detected_moves, _moved_old_paths, _local_fhc = (
-                        self._detect_file_moves(files, indexed_file_hashes)
-                    )
-                    if detected_moves:
-                        logger.info(
-                            f"Detected {len(detected_moves)} file move(s), updating metadata..."
-                        )
-                        for old_path, new_path, _file_hash in detected_moves:
-                            chunks_updated = await self.chunks_backend.update_file_path(
-                                old_path, new_path
-                            )
-                            vectors_updated = (
-                                await self.vectors_backend.update_file_path(
-                                    old_path, new_path
-                                )
-                            )
-                            logger.info(
-                                f"  Moved: {old_path} -> {new_path} "
-                                f"({chunks_updated} chunks, {vectors_updated} vectors)"
-                            )
-                        # Reload so change detection sees updated paths
-                        indexed_file_hashes = (
-                            await self.chunks_backend.get_all_indexed_file_hashes()
-                        )
-
-                # Log start of hash computation phase
-                if force:
-                    logger.info("Force mode enabled, skipping file hash computation...")
-                else:
-                    logger.info(
-                        f"Computing file hashes for change detection ({len(files)} files)..."
-                    )
-
-                for idx, file_path in enumerate(files):
-                    try:
-                        # Log progress every 1000 files (fallback when no progress tracker)
-                        if idx > 0 and idx % 1000 == 0 and not self.progress_tracker:
-                            logger.info(f"Computing file hashes: {idx}/{len(files)}")
-
-                        # Skip hash computation when force=True (all files will be reindexed)
-                        if force:
-                            file_hash = ""  # Empty hash when forcing full reindex
-                        else:
-                            # Reuse hash from move-detection cache to avoid re-hashing
-                            file_hash = _local_fhc.get(file_path) or compute_file_hash(
-                                file_path
-                            )
-
-                        rel_path = str(file_path.relative_to(self.project_root))
-
-                        # Check if file changed (skip if unchanged and not forcing)
-                        # OPTIMIZATION: O(1) dict lookup instead of per-file database query
-                        if not force:
-                            stored_hash = indexed_file_hashes.get(rel_path)
-                            if stored_hash is not None and stored_hash == file_hash:
-                                logger.debug(f"Skipping unchanged file: {rel_path}")
-                                continue
-
-                        # Mark file for deletion and processing
-                        files_to_delete.append(rel_path)
-                        files_to_process.append((file_path, rel_path, file_hash))
-
-                    except Exception as e:
-                        logger.error(f"Failed to check file {file_path}: {e}")
-                        continue
-
-                # Log completion of hash computation phase
-                if not force:
-                    logger.info(
-                        f"File hash computation complete: {len(files_to_process)} files changed, {len(files) - len(files_to_process)} unchanged"
-                    )
-
-            # Batch delete old chunks for changed files before inserting new ones.
-            # This prevents duplicate chunks from accumulating across re-index runs.
-            # Note: LanceDB delete() is metadata-only (deletion vectors) and does NOT
-            # trigger compact_files(). The SIGBUS workaround for macOS applies only to
-            # compaction, which is separately guarded in _compact_table().
-            if not self._atomic_rebuild_active and files_to_delete:
-                deleted_count = await self.chunks_backend.delete_files_batch(
-                    files_to_delete
-                )
-                if deleted_count > 0:
-                    logger.info(
-                        f"Batch deleted {deleted_count} old chunks for {len(files_to_delete)} files"
-                    )
-
-            # Now process files for parsing and chunking.
-            # PERFORMANCE: Accumulate chunks across files and flush to LanceDB in
-            # batches of write_batch_files files instead of one `add_chunks` call per
-            # file.  This reduces LanceDB Arrow-allocation overhead from O(n_files) to
-            # O(n_files / batch_size) — roughly 20x fewer write round-trips for a
-            # 5,272-file repo with the default batch size of 256.
-            write_batch_files = 256
-            backend_fatal_error: Exception | None = None
-            # Buffer accumulates (chunk_dict_with_hash, file_path) tuples.
-            pending_chunks: list[dict] = []  # chunk dicts with file_hash pre-injected
-            pending_files_count = 0  # number of source files in pending_chunks
-
-            async def _flush_pending_chunks() -> int:
-                """Write accumulated pending_chunks to LanceDB; return count written."""
-                nonlocal pending_files_count
-                if not pending_chunks:
-                    return 0
-                count = await self.chunks_backend.add_chunks_batch(pending_chunks)
-                pending_chunks.clear()
-                pending_files_count = 0
-                return count
-
-            for _idx, (file_path, rel_path, file_hash) in enumerate(files_to_process):
-                # Check memory before processing each file (CRITICAL: not every 100!)
-                is_ok, usage_pct, status = self.memory_monitor.check_memory_limit()
-                if not is_ok:
-                    logger.warning(
-                        f"Memory limit exceeded during chunking "
-                        f"({usage_pct * 100:.1f}% of {self.memory_monitor.max_memory_gb:.1f}GB), "
-                        "waiting for memory to free up..."
-                    )
-                    # Flush before waiting so we don't hold large buffers in memory
-                    await _flush_pending_chunks()
-                    await self.memory_monitor.wait_for_memory_available(
-                        target_pct=self.memory_monitor.warn_threshold
-                    )
-
-                try:
-                    # Parse file (runs in thread pool to avoid blocking event loop)
-                    chunks = await self.chunk_processor.parse_file(file_path)
-
-                    if not chunks:
-                        logger.debug(f"No chunks extracted from {file_path}")
-                        continue
-
-                    # Build hierarchical relationships (CPU-bound, run in thread pool)
-                    chunks_with_hierarchy = await asyncio.to_thread(
-                        self.chunk_processor.build_chunk_hierarchy, chunks
-                    )
-
-                    # Convert CodeChunk objects to dicts and inject file_hash for batching
-                    file_chunk_count = 0
-                    for chunk in chunks_with_hierarchy:
-                        chunk_dict = {
-                            "chunk_id": chunk.chunk_id,
-                            "file_path": rel_path,
-                            # file_hash is required by add_chunks_batch (pre-injected here)
-                            "file_hash": file_hash,
-                            "content": chunk.content,
-                            "language": chunk.language,
-                            "start_line": chunk.start_line,
-                            "end_line": chunk.end_line,
-                            "start_char": 0,  # Not tracked in CodeChunk
-                            "end_char": 0,  # Not tracked in CodeChunk
-                            "chunk_type": chunk.chunk_type,
-                            "name": chunk.function_name
-                            or chunk.class_name
-                            or "",  # Primary name
-                            "parent_name": "",  # Could derive from parent_chunk_id if needed
-                            "hierarchy_path": self._build_hierarchy_path(
-                                chunk
-                            ),  # e.g., "MyClass.my_method"
-                            "docstring": chunk.docstring or "",
-                            "signature": "",  # Not directly in CodeChunk, could build from params
-                            "complexity": int(chunk.complexity_score),
-                            "token_count": len(chunk.content.split()),  # Rough estimate
-                            # Git blame metadata
-                            "last_author": chunk.last_author or "",
-                            "last_modified": chunk.last_modified or "",
-                            "commit_hash": chunk.commit_hash or "",
-                            # Code relationships (for KG)
-                            "calls": chunk.calls or [],
-                            "imports": [
-                                json.dumps(imp) if isinstance(imp, dict) else imp
-                                for imp in (chunk.imports or [])
-                            ],
-                            "inherits_from": chunk.inherits_from or [],
-                        }
-                        pending_chunks.append(chunk_dict)
-                        file_chunk_count += 1
-
-                    if file_chunk_count > 0:
-                        files_processed += 1
-                        chunks_created += file_chunk_count
-                        pending_files_count += 1
-                        logger.debug(
-                            f"Parsed {file_chunk_count} chunks from {rel_path}"
-                        )
-
-                        # Flush when write-batch is full
-                        if pending_files_count >= write_batch_files:
-                            try:
-                                await _flush_pending_chunks()
-                            except DatabaseError as db_err:
-                                err_lower = str(db_err).lower()
-                                if (
-                                    "not found" in err_lower
-                                    or "not initialized" in err_lower
-                                ):
-                                    logger.error(
-                                        f"Backend error flushing chunk batch: {db_err}\n"
-                                        f"  Aborting Phase 1 to avoid repeated failures.\n"
-                                        f"  Try: mvs index --force  (to rebuild from scratch)"
-                                    )
-                                    backend_fatal_error = db_err
-                                    break
-                                logger.error(f"Failed to flush chunk batch: {db_err}")
-
-                            # Periodic GC to prevent Arrow buffer accumulation on Linux.
-                            # LanceDB issue #2512: each append allocates Arrow buffers that
-                            # CPython's reference counter does not release quickly enough,
-                            # leading to RSS growth proportional to file count.
-                            if files_processed % 1000 == 0:
-                                gc.collect()
-                                logger.debug(
-                                    "GC collect after %d files (Arrow buffer cleanup)",
-                                    files_processed,
-                                )
-
-                        # Show progress bar if tracker is available (update every file)
-                        if self.progress_tracker:
-                            self.progress_tracker.progress_bar_with_eta(
-                                current=files_processed,
-                                total=len(files_to_process),
-                                prefix="Parsing files",
-                                start_time=phase_start_time,
-                            )
-
-                except DatabaseError as e:
-                    # Check if this is a backend-level failure (e.g., stale/corrupt table)
-                    # that will affect every subsequent file — abort early instead of
-                    # spamming identical errors for each remaining file.
-                    err_lower = str(e).lower()
-                    if "not found" in err_lower or "not initialized" in err_lower:
-                        logger.error(
-                            f"Backend error while storing chunks for {file_path}: {e}\n"
-                            f"  Aborting Phase 1 to avoid repeated failures.\n"
-                            f"  Try: mvs index --force  (to rebuild from scratch)"
-                        )
-                        backend_fatal_error = e
-                        break
-                    logger.error(f"Failed to chunk file {file_path}: {e}")
-                    continue
-                except Exception as e:
-                    logger.error(f"Failed to chunk file {file_path}: {e}")
-                    continue
-
-                if backend_fatal_error is not None:
-                    break
-
-            # Flush any remaining chunks that didn't fill a full batch
-            if pending_chunks and backend_fatal_error is None:
-                if self.progress_tracker:
-                    sys.stderr.write(
-                        f"  Saving final batch ({len(pending_chunks):,} chunks)...\n"
-                    )
-                    sys.stderr.flush()
-                try:
-                    await _flush_pending_chunks()
-                except DatabaseError as db_err:
-                    logger.error(f"Failed to flush final chunk batch: {db_err}")
-
-            if backend_fatal_error is not None:
-                logger.error(
-                    f"Phase 1 aborted due to backend error: {backend_fatal_error}"
-                )
-
-            # Update metrics
-            parsing_metrics.item_count = files_processed
-
-        # Track chunking separately
-        with metrics_tracker.phase("chunking") as chunking_metrics:
-            chunking_metrics.item_count = chunks_created
-            # Note: Duration will be minimal since actual work was done in parsing phase
-            # This is just for tracking the chunk count
-
-        # Log memory summary after Phase 1
-        self.memory_monitor.log_memory_summary()
-        logger.info(
-            f"✓ Phase 1 complete: {files_processed} files processed, {chunks_created} chunks created"
-        )
-        return files_processed, chunks_created
 
     def _build_hierarchy_path(self, chunk: CodeChunk) -> str:
         """Build dotted hierarchy path (e.g., MyClass.my_method)."""
-        parts = []
-        if chunk.class_name:
-            parts.append(chunk.class_name)
-        if chunk.function_name:
-            parts.append(chunk.function_name)
-        return ".".join(parts) if parts else ""
+        return _build_hierarchy_path_fn(chunk)
 
     def _get_project_name(self, rel_path: str) -> str:
         """Get monorepo subproject name for a file path.
@@ -2029,6 +804,8 @@ class SemanticIndexer:
         This phase is resumable - can restart after crashes. Only embeds
         chunks that are in "pending" status in chunks.lance.
 
+        Thin delegate to :func:`~.embedding_runner.run_phase2_embedding`.
+
         Args:
             batch_size: Chunks per embedding batch
             checkpoint_interval: Chunks between checkpoint logs
@@ -2036,240 +813,17 @@ class SemanticIndexer:
         Returns:
             Tuple of (chunks_embedded, batches_processed)
         """
-        chunks_embedded = 0
-        batches_processed = 0
-        batch_id = int(datetime.now().timestamp())
-
-        logger.info(
-            "🧠 Phase 2: Embedding pending chunks (GPU processing for semantic search)..."
+        return await run_phase2_embedding(
+            chunks_backend=self.chunks_backend,
+            vectors_backend=self.vectors_backend,
+            database=self.database,
+            memory_monitor=self.memory_monitor,
+            progress_tracker=self.progress_tracker,
+            get_model_name_fn=self.get_embedding_model_name,
+            get_project_name_fn=self._get_project_name,
+            batch_size=batch_size,
+            checkpoint_interval=checkpoint_interval,
         )
-
-        # Get metrics tracker
-        metrics_tracker = get_metrics_tracker()
-
-        # Track start time for progress bar ETA
-        embed_start_time = time.time()
-
-        # Get total pending chunks count BEFORE starting (for accurate progress bar)
-        total_pending_chunks = await self.chunks_backend.count_pending_chunks()
-        logger.info(f"Found {total_pending_chunks:,} pending chunks to embed")
-
-        if total_pending_chunks == 0:
-            logger.info("No pending chunks — skipping embedding phase")
-            return 0, 0
-
-        # Show chunk count to user so they know embedding is starting
-        if self.progress_tracker:
-            sys.stderr.write(
-                f"  Embedding {total_pending_chunks:,} chunks"
-                f" (batch size: {batch_size})...\n"
-            )
-            sys.stderr.flush()
-
-        with metrics_tracker.phase("embedding") as embedding_metrics:
-            while True:
-                # CRITICAL: Check memory BEFORE loading batch to prevent spikes
-                usage_pct = self.memory_monitor.get_memory_usage_pct()
-
-                # Proactively reduce batch size if memory is high
-                while usage_pct > 0.90 and batch_size > 100:
-                    batch_size = batch_size // 2
-                    logger.warning(
-                        f"⚠️  Memory at {usage_pct * 100:.1f}%, proactively reducing batch to {batch_size}"
-                    )
-                    usage_pct = self.memory_monitor.get_memory_usage_pct()
-
-                # If still over 90%, wait for memory to free
-                if usage_pct > 0.90:
-                    logger.warning(
-                        f"Memory usage at {usage_pct * 100:.1f}%, waiting for memory to drop..."
-                    )
-                    await self.memory_monitor.wait_for_memory_available(target_pct=0.80)
-
-                # Get pending chunks from chunks.lance FIRST
-                pending = await self.chunks_backend.get_pending_chunks(batch_size)
-                if not pending:
-                    logger.info("No more pending chunks to embed")
-                    break
-
-                # Check memory AFTER loading batch (when memory is at peak)
-                is_ok, usage_pct, status = self.memory_monitor.check_memory_limit()
-
-                if not is_ok:
-                    # Memory limit exceeded after loading - apply backpressure
-                    logger.warning(
-                        f"Memory limit exceeded after loading batch "
-                        f"({usage_pct * 100:.1f}% of {self.memory_monitor.max_memory_gb:.1f}GB), "
-                        "waiting for memory to free up..."
-                    )
-                    await self.memory_monitor.wait_for_memory_available(
-                        target_pct=self.memory_monitor.warn_threshold
-                    )
-
-                # Adjust batch size based on memory pressure
-                adjusted_batch_size = self.memory_monitor.get_adjusted_batch_size(
-                    batch_size, min_batch_size=100
-                )
-                if adjusted_batch_size != batch_size:
-                    logger.info(
-                        f"Adjusted embedding batch size: {batch_size} → {adjusted_batch_size} "
-                        f"(memory usage: {usage_pct * 100:.1f}%)"
-                    )
-                    batch_size = adjusted_batch_size
-
-                # Mark as processing (for crash recovery)
-                chunk_ids = [c["chunk_id"] for c in pending]
-                await self.chunks_backend.mark_chunks_processing(chunk_ids, batch_id)
-
-                try:
-                    # Generate embeddings using database's embedding function
-                    contents = [c["content"] for c in pending]
-
-                    # CRITICAL: Check memory before expensive embedding operation
-                    is_ok, usage_pct, status = self.memory_monitor.check_memory_limit()
-                    if not is_ok:
-                        logger.error(
-                            f"Memory limit exceeded before embedding "
-                            f"({usage_pct * 100:.1f}% of {self.memory_monitor.max_memory_gb:.1f}GB). "
-                            f"Reducing batch size and retrying..."
-                        )
-
-                        # Return chunks to pending state
-                        await self.chunks_backend.mark_chunks_pending(chunk_ids)
-
-                        # Wait for memory to free
-                        await self.memory_monitor.wait_for_memory_available(
-                            target_pct=self.memory_monitor.warn_threshold
-                        )
-
-                        # Dramatically reduce batch size
-                        batch_size = max(100, batch_size // 4)
-                        logger.info(
-                            f"Reduced batch size to {batch_size} due to memory pressure"
-                        )
-                        continue  # Skip to next iteration with smaller batch
-
-                    # Generate embeddings in batch
-                    vectors = None
-
-                    # Method 1: Check for _embedding_function (ChromaDB)
-                    if hasattr(self.database, "_embedding_function"):
-                        vectors = self.database._embedding_function(contents)
-                    # Method 2: Check for _collection and its embedding function
-                    elif hasattr(self.database, "_collection") and hasattr(
-                        self.database._collection, "_embedding_function"
-                    ):
-                        vectors = self.database._collection._embedding_function(
-                            contents
-                        )
-                    # Method 3: Use database.embedding_function (proper API)
-                    elif hasattr(self.database, "embedding_function"):
-                        vectors = self.database.embedding_function.embed_documents(
-                            contents
-                        )
-                    else:
-                        logger.error(
-                            "Cannot access embedding function from database, "
-                            "skipping batch embedding"
-                        )
-                        await self.chunks_backend.mark_chunks_complete(chunk_ids)
-                        chunks_embedded += len(pending)
-                        batches_processed += 1
-                        continue
-
-                    if vectors is None:
-                        raise ValueError("Failed to generate embeddings")
-
-                    # Add to vectors table with embeddings
-                    chunks_with_vectors = []
-                    for chunk, vec in zip(pending, vectors, strict=True):
-                        # Derive function_name and class_name from chunk data
-                        chunk_type = chunk.get("chunk_type", "")
-                        chunk_name = chunk.get("name", "")
-                        hierarchy = chunk.get("hierarchy_path", "")
-
-                        # Determine function_name and class_name based on chunk_type
-                        if chunk_type in ("function", "method"):
-                            fn_name = chunk_name
-                            cls_name = ""
-                            # If hierarchy has a dot, the part before is the class
-                            if "." in hierarchy:
-                                parts = hierarchy.split(".")
-                                cls_name = parts[0]
-                                fn_name = parts[-1]
-                        elif chunk_type == "class":
-                            fn_name = ""
-                            cls_name = chunk_name
-                        else:
-                            fn_name = ""
-                            cls_name = ""
-
-                        chunk_with_vec = {
-                            "chunk_id": chunk["chunk_id"],
-                            "vector": vec,
-                            "file_path": chunk["file_path"],
-                            "content": chunk["content"],
-                            "language": chunk["language"],
-                            "start_line": chunk["start_line"],
-                            "end_line": chunk["end_line"],
-                            "chunk_type": chunk["chunk_type"],
-                            "name": chunk["name"],
-                            "function_name": fn_name,
-                            "class_name": cls_name,
-                            "project_name": self._get_project_name(chunk["file_path"]),
-                            "hierarchy_path": chunk["hierarchy_path"],
-                        }
-                        chunks_with_vectors.append(chunk_with_vec)
-
-                    # Store vectors to vectors.lance
-                    model_name = self.get_embedding_model_name()
-                    await self.vectors_backend.add_vectors(
-                        chunks_with_vectors, model_version=model_name
-                    )
-
-                    # Mark as complete in chunks.lance
-                    await self.chunks_backend.mark_chunks_complete(chunk_ids)
-
-                    chunks_embedded += len(pending)
-                    batches_processed += 1
-
-                    # Show progress bar if tracker is available
-                    if self.progress_tracker and total_pending_chunks > 0:
-                        self.progress_tracker.progress_bar_with_eta(
-                            current=chunks_embedded,
-                            total=total_pending_chunks,
-                            prefix="Embedding chunks",
-                            start_time=embed_start_time,
-                        )
-
-                    # Checkpoint logging with memory status
-                    if chunks_embedded % checkpoint_interval == 0:
-                        self.memory_monitor.log_memory_summary()
-                        if not self.progress_tracker:
-                            logger.info(
-                                f"Checkpoint: {chunks_embedded} chunks embedded"
-                            )
-
-                    # Check memory after each batch and clear references
-                    del pending, chunk_ids, contents, vectors, chunks_with_vectors
-
-                except Exception as e:
-                    logger.error(f"Embedding batch failed: {e}")
-                    # Mark chunks as error in chunks.lance
-                    error_msg = f"{type(e).__name__}: {str(e)}"
-                    await self.chunks_backend.mark_chunks_error(chunk_ids, error_msg)
-                    # Continue with next batch instead of crashing
-                    continue
-
-            # Update metrics
-            embedding_metrics.item_count = chunks_embedded
-
-        # Log memory summary after Phase 2
-        self.memory_monitor.log_memory_summary()
-        logger.info(
-            f"✓ Phase 2 complete: {chunks_embedded} chunks embedded in {batches_processed} batches"
-        )
-        return chunks_embedded, batches_processed
 
     async def re_embed_chunks(
         self, batch_size: int = 10000, checkpoint_interval: int = 50000
@@ -2351,182 +905,41 @@ class SemanticIndexer:
         3. On success: rename old to .old, rename new to final, delete .old
         4. On failure: delete .new, keep old database intact
 
+        Thin delegate to :class:`~.atomic_rebuild.AtomicRebuildManager`.
+
         Args:
             force: If True, perform atomic rebuild
 
         Returns:
             True if atomic rebuild was performed, False otherwise
         """
-        if not force:
-            return False
-
-        base_path = self._mcp_dir
-
-        # Database paths (only .new paths used in this method - others in _finalize)
-        lance_new = base_path / "lance.new"
-        kg_new = base_path / "knowledge_graph.new"
-        chroma_new = base_path / "chroma.sqlite3.new"
-        code_search_new = base_path / "code_search.lance.new"
-
-        try:
-            # Step 1: Rename existing databases to .new (build target)
-            logger.info("🔄 Atomic rebuild: preparing new database directories...")
-
-            # Remove any stale .new directories from previous interrupted rebuilds
-            for new_path in [lance_new, kg_new, code_search_new]:
-                if new_path.exists():
-                    try:
-                        shutil.rmtree(new_path)
-                        logger.debug(f"Removed stale directory: {new_path}")
-                    except Exception as e:
-                        logger.warning(
-                            f"Failed to remove stale directory {new_path}: {e}. "
-                            "Attempting to continue anyway."
-                        )
-            if chroma_new.exists():
-                try:
-                    chroma_new.unlink()
-                except Exception as e:
-                    logger.warning(f"Failed to remove stale file {chroma_new}: {e}")
-
-            # Create new database directories
-            lance_new.mkdir(parents=True, exist_ok=True)
-            kg_new.mkdir(parents=True, exist_ok=True)
-
-            # Update backend paths to point to .new databases
-            self.chunks_backend = ChunksBackend(lance_new)
-            self.vectors_backend = VectorsBackend(lance_new)
-
-            # Update database path for LanceDB backend
-            # This requires modifying the database's persist_directory
-            # We'll handle this by creating a new database instance pointing to .new
-            from .embeddings import create_embedding_function
-            from .factory import create_database
-
-            # Create new database instance for .new location
-            # Pass config model to create_embedding_function (None = auto-select by device)
-            model_name = self.config.embedding_model if self.config else None
-            embedding_function, _ = create_embedding_function(model_name=model_name)
-            new_db_path = base_path / "code_search.lance.new"
-            self.database = create_database(
-                persist_directory=new_db_path, embedding_function=embedding_function
-            )
-
-            logger.info("✓ New database directories prepared")
-            # Set flag to skip delete operations (building into fresh database)
+        manager = AtomicRebuildManager(self._mcp_dir, self.config)
+        active = await manager.rebuild(force=force)
+        if active:
+            self.chunks_backend = manager.chunks_backend
+            self.vectors_backend = manager.vectors_backend
+            self.database = manager.database
             self._atomic_rebuild_active = True
-            return True
-
-        except Exception as e:
-            logger.error(f"Failed to prepare atomic rebuild: {e}")
-            # Cleanup .new directories on failure
-            for new_path in [lance_new, kg_new, code_search_new]:
-                if new_path.exists():
-                    shutil.rmtree(new_path, ignore_errors=True)
-            if chroma_new.exists():
-                chroma_new.unlink()
+        else:
             self._atomic_rebuild_active = False
-            return False
+        # Store manager so _finalize_atomic_rebuild can reuse the same mcp_dir reference
+        self._atomic_rebuild_manager = manager
+        return active
 
     async def _finalize_atomic_rebuild(self) -> None:
         """Finalize atomic rebuild by atomically switching databases.
 
         Called after successful indexing when force_reindex=True.
         Performs atomic rename operations to switch from .new to final.
+
+        Thin delegate to :class:`~.atomic_rebuild.AtomicRebuildManager`.
         """
-        base_path = self._mcp_dir
-
-        # Database paths
-        lance_path = base_path / "lance"
-        lance_new = base_path / "lance.new"
-        lance_old = base_path / "lance.old"
-
-        kg_path = base_path / "knowledge_graph"
-        kg_new = base_path / "knowledge_graph.new"
-        kg_old = base_path / "knowledge_graph.old"
-
-        chroma_path = base_path / "chroma.sqlite3"
-        chroma_new = base_path / "chroma.sqlite3.new"
-        chroma_old = base_path / "chroma.sqlite3.old"
-
-        code_search_path = base_path / "code_search.lance"
-        code_search_new = base_path / "code_search.lance.new"
-        code_search_old = base_path / "code_search.lance.old"
-
-        try:
-            logger.info("🔄 Atomic rebuild: finalizing database switch...")
-
-            # Step 2: Atomic switch for lance directory
-            if lance_new.exists():
-                if lance_path.exists():
-                    lance_path.rename(lance_old)
-                lance_new.rename(lance_path)
-                if lance_old.exists():
-                    try:
-                        shutil.rmtree(lance_old)
-                        logger.debug(f"Removed old directory: {lance_old}")
-                    except Exception as e:
-                        logger.warning(
-                            f"Failed to remove old directory {lance_old}: {e}"
-                        )
-
-            # Step 3: Atomic switch for knowledge_graph directory
-            if kg_new.exists():
-                if kg_path.exists():
-                    kg_path.rename(kg_old)
-                kg_new.rename(kg_path)
-                if kg_old.exists():
-                    try:
-                        shutil.rmtree(kg_old)
-                        logger.debug(f"Removed old directory: {kg_old}")
-                    except Exception as e:
-                        logger.warning(f"Failed to remove old directory {kg_old}: {e}")
-
-            # Step 4: Atomic switch for code_search.lance
-            if code_search_new.exists():
-                if code_search_path.exists():
-                    code_search_path.rename(code_search_old)
-                code_search_new.rename(code_search_path)
-                if code_search_old.exists():
-                    try:
-                        shutil.rmtree(code_search_old)
-                        logger.debug(f"Removed old directory: {code_search_old}")
-                    except Exception as e:
-                        logger.warning(
-                            f"Failed to remove old directory {code_search_old}: {e}"
-                        )
-
-            # Step 5: Handle chroma.sqlite3 (deprecated, but may exist)
-            if chroma_new.exists():
-                if chroma_path.exists():
-                    chroma_path.rename(chroma_old)
-                chroma_new.rename(chroma_path)
-                if chroma_old.exists():
-                    chroma_old.unlink()
-
-            logger.info("✓ Atomic rebuild complete: databases switched successfully")
-            # Reset flag after successful finalization
-            self._atomic_rebuild_active = False
-
-        except Exception as e:
-            logger.error(f"Failed to finalize atomic rebuild: {e}")
-            # Attempt to rollback
-            try:
-                logger.warning("Attempting rollback to old databases...")
-                if lance_old.exists() and not lance_path.exists():
-                    lance_old.rename(lance_path)
-                if kg_old.exists() and not kg_path.exists():
-                    kg_old.rename(kg_path)
-                if code_search_old.exists() and not code_search_path.exists():
-                    code_search_old.rename(code_search_path)
-                if chroma_old.exists() and not chroma_path.exists():
-                    chroma_old.rename(chroma_path)
-                logger.info("✓ Rollback successful, old databases restored")
-            except Exception as rollback_error:
-                logger.error(f"Rollback failed: {rollback_error}")
-            # Reset flag after rollback attempt
-            self._atomic_rebuild_active = False
-            raise
+        manager = getattr(self, "_atomic_rebuild_manager", None)
+        if manager is None:
+            # Fallback: construct a manager with the current mcp_dir
+            manager = AtomicRebuildManager(self._mcp_dir, self.config)
+        await manager.finalize()
+        self._atomic_rebuild_active = manager.active
 
     async def chunk_files(self, fresh: bool = False) -> dict:
         """Chunk files independently without embedding.
@@ -3608,34 +2021,9 @@ class SemanticIndexer:
                         await self.chunks_backend.delete_file_chunks(rel_path)
 
                     # Convert CodeChunk objects to dicts for storage
-                    chunk_dicts = []
-                    for chunk in file_chunks:
-                        chunk_dict = {
-                            "chunk_id": chunk.chunk_id,
-                            "file_path": rel_path,
-                            "content": chunk.content,
-                            "language": chunk.language,
-                            "start_line": chunk.start_line,
-                            "end_line": chunk.end_line,
-                            "start_char": 0,
-                            "end_char": 0,
-                            "chunk_type": chunk.chunk_type,
-                            "name": chunk.function_name or chunk.class_name or "",
-                            "parent_name": "",
-                            "hierarchy_path": self._build_hierarchy_path(chunk),
-                            "docstring": chunk.docstring or "",
-                            "signature": "",
-                            "complexity": int(chunk.complexity_score),
-                            "token_count": len(chunk.content.split()),
-                            # Code relationships (for KG)
-                            "calls": chunk.calls or [],
-                            "imports": [
-                                json.dumps(imp) if isinstance(imp, dict) else imp
-                                for imp in (chunk.imports or [])
-                            ],
-                            "inherits_from": chunk.inherits_from or [],
-                        }
-                        chunk_dicts.append(chunk_dict)
+                    chunk_dicts = [
+                        chunk_to_storage_dict(chunk, rel_path) for chunk in file_chunks
+                    ]
 
                     # Store to chunks.lance
                     if chunk_dicts:
@@ -3770,34 +2158,10 @@ class SemanticIndexer:
                 await self.chunks_backend.delete_file_chunks(rel_path)
 
             # Convert CodeChunk objects to dicts for storage
-            chunk_dicts = []
-            for chunk in chunks_with_hierarchy:
-                chunk_dict = {
-                    "chunk_id": chunk.chunk_id,
-                    "file_path": rel_path,
-                    "content": chunk.content,
-                    "language": chunk.language,
-                    "start_line": chunk.start_line,
-                    "end_line": chunk.end_line,
-                    "start_char": 0,
-                    "end_char": 0,
-                    "chunk_type": chunk.chunk_type,
-                    "name": chunk.function_name or chunk.class_name or "",
-                    "parent_name": "",
-                    "hierarchy_path": self._build_hierarchy_path(chunk),
-                    "docstring": chunk.docstring or "",
-                    "signature": "",
-                    "complexity": int(chunk.complexity_score),
-                    "token_count": len(chunk.content.split()),
-                    # Code relationships (for KG)
-                    "calls": chunk.calls or [],
-                    "imports": [
-                        json.dumps(imp) if isinstance(imp, dict) else imp
-                        for imp in (chunk.imports or [])
-                    ],
-                    "inherits_from": chunk.inherits_from or [],
-                }
-                chunk_dicts.append(chunk_dict)
+            chunk_dicts = [
+                chunk_to_storage_dict(chunk, rel_path)
+                for chunk in chunks_with_hierarchy
+            ]
 
             # Store to chunks.lance
             if chunk_dicts:
@@ -4242,103 +2606,13 @@ class SemanticIndexer:
     async def _build_bm25_index(self) -> None:
         """Build BM25 index from all chunks for keyword search.
 
-        This is Phase 3 of indexing (after chunks are built).
-        BM25 index enables hybrid search by combining keyword and semantic search.
-        BM25 only needs text content, not embeddings, so reads from chunks.lance.
+        Delegates to :func:`core.bm25_builder.build_bm25_index`.
         """
-        try:
-            # Get all chunks from chunks.lance table
-            # ChunksBackend has all chunk data including content (vectors not needed for BM25)
-            if self.chunks_backend._db is None or self.chunks_backend._table is None:
-                logger.warning(
-                    "Chunks backend not initialized, skipping BM25 index build"
-                )
-                return
-
-            logger.info("📚 Phase 3: Building BM25 index for keyword search...")
-
-            # Read only the columns BM25 needs (skip large/unused columns like
-            # embeddings, metadata, etc.) to reduce memory and I/O.
-            import asyncio
-
-            bm25_columns = ["chunk_id", "content", "name", "file_path", "chunk_type"]
-
-            def _read_bm25_columns():
-                """Read only required columns via Lance scanner for speed."""
-                try:
-                    # Use lance scanner with column projection (faster than to_pandas)
-                    scanner = self.chunks_backend._table.to_lance().scanner(
-                        columns=bm25_columns
-                    )
-                    table = scanner.to_table()
-                    return table.to_pandas()
-                except Exception:
-                    # Fallback: read all columns if scanner fails
-                    return self.chunks_backend._table.to_pandas()
-
-            df = await asyncio.to_thread(_read_bm25_columns)
-
-            if df.empty:
-                logger.info("No chunks in chunks table, skipping BM25 index build")
-                return
-
-            # Show chunk count after reading from database
-            chunk_count = len(df)
-            if self.progress_tracker:
-                sys.stderr.write(
-                    f"  Building keyword search index ({chunk_count:,} chunks)...\n"
-                )
-                sys.stderr.flush()
-
-            # Vectorised conversion: use to_dict("records") instead of iterrows()
-            # (~10-50x faster for 200K+ rows).
-            # Fill missing columns with defaults before converting.
-            if "name" not in df.columns:
-                df["name"] = ""
-            else:
-                df["name"] = df["name"].fillna("")
-            if "chunk_type" not in df.columns:
-                df["chunk_type"] = "code"
-            else:
-                df["chunk_type"] = df["chunk_type"].fillna("code")
-
-            chunks_for_bm25 = df[bm25_columns].to_dict("records")
-
-            logger.info(
-                f"📚 Phase 3: Building BM25 index from {len(chunks_for_bm25):,} chunks..."
-            )
-
-            # Build BM25 index with tokenization progress reporting
-            bm25_start = time.monotonic()
-
-            def _bm25_progress(current: int, total: int) -> None:
-                if self.progress_tracker:
-                    self.progress_tracker.progress_bar_with_eta(
-                        current=current,
-                        total=total,
-                        prefix="Tokenizing chunks",
-                        start_time=bm25_start,
-                    )
-
-            bm25_backend = BM25Backend()
-            bm25_backend.build_index(chunks_for_bm25, progress_callback=_bm25_progress)
-
-            # Save to disk.
-            # Use self._mcp_dir (respects index_path) instead of config.index_path
-            # so that a separate index_path is honoured here too.
-            bm25_path = self._mcp_dir / "bm25_index.pkl"
-            bm25_backend.save(bm25_path)
-
-            stats = bm25_backend.get_stats()
-            logger.info(
-                f"✓ Phase 3 complete: BM25 index built with {stats['chunk_count']} chunks "
-                f"(avg doc length: {stats['avg_doc_length']:.1f} tokens)"
-            )
-
-        except Exception as e:
-            # Non-fatal: BM25 failure shouldn't break indexing
-            logger.warning(f"BM25 index building failed (non-fatal): {e}")
-            logger.warning("Hybrid search will fall back to vector-only mode")
+        await _build_bm25_index_fn(
+            chunks_backend=self.chunks_backend,
+            mcp_dir=self._mcp_dir,
+            progress_tracker=self.progress_tracker,
+        )
 
     # ------------------------------------------------------------------
     # Public API: metadata and health

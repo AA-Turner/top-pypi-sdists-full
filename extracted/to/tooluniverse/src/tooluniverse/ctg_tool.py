@@ -151,25 +151,13 @@ class ClinicalTrialsTool(RESTfulTool):
             "status": "filter.overallStatus",
             "query": "query.term",
             "max_results": "pageSize",
+            "limit": "pageSize",
         }
 
         params = {"format": "json", "countTotal": "true"}
-        params["fields"] = ",".join(
-            [
-                "NCTId",
-                "BriefTitle",
-                "OverallStatus",
-                "BriefSummary",
-                "Condition",
-                "Phase",
-                "StartDate",
-                "CompletionDate",
-                "StudyType",
-                "EnrollmentCount",
-                "InterventionName",
-                "LeadSponsorName",
-            ]
-        )
+        # Note: v1-style field names like EnrollmentCount, InterventionName,
+        # LeadSponsorName are not recognized by the v2 API. Omitting 'fields'
+        # returns the full protocolSection which our parsing code handles.
 
         # Build advanced filter clauses (filter.advanced for phase/studytype)
         advanced_clauses = []

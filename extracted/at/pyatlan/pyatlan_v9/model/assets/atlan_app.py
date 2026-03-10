@@ -97,8 +97,6 @@ class AtlanApp(Asset):
     INPUT_TO_SPARK_JOBS: ClassVar[Any] = None
     OUTPUT_FROM_SPARK_JOBS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "AtlanApp"
-
     atlan_app_qualified_name: Union[str, None, UnsetType] = UNSET
     """Qualified name of the Atlan application this asset belongs to."""
 
@@ -486,6 +484,9 @@ def _atlan_app_to_nested(atlan_app: AtlanApp) -> AtlanAppNested:
         is_incomplete=atlan_app.is_incomplete,
         provenance_type=atlan_app.provenance_type,
         home_id=atlan_app.home_id,
+        depth=atlan_app.depth,
+        immediate_upstream=atlan_app.immediate_upstream,
+        immediate_downstream=atlan_app.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -517,7 +518,6 @@ def _atlan_app_from_nested(nested: AtlanAppNested) -> AtlanApp:
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -526,6 +526,9 @@ def _atlan_app_from_nested(nested: AtlanAppNested) -> AtlanApp:
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_atlan_app_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

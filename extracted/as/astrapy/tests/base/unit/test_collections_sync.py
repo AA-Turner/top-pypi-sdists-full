@@ -14,7 +14,7 @@
 
 from __future__ import annotations
 
-from typing import Sequence
+from collections.abc import Sequence
 
 import pytest
 
@@ -25,7 +25,6 @@ from astrapy.utils.api_options import APIOptions, FullAPIOptions, defaultAPIOpti
 from astrapy.utils.unset import _UNSET, UnsetType
 
 from ..conftest import (
-    SECONDARY_KEYSPACE,
     DataAPICredentialsInfo,
     DefaultCollection,
 )
@@ -198,9 +197,6 @@ class TestCollectionsSync:
         )
         assert col1.name == "coll"
 
-    @pytest.mark.skipif(
-        SECONDARY_KEYSPACE is None, reason="No secondary keyspace provided"
-    )
     @pytest.mark.describe("test collection keyspace property, sync")
     def test_collection_keyspace_sync(
         self,

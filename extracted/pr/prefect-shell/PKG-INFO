@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: prefect-shell
-Version: 0.3.3
+Version: 0.3.4
 Summary: Prefect integrations for interacting with shell commands.
 Author-email: "Prefect Technologies, Inc." <help@prefect.io>
 License: Apache License 2.0

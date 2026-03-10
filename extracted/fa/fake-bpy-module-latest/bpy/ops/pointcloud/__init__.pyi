@@ -22,7 +22,7 @@ def attribute_set(
     value_int_vector_2d: collections.abc.Sequence[int] | None = (0, 0),
     value_color: collections.abc.Sequence[float] | None = (1.0, 1.0, 1.0, 1.0),
     value_bool: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set values of the active attribute for selected elements
 
     :param value_float: Value, (in [-inf, inf], optional)
@@ -40,7 +40,7 @@ def delete(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove selected points
 
     :return: Result of the operator call.
@@ -50,7 +50,7 @@ def duplicate(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Copy selected points
 
     :return: Result of the operator call.
@@ -63,7 +63,7 @@ def duplicate_move(
     *,
     POINTCLOUD_OT_duplicate: dict[str, typing.Any] | None = {},
     TRANSFORM_OT_translate: dict[str, typing.Any] | None = {},
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Make copies of selected elements and move them
 
     :param POINTCLOUD_OT_duplicate: Duplicate, Copy selected points (optional, `bpy.ops.pointcloud.duplicate` keyword arguments)
@@ -77,7 +77,7 @@ def select_all(
     /,
     *,
     action: typing.Literal["TOGGLE", "SELECT", "DESELECT", "INVERT"] | None = "TOGGLE",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """(De)select all points
 
         :param action: Action, Selection action to execute (optional)
@@ -103,7 +103,7 @@ def select_random(
     *,
     seed: int | None = 0,
     probability: float | None = 0.5,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Randomize existing selection or create new random selection
 
     :param seed: Seed, Source of randomness (in [-inf, inf], optional)
@@ -115,7 +115,7 @@ def separate(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Separate selected geometry into a new point cloud
 
     :return: Result of the operator call.

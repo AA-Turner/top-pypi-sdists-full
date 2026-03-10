@@ -34,7 +34,7 @@ ua = UserAgent()
 FEISHU_URL = "https://xchatllm.feishu.cn/sheets/Bmjtst2f6hfMqFttbhLcdfRJnNf?sheet=PP1PGr"
 
 base_url = "https://chat.qwen.ai/api/v2"
-DEFAUL_MODEL = "qwen3-max-2026-01-23"
+DEFAUL_MODEL = "qwen3.5-plus"
 
 thinking_budget_mapping = {
     "low": 1000,
@@ -418,7 +418,8 @@ if __name__ == '__main__':
     # print(Completions().models)
     api_key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjMxMGNiZGFmLTM3NTQtNDYxYy1hM2ZmLTllYzgwMDUzMjljOSIsImxhc3RfcGFzc3dvcmRfY2hhbmdlIjoxNzUwNjYwODczLCJleHAiOjE3NjYwMzg0MzF9.k3tuvE6yqAgeZyPFsYqWuQVhEIy-zk3PXRYFdxnEgZY"
     # api_key="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjMxMGNiZGFmLTM3NTQtNDYxYy1hM2ZmLTllYzgwMDUzMjljOSIsImxhc3RfcGFzc3dvcmRfY2hhbmdlIjoxNzUwNjYwODczLCJleHAiOjE3NjYwNDAxNzh9.vkQ2a0hyJqLUN_CISRTy51G7KJEc4JcFU8WRmJWV2YA"
-    api_key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjMxMGNiZGFmLTM3NTQtNDYxYy1hM2ZmLTllYzgwMDUzMjljOSIsImxhc3RfcGFzc3dvcmRfY2hhbmdlIjoxNzUwNjYwODczLCJleHAiOjE3NzM4MjY2NDd9.sekDaY5rxMjYYpEWgicXF_RxVYqGgY0GGqLzA2sFRpI"
+    api_key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjMxMGNiZGFmLTM3NTQtNDYxYy1hM2ZmLTllYzgwMDUzMjljOSIsImxhc3RfcGFzc3dvcmRfY2hhbmdlIjoxNzUwNjYwODczLCJleHAiOjE3NzU2NDI2Njh9.B6iZM7r7HrJV117_lievOytjij4e_KN92Be9gm2HvVM"
+    api_key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjQ0MzgzZDgxLWYyNTktNGMwNi1hNjJjLWFmYzEwYmNlNTIwZCIsImxhc3RfcGFzc3dvcmRfY2hhbmdlIjoxNzUwNjYwODczLCJleHAiOjE3NzU1MDUzNTV9.Xv6AIEgHR9clfwJ0lHFItktjhFgURb6OR7XDki7dNds"
     # content = [
     #     {"type": "text", "text": "南京今天天气"},
     # ]
@@ -570,25 +571,25 @@ if __name__ == '__main__':
             logger.debug(response)
 
 
-    arun(main())
+    # arun(main())
 
     # image1 = arun(to_base64("https://v3.fal.media/files/penguin/XoW0qavfF-ahg-jX4BMyL_image.webp"))
     #
-    # request = ImageRequest(
-    #     # model="qwen-image",
-    #     # model="qwen-image-edit",
-    #     model="qwen-image-2",
-    #
-    #     # prompt="把小鸭子放在女人的T恤上面",
-    #     # prompt="裸体女人",
-    #     prompt="一句话生成杭州两日旅游攻略图，写实风格的商品海报，极为逼真的绿色丛林，4x6的多格漫画组图，儿童绘本图等。",
-    #     # image=[
-    #     #
-    #     #     "https://v3.fal.media/files/penguin/XoW0qavfF-ahg-jX4BMyL_image.webp",
-    #     #     "https://v3.fal.media/files/tiger/bml6YA7DWJXOigadvxk75_image.webp"
-    #     # ],
-    #     # size="1:1"
-    # )
-    #
-    # # api_key = None
-    # arun(Completions(api_key=api_key).generate(request))
+    request = ImageRequest(
+        # model="qwen-image",
+        # model="qwen-image-edit",
+        model="qwen-image-2",
+
+        # prompt="把小鸭子放在女人的T恤上面",
+        # prompt="裸体女人",
+        prompt="一句话生成杭州两日旅游攻略图，写实风格的商品海报，极为逼真的绿色丛林，4x6的多格漫画组图，儿童绘本图等。",
+        # image=[
+        #
+        #     "https://v3.fal.media/files/penguin/XoW0qavfF-ahg-jX4BMyL_image.webp",
+        #     "https://v3.fal.media/files/tiger/bml6YA7DWJXOigadvxk75_image.webp"
+        # ],
+        # size="1:1"
+    )
+
+    # api_key = None
+    arun(Completions(api_key=api_key).generate(request))

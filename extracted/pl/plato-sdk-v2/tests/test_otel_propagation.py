@@ -122,6 +122,23 @@ class TestGetCurrentTraceContext:
             assert len(ctx["parent_span_id"]) == 16  # 64-bit span ID
 
 
+class TestSessionSpanOverride:
+    def test_session_span_uses_env_override_for_agent_name(self, in_memory_exporter):
+        from plato.otel import session_span
+
+        tracer = trace.get_tracer("test")
+        with patch.dict(os.environ, {"PLATO_AGENT_DISPLAY_NAME": "backend-builder"}):
+            with session_span(tracer, "claude-code", "1.2.3"):
+                pass
+
+        spans = [span for span in in_memory_exporter.get_finished_spans() if span.name == "session"]
+        assert len(spans) == 1
+        attrs = spans[0].attributes
+        assert attrs["atif.agent.name"] == "backend-builder"
+        assert attrs["plato.agent.impl_name"] == "claude-code"
+        assert attrs["plato.agent.display_name"] == "backend-builder"
+
+
 # ---------------------------------------------------------------------------
 # init_tracing() with parent context
 # ---------------------------------------------------------------------------

@@ -119,8 +119,6 @@ class DbtEntity(Asset):
     INPUT_TO_SPARK_JOBS: ClassVar[Any] = None
     OUTPUT_FROM_SPARK_JOBS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "DbtEntity"
-
     dbt_semantic_model_qualified_name: Union[str, None, UnsetType] = UNSET
     """Qualified name of the dbt semantic model this entity belongs to."""
 
@@ -687,6 +685,9 @@ def _dbt_entity_to_nested(dbt_entity: DbtEntity) -> DbtEntityNested:
         is_incomplete=dbt_entity.is_incomplete,
         provenance_type=dbt_entity.provenance_type,
         home_id=dbt_entity.home_id,
+        depth=dbt_entity.depth,
+        immediate_upstream=dbt_entity.immediate_upstream,
+        immediate_downstream=dbt_entity.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -718,7 +719,6 @@ def _dbt_entity_from_nested(nested: DbtEntityNested) -> DbtEntity:
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -727,6 +727,9 @@ def _dbt_entity_from_nested(nested: DbtEntityNested) -> DbtEntity:
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_dbt_entity_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

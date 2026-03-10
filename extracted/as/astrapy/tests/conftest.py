@@ -20,8 +20,8 @@ from __future__ import annotations
 
 import functools
 import warnings
-from collections.abc import Iterator
-from typing import TYPE_CHECKING, Any, Awaitable, Callable, Iterable, TypedDict
+from collections.abc import Awaitable, Iterable, Iterator
+from typing import TYPE_CHECKING, Any, Callable, TypedDict
 
 import pytest
 from blockbuster import BlockBuster, blockbuster_ctx
@@ -34,6 +34,7 @@ if TYPE_CHECKING:
 import astrapy
 from astrapy import AsyncDatabase, DataAPIClient, Database
 from astrapy.admin import parse_api_endpoint
+from astrapy.api_options import APIOptions, TimeoutOptions
 from astrapy.authentication import TokenProvider
 from astrapy.constants import Environment
 from astrapy.settings.defaults import DEFAULT_ASTRA_DB_KEYSPACE, DEV_OPS_URL_ENV_MAP
@@ -56,7 +57,9 @@ from .preprocess_env import (
     LOCAL_DATA_API_PASSWORD,
     LOCAL_DATA_API_TOKEN_PROVIDER,
     LOCAL_DATA_API_USERNAME,
+    RUN_SHARED_SECRET_VECTORIZE_TESTS,
     SECONDARY_KEYSPACE,
+    USE_RERANKER_API_KEY_HEADER,
 )
 
 CQL_AVAILABLE = False
@@ -67,6 +70,14 @@ try:
 
     CQL_AVAILABLE = True
 except ImportError:
+    pass
+except Exception as exception:
+    if exception.__class__.__name__ == "DependencyException":
+        # this occurs on Python 3.13+ (as of Feb 2026) for libev/asyncore
+        # TODO revise once newer cassandra-driver (>3.29) is out
+        pass
+    else:
+        raise
     pass
 
 
@@ -87,7 +98,7 @@ class DataAPICredentials(TypedDict):
 class DataAPICredentialsInfo(TypedDict):
     environment: str
     region: str
-    secondary_keyspace: str | None
+    secondary_keyspace: str
 
 
 def env_region_from_endpoint(api_endpoint: str) -> tuple[str, str]:
@@ -185,40 +196,45 @@ def clean_nulls_from_dict(in_dict: dict[str, Any]) -> dict[str, Any]:
 
 @pytest.fixture(scope="session")
 def data_api_credentials_kwargs() -> DataAPICredentials:
+    api_creds: DataAPICredentials
     if IS_ASTRA_DB:
         if ASTRA_DB_API_ENDPOINT is None:
             raise ValueError("No endpoint data for local Data API")
-        astra_db_creds: DataAPICredentials = {
+        api_creds = {
             "token": ASTRA_DB_TOKEN_PROVIDER or "",
             "api_endpoint": ASTRA_DB_API_ENDPOINT or "",
             "keyspace": ASTRA_DB_KEYSPACE or DEFAULT_ASTRA_DB_KEYSPACE,
         }
-        return astra_db_creds
     else:
         if LOCAL_DATA_API_ENDPOINT is None:
             raise ValueError("No endpoint data for local Data API")
-        local_db_creds: DataAPICredentials = {
+        api_creds = {
             "token": LOCAL_DATA_API_TOKEN_PROVIDER or "",
             "api_endpoint": LOCAL_DATA_API_ENDPOINT or "",
             "keyspace": LOCAL_DATA_API_KEYSPACE or DEFAULT_ASTRA_DB_KEYSPACE,
         }
 
-        # ensure keyspace(s) exist at this point
-        # (we have to bypass the fixture hierarchy as the ..._info fixture
-        # comes later, so this part instantiates and uses throwaway objects)
-        _env, _ = env_region_from_endpoint(local_db_creds["api_endpoint"])
-        _client = DataAPIClient(environment=_env)
-        _database = _client.get_database(
-            local_db_creds["api_endpoint"],
-            token=local_db_creds["token"],
-        )
-        _database_admin = _database.get_database_admin()
-        _database_admin.create_keyspace(local_db_creds["keyspace"])
-        if SECONDARY_KEYSPACE:
-            _database_admin.create_keyspace(SECONDARY_KEYSPACE)
-        # end of keyspace-ensuring block
+    # ensure keyspace(s) exist at this point
+    # (we have to bypass the fixture hierarchy as the ..._info fixture
+    # comes later, so this part instantiates and uses throwaway objects)
+    _env, _ = env_region_from_endpoint(api_creds["api_endpoint"])
+    _client = DataAPIClient(environment=_env)
+    _database = _client.get_database(
+        api_creds["api_endpoint"],
+        token=api_creds["token"],
+    )
+    _database_admin = _database.get_database_admin()
+    found_keyspaces = _database_admin.list_keyspaces()
+    # This is an ugly way to reduce the risk of collision from concurrent
+    # unit tests in CI/CD (which shows as "409 Conflict")
+    if api_creds["keyspace"] not in found_keyspaces:
+        _database_admin.create_keyspace(api_creds["keyspace"])
+    found_keyspaces_2 = _database_admin.list_keyspaces()
+    if SECONDARY_KEYSPACE not in found_keyspaces_2:
+        _database_admin.create_keyspace(SECONDARY_KEYSPACE)
+    # end of keyspace-ensuring block
 
-        return local_db_creds
+    return api_creds
 
 
 @pytest.fixture(scope="session")
@@ -256,6 +272,14 @@ def sync_database(
         data_api_credentials_kwargs["api_endpoint"],
         token=data_api_credentials_kwargs["token"],
         keyspace=data_api_credentials_kwargs["keyspace"],
+        spawn_api_options=APIOptions(
+            timeout_options=TimeoutOptions(
+                request_timeout_ms=20000,
+                general_method_timeout_ms=60000,
+                collection_admin_timeout_ms=90000,
+                table_admin_timeout_ms=45000,
+            ),
+        ),
     )
 
     yield database
@@ -343,4 +367,6 @@ __all__ = [
     "ADMIN_ENV_VARIABLE_MAP",
     "ASTRA_DB_TOKEN_PROVIDER",
     "LOCAL_DATA_API_TOKEN_PROVIDER",
+    "RUN_SHARED_SECRET_VECTORIZE_TESTS",
+    "USE_RERANKER_API_KEY_HEADER",
 ]

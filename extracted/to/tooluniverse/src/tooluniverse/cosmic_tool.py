@@ -112,7 +112,7 @@ class COSMICTool(BaseTool):
                 # extra_data is a dict of field_name -> list (indexed by position)
                 extra_data = data[2] if data[2] else {}
 
-                # Parse and deduplicate results by mutation_id+mutation_aa
+                # Parse and deduplicate results
                 results = []
                 seen = set()
                 for i, code in enumerate(codes):
@@ -142,8 +142,14 @@ class COSMICTool(BaseTool):
                         else None
                     )
 
-                    # Deduplicate: keep first occurrence of each mutation_id+aa pair
-                    key = (code, mutation_aa)
+                    # Skip entries where both CDS and AA changes are placeholders
+                    _cds_placeholder = not mutation_cds or mutation_cds in ("c.?", "?")
+                    _aa_placeholder = not mutation_aa or mutation_aa in ("p.?", "?")
+                    if _cds_placeholder and _aa_placeholder:
+                        continue
+
+                    # Deduplicate by mutation_id + gene + CDS + AA (more specific key)
+                    key = (code, gene, mutation_cds, mutation_aa)
                     if key in seen:
                         continue
                     seen.add(key)
@@ -234,7 +240,7 @@ class COSMICTool(BaseTool):
                 # extra_data is a dict of field_name -> list (indexed by position)
                 extra_data = data[2] if data[2] else {}
 
-                # Parse and deduplicate results by mutation_id+mutation_aa
+                # Parse and deduplicate results
                 results = []
                 seen = set()
                 for i, code in enumerate(codes):
@@ -274,8 +280,14 @@ class COSMICTool(BaseTool):
                         else None
                     )
 
-                    # Deduplicate: keep first occurrence of each mutation_id+aa pair
-                    key = (code, mutation_aa)
+                    # Skip entries where both CDS and AA changes are placeholders
+                    _cds_placeholder = not mutation_cds or mutation_cds in ("c.?", "?")
+                    _aa_placeholder = not mutation_aa or mutation_aa in ("p.?", "?")
+                    if _cds_placeholder and _aa_placeholder:
+                        continue
+
+                    # Deduplicate by mutation_id + gene + CDS + AA (more specific key)
+                    key = (code, gene_name, mutation_cds, mutation_aa)
                     if key in seen:
                         continue
                     seen.add(key)

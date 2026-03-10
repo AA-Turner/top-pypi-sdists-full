@@ -9,13 +9,15 @@ def apply_pose_asset(
     undo: bool | None = None,
     /,
     *,
-    asset_library_type: Literal[bpy.stub_internal.rna_enums.AssetLibraryTypeItems]
+    asset_library_type: typing.Literal[
+        bpy.stub_internal.rna_enums.AssetLibraryTypeItems
+    ]
     | None = "LOCAL",
     asset_library_identifier: str | None = "",
     relative_asset_identifier: str | None = "",
     blend_factor: float | None = 1.0,
     flipped: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Apply the given Pose Action to the rig
 
     :param asset_library_type: Asset Library Type, (optional)
@@ -30,7 +32,7 @@ def asset_delete(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Delete the selected Pose Asset
 
     :return: Result of the operator call.
@@ -42,7 +44,7 @@ def asset_modify(
     /,
     *,
     mode: typing.Literal["ADJUST", "REPLACE", "ADD", "REMOVE"] | None = "ADJUST",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Update the selected pose asset in the asset library from the currently selected bones. The mode defines how the asset is updated
 
         :param mode: Overwrite Mode, Specify which parts of the pose asset are overwritten (optional)
@@ -66,14 +68,16 @@ def blend_pose_asset(
     undo: bool | None = None,
     /,
     *,
-    asset_library_type: Literal[bpy.stub_internal.rna_enums.AssetLibraryTypeItems]
+    asset_library_type: typing.Literal[
+        bpy.stub_internal.rna_enums.AssetLibraryTypeItems
+    ]
     | None = "LOCAL",
     asset_library_identifier: str | None = "",
     relative_asset_identifier: str | None = "",
     blend_factor: float | None = 0.0,
     flipped: bool | None = False,
     release_confirm: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Blend the given Pose Action to the rig
 
     :param asset_library_type: Asset Library Type, (optional)
@@ -89,7 +93,7 @@ def copy_as_asset(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Create a new pose asset on the clipboard, to be pasted into an Asset Browser
 
     :return: Result of the operator call.
@@ -103,7 +107,7 @@ def create_pose_asset(
     pose_name: str | None = "",
     asset_library_reference: str | None = "",
     catalog_path: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Create a new asset from the selected bones in the scene
 
     :param pose_name: Pose Name, Name for the new pose asset (optional, never None)
@@ -116,7 +120,7 @@ def paste_asset(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Paste the Asset that was previously copied using Copy As Asset
 
     :return: Result of the operator call.
@@ -129,7 +133,7 @@ def pose_asset_select_bones(
     *,
     select: bool | None = True,
     flipped: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select those bones that are used in this pose
 
     :param select: Select, (optional)
@@ -141,7 +145,7 @@ def restore_previous_action(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Switch back to the previous Action, after creating a pose asset
 
     :return: Result of the operator call.

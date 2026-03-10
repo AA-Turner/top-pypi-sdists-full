@@ -100,8 +100,6 @@ class PartialField(Asset):
     INPUT_TO_SPARK_JOBS: ClassVar[Any] = None
     OUTPUT_FROM_SPARK_JOBS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "PartialField"
-
     partial_data_type: Union[str, None, UnsetType] = UNSET
     """Type of data captured as values in the field."""
 
@@ -514,6 +512,9 @@ def _partial_field_to_nested(partial_field: PartialField) -> PartialFieldNested:
         is_incomplete=partial_field.is_incomplete,
         provenance_type=partial_field.provenance_type,
         home_id=partial_field.home_id,
+        depth=partial_field.depth,
+        immediate_upstream=partial_field.immediate_upstream,
+        immediate_downstream=partial_field.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -547,7 +548,6 @@ def _partial_field_from_nested(nested: PartialFieldNested) -> PartialField:
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -556,6 +556,9 @@ def _partial_field_from_nested(nested: PartialFieldNested) -> PartialField:
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_partial_field_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

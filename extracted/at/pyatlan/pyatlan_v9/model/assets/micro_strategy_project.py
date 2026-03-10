@@ -118,8 +118,6 @@ class MicroStrategyProject(Asset):
     INPUT_TO_SPARK_JOBS: ClassVar[Any] = None
     OUTPUT_FROM_SPARK_JOBS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "MicroStrategyProject"
-
     micro_strategy_project_qualified_name: Union[str, None, UnsetType] = UNSET
     """Unique name of the project in which this asset exists."""
 
@@ -643,6 +641,9 @@ def _micro_strategy_project_to_nested(
         is_incomplete=micro_strategy_project.is_incomplete,
         provenance_type=micro_strategy_project.provenance_type,
         home_id=micro_strategy_project.home_id,
+        depth=micro_strategy_project.depth,
+        immediate_upstream=micro_strategy_project.immediate_upstream,
+        immediate_downstream=micro_strategy_project.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -678,7 +679,6 @@ def _micro_strategy_project_from_nested(
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -687,6 +687,9 @@ def _micro_strategy_project_from_nested(
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_micro_strategy_project_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

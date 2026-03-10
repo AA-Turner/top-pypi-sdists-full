@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openfoodfacts
-Version: 3.4.5
+Version: 4.0.0
 Summary: Official Python SDK of Open Food Facts
 Author-email: The Open Food Facts team <contact@openfoodfacts.org>
 License-Expression: MIT

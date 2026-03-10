@@ -39,6 +39,7 @@ lat.volume  # 125.0
 Functions are also organized into submodules by domain (functional API):
 
 - `ferrox.io` - Structure parsing and writing (CIF, POSCAR, XYZ, etc.)
+- `ferrox.lmdb` - LMDB dataset storage for ML training data
 - `ferrox.structure` - Structure manipulation (supercell, sort, interpolate, etc.)
 - `ferrox.lattice` - Lattice operations (metric tensor, reduction, etc.)
 - `ferrox.neighbors` - Neighbor lists and distance calculations
@@ -60,6 +61,7 @@ Functions are also organized into submodules by domain (functional API):
 - `ferrox.optimizers` - Geometry optimizers (FIRE, CellFIRE)
 - `ferrox.properties` - Physical property calculations (volume, density, mass)
 - `ferrox.species` - Chemical species with oxidation states
+- `ferrox.units` - Typed quantities, unit conversion, and strict unit mode controls
 - `ferrox.vasp` - VASP file support (CHGCAR parsing, Fourier extraction)
 - `ferrox.mp` - Materials Project REST client (no mp_api dependency)
 """
@@ -76,6 +78,7 @@ from ferrox._ferrox import (
     elastic,
     io,
     lattice,
+    lmdb,
     md,
     neighbors,
     optimizers,
@@ -89,6 +92,7 @@ from ferrox._ferrox import (
     surfaces,
     symmetry,
     trajectory,
+    units,
     vasp,
     xrd,
 )
@@ -107,3 +111,7 @@ Lattice = lattice.Lattice
 Species = species.Species
 Structure = structure.Structure
 StructureMatcher = structure.StructureMatcher
+
+# Unit mode controls and quantity API
+set_unit_mode = units.set_unit_mode
+get_unit_mode = units.get_unit_mode

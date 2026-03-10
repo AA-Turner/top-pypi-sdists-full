@@ -21,6 +21,8 @@ def generate_partition_script_by_dates(start_date_str, end_date_str):
     """
     根据开始和结束日期生成MySQL RANGE分区脚本
 
+    时间分区
+
     Args:
         start_date_str: 开始日期，格式 'YYYY-MM-DD'
         end_date_str: 结束日期，格式 'YYYY-MM-DD'
@@ -134,7 +136,7 @@ def main():
 
 if __name__ == "__main__":
     # 按日期范围生成
-    script = generate_partition_script_by_dates('2026-02-04', '2027-01-01')
+    script = generate_partition_script_by_dates('2026-03-09', '2027-01-01')
     print(script)
 
     # 按月份生成

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: awslabs.aws-diagram-mcp-server
-Version: 1.0.22
+Version: 1.0.23
 Summary: An MCP server that seamlessly creates diagrams using the Python diagrams package DSL
 Project-URL: Homepage, https://awslabs.github.io/mcp/
 Project-URL: Documentation, https://awslabs.github.io/mcp/servers/aws-diagram-mcp-server/
@@ -29,6 +29,8 @@ Requires-Dist: setuptools>=80.9.0
 Requires-Dist: starlette>=0.48.0
 Requires-Dist: urllib3>=2.6.3
 Description-Content-Type: text/markdown
+
+> **⚠️ DEPRECATION NOTICE**: This server is deprecated and will no longer receive updates. Please use the [diagram agent skill](https://github.com/awslabs/agent-plugins/tree/main/plugins/deploy-on-aws) in the `deploy-on-aws` plugin instead, which generates equivalent diagrams directly through Claude Code without requiring a running MCP server. See the [migration guide](https://github.com/awslabs/mcp/blob/main/docs/migration-diagram.md) for step-by-step instructions.
 
 # AWS Diagram MCP Server
 

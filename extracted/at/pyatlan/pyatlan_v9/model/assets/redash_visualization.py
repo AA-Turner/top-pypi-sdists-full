@@ -97,8 +97,6 @@ class RedashVisualization(Asset):
     INPUT_TO_SPARK_JOBS: ClassVar[Any] = None
     OUTPUT_FROM_SPARK_JOBS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "RedashVisualization"
-
     redash_visualization_type: Union[str, None, UnsetType] = UNSET
     """Type of this visualization."""
 
@@ -495,6 +493,9 @@ def _redash_visualization_to_nested(
         is_incomplete=redash_visualization.is_incomplete,
         provenance_type=redash_visualization.provenance_type,
         home_id=redash_visualization.home_id,
+        depth=redash_visualization.depth,
+        immediate_upstream=redash_visualization.immediate_upstream,
+        immediate_downstream=redash_visualization.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -530,7 +531,6 @@ def _redash_visualization_from_nested(
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -539,6 +539,9 @@ def _redash_visualization_from_nested(
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_redash_visualization_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

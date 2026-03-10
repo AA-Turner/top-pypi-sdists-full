@@ -78,7 +78,7 @@ class Beaker:
     MAX_RETRIES: ClassVar[int] = 5
     BACKOFF_FACTOR: ClassVar[int] = 1
     BACKOFF_MAX: ClassVar[int] = 120
-    TIMEOUT: ClassVar[float] = 5.0
+    TIMEOUT: ClassVar[float] = 30.0
     POOL_MAXSIZE: ClassVar[int] = min(100, (os.cpu_count() or 16) * 6)
 
     logger = logging.getLogger("beaker")

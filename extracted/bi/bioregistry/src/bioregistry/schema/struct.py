@@ -743,7 +743,6 @@ class Resource(BaseModel):
     """
         ),
     )
-    twitter: str | None = Field(default=None, description="The twitter handle for the project")
     mastodon: str | None = Field(default=None, description="The mastodon handle for the project")
     github_request_issue: int | None = Field(
         default=None, description="The GitHub issue for the new prefix request"
@@ -1689,13 +1688,7 @@ class Resource(BaseModel):
 
     def get_twitter(self) -> str | None:
         """Get the Twitter handle for the resource."""
-        if self.twitter:
-            return self.twitter
-        if self.obofoundry and "twitter" in self.obofoundry:
-            return cast(str, self.obofoundry["twitter"])
-        if self.fairsharing and "twitter" in self.fairsharing:
-            return cast(str, self.fairsharing["twitter"])
-        return None
+        raise NotImplementedError("twitter is no longer tracked")
 
     def get_logo(self) -> str | None:
         """Get the logo for the resource."""
@@ -2474,7 +2467,7 @@ class Resource(BaseModel):
         return (
             self.get_external("obofoundry").get("download.obo")
             or self.get_external("ols").get("download_obo")
-            or self.get_external("aberowl").get("download_obo")
+            or self._get_download("aberowl", "obo")
         )
 
     def get_download_obograph(self) -> str | None:
@@ -2554,8 +2547,15 @@ class Resource(BaseModel):
             self.get_external("obofoundry").get("download.owl")
             or self.get_external("ols").get("version.iri")
             or self.get_external("ols").get("download_owl")
-            or self.get_external("aberowl").get("download_owl")
+            or self._get_download("cropoct", "owl")
+            or self._get_download("aberowl", "owl")
         )
+
+    def _get_download(self, metaprefix: str, artifact_type: str) -> str | None:
+        for artifact in self.get_external(metaprefix).get("artifacts", []):
+            if artifact["type"] == artifact_type:
+                return cast(str, artifact["url"])
+        return None
 
     def has_download(self) -> bool:
         """Check if this resource can be downloaded."""

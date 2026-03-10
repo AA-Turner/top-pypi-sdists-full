@@ -92,8 +92,6 @@ class Metabase(Asset):
     INPUT_TO_SPARK_JOBS: ClassVar[Any] = None
     OUTPUT_FROM_SPARK_JOBS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "Metabase"
-
     metabase_collection_name: Union[str, None, UnsetType] = UNSET
     """Simple name of the Metabase collection in which this asset exists."""
 
@@ -453,6 +451,9 @@ def _metabase_to_nested(metabase: Metabase) -> MetabaseNested:
         is_incomplete=metabase.is_incomplete,
         provenance_type=metabase.provenance_type,
         home_id=metabase.home_id,
+        depth=metabase.depth,
+        immediate_upstream=metabase.immediate_upstream,
+        immediate_downstream=metabase.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -484,7 +485,6 @@ def _metabase_from_nested(nested: MetabaseNested) -> Metabase:
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -493,6 +493,9 @@ def _metabase_from_nested(nested: MetabaseNested) -> Metabase:
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_metabase_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

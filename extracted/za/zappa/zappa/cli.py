@@ -19,7 +19,6 @@ import sys
 import tempfile
 import time
 import zipfile
-from builtins import bytes, input
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
@@ -325,6 +324,10 @@ class ZappaCLI:
         invoke_parser.add_argument(
             "--qualifier",
             help="The qualifier (version or alias) of the lambda version to invoke. $LATEST if omitted.",
+        )
+        invoke_parser.add_argument(
+            "--payload",
+            help="A JSON string of key/value pairs to include in the event passed to the function.",
         )
         invoke_parser.add_argument("command_rest")
 
@@ -659,6 +662,7 @@ class ZappaCLI:
                 no_color=self.vargs["no_color"],
                 client_context=self.vargs["client_context"],
                 qualifier=self.vargs["qualifier"],
+                payload=self.vargs.get("payload"),
             )
         elif command == "manage":  # pragma: no cover
             if not self.vargs.get("command_rest"):
@@ -969,6 +973,7 @@ class ZappaCLI:
                 endpoint_configuration=self.endpoint_configuration,
                 apigateway_version=self.apigateway_version,
                 stage_name=self.api_stage,
+                websocket=self.use_websocket,
             )
 
             self.zappa.update_stack(
@@ -1024,6 +1029,11 @@ class ZappaCLI:
         self.callback("post")
 
         click.echo(deployment_string)
+
+        if self.use_websocket:
+            ws_url = self.zappa.get_websocket_url(self.lambda_name, self.api_stage)
+            if ws_url:
+                click.echo("WebSocket URL: " + click.style(ws_url, bold=True))
 
     def update(self, source_zip=None, no_upload=False, docker_image_uri=None):
         """
@@ -1216,6 +1226,7 @@ class ZappaCLI:
                 endpoint_configuration=self.endpoint_configuration,
                 apigateway_version=self.apigateway_version,
                 stage_name=self.api_stage,
+                websocket=self.use_websocket,
             )
             self.zappa.update_stack(
                 self.lambda_name,
@@ -1301,6 +1312,11 @@ class ZappaCLI:
                     self.touch_endpoint(endpoint_url)
 
         click.echo(deployed_string)
+
+        if self.use_websocket:
+            ws_url = self.zappa.get_websocket_url(self.lambda_name, self.api_stage)
+            if ws_url:
+                click.echo("WebSocket URL: " + click.style(ws_url, bold=True))
 
     def rollback(self, revision):
         """
@@ -1532,7 +1548,9 @@ class ZappaCLI:
             removed_arns = self.zappa.remove_async_sns_topic(self.lambda_name)
             click.echo("SNS Topic removed: %s" % ", ".join(removed_arns))
 
-    def invoke(self, function_name, raw_python=False, command=None, no_color=False, client_context=None, qualifier=None):
+    def invoke(
+        self, function_name, raw_python=False, command=None, no_color=False, client_context=None, qualifier=None, payload=None
+    ):
         """
         Invoke a remote function.
         """
@@ -1546,6 +1564,18 @@ class ZappaCLI:
             command = {"raw_command": function_name}
         else:
             command = {key: function_name}
+
+        if payload:
+            import json as json_module
+
+            try:
+                payload_dict = json_module.loads(payload)
+            except (ValueError, TypeError) as e:
+                raise ClickException("--payload must be valid JSON: {}".format(e))
+            if not isinstance(payload_dict, dict):
+                raise ClickException("--payload must be a JSON object (dict), not {}.".format(type(payload_dict).__name__))
+            command.update(payload_dict)
+
         client_context = base64.b64encode(client_context.encode("utf-8")).decode("utf-8") if client_context else None
 
         # Can't use hjson
@@ -2095,6 +2125,9 @@ class ZappaCLI:
 
         if has_django:
             zappa_settings[env]["django_settings"] = django_settings
+            # django_settings and app_function are mutually exclusive;
+            # remove the default app_function added by _generate_settings_dict()
+            zappa_settings[env].pop("app_function", None)
         else:
             zappa_settings[env]["app_function"] = app_function
 
@@ -2624,6 +2657,7 @@ class ZappaCLI:
             raise ClickException("Please provide a valid ephemeral_storage size between 512 - 10240 in your Zappa settings.")
 
         self.app_function = self.stage_config.get("app_function", None)
+        self.app_type = self.stage_config.get("app_type", None)
         self.exception_handler = self.stage_config.get("exception_handler", None)
         self.aws_region = self.stage_config.get("aws_region", None)
         self.debug = self.stage_config.get("debug", True)
@@ -2712,6 +2746,26 @@ class ZappaCLI:
         default_function_url_config.update(self.stage_config.get("function_url_config", {}))
         self.function_url_config = default_function_url_config
 
+        # WebSocket support - explicit setting or auto-detected from zappa.websocket imports
+        websocket_handler_module = self.stage_config.get("websocket_handler_module")
+        if websocket_handler_module:
+            if not isinstance(websocket_handler_module, str):
+                raise ClickException(
+                    "The 'websocket_handler_module' setting must be a string dotted module path, "
+                    f"got {type(websocket_handler_module).__name__} instead."
+                )
+            if websocket_handler_module.endswith(".py"):
+                raise ClickException(
+                    "The 'websocket_handler_module' setting must be a dotted module path "
+                    "(e.g. 'my_package.ws_handlers'), not a filesystem path ending in '.py'."
+                )
+            if not re.match(r"^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$", websocket_handler_module):
+                raise ClickException(
+                    "Invalid 'websocket_handler_module' setting. Expected a dotted module path "
+                    "(e.g. 'my_package.ws_handlers')."
+                )
+        self.use_websocket = websocket_handler_module or self._detect_websocket_usage()
+
         # Additional tags
         self.tags = self.stage_config.get("tags", {})
 
@@ -2754,6 +2808,27 @@ class ZappaCLI:
                 self.zappa.extra_permissions.append(efs_permission)
             else:
                 self.zappa.extra_permissions = [efs_permission]
+
+        # Automatically add execute-api:ManageConnections when WebSocket is enabled
+        if self.use_websocket and self.manage_roles:
+            ws_resource_arn = f"arn:aws:execute-api:{self.aws_region}:*:*"
+            try:
+                sts_client = self.zappa.boto_session.client("sts")
+                account_id = sts_client.get_caller_identity()["Account"]
+                ws_resource_arn = f"arn:aws:execute-api:{self.aws_region}:{account_id}:*"
+            except Exception:
+                pass
+            ws_permission = {
+                "Effect": "Allow",
+                "Action": [
+                    "execute-api:ManageConnections",
+                ],
+                "Resource": ws_resource_arn,
+            }
+            if self.zappa.extra_permissions:
+                self.zappa.extra_permissions.append(ws_permission)
+            else:
+                self.zappa.extra_permissions = [ws_permission]
 
         if self.app_function:
             self.collision_warning(self.app_function)
@@ -2951,6 +3026,12 @@ class ZappaCLI:
                 )
             app_module, app_function = self.app_function.rsplit(".", 1)
             settings_s = settings_s + "APP_MODULE='{0!s}'\nAPP_FUNCTION='{1!s}'\n".format(app_module, app_function)
+
+        if self.app_type:
+            settings_s += "APP_TYPE='{0!s}'\n".format(self.app_type)
+
+        if self.use_websocket:
+            settings_s += "WEBSOCKET_HANDLER_MODULE='{0!s}'\n".format(self.use_websocket)
 
         if self.exception_handler:
             settings_s += "EXCEPTION_HANDLER='{0!s}'\n".format(self.exception_handler)
@@ -3355,6 +3436,65 @@ class ZappaCLI:
             cache_cluster_encrypted=self.stage_config.get("cache_cluster_encrypted", False),
         )
         return endpoint_url
+
+    @staticmethod
+    def _detect_websocket_usage():
+        """Walk the project directory looking for zappa.websocket imports.
+
+        Returns the dotted module path of the first file found (e.g.
+        ``"ws_handlers"`` or ``"mypackage.ws"``), or ``None`` if no
+        WebSocket usage is detected.  The return value is truthy/falsy
+        so existing ``if self.use_websocket:`` checks still work.
+        """
+        import ast
+
+        skip_dirs = {".", "__pycache__", "node_modules", ".git", ".tox", ".eggs", "venv", "env", ".venv"}
+        for dirpath, dirnames, filenames in os.walk("."):
+            # Skip hidden dirs, venvs, caches
+            dirnames[:] = [d for d in dirnames if d not in skip_dirs and not d.startswith(".")]
+            for fname in filenames:
+                if not fname.endswith(".py"):
+                    continue
+                fpath = os.path.join(dirpath, fname)
+                try:
+                    with open(fpath, "r", encoding="utf-8", errors="ignore") as f:
+                        source = f.read()
+                except OSError:
+                    continue
+                if "zappa.websocket" not in source:
+                    continue
+                try:
+                    tree = ast.parse(source, filename=fpath)
+                except SyntaxError:
+                    continue
+                for node in ast.walk(tree):
+                    has_import = False
+                    if (
+                        isinstance(node, ast.ImportFrom)
+                        and node.module
+                        and (node.module == "zappa.websocket" or node.module.startswith("zappa.websocket."))
+                    ):
+                        has_import = True
+                    elif isinstance(node, ast.Import):
+                        for alias in node.names:
+                            if alias.name and (alias.name == "zappa.websocket" or alias.name.startswith("zappa.websocket.")):
+                                has_import = True
+                                break
+                    if has_import:
+                        # Convert file path to dotted module name
+                        # "./ws_handlers.py" -> "ws_handlers"
+                        # "./pkg/ws.py" -> "pkg.ws"
+                        # "./pkg/__init__.py" -> "pkg"
+                        module_path = os.path.normpath(fpath)
+                        if module_path.startswith("." + os.sep):
+                            module_path = module_path[2:]
+                        module_path = module_path[: -len(".py")]
+                        if module_path.endswith(os.sep + "__init__") or module_path == "__init__":
+                            module_path = module_path[: -len("__init__")].rstrip(os.sep)
+                            if not module_path:
+                                continue
+                        return module_path.replace(os.sep, ".")
+        return None
 
     def check_venv(self):
         """Ensure we're inside a virtualenv."""

@@ -8,7 +8,7 @@ def bake_keys(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add keyframes on every frame between the selected keyframes
 
     :return: Result of the operator call.
@@ -21,7 +21,7 @@ def clean(
     *,
     threshold: float | None = 0.001,
     channels: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Simplify F-Curves by removing closely spaced keyframes
 
     :param threshold: Threshold, (in [0, inf], optional)
@@ -42,7 +42,7 @@ def clickselect(
     deselect_all: bool | None = False,
     column: bool | None = False,
     channel: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select keyframes by clicking on them
 
     :param wait_to_deselect_others: Wait to Deselect Others, (optional)
@@ -60,7 +60,7 @@ def copy(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Copy selected keyframes to the internal clipboard
 
     :return: Result of the operator call.
@@ -72,7 +72,7 @@ def delete(
     /,
     *,
     confirm: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove all selected keyframes
 
     :param confirm: Confirm, Prompt for confirmation (optional)
@@ -83,7 +83,7 @@ def duplicate(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Make a copy of all selected keyframes
 
     :return: Result of the operator call.
@@ -96,7 +96,7 @@ def duplicate_move(
     *,
     ACTION_OT_duplicate: dict[str, typing.Any] | None = {},
     TRANSFORM_OT_transform: dict[str, typing.Any] | None = {},
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Make a copy of all selected keyframes and move them
 
     :param ACTION_OT_duplicate: Duplicate Keyframes, Make a copy of all selected keyframes (optional, `bpy.ops.action.duplicate` keyword arguments)
@@ -109,9 +109,9 @@ def easing_type(
     undo: bool | None = None,
     /,
     *,
-    type: Literal[bpy.stub_internal.rna_enums.BeztripleInterpolationEasingItems]
+    type: typing.Literal[bpy.stub_internal.rna_enums.BeztripleInterpolationEasingItems]
     | None = "AUTO",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set easing type for the F-Curve segments starting from the selected keyframes
 
     :param type: Type, (optional)
@@ -125,7 +125,7 @@ def extrapolation_type(
     *,
     type: typing.Literal["CONSTANT", "LINEAR", "MAKE_CYCLIC", "CLEAR_CYCLIC"]
     | None = "CONSTANT",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set extrapolation mode for selected F-Curves
 
         :param type: Type, (optional)
@@ -148,7 +148,7 @@ def frame_jump(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set the current frame to the average frame value of selected keyframes
 
     :return: Result of the operator call.
@@ -159,8 +159,9 @@ def handle_type(
     undo: bool | None = None,
     /,
     *,
-    type: Literal[bpy.stub_internal.rna_enums.KeyframeHandleTypeItems] | None = "FREE",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    type: typing.Literal[bpy.stub_internal.rna_enums.KeyframeHandleTypeItems]
+    | None = "FREE",
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set type of handle for selected keyframes
 
     :param type: Type, (optional)
@@ -172,9 +173,9 @@ def interpolation_type(
     undo: bool | None = None,
     /,
     *,
-    type: Literal[bpy.stub_internal.rna_enums.BeztripleInterpolationModeItems]
+    type: typing.Literal[bpy.stub_internal.rna_enums.BeztripleInterpolationModeItems]
     | None = "CONSTANT",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set interpolation mode for the F-Curve segments starting from the selected keyframes
 
     :param type: Type, (optional)
@@ -187,7 +188,7 @@ def keyframe_insert(
     /,
     *,
     type: typing.Literal["ALL", "SEL", "GROUP"] | None = "ALL",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Insert keyframes for the specified channels
 
     :param type: Type, (optional)
@@ -199,9 +200,9 @@ def keyframe_type(
     undo: bool | None = None,
     /,
     *,
-    type: Literal[bpy.stub_internal.rna_enums.BeztripleKeyframeTypeItems]
+    type: typing.Literal[bpy.stub_internal.rna_enums.BeztripleKeyframeTypeItems]
     | None = "KEYFRAME",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set type of keyframe for the selected keyframes
 
     :param type: Type, (optional)
@@ -212,7 +213,7 @@ def markers_make_local(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move selected scene markers to the active Action as local pose markers
 
     :return: Result of the operator call.
@@ -224,7 +225,7 @@ def mirror(
     /,
     *,
     type: typing.Literal["CFRA", "XAXIS", "MARKER"] | None = "CFRA",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Flip selected keyframes over the selected mirror line
 
         :param type: Type, (optional)
@@ -244,7 +245,7 @@ def new(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Create new action
 
     :return: Result of the operator call.
@@ -255,11 +256,12 @@ def paste(
     undo: bool | None = None,
     /,
     *,
-    offset: Literal[bpy.stub_internal.rna_enums.KeyframePasteOffsetItems]
+    offset: typing.Literal[bpy.stub_internal.rna_enums.KeyframePasteOffsetItems]
     | None = "START",
-    merge: Literal[bpy.stub_internal.rna_enums.KeyframePasteMergeItems] | None = "MIX",
+    merge: typing.Literal[bpy.stub_internal.rna_enums.KeyframePasteMergeItems]
+    | None = "MIX",
     flipped: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Paste keyframes from the internal clipboard for the selected channels, starting on the current frame
 
     :param offset: Offset, Paste time offset of keys (optional)
@@ -272,7 +274,7 @@ def previewrange_set(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set Preview Range based on extents of selected Keyframes
 
     :return: Result of the operator call.
@@ -282,7 +284,7 @@ def push_down(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Push action down on to the NLA stack as a new strip
 
     :return: Result of the operator call.
@@ -294,7 +296,7 @@ def select_all(
     /,
     *,
     action: typing.Literal["TOGGLE", "SELECT", "DESELECT", "INVERT"] | None = "TOGGLE",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Toggle selection of all keyframes
 
         :param action: Action, Selection action to execute (optional)
@@ -326,7 +328,7 @@ def select_box(
     wait_for_input: bool | None = True,
     mode: typing.Literal["SET", "ADD", "SUB"] | None = "SET",
     tweak: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select all keyframes within the specified region
 
         :param axis_range: Axis Range, (optional)
@@ -359,7 +361,7 @@ def select_circle(
     radius: int | None = 25,
     wait_for_input: bool | None = True,
     mode: typing.Literal["SET", "ADD", "SUB"] | None = "SET",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select keyframe points using circle selection
 
         :param x: X, (in [-inf, inf], optional)
@@ -386,7 +388,7 @@ def select_column(
     *,
     mode: typing.Literal["KEYS", "CFRA", "MARKERS_COLUMN", "MARKERS_BETWEEN"]
     | None = "KEYS",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select all keyframes on the specified frame(s)
 
     :param mode: Mode, (optional)
@@ -403,7 +405,7 @@ def select_lasso(
     smooth_stroke_factor: float | None = 0.75,
     smooth_stroke_radius: int | None = 35,
     mode: typing.Literal["SET", "ADD", "SUB"] | None = "SET",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select keyframe points using lasso selection
 
         :param path: Path, (optional)
@@ -430,7 +432,7 @@ def select_leftright(
     *,
     mode: typing.Literal["CHECK", "LEFT", "RIGHT"] | None = "CHECK",
     extend: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select keyframes to the left or the right of the current frame
 
     :param mode: Mode, (optional)
@@ -442,7 +444,7 @@ def select_less(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Deselect keyframes on ends of selection islands
 
     :return: Result of the operator call.
@@ -452,7 +454,7 @@ def select_linked(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select keyframes occurring in the same F-Curves as selected ones
 
     :return: Result of the operator call.
@@ -462,7 +464,7 @@ def select_more(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select keyframes beside already selected ones
 
     :return: Result of the operator call.
@@ -475,7 +477,7 @@ def snap(
     *,
     type: typing.Literal["CFRA", "NEAREST_FRAME", "NEAREST_SECOND", "NEAREST_MARKER"]
     | None = "CFRA",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Snap selected keyframes to the times specified
 
         :param type: Type, (optional)
@@ -500,7 +502,7 @@ def stash(
     /,
     *,
     create_new: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Store this action in the NLA stack as a non-contributing strip for later use
 
     :param create_new: Create New Action, Create a new action once the existing one has been safely stored (optional)
@@ -511,7 +513,7 @@ def stash_and_create(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Store this action in the NLA stack as a non-contributing strip for later use, and create a new action
 
     :return: Result of the operator call.
@@ -523,7 +525,7 @@ def unlink(
     /,
     *,
     force_delete: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Unlink this action from the active action slot (and/or exit Tweak Mode)
 
     :param force_delete: Force Delete, Clear Fake User and remove copy stashed in this data-blocks NLA stack (optional)
@@ -534,7 +536,7 @@ def view_all(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Reset viewable area to show full keyframe range
 
     :return: Result of the operator call.
@@ -544,7 +546,7 @@ def view_frame(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move the view to the current frame
 
     :return: Result of the operator call.
@@ -554,7 +556,7 @@ def view_selected(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Reset viewable area to show selected keyframes range
 
     :return: Result of the operator call.

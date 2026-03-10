@@ -99,8 +99,6 @@ class Cognos(Asset):
     INPUT_TO_SPARK_JOBS: ClassVar[Any] = None
     OUTPUT_FROM_SPARK_JOBS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "Cognos"
-
     cognos_id: Union[str, None, UnsetType] = UNSET
     """ID of the asset in Cognos."""
 
@@ -514,6 +512,9 @@ def _cognos_to_nested(cognos: Cognos) -> CognosNested:
         is_incomplete=cognos.is_incomplete,
         provenance_type=cognos.provenance_type,
         home_id=cognos.home_id,
+        depth=cognos.depth,
+        immediate_upstream=cognos.immediate_upstream,
+        immediate_downstream=cognos.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -543,7 +544,6 @@ def _cognos_from_nested(nested: CognosNested) -> Cognos:
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -552,6 +552,9 @@ def _cognos_from_nested(nested: CognosNested) -> Cognos:
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_cognos_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

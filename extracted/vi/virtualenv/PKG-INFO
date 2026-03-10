@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: virtualenv
-Version: 21.1.0
+Version: 21.2.0
 Summary: Virtual Python Environment builder
 Project-URL: Documentation, https://virtualenv.pypa.io
 Project-URL: Homepage, https://github.com/pypa/virtualenv
@@ -39,7 +39,7 @@ Requires-Dist: python-discovery>=1
 Requires-Dist: typing-extensions>=4.13.2; python_version < '3.11'
 Description-Content-Type: text/markdown
 
-virtualenv.config.cli.parser.VirtualEnvOptions# virtualenv
+# virtualenv
 
 [![PyPI](https://img.shields.io/pypi/v/virtualenv?style=flat-square)](https://pypi.org/project/virtualenv)
 [![PyPI - Implementation](https://img.shields.io/pypi/implementation/virtualenv?style=flat-square)](https://pypi.org/project/virtualenv)

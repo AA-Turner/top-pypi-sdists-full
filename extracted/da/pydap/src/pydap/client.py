@@ -46,15 +46,20 @@ lazy mechanism for function call, supporting any function. Eg, to call the
 
 import datetime as dt
 import hashlib
+import multiprocessing as mp
 import os
 import re
+import sqlite3
+import time
 import warnings
 from collections import Counter
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from io import BytesIO, open
 from os.path import commonprefix
-from typing import Iterable, List, Optional, Set
+from pathlib import Path
+from typing import Iterable, List, Mapping, Optional, Sequence, Set, Tuple, Union
 from urllib.parse import parse_qs, parse_qsl, unquote, urlencode, urlsplit, urlunsplit
+from xml.etree import ElementTree as ET
 
 import numpy as np
 import requests
@@ -71,15 +76,32 @@ from pydap.handlers.dap import (
     StreamReader,
     unpack_dap2_data,
 )
-from pydap.lib import DEFAULT_TIMEOUT as DEFAULT_TIMEOUT
-from pydap.lib import encode, walk
+from pydap.lib import DEFAULT_TIMEOUT, Failure, _is_retryable, encode, tqdm, walk
 from pydap.model import BaseType, BatchPromise, DapType
-from pydap.net import GET, create_session
+from pydap.net import (
+    GET,
+    create_session,
+    extract_session_state,
+    get_session,
+)
 from pydap.parsers.das import add_attributes, parse_das
 from pydap.parsers.dds import dds_to_dataset
 from pydap.parsers.dmr import DMRParser, dmr_to_dataset
 
 VARPATH_RE = re.compile(r"^\s*/([^[]+)\s*\[")
+
+SliceTuple = Union[
+    tuple[int, int],
+    tuple[int, int, int],
+]
+
+# Per-process globals (initialized once per worker process)
+# Used by to_netcdf when using multiprocessing to share state across processes.
+_G_SESSION_STATE = None
+_G_OUTPUT_PATH = None
+_G_KEEP_VARS = None
+_G_DIM_SLICES = None
+_G_DMR_VERSION = None
 
 
 def open_url(
@@ -87,6 +109,7 @@ def open_url(
     application=None,
     session=None,
     output_grid=False,
+    flat=True,
     timeout=DEFAULT_TIMEOUT,
     verify=True,
     checksums=True,
@@ -157,7 +180,8 @@ def open_url(
         url,
         application,
         session,
-        output_grid,
+        output_grid=output_grid,
+        flat=flat,
         timeout=timeout,
         verify=verify,
         checksums=checksums,
@@ -190,9 +214,9 @@ def consolidate_metadata(
     safe_mode=True,
     set_maps=False,
     verbose=False,
-    shared_dimensions=False,
     checksums=True,
-    batch=False,
+    batch=True,
+    ncores=None,
 ):
     """Consolidates the metadata of a collection of OPeNDAP DAP4 URLs belonging to
     data cube, i.e. urls share identical variables and dimensions. This is done
@@ -227,9 +251,6 @@ def consolidate_metadata(
         coords in xarray) that exist in the first remote url dataset. Then
         downloads all these within a single url. The url address is then
         stored in the session's headers as `Maps`.
-    shared_dimensions: bool (False default)
-        Takes the dimensions, and downloads all data in each data url at once
-        as opendap native dap response.
     verbose: bool, optional (default=False)
         For debugging purposes. If `True`, prints various URLs, normalized
         cache-keys, and other information.
@@ -240,6 +261,9 @@ def consolidate_metadata(
         Whether to enable batch mode when downloading the dap responses. When False,
         each dimension of a granule is downloaded with a separate dap response. When
         True, all dimensions are downloaded with a single dap response.
+    ncores: None | Int = None
+        number of cores to use when parallelizing downloading dap responses. If
+        ncores >= max_ncores (max cores computed internally), max_cores is chosen.
     """
 
     if not isinstance(session, CachedSession):
@@ -252,6 +276,13 @@ def consolidate_metadata(
     if not all(isinstance(url, str) for url in urls):
         raise TypeError("`urls` must be a list of string urls")
 
+    if ncores:
+        warnings.warn(
+            "`ncores` is deprecated and will be removed in a future release."
+            " The number of cores is now computed internally based on the number"
+            " of URLs to download.",
+            DeprecationWarning,
+        )
     schemes = [urlparse(urls[n]).scheme for n in range(len(urls))]
     # check if all urls have the same scheme
     scheme = set(schemes)
@@ -268,15 +299,14 @@ def consolidate_metadata(
         return None
     # All URLs begin with dap4 - to make sure DAP4 compliant
     URLs = ["https" + urls[i][4:] for i in range(len(urls))]
-    ncores = min(len(urls), os.cpu_count() * 4)
     dmr_urls = [
         url + ".dmr" if "?" not in url else url.replace("?", ".dmr?") for url in URLs
     ]
+    max_workers = min(len(dmr_urls), 32)
+    session_state = extract_session_state(session)
     if safe_mode:
-        with ThreadPoolExecutor(max_workers=ncores) as executor:
-            results = list(
-                executor.map(lambda url: open_dmr(url, session=session), dmr_urls)
-            )
+        _ = download_all_urls(session_state, dmr_urls, ncores=max_workers)
+        results = [open_dmr(dmr_url, session=session) for dmr_url in dmr_urls]
         _dim_check = {k: v for k, v in results[0].dimensions.items() if k != concat_dim}
         if not all(
             {k: v for k, v in d.dimensions.items() if k != concat_dim} == _dim_check
@@ -296,8 +326,8 @@ def consolidate_metadata(
         results = [open_dmr(dmr_urls[0], session=session)]
         # Does not download the dmr responses, as a cached key was created.
         # But needs to run so the URL is assigned the key.
-        with session as Session:
-            _ = download_all_urls(Session, dmr_urls, ncores=ncores)
+        session_state = extract_session_state(session)
+        _ = download_all_urls(session_state, dmr_urls, ncores=max_workers)
     # Download dimensions once and construct cache key their dap responses
     base_url = URLs[0].split("?")[0]
     dims = set(list(results[0].dimensions))
@@ -310,37 +340,15 @@ def consolidate_metadata(
         )
     _check = "&dap4.checksum=true"
 
-    if shared_dimensions:
-        shared_dimension_urls = []
-        for i, url in enumerate(URLs):
-            _ces = url.split("?dap4.ce=")[-1].split(";")
-            ndims = ["/" + dim for dim in sorted(list(dims))]
-            _updated = sorted(list(set(_ces) - set(ndims)))
-            _ces = "%3B".join([dim for dim in ndims + _updated])
-            cdims_ce = "%3B".join(
-                [
-                    "/"
-                    + cdim
-                    + "%3D%5B0:1:"
-                    + str(results[i].dimensions[cdim] - 1)
-                    + "%5D"
-                    for cdim in sorted(dims)
-                ]
-            )
-            shared_dimension_urls.append(
-                url.split("?")[0] + ".dap?dap4.ce=" + cdims_ce + ";" + _ces + _check
-            )
-        with session as Session:
-            _ = download_all_urls(Session, shared_dimension_urls, ncores=ncores)
-        return shared_dimension_urls
-
     session.headers["consolidated"] = "True"
 
-    if concat_dim and isinstance(concat_dim, str):
-        concat_dim = [concat_dim]
-    if concat_dim is not None and set(concat_dim).issubset(dims):
-        dims = dims - set(list(concat_dim))
+    if concat_dim:
         concat_dim_urls = []
+        if isinstance(concat_dim, str):
+            concat_dim = [concat_dim]
+        if not set(concat_dim).issubset(dims):
+            raise ValueError(f"{concat_dim} it not a dimensions")
+        dims = dims - set(concat_dim)
         for i, url in enumerate(URLs):
             cdims_ce = ";".join(
                 [
@@ -351,10 +359,12 @@ def consolidate_metadata(
             concat_dim_urls.append(
                 url.split("?")[0] + ".dap?dap4.ce=/" + cdims_ce + _check
             )
-    else:
-        concat_dim_urls = []
+        # step 2 download all concat_dim dap urls
+        session_state = extract_session_state(session)
+        _ = download_all_urls(session_state, concat_dim_urls, ncores=ncores)
 
-    # check for named dimensions
+    # Step 3: Download non-concat dimensions
+    # and create special cache key for reuse
     pyds = open_url(dmr_urls[0], session=session, protocol="dap4")
     var_names = list(pyds.variables())
     new_dims = set.intersection(dims, var_names)
@@ -374,6 +384,11 @@ def consolidate_metadata(
         else:
             new_urls = []
     else:
+        warnings.warn(
+            "Use of `batch` will be deprecated and will be removed in the future."
+            " `batch=True` will be the default behavior in the next release.",
+            DeprecationWarning,
+        )
         new_urls = [
             base_url
             + ".dap?dap4.ce=/"
@@ -384,7 +399,6 @@ def consolidate_metadata(
             + _check
             for dim in dims
         ]
-    new_urls.extend(concat_dim_urls)
     dim_ces = set(
         [
             ";".join(
@@ -455,67 +469,51 @@ def consolidate_metadata(
                 concat_dim=concat_dim,
                 url_list=URLs,
             )
-            if concat_dim and results[0].dimensions[concat_dim[0]] > 1:
-                size = results[0].dimensions[concat_dim[0]] - 1
-                add_urls = [
-                    url.split("?")[0]
-                    + ".dap?dap4.ce=/"
-                    + concat_dim[0]
-                    + "%5B0:1:0%5D"
-                    + _check
-                    for url in URLs
-                ]
-                add_urls += [
-                    url.split("?")[0]
-                    + ".dap?dap4.ce=/"
-                    + concat_dim[0]
-                    + "%5B"
-                    + str(size)
-                    + ":1:"
-                    + str(size)
-                    + "%5D"
-                    + _check
-                    for url in URLs
-                ]
-                new_urls += add_urls
             session.settings.key_fn = key_fn
-        _ = download_all_urls(session, new_urls, ncores=ncores)
+
+        session_state = extract_session_state(session)
+        max_workers = min(len(new_urls), 32)
+        _ = download_all_urls(session_state, new_urls, ncores=max_workers)
     return None
 
 
-def fetch_dim(url, session, timeout=5):
+def fetch_dim(url, session_state, timeout=30):
     """helper function that enables catch of http vs https
     connection errors (mostly for testing).
     """
+    new_session = get_session(session_state)
+
     try:
-        resp = session.get(url, timeout=timeout)
-        resp.raise_for_status()
+        with new_session.get(url, timeout=timeout) as resp:
+            resp.raise_for_status()
         return resp
     except (ConnectionError, SSLError) as e:
-        parsed = urlparse(url)
-        if parsed.scheme == "https":
+        if url.startswith("https://test.opendap.org/"):
             url = url.replace("https://", "http://")
-            resp = session.get(url)
+            resp = new_session.get(url)
             resp.raise_for_status()
             return resp
         else:
             raise e
 
 
-def download_all_urls(session, urls, ncores=4):
+def download_all_urls(session_state, urls, ncores=4):
     """Helper function that enables parallel download of multiple
     responses. Enables to identify which URL failed.
     """
     results = []
     with ThreadPoolExecutor(max_workers=ncores) as executor:
-        future_to_url = {executor.submit(fetch_dim, url, session): url for url in urls}
+        future_to_url = {
+            executor.submit(fetch_dim, url, session_state): url for url in urls
+        }
         for future in as_completed(future_to_url):
             url = future_to_url[future]
             try:
                 result = future.result()
                 results.append(result)
             except Exception as e:
-                print(f"[ERROR] Unexpected failure for {url}: {e}")
+                print(f"[ERROR] Unexpected failure for {url}: {e}" ". Trying again")
+                fetch_dim(url, session_state)
     return results
 
 
@@ -883,9 +881,11 @@ def patch_session_for_shared_dap_cache(
 
 
 def get_cmr_urls(
-    ccid=None,
-    doi=None,
-    time_range=None,
+    ccid: str | None = None,
+    doi: str | None = None,
+    short_name: str | None = None,
+    time_range: list | None = None,
+    version: list | str | None = None,
     bounding_box: list | dict | None = None,
     point: list | dict | None = None,
     polygon: list | dict | None = None,
@@ -929,12 +929,23 @@ def get_cmr_urls(
         doi : str
             The DOI of the collection to search for. This is an alternative to using
             the ccid parameter.
+        short_name : str | None
+            The short name of the collection to search for. This is an alternative to
+            using the ccid or doi parameter.
+            If multiple of ccid, doi, and short_name are provided, ccid is used,
+            then doi, then short_name.
         time_range : list | None
             The time range to filter by. The time range is a list of two elements,
             each element a datetime.datetime object, of a string in the format
             YYYY-MM-DDTHH:MM:SSZ.
             Example1: ["2023-01-01T00:00:00Z", "2023-12-31T23:59:59Z"]
             Example2: [datetime.datetime(2023, 1, 1), datetime.datetime(2023, 12, 31)]
+
+        version : str | None
+            The version of the collection to search for. If None, the latest version
+            is used.
+
+            Example: version = 1 or version = [1, 2]
 
         bounding_box : list | dict | None
             The bounding box to filter by, in the format [west, south, east, north].
@@ -1012,7 +1023,10 @@ def get_cmr_urls(
     """
 
     if not ccid and not doi:
-        raise ValueError("Either ccid or doi must be provided.")
+        if not (short_name and version):
+            raise ValueError(
+                "Either `ccid`, `doi`, or `short_name` and `version` must be provided."
+            )
 
     cmr_url = "https://cmr.earthdata.nasa.gov/search/granules"
     headers = {
@@ -1026,7 +1040,19 @@ def get_cmr_urls(
         doisearch = "https://cmr.earthdata.nasa.gov/search/collections.json?doi=" + doi
         ccid = session.get(doisearch).json()["feed"]["entry"][0]["id"]
 
-    params["concept_id"] = ccid
+    if (short_name and not version) or (version and not short_name):
+        raise ValueError(
+            "Both `short_name` and `version` must be provided together to identify a "
+            "specific collection."
+        )
+
+    if ccid:
+        params["collection_concept_id"] = ccid
+    elif short_name and version:
+        if isinstance(version, str):
+            version = [version]
+        params["short_name"] = short_name
+        cmr_url += "?" + "&".join(["version=" + v for v in version])
 
     if time_range and isinstance(time_range, list):
         if len(time_range) != 2:
@@ -1161,7 +1187,7 @@ def get_cmr_urls(
         r = session.get(cmr_url, params=params, headers=headers)
         r.raise_for_status()
     except requests.exceptions.RequestException as e:
-        print(f"Error - something went wrong: {e}")
+        print(f"Error: {e}")
         return None
 
     cmr_response = r.json()
@@ -1212,37 +1238,40 @@ def get_batch_data(array, cache_urls=None, checksums=True, key=None):
     """
     if array._is_data_loaded():
         return
-    # import pydap
 
     ds = array.parent
+    dataset = ds.dataset
+
+    set_dims = False
     if array.name in ds.dimensions:
         set_dims = True
+        Variables = [
+            ds[name].id
+            for name in ds.dimensions
+            if name in ds.keys() and isinstance(ds[name], BaseType)
+        ]  # fully qualified names
     else:
-        set_dims = False
-
-    if "consolidated" in ds.dataset.session.headers and set_dims:
-        # need to add a check that consolidated has
-        # been performed on that collection.
-        fetch_consolidated(ds, cache_urls=cache_urls, checksums=checksums)
-    else:
-        if set_dims:
-            Variables = [
-                ds[name].id
-                for name in ds.dimensions
-                if name in ds.keys() and isinstance(ds[name], BaseType)
-            ]  # fully qualified names
-        if not set_dims:
-            Variables = [
-                ds[var_name].id
-                for var_name in sorted(ds.variables())
-                if isinstance(ds[var_name], BaseType)
-                and not ds[var_name]._is_data_loaded()
-                and var_name not in ds.dimensions
-            ]
-        dataset = ds.dataset
-        dataset.register_dim_slices(array, key=key)  # here slices are recorded
-        register_all_for_batch(dataset, Variables, checksums=checksums)
-        fetch_batched(dataset, Variables)
+        Variables = [
+            ds[var_name].id
+            for var_name in sorted(ds.variables())
+            if isinstance(ds[var_name], BaseType)
+            and not ds[var_name]._is_data_loaded()
+            and var_name not in ds.dimensions
+        ]
+    try:
+        if "consolidated" in ds.dataset.session.headers and set_dims:
+            # need to add a check that consolidated has
+            # been performed on that collection.
+            fetch_consolidated(ds, cache_urls=cache_urls, checksums=checksums)
+        else:
+            dataset = ds.dataset
+            dataset.register_dim_slices(array, key=key)  # here slices are recorded
+            register_all_for_batch(dataset, Variables, checksums=checksums)
+            fetch_batched(dataset, Variables)
+    except (KeyError, AttributeError):
+        dataset.disable_batch_mode()
+        for var in Variables:
+            dataset[var]._data = np.asarray(dataset[var][:].data)
 
 
 def data_check(_array: np.ndarray, key: tuple) -> np.ndarray:
@@ -1378,8 +1407,6 @@ def fetch_consolidated(ds, cache_urls=None, checksums=True) -> None:
 
     """
 
-    # import pydap
-
     var_name = list(ds.variables())[0]
     baseurl = ds[var_name].data.baseurl
     session = ds.dataset.session
@@ -1387,15 +1414,20 @@ def fetch_consolidated(ds, cache_urls=None, checksums=True) -> None:
         # gets them from cache
         cache_urls = session.cache.urls()
     miss_url, curr_url = recover_missing_url(cache_urls, baseurl)
+
     dap_urls = miss_url + curr_url
+
     for URL in set(dap_urls):
-        # print("[pydap.lib.fetch_consolidated] Fetching:", URL)
-        r = session.get(URL, stream=True)
+        try:
+            r = session.get(URL)
+        except (sqlite3.InterfaceError, EOFError):
+            with session.cache_disabled():
+                r = session.get(URL)
         # create temp dataset
         pyds = UNPACKDAP4DATA(r, checksums=checksums).dataset
         for name in [name for name in pyds.keys() if isinstance(ds[name], BaseType)]:
             var = pyds[name]
-            ds.dataset[var.id].data = np.asarray(var.data)
+            ds.dataset[var.id].data = np.asarray(var[:].data)
         del pyds
 
 
@@ -1437,8 +1469,6 @@ def recover_missing_url(cached_urls, baseurl):
 
 
     """
-    # import pydap.client as client
-
     dap_urls = [url for url in cached_urls if url.split("?")[0].endswith(".dap")]
     common_prefix = compute_base_url_prefix(dap_urls)
     # the following is a test on its own it len(dap_ulrs)=0 then there is something
@@ -1458,6 +1488,7 @@ def recover_missing_url(cached_urls, baseurl):
     ]
 
     duplicate = [item for item, count in Counter(base_urls).items() if count > 1]
+
     if len(duplicate) == 1:
         # assume there is only one repeated base url - produce of
         # consolidate metadata with freshly created session object
@@ -1631,6 +1662,344 @@ def create_key(
     ).encode("utf-8")
 
     return hashlib.sha256(key_material).hexdigest()
+
+
+def _init_worker(session_state, output_path, keep_variables, dim_slices, dmrVersion):
+    global _G_SESSION_STATE, _G_OUTPUT_PATH, _G_KEEP_VARS, _G_DIM_SLICES, _G_DMR_VERSION
+    _G_SESSION_STATE = session_state
+    _G_OUTPUT_PATH = str(output_path)  # keep pickling simple
+    _G_KEEP_VARS = keep_variables
+    _G_DIM_SLICES = dim_slices
+    _G_DMR_VERSION = dmrVersion
+
+
+def _stream_worker(url):
+    # Call your existing stream() with per-process state
+    return stream(
+        url,
+        session_state=_G_SESSION_STATE,
+        output_path=_G_OUTPUT_PATH,
+        keep_variables=_G_KEEP_VARS,
+        dim_slices=_G_DIM_SLICES,
+        dmrVersion=_G_DMR_VERSION,
+    )
+
+
+def stream(
+    url: str,
+    session_state: Optional[dict] = None,
+    output_path: Optional[Union[str, Path]] = None,
+    keep_variables: Optional[Sequence[str]] = None,
+    dim_slices: Optional[Mapping[str, SliceTuple]] = None,
+    dmrVersion: Optional[Union[str, None]] = None,
+) -> str:
+    """
+    Downloads a dap response and stores it to a local directory. When keep variables
+    or dim_slices are passed, a constrained dap response is downloaded.
+    """
+
+    dap_url = url.split("?")[0] + ".dap"
+    ce = "?dap4.ce="
+
+    # session could be a request session object of a session state dict? dual use
+    # means that it could
+    if not session_state:
+        session = create_session()
+    else:
+        session = get_session(session_state)
+
+    if output_path is None:
+        warnings.warn(
+            "No location was provided. The file will be stored "
+            "in the current directory by default"
+        )
+        output_path = Path(".")
+
+    if urlparse(url).query:
+        if keep_variables:
+            _ce = urlparse(url).query.replace("dap4.ce=", "").split(";")
+            # need to update the query
+            if not set(keep_variables).issubset(set(_ce)):
+                raise ValueError(
+                    f"The provided keep_variables {keep_variables} do not "
+                    f"match those in the URL constraint expression {_ce}"
+                )
+            url = url.split("?")[0] + "?dap4.ce=" + ";".join(keep_variables)
+            keep_variables = None  # already handled
+            if dim_slices is not None:
+                warnings.warn(
+                    "The use of dim_slices is ignored since the provided "
+                    "URL already contains a constraint expression."
+                )
+        dap_url += "?" + urlparse(url).query
+    if dim_slices is not None:
+        if keep_variables is None:
+            raise ValueError(
+                f"The use of {dim_slices} in the constraint expression"
+                " requires defining `keep_variables`"
+            )
+        _slices = {}
+        for dim, slc in dim_slices.items():
+            if len(slc) == 2:
+                start, stop = slc
+                step = 1
+            elif len(slc) == 3:
+                start, stop, step = slc
+            else:
+                raise ValueError(
+                    f"dim_slices[{dim!r}] must be a 2- or 3-tuple (start, stop[, step])"
+                    f" but got {slc!r} instead."
+                )
+            stop += -1  # Fix: opendap `stop` is inclusive - python's is not.
+            if step == 0:
+                raise ValueError(f"dim_slices[{dim!r}] step cannot be 0; got {slc!r}")
+
+            _slices[dim] = f"[{start}:{step}:{stop}]"
+        shared_dim = [k + "=" + v for k, v in _slices.items()]
+        ce += ";".join(shared_dim)
+
+    if keep_variables:
+        if dim_slices:
+            ce += ";"
+        ce += ";".join(keep_variables)
+
+    if ce != "?dap4.ce=":
+        dap_url += ce
+    if bool(parse_qs(dap_url)):
+        dap_url += "&dap4.checksum=true"
+    else:
+        dap_url += "?dap4.checksum=true"
+    with session.get(dap_url, stream=True, timeout=(10, 120)) as r:
+        r.raise_for_status()
+        UNPACKDAP4DATA(
+            r=r, checksums=True, output_path=output_path, dmrVersion=dmrVersion
+        )
+    return url
+
+
+def _run_process_batch(
+    urls: Sequence[str],
+    session_state: dict,
+    output_path: Union[str, Path, None],
+    keep_variables: Optional[Sequence[str]],
+    max_workers: int,
+    dim_slices: Optional[
+        Union[Mapping[str, SliceTuple], Sequence[Mapping[str, SliceTuple]]]
+    ] = None,
+    dmrVersion: Union[str, None] = None,
+    *,
+    desc: Optional[str] = None,
+) -> List[Tuple[str, BaseException]]:
+    """
+    Run stream() for each URL in a process pool. Return list of (url, exception)
+    failures.
+    """
+    failures: List[Tuple[str, BaseException]] = []
+    ctx = mp.get_context("spawn")  # macOS-safe
+
+    workers = max(1, min(max_workers, len(urls)))
+    bar_desc = desc or f"Downloading ({len(urls)} remote files)"
+
+    if dim_slices is None:
+        dim_slices_list = [None] * len(urls)
+
+    elif isinstance(dim_slices, Mapping):
+        dim_slices_list = [dim_slices] * len(urls)
+    else:
+        # Must be a sequence of mappings
+        if len(dim_slices) != len(urls):
+            raise ValueError(
+                "When dim_slices is a sequence, it must have the same length as urls"
+            )
+        dim_slices_list = list(dim_slices)
+
+    with ProcessPoolExecutor(max_workers=workers, mp_context=ctx) as pool:
+        future_to_url = {
+            pool.submit(
+                stream,
+                url,
+                session_state,
+                output_path,
+                keep_variables,
+                ds,
+                dmrVersion,
+            ): url
+            for url, ds in zip(urls, dim_slices_list)
+        }
+        with tqdm(total=len(future_to_url), desc=bar_desc, unit="url") as pbar:
+            for fut in as_completed(future_to_url):
+                url = future_to_url[fut]
+                try:
+                    fut.result()
+                except BaseException as e:
+                    failures.append((url, e))
+                    # tqdm-friendly printing (fallback tqdm may not have .write)
+                    try:
+                        tqdm.write(f"FAILED: {url} → {type(e).__name__}: {e}")
+                    except Exception:
+                        print(f"FAILED: {url} → {type(e).__name__}: {e}")
+                finally:
+                    pbar.update(1)
+
+    return failures
+
+
+def _download_with_retries_process(
+    urls: Sequence[str],
+    session_state: dict,
+    output_path: Union[str, Path, None],
+    keep_variables: Optional[Sequence[str]],
+    dim_slices: Optional[
+        Union[Mapping[str, SliceTuple], Sequence[Mapping[str, SliceTuple]]]
+    ] = None,
+    dmrVersion=Union[str, None],
+    max_attempts: int = 2,
+    max_workers_first: int = 32,
+    max_workers_retry: int = 8,
+    backoff_seconds: float = 10.0,
+) -> None:
+    """
+    Attempt downloads; retry only retryable failures up to max_attempts.
+    Raises RuntimeError with a summary if failures remain.
+    """
+    remaining = list(urls)
+    all_failures: List[Failure] = []
+
+    for attempt in range(1, max_attempts + 1):
+        if not remaining:
+            return
+
+        workers = max_workers_first if attempt == 1 else max_workers_retry
+
+        batch_failures = _run_process_batch(
+            remaining,
+            session_state=session_state,
+            output_path=output_path,
+            keep_variables=keep_variables,
+            dim_slices=dim_slices,
+            dmrVersion=dmrVersion,
+            max_workers=workers,
+        )
+
+        if not batch_failures:
+            return
+
+        # Decide what to retry
+        retry_urls: List[str] = []
+        for url, exc in batch_failures:
+            all_failures.append(
+                Failure(url=url, exc_type=type(exc).__name__, message=str(exc))
+            )
+
+            if _is_retryable(exc) and attempt < max_attempts:
+                retry_urls.append(url)
+
+        # Anything that failed but is not retryable => we can stop early
+        non_retryable = [url for url, exc in batch_failures if not _is_retryable(exc)]
+        if non_retryable:
+            # Keep message short but actionable
+            sample = non_retryable[:10]
+            raise RuntimeError(
+                f"{len(non_retryable)} non-retryable failures encountered"
+                f" (e.g. {sample[0]}). Aborting without further retries."
+            )
+
+        remaining = retry_urls
+        if remaining and attempt < max_attempts and backoff_seconds > 0:
+            sleep_for = backoff_seconds * (2 ** (attempt - 1))
+            print(f"Retrying {len(remaining)} URLs after {sleep_for:.0f}s backoff...")
+            time.sleep(sleep_for)
+
+    # If we get here, retries were exhausted
+    if remaining:
+        # Summarize last errors for remaining URLs (best-effort)
+        sample = remaining[:10]
+        raise RuntimeError(
+            f"{len(remaining)} downloads failed after {max_attempts} attempts. "
+            f"Sample failed URL: {sample[0]}"
+        )
+
+
+def to_netcdf(
+    urls: Union[str, Sequence[str]],
+    session: Optional[requests.Session] = None,
+    output_path: Optional[Union[str, Path]] = None,
+    keep_variables: Optional[Sequence[str]] = None,
+    dim_slices: Optional[
+        Union[Mapping[str, SliceTuple], Sequence[Mapping[str, SliceTuple]]]
+    ] = None,
+) -> None:
+    """
+    Downloads multiple dap4 responses in parallel, and stores them to a local directory.
+    It can handle both single url (str) or multiple urls (list), storing each dap
+    response as a separate netcdf4 file in the output_path directory. The netcdf4 files
+    are named using the name attribute in the DMR of the response (which coincides with
+    the name of the remote file).
+
+    If data is behind authentication (e.g EDL), make sure to provide session with auth
+    or have a .netrc with proper credentials correctly in place.
+    """
+    if session:
+        session_state = extract_session_state(session)
+    else:
+        session_state = None
+        session = create_session()  # needed to check hyrax version
+
+    # check if cloud opendap url
+    url = urls[0] if isinstance(urls, list) else urls
+    # check if response come sfrom hyrax, and its build number
+    dmrVersion = None
+    rv = session.get(url.split("?")[0] + ".ver")  # hyrax specific!
+    dmr_ver = rv.content.decode()
+    try:
+        root = ET.fromstring(dmr_ver)
+        ver = root.find("Hyrax").attrib.get("version")
+        ver_parts = ver.split("-")[0].split(".")  # major release only
+        # e.g. turns 1.17.1 into float value of 1.171
+        version = float(".".join(ver_parts[:-1]) + ver_parts[-1])
+        build_number = float(ver.split("-")[1])  # get build only
+        if version == 1.171 and build_number > 500:
+            # see https://github.com/pydap/pydap/issues/656
+            # enforce always 2.0 - some servers may indicate 1.0
+            dmrVersion = "2.0"
+    except ET.ParseError:
+        # server is not a Hyrax!
+        dmrVersion = None  # infers from dap response
+    if len(urls) == 1 or isinstance(urls, str):
+        if isinstance(urls, list):
+            urls = urls[0]
+        return [
+            stream(
+                urls,
+                session_state,
+                output_path,
+                keep_variables,
+                dim_slices,
+                dmrVersion=dmrVersion,
+            )
+        ]
+
+    if dim_slices is not None and not keep_variables:
+        raise ValueError(
+            f"The use of {dim_slices} in the constraint expression"
+            " requires defining `keep_variables`"
+        )
+
+    max_workers = min(len(urls), 32)
+
+    # Multi-URL case:
+    _download_with_retries_process(
+        urls,
+        session_state=session_state,  # or derive from session
+        output_path=output_path,
+        keep_variables=keep_variables,
+        dim_slices=dim_slices,
+        dmrVersion=dmrVersion,
+        max_attempts=2,
+        max_workers_first=max_workers,
+        max_workers_retry=8,
+        backoff_seconds=10.0,
+    )
 
 
 if __name__ == "__main__":

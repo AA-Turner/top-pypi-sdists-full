@@ -853,7 +853,7 @@ class PKAssetsManager:
         except ValueError as e:  # pragma: no cover
             default_logger().debug(e, exc_info=True)
             response = "Y"
-        if response is not None and response.upper() != "N":
+        if response is not None and str(response).upper() != "N":
             pastDateString = f"{pastDate}_to_" if pastDate is not None else ""
             filename = (
                 f"PKS_{sheetName.strip()}_"

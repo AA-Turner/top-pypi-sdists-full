@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.19.20.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-03-05T21:57:32.367853                                                            #
+# Generated on 2026-03-09T17:10:37.667195                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -10,11 +10,11 @@ import typing
 import metaflow
 if typing.TYPE_CHECKING:
     import tempfile
-    import metaflow.client.core
-    import typing
     import metaflow.events
     import tarfile
+    import metaflow.client.core
     import datetime
+    import typing
 
 from ..metaflow_current import current as current
 from ..events import Trigger as Trigger

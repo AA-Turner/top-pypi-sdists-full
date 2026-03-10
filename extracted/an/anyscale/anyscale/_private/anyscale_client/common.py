@@ -46,6 +46,9 @@ from anyscale.client.openapi_client.models import (
     WriteProject,
 )
 from anyscale.client.openapi_client.models.create_schedule import CreateSchedule
+from anyscale.client.openapi_client.models.databricks_connection_config_item import (
+    DatabricksConnectionConfigItem,
+)
 from anyscale.client.openapi_client.models.databricks_connection_info import (
     DatabricksConnectionInfo,
 )
@@ -371,12 +374,18 @@ class AnyscaleClientInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def get_deployment_infra_provider(self) -> str:
+        """Get the deployment infrastructure provider (e.g. 'aws' or 'azure')."""
+        raise NotImplementedError
+
+    @abstractmethod
     def get_cluster_env_build_id_from_image_uri(
         self,
         image_uri: ImageURI,
         registry_login_secret: Optional[str] = None,
         ray_version: Optional[str] = None,
         name: Optional[str] = None,
+        cloud_id: Optional[str] = None,
     ):
         """Get the cluster environment build ID for the cluster environment with provided image_uri.
 
@@ -1112,7 +1121,7 @@ class AnyscaleClientInterface(ABC):
     @abstractmethod
     def list_databricks_connections(
         self, *, name: Optional[str] = None
-    ) -> List[DatabricksConnectionInfo]:
+    ) -> List[DatabricksConnectionConfigItem]:
         """List Databricks connections."""
         raise NotImplementedError
 

@@ -1,6 +1,7 @@
 import click
 
 from tinybird.tb.modules.cli import cli
+from tinybird.tb.modules.exceptions import CLIMockException
 from tinybird.tb.modules.feedback_manager import FeedbackManager
 
 
@@ -87,24 +88,6 @@ def diff(args) -> None:
 
 
 @cli.command(
-    name="init",
-    context_settings=dict(
-        ignore_unknown_options=True,
-    ),
-    hidden=True,
-)
-@click.argument("args", nargs=-1, type=click.UNPROCESSED)
-def init(args) -> None:
-    """
-    `tb init` is deprecated. Use `tb create` instead.
-    """
-    click.echo(FeedbackManager.warning(message="This command is deprecated. Use `tb create` instead."))
-    click.echo(
-        "You are using Tinybird Forward CLI.\nYou can find more information in the docs at https://www.tinybird.co/docs/forward"
-    )
-
-
-@cli.command(
     name="push",
     context_settings=dict(
         ignore_unknown_options=True,
@@ -137,4 +120,47 @@ def tag(args) -> None:
     click.echo(FeedbackManager.warning(message="This command is deprecated."))
     click.echo(
         "You are using Tinybird Forward CLI.\nYou can find more information in the docs at https://www.tinybird.co/docs/forward"
+    )
+
+
+@cli.command(
+    name="create",
+    context_settings=dict(
+        ignore_unknown_options=True,
+    ),
+    hidden=True,
+)
+@click.argument("args", nargs=-1, type=click.UNPROCESSED)
+def create(args) -> None:
+    """
+    `tb create` is deprecated. Use `tb init` instead.
+    """
+    _ = args
+    click.echo(FeedbackManager.warning(message="`tb create` is deprecated. Use `tb init` to scaffold your project."))
+    click.echo(
+        "You are using Tinybird Forward CLI.\nYou can find more information in the docs at https://www.tinybird.co/docs/forward"
+    )
+
+
+@cli.command(
+    name="mock",
+    context_settings=dict(
+        ignore_unknown_options=True,
+    ),
+    hidden=True,
+)
+@click.argument("args", nargs=-1, type=click.UNPROCESSED)
+def mock(args) -> None:
+    """
+    `tb mock` is removed.
+    """
+    _ = args
+    raise CLIMockException(
+        FeedbackManager.error(
+            message=(
+                "`tb mock` has been removed. Create fixture files manually under the `fixtures/` folder.\n"
+                "You can use Tinybird agent skills to generate mock behavior from your coding agent. "
+                "Run: npx skills add @tinybirdco/tinybird-agent-skills"
+            )
+        )
     )

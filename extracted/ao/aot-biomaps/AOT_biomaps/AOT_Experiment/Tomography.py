@@ -70,28 +70,28 @@ class Tomography(Experiment):
             raise ValueError("Medium is not initialized. Please generate the medium first.")
         if self.TypeAcoustic.value == WaveType.StructuredWave.value:
             self.AcousticFields = self._generateAcousticFields_STRUCT_CPU(fieldDataPath, show_log, nameBlock)
-            for i in range(len(self.AcousticFields)):
-                profile = hex_to_binary_profile(self.AcousticFields[i].getName_field()[6:-4], self.params.acoustic['probe']['num_elements'])
-                self.ActiveList.append(profile)
-                angle = self.AcousticFields[i].angle
-                self.theta.append(angle)
-                Delay = 1000 * (1/self.params.acoustic['medium']['c0']) * np.sin(np.deg2rad(angle)) * np.arange(1, self.params.acoustic['probe']['num_elements']  + 1) * self.params.acoustic['probe']['element_width']
-                self.DelayLaw.append(Delay - np.min(Delay))
+            # for i in range(len(self.AcousticFields)):
+            #     profile = hex_to_binary_profile(self.AcousticFields[i].getName_field()[6:-4], self.params.acoustic['probe']['num_elements'])
+            #     self.ActiveList.append(profile)
+            #     angle = self.AcousticFields[i].angle
+            #     self.theta.append(angle)
+            #     Delay = 1000 * (1/self.params.acoustic['medium']['c0']) * np.sin(np.deg2rad(angle)) * np.arange(1, self.params.acoustic['probe']['num_elements']  + 1) * self.params.acoustic['probe']['element_width']
+            #     self.DelayLaw.append(Delay - np.min(Delay))
 
-                if set(self.AcousticFields[i].getName_field()[6:-4].lower().replace(" ", "")) == {'f'}:
-                    fs_key = 0.0 # fs_key est en mm^-1 (0.0 mm^-1)
-                else:   
-                    ft_prof = np.fft.fft(profile)
-                    idx_max = np.argmax(np.abs(ft_prof[1:len(profile)//2])) + 1
-                    freqs = np.fft.fftfreq(len(profile), d=self.params.general['dx'])
+            #     if set(self.AcousticFields[i].getName_field()[6:-4].lower().replace(" ", "")) == {'f'}:
+            #         fs_key = 0.0 # fs_key est en mm^-1 (0.0 mm^-1)
+            #     else:   
+            #         ft_prof = np.fft.fft(profile)
+            #         idx_max = np.argmax(np.abs(ft_prof[1:len(profile)//2])) + 1
+            #         freqs = np.fft.fftfreq(len(profile), d=self.params.general['dx'])
 
-                    # freqs est en m^-1 car delta_x est en mètres.
-                    fs_m_inv = abs(freqs[idx_max]) 
+            #         # freqs est en m^-1 car delta_x est en mètres.
+            #         fs_m_inv = abs(freqs[idx_max]) 
 
-                    fs_key = fs_m_inv # Fréquence spatiale en mm^-1
+            #         fs_key = fs_m_inv # Fréquence spatiale en mm^-1
 
-                # fs = n * dfx  => n = fs / dfx with dfx = 1/(N*delta_x)
-                self.decimations.append(int(fs_key / (1/(len(profile)*self.params.general['dx']))))
+            #     # fs = n * dfx  => n = fs / dfx with dfx = 1/(N*delta_x)
+            #     self.decimations.append(int(fs_key / (1/(len(profile)*self.params.general['dx']))))
 
         else:
             raise ValueError("Unsupported wave type.")

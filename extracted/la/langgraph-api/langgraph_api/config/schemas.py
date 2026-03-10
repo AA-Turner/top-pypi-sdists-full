@@ -299,8 +299,9 @@ class MongoCheckpointerConfig(TypedDict):
     uri: NotRequired[str]
     """MongoDB connection URI.
 
-    If omitted, resolved from the ``LS_MONGODB_URI`` environment variable,
-    falling back to ``MONGODB_URI``.
+    Prefer setting ``LS_MONGODB_URI`` or ``MONGODB_URI`` so the connection
+    string does not need to be checked into source control. If omitted here,
+    the runtime resolves ``LS_MONGODB_URI`` first, then ``MONGODB_URI``.
     """
     ttl: NotRequired[ThreadTTLConfig | None]
 

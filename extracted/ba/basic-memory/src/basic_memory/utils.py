@@ -1,5 +1,6 @@
 """Utility functions for basic-memory."""
 
+import json
 import os
 
 import logging
@@ -7,7 +8,7 @@ import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Protocol, Union, runtime_checkable, List, Optional
+from typing import Any, Protocol, Union, runtime_checkable, List, Optional
 
 from loguru import logger
 from unidecode import unidecode
@@ -66,6 +67,7 @@ class PathLike(Protocol):
 # In type annotations, use Union[Path, str] instead of FilePath for now
 # This preserves compatibility with existing code while we migrate
 FilePath = Union[Path, str]
+WINDOWS_LOG_FILE_RETENTION = 5
 
 
 def generate_permalink(file_path: Union[Path, str, PathLike], split_extension: bool = True) -> str:
@@ -250,7 +252,7 @@ def setup_logging(
     log_to_file: bool = False,
     log_to_stdout: bool = False,
     structured_context: bool = False,
-) -> None:  # pragma: no cover
+) -> None:
     """Configure logging with explicit settings.
 
     This function provides a simple, explicit interface for configuring logging.
@@ -273,8 +275,14 @@ def setup_logging(
 
     # Add file handler with rotation
     if log_to_file:
-        log_path = Path.home() / ".basic-memory" / "basic-memory.log"
+        # Trigger: Windows does not allow renaming an open file held by another process.
+        # Why: multiple basic-memory processes can share the same log directory at once.
+        # Outcome: use per-process log files on Windows so log rotation stays local.
+        log_filename = f"basic-memory-{os.getpid()}.log" if os.name == "nt" else "basic-memory.log"
+        log_path = Path.home() / ".basic-memory" / log_filename
         log_path.parent.mkdir(parents=True, exist_ok=True)
+        if os.name == "nt":
+            _cleanup_windows_log_files(log_path.parent, log_path.name)
         # Keep logging synchronous (enqueue=False) to avoid background logging threads.
         # Background threads are a common source of "hang on exit" issues in CLI/test runs.
         logger.add(
@@ -306,6 +314,28 @@ def setup_logging(
     # Reduce noise from third-party libraries
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("watchfiles.main").setLevel(logging.WARNING)
+
+
+def _cleanup_windows_log_files(log_dir: Path, current_log_name: str) -> None:
+    """Trim stale per-process Windows log files so the directory stays bounded."""
+    stale_logs = [
+        path
+        for path in log_dir.glob("basic-memory-*.log*")
+        if path.is_file() and path.name != current_log_name
+    ]
+
+    if len(stale_logs) <= WINDOWS_LOG_FILE_RETENTION - 1:
+        return
+
+    # Trigger: per-process log filenames avoid Windows rename contention but fragment retention.
+    # Why: loguru retention applies per sink, not across the whole basic-memory log directory.
+    # Outcome: keep only the newest stale PID logs so repeated CLI/server launches stay bounded.
+    stale_logs.sort(key=lambda path: path.stat().st_mtime, reverse=True)
+    for stale_log in stale_logs[WINDOWS_LOG_FILE_RETENTION - 1 :]:
+        try:
+            stale_log.unlink()
+        except OSError:
+            logger.debug("Failed to delete stale Windows log file: {path}", path=stale_log)
 
 
 def parse_tags(tags: Union[List[str], str, None]) -> List[str]:
@@ -354,6 +384,36 @@ def parse_tags(tags: Union[List[str], str, None]) -> List[str]:
     except (ValueError, TypeError):  # pragma: no cover
         logger.warning(f"Couldn't parse tags from input of type {type(tags)}: {tags}")
         return []
+
+
+def coerce_list(v: Any) -> Any:
+    """Coerce string input to list for MCP clients that serialize lists as strings."""
+    if v is None:
+        return v
+    if isinstance(v, str):
+        try:
+            parsed = json.loads(v)
+            if isinstance(parsed, list):
+                return parsed
+        except (json.JSONDecodeError, TypeError):
+            pass
+        # Single string value — wrap in a list
+        return [v]
+    return v
+
+
+def coerce_dict(v: Any) -> Any:
+    """Coerce string input to dict for MCP clients that serialize dicts as strings."""
+    if v is None:
+        return v
+    if isinstance(v, str):
+        try:
+            parsed = json.loads(v)
+            if isinstance(parsed, dict):
+                return parsed
+        except (json.JSONDecodeError, TypeError):
+            pass
+    return v
 
 
 def normalize_newlines(multiline: str) -> str:

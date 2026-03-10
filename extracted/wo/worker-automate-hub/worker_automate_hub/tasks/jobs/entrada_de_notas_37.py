@@ -357,7 +357,35 @@ async def entrada_de_notas_37(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
             except:
                 console.print("Não foi possivel clicar no Botão OK... \n")
 
-            await worker_sleep(3)
+            await worker_sleep(10) # ajustado aqui
+            
+            console.print("Verificar se existem itens não localizados")
+            try:
+                img_nao_localizados = pyautogui.locateOnScreen(
+                    r"assets\\entrada_notas\\itens_nao_localizados.png",
+                    confidence=0.8
+                )
+
+                # Se EXISTIR a imagem -> erro
+                if img_nao_localizados is not None:
+                    console.print("Erro: Há itens não localizados para o Fornecedor")
+                    return RpaRetornoProcessoDTO(
+                        sucesso=False,
+                        retorno="Erro: Há itens não localizados para o Fornecedor",
+                        status=RpaHistoricoStatusEnum.Falha,
+                        tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)]
+                    )
+
+                # Se NÃO existir -> continua normalmente
+                console.print("Itens localizados, continuando fluxo...")
+
+            except Exception as error:
+                return RpaRetornoProcessoDTO(
+                    sucesso=False,
+                    retorno=f"Erro ao verificar imagem: {error}",
+                    status=RpaHistoricoStatusEnum.Falha,
+                    tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
+                )
 
             console.print(
                 "Verificando a existencia da tela Informações para importação da Nota Fiscal Eletrônica...\n"

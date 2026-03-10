@@ -31,6 +31,9 @@ class FAERSAnalyticsTool(BaseTool):
     def run(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Route to analytics operation."""
         operation = arguments.get("operation")
+        # Auto-fill operation from tool config const if not provided by user
+        if not operation:
+            operation = self.get_schema_const_operation()
 
         if not operation:
             return {"status": "error", "error": "Missing required parameter: operation"}

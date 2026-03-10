@@ -8,7 +8,7 @@ def autocomplete(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Evaluate the namespace up until the cursor and give a list of options or complete the name if there is only one
 
     :return: Result of the operator call.
@@ -18,7 +18,7 @@ def banner(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Print a message when the terminal initializes
 
     :return: Result of the operator call.
@@ -31,7 +31,7 @@ def clear(
     *,
     scrollback: bool | None = True,
     history: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Clear text by type
 
     :param scrollback: Scrollback, Clear the scrollback history (optional)
@@ -43,7 +43,7 @@ def clear_line(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Clear the line and store in history
 
     :return: Result of the operator call.
@@ -55,7 +55,7 @@ def copy(
     /,
     *,
     delete: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Copy selected text to clipboard
 
     :param delete: Delete Selection, Whether to delete the selection after copying (optional)
@@ -66,7 +66,7 @@ def copy_as_script(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Copy the console contents for use in a script
 
     :return: Result of the operator call.
@@ -81,7 +81,7 @@ def delete(
         "NEXT_CHARACTER", "PREVIOUS_CHARACTER", "NEXT_WORD", "PREVIOUS_WORD"
     ]
     | None = "NEXT_CHARACTER",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Delete text by cursor position
 
     :param type: Type, Which part of the text to delete (optional)
@@ -94,7 +94,7 @@ def execute(
     /,
     *,
     interactive: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Execute the current console line as a Python expression
 
     :param interactive: interactive, (optional)
@@ -109,7 +109,7 @@ def history_append(
     text: str | None = "",
     current_character: int | None = 0,
     remove_duplicates: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Append history at cursor position
 
     :param text: Text, Text to insert at the cursor position (optional, never None)
@@ -124,7 +124,7 @@ def history_cycle(
     /,
     *,
     reverse: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Cycle through history
 
     :param reverse: Reverse, Reverse cycle history (optional)
@@ -135,7 +135,7 @@ def indent(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add 4 spaces at line beginning
 
     :return: Result of the operator call.
@@ -145,7 +145,7 @@ def indent_or_autocomplete(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Indent selected text or autocomplete
 
     :return: Result of the operator call.
@@ -157,7 +157,7 @@ def insert(
     /,
     *,
     text: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Insert text at cursor position
 
     :param text: Text, Text to insert at the cursor position (optional, never None)
@@ -170,7 +170,7 @@ def language(
     /,
     *,
     language: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set the current language for this console
 
     :param language: Language, (optional, never None)
@@ -192,7 +192,7 @@ def move(
     ]
     | None = "LINE_BEGIN",
     select: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move cursor position
 
     :param type: Type, Where to move cursor to (optional)
@@ -206,7 +206,7 @@ def paste(
     /,
     *,
     selection: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Paste text from clipboard
 
     :param selection: Selection, Paste text selected elsewhere rather than copied (X11/Wayland only) (optional)
@@ -220,7 +220,7 @@ def scrollback_append(
     *,
     text: str | None = "",
     type: typing.Literal["OUTPUT", "INPUT", "INFO", "ERROR"] | None = "OUTPUT",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Append scrollback text by type
 
     :param text: Text, Text to insert at the cursor position (optional, never None)
@@ -232,7 +232,7 @@ def select_all(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select all the text
 
     :return: Result of the operator call.
@@ -242,7 +242,7 @@ def select_set(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set the console selection
 
     :return: Result of the operator call.
@@ -252,7 +252,7 @@ def select_word(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select word at cursor position
 
     :return: Result of the operator call.
@@ -262,7 +262,7 @@ def unindent(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Delete 4 spaces from line beginning
 
     :return: Result of the operator call.

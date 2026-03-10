@@ -1,4 +1,3 @@
-import tinybird.tb.modules.agent
 import tinybird.tb.modules.branch
 import tinybird.tb.modules.build
 import tinybird.tb.modules.cli
@@ -18,9 +17,9 @@ import tinybird.tb.modules.local
 import tinybird.tb.modules.login
 import tinybird.tb.modules.logout
 import tinybird.tb.modules.materialization
-import tinybird.tb.modules.mock
 import tinybird.tb.modules.open
 import tinybird.tb.modules.pipe
+import tinybird.tb.modules.preview
 import tinybird.tb.modules.project_commands
 import tinybird.tb.modules.secret
 import tinybird.tb.modules.sink

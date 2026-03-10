@@ -593,19 +593,69 @@ class GDCMutationFrequencyTool:
         if not gene_symbol:
             return {"status": "error", "error": "gene_symbol parameter is required"}
 
-        # Use the genes endpoint for gene info
-        url = f"{base}/genes?filters=%7B%22op%22%3A%22%3D%22%2C%22content%22%3A%7B%22field%22%3A%22symbol%22%2C%22value%22%3A%5B%22{gene_symbol}%22%5D%7D%7D&fields=symbol,name,gene_id,biotype,description,is_cancer_gene_census"
+        # Step 1: Get gene metadata
+        gene_filters = json.dumps(
+            {"op": "=", "content": {"field": "symbol", "value": [gene_symbol]}}
+        )
+        gene_url = f"{base}/genes?{urlencode({'filters': gene_filters, 'fields': 'symbol,name,gene_id,biotype,description,is_cancer_gene_census'})}"
+
+        gene_info = {}
+        try:
+            gene_data = _http_get(
+                gene_url, headers={"Accept": "application/json"}, timeout=timeout
+            )
+            hits = gene_data.get("data", {}).get("hits", [])
+            if hits:
+                gene_info = hits[0]
+        except Exception:
+            pass
+
+        # Step 2: Get SSM case count via /ssms with gene filter + project facet
+        ssm_filters = json.dumps(
+            {
+                "op": "in",
+                "content": {
+                    "field": "consequence.transcript.gene.symbol",
+                    "value": [gene_symbol],
+                },
+            }
+        )
+        ssm_query = {
+            "filters": ssm_filters,
+            "size": 0,
+            "facets": "cases.project.project_id",
+        }
+        ssm_url = f"{base}/ssm_occurrences?{urlencode(ssm_query)}"
 
         try:
-            data = _http_get(
-                url, headers={"Accept": "application/json"}, timeout=timeout
+            ssm_data = _http_get(
+                ssm_url, headers={"Accept": "application/json"}, timeout=timeout
             )
+            pagination = ssm_data.get("data", {}).get("pagination", {})
+            total_ssm_occurrences = pagination.get("total", 0)
+
+            # Extract per-project case counts from facets
+            aggregations = ssm_data.get("data", {}).get("aggregations", {})
+            project_facet = aggregations.get("cases.project.project_id", {})
+            project_buckets = project_facet.get("buckets", [])
+
+            project_counts = [
+                {"project_id": b.get("key", ""), "case_count": b.get("doc_count", 0)}
+                for b in project_buckets
+            ]
+
             return {
                 "status": "success",
                 "source": "GDC",
-                "endpoint": "genes",
                 "gene": gene_symbol,
-                "data": data,
+                "data": {
+                    "gene_info": gene_info,
+                    "total_ssm_occurrences": total_ssm_occurrences,
+                    "project_mutation_counts": project_counts,
+                    "is_cancer_gene_census": gene_info.get(
+                        "is_cancer_gene_census", None
+                    ),
+                },
             }
         except Exception as e:
             return {

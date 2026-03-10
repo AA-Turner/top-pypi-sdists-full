@@ -42781,7 +42781,40 @@ scout_checks_api_UnarchiveChecklistsRequest.__qualname__ = "UnarchiveChecklistsR
 scout_checks_api_UnarchiveChecklistsRequest.__module__ = "nominal_api.scout_checks_api"
 
 
+class scout_checks_api_UnresolvedBooleanSeriesConditionV1(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'boolean_series': ConjureFieldDefinition('booleanSeries', scout_compute_api_BooleanSeries),
+            'variables': ConjureFieldDefinition('variables', Dict[scout_compute_api_VariableName, scout_checks_api_UnresolvedVariableLocator])
+        }
+
+    __slots__: List[str] = ['_boolean_series', '_variables']
+
+    def __init__(self, boolean_series: "scout_compute_api_BooleanSeries", variables: Dict[str, "scout_checks_api_UnresolvedVariableLocator"]) -> None:
+        self._boolean_series = boolean_series
+        self._variables = variables
+
+    @builtins.property
+    def boolean_series(self) -> "scout_compute_api_BooleanSeries":
+        return self._boolean_series
+
+    @builtins.property
+    def variables(self) -> Dict[str, "scout_checks_api_UnresolvedVariableLocator"]:
+        """Default overrides for the variables used in the check condition. These variables can be overridden
+at checklist execution time.
+        """
+        return self._variables
+
+
+scout_checks_api_UnresolvedBooleanSeriesConditionV1.__name__ = "UnresolvedBooleanSeriesConditionV1"
+scout_checks_api_UnresolvedBooleanSeriesConditionV1.__qualname__ = "UnresolvedBooleanSeriesConditionV1"
+scout_checks_api_UnresolvedBooleanSeriesConditionV1.__module__ = "nominal_api.scout_checks_api"
+
+
 class scout_checks_api_UnresolvedCheckCondition(ConjureUnionType):
+    _boolean_series_v1: Optional["scout_checks_api_UnresolvedBooleanSeriesConditionV1"] = None
     _num_ranges_v2: Optional["scout_checks_api_UnresolvedNumRangesConditionV2"] = None
     _num_ranges_v3: Optional["scout_checks_api_UnresolvedNumRangesConditionV3"] = None
     _parameterized_num_ranges_v1: Optional["scout_checks_api_UnresolvedParameterizedNumRangesConditionV1"] = None
@@ -42789,6 +42822,7 @@ class scout_checks_api_UnresolvedCheckCondition(ConjureUnionType):
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
+            'boolean_series_v1': ConjureFieldDefinition('booleanSeriesV1', scout_checks_api_UnresolvedBooleanSeriesConditionV1),
             'num_ranges_v2': ConjureFieldDefinition('numRangesV2', scout_checks_api_UnresolvedNumRangesConditionV2),
             'num_ranges_v3': ConjureFieldDefinition('numRangesV3', scout_checks_api_UnresolvedNumRangesConditionV3),
             'parameterized_num_ranges_v1': ConjureFieldDefinition('parameterizedNumRangesV1', scout_checks_api_UnresolvedParameterizedNumRangesConditionV1)
@@ -42796,15 +42830,19 @@ class scout_checks_api_UnresolvedCheckCondition(ConjureUnionType):
 
     def __init__(
             self,
+            boolean_series_v1: Optional["scout_checks_api_UnresolvedBooleanSeriesConditionV1"] = None,
             num_ranges_v2: Optional["scout_checks_api_UnresolvedNumRangesConditionV2"] = None,
             num_ranges_v3: Optional["scout_checks_api_UnresolvedNumRangesConditionV3"] = None,
             parameterized_num_ranges_v1: Optional["scout_checks_api_UnresolvedParameterizedNumRangesConditionV1"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (num_ranges_v2 is not None) + (num_ranges_v3 is not None) + (parameterized_num_ranges_v1 is not None) != 1:
+            if (boolean_series_v1 is not None) + (num_ranges_v2 is not None) + (num_ranges_v3 is not None) + (parameterized_num_ranges_v1 is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
+            if boolean_series_v1 is not None:
+                self._boolean_series_v1 = boolean_series_v1
+                self._type = 'booleanSeriesV1'
             if num_ranges_v2 is not None:
                 self._num_ranges_v2 = num_ranges_v2
                 self._type = 'numRangesV2'
@@ -42815,6 +42853,11 @@ class scout_checks_api_UnresolvedCheckCondition(ConjureUnionType):
                 self._parameterized_num_ranges_v1 = parameterized_num_ranges_v1
                 self._type = 'parameterizedNumRangesV1'
 
+        elif type_of_union == 'booleanSeriesV1':
+            if boolean_series_v1 is None:
+                raise ValueError('a union value must not be None')
+            self._boolean_series_v1 = boolean_series_v1
+            self._type = 'booleanSeriesV1'
         elif type_of_union == 'numRangesV2':
             if num_ranges_v2 is None:
                 raise ValueError('a union value must not be None')
@@ -42832,6 +42875,10 @@ class scout_checks_api_UnresolvedCheckCondition(ConjureUnionType):
             self._type = 'parameterizedNumRangesV1'
 
     @builtins.property
+    def boolean_series_v1(self) -> Optional["scout_checks_api_UnresolvedBooleanSeriesConditionV1"]:
+        return self._boolean_series_v1
+
+    @builtins.property
     def num_ranges_v2(self) -> Optional["scout_checks_api_UnresolvedNumRangesConditionV2"]:
         return self._num_ranges_v2
 
@@ -42846,6 +42893,8 @@ class scout_checks_api_UnresolvedCheckCondition(ConjureUnionType):
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_checks_api_UnresolvedCheckConditionVisitor):
             raise ValueError('{} is not an instance of scout_checks_api_UnresolvedCheckConditionVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'booleanSeriesV1' and self.boolean_series_v1 is not None:
+            return visitor._boolean_series_v1(self.boolean_series_v1)
         if self._type == 'numRangesV2' and self.num_ranges_v2 is not None:
             return visitor._num_ranges_v2(self.num_ranges_v2)
         if self._type == 'numRangesV3' and self.num_ranges_v3 is not None:
@@ -42860,6 +42909,10 @@ scout_checks_api_UnresolvedCheckCondition.__module__ = "nominal_api.scout_checks
 
 
 class scout_checks_api_UnresolvedCheckConditionVisitor:
+
+    @abstractmethod
+    def _boolean_series_v1(self, boolean_series_v1: "scout_checks_api_UnresolvedBooleanSeriesConditionV1") -> Any:
+        pass
 
     @abstractmethod
     def _num_ranges_v2(self, num_ranges_v2: "scout_checks_api_UnresolvedNumRangesConditionV2") -> Any:

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: diastatic-malt
-Version: 2.15.2
+Version: 2.15.3
 Summary: A library for Python operator overloading
 Home-page: https://github.com/PennyLaneAI/diastatic-malt
 Maintainer: Xanadu Inc.
@@ -20,6 +20,19 @@ Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE
+Requires-Dist: termcolor
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: maintainer
+Dynamic: maintainer-email
+Dynamic: provides
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # DiastaticMalt
 

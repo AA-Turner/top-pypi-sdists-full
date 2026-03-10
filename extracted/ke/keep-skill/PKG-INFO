@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: keep-skill
-Version: 0.86.0
+Version: 0.87.2
 Summary: Reflective memory - remember and search documents by meaning
 Project-URL: Homepage, https://keepnotes.ai
 Project-URL: Documentation, https://docs.keepnotes.ai/guides/
@@ -22,6 +22,7 @@ Requires-Python: <3.14,>=3.11
 Requires-Dist: anthropic>=0.40.0
 Requires-Dist: beautifulsoup4>=4.9
 Requires-Dist: chromadb>=0.4
+Requires-Dist: common-expression-language>=0.5
 Requires-Dist: google-genai>=1.0.0
 Requires-Dist: httpx>=0.27
 Requires-Dist: mcp>=1.0

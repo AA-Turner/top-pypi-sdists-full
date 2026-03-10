@@ -132,6 +132,7 @@ import metaflow.plugins.datatools.s3
 S3.__doc__ = metaflow.plugins.datatools.s3.S3.__doc__
 
 from .. import profilers
+from ..plugins.profilers.gpu_profile_decorator import gpu_profile
 from ..plugins.snowflake import Snowflake
 from ..plugins.checkpoint_datastores import nebius_checkpoints, coreweave_checkpoints
 from ..plugins.aws import assume_role

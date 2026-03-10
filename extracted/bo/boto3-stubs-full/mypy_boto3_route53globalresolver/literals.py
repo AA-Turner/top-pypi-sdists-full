@@ -33,6 +33,7 @@ __all__ = (
     "FirewallBlockResponseType",
     "FirewallRuleActionType",
     "FirewallRulesFailOpenTypeType",
+    "GlobalResolverIpAddressTypeType",
     "HostedZoneAssociationStatusType",
     "IpAddressTypeType",
     "ListAccessSourcesPaginatorName",
@@ -56,13 +57,14 @@ __all__ = (
 BlockOverrideDnsQueryTypeType = Literal["CNAME"]
 CRResourceStatusType = Literal["CREATING", "DELETING", "OPERATIONAL", "UPDATING"]
 ConfidenceThresholdType = Literal["HIGH", "LOW", "MEDIUM"]
-DnsAdvancedProtectionType = Literal["DGA", "DNS_TUNNELING"]
+DnsAdvancedProtectionType = Literal["DGA", "DICTIONARY_DGA", "DNS_TUNNELING"]
 DnsProtocolType = Literal["DO53", "DOH", "DOT"]
 DnsSecValidationTypeType = Literal["DISABLED", "ENABLED"]
 EdnsClientSubnetTypeType = Literal["DISABLED", "ENABLED"]
 FirewallBlockResponseType = Literal["NODATA", "NXDOMAIN", "OVERRIDE"]
 FirewallRuleActionType = Literal["ALERT", "ALLOW", "BLOCK"]
 FirewallRulesFailOpenTypeType = Literal["DISABLED", "ENABLED"]
+GlobalResolverIpAddressTypeType = Literal["DUAL_STACK", "IPV4"]
 HostedZoneAssociationStatusType = Literal["CREATING", "DELETING", "OPERATIONAL"]
 IpAddressTypeType = Literal["IPV4", "IPV6"]
 ListAccessSourcesPaginatorName = Literal["list_access_sources"]

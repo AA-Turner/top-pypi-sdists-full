@@ -123,6 +123,8 @@ class EpigenomicsTool(BaseTool):
         # Feature-70A-003: ambiguous/non-leaf biosample terms (e.g. "heart") combined with
         # the organism filter can produce HTTP 404 from ENCODE. Fall back without
         # the organism filter in that case.
+        # Feature-79E: if biosample_term_name is not a valid ENCODE ontology term
+        # (e.g. disease names like "AML"), both attempts 404; return empty with hint.
         try:
             raw = self._encode_search(params)
         except Exception:
@@ -131,7 +133,20 @@ class EpigenomicsTool(BaseTool):
                 for k, v in params.items()
                 if k != "replicates.library.biosample.organism.scientific_name"
             }
-            raw = self._encode_search(fallback_params)
+            try:
+                raw = self._encode_search(fallback_params)
+            except Exception:
+                return {
+                    "data": [],
+                    "metadata": {
+                        "source": "ENCODE",
+                        "total": 0,
+                        "note": f"No results for biosample_term_name='{biosample}'. "
+                        "ENCODE requires ontology cell line/tissue names (e.g., 'K562', "
+                        "'HepG2', 'liver'), not disease names. Use GEO_search_chipseq_datasets "
+                        "for disease-based searches.",
+                    },
+                }
 
         experiments = []
         for exp in raw.get("@graph", []):
@@ -420,18 +435,23 @@ class EpigenomicsTool(BaseTool):
             result = summary_result.get("result", {})
             for uid in ids:
                 uid_data = result.get(str(uid), {})
-                if isinstance(uid_data, dict) and "accession" in uid_data:
-                    datasets.append(
-                        {
-                            "accession": uid_data.get("accession", ""),
-                            "title": uid_data.get("title", ""),
-                            "summary": uid_data.get("summary", "")[:500],
-                            "platform": uid_data.get("gpl"),
-                            "organism": uid_data.get("taxon", ""),
-                            "n_samples": uid_data.get("n_samples", 0),
-                            "date_published": uid_data.get("pdat"),
-                        }
-                    )
+                if not isinstance(uid_data, dict) or "accession" not in uid_data:
+                    continue
+                # Filter out platform records (GPL) — only return dataset series (GSE)
+                acc = uid_data.get("accession", "")
+                if acc.startswith("GPL"):
+                    continue
+                datasets.append(
+                    {
+                        "accession": acc,
+                        "title": uid_data.get("title", ""),
+                        "summary": uid_data.get("summary", "")[:500],
+                        "platform": uid_data.get("gpl"),
+                        "organism": uid_data.get("taxon", ""),
+                        "n_samples": uid_data.get("n_samples", 0),
+                        "date_published": uid_data.get("pdat"),
+                    }
+                )
 
         return {
             "data": {
@@ -469,17 +489,22 @@ class EpigenomicsTool(BaseTool):
             result = summary_result.get("result", {})
             for uid in ids:
                 uid_data = result.get(str(uid), {})
-                if isinstance(uid_data, dict) and "accession" in uid_data:
-                    datasets.append(
-                        {
-                            "accession": uid_data.get("accession", ""),
-                            "title": uid_data.get("title", ""),
-                            "summary": uid_data.get("summary", "")[:500],
-                            "organism": uid_data.get("taxon", ""),
-                            "n_samples": uid_data.get("n_samples", 0),
-                            "date_published": uid_data.get("pdat"),
-                        }
-                    )
+                if not isinstance(uid_data, dict) or "accession" not in uid_data:
+                    continue
+                # Filter out platform records (GPL) — only return dataset series (GSE)
+                acc = uid_data.get("accession", "")
+                if acc.startswith("GPL"):
+                    continue
+                datasets.append(
+                    {
+                        "accession": acc,
+                        "title": uid_data.get("title", ""),
+                        "summary": uid_data.get("summary", "")[:500],
+                        "organism": uid_data.get("taxon", ""),
+                        "n_samples": uid_data.get("n_samples", 0),
+                        "date_published": uid_data.get("pdat"),
+                    }
+                )
 
         return {
             "data": {

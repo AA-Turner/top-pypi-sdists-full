@@ -101,8 +101,6 @@ class SigmaDatasetColumn(Asset):
     INPUT_TO_SPARK_JOBS: ClassVar[Any] = None
     OUTPUT_FROM_SPARK_JOBS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "SigmaDatasetColumn"
-
     sigma_dataset_qualified_name: Union[str, None, UnsetType] = UNSET
     """Unique name of the dataset in which this column exists."""
 
@@ -533,6 +531,9 @@ def _sigma_dataset_column_to_nested(
         is_incomplete=sigma_dataset_column.is_incomplete,
         provenance_type=sigma_dataset_column.provenance_type,
         home_id=sigma_dataset_column.home_id,
+        depth=sigma_dataset_column.depth,
+        immediate_upstream=sigma_dataset_column.immediate_upstream,
+        immediate_downstream=sigma_dataset_column.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -568,7 +569,6 @@ def _sigma_dataset_column_from_nested(
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -577,6 +577,9 @@ def _sigma_dataset_column_from_nested(
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_sigma_dataset_column_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

@@ -97,8 +97,6 @@ class FlowControlOperation(Asset):
     SCHEMA_REGISTRY_SUBJECTS: ClassVar[Any] = None
     SODA_CHECKS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "FlowControlOperation"
-
     flow_started_at: Union[int, None, UnsetType] = UNSET
     """Date and time at which this point in the data processing or orchestration started."""
 
@@ -537,6 +535,9 @@ def _flow_control_operation_to_nested(
         is_incomplete=flow_control_operation.is_incomplete,
         provenance_type=flow_control_operation.provenance_type,
         home_id=flow_control_operation.home_id,
+        depth=flow_control_operation.depth,
+        immediate_upstream=flow_control_operation.immediate_upstream,
+        immediate_downstream=flow_control_operation.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -572,7 +573,6 @@ def _flow_control_operation_from_nested(
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -581,6 +581,9 @@ def _flow_control_operation_from_nested(
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_flow_control_operation_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

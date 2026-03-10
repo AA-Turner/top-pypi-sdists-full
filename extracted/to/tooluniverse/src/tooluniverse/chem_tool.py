@@ -160,6 +160,23 @@ class ChEMBLRESTTool(BaseTool):
             else:
                 params["molecule_chembl_id__exact"] = drug_id
 
+        # Map target_chembl_id and assay_chembl_id to __exact API params
+        # when used as query filters (not as URL path components)
+        target_id = args.get("target_chembl_id")
+        if target_id is not None and not tool_name_local.startswith(
+            "ChEMBL_get_target"
+        ):
+            params["target_chembl_id__exact"] = target_id
+
+        assay_id = args.get("assay_chembl_id")
+        if assay_id is not None and not tool_name_local.startswith("ChEMBL_get_assay"):
+            params["assay_chembl_id__exact"] = assay_id
+
+        # Feature-79A: mechanism_of_action__contains → __icontains for case-insensitive search
+        moa_filter = args.get("mechanism_of_action__contains")
+        if moa_filter is not None:
+            params["mechanism_of_action__icontains"] = moa_filter
+
         # Add any filter parameters (ChEMBL uses field__filter syntax)
         # e.g., molecule_chembl_id__exact, pref_name__icontains
         for key, value in args.items():
@@ -175,10 +192,11 @@ class ChEMBLRESTTool(BaseTool):
                     "q",  # handled above: mapped to pref_name__icontains
                     "query",  # handled above: alias for q
                     "pref_name__contains",  # handled above: alias for pref_name__icontains
+                    "mechanism_of_action__contains",  # handled above: mapped to __icontains
                     "max_results",  # handled above: alias for limit
                     "chembl_id",
-                    "target_chembl_id",
-                    "assay_chembl_id",
+                    "target_chembl_id",  # handled above: mapped to target_chembl_id__exact
+                    "assay_chembl_id",  # handled above: mapped to assay_chembl_id__exact
                     "activity_id",
                     "drug_chembl_id",  # handled above: mapped to molecule_chembl_id__exact / parent_molecule_chembl_id
                     "molecule_chembl_id",  # handled above: alias for drug_chembl_id
@@ -190,37 +208,42 @@ class ChEMBLRESTTool(BaseTool):
 
         return params
 
+    def _extract_parent_chembl_id(self, mol: dict) -> Optional[str]:
+        """Extract the parent ChEMBL ID from a molecule record."""
+        mol_id = mol.get("molecule_chembl_id")
+        # Feature-45B-07: prefer the parent compound over salt/formulation entries.
+        hierarchy = mol.get("molecule_hierarchy") or {}
+        parent_id = hierarchy.get("parent_chembl_id")
+        if parent_id and parent_id != mol_id:
+            return parent_id
+        return mol_id
+
     def _lookup_chembl_id_by_name(self, drug_name: str) -> Optional[str]:
         """Look up a ChEMBL molecule ID by preferred name (case-insensitive).
 
-        Tries exact match first, then falls back to contains match.
+        Feature-79B-001: Uses icontains first (most reliable), then iexact as
+        fallback. The iexact and search endpoints frequently timeout for newer drugs.
         Returns the ChEMBL ID of the first matching molecule, or None.
         """
         base = f"{self.base_url}/molecule.json"
         headers = {"Accept": "application/json", "User-Agent": "ToolUniverse/1.0"}
+        # Try icontains first (faster/more reliable than iexact on ChEMBL API)
         for lookup_params in (
-            {"pref_name__iexact": drug_name, "format": "json", "limit": 5},
             {"pref_name__icontains": drug_name, "format": "json", "limit": 5},
+            {"pref_name__iexact": drug_name, "format": "json", "limit": 5},
         ):
             try:
                 resp = requests.get(
-                    base, params=lookup_params, headers=headers, timeout=10
+                    base, params=lookup_params, headers=headers, timeout=20
                 )
                 resp.raise_for_status()
                 molecules = resp.json().get("molecules", [])
                 if molecules:
-                    mol = molecules[0]
-                    mol_id = mol.get("molecule_chembl_id")
-                    # Feature-45B-07: prefer the parent compound over salt/formulation entries.
-                    # e.g., "dasatinib" resolves to CHEMBL5416410 (salt form) whose
-                    # molecule_hierarchy.parent_chembl_id = CHEMBL1421 (the parent with
-                    # full mechanism records). Always use the parent to ensure mechanism
-                    # and activity data is found.
-                    hierarchy = mol.get("molecule_hierarchy") or {}
-                    parent_id = hierarchy.get("parent_chembl_id")
-                    if parent_id and parent_id != mol_id:
-                        return parent_id
-                    return mol_id
+                    # Prefer exact name match when icontains returns multiple
+                    for mol in molecules:
+                        if (mol.get("pref_name") or "").lower() == drug_name.lower():
+                            return self._extract_parent_chembl_id(mol)
+                    return self._extract_parent_chembl_id(molecules[0])
             except Exception:
                 pass
         return None
@@ -282,6 +305,20 @@ class ChEMBLRESTTool(BaseTool):
             # Feature-41B-01: query/pref_name__icontains is also silently ignored by
             # /mechanism.json endpoint — catch it here and return a helpful error.
             if tool_name == "ChEMBL_search_mechanisms":
+                # target_chembl_id is silently ignored by /mechanism.json
+                target_id = arguments.get("target_chembl_id")
+                if target_id:
+                    return {
+                        "status": "error",
+                        "error": f"target_chembl_id='{target_id}' is not supported for "
+                        "ChEMBL_search_mechanisms. The /mechanism.json endpoint ignores "
+                        "target-based filters. To find mechanisms for a target: "
+                        "(1) use ChEMBL_search_activities with target_chembl_id to find "
+                        "drugs acting on the target, then (2) use ChEMBL_get_drug_mechanisms "
+                        "with the drug_chembl_id. Alternatively, filter by "
+                        "mechanism_of_action__icontains (e.g., 'DPP4 inhibitor').",
+                    }
+
                 drug_name = arguments.get("drug_name")
                 query_name = arguments.get("query") or arguments.get("q")
                 if drug_name or query_name:

@@ -1,11 +1,11 @@
 [project]
-requires-python = ">=3.8,<4.0"
+requires-python = ">=3.9,<4.0"
 name = "astrapy"
-version = "2.1.0"
+version = "2.2.0"
 description = "A Python client for the Data API on DataStax Astra DB"
 authors = [
-    {"name" = "Stefano Lottini", "email" = "stefano.lottini@datastax.com"},
-    {"name" = "Eric Hare", "email" = "eric.hare@datastax.com"},
+    {"name" = "Stefano Lottini", "email" = "stefano.lottini@ibm.com"},
+    {"name" = "Eric Hare", "email" = "eric.hare@ibm.com"},
 ]
 readme = "README.md"
 
@@ -14,6 +14,7 @@ dependencies = [
     "deprecation ~= 2.1.0",
     "httpx[http2]>=0.25.2,<1",
     "h11 >= 0.16.0",
+    "ipython >= 8.0.0",
     "pymongo >= 3",
     "toml >= 0.10.2,<1.0.0",
     "typing-extensions >= 4.0",
@@ -23,11 +24,12 @@ classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: Apache Software License",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Software Development :: Build Tools"
 ]
 
@@ -38,11 +40,16 @@ Repository = "https://github.com/datastax/astrapy"
 Issues = "https://github.com/datastax/astrapy/issues"
 Changelog = "https://github.com/datastax/astrapy/blob/main/CHANGES"
 
+[project.scripts]
+astrapy-repl = "astrapy.repl:main"
+
 [dependency-groups]
 dev = [
     "blockbuster ~= 1.5.5",
     "build >= 1.0.0",
-    "cassio ~= 0.1.10; python_version >= '3.9'",
+    "cassandra-driver>=3.29.2; python_version < '3.13'",
+    "cassio ~= 0.1.10; python_version < '3.13'",
+    "coverage ~= 7.0.0",
     "faker ~= 23.1.0",
     "mypy ~= 1.9.0",
     "ruff >= 0.11.9,<0.12",
@@ -53,9 +60,13 @@ dev = [
     "pytest-testdox ~= 3.1.0",
     "python-dotenv ~= 1.0.1",
     "pytest-httpserver ~= 1.0.8",
+    "requests >= 2.32.4",
     "setuptools >= 61.0",
     "testcontainers ~= 3.7.1",
-    "types-toml >= 0.10.8.7,<1.0.0"
+    "types-toml >= 0.10.8.7,<1.0.0",
+    "urllib3 >= 2.6.3",
+    "virtualenv >= 20.36.1",
+    "werkzeug >= 3.1.5"
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -70,6 +81,9 @@ include = ["astrapy*"]
 
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F", "FA", "I", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+"repl.py" = ["F401"]
 
 [tool.mypy]
 disallow_any_generics = true

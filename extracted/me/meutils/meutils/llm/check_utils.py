@@ -285,7 +285,7 @@ async def check_token_for_volc(api_key, threshold: float = 1, purpose: str = "")
 
             return True
 
-        elif purpose and purpose.startswith(("doubao-seed")):
+        elif purpose and purpose.startswith(("doubao-seedream")):
             response = await client.images.generate(
                 model=purpose,
                 prompt="鱼眼镜头，一只猫咪的头部，画面呈现出猫咪的五官因为拍摄方式扭曲的效果。",
@@ -304,8 +304,17 @@ async def check_token_for_volc(api_key, threshold: float = 1, purpose: str = "")
             )
             return False
 
+        elif not purpose.startswith("doubao-seed"):
+            model = purpose
+            response = await client.chat.completions.create(
+                model=model,
+                messages=[{"role": "user", "content": "hi"}],
+                max_tokens=1
+            )
+            # logger.debug(response)
+            return True
         else:
-            model = "kimi-k2-thinking-251104"
+            model = "doubao-seed-1-6-flash-250828"
             response = await client.chat.completions.create(
                 model=model,
                 messages=[{"role": "user", "content": "hi"}],

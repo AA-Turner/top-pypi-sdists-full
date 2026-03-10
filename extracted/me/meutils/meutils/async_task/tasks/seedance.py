@@ -10,9 +10,9 @@
 
 
 from meutils.async_utils import async_to_sync_pro
-from meutils.async_task import worker, shared_task
+from meutils.async_task import shared_task
 from meutils.apis.volcengine_apis.videos import VideoRequest, create_task as remote_create_task, get_task
-from meutils.apis.videos.videos import SoraVideoRequest,OpenAIVideos, create_task as remote_create_task, get_task
+from meutils.apis.videos.videos import SoraVideoRequest, OpenAIVideos, create_task as remote_create_task, get_task
 
 
 @shared_task(pydantic=True, retry_kwargs={'max_retries': 10, 'countdown': 10})

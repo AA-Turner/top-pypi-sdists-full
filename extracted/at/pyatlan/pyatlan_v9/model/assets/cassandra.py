@@ -97,8 +97,6 @@ class Cassandra(Asset):
     INPUT_TO_SPARK_JOBS: ClassVar[Any] = None
     OUTPUT_FROM_SPARK_JOBS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "Cassandra"
-
     cassandra_keyspace_name: Union[str, None, UnsetType] = UNSET
     """Name of the keyspace for the Cassandra asset."""
 
@@ -492,6 +490,9 @@ def _cassandra_to_nested(cassandra: Cassandra) -> CassandraNested:
         is_incomplete=cassandra.is_incomplete,
         provenance_type=cassandra.provenance_type,
         home_id=cassandra.home_id,
+        depth=cassandra.depth,
+        immediate_upstream=cassandra.immediate_upstream,
+        immediate_downstream=cassandra.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -523,7 +524,6 @@ def _cassandra_from_nested(nested: CassandraNested) -> Cassandra:
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -532,6 +532,9 @@ def _cassandra_from_nested(nested: CassandraNested) -> Cassandra:
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_cassandra_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

@@ -13,7 +13,7 @@ def svg(
     filter_glob: str | None = "*.svg",
     directory: str | None = "",
     files=None,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Load a SVG file
 
     :param filepath: File Path, Filepath used for importing the file (optional, never None)

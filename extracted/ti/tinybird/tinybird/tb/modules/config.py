@@ -331,12 +331,12 @@ class CLIConfig:
 
     @staticmethod
     def get_project_config() -> "CLIConfig":
-        """Returns the project-specific config by finding the closest .tinyb file in the directory tree.
+        """Returns the project-specific config using only `.tinyb` in the current working directory.
 
         Returns:
             A CLIConfig instance with the project configuration.
         """
-        tinyb_file = CLIConfig.get_tinyb_file()
+        tinyb_file = os.path.join(os.getcwd(), ".tinyb")
         return CLIConfig(tinyb_file)
 
     @staticmethod

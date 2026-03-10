@@ -400,3 +400,202 @@ class KGHandlers:
                 ],
                 isError=True,
             )
+
+    async def handle_trace_execution_flow(self, args: dict[str, Any]) -> CallToolResult:
+        """Handle trace_execution_flow tool call."""
+        entry_point = args.get("entry_point", "")
+        if not entry_point:
+            return CallToolResult(
+                content=[
+                    TextContent(type="text", text="entry_point parameter is required")
+                ],
+                isError=True,
+            )
+
+        depth = int(args.get("depth", 3))
+        direction = args.get("direction", "outgoing")
+        if direction not in ("outgoing", "incoming", "both"):
+            direction = "outgoing"
+
+        try:
+            kg_path = self.project_root / ".mcp-vector-search" / "knowledge_graph"
+            kg = KnowledgeGraph(kg_path)
+            await kg.initialize()
+
+            result = await kg.trace_execution_flow(
+                entry_point=entry_point,
+                depth=depth,
+                direction=direction,
+            )
+
+            await kg.close()
+        except Exception as e:
+            logger.error(f"trace_execution_flow failed: {e}")
+            return CallToolResult(
+                content=[TextContent(type="text", text=f"Trace failed: {e}")],
+                isError=True,
+            )
+
+        if result["entry"] is None:
+            return CallToolResult(
+                content=[
+                    TextContent(
+                        type="text",
+                        text=f"No entity found matching '{entry_point}'. Try a more specific name.",
+                    )
+                ],
+                isError=True,
+            )
+
+        # Format as readable text + JSON summary
+        entry = result["entry"]
+        nodes = result["nodes"]
+        edges = result["edges"]
+
+        lines = [
+            f"## Execution Flow: {entry['name']}",
+            f"Entry: {entry['name']} ({entry.get('entity_type', 'function')}) "
+            f"[{entry.get('file_path', '').split('/src/')[-1] if entry.get('file_path') else '?'}]",
+            f"Direction: {direction} | Depth: {result['depth_reached']}/{depth} | "
+            f"Nodes found: {result['total_nodes']}"
+            + (" (truncated)" if result["truncated"] else ""),
+            "",
+        ]
+
+        if not nodes:
+            lines.append(
+                f"No {'callees' if direction == 'outgoing' else 'callers'} found."
+            )
+        else:
+            lines.append(f"### Reachable nodes ({len(nodes)}):")
+            for node in sorted(nodes, key=lambda n: n["depth"]):
+                indent = "  " * node["depth"]
+                short_file = (node.get("file_path") or "?").split("/src/")[-1]
+                lines.append(
+                    f"{indent}[depth {node['depth']}] {node['name']} "
+                    f"({node.get('entity_type', '?')}) [{short_file}]"
+                )
+
+            lines.append("")
+            lines.append(f"### Call edges ({len(edges)}):")
+            for edge in edges[:30]:
+                lines.append(
+                    f"  {edge['from_name']} → {edge['to_name']} (depth {edge['depth']})"
+                )
+            if len(edges) > 30:
+                lines.append(f"  ... and {len(edges) - 30} more edges")
+
+        return CallToolResult(
+            content=[TextContent(type="text", text="\n".join(lines))],
+        )
+
+    async def handle_kg_history(self, args: dict[str, Any]) -> CallToolResult:
+        """Handle kg_history tool call.
+
+        Returns the commit metadata stored in the KG for a named entity.
+        V1 semantic: reflects the most recent commit at last kg_build time.
+
+        Args:
+            args: Tool arguments:
+                - entity_name (str): Entity name to look up.
+
+        Returns:
+            CallToolResult with entity history records.
+        """
+        entity_name = args.get("entity_name", "")
+        if not entity_name:
+            return CallToolResult(
+                content=[TextContent(type="text", text="entity_name is required")],
+                isError=True,
+            )
+
+        try:
+            kg_path = self.project_root / ".mcp-vector-search" / "knowledge_graph"
+            kg = KnowledgeGraph(kg_path)
+            await kg.initialize()
+
+            history = await kg.get_entity_history(entity_name)
+            await kg.close()
+
+            result = {
+                "status": "success",
+                "entity_name": entity_name,
+                "history": history,
+                "note": (
+                    "V1: reflects the most recent commit per file at kg_build time, "
+                    "not the full git log."
+                ),
+            }
+            return CallToolResult(
+                content=[TextContent(type="text", text=json.dumps(result, indent=2))],
+                isError=False,
+            )
+
+        except Exception as e:
+            logger.error(f"kg_history failed: {e}")
+            return CallToolResult(
+                content=[TextContent(type="text", text=f"kg_history failed: {e}")],
+                isError=True,
+            )
+
+    async def handle_kg_callers_at_commit(self, args: dict[str, Any]) -> CallToolResult:
+        """Handle kg_callers_at_commit tool call.
+
+        Returns callers whose stored commit_sha is an ancestor of the given commit.
+        V1 semantic: reflects the most recent commit at last kg_build time.
+
+        Args:
+            args: Tool arguments:
+                - entity_name (str): Name of the callee entity.
+                - commit_sha (str): Reference git commit SHA.
+
+        Returns:
+            CallToolResult with caller records.
+        """
+        entity_name = args.get("entity_name", "")
+        commit_sha = args.get("commit_sha", "")
+
+        if not entity_name or not commit_sha:
+            return CallToolResult(
+                content=[
+                    TextContent(
+                        type="text",
+                        text="entity_name and commit_sha are required",
+                    )
+                ],
+                isError=True,
+            )
+
+        try:
+            kg_path = self.project_root / ".mcp-vector-search" / "knowledge_graph"
+            kg = KnowledgeGraph(kg_path)
+            await kg.initialize()
+
+            callers = await kg.get_callers_at_commit(
+                entity_name, commit_sha, self.project_root
+            )
+            await kg.close()
+
+            result = {
+                "status": "success",
+                "entity_name": entity_name,
+                "commit_sha": commit_sha,
+                "callers": callers,
+                "note": (
+                    "V1: reflects the most recent commit per file at kg_build time, "
+                    "not the full git log."
+                ),
+            }
+            return CallToolResult(
+                content=[TextContent(type="text", text=json.dumps(result, indent=2))],
+                isError=False,
+            )
+
+        except Exception as e:
+            logger.error(f"kg_callers_at_commit failed: {e}")
+            return CallToolResult(
+                content=[
+                    TextContent(type="text", text=f"kg_callers_at_commit failed: {e}")
+                ],
+                isError=True,
+            )

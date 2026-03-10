@@ -72,12 +72,10 @@ class MonarchTool(RESTfulTool):
         def remove_empty_values(obj):
             if isinstance(obj, dict):
                 return {
-                    k: remove_empty_values(v)
-                    for k, v in obj.items()
-                    if v not in [0, [], None]
+                    k: remove_empty_values(v) for k, v in obj.items() if v is not None
                 }
             elif isinstance(obj, list):
-                return [remove_empty_values(v) for v in obj if v not in [0, [], None]]
+                return [remove_empty_values(v) for v in obj if v is not None]
             else:
                 return obj
 

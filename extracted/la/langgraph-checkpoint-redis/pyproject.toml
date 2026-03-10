@@ -1,8 +1,8 @@
 [tool.poetry]
 name = "langgraph-checkpoint-redis"
-version = "0.3.6"
+version = "0.3.7"
 description = "Redis implementation of the LangGraph agent checkpoint saver and store."
-authors = ["Redis Inc. <applied.ai@redis.com>", "Brian Sam-Bodden <bsb@redis.io>"]
+authors = ["Brian Sam-Bodden <bsb@redis.com>", "Redis Inc. <applied.ai@redis.com>"]
 license = "MIT"
 readme = "README.md"
 repository = "https://www.github.com/redis-developer/langgraph-redis"
@@ -19,14 +19,14 @@ packages = [{ include = "langgraph" }]
 
 [tool.poetry.dependencies]
 python = ">=3.10,<3.15"
-langgraph-checkpoint = ">=3.0.0,<5.0.0"
+langgraph-checkpoint = ">=4.0.0,<5.0.0"
 redisvl = ">=0.15.0,<1.0.0"
 redis = ">=5.2.1"
 orjson = "^3.9.0"
 tomli = { version = "^2.0.1", python = "<3.11" }
 
 [tool.poetry.group.dev.dependencies]
-langgraph = ">=0.3.0"
+langgraph = ">=1.0.10"
 black = "^25.1.0"
 codespell = "^2.4.1"
 pytest = "^8.4.1"
@@ -62,10 +62,10 @@ filterwarnings = [
     "ignore::DeprecationWarning:testcontainers.core.waiting_utils",
     "ignore::DeprecationWarning:testcontainers.redis",
     # Ignore trustcall library's deprecated import (used by langmem)
-    "ignore:Importing Send from langgraph.constants is deprecated.*:langgraph.errors.LangGraphDeprecatedSinceV10:trustcall._base",
+    "ignore:Importing Send from langgraph.constants is deprecated.*:DeprecationWarning:trustcall._base",
     # Ignore PyTorch internal deprecation triggered by sentence-transformers during model loading
     "ignore::DeprecationWarning:torch.jit._script",
-    # Ignore redisvl internal deprecation in SemanticCache (our code already uses AsyncRedis.from_url directly)
+    # Ignore redisvl internal deprecation warning for get_async_redis_connection
     "ignore:get_async_redis_connection will become async:DeprecationWarning:redisvl.redis.connection",
 ]
 

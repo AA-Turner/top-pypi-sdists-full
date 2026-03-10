@@ -57,19 +57,6 @@ class TestPostModel(unittest.TestCase):
                         ], ),
                 dataset_ids = [
                     ''
-                    ],
-                tools = [
-                    arthur_client.api_bindings.models.tool.Tool(
-                        name = '', 
-                        arguments = [
-                            arthur_client.api_bindings.models.tool_argument.ToolArgument(
-                                name = '', 
-                                type = '', )
-                            ], )
-                    ],
-                sub_agents = [
-                    arthur_client.api_bindings.models.sub_agent.SubAgent(
-                        name = '', )
                     ]
             )
         else:

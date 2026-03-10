@@ -24,7 +24,7 @@ def add_bezier(
         0.0,
     ),
     scale: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0, 0.0),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add new Bézier curve
 
         :param radius: Radius, (in [0, inf], optional)
@@ -64,7 +64,7 @@ def add_circle(
         0.0,
     ),
     scale: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0, 0.0),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add new circle curve
 
         :param radius: Radius, (in [0, inf], optional)
@@ -103,7 +103,7 @@ def attribute_set(
     value_int_vector_2d: collections.abc.Sequence[int] | None = (0, 0),
     value_color: collections.abc.Sequence[float] | None = (1.0, 1.0, 1.0, 1.0),
     value_bool: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set values of the active attribute for selected elements
 
     :param value_float: Value, (in [-inf, inf], optional)
@@ -121,7 +121,7 @@ def convert_from_particle_system(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a new curves object based on the current state of the particle system
 
     :return: Result of the operator call.
@@ -131,7 +131,7 @@ def convert_to_particle_system(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a new or update an existing hair particle system on the surface object
 
     :return: Result of the operator call.
@@ -142,9 +142,9 @@ def curve_type_set(
     undo: bool | None = None,
     /,
     *,
-    type: Literal[bpy.stub_internal.rna_enums.CurvesTypeItems] | None = "POLY",
+    type: typing.Literal[bpy.stub_internal.rna_enums.CurvesTypeItems] | None = "POLY",
     use_handles: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set type of selected curves
 
     :param type: Type, Curve type (optional)
@@ -156,7 +156,7 @@ def cyclic_toggle(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Make active curve closed/open loop
 
     :return: Result of the operator call.
@@ -166,7 +166,7 @@ def delete(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove selected control points or curves
 
     :return: Result of the operator call.
@@ -178,7 +178,7 @@ def draw(
     /,
     *,
     error_threshold: float | None = 0.0,
-    fit_method: Literal[bpy.stub_internal.rna_enums.CurveFitMethodItems]
+    fit_method: typing.Literal[bpy.stub_internal.rna_enums.CurveFitMethodItems]
     | None = "REFIT",
     corner_angle: float | None = 1.22173,
     use_cyclic: bool | None = True,
@@ -186,7 +186,7 @@ def draw(
     wait_for_input: bool | None = True,
     is_curve_2d: bool | None = False,
     bezier_as_nurbs: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Draw a freehand curve
 
     :param error_threshold: Error, Error distance threshold (in object units) (in [0, 10], optional)
@@ -204,7 +204,7 @@ def duplicate(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Copy selected points or curves
 
     :return: Result of the operator call.
@@ -217,7 +217,7 @@ def duplicate_move(
     *,
     CURVES_OT_duplicate: dict[str, typing.Any] | None = {},
     TRANSFORM_OT_translate: dict[str, typing.Any] | None = {},
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Make copies of selected elements and move them
 
     :param CURVES_OT_duplicate: Duplicate, Copy selected points or curves (optional, `bpy.ops.curves.duplicate` keyword arguments)
@@ -229,7 +229,7 @@ def extrude(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Extrude selected control point(s)
 
     :return: Result of the operator call.
@@ -242,7 +242,7 @@ def extrude_move(
     *,
     CURVES_OT_extrude: dict[str, typing.Any] | None = {},
     TRANSFORM_OT_translate: dict[str, typing.Any] | None = {},
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Extrude curve and move result
 
     :param CURVES_OT_extrude: Extrude, Extrude selected control point(s) (optional, `bpy.ops.curves.extrude` keyword arguments)
@@ -257,7 +257,7 @@ def handle_type_set(
     *,
     type: typing.Literal["AUTO", "VECTOR", "ALIGN", "FREE_ALIGN", "TOGGLE_FREE_ALIGN"]
     | None = "AUTO",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set the handle type for bezier curves
 
         :param type: Type, (optional)
@@ -298,7 +298,7 @@ def pen(
     move_point: bool | None = False,
     cycle_handle_type: bool | None = False,
     size: float | None = 0.01,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Construct and edit Bézier curves
 
     :param extend: Extend, Extend selection instead of deselecting everything first (optional)
@@ -322,7 +322,7 @@ def sculptmode_toggle(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Enter/Exit sculpt mode for curves
 
     :return: Result of the operator call.
@@ -334,7 +334,7 @@ def select_all(
     /,
     *,
     action: typing.Literal["TOGGLE", "SELECT", "DESELECT", "INVERT"] | None = "TOGGLE",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """(De)select all control points
 
         :param action: Action, Selection action to execute (optional)
@@ -360,7 +360,7 @@ def select_ends(
     *,
     amount_start: int | None = 0,
     amount_end: int | None = 1,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select end points of curves
 
     :param amount_start: Amount Front, Number of points to select from the front (in [0, inf], optional)
@@ -372,7 +372,7 @@ def select_less(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Shrink the selection by one point
 
     :return: Result of the operator call.
@@ -382,7 +382,7 @@ def select_linked(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select all points in curves with any point selection
 
     :return: Result of the operator call.
@@ -394,7 +394,7 @@ def select_linked_pick(
     /,
     *,
     deselect: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select all points in the curve under the cursor
 
     :param deselect: Deselect, Deselect linked control points rather than selecting them (optional)
@@ -405,7 +405,7 @@ def select_more(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Grow the selection by one point
 
     :return: Result of the operator call.
@@ -418,7 +418,7 @@ def select_random(
     *,
     seed: int | None = 0,
     probability: float | None = 0.5,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Randomize existing selection or create new random selection
 
     :param seed: Seed, Source of randomness (in [-inf, inf], optional)
@@ -430,7 +430,7 @@ def separate(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Separate selected geometry into a new object
 
     :return: Result of the operator call.
@@ -441,9 +441,9 @@ def set_selection_domain(
     undo: bool | None = None,
     /,
     *,
-    domain: Literal[bpy.stub_internal.rna_enums.AttributeCurvesDomainItems]
+    domain: typing.Literal[bpy.stub_internal.rna_enums.AttributeCurvesDomainItems]
     | None = "POINT",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Change the mode used for selection masking in curves sculpt mode
 
     :param domain: Domain, (optional)
@@ -456,7 +456,7 @@ def snap_curves_to_surface(
     /,
     *,
     attach_mode: typing.Literal["NEAREST", "DEFORM"] | None = "NEAREST",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move curves so that the first point is exactly on the surface mesh
 
         :param attach_mode: Attach Mode, How to find the point on the surface to attach to (optional)
@@ -473,7 +473,7 @@ def split(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Split selected points
 
     :return: Result of the operator call.
@@ -485,7 +485,7 @@ def subdivide(
     /,
     *,
     number_cuts: int | None = 1,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Subdivide selected curve segments
 
     :param number_cuts: Number of Cuts, (in [1, 1000], optional)
@@ -496,7 +496,7 @@ def surface_set(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Use the active object as surface for selected curves objects and set it as the parent
 
     :return: Result of the operator call.
@@ -506,7 +506,7 @@ def switch_direction(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Reverse the direction of the selected curves
 
     :return: Result of the operator call.
@@ -516,7 +516,7 @@ def tilt_clear(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Clear the tilt of selected control points
 
     :return: Result of the operator call.

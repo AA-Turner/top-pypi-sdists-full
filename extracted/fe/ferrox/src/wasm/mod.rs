@@ -38,6 +38,7 @@ pub mod surfaces;
 pub mod symmetry;
 pub mod trajectory;
 pub mod transformations;
+pub mod units;
 pub mod xrd;
 
 // Re-export all public items from submodules for backward compatibility
@@ -67,6 +68,7 @@ pub use surfaces::*;
 pub use symmetry::*;
 pub use trajectory::*;
 pub use transformations::*;
+pub use units::*;
 pub use xrd::*;
 
 // Re-export helpers for internal use

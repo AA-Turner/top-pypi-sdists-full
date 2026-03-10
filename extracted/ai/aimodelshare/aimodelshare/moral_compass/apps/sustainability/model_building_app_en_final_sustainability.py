@@ -716,26 +716,26 @@ MODEL_TYPES = {
         "model_builder": lambda: LogisticRegression(
             max_iter=500, random_state=42, class_weight="balanced"
         ),
-        "card": "### ⚖️ The Balanced Generalist\nA reliable, fast **Logistic Regression** model. Works well as a starting point to identify general trends in energy consumption without over-complicating predictions."
+        "card": "### ⚖️ The Balanced Generalist\nA reliable, fast model. Works well as a starting point to identify general trends in energy consumption without memorizing the answers instead of actually learning."
     },
     "The Rule-Maker": {
         "model_builder": lambda: DecisionTreeClassifier(
             random_state=42, class_weight="balanced"
         ),
-        "card": "### 📐 The Rule-Maker\nA **Decision Tree** that creates logical rules (e.g., 'if the building is from before 1950, then...'). Very transparent, but can be too rigid if the data changes significantly."
+        "card": "### 📐 The Rule-Maker\nCreates logical 'if/then' rules (e.g., 'if the building is from before 1950, then...'). Easy to understand, but can miss tricky or hidden patterns."
     },
     "The 'Nearest Neighbor'": {
         "model_builder": lambda: KNeighborsClassifier(),
-        "card": "### 🫂 The 'Nearest Neighbor'\nThis model (**KNN**) looks for similar buildings in the past to predict the future. Excellent for capturing local behaviors, though it requires buildings to be truly comparable."
+        "card": "### 🫂 The 'Nearest Neighbor'\nLooks for similar buildings in the past to predict the future. 'You look like these others; I'll predict like they behave.'"
     },
     "The Deep Pattern-Finder": {
         "model_builder": lambda: RandomForestClassifier(
             random_state=42, class_weight="balanced"
         ),
-        "card": "### 🌲 The Deep Pattern-Finder\nA **Random Forest** that combines hundreds of trees to find subtle patterns. Most powerful for detecting complex energy inefficiencies, but watch out for overfitting."
+        "card": "### 🌲 The Deep Pattern-Finder\nCombines lots of mini-models that each vote on the answer. Most powerful for detecting tricky or hidden patterns, but watch out — it can memorize the answers instead of actually learning."
     },
     "The Majority Vote": {
-        "card": "### 🗳️ The Majority Vote\nAn **Ensemble** model that combines the predictions of the four base models and selects the most frequent one. Often more robust than any single model.",
+        "card": "### 🗳️ The Majority Vote\nCombines the predictions of the four base models and picks the most popular answer. Often more reliable than any single model.",
         "cache_only": True
     }
 }
@@ -751,15 +751,15 @@ CURRENT_TEAM_NAME = random.choice(TEAM_NAMES)
 
 # --- Feature groups for scaffolding ---
 FEATURE_SET_ALL_OPTIONS = [
-    ("Surface Area (sq ft)", "floor_area"),
+    ("Floor Area — how big the building is (m²)", "floor_area"),
     ("Year Built", "year_built"),
-    ("Building Class", "building_class"),
-    ("Facility Type", "facility_type"),
-    ("Geographic Zone (State Factor)", "State_Factor"),
-    ("Record Year (Year Factor)", "Year_Factor"),
-    ("Elevation", "ELEVATION"),
-    ("Heating Degree Days", "heating_degree_days"),
-    ("Cooling Degree Days", "cooling_degree_days"),
+    ("Building Type (office, school, warehouse, etc.)", "building_class"),
+    ("Building Use (hospital, lab, retail, etc.)", "facility_type"),
+    ("Location Info (which state)", "State_Factor"),
+    ("Time Period (which year)", "Year_Factor"),
+    ("Altitude (height above sea level)", "ELEVATION"),
+    ("Cold-Weather Days (days needing heating)", "heating_degree_days"),
+    ("Hot-Weather Days (days needing AC)", "cooling_degree_days"),
     ("Annual Avg Temp", "avg_temp"),
     ("January Min Temp", "january_min_temp"),
     ("July Max Temp", "july_max_temp"),
@@ -1096,11 +1096,11 @@ def build_login_prompt_html():
     The styled preview card will be prepended to this.
     """
     return f"""
-    <h2 style='color: #111827; margin-top:20px; border-top: 2px solid #e5e7eb; padding-top: 20px;'>🔐 Sign in to submit & rank</h2>
-    <div style='margin-top:16px; text-align:left; font-size:1rem; line-height:1.6; color:#374151;'>
+    <h2 style='color: var(--body-text-color, #111827); margin-top:20px; border-top: 2px solid var(--border-color-primary, #e5e7eb); padding-top: 20px;'>🔐 Sign in to submit & rank</h2>
+    <div style='margin-top:16px; text-align:left; font-size:1rem; line-height:1.6; color:var(--secondary-text-color, #374151);'>
         <p style='margin:12px 0;'>
             This is a preview run only. Sign in to publish your score to the live leaderboard, 
-            earn promotions, and contribute team points.
+            earn rank-ups, and contribute team points.
         </p>
         <p style='margin:12px 0;'>
             <strong>New user?</strong> Create a free account at 
@@ -1124,30 +1124,30 @@ def _build_kpi_card_html(new_score, last_score, new_rank, last_rank, submission_
         if local_test_accuracy is not None and last_score is not None and last_score > 0:
             score_diff = local_test_accuracy - last_score
             if abs(score_diff) < 0.0001:
-                acc_diff_html = "<p style='font-size: 1.5rem; font-weight: 600; color: #6b7280; margin:0;'>No Change (↔) <span style='font-size: 0.9rem; color: #9ca3af;'>(Provisional)</span></p><p style='font-size: 1.2rem; font-weight: 500; color: #6b7280; margin:0; padding-top: 8px;'>Pending leaderboard update...</p>"
+                acc_diff_html = "<p style='font-size: 1.5rem; font-weight: 600; color: var(--secondary-text-color, #6b7280); margin:0;'>No Change (↔) <span style='font-size: 0.9rem; color: var(--secondary-text-color, #9ca3af);'>(Estimated)</span></p><p style='font-size: 1.2rem; font-weight: 500; color: var(--secondary-text-color, #6b7280); margin:0; padding-top: 8px;'>Pending leaderboard update...</p>"
             elif score_diff > 0:
-                acc_diff_html = f"<p style='font-size: 1.5rem; font-weight: 600; color: #16a34a; margin:0;'>+{(score_diff * 100):.2f} (⬆️) <span style='font-size: 0.9rem; color: #9ca3af;'>(Provisional)</span></p><p style='font-size: 1.2rem; font-weight: 500; color: #6b7280; margin:0; padding-top: 8px;'>Pending leaderboard update...</p>"
+                acc_diff_html = f"<p style='font-size: 1.5rem; font-weight: 600; color: #16a34a; margin:0;'>+{(score_diff * 100):.2f} (⬆️) <span style='font-size: 0.9rem; color: var(--secondary-text-color, #9ca3af);'>(Estimated)</span></p><p style='font-size: 1.2rem; font-weight: 500; color: var(--secondary-text-color, #6b7280); margin:0; padding-top: 8px;'>Pending leaderboard update...</p>"
             else:
-                acc_diff_html = f"<p style='font-size: 1.5rem; font-weight: 600; color: #ef4444; margin:0;'>{(score_diff * 100):.2f} (⬇️) <span style='font-size: 0.9rem; color: #9ca3af;'>(Provisional)</span></p><p style='font-size: 1.2rem; font-weight: 500; color: #6b7280; margin:0; padding-top: 8px;'>Pending leaderboard update...</p>"
+                acc_diff_html = f"<p style='font-size: 1.5rem; font-weight: 600; color: #ef4444; margin:0;'>{(score_diff * 100):.2f} (⬇️) <span style='font-size: 0.9rem; color: var(--secondary-text-color, #9ca3af);'>(Estimated)</span></p><p style='font-size: 1.2rem; font-weight: 500; color: var(--secondary-text-color, #6b7280); margin:0; padding-top: 8px;'>Pending leaderboard update...</p>"
         else:
             # No last score available - just show pending message
-            acc_diff_html = "<p style='font-size: 1.2rem; font-weight: 500; color: #6b7280; margin:0; padding-top: 8px;'>Pending leaderboard update...</p>"
+            acc_diff_html = "<p style='font-size: 1.2rem; font-weight: 500; color: var(--secondary-text-color, #6b7280); margin:0; padding-top: 8px;'>Pending leaderboard update...</p>"
         
         border_color = acc_color
         rank_color = "#6b7280"  # Gray
         rank_text = "Pending"
-        rank_diff_html = "<p style='font-size: 1.2rem; font-weight: 500; color: #6b7280; margin:0;'>Calculating rank...</p>"
+        rank_diff_html = "<p style='font-size: 1.2rem; font-weight: 500; color: var(--secondary-text-color, #6b7280); margin:0;'>Calculating rank...</p>"
         
     # Handle preview mode - Styled to match "success" card
     elif is_preview:
         title = "🔬 Successful Preview Run!"
         acc_color = "#16a34a"  # Green (like success)
         acc_text = f"{(new_score * 100):.2f}%" if new_score > 0 else "N/A"
-        acc_diff_html = "<p style='font-size: 1.2rem; font-weight: 500; color: #6b7280; margin:0; padding-top: 8px;'>(Preview only - not submitted)</p>" # Neutral color
+        acc_diff_html = "<p style='font-size: 1.2rem; font-weight: 500; color: var(--secondary-text-color, #6b7280); margin:0; padding-top: 8px;'>(Preview only - not submitted)</p>" # Neutral color
         border_color = acc_color # Green border
         rank_color = "#3b82f6" # Blue (like rank)
         rank_text = "N/A" # Placeholder
-        rank_diff_html = "<p style='font-size: 1.2rem; font-weight: 500; color: #6b7280; margin:0;'>Not ranked (preview)</p>" # Neutral color
+        rank_diff_html = "<p style='font-size: 1.2rem; font-weight: 500; color: var(--secondary-text-color, #6b7280); margin:0;'>Not ranked (preview)</p>" # Neutral color
     
 
     else:
@@ -1191,8 +1191,10 @@ def _build_kpi_card_html(new_score, last_score, new_rank, last_rank, submission_
         <div class='kpi-card-body'>
             <div class='kpi-metric-box'>
                 <p class='kpi-label'>New Accuracy</p>
+                <p style='font-size:0.8rem; color:var(--secondary-text-color, #6b7280); margin:0;'>% of buildings your AI predicted correctly</p>
                 <p class='kpi-score' style='color: {acc_color};'>{acc_text}</p>
                 {acc_diff_html}
+                <p style='font-size:0.75rem; color:var(--secondary-text-color, #9ca3af); margin:8px 0 0;'>Below 60% = Needs Work &middot; 60-70% = Decent &middot; 70-80% = Good &middot; 80%+ = Great</p>
             </div>
             <div class='kpi-metric-box'>
                 <p class='kpi-label'>Your Rank</p>
@@ -1211,7 +1213,7 @@ def _build_team_html(team_summary_df, team_name):
     ensuring reliable highlighting even with whitespace or casing variations.
     """
     if team_summary_df is None or team_summary_df.empty:
-        return "<p style='text-align:center; color:#6b7280; padding-top:20px;'>No team submissions yet.</p>"
+        return "<p style='text-align:center; color:var(--secondary-text-color, #6b7280); padding-top:20px;'>No team submissions yet.</p>"
 
     # Normalize the current user's team name for comparison
     normalized_user_team = _normalize_team_name(team_name).lower()
@@ -1222,8 +1224,8 @@ def _build_team_html(team_summary_df, team_name):
             <tr>
                 <th>Rank</th>
                 <th>Team</th>
-                <th>Best_Score</th>
-                <th>Avg_Score</th>
+                <th>Best Score</th>
+                <th>Avg Score</th>
                 <th>Submissions</th>
             </tr>
         </thead>
@@ -1252,7 +1254,7 @@ def _build_team_html(team_summary_df, team_name):
 def _build_individual_html(individual_summary_df, username):
     """Generates the HTML for the individual leaderboard."""
     if individual_summary_df is None or individual_summary_df.empty:
-        return "<p style='text-align:center; color:#6b7280; padding-top:20px;'>No individual submissions yet.</p>"
+        return "<p style='text-align:center; color:var(--secondary-text-color, #6b7280); padding-top:20px;'>No individual submissions yet.</p>"
 
     header = """
     <table class='leaderboard-html-table'>
@@ -1260,7 +1262,7 @@ def _build_individual_html(individual_summary_df, username):
             <tr>
                 <th>Rank</th>
                 <th>Engineer</th>
-                <th>Best_Score</th>
+                <th>Best Score</th>
                 <th>Submissions</th>
             </tr>
         </thead>
@@ -1303,8 +1305,8 @@ def generate_competitive_summary(leaderboard_df, team_name, username, last_submi
 
     if leaderboard_df is None or leaderboard_df.empty or "accuracy" not in leaderboard_df.columns:
         return (
-            "<p style='text-align:center; color:#6b7280; padding-top:20px;'>Leaderboard empty.</p>",
-            "<p style='text-align:center; color:#6b7280; padding-top:20px;'>Leaderboard empty.</p>",
+            "<p style='text-align:center; color:var(--secondary-text-color, #6b7280); padding-top:20px;'>Leaderboard empty.</p>",
+            "<p style='text-align:center; color:var(--secondary-text-color, #6b7280); padding-top:20px;'>Leaderboard empty.</p>",
             _build_kpi_card_html(0, 0, 0, 0, 0, is_preview=False, is_pending=False, local_test_accuracy=None), 
             0.0, 0, 0.0
         )
@@ -1399,7 +1401,7 @@ def compute_rank_settings(
     data_size_value = current_data_size if current_data_size in all_data_sizes else DEFAULT_DATA_SIZE
 
     return {
-        "rank_message": "# 👑 Rank: Chief Climate Architect\n<p style='font-size:24px; line-height:1.4;'>All tools unlocked — optimize for the planet!</p>",
+        "rank_message": "# 👑 Rank: Chief Climate Architect\n<p style='font-size:24px; line-height:1.4;'>All tools unlocked — experiment with any settings you want!</p>",
         "model_choices": all_models,
         "model_value": model_value,
         "model_interactive": True,
@@ -1694,7 +1696,7 @@ def run_experiment(
     if isinstance(submit_button, dict) or isinstance(submission_feedback_display, dict) or isinstance(kpi_meta_state, dict) or isinstance(was_preview_state, dict):
         error_html = """
         <div class='kpi-card' style='border-color: #ef4444;'>
-            <h2 style='color: #111827; margin-top:0;'>⚠️ Configuration Error</h2>
+            <h2 style='color: var(--body-text-color, #111827); margin-top:0;'>⚠️ Configuration Error</h2>
             <div class='kpi-card-body'>
                 <p style='color: #991b1b;'>Parameter shadowing detected. Global component variables were shadowed by local parameters.</p>
                 <p style='color: #7f1d1d; margin-top: 8px;'>Please refresh the page and try again. If the issue persists, contact support.</p>
@@ -1767,7 +1769,7 @@ def run_experiment(
              submission_count, model_name_key, complexity_level, feature_set, data_size_str
         )
         
-        error_msg = "<p style='text-align:center; color:red; padding:20px 0;'>Playground not connected. Please try again later.</p>"
+        error_msg = "<p style='text-align:center; color:red; padding:20px 0;'>Can't reach the competition server right now. Try again in a moment.</p>"
         
         error_kpi_meta = {
             "was_preview": False, "preview_score": None, "ready_at_run_start": False,
@@ -1813,7 +1815,7 @@ def run_experiment(
         cache_key = build_cache_key(model_name_key, complexity_level, feature_set, data_size_str)
         
         yield { 
-            submission_feedback_display: gr.update(value=get_status_html(2, "Loading Predictions", "⚡ Fetching precomputed results..."), visible=True),
+            submission_feedback_display: gr.update(value=get_status_html(2, "Loading Predictions", "⚡ Looking up your AI's predictions..."), visible=True),
             login_error: gr.update(visible=False)
         }
         
@@ -2142,13 +2144,13 @@ def on_initial_load(username, token=None, team_name=""):
     welcome_html = f"""
     <div style='text-align:center; padding: 30px 20px;'>
         <div style='font-size: 3rem; margin-bottom: 10px;'>👋</div>
-        <h3 style='margin: 0 0 8px 0; color: #111827; font-size: 1.5rem;'>Welcome to <b>{display_team}</b>!</h3>
-        <p style='font-size: 1.1rem; color: #4b5563; margin: 0 0 20px 0;'>
+        <h3 style='margin: 0 0 8px 0; color: var(--body-text-color, #111827); font-size: 1.5rem;'>Welcome to <b>{display_team}</b>!</h3>
+        <p style='font-size: 1.1rem; color: var(--secondary-text-color, #4b5563); margin: 0 0 20px 0;'>
             Your team is waiting for your help to improve the AI.
         </p>
         
-        <div style='background:#eff6ff; padding:16px; border-radius:12px; border:2px solid #bfdbfe; display:inline-block;'>
-            <p style='margin:0; color:#1e40af; font-weight:bold; font-size:1.1rem;'>
+        <div style='background:var(--color-accent-soft, #eff6ff); padding:16px; border-radius:12px; border:2px solid color-mix(in srgb, var(--color-accent, #3b82f6) 40%, transparent); display:inline-block;'>
+            <p style='margin:0; color:var(--color-accent, #1e40af); font-weight:bold; font-size:1.1rem;'>
                 👈 Click "Build & Submit Model" to Start Playing!
             </p>
         </div>
@@ -2178,7 +2180,7 @@ def on_initial_load(username, token=None, team_name=""):
         # CASE 1: New User (or first time loading session) -> FORCE WELCOME
         # regardless of whether the leaderboard has other people's data.
         team_html = welcome_html
-        individual_html = "<p style='text-align:center; color:#6b7280; padding-top:40px;'>Submit your model to see where you rank!</p>"
+        individual_html = "<p style='text-align:center; color:var(--secondary-text-color, #6b7280); padding-top:40px;'>Submit your model to see where you rank!</p>"
         
     elif full_leaderboard_df is None or full_leaderboard_df.empty:
         # CASE 2: Returning user, but data fetch failed -> Show Skeleton
@@ -2778,6 +2780,9 @@ def create_model_building_game_en_final_sustainability_app(theme_primary_hue: st
             filter: invert(1) hue-rotate(180deg);
         }
     }
+    .dark .dark-invert-image {
+        filter: invert(1) hue-rotate(180deg);
+    }
 
     /* ------------------------------------------------------------------
       Dark Mode Specific Fine Tuning
@@ -2806,7 +2811,25 @@ def create_model_building_game_en_final_sustainability_app(theme_primary_hue: st
             background: color-mix(in srgb, #000 70%, var(--body-background-fill) 30%);
         }
     }
-    
+    .dark .panel-box,
+    .dark .leaderboard-box,
+    .dark .mock-ui-box,
+    .dark .mock-ui-inner,
+    .dark .processing-status,
+    .dark .kpi-card {
+        background: color-mix(in srgb, var(--block-background-fill) 85%, #000 15%);
+        border-color: color-mix(in srgb, var(--card-border-subtle) 70%, var(--accent-strong) 30%);
+    }
+    .dark .leaderboard-html-table thead {
+        background: color-mix(in srgb, var(--block-background-fill) 75%, #000 25%);
+    }
+    .dark .lb-placeholder {
+        background: color-mix(in srgb, var(--block-background-fill) 75%, #000 25%);
+    }
+    .dark #nav-loading-overlay {
+        background: color-mix(in srgb, #000 70%, var(--body-background-fill) 30%);
+    }
+
     /* ---------- Conclusion Card Theme Tokens ---------- */
 
     /* Light theme defaults */
@@ -2849,6 +2872,22 @@ def create_model_building_game_en_final_sustainability_app(theme_primary_hue: st
         --conclusion-attempt-border: #f97373;
         --conclusion-attempt-fg: #fee2e2;
 
+        --conclusion-next-fg: #e5e7eb;
+    }
+
+    .dark {
+        --conclusion-card-bg: #020617;
+        --conclusion-card-border: #38bdf8;
+        --conclusion-card-fg: #e5e7eb;
+        --conclusion-tip-bg: rgba(250, 204, 21, 0.08);
+        --conclusion-tip-border: #facc15;
+        --conclusion-tip-fg: #facc15;
+        --conclusion-ethics-bg: rgba(248, 113, 113, 0.10);
+        --conclusion-ethics-border: #f97373;
+        --conclusion-ethics-fg: #fecaca;
+        --conclusion-attempt-bg: rgba(248, 113, 113, 0.16);
+        --conclusion-attempt-border: #f97373;
+        --conclusion-attempt-fg: #fee2e2;
         --conclusion-next-fg: #e5e7eb;
     }
 
@@ -3086,6 +3125,21 @@ def create_model_building_game_en_final_sustainability_app(theme_primary_hue: st
             background-color: rgba(248, 113, 113, 0.26);
         }
     }
+    .dark .final-conclusion-card {
+        background-color: #0b1120;
+        color: white;
+        border-color: #38bdf8;
+        box-shadow: none;
+    }
+    .dark .final-conclusion-tip {
+        background-color: rgba(56, 189, 248, 0.18);
+    }
+    .dark .final-conclusion-ethics {
+        background-color: rgba(248, 113, 113, 0.18);
+    }
+    .dark .final-conclusion-attempt-cap {
+        background-color: rgba(248, 113, 113, 0.26);
+    }
     /* ---------------------------------------------------- */
     /* Slide 3: INPUT → MODEL → OUTPUT flow (theme-aware)   */
     /* ---------------------------------------------------- */
@@ -3118,6 +3172,12 @@ def create_model_building_game_en_final_sustainability_app(theme_primary_hue: st
             /* In dark mode, nudge arrows toward accent for contrast/confidence */
             color: color-mix(in srgb, var(--color-accent) 75%, var(--body-text-color) 25%);
         }
+    }
+    .dark .model-flow {
+        color: var(--body-text-color);
+    }
+    .dark .model-flow-arrow {
+        color: color-mix(in srgb, var(--color-accent) 75%, var(--body-text-color) 25%);
     }
     /* ---------- NEW: Countdown & Interactive Slide Styles ---------- */
 
@@ -3295,7 +3355,7 @@ def create_model_building_game_en_final_sustainability_app(theme_primary_hue: st
             gr.Markdown(
                 """
                 <div style='text-align:center; padding:100px 0;'>
-                    <h2 style='font-size:2rem; color:#6b7280;'>⏳ Loading...</h2>
+                    <h2 style='font-size:2rem; color:var(--secondary-text-color, #6b7280);'>⏳ Loading...</h2>
                 </div>
                 """
             )
@@ -3306,46 +3366,49 @@ def create_model_building_game_en_final_sustainability_app(theme_primary_hue: st
         # Slide 7: The Final Transition
         with gr.Column(visible=True, elem_id="intro-slide") as intro_slide:            
             gr.Markdown("<h1 style='text-align:center;'>🚀 The Final Challenge</h1>")
-            
+
             gr.HTML(
                 """
-                <div class='slide-content'>
-                    <div class='panel-box'>
-                        
+                <div class="slide-content">
+                    <div class="panel-box">
+
                         <div class="final-intro-wrapper">
                             <p class="final-intro-text">
-                                You’ve explored the data. You’ve identified energy patterns.
-                                <br>
-                                Now it’s time to build your most optimized model.
+                                You’ve explored the data. You’ve uncovered AI’s hidden costs &mdash; from energy use to water consumption and infrastructure impact.
+                            </p>
+                            <p class="final-intro-text">
+                                Now that you understand how to apply AI responsibly and sustainably, you’ve earned new points &mdash; and your Moral Compass Score reflects your progress.
+                            </p>
+                            <p class="final-intro-text">
+                                Now it’s time to play again.
                             </p>
                         </div>
-            
+
                         <div class="final-mission-card">
-                            <h3 class="final-mission-title">🛠️ The Sustainable AI Challenge</h3>
+                            <h3 class="final-mission-title">🛠️ The Final Challenge</h3>
                             <div class="final-mission-body">
-                                <p>Your final mission is to compete again against your peers by building the <strong>most accurate AI system to identify inefficient buildings</strong>. With the climate at stake, every bit of precision counts.</p>
-                                
-                                <p>Use what you’ve learned about Green AI and feature engineering to climb the leaderboard. Help us prioritize where rehabilitation is needed most!</p>
+                                <p>Return to the same competition and build your most accurate model yet to identify inefficient buildings. The game hasn’t changed &mdash; but you have.</p>
+
+                                <p>Push your model’s precision as far as you can and climb the leaderboard.</p>
                             </div>
                         </div>
-            
+
                         <div class="final-cta-wrapper">
                             <p class="final-cta-head">
-                                Ready to optimize?
+                                Can you improve your score?
                             </p>
                             <p class="final-cta-sub">
-                                👇 Click <b>“Enter the Arena”</b> to start.
+                                👇 Click <b>"Enter the Arena"</b> to begin.
                             </p>
                         </div>
-            
+
                     </div>
                 </div>
                 """
             )
-            
-            # Only ONE button needed now
-            intro_next_btn = gr.Button("Enter the Arena ▶️", variant="primary", size="lg")
 
+            # Fixed quotes for button and its arguments
+            intro_next_btn = gr.Button("Enter the Arena ▶️", variant="primary", size="lg")
 
         # Model Building App (Main Interface)
         with gr.Column(visible=False, elem_id="model-step") as model_building_step:
@@ -3392,9 +3455,9 @@ def create_model_building_game_en_final_sustainability_app(theme_primary_hue: st
                     gr.Markdown("---") # Separator
 
                     complexity_slider = gr.Slider(
-                        label="2. Model Complexity (1–10)",
+                        label="2. Model Depth (1 = simple rules, 10 = very detailed patterns)",
                         minimum=1, maximum=3, step=1, value=2,
-                        info="Higher values allow deeper pattern learning; very high values may overfit."
+                        info="Low = your AI learns simple, safe rules. High = it tries to learn every tiny detail, but might get confused by noise."
                     )
 
                     gr.Markdown("---") # Separator
@@ -3437,7 +3500,7 @@ def create_model_building_game_en_final_sustainability_app(theme_primary_hue: st
 
                     # KPI Card
                     submission_feedback_display = gr.HTML(
-                        "<p style='text-align:center; color:#6b7280; padding:20px 0;'>Submit your first model to get feedback!</p>"
+                        "<p style='text-align:center; color:var(--secondary-text-color, #6b7280); padding:20px 0;'>Submit your first model to get feedback!</p>"
                     )
                     # Replace the tracker instantiation with a hidden, empty component
                     attempts_tracker_display = gr.HTML(
@@ -3469,11 +3532,11 @@ def create_model_building_game_en_final_sustainability_app(theme_primary_hue: st
                     with gr.Tabs():
                         with gr.TabItem("Team Standings"):
                             team_leaderboard_display = gr.HTML(
-                                "<p style='text-align:center; color:#6b7280; padding-top:20px;'>Submit a model to see team rankings.</p>"
+                                "<p style='text-align:center; color:var(--secondary-text-color, #6b7280); padding-top:20px;'>Submit a model to see team rankings.</p>"
                             )
                         with gr.TabItem("Individual Standings"):
                             individual_leaderboard_display = gr.HTML(
-                                "<p style='text-align:center; color:#6b7280; padding-top:20px;'>Submit a model to see individual rankings.</p>"
+                                "<p style='text-align:center; color:var(--secondary-text-color, #6b7280); padding-top:20px;'>Submit a model to see individual rankings.</p>"
                             )
 
             # REMOVED: Ethical Reminder HTML Block
@@ -3484,6 +3547,7 @@ def create_model_building_game_en_final_sustainability_app(theme_primary_hue: st
             gr.Markdown("<h1 style='text-align:center;'>✅ Section Complete</h1>")
             final_score_display = gr.HTML(value="<p>Preparing final summary...</p>")
             step_3_back = gr.Button("◀️ Back to Experiment")
+            proceed_conclusion_btn = gr.Button("VIEW CONCLUSION →", variant="primary", size="lg")
 
         # --- Navigation Logic ---
         all_steps_nav = [
@@ -3626,6 +3690,12 @@ def create_model_building_game_en_final_sustainability_app(theme_primary_hue: st
             fn=create_nav(conclusion_step, model_building_step),
             inputs=None, outputs=all_steps_nav,
             js=nav_js("model-step", "Returning to experiment workspace...")
+        )
+
+        # Navigate to conclusion
+        proceed_conclusion_btn.click(
+            fn=None,
+            js="() => { try { window.parent.postMessage('navigate-to-conclusion', '*'); } catch(e) {} }"
         )
 
         # Events

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rst2pdf
-Version: 0.104
+Version: 0.105
 Summary: Convert reStructured Text to PDF via ReportLab.
 Author-email: rst2pdf maintainers <maintainers@rstpdf.org>
 License: Copyright (c) 2007-2020 Roberto Alsina and the contributors to the rst2pdf project
@@ -47,7 +47,7 @@ Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 Requires-Dist: docutils>=0.21.2
 Requires-Dist: jinja2~=3.0
-Requires-Dist: packaging~=25.0
+Requires-Dist: packaging~=26.0
 Requires-Dist: pygments~=2.0
 Requires-Dist: pyyaml>=6.0.1
 Requires-Dist: reportlab~=4.0

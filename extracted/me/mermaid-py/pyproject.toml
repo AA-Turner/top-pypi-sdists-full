@@ -1,6 +1,6 @@
 [project]
 name = "mermaid-py"
-version = "0.8.3"
+version = "0.8.4"
 description = "Python Interface for the Popular mermaid-js Library, Simplified for Diagram Creation."
 readme = "README.md"
 license = "MIT"
@@ -10,17 +10,17 @@ authors = [
 requires-python = ">=3.9"
 
 dependencies = [
+    "requests>=2.32.5",
+]
+
+[dependency-groups]
+dev = [
     "codecov>=2.1.13",
     "coverage>=7.10.7",
     "pre-commit>=4.3.0",
     "pytest>=8.4.2",
     "pytest-cov>=7.0.0",
-    "requests>=2.32.5",
     "ruff>=0.14.14",
-]
-
-[dependency-groups]
-dev = [
 ]
 
 [tool.uv]
@@ -32,7 +32,7 @@ build-backend = "setuptools.build_meta"
 
 
 [bumpver]
-current_version = "0.8.3"
+current_version = "0.8.4"
 version_pattern = "MAJOR.MINOR.PATCH"
 
 [bumpver.file_patterns]

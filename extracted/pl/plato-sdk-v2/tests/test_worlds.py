@@ -40,6 +40,14 @@ class TestWorldImports:
         assert Observation is not None
         assert StepResult is not None
 
+    def test_import_human_annotation_models(self):
+        """Test importing human-annotation termination models."""
+        from plato.worlds import AnnotationWorkspaceItem, HumanAnnotationRequest, RequiresHumanAnnotation
+
+        assert AnnotationWorkspaceItem is not None
+        assert HumanAnnotationRequest is not None
+        assert RequiresHumanAnnotation is not None
+
     def test_import_register_world(self):
         """Test importing register_world decorator."""
         from plato.worlds import register_world
@@ -178,6 +186,32 @@ class TestStepResult:
         result = StepResult(observation=Observation())
         assert result.done is False
         assert result.info == {}
+
+
+class TestHumanAnnotationModels:
+    """Test human annotation request models."""
+
+    def test_requires_human_annotation_payload(self):
+        """Test RequiresHumanAnnotation payload serialization."""
+        from plato.worlds import AnnotationWorkspaceItem, HumanAnnotationRequest, RequiresHumanAnnotation
+
+        request = HumanAnnotationRequest(
+            title="Review generated operations",
+            instructions="Validate operations.json quality",
+            items=[
+                AnnotationWorkspaceItem(
+                    workspace="recordings",
+                    path="session-1/preprocessing/backend_analysis/operations.json",
+                    kind="json",
+                )
+            ],
+        )
+        exc = RequiresHumanAnnotation(request)
+        payload = exc.result_payload()
+
+        assert payload["requires_human_annotation"] is True
+        assert payload["annotation_request"]["title"] == "Review generated operations"
+        assert payload["annotation_request"]["items"][0]["workspace"] == "recordings"
 
 
 class TestRunConfig:

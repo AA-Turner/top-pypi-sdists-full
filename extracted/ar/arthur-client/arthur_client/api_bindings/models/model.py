@@ -25,8 +25,6 @@ from arthur_client.api_bindings.models.dataset_reference import DatasetReference
 from arthur_client.api_bindings.models.model_metric_spec import ModelMetricSpec
 from arthur_client.api_bindings.models.model_metrics_schedule import ModelMetricsSchedule
 from arthur_client.api_bindings.models.model_problem_type import ModelProblemType
-from arthur_client.api_bindings.models.sub_agent_response import SubAgentResponse
-from arthur_client.api_bindings.models.tool_response import ToolResponse
 from arthur_client.api_bindings.models.user import User
 from typing import Optional, Set
 from typing_extensions import Self
@@ -49,10 +47,8 @@ class Model(BaseModel):
     datasets: List[DatasetReference] = Field(description="Datasets for the model.")
     data_plane_id: StrictStr = Field(description="ID of the data plane backing this model.")
     data_plane: DataPlane = Field(description="Data plane backing this model.")
-    tools: Optional[List[ToolResponse]] = Field(default=None, description="List of tools used by this model.")
-    sub_agents: Optional[List[SubAgentResponse]] = Field(default=None, description="List of sub-agents used by this model.")
     agent_id: Optional[StrictStr] = None
-    __properties: ClassVar[List[str]] = ["created_at", "updated_at", "id", "project_id", "name", "description", "onboarding_identifier", "last_updated_by_user", "metric_config", "schedule", "model_problem_types", "datasets", "data_plane_id", "data_plane", "tools", "sub_agents", "agent_id"]
+    __properties: ClassVar[List[str]] = ["created_at", "updated_at", "id", "project_id", "name", "description", "onboarding_identifier", "last_updated_by_user", "metric_config", "schedule", "model_problem_types", "datasets", "data_plane_id", "data_plane", "agent_id"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -112,20 +108,6 @@ class Model(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of data_plane
         if self.data_plane:
             _dict['data_plane'] = self.data_plane.to_dict()
-        # override the default output from pydantic by calling `to_dict()` of each item in tools (list)
-        _items = []
-        if self.tools:
-            for _item_tools in self.tools:
-                if _item_tools:
-                    _items.append(_item_tools.to_dict())
-            _dict['tools'] = _items
-        # override the default output from pydantic by calling `to_dict()` of each item in sub_agents (list)
-        _items = []
-        if self.sub_agents:
-            for _item_sub_agents in self.sub_agents:
-                if _item_sub_agents:
-                    _items.append(_item_sub_agents.to_dict())
-            _dict['sub_agents'] = _items
         # set to None if description (nullable) is None
         # and model_fields_set contains the field
         if self.description is None and "description" in self.model_fields_set:
@@ -177,8 +159,6 @@ class Model(BaseModel):
             "datasets": [DatasetReference.from_dict(_item) for _item in obj["datasets"]] if obj.get("datasets") is not None else None,
             "data_plane_id": obj.get("data_plane_id"),
             "data_plane": DataPlane.from_dict(obj["data_plane"]) if obj.get("data_plane") is not None else None,
-            "tools": [ToolResponse.from_dict(_item) for _item in obj["tools"]] if obj.get("tools") is not None else None,
-            "sub_agents": [SubAgentResponse.from_dict(_item) for _item in obj["sub_agents"]] if obj.get("sub_agents") is not None else None,
             "agent_id": obj.get("agent_id")
         })
         return _obj

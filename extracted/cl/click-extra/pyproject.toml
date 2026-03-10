@@ -5,7 +5,7 @@ requires = [ "uv-build>=0.9" ]
 [project]
 # Docs: https://packaging.python.org/en/latest/guides/writing-pyproject-toml/
 name = "click-extra"
-version = "7.7.0"
+version = "7.8.0"
 description = "🌈 Drop-in replacement for Click to make user-friendly and colorful CLI"
 readme = "readme.md"
 keywords = [
@@ -185,7 +185,7 @@ click-extra-demo = "click_extra.__main__:main"
 
 [project.urls]
 "Homepage" = "https://github.com/kdeldycke/click-extra"
-"Download" = "https://github.com/kdeldycke/click-extra/releases/tag/v7.7.0"
+"Download" = "https://github.com/kdeldycke/click-extra/releases/tag/v7.8.0"
 "Changelog" = "https://github.com/kdeldycke/click-extra/blob/main/changelog.md"
 "Issues" = "https://github.com/kdeldycke/click-extra/issues"
 "Repository" = "https://github.com/kdeldycke/click-extra"
@@ -252,13 +252,19 @@ show-fixes = true
 # Enable reformatting of code snippets in docstrings.
 # https://docs.astral.sh/ruff/formatter/#docstring-formatting
 format.docstring-code-format = true
+# B008: Do not perform function call in argument defaults.
+#   Click's API requires function calls in defaults (e.g. `_()` for i18n,
+#   `EnumChoice()`, `Style()`, `ClickPath()`). This is intentional.
 # D400: First line should end with a period.
 #   Allows docstrings to end up with any punctuation, not just a period.
 #   See: https://github.com/astral-sh/ruff/issues/1858#issuecomment-1382640623
 # ERA001: Found commented-out code.
 #   Do not remove commented code, as it might be used for documentation.
 #   See: https://docs.astral.sh/ruff/rules/#eradicate-era
-lint.ignore = [ "D400", "ERA001" ]
+# LOG015: Root logger call.
+#   Tests intentionally call root logger methods to verify capture behavior.
+#   Utility functions also use root logger as a convenience.
+lint.ignore = [ "B008", "D400", "ERA001", "LOG015" ]
 # Allow rules to add `from __future__ import annotations` in cases where
 # this would simplify a fix or enable a new diagnostic.
 # https://docs.astral.sh/ruff/settings/#lint_future-annotations
@@ -335,7 +341,7 @@ run.source = [ "click_extra" ]
 report.precision = 2
 
 [tool.bumpversion]
-current_version = "7.7.0"
+current_version = "7.8.0"
 allow_dirty = true
 ignore_missing_files = true
 # Parse versions with an optional .devN suffix (PEP 440).
@@ -368,10 +374,10 @@ search = "releases/tag/v{current_version}"
 replace = "releases/tag/v{new_version}"
 
 [[tool.bumpversion.files]]
-# Update the version in standard Markdown changelog.
+# Update the version in Markdown changelog.
 filename = "./changelog.md"
-search = "## [{current_version} (unreleased)]("
-replace = "## [{new_version} (unreleased)]("
+search = "## [`{current_version}` (unreleased)]("
+replace = "## [`{new_version}` (unreleased)]("
 
 [[tool.bumpversion.files]]
 # Update the version in the citation file.

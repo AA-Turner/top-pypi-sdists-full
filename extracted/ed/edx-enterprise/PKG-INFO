@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: edx-enterprise
-Version: 6.6.7
+Version: 6.6.8
 Summary: Your project description goes here
 Home-page: https://github.com/openedx/edx-enterprise
 Author: edX
@@ -164,6 +164,10 @@ Change Log
 Unreleased
 ----------
 * nothing unreleased
+
+[6.6.8] - 2026-03-05
+---------------------
+* feat: moving retirement code to edx-enterprise
 
 [6.6.7] - 2026-03-04
 ---------------------

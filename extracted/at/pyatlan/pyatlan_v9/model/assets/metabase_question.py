@@ -99,8 +99,6 @@ class MetabaseQuestion(Asset):
     INPUT_TO_SPARK_JOBS: ClassVar[Any] = None
     OUTPUT_FROM_SPARK_JOBS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "MetabaseQuestion"
-
     metabase_dashboard_count: Union[int, None, UnsetType] = UNSET
     """"""
 
@@ -514,6 +512,9 @@ def _metabase_question_to_nested(
         is_incomplete=metabase_question.is_incomplete,
         provenance_type=metabase_question.provenance_type,
         home_id=metabase_question.home_id,
+        depth=metabase_question.depth,
+        immediate_upstream=metabase_question.immediate_upstream,
+        immediate_downstream=metabase_question.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -547,7 +548,6 @@ def _metabase_question_from_nested(nested: MetabaseQuestionNested) -> MetabaseQu
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -556,6 +556,9 @@ def _metabase_question_from_nested(nested: MetabaseQuestionNested) -> MetabaseQu
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_metabase_question_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

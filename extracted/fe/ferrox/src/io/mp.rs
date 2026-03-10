@@ -119,12 +119,11 @@ impl SearchFilter {
                 None => return false,
             }
         }
-        if let Some(ref excluded) = self.exclude_elements {
-            if let Some(ref doc_elems) = Self::extract_elements(doc) {
-                if !excluded.is_disjoint(doc_elems) {
-                    return false;
-                }
-            }
+        if let Some(ref excluded) = self.exclude_elements
+            && let Some(ref doc_elems) = Self::extract_elements(doc)
+            && !excluded.is_disjoint(doc_elems)
+        {
+            return false;
         }
         if let Some(ref ids) = self.material_ids {
             match doc.get("material_id").and_then(Value::as_str) {
@@ -229,10 +228,10 @@ pub fn process_jsonl_reader(
         if !doc.is_object() || !filter.matches(&doc) {
             continue;
         }
-        if let Some(cap) = limit {
-            if results.len() >= cap {
-                break;
-            }
+        if let Some(cap) = limit
+            && results.len() >= cap
+        {
+            break;
         }
         let doc = match fields {
             Some(field_set) => select_fields(doc, field_set),
@@ -256,7 +255,6 @@ pub fn make_jsonl_reader(data: &[u8], is_gzipped: bool) -> Box<dyn BufRead + '_>
 
 #[cfg(feature = "mp")]
 // === MPRester: authenticated API client with parallel pagination ===
-
 /// Materials Project REST API client with parallel paginated search.
 ///
 /// Uses connection pooling (ureq Agent) and parallel page fetches (rayon)
@@ -357,7 +355,7 @@ impl MPRester {
 
         if let Some(cap) = limit {
             // Speculative: fire ALL pages in parallel without waiting for total_doc
-            let n_pages = (cap + chunk_size - 1) / chunk_size;
+            let n_pages = cap.div_ceil(chunk_size);
             let offsets: Vec<usize> = (0..n_pages).map(|idx| idx * chunk_size).collect();
 
             #[cfg(feature = "rayon")]
@@ -432,7 +430,6 @@ fn extract_data(response: &Value) -> Result<Vec<Value>, MpError> {
 
 #[cfg(feature = "mp")]
 // === MPOpenData: key-free S3 bulk download client ===
-
 /// Direct access to Materials Project data on AWS Open Data S3 buckets.
 ///
 /// No API key required.  Downloads gzip-compressed JSONL collection data
@@ -658,7 +655,7 @@ impl MPOpenData {
                     continue;
                 }
                 let doc = match fields {
-                    Some(ref field_set) => select_fields(doc, field_set),
+                    Some(field_set) => select_fields(doc, field_set),
                     None => doc,
                 };
                 results.push(doc);
@@ -776,20 +773,18 @@ impl MPOpenData {
 
             let root = doc.root_element();
             for node in root.children() {
-                if node.has_tag_name((S3_NS, "CommonPrefixes")) {
-                    if let Some(pfx_node) = node
+                if node.has_tag_name((S3_NS, "CommonPrefixes"))
+                    && let Some(pfx_node) = node
                         .children()
                         .find(|child| child.has_tag_name((S3_NS, "Prefix")))
-                    {
-                        if let Some(pfx_text) = pfx_node.text() {
-                            let name = pfx_text
-                                .strip_prefix(prefix)
-                                .unwrap_or(pfx_text)
-                                .trim_end_matches('/');
-                            if !name.is_empty() {
-                                results.push(name.to_owned());
-                            }
-                        }
+                    && let Some(pfx_text) = pfx_node.text()
+                {
+                    let name = pfx_text
+                        .strip_prefix(prefix)
+                        .unwrap_or(pfx_text)
+                        .trim_end_matches('/');
+                    if !name.is_empty() {
+                        results.push(name.to_owned());
                     }
                 }
             }
@@ -810,7 +805,6 @@ impl MPOpenData {
 
 #[cfg(feature = "mp")]
 // === XML helpers ===
-#[cfg(feature = "mp")]
 fn is_truncated(root: &roxmltree::Node) -> bool {
     root.children()
         .find(|c| c.has_tag_name((S3_NS, "IsTruncated")))

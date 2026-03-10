@@ -22,11 +22,11 @@ class NewScriptWithDraft:
     Attributes:
         path (str):
         summary (str):
-        description (str):
         content (str):
         language (NewScriptWithDraftLanguage):
         hash_ (str):
         parent_hash (Union[Unset, str]):
+        description (Union[Unset, str]):
         schema (Union[Unset, NewScriptWithDraftSchema]):
         is_template (Union[Unset, bool]):
         lock (Union[Unset, str]):
@@ -64,11 +64,11 @@ class NewScriptWithDraft:
 
     path: str
     summary: str
-    description: str
     content: str
     language: NewScriptWithDraftLanguage
     hash_: str
     parent_hash: Union[Unset, str] = UNSET
+    description: Union[Unset, str] = UNSET
     schema: Union[Unset, "NewScriptWithDraftSchema"] = UNSET
     is_template: Union[Unset, bool] = UNSET
     lock: Union[Unset, str] = UNSET
@@ -106,12 +106,12 @@ class NewScriptWithDraft:
     def to_dict(self) -> Dict[str, Any]:
         path = self.path
         summary = self.summary
-        description = self.description
         content = self.content
         language = self.language.value
 
         hash_ = self.hash_
         parent_hash = self.parent_hash
+        description = self.description
         schema: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.schema, Unset):
             schema = self.schema.to_dict()
@@ -172,7 +172,6 @@ class NewScriptWithDraft:
             {
                 "path": path,
                 "summary": summary,
-                "description": description,
                 "content": content,
                 "language": language,
                 "hash": hash_,
@@ -180,6 +179,8 @@ class NewScriptWithDraft:
         )
         if parent_hash is not UNSET:
             field_dict["parent_hash"] = parent_hash
+        if description is not UNSET:
+            field_dict["description"] = description
         if schema is not UNSET:
             field_dict["schema"] = schema
         if is_template is not UNSET:
@@ -258,8 +259,6 @@ class NewScriptWithDraft:
 
         summary = d.pop("summary")
 
-        description = d.pop("description")
-
         content = d.pop("content")
 
         language = NewScriptWithDraftLanguage(d.pop("language"))
@@ -267,6 +266,8 @@ class NewScriptWithDraft:
         hash_ = d.pop("hash")
 
         parent_hash = d.pop("parent_hash", UNSET)
+
+        description = d.pop("description", UNSET)
 
         _schema = d.pop("schema", UNSET)
         schema: Union[Unset, NewScriptWithDraftSchema]
@@ -355,11 +356,11 @@ class NewScriptWithDraft:
         new_script_with_draft = cls(
             path=path,
             summary=summary,
-            description=description,
             content=content,
             language=language,
             hash_=hash_,
             parent_hash=parent_hash,
+            description=description,
             schema=schema,
             is_template=is_template,
             lock=lock,

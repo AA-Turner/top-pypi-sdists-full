@@ -1430,6 +1430,18 @@ class ConsolidatedMonitorStatusType(sgqlc.types.Enum):
     )
 
 
+class ContextUsage(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `PROMPT_AND_RESPONSE`None
+    * `PROMPT_ONLY`None
+    * `RESPONSE_ONLY`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("PROMPT_AND_RESPONSE", "PROMPT_ONLY", "RESPONSE_ONLY")
+
+
 class ConversationFilterFieldName(sgqlc.types.Enum):
     """Field names for conversation filters.
 
@@ -5088,6 +5100,18 @@ class SamplingEnabledMetricTypes(sgqlc.types.Enum):
     )
 
 
+class Scale(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `SCALE_1_10`None
+    * `SCALE_1_5`None
+    * `SCALE_PASS_FAIL`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("SCALE_1_10", "SCALE_1_5", "SCALE_PASS_FAIL")
+
+
 class ScheduleType(sgqlc.types.Enum):
     """Enumeration Choices:
 
@@ -5453,6 +5477,18 @@ class StreamingSystemModelType(sgqlc.types.Enum):
 
     __schema__ = schema
     __choices__ = ("CONFLUENT_CLOUD", "MSK", "SELF_HOSTED")
+
+
+class Strictness(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `BALANCED`None
+    * `LENIENT`None
+    * `STRICT`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("BALANCED", "LENIENT", "STRICT")
 
 
 String = sgqlc.types.String
@@ -10499,6 +10535,8 @@ class SelfHostedUpdateCredentialsConnectionDetails(sgqlc.types.Input):
         "aws_region",
         "assumable_role",
         "external_id",
+        "bq_project_id",
+        "databricks_warehouse_id",
     )
     self_hosted_credentials_type = sgqlc.types.Field(
         SelfHostedUpdateCredentialsTypeEnum, graphql_name="selfHostedCredentialsType"
@@ -10568,6 +10606,16 @@ class SelfHostedUpdateCredentialsConnectionDetails(sgqlc.types.Input):
 
     external_id = sgqlc.types.Field(String, graphql_name="externalId")
     """Optional external id for AWS assumable role"""
+
+    bq_project_id = sgqlc.types.Field(String, graphql_name="bqProjectId")
+    """Optional BigQuery project ID for running queries. Required for
+    BigQuery connections with self-hosted credentials.
+    """
+
+    databricks_warehouse_id = sgqlc.types.Field(String, graphql_name="databricksWarehouseId")
+    """Optional Databricks SQL warehouse ID. Required for Databricks SQL
+    warehouse connections with self-hosted credentials.
+    """
 
 
 class SensitivityInput(sgqlc.types.Input):
@@ -12471,6 +12519,7 @@ class IMonitor(sgqlc.types.Interface):
         "timeout",
         "is_agent_trace_aggregation",
         "dashboards",
+        "is_hidden_for_asset",
     )
     uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
     """Unique identifier for monitors"""
@@ -12696,6 +12745,12 @@ class IMonitor(sgqlc.types.Interface):
         sgqlc.types.list_of(sgqlc.types.non_null("MonitorDashboard")), graphql_name="dashboards"
     )
     """Dashboards sourced from the monitor."""
+
+    is_hidden_for_asset = sgqlc.types.Field(Boolean, graphql_name="isHiddenForAsset")
+    """(experimental) Whether this monitor is hidden when viewing it in
+    the context of a specific asset. Only meaningful when monitors are
+    queried with a single mcon filter. Defaults to False.
+    """
 
 
 class IMonitorStatus(sgqlc.types.Interface):
@@ -15786,6 +15841,63 @@ class AudienceRoutingStats(sgqlc.types.Type):
     )
 
 
+class AuditInfo(sgqlc.types.Type):
+    """Audit information for an auditable entity."""
+
+    __schema__ = schema
+    __field_names__ = (
+        "created_on",
+        "last_updated_on",
+        "created_by",
+        "last_update_user",
+        "audit_logs",
+    )
+    created_on = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdOn")
+    """Timestamp when this entity was created."""
+
+    last_updated_on = sgqlc.types.Field(
+        sgqlc.types.non_null(DateTime), graphql_name="lastUpdatedOn"
+    )
+    """Timestamp when this entity was last modified."""
+
+    created_by = sgqlc.types.Field("AuditedUser", graphql_name="createdBy")
+    """User that created this entity. Null if predating audit tracking."""
+
+    last_update_user = sgqlc.types.Field("AuditedUser", graphql_name="lastUpdateUser")
+    """User that last updated this entity. Null if predating audit
+    tracking.
+    """
+
+    audit_logs = sgqlc.types.Field(
+        "AuditLogEntryConnection",
+        graphql_name="auditLogs",
+        args=sgqlc.types.ArgDict(
+            (
+                ("start_time", sgqlc.types.Arg(DateTime, graphql_name="startTime", default=None)),
+                ("end_time", sgqlc.types.Arg(DateTime, graphql_name="endTime", default=None)),
+                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
+                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
+                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
+                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
+                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
+            )
+        ),
+    )
+    """Change audit logs for this entity.
+
+    Arguments:
+
+    * `start_time` (`DateTime`): Optional start time to filter audit
+      logs.
+    * `end_time` (`DateTime`): Optional end time to filter audit logs.
+    * `offset` (`Int`)None
+    * `before` (`String`)None
+    * `after` (`String`)None
+    * `first` (`Int`)None
+    * `last` (`Int`)None
+    """
+
+
 class AuditLogEntryConnection(sgqlc.types.relay.Connection):
     __schema__ = schema
     __field_names__ = ("page_info", "edges")
@@ -15818,79 +15930,6 @@ class AuthorRef(sgqlc.types.Type):
     username = sgqlc.types.Field(String, graphql_name="username")
 
     email = sgqlc.types.Field(String, graphql_name="email")
-
-
-class AuthorizationGroupAuditInfo(sgqlc.types.Type):
-    """Audit information for an authorization group."""
-
-    __schema__ = schema
-    __field_names__ = ("created_on", "last_updated_on", "last_update_user", "audit_logs")
-    created_on = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdOn")
-    """Timestamp when this group was created."""
-
-    last_updated_on = sgqlc.types.Field(
-        sgqlc.types.non_null(DateTime), graphql_name="lastUpdatedOn"
-    )
-    """Timestamp when this group was last modified."""
-
-    last_update_user = sgqlc.types.Field("AuthUser", graphql_name="lastUpdateUser")
-    """User that last updated this group. Null for groups that predate
-    audit tracking.
-    """
-
-    audit_logs = sgqlc.types.Field(
-        "AuthorizationGroupAuditLogConnection",
-        graphql_name="auditLogs",
-        args=sgqlc.types.ArgDict(
-            (
-                ("start_time", sgqlc.types.Arg(DateTime, graphql_name="startTime", default=None)),
-                ("end_time", sgqlc.types.Arg(DateTime, graphql_name="endTime", default=None)),
-                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
-                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
-                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
-                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
-            )
-        ),
-    )
-    """Recent activity for this group, including membership changes.
-
-    Arguments:
-
-    * `start_time` (`DateTime`): Optional start time to filter audit
-      logs.
-    * `end_time` (`DateTime`): Optional end time to filter audit logs.
-    * `before` (`String`)None
-    * `after` (`String`)None
-    * `first` (`Int`)None
-    * `last` (`Int`)None
-    """
-
-
-class AuthorizationGroupAuditLogConnection(sgqlc.types.relay.Connection):
-    __schema__ = schema
-    __field_names__ = ("page_info", "edges")
-    page_info = sgqlc.types.Field(sgqlc.types.non_null("PageInfo"), graphql_name="pageInfo")
-    """Pagination data for this connection."""
-
-    edges = sgqlc.types.Field(
-        sgqlc.types.non_null(sgqlc.types.list_of("AuthorizationGroupAuditLogEdge")),
-        graphql_name="edges",
-    )
-    """Contains the nodes in this connection."""
-
-
-class AuthorizationGroupAuditLogEdge(sgqlc.types.Type):
-    """A Relay edge containing a `AuthorizationGroupAuditLog` and its
-    cursor.
-    """
-
-    __schema__ = schema
-    __field_names__ = ("node", "cursor")
-    node = sgqlc.types.Field("AuditLogEntry", graphql_name="node")
-    """The item at the end of the edge"""
-
-    cursor = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="cursor")
-    """A cursor for use in pagination"""
 
 
 class AuthorizationGroupOutput(sgqlc.types.Type):
@@ -15945,7 +15984,7 @@ class AuthorizationGroupOutput(sgqlc.types.Type):
     """
 
     users = sgqlc.types.Field(
-        sgqlc.types.list_of(sgqlc.types.non_null("AuthUser")), graphql_name="users"
+        sgqlc.types.list_of(sgqlc.types.non_null("AuditedUser")), graphql_name="users"
     )
     """List of users who are members of the group."""
 
@@ -15977,7 +16016,7 @@ class AuthorizationGroupOutput(sgqlc.types.Type):
     can only be made through that source.
     """
 
-    audit_info = sgqlc.types.Field(AuthorizationGroupAuditInfo, graphql_name="auditInfo")
+    audit_info = sgqlc.types.Field(AuditInfo, graphql_name="auditInfo")
     """(experimental) Audit information for this group."""
 
 
@@ -16045,10 +16084,10 @@ class AuthorizationProvisioningOutput(sgqlc.types.Type):
     last_updated_on = sgqlc.types.Field(DateTime, graphql_name="lastUpdatedOn")
     """Timestamp when this configuration was last modified."""
 
-    last_update_user = sgqlc.types.Field("AuthUser", graphql_name="lastUpdateUser")
+    last_update_user = sgqlc.types.Field("AuditedUser", graphql_name="lastUpdateUser")
     """User that last updated this configuration."""
 
-    created_by = sgqlc.types.Field("AuthUser", graphql_name="createdBy")
+    created_by = sgqlc.types.Field("AuditedUser", graphql_name="createdBy")
     """User that created this configuration."""
 
     created_on = sgqlc.types.Field(DateTime, graphql_name="createdOn")
@@ -25334,6 +25373,41 @@ class GenerateDcUpgradeTemplate(sgqlc.types.Type):
     """
 
 
+class GenerateEvalPromptOutput(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = (
+        "prompt",
+        "alias",
+        "output_type",
+        "rubric",
+        "scoring_anchors",
+        "bias_guardrail",
+    )
+    prompt = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="prompt")
+    """The generated evaluation prompt template"""
+
+    alias = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="alias")
+    """Score field name for the transform"""
+
+    output_type = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="outputType")
+    """Output type: 'number' or 'boolean' """
+
+    rubric = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="rubric",
+    )
+    """Evaluation criteria bullets"""
+
+    scoring_anchors = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("ScoringAnchorOutput"))),
+        graphql_name="scoringAnchors",
+    )
+    """Score level descriptions"""
+
+    bias_guardrail = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="biasGuardrail")
+    """Bias avoidance guidance"""
+
+
 class GenerateReport(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("report_job_id",)
@@ -29651,6 +29725,7 @@ class Mutation(sgqlc.types.Type):
         "run_monitors",
         "create_or_update_monitor_comment",
         "delete_monitor_comment",
+        "set_monitor_visibility_for_asset",
         "create_custom_user",
         "create_unified_user_assignment",
         "delete_unified_user_assignment",
@@ -37484,6 +37559,43 @@ class Mutation(sgqlc.types.Type):
     Arguments:
 
     * `comment_uuid` (`UUID!`): UUID of the comment to delete
+    """
+
+    set_monitor_visibility_for_asset = sgqlc.types.Field(
+        "SetMonitorVisibilityForAsset",
+        graphql_name="setMonitorVisibilityForAsset",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "asset_mcon",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="assetMcon", default=None
+                    ),
+                ),
+                (
+                    "is_hidden",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(Boolean), graphql_name="isHidden", default=None
+                    ),
+                ),
+                (
+                    "monitor_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="monitorUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Set monitor visibility for a specific asset
+
+    Arguments:
+
+    * `asset_mcon` (`String!`): MCON of the asset for which to set
+      monitor visibility
+    * `is_hidden` (`Boolean!`): True to hide the monitor, False to
+      unhide it
+    * `monitor_uuid` (`UUID!`): UUID of the monitor to hide or unhide
     """
 
     create_custom_user = sgqlc.types.Field(
@@ -51189,7 +51301,6 @@ class Query(sgqlc.types.Type):
         "is_favorite",
         "get_user",
         "get_warehouses",
-        "get_should_show_onboarding",
         "get_warehouse",
         "get_collection_properties",
         "get_table",
@@ -51265,6 +51376,7 @@ class Query(sgqlc.types.Type):
         "get_ai_agent_config",
         "fix_sql_query",
         "create_sql_query",
+        "generate_eval_prompt",
         "get_agent_operation_logs",
         "get_gcp_agent_logs",
         "get_azure_agent_logs",
@@ -67120,9 +67232,6 @@ class Query(sgqlc.types.Type):
     * `domain_uuid` (`UUID`): Filter warehouses by domain UUID
     """
 
-    get_should_show_onboarding = sgqlc.types.Field(Boolean, graphql_name="getShouldShowOnboarding")
-    """(experimental) Get whether the user should see the onboarding flow"""
-
     get_warehouse = sgqlc.types.Field(
         "Warehouse",
         graphql_name="getWarehouse",
@@ -69828,6 +69937,53 @@ class Query(sgqlc.types.Type):
       want to stream the results
     """
 
+    generate_eval_prompt = sgqlc.types.Field(
+        GenerateEvalPromptOutput,
+        graphql_name="generateEvalPrompt",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "description_text",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="descriptionText", default=None
+                    ),
+                ),
+                (
+                    "scale",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(Scale), graphql_name="scale", default=None
+                    ),
+                ),
+                (
+                    "context_usage",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(ContextUsage),
+                        graphql_name="contextUsage",
+                        default=None,
+                    ),
+                ),
+                (
+                    "strictness",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(Strictness), graphql_name="strictness", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Generate an LLM-as-a-judge evaluation prompt from a
+    description
+
+    Arguments:
+
+    * `description_text` (`String!`): Natural language description of
+      what to evaluate
+    * `scale` (`Scale!`): Scoring scale
+    * `context_usage` (`ContextUsage!`): Which template variables to
+      include in the prompt
+    * `strictness` (`Strictness!`): Strictness tone for evaluation
+    """
+
     get_agent_operation_logs = sgqlc.types.Field(
         sgqlc.types.list_of(AgentLogEntry),
         graphql_name="getAgentOperationLogs",
@@ -70995,63 +71151,6 @@ class ResumeMonitorBootstrap(sgqlc.types.Type):
     """The monitor whose bootstrapping was resumed"""
 
 
-class RoleAuditInfo(sgqlc.types.Type):
-    """Audit information for a custom role."""
-
-    __schema__ = schema
-    __field_names__ = (
-        "created_on",
-        "last_updated_on",
-        "created_by",
-        "last_update_user",
-        "audit_logs",
-    )
-    created_on = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdOn")
-    """Timestamp when this role was created."""
-
-    last_updated_on = sgqlc.types.Field(
-        sgqlc.types.non_null(DateTime), graphql_name="lastUpdatedOn"
-    )
-    """Timestamp when this role was last modified."""
-
-    created_by = sgqlc.types.Field(sgqlc.types.non_null("AuthUser"), graphql_name="createdBy")
-    """User that created this role."""
-
-    last_update_user = sgqlc.types.Field(
-        sgqlc.types.non_null("AuthUser"), graphql_name="lastUpdateUser"
-    )
-    """User that last updated this role."""
-
-    audit_logs = sgqlc.types.Field(
-        AuditLogEntryConnection,
-        graphql_name="auditLogs",
-        args=sgqlc.types.ArgDict(
-            (
-                ("start_time", sgqlc.types.Arg(DateTime, graphql_name="startTime", default=None)),
-                ("end_time", sgqlc.types.Arg(DateTime, graphql_name="endTime", default=None)),
-                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
-                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
-                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
-                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
-                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
-            )
-        ),
-    )
-    """Change audit logs for this role.
-
-    Arguments:
-
-    * `start_time` (`DateTime`): Optional start time to filter audit
-      logs.
-    * `end_time` (`DateTime`): Optional end time to filter audit logs.
-    * `offset` (`Int`)None
-    * `before` (`String`)None
-    * `after` (`String`)None
-    * `first` (`Int`)None
-    * `last` (`Int`)None
-    """
-
-
 class RoleOutput(sgqlc.types.Type):
     """A named set of authorization policy statements that can be
     assigned to authorization groups.
@@ -71149,7 +71248,7 @@ class RoleOutput(sgqlc.types.Type):
     assigned to.
     """
 
-    audit_info = sgqlc.types.Field(RoleAuditInfo, graphql_name="auditInfo")
+    audit_info = sgqlc.types.Field(AuditInfo, graphql_name="auditInfo")
     """(experimental) Audit information for this role. Null for managed
     roles; present for custom roles.
     """
@@ -71617,6 +71716,16 @@ class SchemaField(sgqlc.types.Type):
     sql_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="sqlName")
 
     main_type = sgqlc.types.Field(sgqlc.types.non_null(FieldType), graphql_name="mainType")
+
+
+class ScoringAnchorOutput(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("score", "description")
+    score = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="score")
+    """The score value"""
+
+    description = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="description")
+    """What this score level means"""
 
 
 class SearchResponse(sgqlc.types.Type):
@@ -72433,6 +72542,16 @@ class SetMaxTimeSeries(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("success",)
     success = sgqlc.types.Field(Boolean, graphql_name="success")
+
+
+class SetMonitorVisibilityForAsset(sgqlc.types.Type):
+    """Sets whether a monitor should be hidden when viewing a specific
+    asset.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("success",)
+    success = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="success")
 
 
 class SetPiiFilterStatus(sgqlc.types.Type):
@@ -79920,7 +80039,11 @@ class AuditLogEntry(sgqlc.types.Type, Node):
     """Last name of the user who made the change"""
 
 
-class AuthUser(sgqlc.types.Type, Node):
+class AuditedUser(sgqlc.types.Type, Node):
+    """User type for audit-related fields (created_by, last_update_user,
+    etc.).
+    """
+
     __schema__ = schema
     __field_names__ = (
         "cognito_user_id",

@@ -126,7 +126,7 @@ class ImageRequest(BaseModel):  # openai todo 异步 polling
     n: Optional[int] = 1
     size: Optional[str] = None  # null auto
 
-    response_format: Optional[Literal["url", "b64_json", "oss_url", "glb", "stl"]] = "url"  # 3D zh_url
+    response_format: Optional[Literal["url", "b64_json", "oss_url", "zh_url", "glb", "stl"]] = "url"  # 3D
 
     output_format: Optional[Literal["png", "jpeg", "webp", "glb", "stl", "obj", "usd", "usdz"]] = None
 

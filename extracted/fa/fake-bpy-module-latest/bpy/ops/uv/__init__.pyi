@@ -15,7 +15,7 @@ def align(
     ]
     | None = "ALIGN_AUTO",
     position_mode: typing.Literal["MEAN", "MIN", "MAX"] | None = "MEAN",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Aligns selected UV vertices on a line
 
         :param axis: Axis, Axis to align UV locations on (optional)
@@ -58,7 +58,7 @@ def align_rotation(
     method: typing.Literal["AUTO", "EDGE", "GEOMETRY"] | None = "AUTO",
     axis: typing.Literal["X", "Y", "Z"] | None = "X",
     correct_aspect: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Align the UV islands rotation
 
         :param method: Method, Method to calculate rotation angle (optional)
@@ -97,7 +97,7 @@ def arrange_islands(
     order: typing.Literal["LARGE_TO_SMALL", "SMALL_TO_LARGE", "Fixed"]
     | None = "LARGE_TO_SMALL",
     margin: float | None = 0.05,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Arrange selected UV islands on a line
 
         :param initial_position: Initial Position, Initial position to arrange islands from (optional)
@@ -154,7 +154,7 @@ def average_islands_scale(
     *,
     scale_uv: bool | None = False,
     shear: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Average the size of separate UV islands, based on their area in 3D space
 
     :param scale_uv: Non-Uniform, Scale U and V independently (optional)
@@ -166,7 +166,7 @@ def copy(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Copy selected UV vertices
 
     :return: Result of the operator call.
@@ -179,7 +179,7 @@ def copy_mirrored_faces(
     *,
     direction: typing.Literal["POSITIVE", "NEGATIVE"] | None = "POSITIVE",
     precision: int | None = 3,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Copy mirror UV coordinates on the X axis based on a mirrored mesh
 
     :param direction: Axis Direction, (optional)
@@ -196,7 +196,7 @@ def cube_project(
     correct_aspect: bool | None = True,
     clip_to_bounds: bool | None = False,
     scale_to_bounds: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Project the UV vertices of the mesh over the six faces of a cube
 
     :param cube_size: Cube Size, Size of the cube to project on (in [0, inf], optional)
@@ -212,7 +212,7 @@ def cursor_set(
     /,
     *,
     location: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set 2D cursor location
 
     :param location: Location, Cursor location in normalized (0.0 to 1.0) coordinates (array of 2 items, in [-inf, inf], optional)
@@ -229,7 +229,7 @@ def custom_region_set(
     ymin: int | None = 0,
     ymax: int | None = 0,
     wait_for_input: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set the boundaries of the user region
 
     :param xmin: X Min, (in [-inf, inf], optional)
@@ -254,7 +254,7 @@ def cylinder_project(
     correct_aspect: bool | None = True,
     clip_to_bounds: bool | None = False,
     scale_to_bounds: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Project the UV vertices of the mesh over the curved wall of a cylinder
 
         :param direction: Direction, Direction of the sphere or cylinder (optional)
@@ -302,7 +302,7 @@ def export_layout(
     size: collections.abc.Sequence[int] | None = (1024, 1024),
     opacity: float | None = 0.25,
     check_existing: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Export UV layout to file
 
         :param filepath: filepath, (optional, never None)
@@ -340,7 +340,7 @@ def follow_active_quads(
     /,
     *,
     mode: typing.Literal["EVEN", "LENGTH", "LENGTH_AVERAGE"] | None = "LENGTH_AVERAGE",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Follow UVs from active quads along continuous face loops
 
         :param mode: Edge Length Mode, Method to space UV edge loops (optional)
@@ -362,7 +362,7 @@ def hide(
     /,
     *,
     unselected: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Hide (un)selected UV vertices
 
     :param unselected: Unselected, Hide unselected rather than selected (optional)
@@ -379,7 +379,7 @@ def lightmap_pack(
     PREF_NEW_UVLAYER: bool | None = False,
     PREF_BOX_DIV: int | None = 12,
     PREF_MARGIN_DIV: float | None = 0.1,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Pack each faces UVs into the UV bounds
 
         :param PREF_CONTEXT: Selection, (optional)
@@ -402,7 +402,7 @@ def mark_seam(
     /,
     *,
     clear: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Mark selected UV edges as seams
 
     :param clear: Clear Seams, Clear instead of marking seams (optional)
@@ -417,7 +417,7 @@ def minimize_stretch(
     fill_holes: bool | None = True,
     blend: float | None = 0.0,
     iterations: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Reduce UV stretching by relaxing angles
 
     :param fill_holes: Fill Holes, Virtually fill holes in mesh before unwrapping, to better avoid overlaps and preserve symmetry (optional)
@@ -434,7 +434,7 @@ def move_on_axis(
     type: typing.Literal["DYNAMIC", "PIXEL", "UDIM"] | None = "UDIM",
     axis: typing.Literal["X", "Y"] | None = "X",
     distance: int | None = 1,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move UVs on an axis
 
         :param type: Type, Move Type (optional)
@@ -480,7 +480,7 @@ def pack_islands(
     pin_method: typing.Literal["SCALE", "ROTATION", "ROTATION_SCALE", "LOCKED"]
     | None = "LOCKED",
     shape_method: typing.Literal["CONCAVE", "CONVEX", "AABB"] | None = "CONCAVE",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Transform all islands so that they fill up the UV/UDIM space as much as possible
 
         :param udim_source: Pack to, (optional)
@@ -557,7 +557,7 @@ def paste(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Paste selected UV vertices
 
     :return: Result of the operator call.
@@ -570,7 +570,7 @@ def pin(
     *,
     clear: bool | None = False,
     invert: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set/clear selected UV vertices as anchored between multiple unwrap operations
 
     :param clear: Clear, Clear pinning for the selection instead of setting it (optional)
@@ -588,7 +588,7 @@ def project_from_view(
     correct_aspect: bool | None = True,
     clip_to_bounds: bool | None = False,
     scale_to_bounds: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Project the UV vertices of the mesh as seen in current 3D view
 
     :param orthographic: Orthographic, Use orthographic projection (optional)
@@ -612,7 +612,7 @@ def randomize_uv_transform(
     use_scale: bool | None = True,
     scale_even: bool | None = False,
     scale: collections.abc.Sequence[float] | None = (1.0, 1.0),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Randomize the UV islands location, rotation, and scale
 
     :param random_seed: Random Seed, Seed value for the random generator (in [0, 10000], optional)
@@ -634,7 +634,7 @@ def remove_doubles(
     threshold: float | None = 0.02,
     use_unselected: bool | None = False,
     use_shared_vertex: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Selected UV vertices that are within a radius of each other are welded together
 
     :param threshold: Merge Distance, Maximum distance between welded vertices (in [0, 10], optional)
@@ -647,7 +647,7 @@ def reset(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Reset UV projection
 
     :return: Result of the operator call.
@@ -659,7 +659,7 @@ def reveal(
     /,
     *,
     select: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Reveal all hidden UV vertices
 
     :param select: Select, (optional)
@@ -675,7 +675,7 @@ def rip(
     release_confirm: bool | None = False,
     use_accurate: bool | None = False,
     location: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Rip selected vertices or a selected region
 
     :param mirror: Mirror Editing, (optional)
@@ -692,7 +692,7 @@ def rip_move(
     *,
     UV_OT_rip: dict[str, typing.Any] | None = {},
     TRANSFORM_OT_translate: dict[str, typing.Any] | None = {},
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Unstitch UVs and move the result
 
     :param UV_OT_rip: UV Rip, Rip selected vertices or a selected region (optional, `bpy.ops.uv.rip` keyword arguments)
@@ -707,7 +707,7 @@ def seams_from_islands(
     *,
     mark_seams: bool | None = True,
     mark_sharp: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set mesh seams according to island setup in the UV editor
 
     :param mark_seams: Mark Seams, Mark boundary edges as seams (optional)
@@ -726,7 +726,7 @@ def select(
     deselect_all: bool | None = False,
     select_passthrough: bool | None = False,
     location: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select UV vertices
 
     :param extend: Extend, Extend selection instead of deselecting everything first (optional)
@@ -744,7 +744,7 @@ def select_all(
     /,
     *,
     action: typing.Literal["TOGGLE", "SELECT", "DESELECT", "INVERT"] | None = "TOGGLE",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Change selection of all UV vertices
 
         :param action: Action, Selection action to execute (optional)
@@ -775,7 +775,7 @@ def select_box(
     ymax: int | None = 0,
     wait_for_input: bool | None = True,
     mode: typing.Literal["SET", "ADD", "SUB"] | None = "SET",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select UV vertices using box selection
 
         :param pinned: Pinned, Border select pinned UVs only (optional)
@@ -807,7 +807,7 @@ def select_circle(
     radius: int | None = 25,
     wait_for_input: bool | None = True,
     mode: typing.Literal["SET", "ADD", "SUB"] | None = "SET",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select UV vertices using circle selection
 
         :param x: X, (in [-inf, inf], optional)
@@ -834,7 +834,7 @@ def select_edge_ring(
     *,
     extend: bool | None = False,
     location: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select an edge ring of connected UV vertices
 
     :param extend: Extend, Extend selection rather than clearing the existing selection (optional)
@@ -852,7 +852,7 @@ def select_lasso(
     smooth_stroke_factor: float | None = 0.75,
     smooth_stroke_radius: int | None = 35,
     mode: typing.Literal["SET", "ADD", "SUB"] | None = "SET",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select UVs using lasso selection
 
         :param path: Path, (optional)
@@ -876,7 +876,7 @@ def select_less(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Deselect UV vertices at the boundary of each selection region
 
     :return: Result of the operator call.
@@ -886,7 +886,7 @@ def select_linked(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select all UV vertices linked to the active UV map
 
     :return: Result of the operator call.
@@ -900,7 +900,7 @@ def select_linked_pick(
     extend: bool | None = False,
     deselect: bool | None = False,
     location: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select all UV vertices linked under the mouse
 
     :param extend: Extend, Extend selection rather than clearing the existing selection (optional)
@@ -916,7 +916,7 @@ def select_loop(
     *,
     extend: bool | None = False,
     location: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select a loop of connected UV vertices
 
     :param extend: Extend, Extend selection rather than clearing the existing selection (optional)
@@ -929,8 +929,9 @@ def select_mode(
     undo: bool | None = None,
     /,
     *,
-    type: Literal[bpy.stub_internal.rna_enums.MeshSelectModeUvItems] | None = "VERTEX",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    type: typing.Literal[bpy.stub_internal.rna_enums.MeshSelectModeUvItems]
+    | None = "VERTEX",
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Change UV selection mode
 
     :param type: Type, (optional)
@@ -941,7 +942,7 @@ def select_more(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select more UV vertices connected to initial selection
 
     :return: Result of the operator call.
@@ -953,7 +954,7 @@ def select_overlap(
     /,
     *,
     extend: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select all UV faces which overlap each other
 
     :param extend: Extend, Extend selection rather than clearing the existing selection (optional)
@@ -964,7 +965,7 @@ def select_pinned(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select all pinned UV vertices
 
     :return: Result of the operator call.
@@ -990,7 +991,7 @@ def select_similar(
     | None = "PIN",
     compare: typing.Literal["EQUAL", "GREATER", "LESS"] | None = "EQUAL",
     threshold: float | None = 0.0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select similar UVs by property types
 
         :param type: Type, (optional)
@@ -1033,7 +1034,7 @@ def select_split(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select only entirely selected faces
 
     :return: Result of the operator call.
@@ -1046,7 +1047,7 @@ def select_tile(
     *,
     extend: bool | None = False,
     tile: collections.abc.Sequence[int] | None = (0, 0),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select UVs in specified tile
 
     :param extend: Extend, Extend the selection (optional)
@@ -1067,7 +1068,7 @@ def shortest_path_pick(
     offset: int | None = 0,
     object_index: int | None = -1,
     index: int | None = -1,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select shortest path between two selections
 
     :param use_face_step: Face Stepping, Traverse connected faces (includes diagonals and edge-rings) (optional)
@@ -1092,7 +1093,7 @@ def shortest_path_select(
     skip: int | None = 0,
     nth: int | None = 1,
     offset: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select shortest path between two vertices/edges/faces
 
     :param use_face_step: Face Stepping, Traverse connected faces (includes diagonals and edge-rings) (optional)
@@ -1117,7 +1118,7 @@ def smart_project(
     area_weight: float | None = 0.0,
     correct_aspect: bool | None = True,
     scale_to_bounds: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Projection unwraps the selected faces of mesh objects
 
         :param angle_limit: Angle Limit, Lower for more projection groups, higher for less distortion (in [0, 1.5708], optional)
@@ -1154,7 +1155,7 @@ def snap_cursor(
     /,
     *,
     target: typing.Literal["PIXELS", "SELECTED", "ORIGIN"] | None = "PIXELS",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Snap cursor to target type
 
     :param target: Target, Target to snap the selected UVs to (optional)
@@ -1168,7 +1169,7 @@ def snap_selected(
     *,
     target: typing.Literal["PIXELS", "CURSOR", "CURSOR_OFFSET", "ADJACENT_UNSELECTED"]
     | None = "PIXELS",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Snap selected UV vertices to target type
 
     :param target: Target, Target to snap the selected UVs to (optional)
@@ -1188,7 +1189,7 @@ def sphere_project(
     correct_aspect: bool | None = True,
     clip_to_bounds: bool | None = False,
     scale_to_bounds: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Project the UV vertices of the mesh over the curved surface of a sphere
 
         :param direction: Direction, Direction of the sphere or cylinder (optional)
@@ -1238,7 +1239,7 @@ def stitch(
     stored_mode: typing.Literal["VERTEX", "EDGE"] | None = "VERTEX",
     selection=None,
     objects_selection_count: collections.abc.Sequence[int] | None = (0, 0, 0, 0, 0, 0),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Stitch selected UV vertices by proximity
 
     :param use_limit: Use Limit, Stitch UVs within a specified limit distance (optional)
@@ -1272,7 +1273,7 @@ def unwrap(
     use_weights: bool | None = False,
     weight_group: str | None = "uv_importance",
     weight_factor: float | None = 1.0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Unwrap the mesh of the object being edited
 
         :param method: Method, Unwrapping method (Angle Based usually gives better results than Conformal, while being somewhat slower) (optional)
@@ -1302,7 +1303,7 @@ def weld(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Weld selected UV vertices together
 
     :return: Result of the operator call.

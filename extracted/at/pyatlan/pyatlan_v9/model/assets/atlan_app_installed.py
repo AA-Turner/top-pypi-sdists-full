@@ -66,6 +66,7 @@ class AtlanAppInstalled(Asset):
     ATLAN_APP_CURRENT_VERSION_ID: ClassVar[Any] = None
     ATLAN_APP_CURRENT_VERSION_UUID: ClassVar[Any] = None
     ATLAN_APP_DEPLOYMENT_CONFIG: ClassVar[Any] = None
+    ATLAN_APP_DEPLOYMENT_NAME: ClassVar[Any] = None
     ATLAN_APP_QUALIFIED_NAME: ClassVar[Any] = None
     ATLAN_APP_NAME: ClassVar[Any] = None
     ATLAN_APP_METADATA: ClassVar[Any] = None
@@ -101,8 +102,6 @@ class AtlanAppInstalled(Asset):
     INPUT_TO_SPARK_JOBS: ClassVar[Any] = None
     OUTPUT_FROM_SPARK_JOBS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "AtlanAppInstalled"
-
     atlan_app_current_version_id: Union[int, None, UnsetType] = UNSET
     """Current version identifier for the atlan application."""
 
@@ -113,6 +112,9 @@ class AtlanAppInstalled(Asset):
 
     atlan_app_deployment_config: Union[str, None, UnsetType] = UNSET
     """Configuration settings used by the atlan application."""
+
+    atlan_app_deployment_name: Union[str, None, UnsetType] = UNSET
+    """Target deployment environment where the app is installed (e.g. "atlan" for Atlan-managed infra, or a customer SDR deployment name for customer-managed infra)."""
 
     atlan_app_qualified_name: Union[str, None, UnsetType] = UNSET
     """Qualified name of the Atlan application this asset belongs to."""
@@ -295,6 +297,9 @@ class AtlanAppInstalledAttributes(AssetAttributes):
     atlan_app_deployment_config: Union[str, None, UnsetType] = UNSET
     """Configuration settings used by the atlan application."""
 
+    atlan_app_deployment_name: Union[str, None, UnsetType] = UNSET
+    """Target deployment environment where the app is installed (e.g. "atlan" for Atlan-managed infra, or a customer SDR deployment name for customer-managed infra)."""
+
     atlan_app_qualified_name: Union[str, None, UnsetType] = UNSET
     """Qualified name of the Atlan application this asset belongs to."""
 
@@ -472,6 +477,7 @@ def _populate_atlan_app_installed_attrs(
     attrs.atlan_app_current_version_id = obj.atlan_app_current_version_id
     attrs.atlan_app_current_version_uuid = obj.atlan_app_current_version_uuid
     attrs.atlan_app_deployment_config = obj.atlan_app_deployment_config
+    attrs.atlan_app_deployment_name = obj.atlan_app_deployment_name
     attrs.atlan_app_qualified_name = obj.atlan_app_qualified_name
     attrs.atlan_app_name = obj.atlan_app_name
     attrs.atlan_app_metadata = obj.atlan_app_metadata
@@ -484,6 +490,7 @@ def _extract_atlan_app_installed_attrs(attrs: AtlanAppInstalledAttributes) -> di
     result["atlan_app_current_version_id"] = attrs.atlan_app_current_version_id
     result["atlan_app_current_version_uuid"] = attrs.atlan_app_current_version_uuid
     result["atlan_app_deployment_config"] = attrs.atlan_app_deployment_config
+    result["atlan_app_deployment_name"] = attrs.atlan_app_deployment_name
     result["atlan_app_qualified_name"] = attrs.atlan_app_qualified_name
     result["atlan_app_name"] = attrs.atlan_app_name
     result["atlan_app_metadata"] = attrs.atlan_app_metadata
@@ -528,6 +535,9 @@ def _atlan_app_installed_to_nested(
         is_incomplete=atlan_app_installed.is_incomplete,
         provenance_type=atlan_app_installed.provenance_type,
         home_id=atlan_app_installed.home_id,
+        depth=atlan_app_installed.depth,
+        immediate_upstream=atlan_app_installed.immediate_upstream,
+        immediate_downstream=atlan_app_installed.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -563,7 +573,6 @@ def _atlan_app_installed_from_nested(
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -572,6 +581,9 @@ def _atlan_app_installed_from_nested(
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_atlan_app_installed_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,
@@ -611,6 +623,9 @@ AtlanAppInstalled.ATLAN_APP_CURRENT_VERSION_UUID = KeywordField(
 )
 AtlanAppInstalled.ATLAN_APP_DEPLOYMENT_CONFIG = KeywordField(
     "atlanAppDeploymentConfig", "atlanAppDeploymentConfig"
+)
+AtlanAppInstalled.ATLAN_APP_DEPLOYMENT_NAME = KeywordField(
+    "atlanAppDeploymentName", "atlanAppDeploymentName"
 )
 AtlanAppInstalled.ATLAN_APP_QUALIFIED_NAME = KeywordField(
     "atlanAppQualifiedName", "atlanAppQualifiedName"

@@ -35,7 +35,7 @@ from meutils.schemas.image_types import ImageRequest, ImageEditRequest
 #  'o200k_base',
 #  'o200k_harmony']
 try:
-    token_encoder = tiktoken.get_encoding('o200k_base') # o200k_base
+    token_encoder = tiktoken.get_encoding('o200k_base')  # o200k_base
     token_encoder_with_cache = lru_cache(maxsize=1024)(token_encoder.encode)
 except Exception as e:
     logger.error(e)
@@ -51,11 +51,12 @@ AUDIO_TRANSCRIPTIONS_PARAMS = get_function_params(fn=OpenAI(api_key='').audio.tr
 
 
 def to_openai_params(
-        request: Union[dict, CompletionRequest, ChatCompletionRequest, ImageRequest, ImageEditRequest, TTSRequest, STTRequest],
+        request: Union[
+            dict, CompletionRequest, ChatCompletionRequest, ImageRequest, ImageEditRequest, TTSRequest, STTRequest],
         redirect_model: Optional[str] = None,
 ) -> dict:
     data = {}
-    if not isinstance(request, ImageEditRequest): # 图片编辑请求，不需要 deepcopy
+    if not isinstance(request, ImageEditRequest):  # 图片编辑请求，不需要 deepcopy
         data = copy.deepcopy(request)
 
     if not isinstance(request, dict):
@@ -315,20 +316,22 @@ if __name__ == '__main__':
     #
     # ChatCompletionToolParam(**{'function': '', 'type': ''})
 
-    # async def main():
-    #     with timer():
-    #         try:
-    #             async with ppu_flow(api_key="sk-OYK4YxtTlWauT2TdGR5FTAJpkRmSnDwPly4cve0cAvMcrBkZ", post="api-oss",
-    #                                 n=1):
-    #                 logger.debug("消费了哦")
-    #
-    #         except Exception as e:
-    #             pass
-    #             logger.error(e)
-    #             # logger.debug(e.response.status_code)
-    #             # logger.debug(e.response.text)
-    #
-    #
+    async def main():
+        with timer():
+            try:
+                async with ppu_flow(
+                        api_key="sk-OYK4YxtTlWauT2TdGR5FTAJpkRmSnDwPly4cve0cAvMcrBkZZ",
+                        post="api-oss",
+                        n=1):
+                    logger.debug("消费了哦")
+
+            except Exception as e:
+                pass
+                logger.error(e)
+                # logger.debug(e.response.status_code)
+                # logger.debug(e.response.text)
+
+
     # arun(main())
     #
     # # to_openai_params(ChatCompletionRequest())
@@ -337,4 +340,7 @@ if __name__ == '__main__':
 
     # logger.debug(IMAGES_EDIT_PARAMS)
 
-    print(token_encoder_with_cache('hi'))
+    # print(token_encoder_with_cache('hi'))
+
+
+    arun(appu(model="api-oss", dynamic=True))

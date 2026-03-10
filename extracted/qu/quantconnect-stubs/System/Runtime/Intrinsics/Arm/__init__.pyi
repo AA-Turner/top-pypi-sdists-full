@@ -5982,6 +5982,14 @@ class Sve2(System.Runtime.Intrinsics.Arm.Sve, metaclass=abc.ABCMeta):
         ...
 
     @staticmethod
+    def count_matching_elements(mask: System.Numerics.Vector[int], left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        ...
+
+    @staticmethod
+    def count_matching_elements_in_128_bit_segments(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        ...
+
+    @staticmethod
     def dot_product_rotate_complex(addend: System.Numerics.Vector[int], left: System.Numerics.Vector[int], right: System.Numerics.Vector[int], rotation: int) -> System.Numerics.Vector[int]:
         ...
 
@@ -6011,6 +6019,10 @@ class Sve2(System.Runtime.Intrinsics.Arm.Sve, metaclass=abc.ABCMeta):
 
     @staticmethod
     def log_2(value: System.Numerics.Vector[float]) -> System.Numerics.Vector[int]:
+        ...
+
+    @staticmethod
+    def match(mask: System.Numerics.Vector[int], left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
         ...
 
     @staticmethod
@@ -6207,6 +6219,10 @@ class Sve2(System.Runtime.Intrinsics.Arm.Sve, metaclass=abc.ABCMeta):
 
     @staticmethod
     def negate_saturate(value: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        ...
+
+    @staticmethod
+    def no_match(mask: System.Numerics.Vector[int], left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
         ...
 
     @staticmethod

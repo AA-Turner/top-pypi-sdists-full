@@ -82,7 +82,7 @@ def annotate(ty: Any) -> Any:
   if isinstance(ty, type):
     if issubclass(ty, jaxtyping.AbstractArray):
       ty = ty.array_type
-    if ty is jax.Array:
+    if issubclass(ty, (jax.Array, np.ndarray)):
       return Annotated[ty, ShapeDtype]
     if issubclass(ty, enum.Enum):
       return Annotated[ty, EnumByName]
@@ -231,12 +231,13 @@ class ShapeDtype:
       f32=np.float32,
       f64=np.float64,
       bf16=jnp.bfloat16,
+      f8_e4m3fn=jnp.float8_e4m3fn,
   )
 
   @classmethod
   def __get_pydantic_core_schema__(cls, source, handler):
     del handler  # Unused.
-    assert source in (jax.Array, jax.ShapeDtypeStruct)
+    assert issubclass(source, (np.ndarray, jax.Array, jax.ShapeDtypeStruct))
     tuple_schema = lambda s: cs.tuple_schema([s], variadic_item_index=0)
     int_pair_schema = cs.tuple_schema([cs.int_schema(), cs.int_schema()])
     vmap_axes_schema = tuple_schema(cs.nullable_schema(int_pair_schema))
@@ -244,7 +245,7 @@ class ShapeDtype:
 
     def serialize(x, info) -> Any:
       # We don't want match other types with `shape` and `dtype` attributes.
-      if not isinstance(x, (jax.Array, jax.ShapeDtypeStruct)):
+      if not isinstance(x, (np.ndarray, jax.Array, jax.ShapeDtypeStruct)):
         raise ValueError(f'Invalid ShapeDtype: {type(x)}')
       if info.mode == 'python':
         return x

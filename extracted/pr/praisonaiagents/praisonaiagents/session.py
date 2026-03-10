@@ -83,7 +83,7 @@ class Session:
             default_memory_config = {
                 "provider": "rag",
                 "use_embedding": False,  # Disable embeddings to avoid OpenAI API key requirement
-                "rag_db_path": f".praisonai/sessions/{self.session_id}/chroma_db"
+                "rag_db_path": str(self._get_session_dir() / "chroma_db")
             }
             if memory_config:
                 default_memory_config.update(memory_config)
@@ -94,7 +94,7 @@ class Session:
             self.knowledge_config = default_knowledge_config
 
             # Create session directory
-            os.makedirs(f".praisonai/sessions/{self.session_id}", exist_ok=True)
+            self._get_session_dir().mkdir(parents=True, exist_ok=True)
 
             # Initialize components lazily
             self._memory = None
@@ -109,6 +109,12 @@ class Session:
             self._knowledge = None
             self._agents_instance = None
             self._agents = {}  # Track agents and their chat histories
+
+    def _get_session_dir(self):
+        """Return session-specific directory using paths.py."""
+        from pathlib import Path
+        from .paths import get_project_sessions_dir
+        return get_project_sessions_dir() / self.session_id
 
     @property
     def memory(self) -> Memory:
@@ -323,7 +329,11 @@ class Session:
 
     def _save_agent_chat_histories(self) -> None:
         """
-        Save all agent chat histories to memory.
+        Save all agent chat histories.
+        
+        G-2 FIX: Routes to SessionStore instead of Memory.store_short_term() to
+        maintain clean separation between conversation history (SessionStore)
+        and semantic memory (Memory). Falls back to Memory for backward compat.
         """
         if self.is_remote:
             return
@@ -340,18 +350,37 @@ class Session:
                 chat_history = agent_data.get("chat_history")
             
             if chat_history is not None:
-                # Save to memory
-                history_text = f"Agent chat history for {agent_key}"
-                self.memory.store_short_term(
-                    text=history_text,
-                    metadata={
-                        "type": "agent_chat_history",
-                        "session_id": self.session_id,
-                        "user_id": self.user_id,
-                        "agent_key": agent_key,
-                        "chat_history": chat_history
-                    }
-                )
+                # G-2 FIX: Try SessionStore first for clean separation
+                session_store = None
+                try:
+                    from .session import get_default_session_store
+                    session_store = get_default_session_store()
+                except ImportError:
+                    pass
+                
+                if session_store is not None:
+                    # Use SessionStore for conversation history
+                    session_id = f"{self.session_id}_{agent_key}"
+                    for msg in chat_history:
+                        if isinstance(msg, dict):
+                            session_store.add_message(
+                                session_id,
+                                role=msg.get("role", "user"),
+                                content=msg.get("content", ""),
+                            )
+                else:
+                    # Fallback to Memory.store_short_term() for backward compatibility
+                    history_text = f"Agent chat history for {agent_key}"
+                    self.memory.store_short_term(
+                        text=history_text,
+                        metadata={
+                            "type": "agent_chat_history",
+                            "session_id": self.session_id,
+                            "user_id": self.user_id,
+                            "agent_key": agent_key,
+                            "chat_history": chat_history
+                        }
+                    )
 
     def get_state(self, key: str, default: Any = None) -> Any:
         """Get a specific state value"""

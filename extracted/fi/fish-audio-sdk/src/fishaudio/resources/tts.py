@@ -1,16 +1,21 @@
 """TTS (Text-to-Speech) namespace client."""
 
 import asyncio
+from collections.abc import AsyncIterable, Iterable, Iterator
 from concurrent.futures import ThreadPoolExecutor
-from typing import AsyncIterable, Iterable, Iterator, List, Optional, Union
+from typing import Optional, Union
 
 import ormsgpack
 from httpx_ws import AsyncWebSocketSession, WebSocketSession, aconnect_ws, connect_ws
 
-from .realtime import aiter_websocket_audio, iter_websocket_audio
-from ..core import AsyncClientWrapper, ClientWrapper, RequestOptions, WebSocketOptions
-from ..core.iterators import AsyncAudioStream, AudioStream
-from ..types import (
+from fishaudio.core import (
+    AsyncClientWrapper,
+    ClientWrapper,
+    RequestOptions,
+    WebSocketOptions,
+)
+from fishaudio.core.iterators import AsyncAudioStream, AudioStream
+from fishaudio.types import (
     AudioFormat,
     CloseEvent,
     FlushEvent,
@@ -23,6 +28,9 @@ from ..types import (
     TTSConfig,
     TTSRequest,
 )
+from fishaudio.types.shared import warn_if_deprecated_model
+
+from .realtime import aiter_websocket_audio, iter_websocket_audio
 
 
 def _config_to_tts_request(config: TTSConfig, text: str) -> TTSRequest:
@@ -69,12 +77,12 @@ class TTSClient:
         *,
         text: str,
         reference_id: Optional[str] = None,
-        references: Optional[List[ReferenceAudio]] = None,
+        references: Optional[list[ReferenceAudio]] = None,
         format: Optional[AudioFormat] = None,
         latency: Optional[LatencyMode] = None,
         speed: Optional[float] = None,
         config: TTSConfig = TTSConfig(),
-        model: Model = "s1",
+        model: Model = "s2-pro",
         request_options: Optional[RequestOptions] = None,
     ) -> AudioStream:
         """
@@ -108,6 +116,8 @@ class TTSClient:
             audio = client.tts.stream(text="Hello world").collect()
             ```
         """
+        warn_if_deprecated_model(model)
+
         # Build request payload from config
         request = _config_to_tts_request(config, text)
 
@@ -151,12 +161,12 @@ class TTSClient:
         *,
         text: str,
         reference_id: Optional[str] = None,
-        references: Optional[List[ReferenceAudio]] = None,
+        references: Optional[list[ReferenceAudio]] = None,
         format: Optional[AudioFormat] = None,
         latency: Optional[LatencyMode] = None,
         speed: Optional[float] = None,
         config: TTSConfig = TTSConfig(),
-        model: Model = "s1",
+        model: Model = "s2-pro",
         request_options: Optional[RequestOptions] = None,
     ) -> bytes:
         """
@@ -213,12 +223,12 @@ class TTSClient:
         text_stream: Iterable[Union[str, TextEvent, FlushEvent]],
         *,
         reference_id: Optional[str] = None,
-        references: Optional[List[ReferenceAudio]] = None,
+        references: Optional[list[ReferenceAudio]] = None,
         format: Optional[AudioFormat] = None,
         latency: Optional[LatencyMode] = None,
         speed: Optional[float] = None,
         config: TTSConfig = TTSConfig(),
-        model: Model = "s1",
+        model: Model = "s2-pro",
         max_workers: int = 10,
         ws_options: Optional[WebSocketOptions] = None,
     ) -> Iterator[bytes]:
@@ -303,6 +313,8 @@ class TTSClient:
                     f.write(audio_chunk)
             ```
         """
+        warn_if_deprecated_model(model)
+
         # Build TTSRequest from config
         tts_request = _config_to_tts_request(config, text="")
 
@@ -351,8 +363,7 @@ class TTSClient:
                 sender_future = executor.submit(sender)
 
                 # Process incoming audio messages
-                for audio_chunk in iter_websocket_audio(ws):
-                    yield audio_chunk
+                yield from iter_websocket_audio(ws)
 
                 sender_future.result()
         finally:
@@ -370,12 +381,12 @@ class AsyncTTSClient:
         *,
         text: str,
         reference_id: Optional[str] = None,
-        references: Optional[List[ReferenceAudio]] = None,
+        references: Optional[list[ReferenceAudio]] = None,
         format: Optional[AudioFormat] = None,
         latency: Optional[LatencyMode] = None,
         speed: Optional[float] = None,
         config: TTSConfig = TTSConfig(),
-        model: Model = "s1",
+        model: Model = "s2-pro",
         request_options: Optional[RequestOptions] = None,
     ) -> AsyncAudioStream:
         """
@@ -410,6 +421,8 @@ class AsyncTTSClient:
             audio = await stream.collect()
             ```
         """
+        warn_if_deprecated_model(model)
+
         # Build request payload from config
         request = _config_to_tts_request(config, text)
 
@@ -453,12 +466,12 @@ class AsyncTTSClient:
         *,
         text: str,
         reference_id: Optional[str] = None,
-        references: Optional[List[ReferenceAudio]] = None,
+        references: Optional[list[ReferenceAudio]] = None,
         format: Optional[AudioFormat] = None,
         latency: Optional[LatencyMode] = None,
         speed: Optional[float] = None,
         config: TTSConfig = TTSConfig(),
-        model: Model = "s1",
+        model: Model = "s2-pro",
         request_options: Optional[RequestOptions] = None,
     ) -> bytes:
         """
@@ -516,12 +529,12 @@ class AsyncTTSClient:
         text_stream: AsyncIterable[Union[str, TextEvent, FlushEvent]],
         *,
         reference_id: Optional[str] = None,
-        references: Optional[List[ReferenceAudio]] = None,
+        references: Optional[list[ReferenceAudio]] = None,
         format: Optional[AudioFormat] = None,
         latency: Optional[LatencyMode] = None,
         speed: Optional[float] = None,
         config: TTSConfig = TTSConfig(),
-        model: Model = "s1",
+        model: Model = "s2-pro",
         ws_options: Optional[WebSocketOptions] = None,
     ):
         """
@@ -604,6 +617,8 @@ class AsyncTTSClient:
                     await f.write(audio_chunk)
             ```
         """
+        warn_if_deprecated_model(model)
+
         # Build TTSRequest from config
         tts_request = _config_to_tts_request(config, text="")
 

@@ -2,6 +2,7 @@
 #undef NDEBUG
 
 #include "pythoncapi_compat.h"
+#include <structmember.h>   // T_SHORT, READONLY
 
 #ifdef NDEBUG
 #  error "assertions must be enabled"
@@ -1611,6 +1612,15 @@ test_unicode(PyObject *Py_UNUSED(module), PyObject *Py_UNUSED(args))
     assert(PyErr_ExceptionMatches(PyExc_TypeError));
     PyErr_Clear();
 
+    // Test PyUnstable_Unicode_GET_CACHED_HASH()
+#ifdef PYPY_VERSION
+    assert(PyUnstable_Unicode_GET_CACHED_HASH(abc) == -1);
+#else
+    Py_hash_t hash = PyObject_Hash(abc);
+    assert(hash != -1);
+    assert(PyUnstable_Unicode_GET_CACHED_HASH(abc) == hash);
+#endif
+
     Py_DECREF(abc);
     Py_DECREF(abc0def);
     Py_RETURN_NONE;
@@ -2109,32 +2119,32 @@ test_long_stdint(PyObject *Py_UNUSED(module), PyObject *Py_UNUSED(args))
 static PyObject *
 test_structmember(PyObject *Py_UNUSED(module), PyObject *Py_UNUSED(args))
 {
-    assert(Py_T_SHORT >= 0);
-    assert(Py_T_INT >= 0);
-    assert(Py_T_LONG >= 0);
-    assert(Py_T_FLOAT >= 0);
-    assert(Py_T_DOUBLE >= 0);
-    assert(Py_T_STRING >= 0);
-    assert(_Py_T_OBJECT >= 0);
-    assert(Py_T_CHAR >= 0);
-    assert(Py_T_BYTE >= 0);
-    assert(Py_T_UBYTE >= 0);
-    assert(Py_T_USHORT >= 0);
-    assert(Py_T_UINT >= 0);
-    assert(Py_T_ULONG >= 0);
-    assert(Py_T_STRING_INPLACE >= 0);
-    assert(Py_T_BOOL >= 0);
-    assert(Py_T_OBJECT_EX >= 0);
-    assert(Py_T_LONGLONG >= 0);
-    assert(Py_T_ULONGLONG >= 0);
-    assert(Py_T_PYSSIZET >= 0);
+    assert(Py_T_SHORT == T_SHORT);
+    assert(Py_T_SHORT == T_SHORT);
+    assert(Py_T_INT == T_INT);
+    assert(Py_T_LONG == T_LONG);
+    assert(Py_T_FLOAT == T_FLOAT);
+    assert(Py_T_DOUBLE == T_DOUBLE);
+    assert(Py_T_STRING == T_STRING);
+    assert(_Py_T_OBJECT == T_OBJECT);
+    assert(Py_T_CHAR == T_CHAR);
+    assert(Py_T_BYTE == T_BYTE);
+    assert(Py_T_UBYTE == T_UBYTE);
+    assert(Py_T_USHORT == T_USHORT);
+    assert(Py_T_UINT == T_UINT);
+    assert(Py_T_ULONG == T_ULONG);
+    assert(Py_T_STRING_INPLACE == T_STRING_INPLACE);
+    assert(Py_T_BOOL == T_BOOL);
+    assert(Py_T_OBJECT_EX == T_OBJECT_EX);
+    assert(Py_T_LONGLONG == T_LONGLONG);
+    assert(Py_T_ULONGLONG == T_ULONGLONG);
+    assert(Py_T_PYSSIZET == T_PYSSIZET);
 #if PY_VERSION_HEX >= 0x03000000 && !defined(PYPY_VERSION)
-    assert(_Py_T_NONE >= 0);
+    assert(_Py_T_NONE == T_NONE);
 #endif
-
-    assert(Py_READONLY >= 0);
-    assert(Py_AUDIT_READ >= 0);
-    assert(_Py_WRITE_RESTRICTED >= 0);
+    assert(Py_READONLY == READONLY);
+    assert(Py_AUDIT_READ == READ_RESTRICTED);
+    assert(_Py_WRITE_RESTRICTED == PY_WRITE_RESTRICTED);
 
     Py_RETURN_NONE;
 }
@@ -2295,6 +2305,224 @@ test_sys(PyObject *Py_UNUSED(module), PyObject *Py_UNUSED(args))
 }
 
 
+static int
+test_byteswriter_highlevel(void)
+{
+    PyObject *obj;
+    PyBytesWriter *writer = PyBytesWriter_Create(0);
+    if (writer == NULL) {
+        goto error;
+    }
+    if (PyBytesWriter_WriteBytes(writer, "Hello", -1) < 0) {
+        goto error;
+    }
+    if (PyBytesWriter_Format(writer, " %s!", "World") < 0) {
+        goto error;
+    }
+
+    obj = PyBytesWriter_Finish(writer);
+    if (obj == NULL) {
+        return -1;
+    }
+    assert(PyBytes_Check(obj));
+    assert(strcmp(PyBytes_AS_STRING(obj), "Hello World!") == 0);
+    Py_DECREF(obj);
+    return 0;
+
+error:
+    PyBytesWriter_Discard(writer);
+    return -1;
+}
+
+static int
+test_byteswriter_abc(void)
+{
+    PyBytesWriter *writer = PyBytesWriter_Create(3);
+    if (writer == NULL) {
+        return -1;
+    }
+
+    char *str = (char*)PyBytesWriter_GetData(writer);
+    memcpy(str, "abc", 3);
+
+    PyObject *obj = PyBytesWriter_Finish(writer);
+    if (obj == NULL) {
+        return -1;
+    }
+    assert(PyBytes_Check(obj));
+    assert(strcmp(PyBytes_AS_STRING(obj), "abc") == 0);
+    Py_DECREF(obj);
+    return 0;
+}
+
+static int
+test_byteswriter_grow(void)
+{
+    PyBytesWriter *writer = PyBytesWriter_Create(10);
+    if (writer == NULL) {
+        return -1;
+    }
+
+    char *buf = (char*)PyBytesWriter_GetData(writer);
+    memcpy(buf, "Hello ", strlen("Hello "));
+    buf += strlen("Hello ");
+
+    buf = (char*)PyBytesWriter_GrowAndUpdatePointer(writer, 10, buf);
+    if (buf == NULL) {
+        PyBytesWriter_Discard(writer);
+        return -1;
+    }
+
+    memcpy(buf, "World", strlen("World"));
+    buf += strlen("World");
+
+    PyObject *obj = PyBytesWriter_FinishWithPointer(writer, buf);
+    if (obj == NULL) {
+        return -1;
+    }
+    assert(PyBytes_Check(obj));
+    assert(strcmp(PyBytes_AS_STRING(obj), "Hello World") == 0);
+    Py_DECREF(obj);
+    return 0;
+}
+
+static PyObject *
+test_byteswriter(PyObject *Py_UNUSED(module), PyObject *Py_UNUSED(args))
+{
+    if (test_byteswriter_highlevel() < 0) {
+        return NULL;
+    }
+    if (test_byteswriter_abc() < 0) {
+        return NULL;
+    }
+    if (test_byteswriter_grow() < 0) {
+        return NULL;
+    }
+    Py_RETURN_NONE;
+}
+
+
+static PyObject*
+test_tuple_fromarray(void)
+{
+    PyObject* array[] = {
+        PyLong_FromLong(1),
+        PyLong_FromLong(2),
+        PyLong_FromLong(3)
+    };
+    PyObject *tuple = PyTuple_FromArray(array, 3);
+    if (tuple == NULL) {
+        goto error;
+    }
+
+    assert(PyTuple_GET_SIZE(tuple) == 3);
+    assert(PyTuple_GET_ITEM(tuple, 0) == array[0]);
+    assert(PyTuple_GET_ITEM(tuple, 1) == array[1]);
+    assert(PyTuple_GET_ITEM(tuple, 2) == array[2]);
+
+    Py_DECREF(tuple);
+    Py_DECREF(array[0]);
+    Py_DECREF(array[1]);
+    Py_DECREF(array[2]);
+
+    // Test PyTuple_FromArray(NULL, 0)
+    tuple = PyTuple_FromArray(NULL, 0);
+    if (tuple == NULL) {
+        return NULL;
+    }
+    assert(PyTuple_GET_SIZE(tuple) == 0);
+    Py_DECREF(tuple);
+
+    Py_RETURN_NONE;
+
+error:
+    Py_DECREF(array[0]);
+    Py_DECREF(array[1]);
+    Py_DECREF(array[2]);
+    return NULL;
+}
+
+
+static PyObject*
+test_tuple(PyObject *Py_UNUSED(module), PyObject *Py_UNUSED(args))
+{
+    return test_tuple_fromarray();
+}
+
+// Test adapted from CPython's _testcapi/object.c
+static int TryIncref_dealloc_called = 0;
+
+static void
+TryIncref_dealloc(PyObject *op)
+{
+    // PyUnstable_TryIncRef should return 0 if object is being deallocated
+    assert(Py_REFCNT(op) == 0);
+    assert(!PyUnstable_TryIncRef(op));
+    assert(Py_REFCNT(op) == 0);
+
+    TryIncref_dealloc_called++;
+    Py_TYPE(op)->tp_free(op);
+}
+
+static PyTypeObject TryIncrefType;
+
+static PyObject*
+test_try_incref(PyObject *Py_UNUSED(module), PyObject *Py_UNUSED(args))
+{
+    TryIncref_dealloc_called = 0;
+
+    PyObject *obj = PyObject_New(PyObject, &TryIncrefType);
+    if (obj == _Py_NULL) {
+        return _Py_NULL;
+    }
+
+    PyUnstable_EnableTryIncRef(obj);
+
+    Py_ssize_t refcount = Py_REFCNT(obj);
+    assert(PyUnstable_TryIncRef(obj));
+    assert(Py_REFCNT(obj) == refcount + 1);
+
+    Py_DECREF(obj);
+    Py_DECREF(obj);
+
+    assert(TryIncref_dealloc_called == 1);
+    Py_RETURN_NONE;
+}
+
+#if 0x030D0000 <= PY_VERSION_HEX && !defined(PYPY_VERSION)
+static PyObject *
+test_set_immortal(PyObject *Py_UNUSED(module), PyObject *Py_UNUSED(args))
+{
+    PyObject object;
+    memset(&object, 0, sizeof(PyObject));
+#ifdef Py_GIL_DISABLED
+    object.ob_tid = _Py_ThreadId();
+    object.ob_gc_bits = 0;
+    object.ob_ref_local = 1;
+    object.ob_ref_shared = 0;
+#else
+    object.ob_refcnt = 1;
+#endif
+    object.ob_type = &PyBaseObject_Type;
+
+    int rc = PyUnstable_SetImmortal(&object);
+    assert(rc == 1);
+    Py_DECREF(&object);  // should not dealloc
+
+    // Check already immortal object
+    rc = PyUnstable_SetImmortal(&object);
+    assert(rc == 0);
+
+    // Check unicode objects
+    PyObject *unicode = PyUnicode_FromString("test");
+    rc = PyUnstable_SetImmortal(unicode);
+    assert(rc == 0);
+    Py_DECREF(unicode);
+    Py_RETURN_NONE;
+}
+#endif
+
+
 static struct PyMethodDef methods[] = {
     {"test_object", test_object, METH_NOARGS, _Py_NULL},
     {"test_py_is", test_py_is, METH_NOARGS, _Py_NULL},
@@ -2348,6 +2576,12 @@ static struct PyMethodDef methods[] = {
 #endif
     {"test_sys", test_sys, METH_NOARGS, _Py_NULL},
     {"test_uniquely_referenced", test_uniquely_referenced, METH_NOARGS, _Py_NULL},
+    {"test_byteswriter", test_byteswriter, METH_NOARGS, _Py_NULL},
+    {"test_tuple", test_tuple, METH_NOARGS, _Py_NULL},
+    {"test_try_incref", test_try_incref, METH_NOARGS, _Py_NULL},
+#if 0x030D0000 <= PY_VERSION_HEX && !defined(PYPY_VERSION)
+    {"test_set_immortal", test_set_immortal, METH_NOARGS, _Py_NULL},
+#endif
     {_Py_NULL, _Py_NULL, 0, _Py_NULL}
 };
 
@@ -2376,6 +2610,13 @@ module_exec(PyObject *module)
         return -1;
     }
 #endif
+    TryIncrefType.tp_name = "TryIncrefType";
+    TryIncrefType.tp_basicsize = sizeof(PyObject);
+    TryIncrefType.tp_dealloc = TryIncref_dealloc;
+    TryIncrefType.tp_free = PyObject_Del;
+    if (PyType_Ready(&TryIncrefType) < 0) {
+        return -1;
+    }
     return 0;
 }
 

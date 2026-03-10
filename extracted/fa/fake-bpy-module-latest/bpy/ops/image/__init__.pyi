@@ -9,7 +9,7 @@ def add_render_slot(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a new render slot
 
     :return: Result of the operator call.
@@ -21,7 +21,7 @@ def change_frame(
     /,
     *,
     frame: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Interactively change the current frame number
 
     :param frame: Frame, (in [-1048574, 1048574], optional)
@@ -32,7 +32,7 @@ def clear_render_border(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Clear the boundaries of the render region and disable render region
 
     :return: Result of the operator call.
@@ -42,7 +42,7 @@ def clear_render_slot(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Clear the currently selected render slot
 
     :return: Result of the operator call.
@@ -52,7 +52,7 @@ def clipboard_copy(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Copy the image to the clipboard
 
     :return: Result of the operator call.
@@ -62,7 +62,7 @@ def clipboard_paste(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Paste new image from the clipboard
 
     :return: Result of the operator call.
@@ -87,7 +87,7 @@ def convert_to_mesh_plane(
     overwrite_material: bool | None = True,
     name_from: typing.Literal["OBJECT", "IMAGE"] | None = "OBJECT",
     delete_ref: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Convert selected reference images to textured mesh plane
 
         :param interpolation: Interpolation, Texture interpolation (optional)
@@ -155,7 +155,7 @@ def curves_point_set(
     *,
     point: typing.Literal["BLACK_POINT", "WHITE_POINT"] | None = "BLACK_POINT",
     size: int | None = 1,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set black point or white point for curves
 
     :param point: Point, Set black point or white point for curves (optional)
@@ -169,7 +169,7 @@ def cycle_render_slot(
     /,
     *,
     reverse: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Cycle through all non-void render slots
 
     :param reverse: Cycle in Reverse, (optional)
@@ -182,7 +182,7 @@ def external_edit(
     /,
     *,
     filepath: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Edit image in an external application
 
     :param filepath: filepath, (optional, never None)
@@ -222,7 +222,7 @@ def file_browse(
     ]
     | None = "DEFAULT",
     sort_method: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Open an image file browser, hold Shift to open the file, Alt to browse containing directory
 
         :param filepath: File Path, Path to file (optional, never None)
@@ -272,7 +272,7 @@ def flip(
     *,
     use_flip_x: bool | None = False,
     use_flip_y: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Flip the image
 
     :param use_flip_x: Horizontal, Flip the image horizontally (optional)
@@ -330,7 +330,7 @@ def import_as_mesh_planes(
     fill_mode: typing.Literal["FILL", "FIT"] | None = "FILL",
     height: float | None = 1.0,
     factor: float | None = 600.0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Create mesh plane(s) from image files with the appropriate aspect ratio
 
         :param interpolation: Interpolation, Texture interpolation (optional)
@@ -509,7 +509,7 @@ def invert(
     invert_g: bool | None = False,
     invert_b: bool | None = False,
     invert_a: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Invert images channels
 
     :param invert_r: Red, Invert red channel (optional)
@@ -523,7 +523,7 @@ def match_movie_length(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set the images frame range to match the videos duration
 
     :return: Result of the operator call.
@@ -539,12 +539,12 @@ def new(
     height: int | None = 1024,
     color: collections.abc.Sequence[float] | None = (0.0, 0.0, 0.0, 1.0),
     alpha: bool | None = True,
-    generated_type: Literal[bpy.stub_internal.rna_enums.ImageGeneratedTypeItems]
+    generated_type: typing.Literal[bpy.stub_internal.rna_enums.ImageGeneratedTypeItems]
     | None = "BLANK",
     float: bool | None = False,
     use_stereo_3d: bool | None = False,
     tiled: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Create a new image
 
     :param name: Name, Image data-block name (optional, never None)
@@ -597,7 +597,7 @@ def open(
     sort_method: str | None = "",
     use_sequence_detection: bool | None = True,
     use_udim_detecting: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Open image
 
         :param allow_path_tokens: Allow the path to contain substitution tokens (optional)
@@ -655,7 +655,7 @@ def open_images(
     relative_path: bool | None = True,
     use_sequence_detection: bool | None = True,
     use_udim_detection: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
 
     :param directory: directory, (optional, never None)
@@ -670,7 +670,7 @@ def pack(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Pack an image as embedded data into the .blend file
 
     :return: Result of the operator call.
@@ -680,7 +680,7 @@ def project_apply(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Project edited image back onto the object
 
     :return: Result of the operator call.
@@ -690,7 +690,7 @@ def project_edit(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Edit a snapshot of the 3D Viewport in an external image editor
 
     :return: Result of the operator call.
@@ -700,7 +700,7 @@ def read_viewlayers(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Read all the current scenes view layers from cache, as needed
 
     :return: Result of the operator call.
@@ -710,7 +710,7 @@ def reload(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Reload current image from disk
 
     :return: Result of the operator call.
@@ -720,7 +720,7 @@ def remove_render_slot(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove the current render slot
 
     :return: Result of the operator call.
@@ -736,7 +736,7 @@ def render_border(
     ymin: int | None = 0,
     ymax: int | None = 0,
     wait_for_input: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set the boundaries of the render region and enable render region
 
     :param xmin: X Min, (in [-inf, inf], optional)
@@ -780,7 +780,7 @@ def replace(
     ]
     | None = "DEFAULT",
     sort_method: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Replace current image by another one from disk
 
         :param filepath: File Path, Path to file (optional, never None)
@@ -830,7 +830,7 @@ def resize(
     *,
     size: collections.abc.Sequence[int] | None = (0, 0),
     all_udims: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Resize the image
 
     :param size: Size, (array of 2 items, in [1, inf], optional)
@@ -844,7 +844,7 @@ def rotate_orthogonal(
     /,
     *,
     degrees: typing.Literal["90", "180", "270"] | None = "90",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Rotate the image
 
         :param degrees: Degrees, Amount of rotation in degrees (90, 180, 270) (optional)
@@ -866,7 +866,7 @@ def sample(
     /,
     *,
     size: int | None = 1,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Use mouse to sample a color in current image
 
     :param size: Sample Size, (in [1, 128], optional)
@@ -884,7 +884,7 @@ def sample_line(
     yend: int | None = 0,
     flip: bool | None = False,
     cursor: int | None = 5,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Sample a line and show it in Scope panels
 
     :param xstart: X Start, (in [-inf, inf], optional)
@@ -900,7 +900,7 @@ def save(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Save the image with current name and settings
 
     :return: Result of the operator call.
@@ -910,7 +910,7 @@ def save_all_modified(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Save all modified images
 
     :return: Result of the operator call.
@@ -951,7 +951,7 @@ def save_as(
     ]
     | None = "DEFAULT",
     sort_method: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Save the image with another name and/or settings
 
         :param save_as_render: Save As Render, Save image with render color management.For display image formats like PNG, apply view and display transform.For intermediate image formats like OpenEXR, use the default render output color space(optional)
@@ -1000,7 +1000,7 @@ def save_sequence(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Save a sequence of images
 
     :return: Result of the operator call.
@@ -1016,13 +1016,13 @@ def tile_add(
     label: str | None = "",
     fill: bool | None = True,
     color: collections.abc.Sequence[float] | None = (0.0, 0.0, 0.0, 1.0),
-    generated_type: Literal[bpy.stub_internal.rna_enums.ImageGeneratedTypeItems]
+    generated_type: typing.Literal[bpy.stub_internal.rna_enums.ImageGeneratedTypeItems]
     | None = "BLANK",
     width: int | None = 1024,
     height: int | None = 1024,
     float: bool | None = False,
     alpha: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Adds a tile to the image
 
     :param number: Number, UDIM number of the tile (in [1001, 2000], optional)
@@ -1044,13 +1044,13 @@ def tile_fill(
     /,
     *,
     color: collections.abc.Sequence[float] | None = (0.0, 0.0, 0.0, 1.0),
-    generated_type: Literal[bpy.stub_internal.rna_enums.ImageGeneratedTypeItems]
+    generated_type: typing.Literal[bpy.stub_internal.rna_enums.ImageGeneratedTypeItems]
     | None = "BLANK",
     width: int | None = 1024,
     height: int | None = 1024,
     float: bool | None = False,
     alpha: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Fill the current tile with a generated image
 
     :param color: Color, Default fill color (array of 4 items, in [0, inf], optional)
@@ -1066,7 +1066,7 @@ def tile_remove(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Removes a tile from the image
 
     :return: Result of the operator call.
@@ -1077,9 +1077,10 @@ def unpack(
     undo: bool | None = None,
     /,
     *,
-    method: Literal[bpy.stub_internal.rna_enums.UnpackMethodItems] | None = "USE_LOCAL",
+    method: typing.Literal[bpy.stub_internal.rna_enums.UnpackMethodItems]
+    | None = "USE_LOCAL",
     id: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Save an image packed in the .blend file to disk
 
     :param method: Method, How to unpack (optional)
@@ -1093,7 +1094,7 @@ def view_all(
     /,
     *,
     fit_view: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """View the entire image
 
     :param fit_view: Fit View, Fit frame to the viewport (optional)
@@ -1104,7 +1105,7 @@ def view_center_cursor(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Center the view so that the cursor is in the middle of the view
 
     :return: Result of the operator call.
@@ -1116,7 +1117,7 @@ def view_cursor_center(
     /,
     *,
     fit_view: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set 2D cursor to center view location
 
     :param fit_view: Fit View, Fit frame to the viewport (optional)
@@ -1127,7 +1128,7 @@ def view_ndof(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Use a 3D mouse device to pan/zoom the view
 
     :return: Result of the operator call.
@@ -1139,7 +1140,7 @@ def view_pan(
     /,
     *,
     offset: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Pan the view
 
     :param offset: Offset, Offset in floating-point units, 1.0 is the width and height of the image (array of 2 items, in [-inf, inf], optional)
@@ -1150,7 +1151,7 @@ def view_selected(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """View all selected UVs
 
     :return: Result of the operator call.
@@ -1163,7 +1164,7 @@ def view_zoom(
     *,
     factor: float | None = 0.0,
     use_cursor_init: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Zoom in/out the image
 
     :param factor: Factor, Zoom factor, values higher than 1.0 zoom in, lower values zoom out (in [-inf, inf], optional)
@@ -1182,7 +1183,7 @@ def view_zoom_border(
     ymax: int | None = 0,
     wait_for_input: bool | None = True,
     zoom_out: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Zoom in the view to the nearest item contained in the border
 
     :param xmin: X Min, (in [-inf, inf], optional)
@@ -1200,7 +1201,7 @@ def view_zoom_in(
     /,
     *,
     location: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Zoom in the image (centered around 2D cursor)
 
     :param location: Location, Cursor location in screen coordinates (array of 2 items, in [-inf, inf], optional)
@@ -1213,7 +1214,7 @@ def view_zoom_out(
     /,
     *,
     location: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Zoom out the image (centered around 2D cursor)
 
     :param location: Location, Cursor location in screen coordinates (array of 2 items, in [-inf, inf], optional)
@@ -1226,7 +1227,7 @@ def view_zoom_ratio(
     /,
     *,
     ratio: float | None = 0.0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set zoom ratio of the view
 
     :param ratio: Ratio, Zoom ratio, 1.0 is 1:1, higher is zoomed in, lower is zoomed out (in [-inf, inf], optional)

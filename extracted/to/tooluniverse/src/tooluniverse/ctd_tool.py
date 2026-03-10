@@ -63,9 +63,15 @@ class CTDTool(BaseTool):
         input_type = arguments.get("input_type", self.input_type)
         report_type = arguments.get("report_type", self.report_type)
 
+        # Feature-31B-03: CTD uses mitochondrial gene names without "MT-" prefix
+        # (e.g., "ND5" not "MT-ND5"). Strip prefix for gene queries.
+        normalized_terms = input_terms
+        if input_type == "gene" and input_terms.upper().startswith("MT-"):
+            normalized_terms = input_terms[3:]
+
         params = {
             "inputType": input_type,
-            "inputTerms": input_terms,
+            "inputTerms": normalized_terms,
             "report": report_type,
             "format": "json",
         }
@@ -91,25 +97,23 @@ class CTDTool(BaseTool):
         except ValueError:
             return {"error": "CTD API returned non-JSON response"}
 
+        metadata = {
+            "input_type": input_type,
+            "report_type": report_type,
+            "query": input_terms,
+        }
+        if normalized_terms != input_terms:
+            metadata["normalized_query"] = normalized_terms
+            metadata["note"] = (
+                f"CTD uses '{normalized_terms}' instead of '{input_terms}' "
+                "for mitochondrial genes."
+            )
+
         if isinstance(data, list):
-            return {
-                "data": data,
-                "metadata": {
-                    "total_results": len(data),
-                    "input_type": input_type,
-                    "report_type": report_type,
-                    "query": input_terms,
-                },
-            }
+            metadata["total_results"] = len(data)
+            return {"data": data, "metadata": metadata}
         elif isinstance(data, dict):
-            return {
-                "data": data,
-                "metadata": {
-                    "total_results": 1,
-                    "input_type": input_type,
-                    "report_type": report_type,
-                    "query": input_terms,
-                },
-            }
+            metadata["total_results"] = 1
+            return {"data": data, "metadata": metadata}
         else:
             return {"error": f"Unexpected CTD response type: {type(data).__name__}"}

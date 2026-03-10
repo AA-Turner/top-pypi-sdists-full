@@ -12,7 +12,7 @@ def preset_add(
     name: str | None = "",
     remove_name: bool | None = False,
     remove_active: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add or remove a Text Editor Preset
 
     :param name: Name, Name of the preset, used to make the path name (optional, never None)

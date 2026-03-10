@@ -105,8 +105,6 @@ class LookerFolder(Asset):
     INPUT_TO_SPARK_JOBS: ClassVar[Any] = None
     OUTPUT_FROM_SPARK_JOBS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "LookerFolder"
-
     source_content_metadata_id: Union[int, None, UnsetType] = UNSET
     """Identifier for the folder's content metadata in Looker."""
 
@@ -524,6 +522,9 @@ def _looker_folder_to_nested(looker_folder: LookerFolder) -> LookerFolderNested:
         is_incomplete=looker_folder.is_incomplete,
         provenance_type=looker_folder.provenance_type,
         home_id=looker_folder.home_id,
+        depth=looker_folder.depth,
+        immediate_upstream=looker_folder.immediate_upstream,
+        immediate_downstream=looker_folder.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -557,7 +558,6 @@ def _looker_folder_from_nested(nested: LookerFolderNested) -> LookerFolder:
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -566,6 +566,9 @@ def _looker_folder_from_nested(nested: LookerFolderNested) -> LookerFolder:
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_looker_folder_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

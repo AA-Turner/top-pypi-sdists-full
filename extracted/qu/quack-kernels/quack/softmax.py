@@ -2,7 +2,7 @@
 
 import math
 from typing import Type
-from functools import partial
+from functools import lru_cache, partial
 
 import torch
 
@@ -17,6 +17,7 @@ import quack.copy_utils as copy_utils
 from quack.compile_utils import make_fake_tensor as fake_tensor
 from quack.reduce import row_reduce, online_softmax_reduce
 from quack.reduction_base import ReductionBase
+from quack.cache_utils import compile_and_cache
 from quack.cute_dsl_utils import torch2cute_dtype_map
 
 
@@ -163,6 +164,26 @@ class Softmax(ReductionBase):
             copy(tXrO, tXgO)
 
 
+@lru_cache(maxsize=None)
+def _compile_softmax_fwd(dtype, out_dtype, N):
+    key = ("softmax_fwd", dtype, out_dtype, N)
+
+    def _compile():
+        batch_sym = cute.sym_int()
+        div = math.gcd(128 // dtype.width, N)
+        x_cute, out_cute = [fake_tensor(dt, (batch_sym, N), div) for dt in [dtype, out_dtype]]
+        softmax_op = Softmax(dtype, N)
+        return cute.compile(
+            softmax_op,
+            x_cute,
+            out_cute,
+            cute.runtime.make_fake_stream(use_tvm_ffi_env_stream=True),
+            options="--enable-tvm-ffi",
+        )
+
+    return compile_and_cache(key, _compile)
+
+
 @torch.library.custom_op("quack::_softmax_fwd", mutates_args={"out"})
 def _softmax_fwd(x: torch.Tensor, out: torch.Tensor) -> None:
     """Softmax forward pass.
@@ -176,23 +197,24 @@ def _softmax_fwd(x: torch.Tensor, out: torch.Tensor) -> None:
     assert x.dtype in [torch.float16, torch.bfloat16, torch.float32], "Unsupported dtype"
     N = x.size(1)
     dtype, out_dtype = [torch2cute_dtype_map[t.dtype] for t in [x, out]]
-    compile_key = (dtype, out_dtype, N)
-    if compile_key not in _softmax_fwd.compile_cache:
-        batch_sym = cute.sym_int()
-        div = math.gcd(128 // dtype.width, N)
-        x_cute, out_cute = [fake_tensor(dt, (batch_sym, N), div) for dt in [dtype, out_dtype]]
-        softmax_op = Softmax(dtype, N)
-        _softmax_fwd.compile_cache[compile_key] = cute.compile(
-            softmax_op,
-            x_cute,
-            out_cute,
-            cute.runtime.make_fake_stream(use_tvm_ffi_env_stream=True),
-            options="--enable-tvm-ffi",
-        )
-    _softmax_fwd.compile_cache[compile_key](x, out)
+    _compile_softmax_fwd(dtype, out_dtype, N)(x, out)
 
 
-_softmax_fwd.compile_cache = {}
+@_softmax_fwd.register_fake
+def _softmax_fwd_fake(x: torch.Tensor, out: torch.Tensor) -> None:
+    # This register_fake serves two purposes:
+    # 1. torch.compile: When dynamo traces with symbolic shapes (SymInt), we must be a no-op.
+    #    Without register_fake, dynamo would trace the real impl which calls _compile_softmax_fwd
+    #    with a SymInt N — crashing @lru_cache since SymInt isn't hashable.
+    # 2. --compile-only mode: We enter FakeTensorMode with *concrete* shapes to pre-compile
+    #    kernels without GPU memory. Here we trigger both fwd and bwd compilation.
+    from quack.cache_utils import COMPILE_ONLY
+
+    if COMPILE_ONLY and not isinstance(x.size(1), torch.SymInt):
+        N = x.size(1)
+        dtype, out_dtype = [torch2cute_dtype_map[t.dtype] for t in [x, out]]
+        _compile_softmax_fwd(dtype, out_dtype, N)
+        _compile_softmax_backward(dtype, out_dtype, out_dtype, N)
 
 
 def softmax_fwd(x: torch.Tensor) -> torch.Tensor:
@@ -331,6 +353,29 @@ class SoftmaxBackward(ReductionBase):
             copy(tdXrdX, tdXgdX)
 
 
+@lru_cache(maxsize=None)
+def _compile_softmax_backward(dtype, y_dtype, dx_dtype, N):
+    key = ("softmax_bwd", dtype, y_dtype, dx_dtype, N)
+
+    def _compile():
+        batch_sym = cute.sym_int()
+        div = math.gcd(128 // dtype.width, N)
+        dy_cute, y_cute, dx_cute = [
+            fake_tensor(dt, (batch_sym, N), div) for dt in [dtype, y_dtype, dx_dtype]
+        ]
+        softmax_backward_op = SoftmaxBackward(dtype, N)
+        return cute.compile(
+            softmax_backward_op,
+            dy_cute,
+            y_cute,
+            dx_cute,
+            cute.runtime.make_fake_stream(use_tvm_ffi_env_stream=True),
+            options="--enable-tvm-ffi",
+        )
+
+    return compile_and_cache(key, _compile)
+
+
 @torch.library.custom_op("quack::_softmax_backward", mutates_args={"dx"})
 def _softmax_backward(dy: torch.Tensor, y: torch.Tensor, dx: torch.Tensor) -> None:
     """Softmax backward pass.
@@ -346,29 +391,20 @@ def _softmax_backward(dy: torch.Tensor, y: torch.Tensor, dx: torch.Tensor) -> No
     assert dy.is_cuda and y.is_cuda, "Tensors must be on CUDA device"
     assert dy.dtype in [torch.float16, torch.bfloat16, torch.float32], "Unsupported dtype"
     assert y.dtype == dy.dtype, "dy and y must have same dtype"
-
     N = dy.size(1)
     dtype, y_dtype, dx_dtype = [torch2cute_dtype_map[t.dtype] for t in [dy, y, dx]]
-    compile_key = (dtype, y_dtype, dx_dtype, N)
-    if compile_key not in _softmax_backward.compile_cache:
-        batch_sym = cute.sym_int()
-        div = math.gcd(128 // dtype.width, N)
-        dy_cute, y_cute, dx_cute = [
-            fake_tensor(dt, (batch_sym, N), div) for dt in [dtype, y_dtype, dx_dtype]
-        ]
-        softmax_backward_op = SoftmaxBackward(dtype, N)
-        _softmax_backward.compile_cache[compile_key] = cute.compile(
-            softmax_backward_op,
-            dy_cute,
-            y_cute,
-            dx_cute,
-            cute.runtime.make_fake_stream(use_tvm_ffi_env_stream=True),
-            options="--enable-tvm-ffi",
-        )
-    _softmax_backward.compile_cache[compile_key](dy, y, dx)
+    _compile_softmax_backward(dtype, y_dtype, dx_dtype, N)(dy, y, dx)
 
 
-_softmax_backward.compile_cache = {}
+@_softmax_backward.register_fake
+def _softmax_backward_fake(dy: torch.Tensor, y: torch.Tensor, dx: torch.Tensor) -> None:
+    # See _softmax_fwd_fake for why register_fake is needed.
+    from quack.cache_utils import COMPILE_ONLY
+
+    if COMPILE_ONLY and not isinstance(dy.size(1), torch.SymInt):
+        N = dy.size(1)
+        dtype, y_dtype, dx_dtype = [torch2cute_dtype_map[t.dtype] for t in [dy, y, dx]]
+        _compile_softmax_backward(dtype, y_dtype, dx_dtype, N)
 
 
 def softmax_bwd(dy: torch.Tensor, y: torch.Tensor) -> torch.Tensor:

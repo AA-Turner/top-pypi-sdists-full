@@ -105,8 +105,6 @@ class S3(Asset):
     INPUT_TO_SPARK_JOBS: ClassVar[Any] = None
     OUTPUT_FROM_SPARK_JOBS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "S3"
-
     s3_etag: Union[str, None, UnsetType] = msgspec.field(default=UNSET, name="s3ETag")
     """Entity tag for the asset. An entity tag is a hash of the object and represents changes to the contents of an object only, not its metadata."""
 
@@ -556,6 +554,9 @@ def _s3_to_nested(s3: S3) -> S3Nested:
         is_incomplete=s3.is_incomplete,
         provenance_type=s3.provenance_type,
         home_id=s3.home_id,
+        depth=s3.depth,
+        immediate_upstream=s3.immediate_upstream,
+        immediate_downstream=s3.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -585,7 +586,6 @@ def _s3_from_nested(nested: S3Nested) -> S3:
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -594,6 +594,9 @@ def _s3_from_nested(nested: S3Nested) -> S3:
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_s3_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

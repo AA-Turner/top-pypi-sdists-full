@@ -116,8 +116,6 @@ class LookerLook(Asset):
     INPUT_TO_SPARK_JOBS: ClassVar[Any] = None
     OUTPUT_FROM_SPARK_JOBS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "LookerLook"
-
     folder_name: Union[str, None, UnsetType] = UNSET
     """Name of the folder in which the Look is organized."""
 
@@ -595,6 +593,9 @@ def _looker_look_to_nested(looker_look: LookerLook) -> LookerLookNested:
         is_incomplete=looker_look.is_incomplete,
         provenance_type=looker_look.provenance_type,
         home_id=looker_look.home_id,
+        depth=looker_look.depth,
+        immediate_upstream=looker_look.immediate_upstream,
+        immediate_downstream=looker_look.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -626,7 +627,6 @@ def _looker_look_from_nested(nested: LookerLookNested) -> LookerLook:
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -635,6 +635,9 @@ def _looker_look_from_nested(nested: LookerLookNested) -> LookerLook:
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_looker_look_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

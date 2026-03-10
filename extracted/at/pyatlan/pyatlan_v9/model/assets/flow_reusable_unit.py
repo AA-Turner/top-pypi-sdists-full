@@ -95,8 +95,6 @@ class FlowReusableUnit(Asset):
     SCHEMA_REGISTRY_SUBJECTS: ClassVar[Any] = None
     SODA_CHECKS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "FlowReusableUnit"
-
     flow_dataset_count: Union[int, None, UnsetType] = UNSET
     """Count of the number of ephemeral datasets contained within this reusable unit."""
 
@@ -525,6 +523,9 @@ def _flow_reusable_unit_to_nested(
         is_incomplete=flow_reusable_unit.is_incomplete,
         provenance_type=flow_reusable_unit.provenance_type,
         home_id=flow_reusable_unit.home_id,
+        depth=flow_reusable_unit.depth,
+        immediate_upstream=flow_reusable_unit.immediate_upstream,
+        immediate_downstream=flow_reusable_unit.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -558,7 +559,6 @@ def _flow_reusable_unit_from_nested(nested: FlowReusableUnitNested) -> FlowReusa
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -567,6 +567,9 @@ def _flow_reusable_unit_from_nested(nested: FlowReusableUnitNested) -> FlowReusa
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_flow_reusable_unit_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

@@ -1,7 +1,8 @@
 use crate::error::{EvalErr, Result};
-use crate::number::{Number, number_from_u8};
+use crate::number::{Malachite, Number, malachite_number_from_u8, number_from_u8};
 use chia_bls::{G1Element, G2Element};
 use std::borrow::Borrow;
+use std::collections::HashSet;
 use std::fmt;
 use std::hash::Hash;
 use std::hash::Hasher;
@@ -260,6 +261,12 @@ pub struct Allocator {
     #[cfg(feature = "counters")]
     max_heap_size: usize,
 
+    // Cache of already-validated G1/G2 points, keyed by raw bytes.
+    // Using raw bytes instead of NodePtr since NodePtrs can be invalidated
+    // by restore_checkpoint() inside softfork guards.
+    validated_g1_points: HashSet<[u8; 48]>,
+    validated_g2_points: HashSet<[u8; 96]>,
+
     #[cfg(feature = "allocator-debug")]
     fingerprint: u32,
 
@@ -328,13 +335,15 @@ impl Allocator {
             u8_vec: Vec::new(),
             pair_vec: Vec::new(),
             atom_vec: Vec::new(),
-            // subtract 1 to compensate for the one() we used to allocate unconfitionally
-            heap_limit: heap_limit - 1,
+            heap_limit,
             // initialize this to 2 to behave as if we had allocated atoms for
             // nil() and one(), like we used to
             ghost_atoms: 2,
             ghost_pairs: 0,
-            ghost_heap: 0,
+            // compensate for the one() we used to allocate unconditionally
+            ghost_heap: 1,
+            validated_g1_points: HashSet::new(),
+            validated_g2_points: HashSet::new(),
             #[cfg(feature = "counters")]
             max_atom_count: 0,
             #[cfg(feature = "counters")]
@@ -446,13 +455,14 @@ impl Allocator {
 
     pub fn new_atom(&mut self, v: &[u8]) -> Result<NodePtr> {
         let start = self.u8_vec.len() as u32;
-        if (self.heap_limit - start as usize - self.ghost_heap) < v.len() {
+        if start as usize + self.ghost_heap + v.len() > self.heap_limit {
             return Err(EvalErr::OutOfMemory);
         }
         let idx = self.atom_vec.len();
         self.check_atom_limit()?;
         if let Some(ret) = fits_in_small_atom(v) {
             self.ghost_atoms += 1;
+            self.ghost_heap += v.len();
             Ok(self.mk_node(ObjectType::SmallAtom, ret as usize))
         } else {
             self.u8_vec.extend_from_slice(v);
@@ -466,12 +476,89 @@ impl Allocator {
 
     pub fn new_small_number(&mut self, v: u32) -> Result<NodePtr> {
         debug_assert!(v <= NODE_PTR_IDX_MASK);
+        let len = len_for_value(v);
+        if self.u8_vec.len() + self.ghost_heap + len > self.heap_limit {
+            return Err(EvalErr::OutOfMemory);
+        }
         self.check_atom_limit()?;
         self.ghost_atoms += 1;
+        self.ghost_heap += len;
         Ok(self.mk_node(ObjectType::SmallAtom, v as usize))
     }
 
+    pub fn new_u64(&mut self, val: u64) -> Result<NodePtr> {
+        let mut buf = [0u8; 9];
+        buf[1..].copy_from_slice(&val.to_be_bytes());
+        let start = if val == 0 {
+            9
+        } else if val < 0x80 {
+            8
+        } else if val < 0x8000 {
+            7
+        } else if val < 0x80_0000 {
+            6
+        } else if val < 0x8000_0000 {
+            5
+        } else if val < 0x80_0000_0000 {
+            4
+        } else if val < 0x8000_0000_0000 {
+            3
+        } else if val < 0x80_0000_0000_0000 {
+            2
+        } else if val < 0x8000_0000_0000_0000 {
+            1
+        } else {
+            0
+        };
+        self.new_atom(&buf[start..])
+    }
+
+    pub fn new_i64(&mut self, val: i64) -> Result<NodePtr> {
+        if val >= 0 {
+            return self.new_u64(val as u64);
+        }
+        let buf = val.to_be_bytes();
+        let start = if val >= -0x80 {
+            7
+        } else if val >= -0x8000 {
+            6
+        } else if val >= -0x80_0000 {
+            5
+        } else if val >= -0x8000_0000 {
+            4
+        } else if val >= -0x80_0000_0000 {
+            3
+        } else if val >= -0x8000_0000_0000 {
+            2
+        } else if val >= -0x80_0000_0000_0000 {
+            1
+        } else {
+            0
+        };
+        self.new_atom(&buf[start..])
+    }
+
     pub fn new_number(&mut self, v: Number) -> Result<NodePtr> {
+        use num_traits::ToPrimitive;
+        if let Some(val) = v.to_u32()
+            && val <= NODE_PTR_IDX_MASK
+        {
+            return self.new_small_number(val);
+        }
+        let bytes: Vec<u8> = v.to_signed_bytes_be();
+        let mut slice = bytes.as_slice();
+
+        // make number minimal by removing leading zeros
+        while (!slice.is_empty()) && (slice[0] == 0) {
+            if slice.len() > 1 && (slice[1] & 0x80 == 0x80) {
+                break;
+            }
+            slice = &slice[1..];
+        }
+        self.new_atom(slice)
+    }
+
+    pub fn new_malachite_number(&mut self, v: Malachite) -> Result<NodePtr> {
         use num_traits::ToPrimitive;
         if let Some(val) = v.to_u32()
             && val <= NODE_PTR_IDX_MASK
@@ -624,7 +711,7 @@ impl Allocator {
 
         self.check_atom_limit()?;
         let start = self.u8_vec.len();
-        if self.heap_limit - start - self.ghost_heap < new_size {
+        if start + self.ghost_heap + new_size > self.heap_limit {
             return Err(EvalErr::OutOfMemory);
         }
 
@@ -831,6 +918,24 @@ impl Allocator {
         }
     }
 
+    pub fn malachite_number(&self, node: NodePtr) -> Malachite {
+        #[cfg(feature = "allocator-debug")]
+        self.validate_node(node);
+
+        let index = node.index();
+
+        match node.object_type() {
+            ObjectType::Bytes => {
+                let atom = self.atom_vec[index as usize];
+                malachite_number_from_u8(&self.u8_vec[atom.start as usize..atom.end as usize])
+            }
+            ObjectType::SmallAtom => Malachite::from(index),
+            _ => {
+                panic!("number() called on pair");
+            }
+        }
+    }
+
     pub fn g1(&self, node: NodePtr) -> Result<G1Element> {
         #[cfg(feature = "allocator-debug")]
         self.validate_node(node);
@@ -981,7 +1086,34 @@ impl Allocator {
     }
 
     pub fn heap_size(&self) -> usize {
+        self.u8_vec.len() + self.ghost_heap
+    }
+
+    pub fn allocated_heap_size(&self) -> usize {
         self.u8_vec.len()
+    }
+
+    pub fn validate_g1(&mut self, node: NodePtr, bytes: [u8; 48]) -> Result<()> {
+        if !self.validated_g1_points.contains(&bytes) {
+            G1Element::from_bytes(&bytes)
+                .map_err(|_| EvalErr::InvalidOpArg(node, "atom is not a G1 point".to_string()))?;
+            self.validated_g1_points.insert(bytes);
+        }
+        Ok(())
+    }
+
+    pub fn validate_g2(&mut self, node: NodePtr, bytes: [u8; 96]) -> Result<()> {
+        if !self.validated_g2_points.contains(&bytes) {
+            G2Element::from_bytes(&bytes)
+                .map_err(|_| EvalErr::InvalidOpArg(node, "atom is not a G2 point".to_string()))?;
+            self.validated_g2_points.insert(bytes);
+        }
+        Ok(())
+    }
+
+    pub fn clear_validation_caches(&mut self) {
+        self.validated_g1_points.clear();
+        self.validated_g2_points.clear();
     }
 
     #[cfg(feature = "counters")]
@@ -1189,6 +1321,15 @@ mod tests {
         a.number(pair);
     }
 
+    #[test]
+    #[should_panic]
+    fn test_malachite_number_pair() {
+        let mut a = Allocator::new();
+        let a0 = a.nil();
+        let pair = a.new_pair(a0, a0).unwrap();
+        a.malachite_number(pair);
+    }
+
     #[cfg(not(feature = "allocator-debug"))]
     #[test]
     #[should_panic]
@@ -1272,6 +1413,100 @@ mod tests {
         assert_eq!(a.new_atom(b"foobar").unwrap_err(), EvalErr::OutOfMemory);
         // but 5 is OK
         let _atom = a.new_atom(b"fooba").unwrap();
+    }
+
+    #[test]
+    fn test_new_atom_heap_limit() {
+        let mut a = Allocator::new_limited(6);
+        assert_eq!(a.new_atom(b"foobar").unwrap_err(), EvalErr::OutOfMemory);
+        a.new_atom(b"fooba").unwrap();
+    }
+
+    #[test]
+    fn test_new_atom_small_value_heap_limit() {
+        // small-atom-eligible values still count against the heap
+        // ghost_heap starts at 1, so with limit=1 there are 0 bytes available
+        let mut a = Allocator::new_limited(1);
+        assert_eq!(a.new_atom(&[1]).unwrap_err(), EvalErr::OutOfMemory);
+    }
+
+    #[test]
+    fn test_new_small_number_heap_limit() {
+        let mut a = Allocator::new_limited(1);
+        assert_eq!(a.new_small_number(1).unwrap_err(), EvalErr::OutOfMemory);
+        // len_for_value(0) == 0, so this always fits
+        a.new_small_number(0).unwrap();
+    }
+
+    #[test]
+    fn test_new_number_small_path_heap_limit() {
+        let mut a = Allocator::new_limited(1);
+        assert_eq!(a.new_number(1.into()).unwrap_err(), EvalErr::OutOfMemory);
+    }
+
+    #[test]
+    fn test_new_number_large_path_heap_limit() {
+        // 0xff_ffff_ffff -> [0, 0xff, 0xff, 0xff, 0xff] = 5 bytes, limit allows 4
+        let mut a = Allocator::new_limited(5);
+        assert_eq!(
+            a.new_number(Number::from(0xffffffffff_u64)).unwrap_err(),
+            EvalErr::OutOfMemory
+        );
+    }
+
+    #[test]
+    fn test_new_malachite_number_small_path_heap_limit() {
+        let mut a = Allocator::new_limited(1);
+        assert_eq!(
+            a.new_malachite_number(Malachite::from(1u64)).unwrap_err(),
+            EvalErr::OutOfMemory
+        );
+    }
+
+    #[test]
+    fn test_new_malachite_number_large_path_heap_limit() {
+        let mut a = Allocator::new_limited(5);
+        assert_eq!(
+            a.new_malachite_number(Malachite::from(0xffffffffff_u64))
+                .unwrap_err(),
+            EvalErr::OutOfMemory
+        );
+    }
+
+    #[test]
+    fn test_new_g1_heap_limit() {
+        let g1_bytes = hex::decode(VALID_G1).unwrap();
+        let g1 = G1Element::from_bytes(g1_bytes.as_slice().try_into().unwrap()).unwrap();
+        assert_eq!(
+            Allocator::new_limited(48).new_g1(g1).unwrap_err(),
+            EvalErr::OutOfMemory
+        );
+        let g1 = G1Element::from_bytes(g1_bytes.as_slice().try_into().unwrap()).unwrap();
+        Allocator::new_limited(49).new_g1(g1).unwrap();
+    }
+
+    #[test]
+    fn test_new_g2_heap_limit() {
+        let g2_bytes = hex::decode(VALID_G2).unwrap();
+        let g2 = G2Element::from_bytes(g2_bytes.as_slice().try_into().unwrap()).unwrap();
+        assert_eq!(
+            Allocator::new_limited(96).new_g2(g2).unwrap_err(),
+            EvalErr::OutOfMemory
+        );
+        let g2 = G2Element::from_bytes(g2_bytes.as_slice().try_into().unwrap()).unwrap();
+        Allocator::new_limited(97).new_g2(g2).unwrap();
+    }
+
+    #[test]
+    fn test_new_concat_heap_limit() {
+        let mut a = Allocator::new_limited(5);
+        let atom = a.new_atom(&[0x80]).unwrap(); // 1 real heap byte (negative, not a small atom)
+        // available: 5 - 1 - 1(ghost) = 3
+        assert_eq!(
+            a.new_concat(4, &[atom, atom, atom, atom]).unwrap_err(),
+            EvalErr::OutOfMemory
+        );
+        a.new_concat(3, &[atom, atom, atom]).unwrap();
     }
 
     #[test]
@@ -1577,7 +1812,8 @@ mod tests {
 
     #[test]
     fn test_concat_limit() {
-        let mut a = Allocator::new_limited(6);
+        // the Allocator::one() is always allocated and uses 1 byte of heap
+        let mut a = Allocator::new_limited(9);
         let atom1 = a.new_atom(b"f").unwrap();
         let atom2 = a.new_atom(b"o").unwrap();
         let atom3 = a.new_atom(b"o").unwrap();
@@ -1620,6 +1856,29 @@ mod tests {
         assert_eq!(a.number(atom), num);
         assert_eq!(a.atom(atom).as_ref(), expected);
         assert_eq!(number_from_u8(expected), num);
+    }
+
+    #[rstest]
+    #[case(Malachite::from(0u64), &[])]
+    #[case(Malachite::from(1u64), &[1])]
+    #[case(Malachite::from(-1i64), &[0xff])]
+    #[case(Malachite::from(0x80u64), &[0, 0x80])]
+    #[case(Malachite::from(0xffu64), &[0, 0xff])]
+    #[case(Malachite::from(0xffffffff_u64), &[0, 0xff, 0xff, 0xff, 0xff])]
+    fn test_new_malachite_number(#[case] num: Malachite, #[case] expected: &[u8]) {
+        let mut a = Allocator::new();
+
+        let atom = a.new_malachite_number(num.clone()).unwrap();
+
+        assert_eq!(a.malachite_number(atom), num);
+        assert_eq!(a.atom(atom).as_ref(), expected);
+        assert_eq!(malachite_number_from_u8(expected), num);
+
+        let atom = a.new_atom(expected).unwrap();
+
+        assert_eq!(a.malachite_number(atom), num);
+        assert_eq!(a.atom(atom).as_ref(), expected);
+        assert_eq!(malachite_number_from_u8(expected), num);
     }
 
     #[test]
@@ -1991,6 +2250,21 @@ c6c886f6b57ec72a6178288c47c33577\
     }
 
     #[rstest]
+    #[case(Malachite::from(0u64), 0)]
+    #[case(Malachite::from(42u64), 1)]
+    #[case(Malachite::from(127u64), 1)]
+    #[case(Malachite::from(1337u64), 2)]
+    #[case(Malachite::from(0x7fffff_u64), 3)]
+    #[case(Malachite::from(0xffffff_u64), 4)]
+    #[case(Malachite::from(-1i64), 1)]
+    #[case(Malachite::from(-128i64), 1)]
+    fn test_atom_len_malachite_number(#[case] value: Malachite, #[case] expected: usize) {
+        let mut a = Allocator::new();
+        let atom = a.new_malachite_number(value).unwrap();
+        assert_eq!(a.atom_len(atom), expected);
+    }
+
+    #[rstest]
     #[case(
         "\
 97f1d3a73197d7942695638c4fa9ac0f\
@@ -2094,6 +2368,58 @@ c6c886f6b57ec72a6178288c47c33577\
     }
 
     #[rstest]
+    #[case(Malachite::from(0u64))]
+    #[case(Malachite::from(1u64))]
+    #[case(Malachite::from(0x7fu64))]
+    #[case(Malachite::from(0x80u64))]
+    #[case(Malachite::from(0xffu64))]
+    #[case(Malachite::from(0x100u64))]
+    #[case(Malachite::from(0x7fffu64))]
+    #[case(Malachite::from(0x8000u64))]
+    #[case(Malachite::from(0xffffu64))]
+    #[case(Malachite::from(0x10000u64))]
+    #[case(Malachite::from(0x7ffffu64))]
+    #[case(Malachite::from(0x80000u64))]
+    #[case(Malachite::from(0xfffffu64))]
+    #[case(Malachite::from(0x100000u64))]
+    #[case(Malachite::from(0x7ffffffu64))]
+    #[case(Malachite::from(0x8000000u64))]
+    #[case(Malachite::from(0xfffffffu64))]
+    #[case(Malachite::from(0x10000000u64))]
+    #[case(Malachite::from(0x7ffffffffu64))]
+    #[case(Malachite::from(0x8000000000u64))]
+    #[case(Malachite::from(0xffffffffffu64))]
+    #[case(Malachite::from(0x10000000000u64))]
+    #[case(Malachite::from(-1i64))]
+    #[case(Malachite::from(-0x7fi64))]
+    #[case(Malachite::from(-0x80i64))]
+    #[case(Malachite::from(-0xffi64))]
+    #[case(Malachite::from(-0x100i64))]
+    #[case(Malachite::from(-0x7fffi64))]
+    #[case(Malachite::from(-0x8000i64))]
+    #[case(Malachite::from(-0xffffi64))]
+    #[case(Malachite::from(-0x10000i64))]
+    #[case(Malachite::from(-0x7ffffi64))]
+    #[case(Malachite::from(-0x80000i64))]
+    #[case(Malachite::from(-0xfffffi64))]
+    #[case(Malachite::from(-0x100000i64))]
+    #[case(Malachite::from(-0x7ffffffi64))]
+    #[case(Malachite::from(-0x8000000i64))]
+    #[case(Malachite::from(-0xfffffffi64))]
+    #[case(Malachite::from(-0x10000000i64))]
+    #[case(Malachite::from(-0x7ffffffffi64))]
+    #[case(Malachite::from(-0x8000000000i64))]
+    #[case(Malachite::from(-0xffffffffffi64))]
+    #[case(Malachite::from(-0x10000000000i64))]
+    fn test_malachite_number_roundtrip(#[case] value: Malachite) {
+        let mut a = Allocator::new();
+        let atom = a
+            .new_malachite_number(value.clone())
+            .expect("new_malachite_number()");
+        assert_eq!(a.malachite_number(atom), value);
+    }
+
+    #[rstest]
     #[case(0)]
     #[case(1)]
     #[case(0x7f)]
@@ -2157,6 +2483,114 @@ c6c886f6b57ec72a6178288c47c33577\
             assert_eq!(v, value.to_u32().unwrap());
         }
         assert_eq!(a.number(atom), value);
+    }
+
+    #[rstest]
+    #[case(Malachite::from(0u64), true)]
+    #[case(Malachite::from(1u64), true)]
+    #[case(Malachite::from(0x3ffffffu64), true)]
+    #[case(Malachite::from(0x4000000u64), false)]
+    #[case(Malachite::from(0x7fu64), true)]
+    #[case(Malachite::from(0x80u64), true)]
+    #[case(Malachite::from(0xffu64), true)]
+    #[case(Malachite::from(0x100u64), true)]
+    #[case(Malachite::from(0x7fffu64), true)]
+    #[case(Malachite::from(0x8000u64), true)]
+    #[case(Malachite::from(0xffffu64), true)]
+    #[case(Malachite::from(0x10000u64), true)]
+    #[case(Malachite::from(0x7ffffu64), true)]
+    #[case(Malachite::from(0x80000u64), true)]
+    #[case(Malachite::from(0xfffffu64), true)]
+    #[case(Malachite::from(0x100000u64), true)]
+    #[case(Malachite::from(0x7ffffffu64), false)]
+    #[case(Malachite::from(0x8000000u64), false)]
+    #[case(Malachite::from(0xfffffffu64), false)]
+    #[case(Malachite::from(0x10000000u64), false)]
+    #[case(Malachite::from(0x7ffffffffu64), false)]
+    #[case(Malachite::from(0x8000000000u64), false)]
+    #[case(Malachite::from(0xffffffffffu64), false)]
+    #[case(Malachite::from(0x10000000000u64), false)]
+    #[case(Malachite::from(-1i64), false)]
+    #[case(Malachite::from(-0x7fi64), false)]
+    #[case(Malachite::from(-0x80i64), false)]
+    #[case(Malachite::from(-0x10000000000i64), false)]
+    fn test_auto_small_malachite_number(#[case] value: Malachite, #[case] expect_small: bool) {
+        let mut a = Allocator::new();
+        let atom = a
+            .new_malachite_number(value.clone())
+            .expect("new_malachite_number()");
+        assert_eq!(a.small_number(atom).is_some(), expect_small);
+        if let Some(v) = a.small_number(atom) {
+            use num_traits::ToPrimitive;
+            assert_eq!(v, value.to_u32().unwrap());
+        }
+        assert_eq!(a.malachite_number(atom), value);
+    }
+
+    #[rstest]
+    #[case(0u64, &[])]
+    #[case(1, &[1])]
+    #[case(0x7f, &[0x7f])]
+    #[case(0x80, &[0x00, 0x80])]
+    #[case(0xff, &[0x00, 0xff])]
+    #[case(0x100, &[0x01, 0x00])]
+    #[case(0x7fff, &[0x7f, 0xff])]
+    #[case(0x8000, &[0x00, 0x80, 0x00])]
+    #[case(0xffff, &[0x00, 0xff, 0xff])]
+    #[case(0x7f_ffff, &[0x7f, 0xff, 0xff])]
+    #[case(0x80_0000, &[0x00, 0x80, 0x00, 0x00])]
+    #[case(0x7fff_ffff, &[0x7f, 0xff, 0xff, 0xff])]
+    #[case(0x8000_0000, &[0x00, 0x80, 0x00, 0x00, 0x00])]
+    #[case(0xffff_ffff, &[0x00, 0xff, 0xff, 0xff, 0xff])]
+    #[case(0x1_0000_0000, &[0x01, 0x00, 0x00, 0x00, 0x00])]
+    #[case(0x7f_ffff_ffff, &[0x7f, 0xff, 0xff, 0xff, 0xff])]
+    #[case(0x80_0000_0000, &[0x00, 0x80, 0x00, 0x00, 0x00, 0x00])]
+    #[case(0x7fff_ffff_ffff, &[0x7f, 0xff, 0xff, 0xff, 0xff, 0xff])]
+    #[case(0x8000_0000_0000, &[0x00, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00])]
+    #[case(0x7f_ffff_ffff_ffff, &[0x7f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff])]
+    #[case(0x80_0000_0000_0000, &[0x00, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])]
+    #[case(0x7fff_ffff_ffff_ffff, &[0x7f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff])]
+    #[case(0x8000_0000_0000_0000, &[0x00, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])]
+    #[case(u64::MAX, &[0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff])]
+    fn test_new_u64(#[case] val: u64, #[case] expected_bytes: &[u8]) {
+        let mut a = Allocator::new();
+        let atom = a.new_u64(val).expect("new_u64()");
+        assert_eq!(a.atom(atom).as_ref(), expected_bytes);
+        let expected_number: Number = val.into();
+        assert_eq!(a.number(atom), expected_number);
+    }
+
+    #[rstest]
+    #[case(0i64, &[])]
+    #[case(1, &[1])]
+    #[case(0x7f, &[0x7f])]
+    #[case(0x80, &[0x00, 0x80])]
+    #[case(-1, &[0xff])]
+    #[case(-0x7f, &[0x81])]
+    #[case(-0x80, &[0x80])]
+    #[case(-0x81, &[0xff, 0x7f])]
+    #[case(-0x100, &[0xff, 0x00])]
+    #[case(-0x7fff, &[0x80, 0x01])]
+    #[case(-0x8000, &[0x80, 0x00])]
+    #[case(-0x8001, &[0xff, 0x7f, 0xff])]
+    #[case(-0x80_0000, &[0x80, 0x00, 0x00])]
+    #[case(-0x80_0001, &[0xff, 0x7f, 0xff, 0xff])]
+    #[case(-0x8000_0000, &[0x80, 0x00, 0x00, 0x00])]
+    #[case(-0x8000_0001, &[0xff, 0x7f, 0xff, 0xff, 0xff])]
+    #[case(-0x80_0000_0000, &[0x80, 0x00, 0x00, 0x00, 0x00])]
+    #[case(-0x80_0000_0001, &[0xff, 0x7f, 0xff, 0xff, 0xff, 0xff])]
+    #[case(-0x8000_0000_0000, &[0x80, 0x00, 0x00, 0x00, 0x00, 0x00])]
+    #[case(-0x8000_0000_0001, &[0xff, 0x7f, 0xff, 0xff, 0xff, 0xff, 0xff])]
+    #[case(-0x80_0000_0000_0000, &[0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])]
+    #[case(-0x80_0000_0000_0001, &[0xff, 0x7f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff])]
+    #[case(i64::MIN, &[0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])]
+    #[case(i64::MAX, &[0x7f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff])]
+    fn test_new_i64(#[case] val: i64, #[case] expected_bytes: &[u8]) {
+        let mut a = Allocator::new();
+        let atom = a.new_i64(val).expect("new_i64()");
+        assert_eq!(a.atom(atom).as_ref(), expected_bytes);
+        let expected_number: Number = val.into();
+        assert_eq!(a.number(atom), expected_number);
     }
 
     #[rstest]
@@ -2243,6 +2677,26 @@ c6c886f6b57ec72a6178288c47c33577\
         let num = number_from_u8(bytes);
         assert_eq!(format!("{num}"), text);
         let ptr = a.new_number(num).unwrap();
+        assert_eq!(a.atom(ptr).as_ref(), buf);
+    }
+
+    #[rstest]
+    #[case(&[0], "0", &[])]
+    #[case(&[1], "1", &[1])]
+    #[case(&[0,0,0,1], "1", &[1])]
+    #[case(&[0,0,0x80], "128", &[0, 0x80])]
+    #[case(&[0,0xff], "255", &[0, 0xff])]
+    #[case(&[0x7f,0xff], "32767", &[0x7f, 0xff])]
+    #[case(&[0xff,0xff], "-1", &[0xff])]
+    #[case(&[0xff], "-1", &[0xff])]
+    #[case(&[0,0,0x80,0], "32768", &[0,0x80,0])]
+    #[case(&[0,0,0x40,0], "16384", &[0x40,0])]
+    fn test_malachite_number_to_atom(#[case] bytes: &[u8], #[case] text: &str, #[case] buf: &[u8]) {
+        let mut a = Allocator::new();
+
+        let num = malachite_number_from_u8(bytes);
+        assert_eq!(format!("{num}"), text);
+        let ptr = a.new_malachite_number(num).unwrap();
         assert_eq!(a.atom(ptr).as_ref(), buf);
     }
 }

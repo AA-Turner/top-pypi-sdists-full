@@ -3,6 +3,7 @@
 from . import (
     create_workspace_ref,
     delete_workspace_repo,
+    download_workspace_files,
     get_downstream_sessions,
     get_session_lineage,
     get_workspace_file_content,
@@ -25,6 +26,7 @@ __all__ = [
     "get_workspace_repo_size",
     "list_workspace_branches",
     "list_workspace_files",
+    "download_workspace_files",
     "get_workspace_file_content",
     "promote_workspace_branch",
     "get_session_lineage",

@@ -124,8 +124,6 @@ class ModelEntity(Asset):
     INPUT_TO_SPARK_JOBS: ClassVar[Any] = None
     OUTPUT_FROM_SPARK_JOBS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "ModelEntity"
-
     model_entity_attribute_count: Union[int, None, UnsetType] = UNSET
     """Number of attributes in the entity."""
 
@@ -718,6 +716,9 @@ def _model_entity_to_nested(model_entity: ModelEntity) -> ModelEntityNested:
         is_incomplete=model_entity.is_incomplete,
         provenance_type=model_entity.provenance_type,
         home_id=model_entity.home_id,
+        depth=model_entity.depth,
+        immediate_upstream=model_entity.immediate_upstream,
+        immediate_downstream=model_entity.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -749,7 +750,6 @@ def _model_entity_from_nested(nested: ModelEntityNested) -> ModelEntity:
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -758,6 +758,9 @@ def _model_entity_from_nested(nested: ModelEntityNested) -> ModelEntity:
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_model_entity_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

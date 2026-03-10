@@ -10,7 +10,7 @@ def delete_metaelems(
     /,
     *,
     confirm: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Delete selected metaball element(s)
 
     :param confirm: Confirm, Prompt for confirmation (optional)
@@ -21,7 +21,7 @@ def duplicate_metaelems(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Duplicate selected metaball element(s)
 
     :return: Result of the operator call.
@@ -34,7 +34,7 @@ def duplicate_move(
     *,
     MBALL_OT_duplicate_metaelems: dict[str, typing.Any] | None = {},
     TRANSFORM_OT_translate: dict[str, typing.Any] | None = {},
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Make copies of the selected metaball elements and move them
 
     :param MBALL_OT_duplicate_metaelems: Duplicate Metaball Elements, Duplicate selected metaball element(s) (optional, `bpy.ops.mball.duplicate_metaelems` keyword arguments)
@@ -48,7 +48,7 @@ def hide_metaelems(
     /,
     *,
     unselected: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Hide (un)selected metaball element(s)
 
     :param unselected: Unselected, Hide unselected rather than selected (optional)
@@ -61,7 +61,7 @@ def reveal_metaelems(
     /,
     *,
     select: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Reveal all hidden metaball elements
 
     :param select: Select, (optional)
@@ -74,7 +74,7 @@ def select_all(
     /,
     *,
     action: typing.Literal["TOGGLE", "SELECT", "DESELECT", "INVERT"] | None = "TOGGLE",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Change selection of all metaball elements
 
         :param action: Action, Selection action to execute (optional)
@@ -101,7 +101,7 @@ def select_random_metaelems(
     ratio: float | None = 0.5,
     seed: int | None = 0,
     action: typing.Literal["SELECT", "DESELECT"] | None = "SELECT",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Randomly select metaball elements
 
         :param ratio: Ratio, Portion of items to select randomly (in [0, 1], optional)
@@ -123,7 +123,7 @@ def select_similar(
     *,
     type: typing.Literal["TYPE", "RADIUS", "STIFFNESS", "ROTATION"] | None = "TYPE",
     threshold: float | None = 0.1,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select similar metaballs by property types
 
     :param type: Type, (optional)

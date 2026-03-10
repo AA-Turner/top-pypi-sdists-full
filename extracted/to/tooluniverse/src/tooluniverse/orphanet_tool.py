@@ -60,6 +60,9 @@ class OrphanetTool(BaseTool):
     def run(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Execute Orphanet API call based on operation type."""
         operation = arguments.get("operation", "")
+        # Auto-fill operation from tool config const if not provided by user
+        if not operation:
+            operation = self.get_schema_const_operation()
 
         if operation == "search_diseases":
             return self._search_diseases(arguments)
@@ -785,32 +788,75 @@ class OrphanetTool(BaseTool):
         except Exception as e:
             return {"status": "error", "error": f"Unexpected error: {str(e)}"}
 
-    def _get_gene_diseases(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+    def _resolve_gene_symbol(self, symbol: str) -> Optional[str]:
+        """Resolve a gene symbol (e.g. 'FBN1') to its full name (e.g. 'fibrillin 1').
+
+        The Orphadata /genes/names/ endpoint only matches full gene names, not
+        symbols.  When the caller passes a symbol, look it up in the gene list
+        and return the full name so the name-search endpoint can find it.
+        Returns None if no match is found.
         """
-        Get rare diseases associated with a gene name.
-
-        Uses Orphadata gene name search to find diseases associated with genes
-        matching the given search term. Search by gene name keywords
-        (e.g., 'fibrillin', 'huntingtin', 'dystrophin').
-
-        Args:
-            arguments: Dict containing:
-                - gene_name: Gene name keyword to search (e.g., 'fibrillin', 'collagen')
-        """
-        gene_name = arguments.get("gene_name", "")
-        if not gene_name:
-            return {"status": "error", "error": "Missing required parameter: gene_name"}
-
         try:
-            encoded_name = urllib.parse.quote(gene_name, safe="")
             response = requests.get(
-                f"{ORPHADATA_API_URL}/rd-associated-genes/genes/names/{encoded_name}",
+                f"{ORPHADATA_API_URL}/rd-associated-genes/genes?page=1",
                 timeout=self.timeout,
                 headers={
                     "Accept": "application/json",
                     "User-Agent": "ToolUniverse/Orphanet",
                 },
             )
+            if response.status_code != 200:
+                return None
+            results = response.json().get("data", {}).get("results", [])
+            symbol_upper = symbol.upper()
+            for gene in results:
+                if gene.get("symbol", "").upper() == symbol_upper:
+                    return gene.get("name")
+        except Exception:
+            return None
+        return None
+
+    def _get_gene_diseases(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Get rare diseases associated with a gene name or symbol.
+
+        Uses Orphadata gene name search to find diseases associated with genes
+        matching the given search term. Accepts gene symbols (e.g., 'FBN1',
+        'BRCA1') or gene name keywords (e.g., 'fibrillin', 'huntingtin').
+        Gene symbols are auto-resolved to full names for the API query.
+
+        Args:
+            arguments: Dict containing:
+                - gene_name: Gene symbol or name keyword (e.g., 'FBN1', 'fibrillin')
+        """
+        gene_name = arguments.get("gene_name", "")
+        if not gene_name:
+            return {"status": "error", "error": "Missing required parameter: gene_name"}
+
+        orphadata_headers = {
+            "Accept": "application/json",
+            "User-Agent": "ToolUniverse/Orphanet",
+        }
+
+        try:
+            encoded_name = urllib.parse.quote(gene_name, safe="")
+            response = requests.get(
+                f"{ORPHADATA_API_URL}/rd-associated-genes/genes/names/{encoded_name}",
+                timeout=self.timeout,
+                headers=orphadata_headers,
+            )
+
+            # If 404 and input looks like a gene symbol, resolve it to the full name
+            if response.status_code == 404:
+                full_name = self._resolve_gene_symbol(gene_name)
+                if full_name:
+                    encoded_name = urllib.parse.quote(full_name, safe="")
+                    response = requests.get(
+                        f"{ORPHADATA_API_URL}/rd-associated-genes/genes/names/{encoded_name}",
+                        timeout=self.timeout,
+                        headers=orphadata_headers,
+                    )
+
             response.raise_for_status()
             data = response.json()
 

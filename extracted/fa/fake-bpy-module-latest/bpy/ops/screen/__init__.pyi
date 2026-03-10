@@ -10,7 +10,7 @@ def actionzone(
     /,
     *,
     modifier: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Handle area action zones for mouse actions/gestures
 
     :param modifier: Modifier, Modifier state (in [0, 2], optional)
@@ -23,7 +23,7 @@ def animation_cancel(
     /,
     *,
     restore_frame: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Cancel animation, returning to the original frame
 
     :param restore_frame: Restore Frame, Restore the frame when animation was initialized (optional)
@@ -37,7 +37,7 @@ def animation_play(
     *,
     reverse: bool | None = False,
     sync: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Play animation
 
     :param reverse: Play in Reverse, Animation is played backwards (optional)
@@ -49,7 +49,7 @@ def animation_step(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Step through animation by position
 
     :return: Result of the operator call.
@@ -59,7 +59,7 @@ def area_close(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Close selected area
 
     :return: Result of the operator call.
@@ -69,7 +69,7 @@ def area_dupli(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Duplicate selected area into new window
 
     :return: Result of the operator call.
@@ -82,7 +82,7 @@ def area_join(
     *,
     source_xy: collections.abc.Sequence[int] | None = (0, 0),
     target_xy: collections.abc.Sequence[int] | None = (0, 0),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Join selected areas into new window
 
     :param source_xy: Source location, (array of 2 items, in [-inf, inf], optional)
@@ -99,7 +99,7 @@ def area_move(
     y: int | None = 0,
     delta: int | None = 0,
     snap: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move selected area edges
 
     :param x: X, (in [-inf, inf], optional)
@@ -113,7 +113,7 @@ def area_options(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Operations for splitting and merging
 
     :return: Result of the operator call.
@@ -127,7 +127,7 @@ def area_split(
     direction: typing.Literal["HORIZONTAL", "VERTICAL"] | None = "HORIZONTAL",
     factor: float | None = 0.5,
     cursor: collections.abc.Sequence[int] | None = (0, 0),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Split selected area into new windows
 
     :param direction: Direction, (optional)
@@ -142,7 +142,7 @@ def area_swap(
     /,
     *,
     cursor: collections.abc.Sequence[int] | None = (0, 0),
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Swap selected areas screen positions
 
     :param cursor: Cursor, (array of 2 items, in [-inf, inf], optional)
@@ -153,7 +153,7 @@ def back_to_previous(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Revert back to the original screen layout, before fullscreen area overlay
 
     :return: Result of the operator call.
@@ -163,7 +163,7 @@ def delete(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Delete active screen
 
     :return: Result of the operator call.
@@ -173,7 +173,7 @@ def drivers_editor_show(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Show drivers editor in a separate window
 
     :return: Result of the operator call.
@@ -185,7 +185,7 @@ def frame_jump(
     /,
     *,
     end: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Jump to first/last frame in frame range
 
     :param end: Last Frame, Jump to the last frame of the frame range (optional)
@@ -198,7 +198,7 @@ def frame_offset(
     /,
     *,
     delta: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move current frame forward/backward by a given number
 
     :param delta: Delta, (in [-inf, inf], optional)
@@ -209,7 +209,7 @@ def header_toggle_menus(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Expand or collapse the header pull-down menus
 
     :return: Result of the operator call.
@@ -219,7 +219,7 @@ def info_log_show(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Show info log in a separate window
 
     :return: Result of the operator call.
@@ -231,7 +231,7 @@ def keyframe_jump(
     /,
     *,
     next: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Jump to previous/next keyframe
 
     :param next: Next Keyframe, (optional)
@@ -244,7 +244,7 @@ def marker_jump(
     /,
     *,
     next: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Jump to previous/next marker
 
     :param next: Next Marker, (optional)
@@ -255,7 +255,7 @@ def new(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a new screen
 
     :return: Result of the operator call.
@@ -265,7 +265,7 @@ def quadview_size(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Resize Quad View areas
 
     :return: Result of the operator call.
@@ -275,7 +275,7 @@ def redo_last(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Display parameters for last action performed
 
     :return: Result of the operator call.
@@ -285,7 +285,7 @@ def region_blend(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Blend in and out overlapping region
 
     :return: Result of the operator call.
@@ -295,7 +295,7 @@ def region_context_menu(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Display region context menu
 
     :return: Result of the operator call.
@@ -305,7 +305,7 @@ def region_flip(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Toggle the regions alignment (left/right or top/bottom)
 
     :return: Result of the operator call.
@@ -315,7 +315,7 @@ def region_quadview(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Split selected area into camera, front, right, and top views
 
     :return: Result of the operator call.
@@ -325,7 +325,7 @@ def region_scale(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Scale selected area
 
     :return: Result of the operator call.
@@ -336,8 +336,9 @@ def region_toggle(
     undo: bool | None = None,
     /,
     *,
-    region_type: Literal[bpy.stub_internal.rna_enums.RegionTypeItems] | None = "WINDOW",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    region_type: typing.Literal[bpy.stub_internal.rna_enums.RegionTypeItems]
+    | None = "WINDOW",
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Hide or unhide the region
 
     :param region_type: Region Type, Type of the region to toggle (optional)
@@ -350,7 +351,7 @@ def repeat_history(
     /,
     *,
     index: int | None = 0,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Display menu for previous actions performed
 
     :param index: Index, (in [0, inf], optional)
@@ -361,7 +362,7 @@ def repeat_last(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Repeat last action
 
     :return: Result of the operator call.
@@ -373,7 +374,7 @@ def screen_full_area(
     /,
     *,
     use_hide_panels: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Toggle display selected area as fullscreen/maximized
 
     :param use_hide_panels: Hide Panels, Hide all the panels (Focus Mode) (optional)
@@ -386,7 +387,7 @@ def screen_set(
     /,
     *,
     delta: int | None = 1,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Cycle through available screens
 
     :param delta: Delta, (in [-1, 1], optional)
@@ -425,7 +426,7 @@ def screenshot(
     ]
     | None = "DEFAULT",
     sort_method: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Capture a picture of the whole Blender window
 
         :param filepath: File Path, Path to file (optional, never None)
@@ -499,7 +500,7 @@ def screenshot_area(
     ]
     | None = "DEFAULT",
     sort_method: str | None = "",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Capture a picture of an editor
 
         :param filepath: File Path, Path to file (optional, never None)
@@ -547,7 +548,7 @@ def space_context_cycle(
     /,
     *,
     direction: typing.Literal["PREV", "NEXT"] | None = "NEXT",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Cycle through the editor context by activating the next/previous one
 
     :param direction: Direction, Direction to cycle through (optional)
@@ -559,8 +560,9 @@ def space_type_set_or_cycle(
     undo: bool | None = None,
     /,
     *,
-    space_type: Literal[bpy.stub_internal.rna_enums.SpaceTypeItems] | None = "EMPTY",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    space_type: typing.Literal[bpy.stub_internal.rna_enums.SpaceTypeItems]
+    | None = "EMPTY",
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set the space type or cycle subtype
 
     :param space_type: Type, (optional)
@@ -571,7 +573,7 @@ def spacedata_cleanup(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove unused settings for invisible editors
 
     :return: Result of the operator call.
@@ -583,7 +585,7 @@ def time_jump(
     /,
     *,
     backward: bool | None = False,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Jump forward/backward by a given number of frames or seconds
 
     :param backward: Backwards, Jump backwards in time (optional)
@@ -595,9 +597,9 @@ def userpref_show(
     undo: bool | None = None,
     /,
     *,
-    section: Literal[bpy.stub_internal.rna_enums.PreferenceSectionItems]
+    section: typing.Literal[bpy.stub_internal.rna_enums.PreferenceSectionItems]
     | None = "INTERFACE",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Edit user preferences and system settings
 
     :param section: Section to activate in the Preferences (optional)
@@ -610,7 +612,7 @@ def workspace_cycle(
     /,
     *,
     direction: typing.Literal["PREV", "NEXT"] | None = "NEXT",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Cycle through workspaces
 
     :param direction: Direction, Direction to cycle through (optional)

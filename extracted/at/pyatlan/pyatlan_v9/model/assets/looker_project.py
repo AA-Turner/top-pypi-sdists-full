@@ -104,8 +104,6 @@ class LookerProject(Asset):
     INPUT_TO_SPARK_JOBS: ClassVar[Any] = None
     OUTPUT_FROM_SPARK_JOBS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "LookerProject"
-
     looker_slug: Union[str, None, UnsetType] = UNSET
     """An alpha-numeric slug for the underlying Looker asset that can be used to uniquely identify it"""
 
@@ -501,6 +499,9 @@ def _looker_project_to_nested(looker_project: LookerProject) -> LookerProjectNes
         is_incomplete=looker_project.is_incomplete,
         provenance_type=looker_project.provenance_type,
         home_id=looker_project.home_id,
+        depth=looker_project.depth,
+        immediate_upstream=looker_project.immediate_upstream,
+        immediate_downstream=looker_project.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -534,7 +535,6 @@ def _looker_project_from_nested(nested: LookerProjectNested) -> LookerProject:
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -543,6 +543,9 @@ def _looker_project_from_nested(nested: LookerProjectNested) -> LookerProject:
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_looker_project_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

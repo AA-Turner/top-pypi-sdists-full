@@ -71,6 +71,7 @@ class AgentRunner:
         self,
         agent: AgentConfig,
         runtime: Runtime,
+        display_name: str | None = None,
         workspace: Transport | None = None,
         workspaces: list[Transport] | None = None,
         agent_containers: list[str] | None = None,
@@ -78,6 +79,7 @@ class AgentRunner:
     ):
         self._agent = agent
         self._runtime = runtime
+        self._display_name = display_name
         self._workspace = workspace
         self._default_workspaces = workspaces or []
         self._prepare_hooks: list[Callable[[PreparedAgent], Awaitable[None]]] = []
@@ -138,15 +140,18 @@ class AgentRunner:
     async def run(
         self,
         instruction: str,
+        display_name: str | None = None,
     ) -> str:
         """Run the agent: prepare → hooks → execute (with optional continuation loop) → cleanup.
 
         Args:
             instruction: Task instruction for the agent.
+            display_name: Optional per-run override for the agent display name.
 
         Returns the agent_id (container name or VM job ID).
         """
         ws = self._workspace
+        current_display_name = display_name or self._display_name
 
         # Set workspaces on VM runtime
         if isinstance(self._runtime, PlatoVMRuntime):
@@ -161,6 +166,7 @@ class AgentRunner:
             image=self._agent.image,
             config=self._agent.config,
             instruction="",
+            display_name=current_display_name,
             workspace=workspace_path,
             runtime=runtime_dict,
             agent_code_path=self._agent_code_path,
@@ -187,6 +193,7 @@ class AgentRunner:
                     image=self._agent.image,
                     config=agent_config,
                     instruction=current_instruction,
+                    display_name=current_display_name,
                     workspace=workspace_path,
                     runtime=runtime_dict,
                     agent_code_path=self._agent_code_path,
@@ -236,6 +243,7 @@ class AgentRunner:
 async def run_agent(
     agent: AgentConfig,
     instruction: str,
+    display_name: str | None = None,
     workspace: str | None = None,
     session: Session | None = None,
     ssh_key_path: Path | None = None,
@@ -258,6 +266,7 @@ async def run_agent(
         image=agent.image,
         config=agent.config,
         instruction=instruction,
+        display_name=display_name,
         workspace=workspace,
         agent_code_path=local_agent_path,
     )

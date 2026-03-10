@@ -5,8 +5,8 @@
 #                      \___/_/\_\ .__/ \__,_|\__|
 #                               |_| XML parser
 #
-# Copyright (c) 2025 Sebastian Pipping <sebastian@pipping.org>
-# Copyright (c) 2025 Daniel Engberg <daniel.engberg.lists@pyret.net>
+# Copyright (c) 2025-2026 Sebastian Pipping <sebastian@pipping.org>
+# Copyright (c) 2025      Daniel Engberg <daniel.engberg.lists@pyret.net>
 # Licensed under the MIT license:
 #
 # Permission is  hereby granted,  free of charge,  to any  person obtaining
@@ -45,24 +45,26 @@ jobs:
     name: Build in a FreeBSD VM
     runs-on: ubuntu-24.04
     steps:
-    - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6.0.1
+    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
 
-    - uses: vmactions/freebsd-vm@9832a7f21715c1303a1b9e7c00f96508266b4e09  # v1.3.6
+    - uses: vmactions/freebsd-vm@c9f815bc7aa0d34c9fdd0619b034a32d6ca7b57e  # v1.4.2
       with:
         release: "15.0"
         usesh: true
 
         prepare: |
-          set -e -x
+          set -e -u -x
           pkg install -y \
               autoconf \
               automake \
               bash \
               cmake-core \
-              libtool
+              libtool \
+              python3 \
+              wget
 
         run: |
-          set -e -x
+          set -e -u -x
 
           compile_flags='-Wall -Wextra -pedantic -O1 -pipe'
           export CFLAGS="-std=c99 ${compile_flags}"
@@ -79,7 +81,8 @@ jobs:
           cd build_autotools
             ../configure
             make -j2 CFLAGS="${CFLAGS} -Werror"
-            make check CFLAGS="${CFLAGS} -Werror" CXXFLAGS="${CXXLAGS} -Werror"
+            make check CFLAGS="${CFLAGS} -Werror" CXXFLAGS="${CXXFLAGS} -Werror"
+            make run-xmltest
             make install DESTDIR="${PWD}/ROOT/"
             find ROOT/
           cd ..
@@ -90,6 +93,7 @@ jobs:
             cmake -S .. -B . -DEXPAT_WARNINGS_AS_ERRORS:BOOL=ON
             make -j2 VERBOSE=1
             make test VERBOSE=1
+            make run-xmltest VERBOSE=1
             make install DESTDIR="${PWD}/ROOT/"
             find ROOT/
           cd ..

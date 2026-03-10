@@ -24,7 +24,7 @@ def annotate(
     stabilizer_radius: int | None = 35,
     stroke=None,
     wait_for_input: bool | None = True,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Make annotations on the active data
 
         :param mode: Mode, Way to interpret mouse movements (optional)
@@ -84,7 +84,7 @@ def annotation_active_frame_delete(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Delete the active frame for the active Annotation Layer
 
     :return: Result of the operator call.
@@ -94,7 +94,7 @@ def annotation_add(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add new Annotation data-block
 
     :return: Result of the operator call.
@@ -104,7 +104,7 @@ def data_unlink(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Unlink active Annotation data-block
 
     :return: Result of the operator call.
@@ -114,7 +114,7 @@ def layer_annotation_add(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add new Annotation layer or note for the active data-block
 
     :return: Result of the operator call.
@@ -126,7 +126,7 @@ def layer_annotation_move(
     /,
     *,
     type: typing.Literal["UP", "DOWN"] | None = "UP",
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move the active Annotation layer up/down in the list
 
     :param type: Type, (optional)
@@ -137,7 +137,7 @@ def layer_annotation_remove(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove active Annotation layer
 
     :return: Result of the operator call.

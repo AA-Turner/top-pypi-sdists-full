@@ -118,8 +118,6 @@ class SageMakerUnifiedStudioSubscribedAsset(Asset):
     INPUT_TO_SPARK_JOBS: ClassVar[Any] = None
     OUTPUT_FROM_SPARK_JOBS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "SageMakerUnifiedStudioSubscribedAsset"
-
     smus_subscribed_asset_project_name: Union[str, None, UnsetType] = UNSET
     """Name of the SageMaker Unified Studio project from which this asset is subscribed."""
 
@@ -693,6 +691,9 @@ def _sage_maker_unified_studio_subscribed_asset_to_nested(
         is_incomplete=sage_maker_unified_studio_subscribed_asset.is_incomplete,
         provenance_type=sage_maker_unified_studio_subscribed_asset.provenance_type,
         home_id=sage_maker_unified_studio_subscribed_asset.home_id,
+        depth=sage_maker_unified_studio_subscribed_asset.depth,
+        immediate_upstream=sage_maker_unified_studio_subscribed_asset.immediate_upstream,
+        immediate_downstream=sage_maker_unified_studio_subscribed_asset.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -728,7 +729,6 @@ def _sage_maker_unified_studio_subscribed_asset_from_nested(
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -737,6 +737,9 @@ def _sage_maker_unified_studio_subscribed_asset_from_nested(
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_sage_maker_unified_studio_subscribed_asset_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

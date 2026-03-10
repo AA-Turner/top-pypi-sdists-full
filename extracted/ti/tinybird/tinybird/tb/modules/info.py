@@ -1,4 +1,5 @@
 import os
+import re
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import click
@@ -29,12 +30,29 @@ def info(ctx: click.Context, skip_local: bool) -> None:
     click.echo(FeedbackManager.highlight(message="» Tinybird Cloud:"))
     cloud_table, cloud_columns = get_cloud_info(ctx_config)
 
+    local_error: Optional[str] = None
     if not skip_local:
         click.echo(FeedbackManager.highlight(message="\n» Tinybird Local:"))
-        local_table, local_columns = get_local_info(ctx_config)
+        try:
+            local_table, local_columns = get_local_info(ctx_config, silent=True)
+        except CLILocalException as e:
+            local_table, local_columns = [], []
+            local_error = _clean_error_message(str(e))
+            click.echo(FeedbackManager.error(message=f"Error: {local_error}"))
 
     click.echo(FeedbackManager.highlight(message="\n» Project:"))
     project_table, project_columns = get_project_info(project.folder)
+
+    branches_summary = get_branches_summary(ctx_config)
+
+    if output == "human":
+        click.echo(FeedbackManager.highlight(message="\n» Branches:"))
+        click.echo(f"Current branch: {branches_summary['current']}")
+        click.echo(f"Branch count: {branches_summary['count']}")
+        if branches_summary["table"]:
+            click.echo(format_robust_table(branches_summary["table"], column_names=branches_summary["columns"]))
+        elif branches_summary.get("error"):
+            click.echo(FeedbackManager.warning(message=branches_summary["error"]))
 
     if output == "json":
         response: dict[str, Any] = {}
@@ -46,6 +64,8 @@ def info(ctx: click.Context, skip_local: bool) -> None:
 
         if not skip_local:
             local_data = {}
+            if local_error:
+                local_data["error"] = local_error
             if local_columns and local_table and isinstance(local_table, list) and len(local_table) > 0:
                 local_data = {column: local_table[0][i] for i, column in enumerate(local_columns)}
             response["local"] = local_data
@@ -55,12 +75,11 @@ def info(ctx: click.Context, skip_local: bool) -> None:
             project_data = {column: project_table[0][i] for i, column in enumerate(project_columns)}
         response["project"] = project_data
 
-        branches = get_branches(ctx_config)
-        if branches:
-            branch_data: dict[str, dict[str, str]] = {}
-            for branch in branches:
-                branch_data[branch["name"]] = get_branch_info(branch)
-            response["branches"] = branch_data
+        response["branches"] = {
+            "current": branches_summary["current"],
+            "count": branches_summary["count"],
+            "items": branches_summary["items"],
+        }
 
         echo_json(response)
 
@@ -86,23 +105,16 @@ def get_cloud_info(ctx_config: Dict[str, Any]) -> Tuple[Iterable[Any], List[str]
         return [], []
 
 
-def get_branch_info(branch: Dict[str, Any]) -> Dict[str, Any]:
+def _clean_error_message(error: str) -> str:
+    ansi_clean = re.sub(r"\x1b\[[0-9;]*m", "", error).strip()
+    if ansi_clean.startswith("Error: "):
+        return ansi_clean[len("Error: ") :]
+    return ansi_clean
+
+
+def get_local_info(config: Dict[str, Any], silent: bool = False) -> Tuple[Iterable[Any], List[str]]:
     try:
-        token = branch.get("token") or "No token found"
-
-        return {
-            "token": token,
-        }
-
-    except Exception:
-        return {
-            "token": "No token found",
-        }
-
-
-def get_local_info(config: Dict[str, Any]) -> Tuple[Iterable[Any], List[str]]:
-    try:
-        local_config = get_tinybird_local_config(config, test=False, silent=False)
+        local_config = get_tinybird_local_config(config, test=False, silent=silent)
         local_client = local_config.get_client(host=TB_LOCAL_ADDRESS, staging=False)
         user_email = local_config.get_user_email() or "No user email found"
         token = local_config.get_token() or "No token found"
@@ -204,11 +216,74 @@ def get_project_info(project_path: Optional[str] = None) -> Tuple[Iterable[Any],
     return table, columns
 
 
-def get_branches(ctx_config: Dict[str, Any]) -> List[Dict[str, Any]]:
+def get_branches_summary(ctx_config: Dict[str, Any]) -> Dict[str, Any]:
+    columns = ["name", "current", "token", "ui"]
+
     try:
         config = CLIConfig.get_project_config()
         client = config.get_client()
-        response = client.branches()
-        return response["environments"]
+        api_host = config.get("host") or ""
+        ui_host = get_display_cloud_host(api_host) if api_host else ""
+
+        workspaces_response = client.user_workspaces_and_branches(version="v1")
+        workspaces = workspaces_response.get("workspaces", [])
+
+        current_workspace = next((ws for ws in workspaces if ws.get("id") == ctx_config.get("id")), None)
+        if not current_workspace:
+            current_workspace = next((ws for ws in workspaces if ws.get("current")), None)
+        if not current_workspace:
+            current_workspace = client.workspace_info(version="v1")
+
+        main_workspace_name = current_workspace.get("name", "No workspace")
+        if current_workspace.get("is_branch"):
+            main_workspace_id = current_workspace.get("main")
+            main_workspace = next((ws for ws in workspaces if ws.get("id") == main_workspace_id), None)
+            if main_workspace and main_workspace.get("name"):
+                main_workspace_name = main_workspace["name"]
+
+        branches = client.branches().get("environments", [])
+
+        current_branch = "main"
+        if current_workspace.get("is_branch"):
+            current_branch = current_workspace.get("name", "main")
+
+        items = []
+        for branch in branches:
+            branch_name = branch.get("name") or "No branch name"
+            branch_token = branch.get("token") or "No token found"
+            branch_current = current_workspace.get("id") == branch.get("id")
+            branch_ui = (
+                f"{ui_host}/{main_workspace_name}~{branch_name}"
+                if ui_host and main_workspace_name and branch_name != "No branch name"
+                else "No UI URL found"
+            )
+
+            items.append(
+                {
+                    "name": branch_name,
+                    "current": branch_current,
+                    "token": branch_token,
+                    "ui": branch_ui,
+                }
+            )
+
+        items.sort(key=lambda branch: (not branch["current"], branch["name"]))
+        table = [(branch["name"], branch["current"], branch["token"], branch["ui"]) for branch in items]
+
+        return {
+            "current": current_branch,
+            "count": len(items),
+            "items": items,
+            "table": table,
+            "columns": columns,
+            "error": None,
+        }
     except Exception:
-        return []
+        return {
+            "current": "main",
+            "count": 0,
+            "items": [],
+            "table": [],
+            "columns": columns,
+            "error": "Could not retrieve branch info.",
+        }

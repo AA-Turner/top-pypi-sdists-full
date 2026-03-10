@@ -12,7 +12,7 @@ def GTEx_get_top_expressed_genes(
     operation: str,
     tissue_site_detail_id: str,
     filter_mt_genes: Optional[bool] = True,
-    dataset_id: Optional[str] = "gtex_v10",
+    dataset_id: Optional[str] = "gtex_v8",
     page: Optional[int] = 0,
     items_per_page: Optional[int] = 250,
     *,

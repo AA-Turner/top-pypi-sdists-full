@@ -147,9 +147,9 @@ class MenuHandler:
         selDownloadOption = OutputControls().takeUserInput(colorText.FAIL + "  [+] Select option: ") or "D"
         OutputControls().printOutput(colorText.END, end="")
         
-        if selDownloadOption.upper() == "D":
+        if str(selDownloadOption).upper() == "D":
             OutputControls().printOutput(f"{colorText.GREEN}Launching PKScreener to Download daily OHLC data. If it does not launch, please try with the following:{colorText.END}\n{colorText.FAIL}{launcher} -a Y -e -d{colorText.END}\n{colorText.WARN}Press Ctrl + C to exit at any time.{colorText.END}")
-            PKAnalyticsService().send_event(f"{menuOption}_{selDownloadOption.upper()}")
+            PKAnalyticsService().send_event(f"{menuOption}_{str(selDownloadOption).upper()}")
             time.sleep(2)
             os.system(f"{launcher} -a Y -e -d")
             return None, None
@@ -356,7 +356,7 @@ class StrategyHandler:
             except Exception as e:
                 default_logger().debug(e, exc_info=True)
         
-        userOption = userOption.upper()
+        userOption = str(userOption).upper()
         
         if userOption == "M":
             ConsoleUtility.PKConsoleTools.clearScreen(forceTop=True)

@@ -11,22 +11,9 @@ use crate::simulation::md::{
 };
 
 use super::helpers::{
-    array_to_mat3, default_pbc, mat3_to_array, positions_to_vec3, validate_positive_f64,
-    vec3_to_positions,
+    PositiveTemperatureInput, PositiveTimeInput, PressureInput, TemperatureInput, array_to_mat3,
+    default_pbc, mat3_to_array, positions_to_vec3, validate_positive_f64, vec3_to_positions,
 };
-
-// === Validation Helpers ===
-
-/// Validate temperature is finite and non-negative.
-#[inline]
-fn validate_temperature(temp: f64) -> PyResult<()> {
-    if !temp.is_finite() || temp < 0.0 {
-        return Err(PyValueError::new_err(format!(
-            "temperature must be finite and non-negative, got {temp}"
-        )));
-    }
-    Ok(())
-}
 
 /// Validate degrees of freedom is positive.
 #[inline]
@@ -171,13 +158,16 @@ impl PyMDState {
 
     /// Initialize velocities from Maxwell-Boltzmann distribution.
     #[pyo3(signature = (temperature_k, seed = None))]
-    fn init_velocities(&mut self, temperature_k: f64, seed: Option<u64>) -> PyResult<()> {
-        validate_temperature(temperature_k)?;
-        self.inner.init_velocities(temperature_k, seed);
+    fn init_velocities(
+        &mut self,
+        temperature_k: TemperatureInput,
+        seed: Option<u64>,
+    ) -> PyResult<()> {
+        self.inner.init_velocities(temperature_k.0, seed);
         Ok(())
     }
 
-    /// Get kinetic energy in eV.
+    /// Compute kinetic energy in eV.
     fn kinetic_energy(&self) -> f64 {
         self.inner.kinetic_energy()
     }
@@ -257,12 +247,15 @@ impl PyLangevinIntegrator {
     ///     seed: Optional random seed for reproducibility
     #[new]
     #[pyo3(signature = (temperature_k, friction, dt, seed = None))]
-    fn new(temperature_k: f64, friction: f64, dt: f64, seed: Option<u64>) -> PyResult<Self> {
-        validate_temperature(temperature_k)?;
+    fn new(
+        temperature_k: TemperatureInput,
+        friction: f64,
+        dt: PositiveTimeInput,
+        seed: Option<u64>,
+    ) -> PyResult<Self> {
         validate_positive_f64(friction, "friction")?;
-        validate_positive_f64(dt, "timestep dt")?;
         Ok(Self {
-            inner: LangevinIntegrator::new(temperature_k, friction, dt, seed),
+            inner: LangevinIntegrator::new(temperature_k.0, friction, dt.0, seed),
         })
     }
 
@@ -288,10 +281,8 @@ impl PyLangevinIntegrator {
     }
 
     /// Set target temperature.
-    fn set_temperature(&mut self, temperature_k: f64) -> PyResult<()> {
-        validate_temperature(temperature_k)?;
-        self.inner.set_temperature(temperature_k);
-        Ok(())
+    fn set_temperature(&mut self, temperature_k: TemperatureInput) {
+        self.inner.set_temperature(temperature_k.0);
     }
 
     /// Set friction coefficient.
@@ -302,10 +293,8 @@ impl PyLangevinIntegrator {
     }
 
     /// Set time step.
-    fn set_dt(&mut self, dt: f64) -> PyResult<()> {
-        validate_positive_f64(dt, "timestep dt")?;
-        self.inner.set_dt(dt);
-        Ok(())
+    fn set_dt(&mut self, dt: PositiveTimeInput) {
+        self.inner.set_dt(dt.0);
     }
 }
 
@@ -364,10 +353,8 @@ fn langevin_step_with_forces(
 ///     dt: Time step in fs (must be positive)
 #[gen_stub_pyfunction(module = "ferrox._ferrox.md")]
 #[pyfunction]
-fn velocity_verlet_step_init(state: &mut PyMDState, dt: f64) -> PyResult<()> {
-    validate_positive_f64(dt, "timestep dt")?;
-    state.inner = md::velocity_verlet_init(std::mem::take(&mut state.inner), dt);
-    Ok(())
+fn velocity_verlet_step_init(state: &mut PyMDState, dt: PositiveTimeInput) {
+    state.inner = md::velocity_verlet_init(std::mem::take(&mut state.inner), dt.0);
 }
 
 /// Complete velocity Verlet step with new forces.
@@ -383,13 +370,12 @@ fn velocity_verlet_step_init(state: &mut PyMDState, dt: f64) -> PyResult<()> {
 #[pyo3(name = "velocity_verlet_step_finalize")]
 fn velocity_verlet_finalize(
     state: &mut PyMDState,
-    dt: f64,
+    dt: PositiveTimeInput,
     new_forces: Vec<[f64; 3]>,
 ) -> PyResult<()> {
-    validate_positive_f64(dt, "timestep dt")?;
     validate_force_count(new_forces.len(), state.inner.num_atoms(), "new_forces")?;
     let force_vec = positions_to_vec3(&new_forces);
-    state.inner = md::velocity_verlet_finalize(std::mem::take(&mut state.inner), dt, &force_vec);
+    state.inner = md::velocity_verlet_finalize(std::mem::take(&mut state.inner), dt.0, &force_vec);
     Ok(())
 }
 
@@ -408,12 +394,11 @@ fn velocity_verlet_finalize(
 #[pyfunction]
 fn velocity_verlet_step(
     state: &mut PyMDState,
-    dt: f64,
+    dt: PositiveTimeInput,
     compute_forces: Py<PyAny>,
     py: Python<'_>,
 ) -> PyResult<()> {
-    validate_positive_f64(dt, "timestep dt")?;
-    match md::try_velocity_verlet_step(std::mem::take(&mut state.inner), dt, |positions| {
+    match md::try_velocity_verlet_step(std::mem::take(&mut state.inner), dt.0, |positions| {
         let n_atoms = positions.len();
         let pos_arr = vec3_to_positions(positions);
         let result = compute_forces.call1(py, (pos_arr,))?;
@@ -450,13 +435,15 @@ impl PyNoseHooverChain {
     ///     dt: Time step in fs (must be positive)
     ///     n_dof: Number of degrees of freedom (must be positive)
     #[new]
-    fn new(target_temp: f64, tau: f64, dt: f64, n_dof: usize) -> PyResult<Self> {
-        validate_positive_f64(target_temp, "target_temp")?;
-        validate_positive_f64(tau, "coupling time constant tau")?;
-        validate_positive_f64(dt, "timestep dt")?;
+    fn new(
+        target_temp: PositiveTemperatureInput,
+        tau: PositiveTimeInput,
+        dt: PositiveTimeInput,
+        n_dof: usize,
+    ) -> PyResult<Self> {
         validate_n_dof(n_dof)?;
         Ok(Self {
-            inner: NoseHooverChain::new(target_temp, tau, dt, n_dof),
+            inner: NoseHooverChain::new(target_temp.0, tau.0, dt.0, n_dof),
         })
     }
 
@@ -472,10 +459,8 @@ impl PyNoseHooverChain {
     }
 
     /// Set target temperature.
-    fn set_temperature(&mut self, target_temp: f64) -> PyResult<()> {
-        validate_positive_f64(target_temp, "target_temp")?;
-        self.inner.set_temperature(target_temp);
-        Ok(())
+    fn set_temperature(&mut self, target_temp: PositiveTemperatureInput) {
+        self.inner.set_temperature(target_temp.0);
     }
 
     /// First half of Nosé-Hoover step. Call step_finalize after computing new forces.
@@ -528,13 +513,16 @@ impl PyVelocityRescale {
     ///     seed: Optional random seed for reproducibility
     #[new]
     #[pyo3(signature = (target_temp, tau, dt, n_dof, seed = None))]
-    fn new(target_temp: f64, tau: f64, dt: f64, n_dof: usize, seed: Option<u64>) -> PyResult<Self> {
-        validate_positive_f64(target_temp, "target_temp")?;
-        validate_positive_f64(tau, "coupling time constant tau")?;
-        validate_positive_f64(dt, "timestep dt")?;
+    fn new(
+        target_temp: PositiveTemperatureInput,
+        tau: PositiveTimeInput,
+        dt: PositiveTimeInput,
+        n_dof: usize,
+        seed: Option<u64>,
+    ) -> PyResult<Self> {
         validate_n_dof(n_dof)?;
         Ok(Self {
-            inner: VelocityRescale::new(target_temp, tau, dt, n_dof, seed),
+            inner: VelocityRescale::new(target_temp.0, tau.0, dt.0, n_dof, seed),
         })
     }
 
@@ -550,10 +538,8 @@ impl PyVelocityRescale {
     }
 
     /// Set target temperature.
-    fn set_temperature(&mut self, target_temp: f64) -> PyResult<()> {
-        validate_positive_f64(target_temp, "target_temp")?;
-        self.inner.set_temperature(target_temp);
-        Ok(())
+    fn set_temperature(&mut self, target_temp: PositiveTemperatureInput) {
+        self.inner.set_temperature(target_temp.0);
     }
 
     /// First half of velocity rescale step (position update). Call step_finalize after computing new forces.
@@ -719,30 +705,21 @@ impl PyNPTIntegrator {
     ///     total_mass: Total system mass in amu (must be positive)
     #[new]
     fn new(
-        temperature: f64,
-        pressure: f64,
-        tau_t: f64,
-        tau_p: f64,
-        dt: f64,
+        temperature: PositiveTemperatureInput,
+        pressure: PressureInput,
+        tau_t: PositiveTimeInput,
+        tau_p: PositiveTimeInput,
+        dt: PositiveTimeInput,
         n_atoms: usize,
         total_mass: f64,
     ) -> PyResult<Self> {
-        validate_positive_f64(temperature, "temperature")?;
-        if !pressure.is_finite() {
-            return Err(PyValueError::new_err(format!(
-                "pressure must be finite, got {pressure}"
-            )));
-        }
-        validate_positive_f64(tau_t, "thermostat time constant tau_t")?;
-        validate_positive_f64(tau_p, "barostat time constant tau_p")?;
-        validate_positive_f64(dt, "timestep dt")?;
         validate_positive_f64(total_mass, "total_mass")?;
         if n_atoms < 2 {
             return Err(PyValueError::new_err(
                 "NPTIntegrator requires n_atoms >= 2 for meaningful NPT dynamics",
             ));
         }
-        let config = NPTConfig::new(temperature, pressure, tau_t, tau_p, dt);
+        let config = NPTConfig::new(temperature.0, pressure.0, tau_t.0, tau_p.0, dt.0);
         Ok(Self {
             inner: NPTIntegrator::new(config, n_atoms, total_mass),
         })

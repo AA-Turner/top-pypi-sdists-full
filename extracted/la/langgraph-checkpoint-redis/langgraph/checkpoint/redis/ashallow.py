@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import os
 import time
 from contextlib import asynccontextmanager
 from datetime import datetime
@@ -26,10 +25,10 @@ from redis.asyncio import Redis as AsyncRedis
 from redisvl.index import AsyncSearchIndex
 from redisvl.query import FilterQuery
 from redisvl.query.filter import Num, Tag
+from redisvl.redis.connection import RedisConnectionFactory
 from ulid import ULID
 
 from langgraph.checkpoint.redis.base import (
-    CHECKPOINT_BLOB_PREFIX,
     CHECKPOINT_PREFIX,
     CHECKPOINT_WRITE_PREFIX,
     REDIS_KEY_SEPARATOR,
@@ -45,11 +44,14 @@ MILLISECONDS_PER_SECOND = 1000
 
 
 class AsyncShallowRedisSaver(BaseRedisSaver[AsyncRedis, AsyncSearchIndex]):
-    """Async Redis implementation that only stores the most recent checkpoint."""
+    """Async Redis implementation that only stores the most recent checkpoint.
+
+    Supports standard Redis URLs (redis://), SSL (rediss://), and
+    Sentinel URLs (redis+sentinel://host:26379/service_name/db).
+    """
 
     _redis_url: str
     checkpoints_index: AsyncSearchIndex
-    checkpoint_blobs_index: AsyncSearchIndex
     checkpoint_writes_index: AsyncSearchIndex
 
     _redis: AsyncRedis  # Override the type from the base class
@@ -62,7 +64,6 @@ class AsyncShallowRedisSaver(BaseRedisSaver[AsyncRedis, AsyncSearchIndex]):
         connection_args: Optional[dict[str, Any]] = None,
         ttl: Optional[dict[str, Any]] = None,
         checkpoint_prefix: str = CHECKPOINT_PREFIX,
-        checkpoint_blob_prefix: str = CHECKPOINT_BLOB_PREFIX,
         checkpoint_write_prefix: str = CHECKPOINT_WRITE_PREFIX,
     ) -> None:
         super().__init__(
@@ -71,7 +72,6 @@ class AsyncShallowRedisSaver(BaseRedisSaver[AsyncRedis, AsyncSearchIndex]):
             connection_args=connection_args,
             ttl=ttl,
             checkpoint_prefix=checkpoint_prefix,
-            checkpoint_blob_prefix=checkpoint_blob_prefix,
             checkpoint_write_prefix=checkpoint_write_prefix,
         )
         self.loop = asyncio.get_running_loop()
@@ -109,7 +109,6 @@ class AsyncShallowRedisSaver(BaseRedisSaver[AsyncRedis, AsyncSearchIndex]):
             # Prevent RedisVL from attempting to close the client
             # on an event loop in a separate thread.
             self.checkpoints_index._redis_client = None
-            self.checkpoint_blobs_index._redis_client = None
             self.checkpoint_writes_index._redis_client = None
 
     @classmethod
@@ -122,7 +121,6 @@ class AsyncShallowRedisSaver(BaseRedisSaver[AsyncRedis, AsyncSearchIndex]):
         connection_args: Optional[dict[str, Any]] = None,
         ttl: Optional[dict[str, Any]] = None,
         checkpoint_prefix: str = CHECKPOINT_PREFIX,
-        checkpoint_blob_prefix: str = CHECKPOINT_BLOB_PREFIX,
         checkpoint_write_prefix: str = CHECKPOINT_WRITE_PREFIX,
     ) -> AsyncIterator[AsyncShallowRedisSaver]:
         """Create a new AsyncShallowRedisSaver instance."""
@@ -132,16 +130,13 @@ class AsyncShallowRedisSaver(BaseRedisSaver[AsyncRedis, AsyncSearchIndex]):
             connection_args=connection_args,
             ttl=ttl,
             checkpoint_prefix=checkpoint_prefix,
-            checkpoint_blob_prefix=checkpoint_blob_prefix,
             checkpoint_write_prefix=checkpoint_write_prefix,
         ) as saver:
             yield saver
 
     async def asetup(self) -> None:
-        """Initialize Redis indexes asynchronously (skip blob index for shallow implementation)."""
-        # Create only the indexes we actually use
+        """Initialize Redis indexes asynchronously."""
         await self.checkpoints_index.create(overwrite=False)
-        # Skip creating blob index since shallow doesn't use separate blobs
         await self.checkpoint_writes_index.create(overwrite=False)
 
     async def setup(self) -> None:  # type: ignore[override]
@@ -683,15 +678,17 @@ class AsyncShallowRedisSaver(BaseRedisSaver[AsyncRedis, AsyncSearchIndex]):
         redis_client: Optional[AsyncRedis] = None,
         connection_args: Optional[dict[str, Any]] = None,
     ) -> None:
-        """Configure the Redis client."""
+        """Configure the Redis client.
+
+        Supports standard Redis URLs (redis://), SSL (rediss://), and
+        Sentinel URLs (redis+sentinel://host:26379/service_name/db).
+        """
         self._owns_its_client = redis_client is None
 
         if redis_client is None:
-            if not redis_url:
-                redis_url = os.environ.get("REDIS_URL")
-                if not redis_url:
-                    raise ValueError("REDIS_URL env var not set")
-            self._redis = AsyncRedis.from_url(redis_url, **(connection_args or {}))
+            self._redis = RedisConnectionFactory.get_async_redis_connection(
+                redis_url, **(connection_args or {})
+            )
         else:
             self._redis = redis_client
 
@@ -699,10 +696,6 @@ class AsyncShallowRedisSaver(BaseRedisSaver[AsyncRedis, AsyncSearchIndex]):
         """Create indexes without connecting to Redis."""
         self.checkpoints_index = AsyncSearchIndex.from_dict(
             self.checkpoints_schema, redis_client=self._redis
-        )
-        # Shallow implementation doesn't use blobs, but base class requires the attribute
-        self.checkpoint_blobs_index = AsyncSearchIndex.from_dict(
-            self.blobs_schema, redis_client=self._redis
         )
         self.checkpoint_writes_index = AsyncSearchIndex.from_dict(
             self.writes_schema, redis_client=self._redis
@@ -822,36 +815,6 @@ class AsyncShallowRedisSaver(BaseRedisSaver[AsyncRedis, AsyncSearchIndex]):
             + ":*"
         )
 
-    @staticmethod
-    def _make_shallow_redis_checkpoint_blob_key_pattern(
-        thread_id: str, checkpoint_ns: str
-    ) -> str:
-        """Create a pattern to match all blob keys for a thread and namespace."""
-        return (
-            REDIS_KEY_SEPARATOR.join(
-                [
-                    CHECKPOINT_BLOB_PREFIX,
-                    str(to_storage_safe_id(thread_id)),
-                    to_storage_safe_str(checkpoint_ns),
-                ]
-            )
-            + ":*"
-        )
-
-    def _make_shallow_redis_checkpoint_blob_key_cached(
-        self, thread_id: str, checkpoint_ns: str, channel: str, version: str
-    ) -> str:
-        """Create a cached key for checkpoint blobs."""
-        cache_key = f"shallow_blob:{thread_id}:{checkpoint_ns}:{channel}:{version}"
-        if cache_key not in self._key_cache:
-            if len(self._key_cache) >= self._key_cache_max_size:
-                # Remove oldest entry when cache is full
-                self._key_cache.pop(next(iter(self._key_cache)))
-            self._key_cache[cache_key] = self._make_redis_checkpoint_blob_key(
-                thread_id, checkpoint_ns, channel, version
-            )
-        return self._key_cache[cache_key]
-
     def _extract_fallback_timestamp(self, checkpoint: Checkpoint) -> float:
         """Extract timestamp from checkpoint's ts field or use current time.
 
@@ -939,3 +902,43 @@ class AsyncShallowRedisSaver(BaseRedisSaver[AsyncRedis, AsyncSearchIndex]):
         for key in keys_to_delete:
             pipeline.delete(key)
         await pipeline.execute()
+
+    async def aprune(
+        self,
+        thread_ids: Sequence[str],
+        *,
+        strategy: str = "keep_latest",
+        keep_last: Optional[int] = None,
+    ) -> None:
+        """Prune checkpoints for the given threads.
+
+        ``AsyncShallowRedisSaver`` stores at most one checkpoint per namespace
+        by design, so ``strategy="keep_latest"`` (or ``keep_last >= 1``) is
+        always a no-op.  ``strategy="delete"`` (or ``keep_last=0``) removes
+        all checkpoints for each thread (equivalent to ``adelete_thread``).
+
+        Args:
+            thread_ids: Thread IDs to prune.
+            strategy: Pruning strategy.  ``"keep_latest"`` is a no-op for
+                shallow savers (default).  ``"delete"`` removes all.
+            keep_last: Optional override.  Any value >= 1 is a no-op.
+                Pass ``0`` to delete all.
+        """
+        # Resolve keep_last from strategy if not explicitly provided
+        if keep_last is None:
+            if strategy == "delete":
+                keep_last = 0
+            else:
+                keep_last = 1
+
+        # Validate input
+        if not thread_ids:
+            raise ValueError("``thread_ids`` must be a non-empty sequence")
+
+        if keep_last < 0:
+            raise ValueError(f"``keep_last`` must be >= 0, got {keep_last}")
+
+        if keep_last >= 1:
+            return
+        for thread_id in thread_ids:
+            await self.adelete_thread(thread_id)

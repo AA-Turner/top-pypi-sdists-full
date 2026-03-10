@@ -93,8 +93,6 @@ class TableauSite(Asset):
     OUTPUT_FROM_SPARK_JOBS: ClassVar[Any] = None
     PROJECTS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "TableauSite"
-
     tableau_project_hierarchy_qualified_names: Union[List[str], None, UnsetType] = UNSET
     """Array of qualified names representing the project hierarchy for this Tableau asset."""
 
@@ -457,6 +455,9 @@ def _tableau_site_to_nested(tableau_site: TableauSite) -> TableauSiteNested:
         is_incomplete=tableau_site.is_incomplete,
         provenance_type=tableau_site.provenance_type,
         home_id=tableau_site.home_id,
+        depth=tableau_site.depth,
+        immediate_upstream=tableau_site.immediate_upstream,
+        immediate_downstream=tableau_site.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -488,7 +489,6 @@ def _tableau_site_from_nested(nested: TableauSiteNested) -> TableauSite:
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -497,6 +497,9 @@ def _tableau_site_from_nested(nested: TableauSiteNested) -> TableauSite:
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_tableau_site_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

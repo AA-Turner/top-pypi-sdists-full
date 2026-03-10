@@ -102,22 +102,6 @@ class TestResourceListModel(unittest.TestCase):
                             last_check_in_time = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                             capabilities = arthur_client.api_bindings.models.data_plane_capabilities.DataPlaneCapabilities(
                                 gen_ai_enabled = True, ), ), 
-                        tools = [
-                            arthur_client.api_bindings.models.tool_response.ToolResponse(
-                                id = '', 
-                                name = '', 
-                                arguments = [
-                                    arthur_client.api_bindings.models.tool_argument_response.ToolArgumentResponse(
-                                        id = '', 
-                                        name = '', 
-                                        type = '', )
-                                    ], )
-                            ], 
-                        sub_agents = [
-                            arthur_client.api_bindings.models.sub_agent_response.SubAgentResponse(
-                                id = '', 
-                                name = '', )
-                            ], 
                         agent_id = '', )
                     ],
                 pagination = arthur_client.api_bindings.models.pagination.Pagination(
@@ -195,22 +179,6 @@ class TestResourceListModel(unittest.TestCase):
                             last_check_in_time = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                             capabilities = arthur_client.api_bindings.models.data_plane_capabilities.DataPlaneCapabilities(
                                 gen_ai_enabled = True, ), ), 
-                        tools = [
-                            arthur_client.api_bindings.models.tool_response.ToolResponse(
-                                id = '', 
-                                name = '', 
-                                arguments = [
-                                    arthur_client.api_bindings.models.tool_argument_response.ToolArgumentResponse(
-                                        id = '', 
-                                        name = '', 
-                                        type = '', )
-                                    ], )
-                            ], 
-                        sub_agents = [
-                            arthur_client.api_bindings.models.sub_agent_response.SubAgentResponse(
-                                id = '', 
-                                name = '', )
-                            ], 
                         agent_id = '', )
                     ],
                 pagination = arthur_client.api_bindings.models.pagination.Pagination(

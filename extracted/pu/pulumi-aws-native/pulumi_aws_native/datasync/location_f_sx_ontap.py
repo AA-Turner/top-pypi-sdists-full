@@ -31,6 +31,7 @@ class LocationFSxOntapArgs:
                  tags: Optional[pulumi.Input[Sequence[pulumi.Input['_root_inputs.TagArgs']]]] = None):
         """
         The set of arguments for constructing a LocationFSxOntap resource.
+
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] security_group_arns: The ARNs of the security groups that are to use to configure the FSx ONTAP file system.
         :param pulumi.Input[_builtins.str] storage_virtual_machine_arn: The Amazon Resource Name (ARN) for the FSx ONTAP SVM.
         :param pulumi.Input['LocationFSxOntapProtocolArgs'] protocol: Specifies the data transfer protocol that DataSync uses to access your Amazon FSx file system.
@@ -120,7 +121,8 @@ class LocationFSxOntap(pulumi.CustomResource):
                  tags: Optional[pulumi.Input[Sequence[pulumi.Input[Union['_root_inputs.TagArgs', '_root_inputs.TagArgsDict']]]]] = None,
                  __props__=None):
         """
-        Resource schema for AWS::DataSync::LocationFSxONTAP.
+        Resource Type definition for AWS::DataSync::LocationFSxONTAP.
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -137,7 +139,8 @@ class LocationFSxOntap(pulumi.CustomResource):
                  args: LocationFSxOntapArgs,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
-        Resource schema for AWS::DataSync::LocationFSxONTAP.
+        Resource Type definition for AWS::DataSync::LocationFSxONTAP.
+
 
         :param str resource_name: The name of the resource.
         :param LocationFSxOntapArgs args: The arguments to use to populate this resource's properties.

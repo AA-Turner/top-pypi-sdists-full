@@ -2,13 +2,19 @@
 from collections.abc import Sequence
 from typing import Any, final
 
+from ferrox._ferrox.units import Quantity
+
 @final
 class LangevinIntegrator:
     r"""
     Python wrapper for Langevin integrator.
     """
     def __new__(
-        cls, temperature_k: float, friction: float, dt: float, seed: int | None = None
+        cls,
+        temperature_k: float | Quantity,
+        friction: float,
+        dt: float | Quantity,
+        seed: int | None = None,
     ) -> LangevinIntegrator:
         r"""
         Create a new Langevin integrator.
@@ -27,7 +33,7 @@ class LangevinIntegrator:
             RuntimeError: If force computation fails. State is restored to its
                 original value before the step when this happens.
         """
-    def set_temperature(self, temperature_k: float) -> None:
+    def set_temperature(self, temperature_k: float | Quantity) -> None:
         r"""
         Set target temperature.
         """
@@ -35,7 +41,7 @@ class LangevinIntegrator:
         r"""
         Set friction coefficient.
         """
-    def set_dt(self, dt: float) -> None:
+    def set_dt(self, dt: float | Quantity) -> None:
         r"""
         Set time step.
         """
@@ -89,13 +95,15 @@ class MDState:
             masses: N-element array of atomic masses in amu
             velocities: Optional Nx3 array of velocities (default: zeros)
         """
-    def init_velocities(self, temperature_k: float, seed: int | None = None) -> None:
+    def init_velocities(
+        self, temperature_k: float | Quantity, seed: int | None = None
+    ) -> None:
         r"""
         Initialize velocities from Maxwell-Boltzmann distribution.
         """
     def kinetic_energy(self) -> float:
         r"""
-        Get kinetic energy in eV.
+        Compute kinetic energy in eV.
         """
     def temperature(self) -> float:
         r"""
@@ -113,11 +121,11 @@ class NPTIntegrator:
     """
     def __new__(
         cls,
-        temperature: float,
-        pressure: float,
-        tau_t: float,
-        tau_p: float,
-        dt: float,
+        temperature: float | Quantity,
+        pressure: float | Quantity,
+        tau_t: float | Quantity,
+        tau_p: float | Quantity,
+        dt: float | Quantity,
         n_atoms: int,
         total_mass: float,
     ) -> NPTIntegrator:
@@ -218,7 +226,11 @@ class NoseHooverChain:
     Nosé-Hoover chain thermostat for NVT molecular dynamics.
     """
     def __new__(
-        cls, target_temp: float, tau: float, dt: float, n_dof: int
+        cls,
+        target_temp: float | Quantity,
+        tau: float | Quantity,
+        dt: float | Quantity,
+        n_dof: int,
     ) -> NoseHooverChain:
         r"""
         Create a new Nosé-Hoover chain thermostat.
@@ -233,7 +245,7 @@ class NoseHooverChain:
         r"""
         Perform one NVT step.
         """
-    def set_temperature(self, target_temp: float) -> None:
+    def set_temperature(self, target_temp: float | Quantity) -> None:
         r"""
         Set target temperature.
         """
@@ -264,9 +276,9 @@ class VelocityRescale:
     """
     def __new__(
         cls,
-        target_temp: float,
-        tau: float,
-        dt: float,
+        target_temp: float | Quantity,
+        tau: float | Quantity,
+        dt: float | Quantity,
         n_dof: int,
         seed: int | None = None,
     ) -> VelocityRescale:
@@ -284,7 +296,7 @@ class VelocityRescale:
         r"""
         Perform one NVT step.
         """
-    def set_temperature(self, target_temp: float) -> None:
+    def set_temperature(self, target_temp: float | Quantity) -> None:
         r"""
         Set target temperature.
         """
@@ -337,7 +349,9 @@ def langevin_step_with_forces(
     Perform one complete Langevin step with pre-computed forces (convenience wrapper).
     """
 
-def velocity_verlet_step(state: MDState, dt: float, compute_forces: Any) -> None:
+def velocity_verlet_step(
+    state: MDState, dt: float | Quantity, compute_forces: Any
+) -> None:
     r"""
     Perform one velocity Verlet step (NVE ensemble).
 
@@ -353,7 +367,7 @@ def velocity_verlet_step(state: MDState, dt: float, compute_forces: Any) -> None
     """
 
 def velocity_verlet_step_finalize(
-    state: MDState, dt: float, new_forces: Sequence[Sequence[float]]
+    state: MDState, dt: float | Quantity, new_forces: Sequence[Sequence[float]]
 ) -> None:
     r"""
     Complete velocity Verlet step with new forces.
@@ -366,7 +380,7 @@ def velocity_verlet_step_finalize(
         new_forces: Nx3 array of forces at updated positions
     """
 
-def velocity_verlet_step_init(state: MDState, dt: float) -> None:
+def velocity_verlet_step_init(state: MDState, dt: float | Quantity) -> None:
     r"""
     First half of velocity Verlet: update velocities and positions.
 

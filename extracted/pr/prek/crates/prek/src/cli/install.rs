@@ -32,6 +32,9 @@ pub(crate) async fn install(
     overwrite: bool,
     allow_missing_config: bool,
     refresh: bool,
+    quiet: u8,
+    verbose: u8,
+    no_progress: bool,
     printer: Printer,
     git_dir: Option<&Path>,
 ) -> Result<ExitStatus> {
@@ -42,6 +45,10 @@ pub(crate) async fn install(
             "git config --unset-all --global core.hooksPath".cyan()
         );
     }
+
+    let hook_mode = git::get_shared_repository_file_mode(0o755)
+        .await
+        .unwrap_or(0o755);
 
     let project = match Project::discover(config.as_deref(), &CWD) {
         Ok(project) => Some(project),
@@ -78,6 +85,10 @@ pub(crate) async fn install(
             &hooks_path,
             overwrite,
             allow_missing_config,
+            hook_mode,
+            quiet,
+            verbose,
+            no_progress,
             printer,
         )?;
     }
@@ -160,6 +171,7 @@ fn get_hook_types(
     hook_types
 }
 
+#[allow(clippy::fn_params_excessive_bools)]
 fn install_hook_script(
     project: Option<&Project>,
     config: Option<PathBuf>,
@@ -168,9 +180,14 @@ fn install_hook_script(
     hooks_path: &Path,
     overwrite: bool,
     skip_on_missing_config: bool,
+    hook_mode: u32,
+    quiet: u8,
+    verbose: u8,
+    no_progress: bool,
     printer: Printer,
 ) -> Result<()> {
     let hook_path = hooks_path.join(hook_type.as_ref());
+    let legacy_path = hook_path.with_added_extension("legacy");
 
     if hook_path.try_exists()? {
         if overwrite {
@@ -181,7 +198,6 @@ fn install_hook_script(
             )?;
         } else {
             if !is_our_script(&hook_path)? {
-                let legacy_path = format!("{}.legacy", hook_path.display());
                 fs_err::rename(&hook_path, &legacy_path)?;
                 writeln!(
                     printer.stdout(),
@@ -190,6 +206,19 @@ fn install_hook_script(
                     legacy_path.user_display().yellow()
                 )?;
             }
+        }
+    }
+
+    if legacy_path.try_exists()? {
+        if overwrite {
+            // Remove existing legacy script too if we're overwriting.
+            fs_err::remove_file(&legacy_path)?;
+        } else {
+            writeln!(
+                printer.stdout(),
+                "Migration mode: prek will also run legacy hook `{}`. Use `--overwrite` to remove legacy hooks.",
+                legacy_path.user_display().yellow()
+            )?;
         }
     }
 
@@ -261,9 +290,14 @@ fn install_hook_script(
 
     let prek = std::env::current_exe()?;
     let prek = prek.simplified_display().to_string();
+    let mut prek_global_args = render_global_args(quiet, verbose, no_progress);
+    if !prek_global_args.is_empty() {
+        prek_global_args.push(' ');
+    }
     let hook_script = HOOK_TMPL
         .replace("[CUR_SCRIPT_VERSION]", &CUR_SCRIPT_VERSION.to_string())
         .replace("[PREK_PATH]", &format!(r#""{prek}""#))
+        .replace("[PREK_GLOBAL_ARGS]", &prek_global_args)
         .replace("[PREK_ARGS]", &args.join(" "));
 
     fs_err::OpenOptions::new()
@@ -278,13 +312,39 @@ fn install_hook_script(
         use std::os::unix::fs::PermissionsExt;
 
         let mut perms = hook_path.metadata()?.permissions();
-        perms.set_mode(0o755);
+        perms.set_mode(hook_mode);
         fs_err::set_permissions(&hook_path, perms)?;
     }
+
+    // Unused on non-Unix platforms
+    #[cfg(not(unix))]
+    let _ = hook_mode;
 
     writeln!(printer.stdout(), "{hint}")?;
 
     Ok(())
+}
+
+fn render_global_args(quiet: u8, verbose: u8, no_progress: bool) -> String {
+    let mut args = Vec::with_capacity(3);
+
+    if quiet > 0 {
+        args.push(format!("-{}", "q".repeat(quiet.into())));
+    }
+
+    if verbose > 0 {
+        args.push(format!("-{}", "v".repeat(verbose.into())));
+    }
+
+    if no_progress {
+        args.push("--no-progress".to_string());
+    }
+
+    if args.is_empty() {
+        String::new()
+    } else {
+        args.join(" ")
+    }
 }
 
 /// The version of the hook script. Increment this when the script changes in a way that
@@ -303,7 +363,7 @@ if [ ! -x "$PREK" ]; then
     PREK="prek"
 fi
 
-exec "$PREK" hook-impl --hook-dir "$HERE" --script-version [CUR_SCRIPT_VERSION] [PREK_ARGS] -- "$@"
+exec "$PREK" [PREK_GLOBAL_ARGS]hook-impl --hook-dir "$HERE" --script-version [CUR_SCRIPT_VERSION] [PREK_ARGS] -- "$@"
 
 "#;
 
@@ -391,6 +451,9 @@ pub(crate) async fn init_template_dir(
     hook_types: Vec<HookType>,
     requires_config: bool,
     refresh: bool,
+    quiet: u8,
+    verbose: u8,
+    no_progress: bool,
     printer: Printer,
 ) -> Result<ExitStatus> {
     install(
@@ -403,6 +466,9 @@ pub(crate) async fn init_template_dir(
         true,
         !requires_config,
         refresh,
+        quiet,
+        verbose,
+        no_progress,
         printer,
         Some(&directory),
     )

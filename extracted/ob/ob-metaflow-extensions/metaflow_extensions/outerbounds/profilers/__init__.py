@@ -1,1 +1,1 @@
-from .gpu import gpu_profile
+from ..plugins.profilers.gpu_profile_decorator import gpu_profile

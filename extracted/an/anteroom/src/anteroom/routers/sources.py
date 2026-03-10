@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+import sqlite3
 import uuid as uuid_mod
 from typing import Any
 
@@ -10,6 +12,8 @@ from pydantic import ValidationError
 
 from ..models import SourceCreate, SourceGroupCreate, SourceGroupUpdate, SourceUpdate
 from ..services import storage
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["sources"])
 
@@ -75,8 +79,25 @@ async def list_sources(
         limit=limit,
         offset=offset,
     )
-    for s in sources:
-        s["embedding_status"] = storage.get_source_embedding_status(db, s["id"])
+    try:
+        source_ids = [s["id"] for s in sources]
+        statuses = storage.get_source_embedding_statuses(db, source_ids)
+        for s in sources:
+            s["embedding_status"] = statuses.get(s["id"], "unknown")
+    except (sqlite3.OperationalError, sqlite3.DatabaseError):
+        logger.warning("Failed to fetch embedding statuses", exc_info=True)
+        for s in sources:
+            s["embedding_status"] = "unknown"
+    # Enrich with tag IDs for client-side scope computation (#853)
+    try:
+        source_ids = [s["id"] for s in sources]
+        tag_map = storage.get_source_tag_ids_bulk(db, source_ids)
+        for s in sources:
+            s["tag_ids"] = tag_map.get(s["id"], [])
+    except (sqlite3.OperationalError, sqlite3.DatabaseError):
+        logger.warning("Failed to fetch source tag IDs", exc_info=True)
+        for s in sources:
+            s["tag_ids"] = []
     return {"sources": sources}
 
 

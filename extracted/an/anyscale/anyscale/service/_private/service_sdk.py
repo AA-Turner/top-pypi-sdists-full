@@ -317,6 +317,10 @@ class PrivateServiceSDK(WorkloadSDK):
     ) -> ApplyProductionServiceV2Model:
         """Build the ApplyProductionServiceV2Model for a rolling update."""
 
+        compute_config_id, cloud_id = self.resolve_compute_config_and_cloud_id(
+            compute_config=config.compute_config, cloud=config.cloud
+        )
+
         build_id = None
         if config.containerfile is not None:
             build_id = self._image_sdk.build_image_from_containerfile(
@@ -331,6 +335,7 @@ class PrivateServiceSDK(WorkloadSDK):
                 image_uri=config.image_uri,
                 registry_login_secret=config.registry_login_secret,
                 ray_version=config.ray_version,
+                cloud_id=cloud_id,
             )
 
         if self._image_sdk.enable_image_build_for_tracked_requirements:
@@ -351,10 +356,6 @@ class PrivateServiceSDK(WorkloadSDK):
 
         if build_id is None:
             build_id = self.client.get_default_build_id()
-
-        compute_config_id, cloud_id = self.resolve_compute_config_and_cloud_id(
-            compute_config=config.compute_config, cloud=config.cloud
-        )
 
         project_id = self.client.get_project_id(
             parent_cloud_id=cloud_id, name=config.project

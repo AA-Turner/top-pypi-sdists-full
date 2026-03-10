@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: duckdb
-Version: 1.4.4
+Version: 1.5.0
 Summary: DuckDB in-process database
 Keywords: DuckDB,Database,SQL,OLAP
 Author: DuckDB Foundation
@@ -18,7 +18,6 @@ Classifier: Intended Audience :: Science/Research
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -29,7 +28,7 @@ Project-URL: Documentation, https://duckdb.org/docs/stable/clients/python/overvi
 Project-URL: Source, https://github.com/duckdb/duckdb-python
 Project-URL: Issues, https://github.com/duckdb/duckdb-python/issues
 Project-URL: Changelog, https://github.com/duckdb/duckdb-python/releases
-Requires-Python: >=3.9.0
+Requires-Python: >=3.10.0
 Provides-Extra: all
 Requires-Dist: ipython; extra == "all"
 Requires-Dist: fsspec; extra == "all"

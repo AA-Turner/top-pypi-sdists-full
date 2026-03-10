@@ -38,9 +38,11 @@ class SearchHandlers:
         function_name = args.get("function_name")
         class_name = args.get("class_name")
         files = args.get("files")
+        project_name = args.get("project_name")
         expand = args.get("expand", True)
         use_rerank = args.get("use_rerank", True)
         rerank_top_n = args.get("rerank_top_n", 50)
+        include_git_blame = args.get("include_git_blame", False)
 
         if not query:
             return CallToolResult(
@@ -110,6 +112,8 @@ class SearchHandlers:
             filters["function_name"] = function_name
         if class_name:
             filters["class_name"] = class_name
+        if project_name:
+            filters["subproject_name"] = project_name
         if files:
             filters["file_pattern"] = files
 
@@ -137,6 +141,12 @@ class SearchHandlers:
             search_mode=search_mode,
             hybrid_alpha=hybrid_alpha,
         )
+
+        # Enrich with git blame if requested
+        if include_git_blame and results:
+            from ..core.git_blame import enrich_with_git_blame
+
+            await enrich_with_git_blame(results, self.project_root)
 
         # Format results
         response_text = self._format_search_results(results, query)

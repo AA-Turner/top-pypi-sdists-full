@@ -105,8 +105,6 @@ class LookerModel(Asset):
     INPUT_TO_SPARK_JOBS: ClassVar[Any] = None
     OUTPUT_FROM_SPARK_JOBS: ClassVar[Any] = None
 
-    type_name: Union[str, UnsetType] = "LookerModel"
-
     project_name: Union[str, None, UnsetType] = UNSET
     """Name of the project in which the model exists."""
 
@@ -507,6 +505,9 @@ def _looker_model_to_nested(looker_model: LookerModel) -> LookerModelNested:
         is_incomplete=looker_model.is_incomplete,
         provenance_type=looker_model.provenance_type,
         home_id=looker_model.home_id,
+        depth=looker_model.depth,
+        immediate_upstream=looker_model.immediate_upstream,
+        immediate_downstream=looker_model.immediate_downstream,
         attributes=attrs,
         relationship_attributes=replace_rels,
         append_relationship_attributes=append_rels,
@@ -538,7 +539,6 @@ def _looker_model_from_nested(nested: LookerModelNested) -> LookerModel:
         updated_by=nested.updated_by,
         classifications=nested.classifications,
         classification_names=nested.classification_names,
-        meanings=nested.meanings,
         labels=nested.labels,
         business_attributes=nested.business_attributes,
         custom_attributes=nested.custom_attributes,
@@ -547,6 +547,9 @@ def _looker_model_from_nested(nested: LookerModelNested) -> LookerModel:
         is_incomplete=nested.is_incomplete,
         provenance_type=nested.provenance_type,
         home_id=nested.home_id,
+        depth=nested.depth,
+        immediate_upstream=nested.immediate_upstream,
+        immediate_downstream=nested.immediate_downstream,
         **_extract_looker_model_attrs(attrs),
         # Merged relationship attributes
         **merged_rels,

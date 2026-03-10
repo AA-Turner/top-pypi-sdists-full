@@ -195,14 +195,15 @@ MODEL_PRICE = {
     "vip/nano-banana-pro_4k": 0.3 * 4,
 
     "gemini-3-pro-image-preview": 0.2,
-    "gemini-3.1-flash-image-preview": 0.05,
-    "gemini-3.1-flash-image-preview_1k": 0.065,
-    "gemini-3.1-flash-image-preview_2k": 0.08,
-    "gemini-3.1-flash-image-preview_4k": 0.1,
+    "gemini-3.1-flash-image-preview": 0.1,
+    "gemini-3.1-flash-image-preview-url": 0.1,
+    "gemini-3.1-flash-image-preview_1k": 0.1,
+    "gemini-3.1-flash-image-preview_2k": 0.11,
+    "gemini-3.1-flash-image-preview_4k": 0.12,
 
-    "gemini-2.5-flash-image": 0.03,
-    "gemini-2.5-flash-image-preview": 0.03,
-    "gemini-2.5-flash-image-preview-hd": 0.03,
+    "gemini-2.5-flash-image": 0.05,
+    "gemini-2.5-flash-image-preview": 0.05,
+    "gemini-2.5-flash-image-preview-hd": 0.05,
 
     "qwen-image": 0.05,
     "qwen-image-edit": 0.05,
@@ -1391,6 +1392,8 @@ MODEL_RATIO = {
     "gemini-3-pro-deepsearch": 1,
     "gemini-3.1-pro-preview": 1,
     "gemini-3.1-pro-preview-thinking": 1,
+    "gemini-3.1-flash-lite-preview": 0.125,
+    "gemini-3.1-flash-lite-preview-thinking": 0.125,
 
     "gpt-3.5-turbo": 0.75,
     "gpt-3.5-turbo-0125": 0.25,
@@ -1450,6 +1453,9 @@ MODEL_RATIO = {
     "gpt-5.2-codex": 0.875,
     "gpt-5.3-codex": 0.875,
     "gpt-5.3-codex-spark": 0.875,
+    "gpt-5.3-chat-latest": 0.875,
+    "gpt-5.4": 1.25,
+    "gpt-5.4-pro": 15,
 
     "gpt-5-2025-08-07": 0.625,
     "gpt-5-chat-latest": 0.625,
@@ -1674,7 +1680,9 @@ COMPLETION_RATIO = {
     "gpt-5.2-codex": 8,
     "gpt-5.3-codex": 8,
     "gpt-5.3-codex-spark": 8,
-
+    "gpt-5.3-chat-latest": 8,
+    "gpt-5.4": 6,
+    "gpt-5.4-pro": 6,
     # claude
     "claude-3-5-haiku-20241022": 5,
     "claude-haiku-4-5-20251001": 5,
@@ -1816,6 +1824,8 @@ COMPLETION_RATIO = {
     "gemini-3-pro-deepsearch": 6,
     "gemini-3.1-pro-preview": 6,
     "gemini-3.1-pro-preview-thinking": 6,
+    "gemini-3.1-flash-lite-preview": 3,
+    "gemini-3.1-flash-lite-preview-thinking": 3,
 
     "hunyuan-a52b-instruct": 5,
     "qwen2.5-coder-32b-instruct": 3,

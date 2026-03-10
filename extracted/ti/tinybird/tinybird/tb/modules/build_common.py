@@ -14,11 +14,10 @@ from tinybird.datafile.parse_datasource import parse_datasource
 from tinybird.tb.client import TinyB
 from tinybird.tb.modules.common import push_data, sys_exit
 from tinybird.tb.modules.datafile.fixture import FixtureExtension, get_fixture_dir, persist_fixture
-from tinybird.tb.modules.dev_server import BuildStatus
 from tinybird.tb.modules.feedback_manager import FeedbackManager
 from tinybird.tb.modules.local_common import get_local_tokens
 from tinybird.tb.modules.project import Project
-from tinybird.tb.modules.shell import print_table_formatted
+from tinybird.tb.modules.query_output import print_table_formatted
 
 
 def process(
@@ -29,7 +28,6 @@ def process(
     file_changed: Optional[str] = None,
     diff: Optional[str] = None,
     silent: bool = False,
-    build_status: Optional[BuildStatus] = None,
     exit_on_error: bool = True,
     load_fixtures: bool = True,
     project_with_vendors: Optional[Project] = None,
@@ -49,25 +47,15 @@ def process(
     build_failed = False
     build_error: Optional[str] = None
     build_result: Optional[bool] = None
-    if build_status:
-        if build_status.building:
-            return build_status.error
-        else:
-            build_status.building = True
+
     if file_changed and file_changed.endswith((FixtureExtension.NDJSON, FixtureExtension.CSV)):
         rebuild_fixture(project, tb_client, file_changed)
-        if build_status:
-            build_status.building = False
-            build_status.error = None
+
     elif file_changed and file_changed.endswith(".sql"):
         rebuild_fixture_sql(project, tb_client, file_changed)
-        if build_status:
-            build_status.building = False
-            build_status.error = None
+
     elif file_changed and file_changed.endswith((".env.local", ".env")):
-        if build_status:
-            build_status.building = False
-            build_status.error = None
+        pass
     else:
         try:
             build_result = build_project(
@@ -78,16 +66,14 @@ def process(
                 project_with_vendors=project_with_vendors,
                 with_connections=with_connections,
             )
-            if build_status:
-                build_status.building = False
-                build_status.error = None
+
         except click.ClickException as e:
             if not silent:
                 click.echo(FeedbackManager.info(message=str(e)))
             build_error = str(e)
             build_failed = True
         try:
-            if file_changed and not build_failed and not build_status:
+            if file_changed and not build_failed:
                 show_data(tb_client, file_changed, diff)
         except Exception:
             pass
@@ -102,9 +88,7 @@ def process(
             if not watch and exit_on_error:
                 sys_exit("build_error", build_error or "Unknown error")
         build_error = build_error or "Unknown error"
-        if build_status:
-            build_status.error = build_error
-            build_status.building = False
+
         return build_error
 
     if not silent:

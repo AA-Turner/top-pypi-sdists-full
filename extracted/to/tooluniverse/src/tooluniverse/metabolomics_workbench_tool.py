@@ -75,7 +75,13 @@ class MetabolomicsWorkbenchTool(BaseTool):
             # The API sometimes returns "null" as a string or an empty string with 200 OK
             raw_text = response.text.strip()
             if not raw_text or raw_text.lower() == "null" or raw_text == '""':
-                return {"status": "success", "data": [], "message": "No results found"}
+                return {
+                    "status": "success",
+                    "data": [],
+                    "message": "No results found. RefMet requires exact metabolite names "
+                    "(e.g., 'Cholic acid' not 'bile acid', 'Cer(d18:1/16:0)' not 'ceramide'). "
+                    "Try a specific compound name or use ChEBI_search for class-level terms.",
+                }
 
             try:
                 data = response.json()
@@ -87,6 +93,16 @@ class MetabolomicsWorkbenchTool(BaseTool):
 
                 # Convert exactmass from string to number if present
                 data = self._normalize_numeric_fields(data)
+
+                # Feature-79A-001: Add guidance when RefMet returns empty array
+                if isinstance(data, list) and len(data) == 0:
+                    return {
+                        "status": "success",
+                        "data": [],
+                        "message": "No results found. RefMet requires exact metabolite names "
+                        "(e.g., 'Cholic acid' not 'bile acid', 'Cer(d18:1/16:0)' not 'ceramide'). "
+                        "Try a specific compound name or use ChEBI_search for class-level terms.",
+                    }
 
                 return {"status": "success", "data": data}
             except ValueError:

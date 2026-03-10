@@ -19,6 +19,9 @@ EnvironmentType = Literal[
     "aws",
     "azure",
     "databricks",
+    "modal",
+    "mlflow",
+    "kubernetes",
 ]
 
 # Static list of environment hints, purely heuristic based on env variables.
@@ -49,6 +52,15 @@ ENV_TYPE_HINTS: Mapping[EnvironmentType, Sequence[str]] = {
         "DATABRICKS_HOST",
         "DATABRICKS_WORKSPACE_URL",
         "DB_IS_DRIVER",
+    ],
+    "modal": ["MODAL_CLOUD_PROVIDER", "MODAL_IMAGE_ID", "MODAL_REGION"],
+    "mlflow": [
+        "MLFLOW_RUN_ID",
+        "MLFLOW_RUN_NAME",
+    ],
+    "kubernetes": [
+        "KUBERNETES_SERVICE_HOST",
+        "KUBERNETES_POD_NAME",
     ],
     # Cloud providers
     "aws": [

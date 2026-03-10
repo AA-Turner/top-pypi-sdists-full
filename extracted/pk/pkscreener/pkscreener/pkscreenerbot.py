@@ -454,7 +454,7 @@ def launchIntradayMonitor():
 def XDevModeHandler(update: Update, context: CallbackContext) -> str:
     """Show new choice of buttons"""
     query = update.callback_query
-    data = query.data.upper().replace("CX", "X").replace("CB", "B").replace("CG", "G").replace("CMI", "MI").replace("CDV","DV")
+    data = str(query.data).upper().replace("CX", "X").replace("CB", "B").replace("CG", "G").replace("CMI", "MI").replace("CDV","DV")
     if data[0:2] not in TOP_LEVEL_SCANNER_MENUS:
         return start(update, context)
     if data.startswith("DV"):
@@ -504,7 +504,7 @@ def PScanners(update: Update, context: CallbackContext) -> str:
     if query is None:
         start(update, context)
         return START_ROUTES
-    data = query.data.upper().replace("C", "")
+    data = str(query.data).upper().replace("C", "")
     if data[0:2] not in TOP_LEVEL_SCANNER_MENUS:
         # Someone is trying to send commands we do not support
         return start(update, context)
@@ -593,7 +593,7 @@ def cancelAlertSubscription(update:Update,context:CallbackContext):
             return
     # Get user that sent /start and log his name
     user = updateCarrier.from_user
-    scanId = updateCarrier.data.upper().replace("CAN_", "")
+    scanId = str(updateCarrier.data).upper().replace("CAN_", "")
     logger.info("User %s started the conversation.", user.first_name)
     if not bot_available:
         # Sometimes, either the payment does not go through or 
@@ -724,7 +724,7 @@ def subscribeToScannerAlerts(update: Update, context: CallbackContext) -> str:
     if query is None:
         start(update, context)
         return START_ROUTES
-    scanId = query.data.upper().replace("SUB_", "").strip()
+    scanId = str(query.data).upper().replace("SUB_", "").strip()
     global bot_available
     if not bot_available:
         # Bot is running but is running in unavailable mode.
@@ -807,7 +807,7 @@ def XScanners(update: Update, context: CallbackContext) -> str:
     if query is None:
         start(update, context)
         return START_ROUTES
-    data = query.data.upper().replace("C", "")
+    data = str(query.data).upper().replace("C", "")
     if data[0:2] not in TOP_LEVEL_SCANNER_MENUS:
         # Someone is trying to send commands we do not support
         return start(update, context)
@@ -919,11 +919,11 @@ def Level2(update: Update, context: CallbackContext) -> str:
     query = update.callback_query
     query.answer()
     preSelection = (
-        query.data.upper().replace("C", "")
+        str(query.data).upper().replace("C", "")
     )
     selection = preSelection.split("_")
     preSelection = f"{selection[0]}_{selection[1]}"
-    if (selection[0].upper() not in TOP_LEVEL_SCANNER_MENUS):
+    if (str(selection[0]).upper() not in TOP_LEVEL_SCANNER_MENUS):
         start(update, context)
         return START_ROUTES
     global bot_available
@@ -937,7 +937,7 @@ def Level2(update: Update, context: CallbackContext) -> str:
         # unavailable mode instead until this gets fixed.
         start(update, context)
         return START_ROUTES
-    if selection[len(selection)-1].upper() == "H": # Home button
+    if str(selection[len(selection)-1]).upper() == "H": # Home button
         start(update, context)
         return START_ROUTES
     
@@ -1153,7 +1153,7 @@ def Level2(update: Update, context: CallbackContext) -> str:
                     selection.extend(["", ""])
     elif len(selection) == 4:
         preSelection = (
-            query.data.upper().replace("C", "")
+            str(query.data).upper().replace("C", "")
         )
     optionChoices = ""
     if len(selection) <= 3 and mns is not None:
@@ -1176,7 +1176,7 @@ def Level2(update: Update, context: CallbackContext) -> str:
                     asList=True,
                     renderStyle=MenuRenderStyle.STANDALONE,
                 )
-                selectedMenu = m0.find(selection[0].upper())
+                selectedMenu = m0.find(str(selection[0]).upper())
                 m1.renderForMenu(
                     selectedMenu=selectedMenu,
                     skip=(
@@ -1187,7 +1187,7 @@ def Level2(update: Update, context: CallbackContext) -> str:
                     asList=True,
                     renderStyle=MenuRenderStyle.STANDALONE,
                 )
-                selectedMenu = m1.find(selection[1].upper())
+                selectedMenu = m1.find(str(selection[1]).upper())
                 m2.renderForMenu(
                     selectedMenu=selectedMenu,
                     skip=UNSUPPORTED_COMMAND_MENUS,
@@ -1195,14 +1195,14 @@ def Level2(update: Update, context: CallbackContext) -> str:
                     renderStyle=MenuRenderStyle.STANDALONE,
                 )
                 if selection[2] in SCANNER_MENUS_WITH_SUBMENU_SUPPORT:
-                    selectedMenu = m2.find(selection[2].upper())
+                    selectedMenu = m2.find(str(selection[2]).upper())
                     m3.renderForMenu(
                         selectedMenu=selectedMenu,
                         skip=["0","M","Z"],
                         asList=True,
                         renderStyle=MenuRenderStyle.STANDALONE,
                     )
-                    selectedMenu = m3.find(selection[3].upper())
+                    selectedMenu = m3.find(str(selection[3]).upper())
                     menuText = m4.renderForMenu(
                         selectedMenu=selectedMenu,
                         renderStyle=MenuRenderStyle.STANDALONE,
@@ -1227,7 +1227,7 @@ def Level2(update: Update, context: CallbackContext) -> str:
                 menuText = ''
         elif len(selection) > 4 or (len(selection) >= 3 and selection[0].lower() in ["p"]):
             if (selection[0] in 'P' and ((len(selection) >= 4 and len(selection[3]) == 0) or (len(selection) == 3 and str(selection[2]).isnumeric()))):
-                preSelection = query.data.upper().replace("C", "")
+                preSelection = str(query.data).upper().replace("C", "")
                 skipMenus = ["N"]
                 skipMenus.extend(INDEX_SKIP_MENUS_1_To_4)
                 # Create the menu text labels
@@ -1324,7 +1324,7 @@ def handleHousekeeping(update: Update, context: CallbackContext) -> str:
     user = updateCarrier.from_user
     query = update.callback_query
     query.answer()
-    preSelection = (query.data.upper().replace("C", ""))
+    preSelection = (str(query.data).upper().replace("C", ""))
     selection = preSelection.split("_")[1]
     if query is None:
         start(update, context)
@@ -1480,7 +1480,7 @@ def launchScreener(options, user, context, optionChoices, update):
                 sendSubscriptionOption(update,context,scanRequest)
                 return False
 
-        if str(optionChoices.upper()).startswith("B"):
+        if str(optionChoices).upper().startswith("B"):
             optionChoices = optionChoices.replace(" ", "").replace(">", "_").replace(":","_").replace("_D","")
             while optionChoices.endswith("_"):
                 optionChoices = optionChoices[:-1]
@@ -1500,13 +1500,13 @@ def launchScreener(options, user, context, optionChoices, update):
             )
             return True
             # run_workflow(optionChoices, str(user.id), str(options.upper()))
-        elif str(optionChoices.upper()).startswith("G"):
+        elif str(optionChoices).upper().startswith("G"):
             optionChoices = optionChoices.replace(" ", "").replace(">", "_")
             while optionChoices.endswith("_"):
                 optionChoices = optionChoices[:-1]
-            options = options.upper().replace("G", "G:3").replace("::", ":D:D:D")
+            options = str(options).upper().replace("G", "G:3").replace("::", ":D:D:D")
             run_workflow(
-                optionChoices, str(user.id), str(options.upper()), workflowType="G"
+                optionChoices, str(user.id), str(options), workflowType="G"
             )
             return True
         else: #str(optionChoices.upper()).startswith("X") or str(optionChoices.upper()).startswith("P"):
@@ -1514,7 +1514,7 @@ def launchScreener(options, user, context, optionChoices, update):
             while optionChoices.endswith("_"):
                 optionChoices = optionChoices[:-1]
             run_workflow(
-                optionChoices, str(user.id), str(options.upper().replace(":7:3:4",":7:3:0.008:4")), workflowType="X"
+                optionChoices, str(user.id), str(str(options).upper().replace(":7:3:4",":7:3:0.008:4")), workflowType="X"
             )
             return True
             # Popen(
@@ -2290,7 +2290,13 @@ def addCommandsForMenuItems(application):
 #   )
 
 @ping(interval=300,instance=PKAnalyticsService(),prefix="bot_")
+# Add this to the beginning of runpkscreenerbot() to debug
 def runpkscreenerbot(availability=True) -> None:
+    print(f"Python-telegram-bot version: {TG_VER}")
+    print(f"Python version: {sys.version}")
+    print(f"Working directory: {os.getcwd()}")
+    print(f"Environment variables: {[k for k in os.environ.keys() if 'TOKEN' in k or 'CHAT' in k]}")
+    
     """Run the bot."""
     # Create the Application and pass it your bot's token.
     global chat_idADMIN, Channel_Id, bot_available, _updater
