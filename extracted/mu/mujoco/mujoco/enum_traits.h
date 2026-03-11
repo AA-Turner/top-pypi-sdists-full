@@ -208,6 +208,7 @@ struct mjtEq {
     std::make_pair("mjEQ_TENDON", ::mjtEq::mjEQ_TENDON),
     std::make_pair("mjEQ_FLEX", ::mjtEq::mjEQ_FLEX),
     std::make_pair("mjEQ_FLEXVERT", ::mjtEq::mjEQ_FLEXVERT),
+    std::make_pair("mjEQ_FLEXSTRAIN", ::mjtEq::mjEQ_FLEXSTRAIN),
     std::make_pair("mjEQ_DISTANCE", ::mjtEq::mjEQ_DISTANCE)};
 };
 

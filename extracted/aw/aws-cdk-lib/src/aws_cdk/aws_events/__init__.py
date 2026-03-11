@@ -5558,6 +5558,7 @@ class CfnRule(
 
     Example::
 
+        from aws_cdk.mixins_preview.aws_s3.events.ObjectType import ObjectType, ObjectType
         from aws_cdk.mixins_preview.aws_s3.events import BucketEvents
         import aws_cdk.aws_events as events
         import aws_cdk.aws_events_targets as targets
@@ -5570,7 +5571,7 @@ class CfnRule(
         
         events.Rule(scope, "Rule",
             event_pattern=bucket_events.object_created_pattern(
-                object=BucketEvents.ObjectCreated.ObjectType(key=events.Match.wildcard("uploads/*"))
+                object=ObjectType(key=events.Match.wildcard("uploads/*"))
             ),
             targets=[targets.LambdaFunction(fn)]
         )
@@ -5582,7 +5583,7 @@ class CfnRule(
         events.CfnRule(scope, "CfnRule",
             state="ENABLED",
             event_pattern=cfn_bucket_events.object_created_pattern(
-                object=BucketEvents.ObjectCreated.ObjectType(key=events.Match.wildcard("uploads/*"))
+                object=ObjectType(key=events.Match.wildcard("uploads/*"))
             ),
             targets=[events.CfnRule.TargetProperty(arn=fn.function_arn, id="L1")]
         )
@@ -8375,6 +8376,7 @@ class CfnRuleProps:
 
         Example::
 
+            from aws_cdk.mixins_preview.aws_s3.events.ObjectType import ObjectType, ObjectType
             from aws_cdk.mixins_preview.aws_s3.events import BucketEvents
             import aws_cdk.aws_events as events
             import aws_cdk.aws_events_targets as targets
@@ -8387,7 +8389,7 @@ class CfnRuleProps:
             
             events.Rule(scope, "Rule",
                 event_pattern=bucket_events.object_created_pattern(
-                    object=BucketEvents.ObjectCreated.ObjectType(key=events.Match.wildcard("uploads/*"))
+                    object=ObjectType(key=events.Match.wildcard("uploads/*"))
                 ),
                 targets=[targets.LambdaFunction(fn)]
             )
@@ -8399,7 +8401,7 @@ class CfnRuleProps:
             events.CfnRule(scope, "CfnRule",
                 state="ENABLED",
                 event_pattern=cfn_bucket_events.object_created_pattern(
-                    object=BucketEvents.ObjectCreated.ObjectType(key=events.Match.wildcard("uploads/*"))
+                    object=ObjectType(key=events.Match.wildcard("uploads/*"))
                 ),
                 targets=[events.CfnRule.TargetProperty(arn=fn.function_arn, id="L1")]
             )

@@ -1,39 +1,39 @@
-# -*- coding: utf-8 -*-
-# SPDX-FileCopyrightText: 2016-2025 PyThaiNLP Project
+# SPDX-FileCopyrightText: 2016-2026 PyThaiNLP Project
 # SPDX-FileType: SOURCE
 # SPDX-License-Identifier: Apache-2.0
-"""
-Unigram Part-Of-Speech tagger
-"""
+"""Unigram Part-Of-Speech tagger"""
+
+from __future__ import annotations
+
 import json
 import os
-from typing import List, Tuple
+from typing import Optional
 
 from pythainlp.corpus import corpus_path, get_corpus_path
 from pythainlp.tag import blackboard, orchid
 
-_ORCHID_FILENAME = "pos_orchid_unigram.json"
-_ORCHID_PATH = os.path.join(corpus_path(), _ORCHID_FILENAME)
+_ORCHID_FILENAME: str = "pos_orchid_unigram.json"
+_ORCHID_PATH: str = os.path.join(corpus_path(), _ORCHID_FILENAME)
 
-_PUD_FILENAME = "pos_ud_unigram-v0.2.json"
-_PUD_PATH = os.path.join(corpus_path(), _PUD_FILENAME)
+_PUD_FILENAME: str = "pos_ud_unigram-v0.2.json"
+_PUD_PATH: str = os.path.join(corpus_path(), _PUD_FILENAME)
 
-_TDTB_FILENAME = "tdtb-unigram_tagger.json"
-_TDTB_PATH = os.path.join(corpus_path(), _TDTB_FILENAME)
+_TDTB_FILENAME: str = "tdtb-unigram_tagger.json"
+_TDTB_PATH: str = os.path.join(corpus_path(), _TDTB_FILENAME)
 
-_BLACKBOARD_NAME = "blackboard_unigram_tagger"
+_BLACKBOARD_NAME: str = "blackboard_unigram_tagger"
 
-_TUD_FILENAME = "pos_tud_unigram.json"
-_TUD_PATH = os.path.join(corpus_path(), _TUD_FILENAME)
+_TUD_FILENAME: str = "pos_tud_unigram.json"
+_TUD_PATH: str = os.path.join(corpus_path(), _TUD_FILENAME)
 
-_ORCHID_TAGGER = None
-_PUD_TAGGER = None
-_BLACKBOARD_TAGGER = None
-_TDTB_TAGGER = None
-_TUD_TAGGER = None
+_ORCHID_TAGGER: Optional[dict[str, str]] = None
+_PUD_TAGGER: Optional[dict[str, str]] = None
+_BLACKBOARD_TAGGER: Optional[dict[str, str]] = None
+_TDTB_TAGGER: Optional[dict[str, str]] = None
+_TUD_TAGGER: Optional[dict[str, str]] = None
 
 
-def _orchid_tagger():
+def _orchid_tagger() -> dict[str, str]:
     global _ORCHID_TAGGER
     if not _ORCHID_TAGGER:
         with open(_ORCHID_PATH, encoding="utf-8-sig") as fh:
@@ -41,7 +41,7 @@ def _orchid_tagger():
     return _ORCHID_TAGGER
 
 
-def _pud_tagger():
+def _pud_tagger() -> dict[str, str]:
     global _PUD_TAGGER
     if not _PUD_TAGGER:
         with open(_PUD_PATH, encoding="utf-8-sig") as fh:
@@ -49,16 +49,23 @@ def _pud_tagger():
     return _PUD_TAGGER
 
 
-def _blackboard_tagger():
+def _blackboard_tagger() -> dict[str, str]:
     global _BLACKBOARD_TAGGER
     if not _BLACKBOARD_TAGGER:
         path = get_corpus_path(_BLACKBOARD_NAME)
+        if not path:
+            raise FileNotFoundError(
+                f"corpus-not-found name={_BLACKBOARD_NAME!r}\n"
+                f"  Corpus '{_BLACKBOARD_NAME}' not found.\n"
+                f"    Python: pythainlp.corpus.download('{_BLACKBOARD_NAME}')\n"
+                f"    CLI:    thainlp data get {_BLACKBOARD_NAME}"
+            )
         with open(path, encoding="utf-8-sig") as fh:
             _BLACKBOARD_TAGGER = json.load(fh)
     return _BLACKBOARD_TAGGER
 
 
-def _thai_tdtb():
+def _thai_tdtb() -> dict[str, str]:
     global _TDTB_TAGGER
     if not _TDTB_TAGGER:
         with open(_TDTB_PATH, encoding="utf-8-sig") as fh:
@@ -66,7 +73,7 @@ def _thai_tdtb():
     return _TDTB_TAGGER
 
 
-def _tud_tagger():
+def _tud_tagger() -> dict[str, str]:
     global _TUD_TAGGER
     if not _TUD_TAGGER:
         with open(_TUD_PATH, encoding="utf-8-sig") as fh:
@@ -75,8 +82,8 @@ def _tud_tagger():
 
 
 def _find_tag(
-    words: List[str], dictdata: dict, default_tag: str = ""
-) -> List[Tuple[str, str]]:
+    words: list[str], dictdata: dict[str, str], default_tag: str = ""
+) -> list[tuple[str, str]]:
     keys = list(dictdata.keys())
     return [
         (word, dictdata[word]) if word in keys else (word, default_tag)
@@ -84,9 +91,8 @@ def _find_tag(
     ]
 
 
-def tag(words: List[str], corpus: str = "pud") -> List[Tuple[str, str]]:
-    """
-    :param list words: a list of tokenized words
+def tag(words: list[str], corpus: str = "pud") -> list[tuple[str, str]]:
+    """:param list words: a list of tokenized words
     :param str corpus: corpus name (orchid or pud)
     :return: a list of tuples (word, POS tag)
     :rtype: list[tuple[str, str]]

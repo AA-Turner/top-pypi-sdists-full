@@ -1,0 +1,9 @@
+- name: Indiv path disabled in 2024 (MFSS repealed)
+  period: 2024
+  input:
+    long_term_capital_gains: 2_000
+    mt_taxable_income_indiv: 2_500
+    state_filing_status_if_married_filing_separately_on_same_return: SINGLE
+    state_code: MT
+  output:
+    mt_capital_gains_tax_applicable_threshold_indiv: 0

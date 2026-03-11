@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: qpsolvers
-Version: 4.9.0
+Version: 4.10.0
 Summary: Quadratic programming solvers in Python with a unified API.
 Keywords: quadratic programming,solver,numerical optimization
 Author-email: Stéphane Caron <stephane.caron@normalesup.org>
@@ -20,6 +20,7 @@ License-File: LICENSE
 Requires-Dist: numpy >=1.15.4
 Requires-Dist: scipy >=1.2.0
 Requires-Dist: clarabel >=0.4.1 ; extra == "clarabel"
+Requires-Dist: coptpy>=7.0.0 ; extra == "copt"
 Requires-Dist: cvxopt >=1.2.6 ; extra == "cvxopt"
 Requires-Dist: daqp >=0.5.1 ; extra == "daqp"
 Requires-Dist: ecos >=2.0.8 ; extra == "ecos"
@@ -46,6 +47,7 @@ Project-URL: Homepage, https://github.com/qpsolvers/qpsolvers
 Project-URL: Source, https://github.com/qpsolvers/qpsolvers
 Project-URL: Tracker, https://github.com/qpsolvers/qpsolvers/issues
 Provides-Extra: clarabel
+Provides-Extra: copt
 Provides-Extra: cvxopt
 Provides-Extra: daqp
 Provides-Extra: ecos
@@ -142,30 +144,31 @@ When imported, qpsolvers loads all the solvers it can find and lists them in ``q
 
 ## Solvers
 
-| Solver | Keyword | Algorithm | API | License |
-| ------ | ------- | --------- | --- | ------- |
-| [Clarabel](https://github.com/oxfordcontrol/Clarabel.rs) | ``clarabel`` | Interior point | Sparse | Apache-2.0 |
-| [CVXOPT](http://cvxopt.org/) | ``cvxopt`` | Interior point | Dense | GPL-3.0 |
-| [DAQP](https://github.com/darnstrom/daqp) | ``daqp`` | Active set | Dense | MIT |
-| [ECOS](https://web.stanford.edu/~boyd/papers/ecos.html) | ``ecos`` | Interior point | Sparse | GPL-3.0 |
-| [Gurobi](https://www.gurobi.com/) | ``gurobi`` | Interior point | Sparse | Commercial |
-| [HiGHS](https://highs.dev/) | ``highs`` | Active set | Sparse | MIT |
-| [HPIPM](https://github.com/giaf/hpipm) | ``hpipm`` | Interior point | Dense | BSD-2-Clause |
+| Solver                                                                       | Keyword         | Algorithm | API | License |
+|------------------------------------------------------------------------------|-----------------| --------- | --- | ------- |
+| [Clarabel](https://github.com/oxfordcontrol/Clarabel.rs)                     | ``clarabel``    | Interior point | Sparse | Apache-2.0 |
+| [COPT](https://www.shanshu.ai/copt)                                          | ``copt``        | Interior point | Sparse | Commercial |
+| [CVXOPT](http://cvxopt.org/)                                                 | ``cvxopt``      | Interior point | Dense | GPL-3.0 |
+| [DAQP](https://github.com/darnstrom/daqp)                                    | ``daqp``        | Active set | Dense | MIT |
+| [ECOS](https://web.stanford.edu/~boyd/papers/ecos.html)                      | ``ecos``        | Interior point | Sparse | GPL-3.0 |
+| [Gurobi](https://www.gurobi.com/)                                            | ``gurobi``      | Interior point | Sparse | Commercial |
+| [HiGHS](https://highs.dev/)                                                  | ``highs``       | Active set | Sparse | MIT |
+| [HPIPM](https://github.com/giaf/hpipm)                                       | ``hpipm``       | Interior point | Dense | BSD-2-Clause |
 | [jaxopt.OSQP](https://jaxopt.github.io/stable/_autosummary/jaxopt.OSQP.html) | ``jaxopt_osqp`` | Augmented Lagrangian | Dense | Apache-2.0 |
-| [KVXOPT](https://github.com/sanurielf/kvxopt) | ``kvxopt`` | Interior point | Dense & Sparse | GPL-3.0 |
-| [MOSEK](https://mosek.com/) | ``mosek`` | Interior point | Sparse | Commercial |
-| NPPro | ``nppro`` | Active set | Dense | Commercial |
-| [OSQP](https://osqp.org/) | ``osqp`` | Augmented Lagrangian | Sparse | Apache-2.0 |
-| [PIQP](https://github.com/PREDICT-EPFL/piqp) | ``piqp`` | Proximal interior point | Dense & Sparse | BSD-2-Clause |
-| [ProxQP](https://github.com/Simple-Robotics/proxsuite) | ``proxqp`` | Augmented Lagrangian | Dense & Sparse | BSD-2-Clause |
-| [QPALM](https://github.com/kul-optec/QPALM) | ``qpalm`` | Augmented Lagrangian | Sparse | LGPL-3.0 |
-| [qpax](https://github.com/kevin-tracy/qpax/) | ``qpax`` | Interior point | Dense | MIT |
-| [qpOASES](https://github.com/coin-or/qpOASES) | ``qpoases`` | Active set | Dense | LGPL-2.1 |
-| [qpSWIFT](https://github.com/qpSWIFT/qpSWIFT) | ``qpswift`` | Interior point | Sparse | GPL-3.0 |
-| [QTQP](https://github.com/google-deepmind/qtqp) | ``qtqp`` | Interior point | Sparse | Apache-2.0 |
-| [quadprog](https://github.com/quadprog/quadprog) | ``quadprog`` | Active set | Dense | GPL-2.0 |
-| [SCS](https://www.cvxgrp.org/scs/) | ``scs`` | Augmented Lagrangian | Sparse | MIT |
-| [SIP](https://github.com/joaospinto/sip_python) | ``sip`` | Barrier Augmented Lagrangian | Sparse | MIT |
+| [KVXOPT](https://github.com/sanurielf/kvxopt)                                | ``kvxopt``      | Interior point | Dense & Sparse | GPL-3.0 |
+| [MOSEK](https://mosek.com/)                                                  | ``mosek``       | Interior point | Sparse | Commercial |
+| NPPro                                                                        | ``nppro``       | Active set | Dense | Commercial |
+| [OSQP](https://osqp.org/)                                                    | ``osqp``        | Augmented Lagrangian | Sparse | Apache-2.0 |
+| [PIQP](https://github.com/PREDICT-EPFL/piqp)                                 | ``piqp``        | Proximal interior point | Dense & Sparse | BSD-2-Clause |
+| [ProxQP](https://github.com/Simple-Robotics/proxsuite)                       | ``proxqp``      | Augmented Lagrangian | Dense & Sparse | BSD-2-Clause |
+| [QPALM](https://github.com/kul-optec/QPALM)                                  | ``qpalm``       | Augmented Lagrangian | Sparse | LGPL-3.0 |
+| [QTQP](https://github.com/google-deepmind/qtqp)                              | ``qtqp``        | Interior point | Sparse | Apache-2.0 |
+| [qpax](https://github.com/kevin-tracy/qpax/)                                 | ``qpax``        | Interior point | Dense | MIT |
+| [qpOASES](https://github.com/coin-or/qpOASES)                                | ``qpoases``     | Active set | Dense | LGPL-2.1 |
+| [qpSWIFT](https://github.com/qpSWIFT/qpSWIFT)                                | ``qpswift``     | Interior point | Sparse | GPL-3.0 |
+| [quadprog](https://github.com/quadprog/quadprog)                             | ``quadprog``    | Active set | Dense | GPL-2.0 |
+| [SCS](https://www.cvxgrp.org/scs/)                                           | ``scs``         | Augmented Lagrangian | Sparse | MIT |
+| [SIP](https://github.com/joaospinto/sip_python)                              | ``sip``         | Barrier Augmented Lagrangian | Sparse | MIT |
 
 Matrix arguments are NumPy arrays for dense solvers and SciPy Compressed Sparse Column (CSC) matrices for sparse ones.
 
@@ -194,10 +197,10 @@ If you find this project useful, please consider giving it a :star: or citing it
 ```bibtex
 @software{qpsolvers,
   title = {{qpsolvers: Quadratic Programming Solvers in Python}},
-  author = {Caron, Stéphane and Arnström, Daniel and Bonagiri, Suraj and Dechaume, Antoine and Flowers, Nikolai and Heins, Adam and Ishikawa, Takuma and Kenefake, Dustin and Mazzamuto, Giacomo and Meoli, Donato and O'Donoghue, Brendan and Oppenheimer, Adam A. and Otta, Pavel and Pandala, Abhishek and Quiroz Omaña, Juan José and Rontsis, Nikitas and Shah, Paarth and St-Jean, Samuel and Vitucci, Nicola and Wolfers, Soeren and Yang, Fengyu and Delhaisse, Brian and MeindertHH and rimaddo and urob and shaoanlu and Sandoval, Uriel and Khalil, Ahmed and Kozlov, Lev and Groudiev, Antoine and Sousa Pinto, João and Schwan, Roland and Budhiraja, Rohan and Keustermans, Johannes},
+  author = {Caron, Stéphane and Arnström, Daniel and Bonagiri, Suraj and Dechaume, Antoine and Flowers, Nikolai and Heins, Adam and Ishikawa, Takuma and Kenefake, Dustin and Mazzamuto, Giacomo and Meoli, Donato and O'Donoghue, Brendan and Oppenheimer, Adam A. and Otta, Pavel and Pandala, Abhishek and Quiroz Omaña, Juan José and Rontsis, Nikitas and Shah, Paarth and St-Jean, Samuel and Vitucci, Nicola and Wolfers, Soeren and Yang, Fengyu and Delhaisse, Brian and MeindertHH and rimaddo and urob and shaoanlu and Sandoval, Uriel and Khalil, Ahmed and Kozlov, Lev and Groudiev, Antoine and Sousa Pinto, João and Schwan, Roland and Budhiraja, Rohan and Keustermans, Johannes and Wu, Yubin},
   license = {LGPL-3.0},
   url = {https://github.com/qpsolvers/qpsolvers},
-  version = {4.9.0},
+  version = {4.10.0},
   year = {2026}
 }
 ```

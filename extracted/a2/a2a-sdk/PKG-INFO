@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: a2a-sdk
-Version: 0.3.24
+Version: 0.3.25
 Summary: A2A Python SDK
 Project-URL: homepage, https://a2a-protocol.org/
 Project-URL: repository, https://github.com/a2aproject/a2a-python
@@ -29,6 +29,7 @@ Requires-Dist: pydantic>=2.11.3
 Provides-Extra: all
 Requires-Dist: cryptography>=43.0.0; extra == 'all'
 Requires-Dist: fastapi>=0.115.2; extra == 'all'
+Requires-Dist: google-cloud-aiplatform>=1.140.0; extra == 'all'
 Requires-Dist: grpcio-reflection>=1.7.0; extra == 'all'
 Requires-Dist: grpcio-tools>=1.60; extra == 'all'
 Requires-Dist: grpcio>=1.60; extra == 'all'
@@ -65,6 +66,8 @@ Requires-Dist: sqlalchemy[aiosqlite,asyncio]>=2.0.0; extra == 'sqlite'
 Provides-Extra: telemetry
 Requires-Dist: opentelemetry-api>=1.33.0; extra == 'telemetry'
 Requires-Dist: opentelemetry-sdk>=1.33.0; extra == 'telemetry'
+Provides-Extra: vertex
+Requires-Dist: google-cloud-aiplatform>=1.140.0; extra == 'vertex'
 Description-Content-Type: text/markdown
 
 # A2A Python SDK

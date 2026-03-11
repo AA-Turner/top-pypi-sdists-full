@@ -3,35 +3,12 @@ from .module_imports import *
 # -------------------------
 # Config dataclass
 # -------------------------
+# ============================================================
+# Constants
+# ============================================================
+import_tag = 'import '
+from_tag = 'from '
 
-@dataclass
-class ScanConfig:
-    allowed_exts: Set[str]
-    exclude_exts: Set[str]
-    allowed_types: Set[str]
-    exclude_types: Set[str]
-    allowed_dirs: List[str] = field(default_factory=list)
-    exclude_dirs: List[str] = field(default_factory=list)
-    allowed_patterns: List[str] = field(default_factory=list)
-    exclude_patterns: List[str] = field(default_factory=list)
-
-@dataclass
-class SearchParams(ScanConfig):
-    directories: List[str] = field(default_factory=list)
-    add: bool = False
-    recursive: bool = True
-    strings: List[str] = field(default_factory=list)
-    total_strings: bool = False
-    parse_lines: bool = False
-    spec_line: Union[bool, int] = False
-    get_lines: bool = False
-
-@dataclass
-class AllParams(SearchParams):
-    cfg = None
-    allowed: Optional[Callable[[str], bool]] = None
-    include_files: bool = True
-    recursive: bool = True
 # -------------------------
 # Default sets
 # -------------------------

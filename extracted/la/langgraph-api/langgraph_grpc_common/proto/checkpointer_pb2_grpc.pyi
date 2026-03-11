@@ -7,7 +7,7 @@ from collections import abc as _abc
 from google.protobuf import empty_pb2 as _empty_pb2
 from grpc import aio as _aio
 import abc as _abc_1
-from . import checkpointer_pb2 as _checkpointer_pb2
+import checkpointer_pb2 as _checkpointer_pb2
 import grpc as _grpc
 import sys
 import typing as _typing

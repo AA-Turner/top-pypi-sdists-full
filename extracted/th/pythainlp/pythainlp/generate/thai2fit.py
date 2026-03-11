@@ -1,24 +1,46 @@
-# -*- coding: utf-8 -*-
-# SPDX-FileCopyrightText: 2016-2025 PyThaiNLP Project
+# SPDX-FileCopyrightText: 2016-2026 PyThaiNLP Project
 # SPDX-FileType: SOURCE
 # SPDX-License-Identifier: Apache-2.0
-"""
-Thai2fit: Thai Wikipeida Language Model for Text Generation
+"""Thai2fit: Thai Wikipeida Language Model for Text Generation
 
 Codes are from
 https://github.com/PyThaiNLP/tutorials/blob/master/source/notebooks/text_generation.ipynb
 """
 
-__all__ = ["gen_sentence"]
+from __future__ import annotations
+
+__all__: list[str] = ["gen_sentence"]
 
 import pickle
 import random
-from typing import List, Union
+from typing import TYPE_CHECKING, Any, Union
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    import pandas as pd
+    from fastai.basic_train import Learner
+    from fastai.text import (
+        AWD_LSTM,
+        LMDataBunch,
+        Tokenizer,
+        Vocab,
+        language_model_learner,
+    )
 
 # fastai
 import fastai
 import pandas as pd
-from fastai.text import *
+from fastai.text import (
+    AWD_LSTM,
+    NumericalizeProcessor,
+    TextList,
+    TokenizeProcessor,
+    Tokenizer,
+    URLs,
+    language_model_learner,
+    untar_data,
+)
 
 # pythainlp
 from pythainlp.ulmfit import (
@@ -29,27 +51,43 @@ from pythainlp.ulmfit import (
 )
 
 # get dummy data
-imdb = untar_data(URLs.IMDB_SAMPLE)
-dummy_df = pd.read_csv(imdb / "texts.csv")
+imdb: "Path" = untar_data(URLs.IMDB_SAMPLE)
+dummy_df: "pd.DataFrame" = pd.read_csv(imdb / "texts.csv")
 
 # get vocab
-thwiki = THWIKI_LSTM
+thwiki: dict[str, Any] = THWIKI_LSTM
 
-thwiki_itos = pickle.load(open(thwiki["itos_fname"], "rb"))
-thwiki_vocab = fastai.text.transform.Vocab(thwiki_itos)
+# Validate that corpus files are available
+if thwiki["itos_fname"] is None or thwiki["wgts_fname"] is None:
+    raise FileNotFoundError(
+        "corpus-not-found names=['wiki_lm_lstm', 'wiki_itos_lstm']\n"
+        "  Thai2fit model files not found.\n"
+        "    Python: pythainlp.corpus.download('wiki_lm_lstm')\n"
+        "    CLI:    thainlp data get wiki_lm_lstm\n"
+        "    Python: pythainlp.corpus.download('wiki_itos_lstm')\n"
+        "    CLI:    thainlp data get wiki_itos_lstm"
+    )
+
+# Loads a pickle file from PyThaiNLP's official repository with MD5 verification.
+# WARNING:
+# Pickle deserialization can execute arbitrary code if the file is malicious.
+# Users should only use files from trusted sources.
+with open(thwiki["itos_fname"], "rb") as f:
+    thwiki_itos: list[str] = pickle.load(f)  # noqa: S301
+thwiki_vocab: "Vocab" = fastai.text.transform.Vocab(thwiki_itos)
 
 # dummy databunch
-tt = Tokenizer(
+tt: "Tokenizer" = Tokenizer(
     tok_func=ThaiTokenizer,
     lang="th",
     pre_rules=pre_rules_th,
     post_rules=post_rules_th,
 )
-processor = [
+processor: list[Any] = [
     TokenizeProcessor(tokenizer=tt, chunksize=10000, mark_fields=False),
     NumericalizeProcessor(vocab=thwiki_vocab, max_vocab=60000, min_freq=3),
 ]
-data_lm = (
+data_lm: "LMDataBunch" = (
     TextList.from_df(dummy_df, imdb, cols=["text"], processor=processor)
     .split_by_rand_pct(0.2)
     .label_for_lm()
@@ -59,7 +97,7 @@ data_lm = (
 
 data_lm.sanity_check()
 
-config = {
+config: dict[str, Any] = {
     "emb_sz": 400,
     "n_hid": 1550,
     "n_layers": 4,
@@ -73,9 +111,14 @@ config = {
     "embed_p": 0.02,
     "weight_p": 0.15,
 }
-trn_args = {"drop_mult": 0.9, "clip": 0.12, "alpha": 2, "beta": 1}
+trn_args: dict[str, Any] = {
+    "drop_mult": 0.9,
+    "clip": 0.12,
+    "alpha": 2,
+    "beta": 1,
+}
 
-learn = language_model_learner(
+learn: "Learner" = language_model_learner(
     data_lm, AWD_LSTM, config=config, pretrained=False, **trn_args
 )
 
@@ -88,9 +131,8 @@ def gen_sentence(
     N: int = 4,
     prob: float = 0.001,
     output_str: bool = True,
-) -> Union[List[str], str]:
-    """
-    Text generator using Thai2fit
+) -> Union[list[str], str]:
+    """Text generator using Thai2fit
 
     :param str start_seq: word to begin sentence with
     :param int N: number of words
@@ -98,7 +140,7 @@ def gen_sentence(
     :param bool duplicate: allow duplicate words in sentence
 
     :return: list words or str words
-    :rtype: List[str], str
+    :rtype: list[str], str
 
     :Example:
     ::
@@ -112,10 +154,12 @@ def gen_sentence(
       # output: 'แมว คุณหลวง '
     """
     if not start_seq:
-        start_seq = random.choice(list(thwiki_itos))
-    list_word = learn.predict(
+        # Non-cryptographic use, pseudo-random generator is acceptable here
+        start_seq = random.choice(list(thwiki_itos))  # noqa: S311
+    predicted_text: str = learn.predict(
         start_seq, N, temperature=0.8, min_p=prob, sep="-*-"
-    ).split("-*-")
+    )
+    list_word = predicted_text.split("-*-")
 
     if output_str:
         return "".join(list_word)

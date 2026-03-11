@@ -1,24 +1,29 @@
-# -*- coding: utf-8 -*-
-# SPDX-FileCopyrightText: 2016-2025 PyThaiNLP Project
+# SPDX-FileCopyrightText: 2016-2026 PyThaiNLP Project
 # SPDX-FileType: SOURCE
 # SPDX-License-Identifier: Apache-2.0
-from typing import List
-import re
+from __future__ import annotations
 
+import re
+from functools import lru_cache
+
+from pythainlp import thai_consonants, thai_tonemarks
 from pythainlp.corpus import thai_words
 from pythainlp.khavee import KhaveeVerifier
-from pythainlp.tokenize import syllable_tokenize
-from pythainlp.tokenize import Tokenizer
-from pythainlp import thai_consonants, thai_tonemarks
+from pythainlp.tokenize import Tokenizer, syllable_tokenize
 from pythainlp.util import remove_tonemark
 
-kv = KhaveeVerifier()
-all_thai_words_dict = None
+kv: KhaveeVerifier = KhaveeVerifier()
 
 
-def rhyme(word: str) -> List[str]:
-    """
-    Find Thai rhyme
+@lru_cache(maxsize=None)
+def _single_syllable_thai_words() -> list[str]:
+    """Return cached list of single-syllable Thai words."""
+    return [i for i in thai_words() if len(syllable_tokenize(i)) == 1]
+
+
+@lru_cache(maxsize=1024)
+def rhyme(word: str) -> list[str]:
+    """Find Thai rhyme
 
     :param str word: A Thai word
     :return: All list Thai rhyme words
@@ -32,23 +37,19 @@ def rhyme(word: str) -> List[str]:
         print(rhyme("จีบ"))
         # output: ['กลีบ', 'กีบ', 'ครีบ', ...]
     """
-    global all_thai_words_dict
-    list_sumpus = []
-    if all_thai_words_dict is None:
-        all_thai_words_dict = [
-            i for i in list(thai_words()) if len(syllable_tokenize(i)) == 1
-        ]
-    for i in all_thai_words_dict:
-        if kv.is_sumpus(word, i) and i != word:
-            list_sumpus.append(i)
-    return sorted(list_sumpus)
+    return sorted(
+        i for i in _single_syllable_thai_words() if kv.is_sumpus(word, i) and i != word
+    )
 
 
-thai_vowel = ''.join((
-    "อะ,อา,อิ,อี,อึ,อื,อุ,อู,เอะ,เอ,แอะ,แอ,เอียะ,เอีย,เอือะ,เอือ,อัวะ,อัว,โอะ,",
-    "โอ,เอาะ,ออ,เออะ,เออ,อำ,ใอ,ไอ,เอา,ฤ,ฤๅ,ฦ,ฦๅ"
-)).split(",")
-thai_vowel_all = [
+_vowel_str: str = "".join(
+    (
+        "อะ,อา,อิ,อี,อึ,อื,อุ,อู,เอะ,เอ,แอะ,แอ,เอียะ,เอีย,เอือะ,เอือ,อัวะ,อัว,โอะ,",
+        "โอ,เอาะ,ออ,เออะ,เออ,อำ,ใอ,ไอ,เอา,ฤ,ฤๅ,ฦ,ฦๅ",
+    )
+)
+thai_vowel: list[str] = _vowel_str.split(",")
+thai_vowel_all: list[tuple[str, str]] = [
     ("([ก-ฮ])ะ", "\\1อะ"),
     ("([ก-ฮ])า", "\\1อา"),
     ("อิ".replace("อ", "([ก-ฮ])"), "อิ".replace("อ", "\\1อ")),
@@ -83,8 +84,7 @@ thai_vowel_all.sort(key=lambda t: len(t[0]), reverse=True)
 
 
 def thai_consonant_to_spelling(c: str) -> str:
-    """
-    Thai consonants to spelling
+    """Thai consonants to spelling
 
     :param str c: A Thai consonant
     :return: spelling
@@ -104,8 +104,7 @@ def thai_consonant_to_spelling(c: str) -> str:
 
 
 def tone_to_spelling(t: str) -> str:
-    """
-    Thai tonemarks to spelling
+    """Thai tonemarks to spelling
 
     :param str t: A Thai tonemarks
     :return: spelling
@@ -116,7 +115,7 @@ def tone_to_spelling(t: str) -> str:
 
         from pythainlp.util import tone_to_spelling
 
-        print(tone_to_spelling("่")) # ไม้เอก
+        print(tone_to_spelling("่"))  # ไม้เอก
         # output: ไม้เอก
     """
     if t == "่":
@@ -130,11 +129,48 @@ def tone_to_spelling(t: str) -> str:
     return t
 
 
-def spelling(word: str) -> List[str]:
-    """
-    Thai word to spelling
+@lru_cache(maxsize=None)
+def _spelling_tokenizer() -> Tokenizer:
+    """Lazy-load and cache the vowel/consonant tokenizer used by spelling()."""
+    return Tokenizer(
+        custom_dict=thai_vowel + list(thai_consonants), engine="longest"
+    )
 
-    This funnction support Thai root word only.
+
+@lru_cache(maxsize=1024)
+def _spelling_impl(word: str) -> list[str]:
+    """Cached implementation of spelling() for valid string inputs."""
+    thai_vowel_tokenizer = _spelling_tokenizer()
+    word_pre = remove_tonemark(word).replace("็", "")
+    tone = [tone_to_spelling(i) for i in word if i in thai_tonemarks]
+    word_output = word_pre
+    for i, j in thai_vowel_all:
+        if len(re.findall(i, word_pre, re.U)) > 0:
+            if "็" in word and i == "เ([ก-ฮ])":
+                word_output = re.sub(i, "\\1เอะ", word_pre)
+            else:
+                word_output = re.sub(i, j, word_pre)
+            break
+    list_word_output = thai_vowel_tokenizer.word_tokenize(word_output)
+    output = [
+        i
+        for i in [thai_consonant_to_spelling(i) for i in list_word_output]
+        if "์" not in i
+    ]
+    if word_pre == word:
+        return output + [word]
+    elif tone != []:
+        return output + [word_pre, tone[0], word]
+    elif "็" in word:
+        return output + [word]
+    else:
+        return output + [word_pre, word]
+
+
+def spelling(word: str) -> list[str]:
+    """Thai word to spelling
+
+    This function supports Thai root words only.
 
     :param str word: A Thai word
     :return: spelling
@@ -148,35 +184,9 @@ def spelling(word: str) -> List[str]:
         print(spelling("เรียน"))
         # output: ['รอ', 'เอีย', 'นอ', 'เรียน']
 
-        print(spelling("เฝ้า)
+        print(spelling("เฝ้า"))
         # output: ['ฝอ', 'เอา', 'เฝา', 'ไม้โท', 'เฝ้า']
     """
     if not word or not isinstance(word, str):
         return []
-    thai_vowel_tokenizer = Tokenizer(
-        custom_dict=thai_vowel + list(thai_consonants),
-        engine="longest"
-    )
-    word_pre = remove_tonemark(word).replace("็", "")
-    tone = [tone_to_spelling(i) for i in word if i in thai_tonemarks]
-    word_output = word_pre
-    for i, j in thai_vowel_all:
-        if len(re.findall(i, word_pre, re.U)) > 0:
-            if "็" in word and i == "เ([ก-ฮ])":
-                word_output = re.sub(i, "\\1เอะ", word_pre)
-            else:
-                word_output = re.sub(i, j, word_pre)
-            break
-    list_word_output = thai_vowel_tokenizer.word_tokenize(word_output)
-    output = [
-        i for i in [thai_consonant_to_spelling(i) for i in list_word_output]
-        if '์' not in i
-    ]
-    if word_pre == word:
-        return output + [word]
-    elif tone != []:
-        return output + [word_pre, tone[0], word]
-    elif "็" in word:
-        return output + [word]
-    else:
-        return output + [word_pre, word]
+    return _spelling_impl(word)

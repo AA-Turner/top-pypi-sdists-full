@@ -107,6 +107,7 @@ class PeopleActivityLogging:
         location: str = "",
         camera_name: str = "",
         camera_id: str = "",
+        rtp_number: str = "",
     ):
         """Enqueue a detection for background processing"""
         try:
@@ -117,6 +118,7 @@ class PeopleActivityLogging:
                 "location": location,
                 "camera_name": camera_name,
                 "camera_id": camera_id,
+                "rtp_number": rtp_number,
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "employee_id": detection.get("employee_id", None),
                 "staff_id": detection.get("person_id")
@@ -201,6 +203,7 @@ class PeopleActivityLogging:
         timestamp = activity_data["timestamp"]
         camera_name = activity_data.get("camera_name", "")
         camera_id = activity_data.get("camera_id", "")
+        rtp_number = activity_data.get("rtp_number", "")
         
         self.logger.debug(f"Processing activity - location: '{location}', camera_name: '{camera_name}', camera_id: '{camera_id}'")
         try:
@@ -241,6 +244,7 @@ class PeopleActivityLogging:
                 image_data=image_data,
                 camera_name=camera_name,
                 camera_id=camera_id,
+                rtp_number=rtp_number,
             )
 
             if response and response.get("success", False):

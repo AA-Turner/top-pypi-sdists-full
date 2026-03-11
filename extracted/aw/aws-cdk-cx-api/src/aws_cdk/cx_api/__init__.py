@@ -1204,6 +1204,14 @@ class CloudArtifact(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/cx-api.CloudArt
         '''The set of messages extracted from the artifact's metadata.'''
         return typing.cast(typing.List["SynthesisMessage"], jsii.get(self, "messages"))
 
+    @builtins.property
+    @jsii.member(jsii_name="metadata")
+    def metadata(
+        self,
+    ) -> typing.Mapping[builtins.str, typing.List["_aws_cdk_cloud_assembly_schema_cae1d136.MetadataEntry"]]:
+        '''Returns the metadata associated with this Cloud Artifact.'''
+        return typing.cast(typing.Mapping[builtins.str, typing.List["_aws_cdk_cloud_assembly_schema_cae1d136.MetadataEntry"]], jsii.get(self, "metadata"))
+
 
 @jsii.implements(_aws_cdk_cloud_assembly_schema_cae1d136.ICloudAssembly)
 class CloudAssembly(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/cx-api.CloudAssembly"):

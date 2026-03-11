@@ -1,0 +1,124 @@
+- name: Colorado family receives TANF
+  period: 2023
+  input:
+    people:
+      parent1:
+        age: 30
+        employment_income: 500 * 12  # Low income
+      parent2: 
+        age: 28
+      child1:
+        age: 10
+      child2:
+        age: 5
+    spm_units:
+      spm_unit:
+        members: [parent1, parent2, child1, child2]
+    households:
+      household:
+        members: [parent1, parent2, child1, child2]
+        state_code_str: CO
+  output:
+    # CO TANF will be calculated - just check it's positive
+    tanf: 6_540  # Actual CO TANF for family of 4 with low income
+
+- name: Takeup set to false zeroes TANF for eligible household
+  period: 2023
+  input:
+    people:
+      parent:
+        age: 30
+        employment_income: 500 * 12
+      child:
+        age: 10
+    spm_units:
+      spm_unit:
+        members: [parent, child]
+        takes_up_tanf_if_eligible: false
+    households:
+      household:
+        members: [parent, child]
+        state_code_str: CO
+  output:
+    tanf: 0
+
+- name: DC family with no income
+  period: 2023
+  input:
+    people:
+      parent:
+        age: 25
+      child:
+        age: 5
+    spm_units:
+      spm_unit:
+        members: [parent, child]
+        is_tanf_enrolled: true
+        dc_tanf_meets_work_requirements: true
+    households:
+      household:
+        members: [parent, child]
+        state_code_str: DC
+  output:
+    tanf: 6_585  # Actual DC TANF for family of 2 with no income
+
+- name: Test demographic eligibility
+  period: 2023-01  # Use month period for demographic test
+  input:
+    people:
+      child:
+        age: 10
+      adult:
+        age: 30
+      student:
+        age: 18
+        is_in_secondary_school: true
+    spm_units:
+      spm_unit:
+        members: [child, adult, student]
+  output:
+    is_person_demographic_tanf_eligible: [true, false, true]  # Child yes, adult no, student yes
+    is_demographic_tanf_eligible: true  # Has eligible children
+
+- name: NY family with no income receives TANF
+  period: 2023
+  input:
+    people:
+      parent:
+        age: 30
+        employment_income: 0
+      child:
+        age: 8
+    spm_units:
+      spm_unit:
+        members: [parent, child]
+        is_tanf_enrolled: true
+    households:
+      household:
+        members: [parent, child]
+        state_code_str: NY
+  output:
+    # NY TANF for family of 2 with no income
+    tanf: 3_024
+
+- name: TANF abolition test with full household
+  period: 2023
+  input:
+    gov.hhs.tanf.abolish_tanf: true
+    people:
+      parent1:
+        age: 35
+      parent2:
+        age: 33
+      child:
+        age: 7
+    spm_units:
+      spm_unit:
+        members: [parent1, parent2, child]
+        is_tanf_enrolled: true
+    households:
+      household:
+        members: [parent1, parent2, child]
+        state_code_str: CA
+  output:
+    tanf: 0  # Abolished despite being in CA

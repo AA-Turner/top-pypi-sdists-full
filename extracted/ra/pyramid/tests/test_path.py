@@ -17,8 +17,9 @@ class TestCallerPath(unittest.TestCase):
         return caller_path(path, level)
 
     def test_isabs(self):
-        result = self._callFUT('/a/b/c')
-        self.assertEqual(result, '/a/b/c')
+        path = os.path.abspath('/a/b/c')
+        result = self._callFUT(path)
+        self.assertEqual(result, path)
 
     def test_pkgrelative(self):
         import os
@@ -339,27 +340,33 @@ class TestPkgResourcesAssetDescriptor(unittest.TestCase):
     def test_stream(self):
         inst = self._makeOne()
         inst.pkg_resources = DummyPkgResource()
-        inst.pkg_resources.resource_stream = lambda x, y: '%s:%s' % (x, y)
+        inst.pkg_resources.resource_stream = lambda x, y: f'{x}:{y}'
         s = inst.stream()
-        self.assertEqual(s, '%s:%s' % ('tests', 'test_asset.py'))
+        self.assertEqual(s, '{}:{}'.format('tests', 'test_asset.py'))
 
     def test_isdir(self):
         inst = self._makeOne()
         inst.pkg_resources = DummyPkgResource()
-        inst.pkg_resources.resource_isdir = lambda x, y: '%s:%s' % (x, y)
-        self.assertEqual(inst.isdir(), '%s:%s' % ('tests', 'test_asset.py'))
+        inst.pkg_resources.resource_isdir = lambda x, y: f'{x}:{y}'
+        self.assertEqual(
+            inst.isdir(), '{}:{}'.format('tests', 'test_asset.py')
+        )
 
     def test_listdir(self):
         inst = self._makeOne()
         inst.pkg_resources = DummyPkgResource()
-        inst.pkg_resources.resource_listdir = lambda x, y: '%s:%s' % (x, y)
-        self.assertEqual(inst.listdir(), '%s:%s' % ('tests', 'test_asset.py'))
+        inst.pkg_resources.resource_listdir = lambda x, y: f'{x}:{y}'
+        self.assertEqual(
+            inst.listdir(), '{}:{}'.format('tests', 'test_asset.py')
+        )
 
     def test_exists(self):
         inst = self._makeOne()
         inst.pkg_resources = DummyPkgResource()
-        inst.pkg_resources.resource_exists = lambda x, y: '%s:%s' % (x, y)
-        self.assertEqual(inst.exists(), '%s:%s' % ('tests', 'test_asset.py'))
+        inst.pkg_resources.resource_exists = lambda x, y: f'{x}:{y}'
+        self.assertEqual(
+            inst.exists(), '{}:{}'.format('tests', 'test_asset.py')
+        )
 
 
 class TestFSAssetDescriptor(unittest.TestCase):

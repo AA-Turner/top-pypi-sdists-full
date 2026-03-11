@@ -935,6 +935,48 @@ api = appsync.GraphqlApi(self, "OwnerContact",
 )
 ```
 
+### Enhanced Metrics
+
+Enables and controls the enhanced metrics feature. Enhanced metrics emit granular data on API usage and performance such as AppSync request and error counts, latency, and cache hits/misses. All enhanced metric data is sent to your CloudWatch account, and you can configure the types of data that will be sent.
+
+```python
+schema = appsync.SchemaFile(file_path="mySchemaFile")
+appsync.GraphqlApi(self, "api",
+    name="myApi",
+    definition=appsync.Definition.from_schema(schema),
+    enhanced_metrics_config=appsync.EnhancedMetricsConfig(
+        data_source_level_metrics_behavior=appsync.DataSourceLevelMetricsBehavior.FULL_REQUEST_DATA_SOURCE_METRICS,
+        operation_level_metrics_config=appsync.OperationLevelMetricsConfig.ENABLED,
+        resolver_level_metrics_behavior=appsync.ResolverLevelMetricsBehavior.FULL_REQUEST_RESOLVER_METRICS
+    )
+)
+```
+
+If you wish to enable enhanced metrics only for subset of data sources or resolvers you can use the following configuration.
+
+```python
+schema = appsync.SchemaFile(file_path="mySchemaFile")
+api = appsync.GraphqlApi(self, "api",
+    name="myApi",
+    definition=appsync.Definition.from_schema(schema),
+    enhanced_metrics_config=appsync.EnhancedMetricsConfig(
+        data_source_level_metrics_behavior=appsync.DataSourceLevelMetricsBehavior.PER_DATA_SOURCE_METRICS,
+        operation_level_metrics_config=appsync.OperationLevelMetricsConfig.ENABLED,
+        resolver_level_metrics_behavior=appsync.ResolverLevelMetricsBehavior.PER_RESOLVER_METRICS
+    )
+)
+
+none_dS = api.add_none_data_source("none",
+    metrics_config=appsync.DataSourceMetricsConfig.ENABLED
+)
+
+none_dS.create_resolver("noneResolver",
+    type_name="Mutation",
+    field_name="addDemoMetricsConfig",
+    metrics_config=appsync.ResolverMetricsConfig.ENABLED
+)
+```
+
 ## Events
 
 ### Example
@@ -4234,6 +4276,7 @@ class BaseDataSource(
         caching_config: typing.Optional[typing.Union["CachingConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         code: typing.Optional["Code"] = None,
         max_batch_size: typing.Optional[jsii.Number] = None,
+        metrics_config: typing.Optional["ResolverMetricsConfig"] = None,
         pipeline_config: typing.Optional[typing.Sequence["_IFunctionConfigurationRef_6eb53e57"]] = None,
         request_mapping_template: typing.Optional["MappingTemplate"] = None,
         response_mapping_template: typing.Optional["MappingTemplate"] = None,
@@ -4247,6 +4290,7 @@ class BaseDataSource(
         :param caching_config: The caching configuration for this resolver. Default: - No caching configuration
         :param code: The function code. Default: - no code is used
         :param max_batch_size: The maximum number of elements per batch, when using batch invoke. Default: - No max batch size
+        :param metrics_config: Whether to enable enhanced metrics Value will be ignored, if ``enhancedMetricsConfig.resolverLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_RESOLVER_METRICS``. Default: - no metrics configuration
         :param pipeline_config: configuration of the pipeline resolver. Default: - no pipeline resolver configuration An empty array | undefined sets resolver to be of kind, unit
         :param request_mapping_template: The request mapping template for this resolver. Default: - No mapping template
         :param response_mapping_template: The response mapping template for this resolver. Default: - No mapping template
@@ -4261,6 +4305,7 @@ class BaseDataSource(
             caching_config=caching_config,
             code=code,
             max_batch_size=max_batch_size,
+            metrics_config=metrics_config,
             pipeline_config=pipeline_config,
             request_mapping_template=request_mapping_template,
             response_mapping_template=response_mapping_template,
@@ -4317,7 +4362,12 @@ typing.cast(typing.Any, BaseDataSource).__jsii_proxy_class__ = lambda : _BaseDat
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_appsync.BaseDataSourceProps",
     jsii_struct_bases=[],
-    name_mapping={"api": "api", "description": "description", "name": "name"},
+    name_mapping={
+        "api": "api",
+        "description": "description",
+        "metrics_config": "metricsConfig",
+        "name": "name",
+    },
 )
 class BaseDataSourceProps:
     def __init__(
@@ -4325,12 +4375,14 @@ class BaseDataSourceProps:
         *,
         api: "_IGraphQLApiRef_d46d77ba",
         description: typing.Optional[builtins.str] = None,
+        metrics_config: typing.Optional["DataSourceMetricsConfig"] = None,
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Base properties for an AppSync datasource.
 
         :param api: The API to attach this data source to.
         :param description: the description of the data source. Default: - None
+        :param metrics_config: Whether to enable enhanced metrics of the data source Value will be ignored, if ``enhancedMetricsConfig.dataSourceLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_DATA_SOURCE_METRICS``. Default: - no metrics configuration
         :param name: The name of the data source. Default: - id of data source
 
         :exampleMetadata: fixture=_generated
@@ -4349,6 +4401,7 @@ class BaseDataSourceProps:
             
                 # the properties below are optional
                 description="description",
+                metrics_config=appsync.DataSourceMetricsConfig.ENABLED,
                 name="name"
             )
         '''
@@ -4356,12 +4409,15 @@ class BaseDataSourceProps:
             type_hints = typing.get_type_hints(_typecheckingstub__7cb5694e7bccdac081c0d35fee8d239110cc5fb8b7eefac7866144f6deac2d9d)
             check_type(argname="argument api", value=api, expected_type=type_hints["api"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument metrics_config", value=metrics_config, expected_type=type_hints["metrics_config"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "api": api,
         }
         if description is not None:
             self._values["description"] = description
+        if metrics_config is not None:
+            self._values["metrics_config"] = metrics_config
         if name is not None:
             self._values["name"] = name
 
@@ -4380,6 +4436,15 @@ class BaseDataSourceProps:
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def metrics_config(self) -> typing.Optional["DataSourceMetricsConfig"]:
+        '''Whether to enable enhanced metrics of the data source Value will be ignored, if ``enhancedMetricsConfig.dataSourceLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_DATA_SOURCE_METRICS``.
+
+        :default: - no metrics configuration
+        '''
+        result = self._values.get("metrics_config")
+        return typing.cast(typing.Optional["DataSourceMetricsConfig"], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
@@ -4411,6 +4476,7 @@ class BaseDataSourceProps:
         "caching_config": "cachingConfig",
         "code": "code",
         "max_batch_size": "maxBatchSize",
+        "metrics_config": "metricsConfig",
         "pipeline_config": "pipelineConfig",
         "request_mapping_template": "requestMappingTemplate",
         "response_mapping_template": "responseMappingTemplate",
@@ -4426,6 +4492,7 @@ class BaseResolverProps:
         caching_config: typing.Optional[typing.Union["CachingConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         code: typing.Optional["Code"] = None,
         max_batch_size: typing.Optional[jsii.Number] = None,
+        metrics_config: typing.Optional["ResolverMetricsConfig"] = None,
         pipeline_config: typing.Optional[typing.Sequence["_IFunctionConfigurationRef_6eb53e57"]] = None,
         request_mapping_template: typing.Optional["MappingTemplate"] = None,
         response_mapping_template: typing.Optional["MappingTemplate"] = None,
@@ -4438,6 +4505,7 @@ class BaseResolverProps:
         :param caching_config: The caching configuration for this resolver. Default: - No caching configuration
         :param code: The function code. Default: - no code is used
         :param max_batch_size: The maximum number of elements per batch, when using batch invoke. Default: - No max batch size
+        :param metrics_config: Whether to enable enhanced metrics Value will be ignored, if ``enhancedMetricsConfig.resolverLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_RESOLVER_METRICS``. Default: - no metrics configuration
         :param pipeline_config: configuration of the pipeline resolver. Default: - no pipeline resolver configuration An empty array | undefined sets resolver to be of kind, unit
         :param request_mapping_template: The request mapping template for this resolver. Default: - No mapping template
         :param response_mapping_template: The response mapping template for this resolver. Default: - No mapping template
@@ -4515,6 +4583,7 @@ class BaseResolverProps:
             check_type(argname="argument caching_config", value=caching_config, expected_type=type_hints["caching_config"])
             check_type(argname="argument code", value=code, expected_type=type_hints["code"])
             check_type(argname="argument max_batch_size", value=max_batch_size, expected_type=type_hints["max_batch_size"])
+            check_type(argname="argument metrics_config", value=metrics_config, expected_type=type_hints["metrics_config"])
             check_type(argname="argument pipeline_config", value=pipeline_config, expected_type=type_hints["pipeline_config"])
             check_type(argname="argument request_mapping_template", value=request_mapping_template, expected_type=type_hints["request_mapping_template"])
             check_type(argname="argument response_mapping_template", value=response_mapping_template, expected_type=type_hints["response_mapping_template"])
@@ -4529,6 +4598,8 @@ class BaseResolverProps:
             self._values["code"] = code
         if max_batch_size is not None:
             self._values["max_batch_size"] = max_batch_size
+        if metrics_config is not None:
+            self._values["metrics_config"] = metrics_config
         if pipeline_config is not None:
             self._values["pipeline_config"] = pipeline_config
         if request_mapping_template is not None:
@@ -4578,6 +4649,15 @@ class BaseResolverProps:
         '''
         result = self._values.get("max_batch_size")
         return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def metrics_config(self) -> typing.Optional["ResolverMetricsConfig"]:
+        '''Whether to enable enhanced metrics Value will be ignored, if ``enhancedMetricsConfig.resolverLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_RESOLVER_METRICS``.
+
+        :default: - no metrics configuration
+        '''
+        result = self._values.get("metrics_config")
+        return typing.cast(typing.Optional["ResolverMetricsConfig"], result)
 
     @builtins.property
     def pipeline_config(
@@ -14944,43 +15024,126 @@ class CodeConfig:
         )
 
 
+@jsii.enum(jsii_type="aws-cdk-lib.aws_appsync.DataSourceLevelMetricsBehavior")
+class DataSourceLevelMetricsBehavior(enum.Enum):
+    '''Controls how data source metrics will be emitted to CloudWatch.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        schema = appsync.SchemaFile(file_path="mySchemaFile")
+        appsync.GraphqlApi(self, "api",
+            name="myApi",
+            definition=appsync.Definition.from_schema(schema),
+            enhanced_metrics_config=appsync.EnhancedMetricsConfig(
+                data_source_level_metrics_behavior=appsync.DataSourceLevelMetricsBehavior.FULL_REQUEST_DATA_SOURCE_METRICS,
+                operation_level_metrics_config=appsync.OperationLevelMetricsConfig.ENABLED,
+                resolver_level_metrics_behavior=appsync.ResolverLevelMetricsBehavior.FULL_REQUEST_RESOLVER_METRICS
+            )
+        )
+    '''
+
+    FULL_REQUEST_DATA_SOURCE_METRICS = "FULL_REQUEST_DATA_SOURCE_METRICS"
+    '''Records and emits metric data for all data sources in the request.'''
+    PER_DATA_SOURCE_METRICS = "PER_DATA_SOURCE_METRICS"
+    '''Records and emits metric data for data sources that have the MetricsConfig value set to ENABLED.'''
+
+
+@jsii.enum(jsii_type="aws-cdk-lib.aws_appsync.DataSourceMetricsConfig")
+class DataSourceMetricsConfig(enum.Enum):
+    '''Enum for enhanced data source metrics for specified data sources.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        schema = appsync.SchemaFile(file_path="mySchemaFile")
+        api = appsync.GraphqlApi(self, "api",
+            name="myApi",
+            definition=appsync.Definition.from_schema(schema),
+            enhanced_metrics_config=appsync.EnhancedMetricsConfig(
+                data_source_level_metrics_behavior=appsync.DataSourceLevelMetricsBehavior.PER_DATA_SOURCE_METRICS,
+                operation_level_metrics_config=appsync.OperationLevelMetricsConfig.ENABLED,
+                resolver_level_metrics_behavior=appsync.ResolverLevelMetricsBehavior.PER_RESOLVER_METRICS
+            )
+        )
+        
+        none_dS = api.add_none_data_source("none",
+            metrics_config=appsync.DataSourceMetricsConfig.ENABLED
+        )
+        
+        none_dS.create_resolver("noneResolver",
+            type_name="Mutation",
+            field_name="addDemoMetricsConfig",
+            metrics_config=appsync.ResolverMetricsConfig.ENABLED
+        )
+    '''
+
+    ENABLED = "ENABLED"
+    '''Enables enhanced data source metrics for specified data sources.'''
+    DISABLED = "DISABLED"
+    '''Disables enhanced data source metrics for specified data sources.'''
+
+
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_appsync.DataSourceOptions",
     jsii_struct_bases=[],
-    name_mapping={"description": "description", "name": "name"},
+    name_mapping={
+        "description": "description",
+        "metrics_config": "metricsConfig",
+        "name": "name",
+    },
 )
 class DataSourceOptions:
     def __init__(
         self,
         *,
         description: typing.Optional[builtins.str] = None,
+        metrics_config: typing.Optional["DataSourceMetricsConfig"] = None,
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Optional configuration for data sources.
 
         :param description: The description of the data source. Default: - No description
+        :param metrics_config: Whether to enable enhanced metrics of the data source Value will be ignored, if ``enhancedMetricsConfig.dataSourceLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_DATA_SOURCE_METRICS``. Default: - Enhance metrics are disabled
         :param name: The name of the data source, overrides the id given by cdk. Default: - generated by cdk given the id
 
-        :exampleMetadata: fixture=_generated
+        :exampleMetadata: infused
 
         Example::
 
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_appsync as appsync
+            schema = appsync.SchemaFile(file_path="mySchemaFile")
+            api = appsync.GraphqlApi(self, "api",
+                name="myApi",
+                definition=appsync.Definition.from_schema(schema),
+                enhanced_metrics_config=appsync.EnhancedMetricsConfig(
+                    data_source_level_metrics_behavior=appsync.DataSourceLevelMetricsBehavior.PER_DATA_SOURCE_METRICS,
+                    operation_level_metrics_config=appsync.OperationLevelMetricsConfig.ENABLED,
+                    resolver_level_metrics_behavior=appsync.ResolverLevelMetricsBehavior.PER_RESOLVER_METRICS
+                )
+            )
             
-            data_source_options = appsync.DataSourceOptions(
-                description="description",
-                name="name"
+            none_dS = api.add_none_data_source("none",
+                metrics_config=appsync.DataSourceMetricsConfig.ENABLED
+            )
+            
+            none_dS.create_resolver("noneResolver",
+                type_name="Mutation",
+                field_name="addDemoMetricsConfig",
+                metrics_config=appsync.ResolverMetricsConfig.ENABLED
             )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__931a67471fe69ef52bd3bdb1d3123eda90d2919ed8b825ab147e1db8ee9b4607)
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument metrics_config", value=metrics_config, expected_type=type_hints["metrics_config"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if description is not None:
             self._values["description"] = description
+        if metrics_config is not None:
+            self._values["metrics_config"] = metrics_config
         if name is not None:
             self._values["name"] = name
 
@@ -14992,6 +15155,15 @@ class DataSourceOptions:
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def metrics_config(self) -> typing.Optional["DataSourceMetricsConfig"]:
+        '''Whether to enable enhanced metrics of the data source Value will be ignored, if ``enhancedMetricsConfig.dataSourceLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_DATA_SOURCE_METRICS``.
+
+        :default: - Enhance metrics are disabled
+        '''
+        result = self._values.get("metrics_config")
+        return typing.cast(typing.Optional["DataSourceMetricsConfig"], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
@@ -15026,22 +15198,15 @@ class Definition(
 
     Example::
 
-        source_api = appsync.GraphqlApi(self, "FirstSourceAPI",
-            name="FirstSourceAPI",
-            definition=appsync.Definition.from_file(path.join(__dirname, "appsync.merged-api-1.graphql"))
-        )
-        
-        imported_merged_api = appsync.GraphqlApi.from_graphql_api_attributes(self, "ImportedMergedApi",
-            graphql_api_id="MyApiId",
-            graphql_api_arn="MyApiArn"
-        )
-        
-        imported_execution_role = iam.Role.from_role_arn(self, "ExecutionRole", "arn:aws:iam::ACCOUNT:role/MyExistingRole")
-        appsync.SourceApiAssociation(self, "SourceApiAssociation2",
-            source_api=source_api,
-            merged_api=imported_merged_api,
-            merge_type=appsync.MergeType.MANUAL_MERGE,
-            merged_api_execution_role=imported_execution_role
+        schema = appsync.SchemaFile(file_path="mySchemaFile")
+        appsync.GraphqlApi(self, "api",
+            name="myApi",
+            definition=appsync.Definition.from_schema(schema),
+            enhanced_metrics_config=appsync.EnhancedMetricsConfig(
+                data_source_level_metrics_behavior=appsync.DataSourceLevelMetricsBehavior.FULL_REQUEST_DATA_SOURCE_METRICS,
+                operation_level_metrics_config=appsync.OperationLevelMetricsConfig.ENABLED,
+                resolver_level_metrics_behavior=appsync.ResolverLevelMetricsBehavior.FULL_REQUEST_RESOLVER_METRICS
+            )
         )
     '''
 
@@ -15206,6 +15371,88 @@ class DomainOptions:
 
     def __repr__(self) -> str:
         return "DomainOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_appsync.EnhancedMetricsConfig",
+    jsii_struct_bases=[],
+    name_mapping={
+        "data_source_level_metrics_behavior": "dataSourceLevelMetricsBehavior",
+        "operation_level_metrics_config": "operationLevelMetricsConfig",
+        "resolver_level_metrics_behavior": "resolverLevelMetricsBehavior",
+    },
+)
+class EnhancedMetricsConfig:
+    def __init__(
+        self,
+        *,
+        data_source_level_metrics_behavior: "DataSourceLevelMetricsBehavior",
+        operation_level_metrics_config: "OperationLevelMetricsConfig",
+        resolver_level_metrics_behavior: "ResolverLevelMetricsBehavior",
+    ) -> None:
+        '''Enhanced metrics configuration for AppSync.
+
+        :param data_source_level_metrics_behavior: Controls how data source metrics will be emitted to CloudWatch.
+        :param operation_level_metrics_config: Controls how operation metrics will be emitted to CloudWatch.
+        :param resolver_level_metrics_behavior: Controls how resolver metrics will be emitted to CloudWatch.
+
+        :exampleMetadata: infused
+
+        Example::
+
+            schema = appsync.SchemaFile(file_path="mySchemaFile")
+            appsync.GraphqlApi(self, "api",
+                name="myApi",
+                definition=appsync.Definition.from_schema(schema),
+                enhanced_metrics_config=appsync.EnhancedMetricsConfig(
+                    data_source_level_metrics_behavior=appsync.DataSourceLevelMetricsBehavior.FULL_REQUEST_DATA_SOURCE_METRICS,
+                    operation_level_metrics_config=appsync.OperationLevelMetricsConfig.ENABLED,
+                    resolver_level_metrics_behavior=appsync.ResolverLevelMetricsBehavior.FULL_REQUEST_RESOLVER_METRICS
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__30b5e33e91d43b9e9868eed4944e05c297f44ed5a51359d9b6cc477eb0ec7fb7)
+            check_type(argname="argument data_source_level_metrics_behavior", value=data_source_level_metrics_behavior, expected_type=type_hints["data_source_level_metrics_behavior"])
+            check_type(argname="argument operation_level_metrics_config", value=operation_level_metrics_config, expected_type=type_hints["operation_level_metrics_config"])
+            check_type(argname="argument resolver_level_metrics_behavior", value=resolver_level_metrics_behavior, expected_type=type_hints["resolver_level_metrics_behavior"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "data_source_level_metrics_behavior": data_source_level_metrics_behavior,
+            "operation_level_metrics_config": operation_level_metrics_config,
+            "resolver_level_metrics_behavior": resolver_level_metrics_behavior,
+        }
+
+    @builtins.property
+    def data_source_level_metrics_behavior(self) -> "DataSourceLevelMetricsBehavior":
+        '''Controls how data source metrics will be emitted to CloudWatch.'''
+        result = self._values.get("data_source_level_metrics_behavior")
+        assert result is not None, "Required property 'data_source_level_metrics_behavior' is missing"
+        return typing.cast("DataSourceLevelMetricsBehavior", result)
+
+    @builtins.property
+    def operation_level_metrics_config(self) -> "OperationLevelMetricsConfig":
+        '''Controls how operation metrics will be emitted to CloudWatch.'''
+        result = self._values.get("operation_level_metrics_config")
+        assert result is not None, "Required property 'operation_level_metrics_config' is missing"
+        return typing.cast("OperationLevelMetricsConfig", result)
+
+    @builtins.property
+    def resolver_level_metrics_behavior(self) -> "ResolverLevelMetricsBehavior":
+        '''Controls how resolver metrics will be emitted to CloudWatch.'''
+        result = self._values.get("resolver_level_metrics_behavior")
+        assert result is not None, "Required property 'resolver_level_metrics_behavior' is missing"
+        return typing.cast("ResolverLevelMetricsBehavior", result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "EnhancedMetricsConfig(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -15862,6 +16109,7 @@ class ExtendedDataSourceProps:
         "caching_config": "cachingConfig",
         "code": "code",
         "max_batch_size": "maxBatchSize",
+        "metrics_config": "metricsConfig",
         "pipeline_config": "pipelineConfig",
         "request_mapping_template": "requestMappingTemplate",
         "response_mapping_template": "responseMappingTemplate",
@@ -15878,6 +16126,7 @@ class ExtendedResolverProps(BaseResolverProps):
         caching_config: typing.Optional[typing.Union["CachingConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         code: typing.Optional["Code"] = None,
         max_batch_size: typing.Optional[jsii.Number] = None,
+        metrics_config: typing.Optional["ResolverMetricsConfig"] = None,
         pipeline_config: typing.Optional[typing.Sequence["_IFunctionConfigurationRef_6eb53e57"]] = None,
         request_mapping_template: typing.Optional["MappingTemplate"] = None,
         response_mapping_template: typing.Optional["MappingTemplate"] = None,
@@ -15891,6 +16140,7 @@ class ExtendedResolverProps(BaseResolverProps):
         :param caching_config: The caching configuration for this resolver. Default: - No caching configuration
         :param code: The function code. Default: - no code is used
         :param max_batch_size: The maximum number of elements per batch, when using batch invoke. Default: - No max batch size
+        :param metrics_config: Whether to enable enhanced metrics Value will be ignored, if ``enhancedMetricsConfig.resolverLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_RESOLVER_METRICS``. Default: - no metrics configuration
         :param pipeline_config: configuration of the pipeline resolver. Default: - no pipeline resolver configuration An empty array | undefined sets resolver to be of kind, unit
         :param request_mapping_template: The request mapping template for this resolver. Default: - No mapping template
         :param response_mapping_template: The response mapping template for this resolver. Default: - No mapping template
@@ -15927,6 +16177,7 @@ class ExtendedResolverProps(BaseResolverProps):
                 code=code,
                 data_source=base_data_source,
                 max_batch_size=123,
+                metrics_config=appsync.ResolverMetricsConfig.ENABLED,
                 pipeline_config=[function_configuration_ref],
                 request_mapping_template=mapping_template,
                 response_mapping_template=mapping_template,
@@ -15942,6 +16193,7 @@ class ExtendedResolverProps(BaseResolverProps):
             check_type(argname="argument caching_config", value=caching_config, expected_type=type_hints["caching_config"])
             check_type(argname="argument code", value=code, expected_type=type_hints["code"])
             check_type(argname="argument max_batch_size", value=max_batch_size, expected_type=type_hints["max_batch_size"])
+            check_type(argname="argument metrics_config", value=metrics_config, expected_type=type_hints["metrics_config"])
             check_type(argname="argument pipeline_config", value=pipeline_config, expected_type=type_hints["pipeline_config"])
             check_type(argname="argument request_mapping_template", value=request_mapping_template, expected_type=type_hints["request_mapping_template"])
             check_type(argname="argument response_mapping_template", value=response_mapping_template, expected_type=type_hints["response_mapping_template"])
@@ -15957,6 +16209,8 @@ class ExtendedResolverProps(BaseResolverProps):
             self._values["code"] = code
         if max_batch_size is not None:
             self._values["max_batch_size"] = max_batch_size
+        if metrics_config is not None:
+            self._values["metrics_config"] = metrics_config
         if pipeline_config is not None:
             self._values["pipeline_config"] = pipeline_config
         if request_mapping_template is not None:
@@ -16008,6 +16262,15 @@ class ExtendedResolverProps(BaseResolverProps):
         '''
         result = self._values.get("max_batch_size")
         return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def metrics_config(self) -> typing.Optional["ResolverMetricsConfig"]:
+        '''Whether to enable enhanced metrics Value will be ignored, if ``enhancedMetricsConfig.resolverLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_RESOLVER_METRICS``.
+
+        :default: - no metrics configuration
+        '''
+        result = self._values.get("metrics_config")
+        return typing.cast(typing.Optional["ResolverMetricsConfig"], result)
 
     @builtins.property
     def pipeline_config(
@@ -16326,6 +16589,7 @@ class GraphqlApiAttributes:
         "authorization_config": "authorizationConfig",
         "definition": "definition",
         "domain_name": "domainName",
+        "enhanced_metrics_config": "enhancedMetricsConfig",
         "environment_variables": "environmentVariables",
         "introspection_config": "introspectionConfig",
         "log_config": "logConfig",
@@ -16345,6 +16609,7 @@ class GraphqlApiProps:
         authorization_config: typing.Optional[typing.Union["AuthorizationConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         definition: typing.Optional["Definition"] = None,
         domain_name: typing.Optional[typing.Union["DomainOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        enhanced_metrics_config: typing.Optional[typing.Union["EnhancedMetricsConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         environment_variables: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         introspection_config: typing.Optional["IntrospectionConfig"] = None,
         log_config: typing.Optional[typing.Union["LogConfig", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -16361,6 +16626,7 @@ class GraphqlApiProps:
         :param authorization_config: Optional authorization configuration. Default: - API Key authorization
         :param definition: Definition (schema file or source APIs) for this GraphQL Api.
         :param domain_name: The domain name configuration for the GraphQL API. The Route 53 hosted zone and CName DNS record must be configured in addition to this setting to enable custom domain URL Default: - no domain name
+        :param enhanced_metrics_config: Enables and controls the enhanced metrics feature. Default: - Enhanced metrics disabled.
         :param environment_variables: A map containing the list of resources with their properties and environment variables. There are a few rules you must follow when creating keys and values: - Keys must begin with a letter. - Keys must be between 2 and 64 characters long. - Keys can only contain letters, numbers, and the underscore character (_). - Values can be up to 512 characters long. - You can configure up to 50 key-value pairs in a GraphQL API. Default: - No environment variables.
         :param introspection_config: A value indicating whether the API to enable (ENABLED) or disable (DISABLED) introspection. Default: IntrospectionConfig.ENABLED
         :param log_config: Logging configuration for this api. Default: - None
@@ -16375,28 +16641,23 @@ class GraphqlApiProps:
 
         Example::
 
-            source_api = appsync.GraphqlApi(self, "FirstSourceAPI",
-                name="FirstSourceAPI",
-                definition=appsync.Definition.from_file(path.join(__dirname, "appsync.merged-api-1.graphql"))
-            )
-            
-            imported_merged_api = appsync.GraphqlApi.from_graphql_api_attributes(self, "ImportedMergedApi",
-                graphql_api_id="MyApiId",
-                graphql_api_arn="MyApiArn"
-            )
-            
-            imported_execution_role = iam.Role.from_role_arn(self, "ExecutionRole", "arn:aws:iam::ACCOUNT:role/MyExistingRole")
-            appsync.SourceApiAssociation(self, "SourceApiAssociation2",
-                source_api=source_api,
-                merged_api=imported_merged_api,
-                merge_type=appsync.MergeType.MANUAL_MERGE,
-                merged_api_execution_role=imported_execution_role
+            schema = appsync.SchemaFile(file_path="mySchemaFile")
+            appsync.GraphqlApi(self, "api",
+                name="myApi",
+                definition=appsync.Definition.from_schema(schema),
+                enhanced_metrics_config=appsync.EnhancedMetricsConfig(
+                    data_source_level_metrics_behavior=appsync.DataSourceLevelMetricsBehavior.FULL_REQUEST_DATA_SOURCE_METRICS,
+                    operation_level_metrics_config=appsync.OperationLevelMetricsConfig.ENABLED,
+                    resolver_level_metrics_behavior=appsync.ResolverLevelMetricsBehavior.FULL_REQUEST_RESOLVER_METRICS
+                )
             )
         '''
         if isinstance(authorization_config, dict):
             authorization_config = AuthorizationConfig(**authorization_config)
         if isinstance(domain_name, dict):
             domain_name = DomainOptions(**domain_name)
+        if isinstance(enhanced_metrics_config, dict):
+            enhanced_metrics_config = EnhancedMetricsConfig(**enhanced_metrics_config)
         if isinstance(log_config, dict):
             log_config = LogConfig(**log_config)
         if __debug__:
@@ -16405,6 +16666,7 @@ class GraphqlApiProps:
             check_type(argname="argument authorization_config", value=authorization_config, expected_type=type_hints["authorization_config"])
             check_type(argname="argument definition", value=definition, expected_type=type_hints["definition"])
             check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
+            check_type(argname="argument enhanced_metrics_config", value=enhanced_metrics_config, expected_type=type_hints["enhanced_metrics_config"])
             check_type(argname="argument environment_variables", value=environment_variables, expected_type=type_hints["environment_variables"])
             check_type(argname="argument introspection_config", value=introspection_config, expected_type=type_hints["introspection_config"])
             check_type(argname="argument log_config", value=log_config, expected_type=type_hints["log_config"])
@@ -16423,6 +16685,8 @@ class GraphqlApiProps:
             self._values["definition"] = definition
         if domain_name is not None:
             self._values["domain_name"] = domain_name
+        if enhanced_metrics_config is not None:
+            self._values["enhanced_metrics_config"] = enhanced_metrics_config
         if environment_variables is not None:
             self._values["environment_variables"] = environment_variables
         if introspection_config is not None:
@@ -16475,6 +16739,15 @@ class GraphqlApiProps:
         '''
         result = self._values.get("domain_name")
         return typing.cast(typing.Optional["DomainOptions"], result)
+
+    @builtins.property
+    def enhanced_metrics_config(self) -> typing.Optional["EnhancedMetricsConfig"]:
+        '''Enables and controls the enhanced metrics feature.
+
+        :default: - Enhanced metrics disabled.
+        '''
+        result = self._values.get("enhanced_metrics_config")
+        return typing.cast(typing.Optional["EnhancedMetricsConfig"], result)
 
     @builtins.property
     def environment_variables(
@@ -16701,6 +16974,7 @@ class HandlerConfig:
     jsii_struct_bases=[DataSourceOptions],
     name_mapping={
         "description": "description",
+        "metrics_config": "metricsConfig",
         "name": "name",
         "authorization_config": "authorizationConfig",
     },
@@ -16710,12 +16984,14 @@ class HttpDataSourceOptions(DataSourceOptions):
         self,
         *,
         description: typing.Optional[builtins.str] = None,
+        metrics_config: typing.Optional["DataSourceMetricsConfig"] = None,
         name: typing.Optional[builtins.str] = None,
         authorization_config: typing.Optional[typing.Union["AwsIamConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''Optional configuration for Http data sources.
 
         :param description: The description of the data source. Default: - No description
+        :param metrics_config: Whether to enable enhanced metrics of the data source Value will be ignored, if ``enhancedMetricsConfig.dataSourceLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_DATA_SOURCE_METRICS``. Default: - Enhance metrics are disabled
         :param name: The name of the data source, overrides the id given by cdk. Default: - generated by cdk given the id
         :param authorization_config: The authorization config in case the HTTP endpoint requires authorization. Default: - none
 
@@ -16749,11 +17025,14 @@ class HttpDataSourceOptions(DataSourceOptions):
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__892de8c32b5ee5c6cb5e65bc4b597f67297f1f675b608821b733eb9599975405)
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument metrics_config", value=metrics_config, expected_type=type_hints["metrics_config"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument authorization_config", value=authorization_config, expected_type=type_hints["authorization_config"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if description is not None:
             self._values["description"] = description
+        if metrics_config is not None:
+            self._values["metrics_config"] = metrics_config
         if name is not None:
             self._values["name"] = name
         if authorization_config is not None:
@@ -16767,6 +17046,15 @@ class HttpDataSourceOptions(DataSourceOptions):
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def metrics_config(self) -> typing.Optional["DataSourceMetricsConfig"]:
+        '''Whether to enable enhanced metrics of the data source Value will be ignored, if ``enhancedMetricsConfig.dataSourceLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_DATA_SOURCE_METRICS``.
+
+        :default: - Enhance metrics are disabled
+        '''
+        result = self._values.get("metrics_config")
+        return typing.cast(typing.Optional["DataSourceMetricsConfig"], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
@@ -17635,6 +17923,7 @@ class IGraphqlApi(
         table: "_ITable_504fd401",
         *,
         description: typing.Optional[builtins.str] = None,
+        metrics_config: typing.Optional["DataSourceMetricsConfig"] = None,
         name: typing.Optional[builtins.str] = None,
     ) -> "DynamoDbDataSource":
         '''add a new DynamoDB data source to this API.
@@ -17642,6 +17931,7 @@ class IGraphqlApi(
         :param id: The data source's id.
         :param table: The DynamoDB table backing this data source.
         :param description: The description of the data source. Default: - No description
+        :param metrics_config: Whether to enable enhanced metrics of the data source Value will be ignored, if ``enhancedMetricsConfig.dataSourceLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_DATA_SOURCE_METRICS``. Default: - Enhance metrics are disabled
         :param name: The name of the data source, overrides the id given by cdk. Default: - generated by cdk given the id
         '''
         ...
@@ -17653,6 +17943,7 @@ class IGraphqlApi(
         domain: "_IDomain_0c9006b4",
         *,
         description: typing.Optional[builtins.str] = None,
+        metrics_config: typing.Optional["DataSourceMetricsConfig"] = None,
         name: typing.Optional[builtins.str] = None,
     ) -> "ElasticsearchDataSource":
         '''(deprecated) add a new elasticsearch data source to this API.
@@ -17660,6 +17951,7 @@ class IGraphqlApi(
         :param id: The data source's id.
         :param domain: The elasticsearch domain for this data source.
         :param description: The description of the data source. Default: - No description
+        :param metrics_config: Whether to enable enhanced metrics of the data source Value will be ignored, if ``enhancedMetricsConfig.dataSourceLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_DATA_SOURCE_METRICS``. Default: - Enhance metrics are disabled
         :param name: The name of the data source, overrides the id given by cdk. Default: - generated by cdk given the id
 
         :deprecated: - use ``addOpenSearchDataSource``
@@ -17675,6 +17967,7 @@ class IGraphqlApi(
         event_bus: "_IEventBus_88d13111",
         *,
         description: typing.Optional[builtins.str] = None,
+        metrics_config: typing.Optional["DataSourceMetricsConfig"] = None,
         name: typing.Optional[builtins.str] = None,
     ) -> "EventBridgeDataSource":
         '''Add an EventBridge data source to this api.
@@ -17682,6 +17975,7 @@ class IGraphqlApi(
         :param id: The data source's id.
         :param event_bus: The EventBridge EventBus on which to put events.
         :param description: The description of the data source. Default: - No description
+        :param metrics_config: Whether to enable enhanced metrics of the data source Value will be ignored, if ``enhancedMetricsConfig.dataSourceLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_DATA_SOURCE_METRICS``. Default: - Enhance metrics are disabled
         :param name: The name of the data source, overrides the id given by cdk. Default: - generated by cdk given the id
         '''
         ...
@@ -17694,6 +17988,7 @@ class IGraphqlApi(
         *,
         authorization_config: typing.Optional[typing.Union["AwsIamConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         description: typing.Optional[builtins.str] = None,
+        metrics_config: typing.Optional["DataSourceMetricsConfig"] = None,
         name: typing.Optional[builtins.str] = None,
     ) -> "HttpDataSource":
         '''add a new http data source to this API.
@@ -17702,6 +17997,7 @@ class IGraphqlApi(
         :param endpoint: The http endpoint.
         :param authorization_config: The authorization config in case the HTTP endpoint requires authorization. Default: - none
         :param description: The description of the data source. Default: - No description
+        :param metrics_config: Whether to enable enhanced metrics of the data source Value will be ignored, if ``enhancedMetricsConfig.dataSourceLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_DATA_SOURCE_METRICS``. Default: - Enhance metrics are disabled
         :param name: The name of the data source, overrides the id given by cdk. Default: - generated by cdk given the id
         '''
         ...
@@ -17713,6 +18009,7 @@ class IGraphqlApi(
         lambda_function: "_IFunction_6adb0ab8",
         *,
         description: typing.Optional[builtins.str] = None,
+        metrics_config: typing.Optional["DataSourceMetricsConfig"] = None,
         name: typing.Optional[builtins.str] = None,
     ) -> "LambdaDataSource":
         '''add a new Lambda data source to this API.
@@ -17720,6 +18017,7 @@ class IGraphqlApi(
         :param id: The data source's id.
         :param lambda_function: The Lambda function to call to interact with this data source.
         :param description: The description of the data source. Default: - No description
+        :param metrics_config: Whether to enable enhanced metrics of the data source Value will be ignored, if ``enhancedMetricsConfig.dataSourceLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_DATA_SOURCE_METRICS``. Default: - Enhance metrics are disabled
         :param name: The name of the data source, overrides the id given by cdk. Default: - generated by cdk given the id
         '''
         ...
@@ -17730,6 +18028,7 @@ class IGraphqlApi(
         id: builtins.str,
         *,
         description: typing.Optional[builtins.str] = None,
+        metrics_config: typing.Optional["DataSourceMetricsConfig"] = None,
         name: typing.Optional[builtins.str] = None,
     ) -> "NoneDataSource":
         '''add a new dummy data source to this API.
@@ -17739,6 +18038,7 @@ class IGraphqlApi(
 
         :param id: The data source's id.
         :param description: The description of the data source. Default: - No description
+        :param metrics_config: Whether to enable enhanced metrics of the data source Value will be ignored, if ``enhancedMetricsConfig.dataSourceLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_DATA_SOURCE_METRICS``. Default: - Enhance metrics are disabled
         :param name: The name of the data source, overrides the id given by cdk. Default: - generated by cdk given the id
         '''
         ...
@@ -17750,6 +18050,7 @@ class IGraphqlApi(
         domain: "_IDomain_3c13cbdd",
         *,
         description: typing.Optional[builtins.str] = None,
+        metrics_config: typing.Optional["DataSourceMetricsConfig"] = None,
         name: typing.Optional[builtins.str] = None,
     ) -> "OpenSearchDataSource":
         '''Add a new OpenSearch data source to this API.
@@ -17757,6 +18058,7 @@ class IGraphqlApi(
         :param id: The data source's id.
         :param domain: The OpenSearch domain for this data source.
         :param description: The description of the data source. Default: - No description
+        :param metrics_config: Whether to enable enhanced metrics of the data source Value will be ignored, if ``enhancedMetricsConfig.dataSourceLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_DATA_SOURCE_METRICS``. Default: - Enhance metrics are disabled
         :param name: The name of the data source, overrides the id given by cdk. Default: - generated by cdk given the id
         '''
         ...
@@ -17770,6 +18072,7 @@ class IGraphqlApi(
         database_name: typing.Optional[builtins.str] = None,
         *,
         description: typing.Optional[builtins.str] = None,
+        metrics_config: typing.Optional["DataSourceMetricsConfig"] = None,
         name: typing.Optional[builtins.str] = None,
     ) -> "RdsDataSource":
         '''add a new Rds data source to this API.
@@ -17779,6 +18082,7 @@ class IGraphqlApi(
         :param secret_store: The secret store that contains the username and password for the serverless cluster.
         :param database_name: The optional name of the database to use within the cluster.
         :param description: The description of the data source. Default: - No description
+        :param metrics_config: Whether to enable enhanced metrics of the data source Value will be ignored, if ``enhancedMetricsConfig.dataSourceLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_DATA_SOURCE_METRICS``. Default: - Enhance metrics are disabled
         :param name: The name of the data source, overrides the id given by cdk. Default: - generated by cdk given the id
         '''
         ...
@@ -17792,6 +18096,7 @@ class IGraphqlApi(
         database_name: typing.Optional[builtins.str] = None,
         *,
         description: typing.Optional[builtins.str] = None,
+        metrics_config: typing.Optional["DataSourceMetricsConfig"] = None,
         name: typing.Optional[builtins.str] = None,
     ) -> "RdsDataSource":
         '''add a new Rds Serverless V2 data source to this API.
@@ -17801,6 +18106,7 @@ class IGraphqlApi(
         :param secret_store: The secret store that contains the username and password for the serverless cluster.
         :param database_name: The optional name of the database to use within the cluster.
         :param description: The description of the data source. Default: - No description
+        :param metrics_config: Whether to enable enhanced metrics of the data source Value will be ignored, if ``enhancedMetricsConfig.dataSourceLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_DATA_SOURCE_METRICS``. Default: - Enhance metrics are disabled
         :param name: The name of the data source, overrides the id given by cdk. Default: - generated by cdk given the id
         '''
         ...
@@ -17827,6 +18133,7 @@ class IGraphqlApi(
         caching_config: typing.Optional[typing.Union["CachingConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         code: typing.Optional["Code"] = None,
         max_batch_size: typing.Optional[jsii.Number] = None,
+        metrics_config: typing.Optional["ResolverMetricsConfig"] = None,
         pipeline_config: typing.Optional[typing.Sequence["_IFunctionConfigurationRef_6eb53e57"]] = None,
         request_mapping_template: typing.Optional["MappingTemplate"] = None,
         response_mapping_template: typing.Optional["MappingTemplate"] = None,
@@ -17841,6 +18148,7 @@ class IGraphqlApi(
         :param caching_config: The caching configuration for this resolver. Default: - No caching configuration
         :param code: The function code. Default: - no code is used
         :param max_batch_size: The maximum number of elements per batch, when using batch invoke. Default: - No max batch size
+        :param metrics_config: Whether to enable enhanced metrics Value will be ignored, if ``enhancedMetricsConfig.resolverLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_RESOLVER_METRICS``. Default: - no metrics configuration
         :param pipeline_config: configuration of the pipeline resolver. Default: - no pipeline resolver configuration An empty array | undefined sets resolver to be of kind, unit
         :param request_mapping_template: The request mapping template for this resolver. Default: - No mapping template
         :param response_mapping_template: The response mapping template for this resolver. Default: - No mapping template
@@ -17954,6 +18262,7 @@ class _IGraphqlApiProxy(
         table: "_ITable_504fd401",
         *,
         description: typing.Optional[builtins.str] = None,
+        metrics_config: typing.Optional["DataSourceMetricsConfig"] = None,
         name: typing.Optional[builtins.str] = None,
     ) -> "DynamoDbDataSource":
         '''add a new DynamoDB data source to this API.
@@ -17961,13 +18270,16 @@ class _IGraphqlApiProxy(
         :param id: The data source's id.
         :param table: The DynamoDB table backing this data source.
         :param description: The description of the data source. Default: - No description
+        :param metrics_config: Whether to enable enhanced metrics of the data source Value will be ignored, if ``enhancedMetricsConfig.dataSourceLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_DATA_SOURCE_METRICS``. Default: - Enhance metrics are disabled
         :param name: The name of the data source, overrides the id given by cdk. Default: - generated by cdk given the id
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__43da9ca276f601968eabc2575ce6745ba4152bbf47201270933feda5452ce68a)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument table", value=table, expected_type=type_hints["table"])
-        options = DataSourceOptions(description=description, name=name)
+        options = DataSourceOptions(
+            description=description, metrics_config=metrics_config, name=name
+        )
 
         return typing.cast("DynamoDbDataSource", jsii.invoke(self, "addDynamoDbDataSource", [id, table, options]))
 
@@ -17978,6 +18290,7 @@ class _IGraphqlApiProxy(
         domain: "_IDomain_0c9006b4",
         *,
         description: typing.Optional[builtins.str] = None,
+        metrics_config: typing.Optional["DataSourceMetricsConfig"] = None,
         name: typing.Optional[builtins.str] = None,
     ) -> "ElasticsearchDataSource":
         '''(deprecated) add a new elasticsearch data source to this API.
@@ -17985,6 +18298,7 @@ class _IGraphqlApiProxy(
         :param id: The data source's id.
         :param domain: The elasticsearch domain for this data source.
         :param description: The description of the data source. Default: - No description
+        :param metrics_config: Whether to enable enhanced metrics of the data source Value will be ignored, if ``enhancedMetricsConfig.dataSourceLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_DATA_SOURCE_METRICS``. Default: - Enhance metrics are disabled
         :param name: The name of the data source, overrides the id given by cdk. Default: - generated by cdk given the id
 
         :deprecated: - use ``addOpenSearchDataSource``
@@ -17995,7 +18309,9 @@ class _IGraphqlApiProxy(
             type_hints = typing.get_type_hints(_typecheckingstub__d976a6c9cea09ad6131d004dd38bbab6c2059e80a1a41697431f21da733851ef)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument domain", value=domain, expected_type=type_hints["domain"])
-        options = DataSourceOptions(description=description, name=name)
+        options = DataSourceOptions(
+            description=description, metrics_config=metrics_config, name=name
+        )
 
         return typing.cast("ElasticsearchDataSource", jsii.invoke(self, "addElasticsearchDataSource", [id, domain, options]))
 
@@ -18006,6 +18322,7 @@ class _IGraphqlApiProxy(
         event_bus: "_IEventBus_88d13111",
         *,
         description: typing.Optional[builtins.str] = None,
+        metrics_config: typing.Optional["DataSourceMetricsConfig"] = None,
         name: typing.Optional[builtins.str] = None,
     ) -> "EventBridgeDataSource":
         '''Add an EventBridge data source to this api.
@@ -18013,13 +18330,16 @@ class _IGraphqlApiProxy(
         :param id: The data source's id.
         :param event_bus: The EventBridge EventBus on which to put events.
         :param description: The description of the data source. Default: - No description
+        :param metrics_config: Whether to enable enhanced metrics of the data source Value will be ignored, if ``enhancedMetricsConfig.dataSourceLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_DATA_SOURCE_METRICS``. Default: - Enhance metrics are disabled
         :param name: The name of the data source, overrides the id given by cdk. Default: - generated by cdk given the id
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c7f859036563760af3f55f190f35d263357d6df8725cd3d3990a639dc02796df)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument event_bus", value=event_bus, expected_type=type_hints["event_bus"])
-        options = DataSourceOptions(description=description, name=name)
+        options = DataSourceOptions(
+            description=description, metrics_config=metrics_config, name=name
+        )
 
         return typing.cast("EventBridgeDataSource", jsii.invoke(self, "addEventBridgeDataSource", [id, event_bus, options]))
 
@@ -18031,6 +18351,7 @@ class _IGraphqlApiProxy(
         *,
         authorization_config: typing.Optional[typing.Union["AwsIamConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         description: typing.Optional[builtins.str] = None,
+        metrics_config: typing.Optional["DataSourceMetricsConfig"] = None,
         name: typing.Optional[builtins.str] = None,
     ) -> "HttpDataSource":
         '''add a new http data source to this API.
@@ -18039,6 +18360,7 @@ class _IGraphqlApiProxy(
         :param endpoint: The http endpoint.
         :param authorization_config: The authorization config in case the HTTP endpoint requires authorization. Default: - none
         :param description: The description of the data source. Default: - No description
+        :param metrics_config: Whether to enable enhanced metrics of the data source Value will be ignored, if ``enhancedMetricsConfig.dataSourceLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_DATA_SOURCE_METRICS``. Default: - Enhance metrics are disabled
         :param name: The name of the data source, overrides the id given by cdk. Default: - generated by cdk given the id
         '''
         if __debug__:
@@ -18048,6 +18370,7 @@ class _IGraphqlApiProxy(
         options = HttpDataSourceOptions(
             authorization_config=authorization_config,
             description=description,
+            metrics_config=metrics_config,
             name=name,
         )
 
@@ -18060,6 +18383,7 @@ class _IGraphqlApiProxy(
         lambda_function: "_IFunction_6adb0ab8",
         *,
         description: typing.Optional[builtins.str] = None,
+        metrics_config: typing.Optional["DataSourceMetricsConfig"] = None,
         name: typing.Optional[builtins.str] = None,
     ) -> "LambdaDataSource":
         '''add a new Lambda data source to this API.
@@ -18067,13 +18391,16 @@ class _IGraphqlApiProxy(
         :param id: The data source's id.
         :param lambda_function: The Lambda function to call to interact with this data source.
         :param description: The description of the data source. Default: - No description
+        :param metrics_config: Whether to enable enhanced metrics of the data source Value will be ignored, if ``enhancedMetricsConfig.dataSourceLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_DATA_SOURCE_METRICS``. Default: - Enhance metrics are disabled
         :param name: The name of the data source, overrides the id given by cdk. Default: - generated by cdk given the id
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__49c24df9542a2559af242eb252634947ce0ed3aa9d4e4efca32b6db37271ef48)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument lambda_function", value=lambda_function, expected_type=type_hints["lambda_function"])
-        options = DataSourceOptions(description=description, name=name)
+        options = DataSourceOptions(
+            description=description, metrics_config=metrics_config, name=name
+        )
 
         return typing.cast("LambdaDataSource", jsii.invoke(self, "addLambdaDataSource", [id, lambda_function, options]))
 
@@ -18083,6 +18410,7 @@ class _IGraphqlApiProxy(
         id: builtins.str,
         *,
         description: typing.Optional[builtins.str] = None,
+        metrics_config: typing.Optional["DataSourceMetricsConfig"] = None,
         name: typing.Optional[builtins.str] = None,
     ) -> "NoneDataSource":
         '''add a new dummy data source to this API.
@@ -18092,12 +18420,15 @@ class _IGraphqlApiProxy(
 
         :param id: The data source's id.
         :param description: The description of the data source. Default: - No description
+        :param metrics_config: Whether to enable enhanced metrics of the data source Value will be ignored, if ``enhancedMetricsConfig.dataSourceLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_DATA_SOURCE_METRICS``. Default: - Enhance metrics are disabled
         :param name: The name of the data source, overrides the id given by cdk. Default: - generated by cdk given the id
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7aa2890745bf86976bff5a0152fe1757b4534eabb56973b08a45c2c539adc58d)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        options = DataSourceOptions(description=description, name=name)
+        options = DataSourceOptions(
+            description=description, metrics_config=metrics_config, name=name
+        )
 
         return typing.cast("NoneDataSource", jsii.invoke(self, "addNoneDataSource", [id, options]))
 
@@ -18108,6 +18439,7 @@ class _IGraphqlApiProxy(
         domain: "_IDomain_3c13cbdd",
         *,
         description: typing.Optional[builtins.str] = None,
+        metrics_config: typing.Optional["DataSourceMetricsConfig"] = None,
         name: typing.Optional[builtins.str] = None,
     ) -> "OpenSearchDataSource":
         '''Add a new OpenSearch data source to this API.
@@ -18115,13 +18447,16 @@ class _IGraphqlApiProxy(
         :param id: The data source's id.
         :param domain: The OpenSearch domain for this data source.
         :param description: The description of the data source. Default: - No description
+        :param metrics_config: Whether to enable enhanced metrics of the data source Value will be ignored, if ``enhancedMetricsConfig.dataSourceLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_DATA_SOURCE_METRICS``. Default: - Enhance metrics are disabled
         :param name: The name of the data source, overrides the id given by cdk. Default: - generated by cdk given the id
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6e51c29583b8567298ff7b528e3996298135787d4fbe5dfe686b388500e8ce53)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument domain", value=domain, expected_type=type_hints["domain"])
-        options = DataSourceOptions(description=description, name=name)
+        options = DataSourceOptions(
+            description=description, metrics_config=metrics_config, name=name
+        )
 
         return typing.cast("OpenSearchDataSource", jsii.invoke(self, "addOpenSearchDataSource", [id, domain, options]))
 
@@ -18134,6 +18469,7 @@ class _IGraphqlApiProxy(
         database_name: typing.Optional[builtins.str] = None,
         *,
         description: typing.Optional[builtins.str] = None,
+        metrics_config: typing.Optional["DataSourceMetricsConfig"] = None,
         name: typing.Optional[builtins.str] = None,
     ) -> "RdsDataSource":
         '''add a new Rds data source to this API.
@@ -18143,6 +18479,7 @@ class _IGraphqlApiProxy(
         :param secret_store: The secret store that contains the username and password for the serverless cluster.
         :param database_name: The optional name of the database to use within the cluster.
         :param description: The description of the data source. Default: - No description
+        :param metrics_config: Whether to enable enhanced metrics of the data source Value will be ignored, if ``enhancedMetricsConfig.dataSourceLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_DATA_SOURCE_METRICS``. Default: - Enhance metrics are disabled
         :param name: The name of the data source, overrides the id given by cdk. Default: - generated by cdk given the id
         '''
         if __debug__:
@@ -18151,7 +18488,9 @@ class _IGraphqlApiProxy(
             check_type(argname="argument serverless_cluster", value=serverless_cluster, expected_type=type_hints["serverless_cluster"])
             check_type(argname="argument secret_store", value=secret_store, expected_type=type_hints["secret_store"])
             check_type(argname="argument database_name", value=database_name, expected_type=type_hints["database_name"])
-        options = DataSourceOptions(description=description, name=name)
+        options = DataSourceOptions(
+            description=description, metrics_config=metrics_config, name=name
+        )
 
         return typing.cast("RdsDataSource", jsii.invoke(self, "addRdsDataSource", [id, serverless_cluster, secret_store, database_name, options]))
 
@@ -18164,6 +18503,7 @@ class _IGraphqlApiProxy(
         database_name: typing.Optional[builtins.str] = None,
         *,
         description: typing.Optional[builtins.str] = None,
+        metrics_config: typing.Optional["DataSourceMetricsConfig"] = None,
         name: typing.Optional[builtins.str] = None,
     ) -> "RdsDataSource":
         '''add a new Rds Serverless V2 data source to this API.
@@ -18173,6 +18513,7 @@ class _IGraphqlApiProxy(
         :param secret_store: The secret store that contains the username and password for the serverless cluster.
         :param database_name: The optional name of the database to use within the cluster.
         :param description: The description of the data source. Default: - No description
+        :param metrics_config: Whether to enable enhanced metrics of the data source Value will be ignored, if ``enhancedMetricsConfig.dataSourceLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_DATA_SOURCE_METRICS``. Default: - Enhance metrics are disabled
         :param name: The name of the data source, overrides the id given by cdk. Default: - generated by cdk given the id
         '''
         if __debug__:
@@ -18181,7 +18522,9 @@ class _IGraphqlApiProxy(
             check_type(argname="argument serverless_cluster", value=serverless_cluster, expected_type=type_hints["serverless_cluster"])
             check_type(argname="argument secret_store", value=secret_store, expected_type=type_hints["secret_store"])
             check_type(argname="argument database_name", value=database_name, expected_type=type_hints["database_name"])
-        options = DataSourceOptions(description=description, name=name)
+        options = DataSourceOptions(
+            description=description, metrics_config=metrics_config, name=name
+        )
 
         return typing.cast("RdsDataSource", jsii.invoke(self, "addRdsDataSourceV2", [id, serverless_cluster, secret_store, database_name, options]))
 
@@ -18210,6 +18553,7 @@ class _IGraphqlApiProxy(
         caching_config: typing.Optional[typing.Union["CachingConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         code: typing.Optional["Code"] = None,
         max_batch_size: typing.Optional[jsii.Number] = None,
+        metrics_config: typing.Optional["ResolverMetricsConfig"] = None,
         pipeline_config: typing.Optional[typing.Sequence["_IFunctionConfigurationRef_6eb53e57"]] = None,
         request_mapping_template: typing.Optional["MappingTemplate"] = None,
         response_mapping_template: typing.Optional["MappingTemplate"] = None,
@@ -18224,6 +18568,7 @@ class _IGraphqlApiProxy(
         :param caching_config: The caching configuration for this resolver. Default: - No caching configuration
         :param code: The function code. Default: - no code is used
         :param max_batch_size: The maximum number of elements per batch, when using batch invoke. Default: - No max batch size
+        :param metrics_config: Whether to enable enhanced metrics Value will be ignored, if ``enhancedMetricsConfig.resolverLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_RESOLVER_METRICS``. Default: - no metrics configuration
         :param pipeline_config: configuration of the pipeline resolver. Default: - no pipeline resolver configuration An empty array | undefined sets resolver to be of kind, unit
         :param request_mapping_template: The request mapping template for this resolver. Default: - No mapping template
         :param response_mapping_template: The response mapping template for this resolver. Default: - No mapping template
@@ -18239,6 +18584,7 @@ class _IGraphqlApiProxy(
             caching_config=caching_config,
             code=code,
             max_batch_size=max_batch_size,
+            metrics_config=metrics_config,
             pipeline_config=pipeline_config,
             request_mapping_template=request_mapping_template,
             response_mapping_template=response_mapping_template,
@@ -19404,23 +19750,29 @@ class NoneDataSource(
 ):
     '''An AppSync dummy datasource.
 
-    :exampleMetadata: fixture=_generated
+    :exampleMetadata: infused
 
     Example::
 
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_appsync as appsync
-        from aws_cdk.interfaces import aws_appsync as interfaces_appsync
+        schema = appsync.SchemaFile(file_path="mySchemaFile")
+        api = appsync.GraphqlApi(self, "api",
+            name="myApi",
+            definition=appsync.Definition.from_schema(schema),
+            enhanced_metrics_config=appsync.EnhancedMetricsConfig(
+                data_source_level_metrics_behavior=appsync.DataSourceLevelMetricsBehavior.PER_DATA_SOURCE_METRICS,
+                operation_level_metrics_config=appsync.OperationLevelMetricsConfig.ENABLED,
+                resolver_level_metrics_behavior=appsync.ResolverLevelMetricsBehavior.PER_RESOLVER_METRICS
+            )
+        )
         
-        # graph_qLApi_ref: interfaces_appsync.IGraphQLApiRef
+        none_dS = api.add_none_data_source("none",
+            metrics_config=appsync.DataSourceMetricsConfig.ENABLED
+        )
         
-        none_data_source = appsync.NoneDataSource(self, "MyNoneDataSource",
-            api=graph_qLApi_ref,
-        
-            # the properties below are optional
-            description="description",
-            name="name"
+        none_dS.create_resolver("noneResolver",
+            type_name="Mutation",
+            field_name="addDemoMetricsConfig",
+            metrics_config=appsync.ResolverMetricsConfig.ENABLED
         )
     '''
 
@@ -19431,6 +19783,7 @@ class NoneDataSource(
         *,
         api: "_IGraphQLApiRef_d46d77ba",
         description: typing.Optional[builtins.str] = None,
+        metrics_config: typing.Optional["DataSourceMetricsConfig"] = None,
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
@@ -19438,13 +19791,16 @@ class NoneDataSource(
         :param id: -
         :param api: The API to attach this data source to.
         :param description: the description of the data source. Default: - None
+        :param metrics_config: Whether to enable enhanced metrics of the data source Value will be ignored, if ``enhancedMetricsConfig.dataSourceLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_DATA_SOURCE_METRICS``. Default: - no metrics configuration
         :param name: The name of the data source. Default: - id of data source
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1611db7d560b46fd4ac561a4c80f0c620482391b0a4b50a2e95caca4f5e07e31)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = NoneDataSourceProps(api=api, description=description, name=name)
+        props = NoneDataSourceProps(
+            api=api, description=description, metrics_config=metrics_config, name=name
+        )
 
         jsii.create(self.__class__, self, [scope, id, props])
 
@@ -19452,7 +19808,12 @@ class NoneDataSource(
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_appsync.NoneDataSourceProps",
     jsii_struct_bases=[BaseDataSourceProps],
-    name_mapping={"api": "api", "description": "description", "name": "name"},
+    name_mapping={
+        "api": "api",
+        "description": "description",
+        "metrics_config": "metricsConfig",
+        "name": "name",
+    },
 )
 class NoneDataSourceProps(BaseDataSourceProps):
     def __init__(
@@ -19460,12 +19821,14 @@ class NoneDataSourceProps(BaseDataSourceProps):
         *,
         api: "_IGraphQLApiRef_d46d77ba",
         description: typing.Optional[builtins.str] = None,
+        metrics_config: typing.Optional["DataSourceMetricsConfig"] = None,
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for an AppSync dummy datasource.
 
         :param api: The API to attach this data source to.
         :param description: the description of the data source. Default: - None
+        :param metrics_config: Whether to enable enhanced metrics of the data source Value will be ignored, if ``enhancedMetricsConfig.dataSourceLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_DATA_SOURCE_METRICS``. Default: - no metrics configuration
         :param name: The name of the data source. Default: - id of data source
 
         :exampleMetadata: fixture=_generated
@@ -19484,6 +19847,7 @@ class NoneDataSourceProps(BaseDataSourceProps):
             
                 # the properties below are optional
                 description="description",
+                metrics_config=appsync.DataSourceMetricsConfig.ENABLED,
                 name="name"
             )
         '''
@@ -19491,12 +19855,15 @@ class NoneDataSourceProps(BaseDataSourceProps):
             type_hints = typing.get_type_hints(_typecheckingstub__f714cd165303e3c7148f1ca4c53fe5e7abe0f744c242bcdbb8dc5817bd63ecda)
             check_type(argname="argument api", value=api, expected_type=type_hints["api"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument metrics_config", value=metrics_config, expected_type=type_hints["metrics_config"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "api": api,
         }
         if description is not None:
             self._values["description"] = description
+        if metrics_config is not None:
+            self._values["metrics_config"] = metrics_config
         if name is not None:
             self._values["name"] = name
 
@@ -19515,6 +19882,15 @@ class NoneDataSourceProps(BaseDataSourceProps):
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def metrics_config(self) -> typing.Optional["DataSourceMetricsConfig"]:
+        '''Whether to enable enhanced metrics of the data source Value will be ignored, if ``enhancedMetricsConfig.dataSourceLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_DATA_SOURCE_METRICS``.
+
+        :default: - no metrics configuration
+        '''
+        result = self._values.get("metrics_config")
+        return typing.cast(typing.Optional["DataSourceMetricsConfig"], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
@@ -19656,6 +20032,32 @@ class OpenIdConnectConfig:
         return "OpenIdConnectConfig(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.enum(jsii_type="aws-cdk-lib.aws_appsync.OperationLevelMetricsConfig")
+class OperationLevelMetricsConfig(enum.Enum):
+    '''Controls how operation metrics will be emitted to CloudWatch.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        schema = appsync.SchemaFile(file_path="mySchemaFile")
+        appsync.GraphqlApi(self, "api",
+            name="myApi",
+            definition=appsync.Definition.from_schema(schema),
+            enhanced_metrics_config=appsync.EnhancedMetricsConfig(
+                data_source_level_metrics_behavior=appsync.DataSourceLevelMetricsBehavior.FULL_REQUEST_DATA_SOURCE_METRICS,
+                operation_level_metrics_config=appsync.OperationLevelMetricsConfig.ENABLED,
+                resolver_level_metrics_behavior=appsync.ResolverLevelMetricsBehavior.FULL_REQUEST_RESOLVER_METRICS
+            )
+        )
+    '''
+
+    ENABLED = "ENABLED"
+    '''Sends operation metrics to CloudWatch.'''
+    DISABLED = "DISABLED"
+    '''Does not send operation metrics to CloudWatch.'''
 
 
 class PartitionKeyStep(
@@ -19835,6 +20237,7 @@ class Resolver(
         caching_config: typing.Optional[typing.Union["CachingConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         code: typing.Optional["Code"] = None,
         max_batch_size: typing.Optional[jsii.Number] = None,
+        metrics_config: typing.Optional["ResolverMetricsConfig"] = None,
         pipeline_config: typing.Optional[typing.Sequence["_IFunctionConfigurationRef_6eb53e57"]] = None,
         request_mapping_template: typing.Optional["MappingTemplate"] = None,
         response_mapping_template: typing.Optional["MappingTemplate"] = None,
@@ -19850,6 +20253,7 @@ class Resolver(
         :param caching_config: The caching configuration for this resolver. Default: - No caching configuration
         :param code: The function code. Default: - no code is used
         :param max_batch_size: The maximum number of elements per batch, when using batch invoke. Default: - No max batch size
+        :param metrics_config: Whether to enable enhanced metrics Value will be ignored, if ``enhancedMetricsConfig.resolverLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_RESOLVER_METRICS``. Default: - no metrics configuration
         :param pipeline_config: configuration of the pipeline resolver. Default: - no pipeline resolver configuration An empty array | undefined sets resolver to be of kind, unit
         :param request_mapping_template: The request mapping template for this resolver. Default: - No mapping template
         :param response_mapping_template: The response mapping template for this resolver. Default: - No mapping template
@@ -19867,6 +20271,7 @@ class Resolver(
             caching_config=caching_config,
             code=code,
             max_batch_size=max_batch_size,
+            metrics_config=metrics_config,
             pipeline_config=pipeline_config,
             request_mapping_template=request_mapping_template,
             response_mapping_template=response_mapping_template,
@@ -19882,6 +20287,68 @@ class Resolver(
         return typing.cast(builtins.str, jsii.get(self, "arn"))
 
 
+@jsii.enum(jsii_type="aws-cdk-lib.aws_appsync.ResolverLevelMetricsBehavior")
+class ResolverLevelMetricsBehavior(enum.Enum):
+    '''Controls how resolver metrics will be emitted to CloudWatch.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        schema = appsync.SchemaFile(file_path="mySchemaFile")
+        appsync.GraphqlApi(self, "api",
+            name="myApi",
+            definition=appsync.Definition.from_schema(schema),
+            enhanced_metrics_config=appsync.EnhancedMetricsConfig(
+                data_source_level_metrics_behavior=appsync.DataSourceLevelMetricsBehavior.FULL_REQUEST_DATA_SOURCE_METRICS,
+                operation_level_metrics_config=appsync.OperationLevelMetricsConfig.ENABLED,
+                resolver_level_metrics_behavior=appsync.ResolverLevelMetricsBehavior.FULL_REQUEST_RESOLVER_METRICS
+            )
+        )
+    '''
+
+    FULL_REQUEST_RESOLVER_METRICS = "FULL_REQUEST_RESOLVER_METRICS"
+    '''Records and emits metric data for all resolvers in the request.'''
+    PER_RESOLVER_METRICS = "PER_RESOLVER_METRICS"
+    '''Records and emits metric data for resolvers that have the MetricsConfig value set to ENABLED.'''
+
+
+@jsii.enum(jsii_type="aws-cdk-lib.aws_appsync.ResolverMetricsConfig")
+class ResolverMetricsConfig(enum.Enum):
+    '''Enum for enhanced resolver metrics for specified resolvers.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        schema = appsync.SchemaFile(file_path="mySchemaFile")
+        api = appsync.GraphqlApi(self, "api",
+            name="myApi",
+            definition=appsync.Definition.from_schema(schema),
+            enhanced_metrics_config=appsync.EnhancedMetricsConfig(
+                data_source_level_metrics_behavior=appsync.DataSourceLevelMetricsBehavior.PER_DATA_SOURCE_METRICS,
+                operation_level_metrics_config=appsync.OperationLevelMetricsConfig.ENABLED,
+                resolver_level_metrics_behavior=appsync.ResolverLevelMetricsBehavior.PER_RESOLVER_METRICS
+            )
+        )
+        
+        none_dS = api.add_none_data_source("none",
+            metrics_config=appsync.DataSourceMetricsConfig.ENABLED
+        )
+        
+        none_dS.create_resolver("noneResolver",
+            type_name="Mutation",
+            field_name="addDemoMetricsConfig",
+            metrics_config=appsync.ResolverMetricsConfig.ENABLED
+        )
+    '''
+
+    ENABLED = "ENABLED"
+    '''Enables enhanced resolver metrics for specified resolvers.'''
+    DISABLED = "DISABLED"
+    '''Disables enhanced resolver metrics for specified resolvers.'''
+
+
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_appsync.ResolverProps",
     jsii_struct_bases=[ExtendedResolverProps],
@@ -19891,6 +20358,7 @@ class Resolver(
         "caching_config": "cachingConfig",
         "code": "code",
         "max_batch_size": "maxBatchSize",
+        "metrics_config": "metricsConfig",
         "pipeline_config": "pipelineConfig",
         "request_mapping_template": "requestMappingTemplate",
         "response_mapping_template": "responseMappingTemplate",
@@ -19908,6 +20376,7 @@ class ResolverProps(ExtendedResolverProps):
         caching_config: typing.Optional[typing.Union["CachingConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         code: typing.Optional["Code"] = None,
         max_batch_size: typing.Optional[jsii.Number] = None,
+        metrics_config: typing.Optional["ResolverMetricsConfig"] = None,
         pipeline_config: typing.Optional[typing.Sequence["_IFunctionConfigurationRef_6eb53e57"]] = None,
         request_mapping_template: typing.Optional["MappingTemplate"] = None,
         response_mapping_template: typing.Optional["MappingTemplate"] = None,
@@ -19922,6 +20391,7 @@ class ResolverProps(ExtendedResolverProps):
         :param caching_config: The caching configuration for this resolver. Default: - No caching configuration
         :param code: The function code. Default: - no code is used
         :param max_batch_size: The maximum number of elements per batch, when using batch invoke. Default: - No max batch size
+        :param metrics_config: Whether to enable enhanced metrics Value will be ignored, if ``enhancedMetricsConfig.resolverLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_RESOLVER_METRICS``. Default: - no metrics configuration
         :param pipeline_config: configuration of the pipeline resolver. Default: - no pipeline resolver configuration An empty array | undefined sets resolver to be of kind, unit
         :param request_mapping_template: The request mapping template for this resolver. Default: - No mapping template
         :param response_mapping_template: The response mapping template for this resolver. Default: - No mapping template
@@ -19956,6 +20426,7 @@ class ResolverProps(ExtendedResolverProps):
             check_type(argname="argument caching_config", value=caching_config, expected_type=type_hints["caching_config"])
             check_type(argname="argument code", value=code, expected_type=type_hints["code"])
             check_type(argname="argument max_batch_size", value=max_batch_size, expected_type=type_hints["max_batch_size"])
+            check_type(argname="argument metrics_config", value=metrics_config, expected_type=type_hints["metrics_config"])
             check_type(argname="argument pipeline_config", value=pipeline_config, expected_type=type_hints["pipeline_config"])
             check_type(argname="argument request_mapping_template", value=request_mapping_template, expected_type=type_hints["request_mapping_template"])
             check_type(argname="argument response_mapping_template", value=response_mapping_template, expected_type=type_hints["response_mapping_template"])
@@ -19973,6 +20444,8 @@ class ResolverProps(ExtendedResolverProps):
             self._values["code"] = code
         if max_batch_size is not None:
             self._values["max_batch_size"] = max_batch_size
+        if metrics_config is not None:
+            self._values["metrics_config"] = metrics_config
         if pipeline_config is not None:
             self._values["pipeline_config"] = pipeline_config
         if request_mapping_template is not None:
@@ -20024,6 +20497,15 @@ class ResolverProps(ExtendedResolverProps):
         '''
         result = self._values.get("max_batch_size")
         return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def metrics_config(self) -> typing.Optional["ResolverMetricsConfig"]:
+        '''Whether to enable enhanced metrics Value will be ignored, if ``enhancedMetricsConfig.resolverLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_RESOLVER_METRICS``.
+
+        :default: - no metrics configuration
+        '''
+        result = self._values.get("metrics_config")
+        return typing.cast(typing.Optional["ResolverMetricsConfig"], result)
 
     @builtins.property
     def pipeline_config(
@@ -20204,37 +20686,15 @@ class SchemaFile(
 
     Example::
 
-        import aws_cdk.aws_certificatemanager as acm
-        import aws_cdk.aws_route53 as route53
-        
-        # hosted zone and route53 features
-        # hosted_zone_id: str
-        zone_name = "example.com"
-        
-        
-        my_domain_name = "api.example.com"
-        certificate = acm.Certificate(self, "cert", domain_name=my_domain_name)
         schema = appsync.SchemaFile(file_path="mySchemaFile")
-        api = appsync.GraphqlApi(self, "api",
+        appsync.GraphqlApi(self, "api",
             name="myApi",
             definition=appsync.Definition.from_schema(schema),
-            domain_name=appsync.DomainOptions(
-                certificate=certificate,
-                domain_name=my_domain_name
+            enhanced_metrics_config=appsync.EnhancedMetricsConfig(
+                data_source_level_metrics_behavior=appsync.DataSourceLevelMetricsBehavior.FULL_REQUEST_DATA_SOURCE_METRICS,
+                operation_level_metrics_config=appsync.OperationLevelMetricsConfig.ENABLED,
+                resolver_level_metrics_behavior=appsync.ResolverLevelMetricsBehavior.FULL_REQUEST_RESOLVER_METRICS
             )
-        )
-        
-        # hosted zone for adding appsync domain
-        zone = route53.HostedZone.from_hosted_zone_attributes(self, "HostedZone",
-            hosted_zone_id=hosted_zone_id,
-            zone_name=zone_name
-        )
-        
-        # create a cname to the appsync domain. will map to something like xxxx.cloudfront.net
-        route53.CnameRecord(self, "CnameApiRecord",
-            record_name="api",
-            zone=zone,
-            domain_name=api.app_sync_domain_name
         )
     '''
 
@@ -20302,37 +20762,25 @@ class SchemaProps:
 
         Example::
 
-            import aws_cdk.aws_certificatemanager as acm
-            import aws_cdk.aws_route53 as route53
-            
-            # hosted zone and route53 features
-            # hosted_zone_id: str
-            zone_name = "example.com"
-            
-            
-            my_domain_name = "api.example.com"
-            certificate = acm.Certificate(self, "cert", domain_name=my_domain_name)
             schema = appsync.SchemaFile(file_path="mySchemaFile")
             api = appsync.GraphqlApi(self, "api",
                 name="myApi",
                 definition=appsync.Definition.from_schema(schema),
-                domain_name=appsync.DomainOptions(
-                    certificate=certificate,
-                    domain_name=my_domain_name
+                enhanced_metrics_config=appsync.EnhancedMetricsConfig(
+                    data_source_level_metrics_behavior=appsync.DataSourceLevelMetricsBehavior.PER_DATA_SOURCE_METRICS,
+                    operation_level_metrics_config=appsync.OperationLevelMetricsConfig.ENABLED,
+                    resolver_level_metrics_behavior=appsync.ResolverLevelMetricsBehavior.PER_RESOLVER_METRICS
                 )
             )
             
-            # hosted zone for adding appsync domain
-            zone = route53.HostedZone.from_hosted_zone_attributes(self, "HostedZone",
-                hosted_zone_id=hosted_zone_id,
-                zone_name=zone_name
+            none_dS = api.add_none_data_source("none",
+                metrics_config=appsync.DataSourceMetricsConfig.ENABLED
             )
             
-            # create a cname to the appsync domain. will map to something like xxxx.cloudfront.net
-            route53.CnameRecord(self, "CnameApiRecord",
-                record_name="api",
-                zone=zone,
-                domain_name=api.app_sync_domain_name
+            none_dS.create_resolver("noneResolver",
+                type_name="Mutation",
+                field_name="addDemoMetricsConfig",
+                metrics_config=appsync.ResolverMetricsConfig.ENABLED
             )
         '''
         if __debug__:
@@ -23377,6 +23825,7 @@ typing.cast(typing.Any, BackedDataSource).__jsii_proxy_class__ = lambda : _Backe
     name_mapping={
         "api": "api",
         "description": "description",
+        "metrics_config": "metricsConfig",
         "name": "name",
         "service_role": "serviceRole",
     },
@@ -23387,6 +23836,7 @@ class BackedDataSourceProps(BaseDataSourceProps):
         *,
         api: "_IGraphQLApiRef_d46d77ba",
         description: typing.Optional[builtins.str] = None,
+        metrics_config: typing.Optional["DataSourceMetricsConfig"] = None,
         name: typing.Optional[builtins.str] = None,
         service_role: typing.Optional["_IRole_235f5d8e"] = None,
     ) -> None:
@@ -23394,6 +23844,7 @@ class BackedDataSourceProps(BaseDataSourceProps):
 
         :param api: The API to attach this data source to.
         :param description: the description of the data source. Default: - None
+        :param metrics_config: Whether to enable enhanced metrics of the data source Value will be ignored, if ``enhancedMetricsConfig.dataSourceLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_DATA_SOURCE_METRICS``. Default: - no metrics configuration
         :param name: The name of the data source. Default: - id of data source
         :param service_role: The IAM service role to be assumed by AppSync to interact with the data source. Default: - Create a new role
 
@@ -23415,6 +23866,7 @@ class BackedDataSourceProps(BaseDataSourceProps):
             
                 # the properties below are optional
                 description="description",
+                metrics_config=appsync.DataSourceMetricsConfig.ENABLED,
                 name="name",
                 service_role=role
             )
@@ -23423,6 +23875,7 @@ class BackedDataSourceProps(BaseDataSourceProps):
             type_hints = typing.get_type_hints(_typecheckingstub__bea2d00276bc1b45e9a26da67eba934f53db82f49e29640aa05289870be94f55)
             check_type(argname="argument api", value=api, expected_type=type_hints["api"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument metrics_config", value=metrics_config, expected_type=type_hints["metrics_config"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument service_role", value=service_role, expected_type=type_hints["service_role"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -23430,6 +23883,8 @@ class BackedDataSourceProps(BaseDataSourceProps):
         }
         if description is not None:
             self._values["description"] = description
+        if metrics_config is not None:
+            self._values["metrics_config"] = metrics_config
         if name is not None:
             self._values["name"] = name
         if service_role is not None:
@@ -23450,6 +23905,15 @@ class BackedDataSourceProps(BaseDataSourceProps):
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def metrics_config(self) -> typing.Optional["DataSourceMetricsConfig"]:
+        '''Whether to enable enhanced metrics of the data source Value will be ignored, if ``enhancedMetricsConfig.dataSourceLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_DATA_SOURCE_METRICS``.
+
+        :default: - no metrics configuration
+        '''
+        result = self._values.get("metrics_config")
+        return typing.cast(typing.Optional["DataSourceMetricsConfig"], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
@@ -23697,6 +24161,7 @@ class DynamoDbDataSource(
         service_role: typing.Optional["_IRole_235f5d8e"] = None,
         api: "_IGraphQLApiRef_d46d77ba",
         description: typing.Optional[builtins.str] = None,
+        metrics_config: typing.Optional["DataSourceMetricsConfig"] = None,
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
@@ -23708,6 +24173,7 @@ class DynamoDbDataSource(
         :param service_role: The IAM service role to be assumed by AppSync to interact with the data source. Default: - Create a new role
         :param api: The API to attach this data source to.
         :param description: the description of the data source. Default: - None
+        :param metrics_config: Whether to enable enhanced metrics of the data source Value will be ignored, if ``enhancedMetricsConfig.dataSourceLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_DATA_SOURCE_METRICS``. Default: - no metrics configuration
         :param name: The name of the data source. Default: - id of data source
         '''
         if __debug__:
@@ -23721,6 +24187,7 @@ class DynamoDbDataSource(
             service_role=service_role,
             api=api,
             description=description,
+            metrics_config=metrics_config,
             name=name,
         )
 
@@ -23739,6 +24206,7 @@ class DynamoDbDataSource(
     name_mapping={
         "api": "api",
         "description": "description",
+        "metrics_config": "metricsConfig",
         "name": "name",
         "service_role": "serviceRole",
         "table": "table",
@@ -23752,6 +24220,7 @@ class DynamoDbDataSourceProps(BackedDataSourceProps):
         *,
         api: "_IGraphQLApiRef_d46d77ba",
         description: typing.Optional[builtins.str] = None,
+        metrics_config: typing.Optional["DataSourceMetricsConfig"] = None,
         name: typing.Optional[builtins.str] = None,
         service_role: typing.Optional["_IRole_235f5d8e"] = None,
         table: "_ITable_504fd401",
@@ -23762,6 +24231,7 @@ class DynamoDbDataSourceProps(BackedDataSourceProps):
 
         :param api: The API to attach this data source to.
         :param description: the description of the data source. Default: - None
+        :param metrics_config: Whether to enable enhanced metrics of the data source Value will be ignored, if ``enhancedMetricsConfig.dataSourceLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_DATA_SOURCE_METRICS``. Default: - no metrics configuration
         :param name: The name of the data source. Default: - id of data source
         :param service_role: The IAM service role to be assumed by AppSync to interact with the data source. Default: - Create a new role
         :param table: The DynamoDB table backing this data source.
@@ -23789,6 +24259,7 @@ class DynamoDbDataSourceProps(BackedDataSourceProps):
             
                 # the properties below are optional
                 description="description",
+                metrics_config=appsync.DataSourceMetricsConfig.ENABLED,
                 name="name",
                 read_only_access=False,
                 service_role=role,
@@ -23799,6 +24270,7 @@ class DynamoDbDataSourceProps(BackedDataSourceProps):
             type_hints = typing.get_type_hints(_typecheckingstub__4b2cd0eab2d8bf885992981b7b491d32e73f943353d4564c2a504d3154462a65)
             check_type(argname="argument api", value=api, expected_type=type_hints["api"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument metrics_config", value=metrics_config, expected_type=type_hints["metrics_config"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument service_role", value=service_role, expected_type=type_hints["service_role"])
             check_type(argname="argument table", value=table, expected_type=type_hints["table"])
@@ -23810,6 +24282,8 @@ class DynamoDbDataSourceProps(BackedDataSourceProps):
         }
         if description is not None:
             self._values["description"] = description
+        if metrics_config is not None:
+            self._values["metrics_config"] = metrics_config
         if name is not None:
             self._values["name"] = name
         if service_role is not None:
@@ -23834,6 +24308,15 @@ class DynamoDbDataSourceProps(BackedDataSourceProps):
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def metrics_config(self) -> typing.Optional["DataSourceMetricsConfig"]:
+        '''Whether to enable enhanced metrics of the data source Value will be ignored, if ``enhancedMetricsConfig.dataSourceLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_DATA_SOURCE_METRICS``.
+
+        :default: - no metrics configuration
+        '''
+        result = self._values.get("metrics_config")
+        return typing.cast(typing.Optional["DataSourceMetricsConfig"], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
@@ -23921,6 +24404,7 @@ class ElasticsearchDataSource(
         
             # the properties below are optional
             description="description",
+            metrics_config=appsync.DataSourceMetricsConfig.ENABLED,
             name="name",
             service_role=role
         )
@@ -23935,6 +24419,7 @@ class ElasticsearchDataSource(
         service_role: typing.Optional["_IRole_235f5d8e"] = None,
         api: "_IGraphQLApiRef_d46d77ba",
         description: typing.Optional[builtins.str] = None,
+        metrics_config: typing.Optional["DataSourceMetricsConfig"] = None,
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
@@ -23944,6 +24429,7 @@ class ElasticsearchDataSource(
         :param service_role: The IAM service role to be assumed by AppSync to interact with the data source. Default: - Create a new role
         :param api: The API to attach this data source to.
         :param description: the description of the data source. Default: - None
+        :param metrics_config: Whether to enable enhanced metrics of the data source Value will be ignored, if ``enhancedMetricsConfig.dataSourceLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_DATA_SOURCE_METRICS``. Default: - no metrics configuration
         :param name: The name of the data source. Default: - id of data source
 
         :stability: deprecated
@@ -23957,6 +24443,7 @@ class ElasticsearchDataSource(
             service_role=service_role,
             api=api,
             description=description,
+            metrics_config=metrics_config,
             name=name,
         )
 
@@ -23969,6 +24456,7 @@ class ElasticsearchDataSource(
     name_mapping={
         "api": "api",
         "description": "description",
+        "metrics_config": "metricsConfig",
         "name": "name",
         "service_role": "serviceRole",
         "domain": "domain",
@@ -23980,6 +24468,7 @@ class ElasticsearchDataSourceProps(BackedDataSourceProps):
         *,
         api: "_IGraphQLApiRef_d46d77ba",
         description: typing.Optional[builtins.str] = None,
+        metrics_config: typing.Optional["DataSourceMetricsConfig"] = None,
         name: typing.Optional[builtins.str] = None,
         service_role: typing.Optional["_IRole_235f5d8e"] = None,
         domain: "_IDomain_0c9006b4",
@@ -23988,6 +24477,7 @@ class ElasticsearchDataSourceProps(BackedDataSourceProps):
 
         :param api: The API to attach this data source to.
         :param description: the description of the data source. Default: - None
+        :param metrics_config: Whether to enable enhanced metrics of the data source Value will be ignored, if ``enhancedMetricsConfig.dataSourceLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_DATA_SOURCE_METRICS``. Default: - no metrics configuration
         :param name: The name of the data source. Default: - id of data source
         :param service_role: The IAM service role to be assumed by AppSync to interact with the data source. Default: - Create a new role
         :param domain: (deprecated) The elasticsearch domain containing the endpoint for the data source.
@@ -24016,6 +24506,7 @@ class ElasticsearchDataSourceProps(BackedDataSourceProps):
             
                 # the properties below are optional
                 description="description",
+                metrics_config=appsync.DataSourceMetricsConfig.ENABLED,
                 name="name",
                 service_role=role
             )
@@ -24024,6 +24515,7 @@ class ElasticsearchDataSourceProps(BackedDataSourceProps):
             type_hints = typing.get_type_hints(_typecheckingstub__6153bccef60ecdf62438c139adee9ab9afb1c0361813760bad95eae9e5f43975)
             check_type(argname="argument api", value=api, expected_type=type_hints["api"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument metrics_config", value=metrics_config, expected_type=type_hints["metrics_config"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument service_role", value=service_role, expected_type=type_hints["service_role"])
             check_type(argname="argument domain", value=domain, expected_type=type_hints["domain"])
@@ -24033,6 +24525,8 @@ class ElasticsearchDataSourceProps(BackedDataSourceProps):
         }
         if description is not None:
             self._values["description"] = description
+        if metrics_config is not None:
+            self._values["metrics_config"] = metrics_config
         if name is not None:
             self._values["name"] = name
         if service_role is not None:
@@ -24053,6 +24547,15 @@ class ElasticsearchDataSourceProps(BackedDataSourceProps):
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def metrics_config(self) -> typing.Optional["DataSourceMetricsConfig"]:
+        '''Whether to enable enhanced metrics of the data source Value will be ignored, if ``enhancedMetricsConfig.dataSourceLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_DATA_SOURCE_METRICS``.
+
+        :default: - no metrics configuration
+        '''
+        result = self._values.get("metrics_config")
+        return typing.cast(typing.Optional["DataSourceMetricsConfig"], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
@@ -24490,6 +24993,7 @@ class EventBridgeDataSource(
         service_role: typing.Optional["_IRole_235f5d8e"] = None,
         api: "_IGraphQLApiRef_d46d77ba",
         description: typing.Optional[builtins.str] = None,
+        metrics_config: typing.Optional["DataSourceMetricsConfig"] = None,
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
@@ -24499,6 +25003,7 @@ class EventBridgeDataSource(
         :param service_role: The IAM service role to be assumed by AppSync to interact with the data source. Default: - Create a new role
         :param api: The API to attach this data source to.
         :param description: the description of the data source. Default: - None
+        :param metrics_config: Whether to enable enhanced metrics of the data source Value will be ignored, if ``enhancedMetricsConfig.dataSourceLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_DATA_SOURCE_METRICS``. Default: - no metrics configuration
         :param name: The name of the data source. Default: - id of data source
         '''
         if __debug__:
@@ -24510,6 +25015,7 @@ class EventBridgeDataSource(
             service_role=service_role,
             api=api,
             description=description,
+            metrics_config=metrics_config,
             name=name,
         )
 
@@ -24528,6 +25034,7 @@ class EventBridgeDataSource(
     name_mapping={
         "api": "api",
         "description": "description",
+        "metrics_config": "metricsConfig",
         "name": "name",
         "service_role": "serviceRole",
         "event_bus": "eventBus",
@@ -24539,6 +25046,7 @@ class EventBridgeDataSourceProps(BackedDataSourceProps):
         *,
         api: "_IGraphQLApiRef_d46d77ba",
         description: typing.Optional[builtins.str] = None,
+        metrics_config: typing.Optional["DataSourceMetricsConfig"] = None,
         name: typing.Optional[builtins.str] = None,
         service_role: typing.Optional["_IRole_235f5d8e"] = None,
         event_bus: "_IEventBus_88d13111",
@@ -24547,6 +25055,7 @@ class EventBridgeDataSourceProps(BackedDataSourceProps):
 
         :param api: The API to attach this data source to.
         :param description: the description of the data source. Default: - None
+        :param metrics_config: Whether to enable enhanced metrics of the data source Value will be ignored, if ``enhancedMetricsConfig.dataSourceLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_DATA_SOURCE_METRICS``. Default: - no metrics configuration
         :param name: The name of the data source. Default: - id of data source
         :param service_role: The IAM service role to be assumed by AppSync to interact with the data source. Default: - Create a new role
         :param event_bus: The EventBridge EventBus.
@@ -24572,6 +25081,7 @@ class EventBridgeDataSourceProps(BackedDataSourceProps):
             
                 # the properties below are optional
                 description="description",
+                metrics_config=appsync.DataSourceMetricsConfig.ENABLED,
                 name="name",
                 service_role=role
             )
@@ -24580,6 +25090,7 @@ class EventBridgeDataSourceProps(BackedDataSourceProps):
             type_hints = typing.get_type_hints(_typecheckingstub__e00da245f6e9b76ee0cfe04414b7bce864ba4a2790c154b23dc47e4ee33a9f8a)
             check_type(argname="argument api", value=api, expected_type=type_hints["api"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument metrics_config", value=metrics_config, expected_type=type_hints["metrics_config"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument service_role", value=service_role, expected_type=type_hints["service_role"])
             check_type(argname="argument event_bus", value=event_bus, expected_type=type_hints["event_bus"])
@@ -24589,6 +25100,8 @@ class EventBridgeDataSourceProps(BackedDataSourceProps):
         }
         if description is not None:
             self._values["description"] = description
+        if metrics_config is not None:
+            self._values["metrics_config"] = metrics_config
         if name is not None:
             self._values["name"] = name
         if service_role is not None:
@@ -24609,6 +25122,15 @@ class EventBridgeDataSourceProps(BackedDataSourceProps):
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def metrics_config(self) -> typing.Optional["DataSourceMetricsConfig"]:
+        '''Whether to enable enhanced metrics of the data source Value will be ignored, if ``enhancedMetricsConfig.dataSourceLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_DATA_SOURCE_METRICS``.
+
+        :default: - no metrics configuration
+        '''
+        result = self._values.get("metrics_config")
+        return typing.cast(typing.Optional["DataSourceMetricsConfig"], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
@@ -24693,6 +25215,7 @@ class GraphqlApiBase(
         table: "_ITable_504fd401",
         *,
         description: typing.Optional[builtins.str] = None,
+        metrics_config: typing.Optional["DataSourceMetricsConfig"] = None,
         name: typing.Optional[builtins.str] = None,
     ) -> "DynamoDbDataSource":
         '''add a new DynamoDB data source to this API.
@@ -24700,13 +25223,16 @@ class GraphqlApiBase(
         :param id: The data source's id.
         :param table: The DynamoDB table backing this data source.
         :param description: The description of the data source. Default: - No description
+        :param metrics_config: Whether to enable enhanced metrics of the data source Value will be ignored, if ``enhancedMetricsConfig.dataSourceLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_DATA_SOURCE_METRICS``. Default: - Enhance metrics are disabled
         :param name: The name of the data source, overrides the id given by cdk. Default: - generated by cdk given the id
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e5231a54be88b667c5a5a1bc5329dbbb64c8799d82120069adc12366c521a0d7)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument table", value=table, expected_type=type_hints["table"])
-        options = DataSourceOptions(description=description, name=name)
+        options = DataSourceOptions(
+            description=description, metrics_config=metrics_config, name=name
+        )
 
         return typing.cast("DynamoDbDataSource", jsii.invoke(self, "addDynamoDbDataSource", [id, table, options]))
 
@@ -24717,6 +25243,7 @@ class GraphqlApiBase(
         domain: "_IDomain_0c9006b4",
         *,
         description: typing.Optional[builtins.str] = None,
+        metrics_config: typing.Optional["DataSourceMetricsConfig"] = None,
         name: typing.Optional[builtins.str] = None,
     ) -> "ElasticsearchDataSource":
         '''(deprecated) add a new elasticsearch data source to this API.
@@ -24724,6 +25251,7 @@ class GraphqlApiBase(
         :param id: The data source's id.
         :param domain: The elasticsearch domain for this data source.
         :param description: The description of the data source. Default: - No description
+        :param metrics_config: Whether to enable enhanced metrics of the data source Value will be ignored, if ``enhancedMetricsConfig.dataSourceLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_DATA_SOURCE_METRICS``. Default: - Enhance metrics are disabled
         :param name: The name of the data source, overrides the id given by cdk. Default: - generated by cdk given the id
 
         :deprecated: - use ``addOpenSearchDataSource``
@@ -24734,7 +25262,9 @@ class GraphqlApiBase(
             type_hints = typing.get_type_hints(_typecheckingstub__72f496dfc677644fac1f40399c0372134a286d0cd64c4afc8c8506b52c9c6842)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument domain", value=domain, expected_type=type_hints["domain"])
-        options = DataSourceOptions(description=description, name=name)
+        options = DataSourceOptions(
+            description=description, metrics_config=metrics_config, name=name
+        )
 
         return typing.cast("ElasticsearchDataSource", jsii.invoke(self, "addElasticsearchDataSource", [id, domain, options]))
 
@@ -24745,6 +25275,7 @@ class GraphqlApiBase(
         event_bus: "_IEventBus_88d13111",
         *,
         description: typing.Optional[builtins.str] = None,
+        metrics_config: typing.Optional["DataSourceMetricsConfig"] = None,
         name: typing.Optional[builtins.str] = None,
     ) -> "EventBridgeDataSource":
         '''Add an EventBridge data source to this api.
@@ -24752,13 +25283,16 @@ class GraphqlApiBase(
         :param id: The data source's id.
         :param event_bus: The EventBridge EventBus on which to put events.
         :param description: The description of the data source. Default: - No description
+        :param metrics_config: Whether to enable enhanced metrics of the data source Value will be ignored, if ``enhancedMetricsConfig.dataSourceLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_DATA_SOURCE_METRICS``. Default: - Enhance metrics are disabled
         :param name: The name of the data source, overrides the id given by cdk. Default: - generated by cdk given the id
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a520f759496ebb7823d10727dc78034711f5090c53ba71c8d7a1dc1848b96e01)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument event_bus", value=event_bus, expected_type=type_hints["event_bus"])
-        options = DataSourceOptions(description=description, name=name)
+        options = DataSourceOptions(
+            description=description, metrics_config=metrics_config, name=name
+        )
 
         return typing.cast("EventBridgeDataSource", jsii.invoke(self, "addEventBridgeDataSource", [id, event_bus, options]))
 
@@ -24770,6 +25304,7 @@ class GraphqlApiBase(
         *,
         authorization_config: typing.Optional[typing.Union["AwsIamConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         description: typing.Optional[builtins.str] = None,
+        metrics_config: typing.Optional["DataSourceMetricsConfig"] = None,
         name: typing.Optional[builtins.str] = None,
     ) -> "HttpDataSource":
         '''add a new http data source to this API.
@@ -24778,6 +25313,7 @@ class GraphqlApiBase(
         :param endpoint: The http endpoint.
         :param authorization_config: The authorization config in case the HTTP endpoint requires authorization. Default: - none
         :param description: The description of the data source. Default: - No description
+        :param metrics_config: Whether to enable enhanced metrics of the data source Value will be ignored, if ``enhancedMetricsConfig.dataSourceLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_DATA_SOURCE_METRICS``. Default: - Enhance metrics are disabled
         :param name: The name of the data source, overrides the id given by cdk. Default: - generated by cdk given the id
         '''
         if __debug__:
@@ -24787,6 +25323,7 @@ class GraphqlApiBase(
         options = HttpDataSourceOptions(
             authorization_config=authorization_config,
             description=description,
+            metrics_config=metrics_config,
             name=name,
         )
 
@@ -24799,6 +25336,7 @@ class GraphqlApiBase(
         lambda_function: "_IFunction_6adb0ab8",
         *,
         description: typing.Optional[builtins.str] = None,
+        metrics_config: typing.Optional["DataSourceMetricsConfig"] = None,
         name: typing.Optional[builtins.str] = None,
     ) -> "LambdaDataSource":
         '''add a new Lambda data source to this API.
@@ -24806,13 +25344,16 @@ class GraphqlApiBase(
         :param id: The data source's id.
         :param lambda_function: The Lambda function to call to interact with this data source.
         :param description: The description of the data source. Default: - No description
+        :param metrics_config: Whether to enable enhanced metrics of the data source Value will be ignored, if ``enhancedMetricsConfig.dataSourceLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_DATA_SOURCE_METRICS``. Default: - Enhance metrics are disabled
         :param name: The name of the data source, overrides the id given by cdk. Default: - generated by cdk given the id
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__82b9734a5029f4e20ff30bb852586ba9b413700a9b7453b7113bf1db1efaf29f)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument lambda_function", value=lambda_function, expected_type=type_hints["lambda_function"])
-        options = DataSourceOptions(description=description, name=name)
+        options = DataSourceOptions(
+            description=description, metrics_config=metrics_config, name=name
+        )
 
         return typing.cast("LambdaDataSource", jsii.invoke(self, "addLambdaDataSource", [id, lambda_function, options]))
 
@@ -24822,6 +25363,7 @@ class GraphqlApiBase(
         id: builtins.str,
         *,
         description: typing.Optional[builtins.str] = None,
+        metrics_config: typing.Optional["DataSourceMetricsConfig"] = None,
         name: typing.Optional[builtins.str] = None,
     ) -> "NoneDataSource":
         '''add a new dummy data source to this API.
@@ -24831,12 +25373,15 @@ class GraphqlApiBase(
 
         :param id: The data source's id.
         :param description: The description of the data source. Default: - No description
+        :param metrics_config: Whether to enable enhanced metrics of the data source Value will be ignored, if ``enhancedMetricsConfig.dataSourceLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_DATA_SOURCE_METRICS``. Default: - Enhance metrics are disabled
         :param name: The name of the data source, overrides the id given by cdk. Default: - generated by cdk given the id
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__41813b6c71fbc2a0901dfef0dd1b464af643898b532103ddead5829c10187ab1)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        options = DataSourceOptions(description=description, name=name)
+        options = DataSourceOptions(
+            description=description, metrics_config=metrics_config, name=name
+        )
 
         return typing.cast("NoneDataSource", jsii.invoke(self, "addNoneDataSource", [id, options]))
 
@@ -24847,6 +25392,7 @@ class GraphqlApiBase(
         domain: "_IDomain_3c13cbdd",
         *,
         description: typing.Optional[builtins.str] = None,
+        metrics_config: typing.Optional["DataSourceMetricsConfig"] = None,
         name: typing.Optional[builtins.str] = None,
     ) -> "OpenSearchDataSource":
         '''add a new OpenSearch data source to this API.
@@ -24854,13 +25400,16 @@ class GraphqlApiBase(
         :param id: The data source's id.
         :param domain: The OpenSearch domain for this data source.
         :param description: The description of the data source. Default: - No description
+        :param metrics_config: Whether to enable enhanced metrics of the data source Value will be ignored, if ``enhancedMetricsConfig.dataSourceLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_DATA_SOURCE_METRICS``. Default: - Enhance metrics are disabled
         :param name: The name of the data source, overrides the id given by cdk. Default: - generated by cdk given the id
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1e2a17558b2960e621e2eca90fe762c3ea77844a8d87d843ffdbbad8247baaf8)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument domain", value=domain, expected_type=type_hints["domain"])
-        options = DataSourceOptions(description=description, name=name)
+        options = DataSourceOptions(
+            description=description, metrics_config=metrics_config, name=name
+        )
 
         return typing.cast("OpenSearchDataSource", jsii.invoke(self, "addOpenSearchDataSource", [id, domain, options]))
 
@@ -24873,6 +25422,7 @@ class GraphqlApiBase(
         database_name: typing.Optional[builtins.str] = None,
         *,
         description: typing.Optional[builtins.str] = None,
+        metrics_config: typing.Optional["DataSourceMetricsConfig"] = None,
         name: typing.Optional[builtins.str] = None,
     ) -> "RdsDataSource":
         '''add a new Rds data source to this API.
@@ -24882,6 +25432,7 @@ class GraphqlApiBase(
         :param secret_store: The secret store that contains the username and password for the serverless cluster.
         :param database_name: The optional name of the database to use within the cluster.
         :param description: The description of the data source. Default: - No description
+        :param metrics_config: Whether to enable enhanced metrics of the data source Value will be ignored, if ``enhancedMetricsConfig.dataSourceLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_DATA_SOURCE_METRICS``. Default: - Enhance metrics are disabled
         :param name: The name of the data source, overrides the id given by cdk. Default: - generated by cdk given the id
         '''
         if __debug__:
@@ -24890,7 +25441,9 @@ class GraphqlApiBase(
             check_type(argname="argument serverless_cluster", value=serverless_cluster, expected_type=type_hints["serverless_cluster"])
             check_type(argname="argument secret_store", value=secret_store, expected_type=type_hints["secret_store"])
             check_type(argname="argument database_name", value=database_name, expected_type=type_hints["database_name"])
-        options = DataSourceOptions(description=description, name=name)
+        options = DataSourceOptions(
+            description=description, metrics_config=metrics_config, name=name
+        )
 
         return typing.cast("RdsDataSource", jsii.invoke(self, "addRdsDataSource", [id, serverless_cluster, secret_store, database_name, options]))
 
@@ -24903,6 +25456,7 @@ class GraphqlApiBase(
         database_name: typing.Optional[builtins.str] = None,
         *,
         description: typing.Optional[builtins.str] = None,
+        metrics_config: typing.Optional["DataSourceMetricsConfig"] = None,
         name: typing.Optional[builtins.str] = None,
     ) -> "RdsDataSource":
         '''add a new Rds data source to this API.
@@ -24912,6 +25466,7 @@ class GraphqlApiBase(
         :param secret_store: The secret store that contains the username and password for the serverless cluster.
         :param database_name: The optional name of the database to use within the cluster.
         :param description: The description of the data source. Default: - No description
+        :param metrics_config: Whether to enable enhanced metrics of the data source Value will be ignored, if ``enhancedMetricsConfig.dataSourceLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_DATA_SOURCE_METRICS``. Default: - Enhance metrics are disabled
         :param name: The name of the data source, overrides the id given by cdk. Default: - generated by cdk given the id
         '''
         if __debug__:
@@ -24920,7 +25475,9 @@ class GraphqlApiBase(
             check_type(argname="argument serverless_cluster", value=serverless_cluster, expected_type=type_hints["serverless_cluster"])
             check_type(argname="argument secret_store", value=secret_store, expected_type=type_hints["secret_store"])
             check_type(argname="argument database_name", value=database_name, expected_type=type_hints["database_name"])
-        options = DataSourceOptions(description=description, name=name)
+        options = DataSourceOptions(
+            description=description, metrics_config=metrics_config, name=name
+        )
 
         return typing.cast("RdsDataSource", jsii.invoke(self, "addRdsDataSourceV2", [id, serverless_cluster, secret_store, database_name, options]))
 
@@ -24949,6 +25506,7 @@ class GraphqlApiBase(
         caching_config: typing.Optional[typing.Union["CachingConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         code: typing.Optional["Code"] = None,
         max_batch_size: typing.Optional[jsii.Number] = None,
+        metrics_config: typing.Optional["ResolverMetricsConfig"] = None,
         pipeline_config: typing.Optional[typing.Sequence["_IFunctionConfigurationRef_6eb53e57"]] = None,
         request_mapping_template: typing.Optional["MappingTemplate"] = None,
         response_mapping_template: typing.Optional["MappingTemplate"] = None,
@@ -24963,6 +25521,7 @@ class GraphqlApiBase(
         :param caching_config: The caching configuration for this resolver. Default: - No caching configuration
         :param code: The function code. Default: - no code is used
         :param max_batch_size: The maximum number of elements per batch, when using batch invoke. Default: - No max batch size
+        :param metrics_config: Whether to enable enhanced metrics Value will be ignored, if ``enhancedMetricsConfig.resolverLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_RESOLVER_METRICS``. Default: - no metrics configuration
         :param pipeline_config: configuration of the pipeline resolver. Default: - no pipeline resolver configuration An empty array | undefined sets resolver to be of kind, unit
         :param request_mapping_template: The request mapping template for this resolver. Default: - No mapping template
         :param response_mapping_template: The response mapping template for this resolver. Default: - No mapping template
@@ -24978,6 +25537,7 @@ class GraphqlApiBase(
             caching_config=caching_config,
             code=code,
             max_batch_size=max_batch_size,
+            metrics_config=metrics_config,
             pipeline_config=pipeline_config,
             request_mapping_template=request_mapping_template,
             response_mapping_template=response_mapping_template,
@@ -25188,6 +25748,7 @@ class HttpDataSource(
         service_role: typing.Optional["_IRole_235f5d8e"] = None,
         api: "_IGraphQLApiRef_d46d77ba",
         description: typing.Optional[builtins.str] = None,
+        metrics_config: typing.Optional["DataSourceMetricsConfig"] = None,
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
@@ -25198,6 +25759,7 @@ class HttpDataSource(
         :param service_role: The IAM service role to be assumed by AppSync to interact with the data source. Default: - Create a new role
         :param api: The API to attach this data source to.
         :param description: the description of the data source. Default: - None
+        :param metrics_config: Whether to enable enhanced metrics of the data source Value will be ignored, if ``enhancedMetricsConfig.dataSourceLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_DATA_SOURCE_METRICS``. Default: - no metrics configuration
         :param name: The name of the data source. Default: - id of data source
         '''
         if __debug__:
@@ -25210,6 +25772,7 @@ class HttpDataSource(
             service_role=service_role,
             api=api,
             description=description,
+            metrics_config=metrics_config,
             name=name,
         )
 
@@ -25228,6 +25791,7 @@ class HttpDataSource(
     name_mapping={
         "api": "api",
         "description": "description",
+        "metrics_config": "metricsConfig",
         "name": "name",
         "service_role": "serviceRole",
         "endpoint": "endpoint",
@@ -25240,6 +25804,7 @@ class HttpDataSourceProps(BackedDataSourceProps):
         *,
         api: "_IGraphQLApiRef_d46d77ba",
         description: typing.Optional[builtins.str] = None,
+        metrics_config: typing.Optional["DataSourceMetricsConfig"] = None,
         name: typing.Optional[builtins.str] = None,
         service_role: typing.Optional["_IRole_235f5d8e"] = None,
         endpoint: builtins.str,
@@ -25249,6 +25814,7 @@ class HttpDataSourceProps(BackedDataSourceProps):
 
         :param api: The API to attach this data source to.
         :param description: the description of the data source. Default: - None
+        :param metrics_config: Whether to enable enhanced metrics of the data source Value will be ignored, if ``enhancedMetricsConfig.dataSourceLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_DATA_SOURCE_METRICS``. Default: - no metrics configuration
         :param name: The name of the data source. Default: - id of data source
         :param service_role: The IAM service role to be assumed by AppSync to interact with the data source. Default: - Create a new role
         :param endpoint: The http endpoint.
@@ -25277,6 +25843,7 @@ class HttpDataSourceProps(BackedDataSourceProps):
                     signing_service_name="signingServiceName"
                 ),
                 description="description",
+                metrics_config=appsync.DataSourceMetricsConfig.ENABLED,
                 name="name",
                 service_role=role
             )
@@ -25287,6 +25854,7 @@ class HttpDataSourceProps(BackedDataSourceProps):
             type_hints = typing.get_type_hints(_typecheckingstub__91183bd6fd5a10b6ae91fe2450b1ca1b99e291ac5b272e3c6ccfffaa26a2b05a)
             check_type(argname="argument api", value=api, expected_type=type_hints["api"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument metrics_config", value=metrics_config, expected_type=type_hints["metrics_config"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument service_role", value=service_role, expected_type=type_hints["service_role"])
             check_type(argname="argument endpoint", value=endpoint, expected_type=type_hints["endpoint"])
@@ -25297,6 +25865,8 @@ class HttpDataSourceProps(BackedDataSourceProps):
         }
         if description is not None:
             self._values["description"] = description
+        if metrics_config is not None:
+            self._values["metrics_config"] = metrics_config
         if name is not None:
             self._values["name"] = name
         if service_role is not None:
@@ -25319,6 +25889,15 @@ class HttpDataSourceProps(BackedDataSourceProps):
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def metrics_config(self) -> typing.Optional["DataSourceMetricsConfig"]:
+        '''Whether to enable enhanced metrics of the data source Value will be ignored, if ``enhancedMetricsConfig.dataSourceLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_DATA_SOURCE_METRICS``.
+
+        :default: - no metrics configuration
+        '''
+        result = self._values.get("metrics_config")
+        return typing.cast(typing.Optional["DataSourceMetricsConfig"], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
@@ -25394,6 +25973,7 @@ class LambdaDataSource(
         
             # the properties below are optional
             description="description",
+            metrics_config=appsync.DataSourceMetricsConfig.ENABLED,
             name="name",
             service_role=role
         )
@@ -25408,6 +25988,7 @@ class LambdaDataSource(
         service_role: typing.Optional["_IRole_235f5d8e"] = None,
         api: "_IGraphQLApiRef_d46d77ba",
         description: typing.Optional[builtins.str] = None,
+        metrics_config: typing.Optional["DataSourceMetricsConfig"] = None,
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
@@ -25417,6 +25998,7 @@ class LambdaDataSource(
         :param service_role: The IAM service role to be assumed by AppSync to interact with the data source. Default: - Create a new role
         :param api: The API to attach this data source to.
         :param description: the description of the data source. Default: - None
+        :param metrics_config: Whether to enable enhanced metrics of the data source Value will be ignored, if ``enhancedMetricsConfig.dataSourceLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_DATA_SOURCE_METRICS``. Default: - no metrics configuration
         :param name: The name of the data source. Default: - id of data source
         '''
         if __debug__:
@@ -25428,6 +26010,7 @@ class LambdaDataSource(
             service_role=service_role,
             api=api,
             description=description,
+            metrics_config=metrics_config,
             name=name,
         )
 
@@ -25446,6 +26029,7 @@ class LambdaDataSource(
     name_mapping={
         "api": "api",
         "description": "description",
+        "metrics_config": "metricsConfig",
         "name": "name",
         "service_role": "serviceRole",
         "lambda_function": "lambdaFunction",
@@ -25457,6 +26041,7 @@ class LambdaDataSourceProps(BackedDataSourceProps):
         *,
         api: "_IGraphQLApiRef_d46d77ba",
         description: typing.Optional[builtins.str] = None,
+        metrics_config: typing.Optional["DataSourceMetricsConfig"] = None,
         name: typing.Optional[builtins.str] = None,
         service_role: typing.Optional["_IRole_235f5d8e"] = None,
         lambda_function: "_IFunction_6adb0ab8",
@@ -25465,6 +26050,7 @@ class LambdaDataSourceProps(BackedDataSourceProps):
 
         :param api: The API to attach this data source to.
         :param description: the description of the data source. Default: - None
+        :param metrics_config: Whether to enable enhanced metrics of the data source Value will be ignored, if ``enhancedMetricsConfig.dataSourceLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_DATA_SOURCE_METRICS``. Default: - no metrics configuration
         :param name: The name of the data source. Default: - id of data source
         :param service_role: The IAM service role to be assumed by AppSync to interact with the data source. Default: - Create a new role
         :param lambda_function: The Lambda function to call to interact with this data source.
@@ -25490,6 +26076,7 @@ class LambdaDataSourceProps(BackedDataSourceProps):
             
                 # the properties below are optional
                 description="description",
+                metrics_config=appsync.DataSourceMetricsConfig.ENABLED,
                 name="name",
                 service_role=role
             )
@@ -25498,6 +26085,7 @@ class LambdaDataSourceProps(BackedDataSourceProps):
             type_hints = typing.get_type_hints(_typecheckingstub__bd360baebe2cc73f8afb0301b4c78dd7e9c49ef5e7f543f97d3ca94cc7c49d3f)
             check_type(argname="argument api", value=api, expected_type=type_hints["api"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument metrics_config", value=metrics_config, expected_type=type_hints["metrics_config"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument service_role", value=service_role, expected_type=type_hints["service_role"])
             check_type(argname="argument lambda_function", value=lambda_function, expected_type=type_hints["lambda_function"])
@@ -25507,6 +26095,8 @@ class LambdaDataSourceProps(BackedDataSourceProps):
         }
         if description is not None:
             self._values["description"] = description
+        if metrics_config is not None:
+            self._values["metrics_config"] = metrics_config
         if name is not None:
             self._values["name"] = name
         if service_role is not None:
@@ -25527,6 +26117,15 @@ class LambdaDataSourceProps(BackedDataSourceProps):
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def metrics_config(self) -> typing.Optional["DataSourceMetricsConfig"]:
+        '''Whether to enable enhanced metrics of the data source Value will be ignored, if ``enhancedMetricsConfig.dataSourceLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_DATA_SOURCE_METRICS``.
+
+        :default: - no metrics configuration
+        '''
+        result = self._values.get("metrics_config")
+        return typing.cast(typing.Optional["DataSourceMetricsConfig"], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
@@ -25623,6 +26222,7 @@ class OpenSearchDataSource(
         service_role: typing.Optional["_IRole_235f5d8e"] = None,
         api: "_IGraphQLApiRef_d46d77ba",
         description: typing.Optional[builtins.str] = None,
+        metrics_config: typing.Optional["DataSourceMetricsConfig"] = None,
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
@@ -25632,6 +26232,7 @@ class OpenSearchDataSource(
         :param service_role: The IAM service role to be assumed by AppSync to interact with the data source. Default: - Create a new role
         :param api: The API to attach this data source to.
         :param description: the description of the data source. Default: - None
+        :param metrics_config: Whether to enable enhanced metrics of the data source Value will be ignored, if ``enhancedMetricsConfig.dataSourceLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_DATA_SOURCE_METRICS``. Default: - no metrics configuration
         :param name: The name of the data source. Default: - id of data source
         '''
         if __debug__:
@@ -25643,6 +26244,7 @@ class OpenSearchDataSource(
             service_role=service_role,
             api=api,
             description=description,
+            metrics_config=metrics_config,
             name=name,
         )
 
@@ -25661,6 +26263,7 @@ class OpenSearchDataSource(
     name_mapping={
         "api": "api",
         "description": "description",
+        "metrics_config": "metricsConfig",
         "name": "name",
         "service_role": "serviceRole",
         "domain": "domain",
@@ -25672,6 +26275,7 @@ class OpenSearchDataSourceProps(BackedDataSourceProps):
         *,
         api: "_IGraphQLApiRef_d46d77ba",
         description: typing.Optional[builtins.str] = None,
+        metrics_config: typing.Optional["DataSourceMetricsConfig"] = None,
         name: typing.Optional[builtins.str] = None,
         service_role: typing.Optional["_IRole_235f5d8e"] = None,
         domain: "_IDomain_3c13cbdd",
@@ -25680,6 +26284,7 @@ class OpenSearchDataSourceProps(BackedDataSourceProps):
 
         :param api: The API to attach this data source to.
         :param description: the description of the data source. Default: - None
+        :param metrics_config: Whether to enable enhanced metrics of the data source Value will be ignored, if ``enhancedMetricsConfig.dataSourceLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_DATA_SOURCE_METRICS``. Default: - no metrics configuration
         :param name: The name of the data source. Default: - id of data source
         :param service_role: The IAM service role to be assumed by AppSync to interact with the data source. Default: - Create a new role
         :param domain: The OpenSearch domain containing the endpoint for the data source.
@@ -25705,6 +26310,7 @@ class OpenSearchDataSourceProps(BackedDataSourceProps):
             
                 # the properties below are optional
                 description="description",
+                metrics_config=appsync.DataSourceMetricsConfig.ENABLED,
                 name="name",
                 service_role=role
             )
@@ -25713,6 +26319,7 @@ class OpenSearchDataSourceProps(BackedDataSourceProps):
             type_hints = typing.get_type_hints(_typecheckingstub__6d43f1439475200e8855550373e564cf774bcfb1c24a9ca37182ca3143b83a31)
             check_type(argname="argument api", value=api, expected_type=type_hints["api"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument metrics_config", value=metrics_config, expected_type=type_hints["metrics_config"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument service_role", value=service_role, expected_type=type_hints["service_role"])
             check_type(argname="argument domain", value=domain, expected_type=type_hints["domain"])
@@ -25722,6 +26329,8 @@ class OpenSearchDataSourceProps(BackedDataSourceProps):
         }
         if description is not None:
             self._values["description"] = description
+        if metrics_config is not None:
+            self._values["metrics_config"] = metrics_config
         if name is not None:
             self._values["name"] = name
         if service_role is not None:
@@ -25742,6 +26351,15 @@ class OpenSearchDataSourceProps(BackedDataSourceProps):
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def metrics_config(self) -> typing.Optional["DataSourceMetricsConfig"]:
+        '''Whether to enable enhanced metrics of the data source Value will be ignored, if ``enhancedMetricsConfig.dataSourceLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_DATA_SOURCE_METRICS``.
+
+        :default: - no metrics configuration
+        '''
+        result = self._values.get("metrics_config")
+        return typing.cast(typing.Optional["DataSourceMetricsConfig"], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
@@ -25906,6 +26524,7 @@ class RdsDataSource(
         service_role: typing.Optional["_IRole_235f5d8e"] = None,
         api: "_IGraphQLApiRef_d46d77ba",
         description: typing.Optional[builtins.str] = None,
+        metrics_config: typing.Optional["DataSourceMetricsConfig"] = None,
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
@@ -25917,6 +26536,7 @@ class RdsDataSource(
         :param service_role: The IAM service role to be assumed by AppSync to interact with the data source. Default: - Create a new role
         :param api: The API to attach this data source to.
         :param description: the description of the data source. Default: - None
+        :param metrics_config: Whether to enable enhanced metrics of the data source Value will be ignored, if ``enhancedMetricsConfig.dataSourceLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_DATA_SOURCE_METRICS``. Default: - no metrics configuration
         :param name: The name of the data source. Default: - id of data source
         '''
         if __debug__:
@@ -25930,6 +26550,7 @@ class RdsDataSource(
             service_role=service_role,
             api=api,
             description=description,
+            metrics_config=metrics_config,
             name=name,
         )
 
@@ -25948,6 +26569,7 @@ class RdsDataSource(
     name_mapping={
         "api": "api",
         "description": "description",
+        "metrics_config": "metricsConfig",
         "name": "name",
         "service_role": "serviceRole",
         "secret_store": "secretStore",
@@ -25961,6 +26583,7 @@ class RdsDataSourceProps(BackedDataSourceProps):
         *,
         api: "_IGraphQLApiRef_d46d77ba",
         description: typing.Optional[builtins.str] = None,
+        metrics_config: typing.Optional["DataSourceMetricsConfig"] = None,
         name: typing.Optional[builtins.str] = None,
         service_role: typing.Optional["_IRole_235f5d8e"] = None,
         secret_store: "_ISecret_6e020e6a",
@@ -25971,6 +26594,7 @@ class RdsDataSourceProps(BackedDataSourceProps):
 
         :param api: The API to attach this data source to.
         :param description: the description of the data source. Default: - None
+        :param metrics_config: Whether to enable enhanced metrics of the data source Value will be ignored, if ``enhancedMetricsConfig.dataSourceLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_DATA_SOURCE_METRICS``. Default: - no metrics configuration
         :param name: The name of the data source. Default: - id of data source
         :param service_role: The IAM service role to be assumed by AppSync to interact with the data source. Default: - Create a new role
         :param secret_store: The secret containing the credentials for the database.
@@ -26002,6 +26626,7 @@ class RdsDataSourceProps(BackedDataSourceProps):
                 # the properties below are optional
                 database_name="databaseName",
                 description="description",
+                metrics_config=appsync.DataSourceMetricsConfig.ENABLED,
                 name="name",
                 service_role=role
             )
@@ -26010,6 +26635,7 @@ class RdsDataSourceProps(BackedDataSourceProps):
             type_hints = typing.get_type_hints(_typecheckingstub__c062ac22fbaef687d5273408a83f4b49e1466d504c5d1d22aa7e464c31ce4e9d)
             check_type(argname="argument api", value=api, expected_type=type_hints["api"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument metrics_config", value=metrics_config, expected_type=type_hints["metrics_config"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument service_role", value=service_role, expected_type=type_hints["service_role"])
             check_type(argname="argument secret_store", value=secret_store, expected_type=type_hints["secret_store"])
@@ -26022,6 +26648,8 @@ class RdsDataSourceProps(BackedDataSourceProps):
         }
         if description is not None:
             self._values["description"] = description
+        if metrics_config is not None:
+            self._values["metrics_config"] = metrics_config
         if name is not None:
             self._values["name"] = name
         if service_role is not None:
@@ -26044,6 +26672,15 @@ class RdsDataSourceProps(BackedDataSourceProps):
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def metrics_config(self) -> typing.Optional["DataSourceMetricsConfig"]:
+        '''Whether to enable enhanced metrics of the data source Value will be ignored, if ``enhancedMetricsConfig.dataSourceLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_DATA_SOURCE_METRICS``.
+
+        :default: - no metrics configuration
+        '''
+        result = self._values.get("metrics_config")
+        return typing.cast(typing.Optional["DataSourceMetricsConfig"], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
@@ -26104,6 +26741,7 @@ class RdsDataSourceProps(BackedDataSourceProps):
     name_mapping={
         "api": "api",
         "description": "description",
+        "metrics_config": "metricsConfig",
         "name": "name",
         "service_role": "serviceRole",
         "secret_store": "secretStore",
@@ -26117,6 +26755,7 @@ class RdsDataSourcePropsV2(BackedDataSourceProps):
         *,
         api: "_IGraphQLApiRef_d46d77ba",
         description: typing.Optional[builtins.str] = None,
+        metrics_config: typing.Optional["DataSourceMetricsConfig"] = None,
         name: typing.Optional[builtins.str] = None,
         service_role: typing.Optional["_IRole_235f5d8e"] = None,
         secret_store: "_ISecret_6e020e6a",
@@ -26127,6 +26766,7 @@ class RdsDataSourcePropsV2(BackedDataSourceProps):
 
         :param api: The API to attach this data source to.
         :param description: the description of the data source. Default: - None
+        :param metrics_config: Whether to enable enhanced metrics of the data source Value will be ignored, if ``enhancedMetricsConfig.dataSourceLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_DATA_SOURCE_METRICS``. Default: - no metrics configuration
         :param name: The name of the data source. Default: - id of data source
         :param service_role: The IAM service role to be assumed by AppSync to interact with the data source. Default: - Create a new role
         :param secret_store: The secret containing the credentials for the database.
@@ -26158,6 +26798,7 @@ class RdsDataSourcePropsV2(BackedDataSourceProps):
                 # the properties below are optional
                 database_name="databaseName",
                 description="description",
+                metrics_config=appsync.DataSourceMetricsConfig.ENABLED,
                 name="name",
                 service_role=role
             )
@@ -26166,6 +26807,7 @@ class RdsDataSourcePropsV2(BackedDataSourceProps):
             type_hints = typing.get_type_hints(_typecheckingstub__2a4c5dd27ab94dcef9db42bba97fd0abc5e49c989bce0ba0ca35793d1db20a70)
             check_type(argname="argument api", value=api, expected_type=type_hints["api"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument metrics_config", value=metrics_config, expected_type=type_hints["metrics_config"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument service_role", value=service_role, expected_type=type_hints["service_role"])
             check_type(argname="argument secret_store", value=secret_store, expected_type=type_hints["secret_store"])
@@ -26178,6 +26820,8 @@ class RdsDataSourcePropsV2(BackedDataSourceProps):
         }
         if description is not None:
             self._values["description"] = description
+        if metrics_config is not None:
+            self._values["metrics_config"] = metrics_config
         if name is not None:
             self._values["name"] = name
         if service_role is not None:
@@ -26200,6 +26844,15 @@ class RdsDataSourcePropsV2(BackedDataSourceProps):
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def metrics_config(self) -> typing.Optional["DataSourceMetricsConfig"]:
+        '''Whether to enable enhanced metrics of the data source Value will be ignored, if ``enhancedMetricsConfig.dataSourceLevelMetricsBehavior`` on AppSync GraphqlApi construct is set to ``FULL_REQUEST_DATA_SOURCE_METRICS``.
+
+        :default: - no metrics configuration
+        '''
+        result = self._values.get("metrics_config")
+        return typing.cast(typing.Optional["DataSourceMetricsConfig"], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
@@ -26472,23 +27125,15 @@ class GraphqlApi(
 
     Example::
 
-        import aws_cdk.aws_events as events
-        
-        
-        api = appsync.GraphqlApi(self, "EventBridgeApi",
-            name="EventBridgeApi",
-            definition=appsync.Definition.from_file(path.join(__dirname, "appsync.eventbridge.graphql"))
-        )
-        
-        bus = events.EventBus(self, "DestinationEventBus")
-        
-        data_source = api.add_event_bridge_data_source("NoneDS", bus)
-        
-        data_source.create_resolver("EventResolver",
-            type_name="Mutation",
-            field_name="emitEvent",
-            request_mapping_template=appsync.MappingTemplate.from_file("request.vtl"),
-            response_mapping_template=appsync.MappingTemplate.from_file("response.vtl")
+        schema = appsync.SchemaFile(file_path="mySchemaFile")
+        appsync.GraphqlApi(self, "api",
+            name="myApi",
+            definition=appsync.Definition.from_schema(schema),
+            enhanced_metrics_config=appsync.EnhancedMetricsConfig(
+                data_source_level_metrics_behavior=appsync.DataSourceLevelMetricsBehavior.FULL_REQUEST_DATA_SOURCE_METRICS,
+                operation_level_metrics_config=appsync.OperationLevelMetricsConfig.ENABLED,
+                resolver_level_metrics_behavior=appsync.ResolverLevelMetricsBehavior.FULL_REQUEST_RESOLVER_METRICS
+            )
         )
     '''
 
@@ -26501,6 +27146,7 @@ class GraphqlApi(
         authorization_config: typing.Optional[typing.Union["AuthorizationConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         definition: typing.Optional["Definition"] = None,
         domain_name: typing.Optional[typing.Union["DomainOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        enhanced_metrics_config: typing.Optional[typing.Union["EnhancedMetricsConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         environment_variables: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         introspection_config: typing.Optional["IntrospectionConfig"] = None,
         log_config: typing.Optional[typing.Union["LogConfig", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -26518,6 +27164,7 @@ class GraphqlApi(
         :param authorization_config: Optional authorization configuration. Default: - API Key authorization
         :param definition: Definition (schema file or source APIs) for this GraphQL Api.
         :param domain_name: The domain name configuration for the GraphQL API. The Route 53 hosted zone and CName DNS record must be configured in addition to this setting to enable custom domain URL Default: - no domain name
+        :param enhanced_metrics_config: Enables and controls the enhanced metrics feature. Default: - Enhanced metrics disabled.
         :param environment_variables: A map containing the list of resources with their properties and environment variables. There are a few rules you must follow when creating keys and values: - Keys must begin with a letter. - Keys must be between 2 and 64 characters long. - Keys can only contain letters, numbers, and the underscore character (_). - Values can be up to 512 characters long. - You can configure up to 50 key-value pairs in a GraphQL API. Default: - No environment variables.
         :param introspection_config: A value indicating whether the API to enable (ENABLED) or disable (DISABLED) introspection. Default: IntrospectionConfig.ENABLED
         :param log_config: Logging configuration for this api. Default: - None
@@ -26537,6 +27184,7 @@ class GraphqlApi(
             authorization_config=authorization_config,
             definition=definition,
             domain_name=domain_name,
+            enhanced_metrics_config=enhanced_metrics_config,
             environment_variables=environment_variables,
             introspection_config=introspection_config,
             log_config=log_config,
@@ -26776,6 +27424,8 @@ __all__ = [
     "ChannelNamespaceProps",
     "Code",
     "CodeConfig",
+    "DataSourceLevelMetricsBehavior",
+    "DataSourceMetricsConfig",
     "DataSourceOptions",
     "Definition",
     "DomainOptions",
@@ -26783,6 +27433,7 @@ __all__ = [
     "DynamoDbDataSourceProps",
     "ElasticsearchDataSource",
     "ElasticsearchDataSourceProps",
+    "EnhancedMetricsConfig",
     "EventApi",
     "EventApiAttributes",
     "EventApiAuthConfig",
@@ -26830,6 +27481,7 @@ __all__ = [
     "OpenIdConnectConfig",
     "OpenSearchDataSource",
     "OpenSearchDataSourceProps",
+    "OperationLevelMetricsConfig",
     "PartitionKey",
     "PartitionKeyStep",
     "PrimaryKey",
@@ -26837,6 +27489,8 @@ __all__ = [
     "RdsDataSourceProps",
     "RdsDataSourcePropsV2",
     "Resolver",
+    "ResolverLevelMetricsBehavior",
+    "ResolverMetricsConfig",
     "ResolverProps",
     "RuntimeConfig",
     "SchemaBindOptions",
@@ -27154,6 +27808,7 @@ def _typecheckingstub__18da570994550f3efc007c557f3b52f15c9a82fb4ef611b37d526d983
     caching_config: typing.Optional[typing.Union[CachingConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     code: typing.Optional[Code] = None,
     max_batch_size: typing.Optional[jsii.Number] = None,
+    metrics_config: typing.Optional[ResolverMetricsConfig] = None,
     pipeline_config: typing.Optional[typing.Sequence[_IFunctionConfigurationRef_6eb53e57]] = None,
     request_mapping_template: typing.Optional[MappingTemplate] = None,
     response_mapping_template: typing.Optional[MappingTemplate] = None,
@@ -27178,6 +27833,7 @@ def _typecheckingstub__7cb5694e7bccdac081c0d35fee8d239110cc5fb8b7eefac7866144f6d
     *,
     api: _IGraphQLApiRef_d46d77ba,
     description: typing.Optional[builtins.str] = None,
+    metrics_config: typing.Optional[DataSourceMetricsConfig] = None,
     name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -27190,6 +27846,7 @@ def _typecheckingstub__57bca2ee49335be042ebfd66ab492a766a7dcba63ae9692b50ecab067
     caching_config: typing.Optional[typing.Union[CachingConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     code: typing.Optional[Code] = None,
     max_batch_size: typing.Optional[jsii.Number] = None,
+    metrics_config: typing.Optional[ResolverMetricsConfig] = None,
     pipeline_config: typing.Optional[typing.Sequence[_IFunctionConfigurationRef_6eb53e57]] = None,
     request_mapping_template: typing.Optional[MappingTemplate] = None,
     response_mapping_template: typing.Optional[MappingTemplate] = None,
@@ -28826,6 +29483,7 @@ def _typecheckingstub__d5abf436f692efcaed424f8bc2738e56e16abc84b9ca36c4963add4e9
 def _typecheckingstub__931a67471fe69ef52bd3bdb1d3123eda90d2919ed8b825ab147e1db8ee9b4607(
     *,
     description: typing.Optional[builtins.str] = None,
+    metrics_config: typing.Optional[DataSourceMetricsConfig] = None,
     name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -28847,6 +29505,15 @@ def _typecheckingstub__666cedee7b74b7e32381dd1603bff8d92b24dd381d5f493f478126fb3
     *,
     certificate: _ICertificateRef_1878d79b,
     domain_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__30b5e33e91d43b9e9868eed4944e05c297f44ed5a51359d9b6cc477eb0ec7fb7(
+    *,
+    data_source_level_metrics_behavior: DataSourceLevelMetricsBehavior,
+    operation_level_metrics_config: OperationLevelMetricsConfig,
+    resolver_level_metrics_behavior: ResolverLevelMetricsBehavior,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -28905,6 +29572,7 @@ def _typecheckingstub__7dc3b87bcc5a5c4f72f5701decf293d0da2caba80281cf58c26e7a4d9
     caching_config: typing.Optional[typing.Union[CachingConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     code: typing.Optional[Code] = None,
     max_batch_size: typing.Optional[jsii.Number] = None,
+    metrics_config: typing.Optional[ResolverMetricsConfig] = None,
     pipeline_config: typing.Optional[typing.Sequence[_IFunctionConfigurationRef_6eb53e57]] = None,
     request_mapping_template: typing.Optional[MappingTemplate] = None,
     response_mapping_template: typing.Optional[MappingTemplate] = None,
@@ -28938,6 +29606,7 @@ def _typecheckingstub__99ac2113ba86b3a60344e56ee0c5bb6cdf1bc20cd0d5aa52f9a94709f
     authorization_config: typing.Optional[typing.Union[AuthorizationConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     definition: typing.Optional[Definition] = None,
     domain_name: typing.Optional[typing.Union[DomainOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    enhanced_metrics_config: typing.Optional[typing.Union[EnhancedMetricsConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     environment_variables: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     introspection_config: typing.Optional[IntrospectionConfig] = None,
     log_config: typing.Optional[typing.Union[LogConfig, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -28963,6 +29632,7 @@ def _typecheckingstub__6fb03fa50deffccc4e8f6c45aa60418e0b3ef37dd0c1bb3f3c3956da4
 def _typecheckingstub__892de8c32b5ee5c6cb5e65bc4b597f67297f1f675b608821b733eb9599975405(
     *,
     description: typing.Optional[builtins.str] = None,
+    metrics_config: typing.Optional[DataSourceMetricsConfig] = None,
     name: typing.Optional[builtins.str] = None,
     authorization_config: typing.Optional[typing.Union[AwsIamConfig, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
@@ -29081,6 +29751,7 @@ def _typecheckingstub__43da9ca276f601968eabc2575ce6745ba4152bbf47201270933feda54
     table: _ITable_504fd401,
     *,
     description: typing.Optional[builtins.str] = None,
+    metrics_config: typing.Optional[DataSourceMetricsConfig] = None,
     name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -29091,6 +29762,7 @@ def _typecheckingstub__d976a6c9cea09ad6131d004dd38bbab6c2059e80a1a41697431f21da7
     domain: _IDomain_0c9006b4,
     *,
     description: typing.Optional[builtins.str] = None,
+    metrics_config: typing.Optional[DataSourceMetricsConfig] = None,
     name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -29101,6 +29773,7 @@ def _typecheckingstub__c7f859036563760af3f55f190f35d263357d6df8725cd3d3990a639dc
     event_bus: _IEventBus_88d13111,
     *,
     description: typing.Optional[builtins.str] = None,
+    metrics_config: typing.Optional[DataSourceMetricsConfig] = None,
     name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -29112,6 +29785,7 @@ def _typecheckingstub__a9a5ae312823194eb5a4a37d99f965046bb8750ad62c67b536c737874
     *,
     authorization_config: typing.Optional[typing.Union[AwsIamConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     description: typing.Optional[builtins.str] = None,
+    metrics_config: typing.Optional[DataSourceMetricsConfig] = None,
     name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -29122,6 +29796,7 @@ def _typecheckingstub__49c24df9542a2559af242eb252634947ce0ed3aa9d4e4efca32b6db37
     lambda_function: _IFunction_6adb0ab8,
     *,
     description: typing.Optional[builtins.str] = None,
+    metrics_config: typing.Optional[DataSourceMetricsConfig] = None,
     name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -29131,6 +29806,7 @@ def _typecheckingstub__7aa2890745bf86976bff5a0152fe1757b4534eabb56973b08a45c2c53
     id: builtins.str,
     *,
     description: typing.Optional[builtins.str] = None,
+    metrics_config: typing.Optional[DataSourceMetricsConfig] = None,
     name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -29141,6 +29817,7 @@ def _typecheckingstub__6e51c29583b8567298ff7b528e3996298135787d4fbe5dfe686b38850
     domain: _IDomain_3c13cbdd,
     *,
     description: typing.Optional[builtins.str] = None,
+    metrics_config: typing.Optional[DataSourceMetricsConfig] = None,
     name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -29153,6 +29830,7 @@ def _typecheckingstub__00411b1875c06ea0450c7cb3f4f4dbd07f2f28986d7180e3a06f5ea23
     database_name: typing.Optional[builtins.str] = None,
     *,
     description: typing.Optional[builtins.str] = None,
+    metrics_config: typing.Optional[DataSourceMetricsConfig] = None,
     name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -29165,6 +29843,7 @@ def _typecheckingstub__61bc6fb619aeb960346b149372d6f08ad695a7fb87cd5ad9ed2cbcb51
     database_name: typing.Optional[builtins.str] = None,
     *,
     description: typing.Optional[builtins.str] = None,
+    metrics_config: typing.Optional[DataSourceMetricsConfig] = None,
     name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -29185,6 +29864,7 @@ def _typecheckingstub__da1231d659a3d5f86849b39ea5e3924e5d6867178b9b48617ec806865
     caching_config: typing.Optional[typing.Union[CachingConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     code: typing.Optional[Code] = None,
     max_batch_size: typing.Optional[jsii.Number] = None,
+    metrics_config: typing.Optional[ResolverMetricsConfig] = None,
     pipeline_config: typing.Optional[typing.Sequence[_IFunctionConfigurationRef_6eb53e57]] = None,
     request_mapping_template: typing.Optional[MappingTemplate] = None,
     response_mapping_template: typing.Optional[MappingTemplate] = None,
@@ -29415,6 +30095,7 @@ def _typecheckingstub__1611db7d560b46fd4ac561a4c80f0c620482391b0a4b50a2e95caca4f
     *,
     api: _IGraphQLApiRef_d46d77ba,
     description: typing.Optional[builtins.str] = None,
+    metrics_config: typing.Optional[DataSourceMetricsConfig] = None,
     name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -29424,6 +30105,7 @@ def _typecheckingstub__f714cd165303e3c7148f1ca4c53fe5e7abe0f744c242bcdbb8dc5817b
     *,
     api: _IGraphQLApiRef_d46d77ba,
     description: typing.Optional[builtins.str] = None,
+    metrics_config: typing.Optional[DataSourceMetricsConfig] = None,
     name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -29475,6 +30157,7 @@ def _typecheckingstub__2dac7c0ed89396d7f29c7903e2a718a49bfb552b89c6e4aba2bf132b5
     caching_config: typing.Optional[typing.Union[CachingConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     code: typing.Optional[Code] = None,
     max_batch_size: typing.Optional[jsii.Number] = None,
+    metrics_config: typing.Optional[ResolverMetricsConfig] = None,
     pipeline_config: typing.Optional[typing.Sequence[_IFunctionConfigurationRef_6eb53e57]] = None,
     request_mapping_template: typing.Optional[MappingTemplate] = None,
     response_mapping_template: typing.Optional[MappingTemplate] = None,
@@ -29490,6 +30173,7 @@ def _typecheckingstub__fe6f3e60857395308a8a844c5a41064caae65e42a2597bef9b2139e42
     caching_config: typing.Optional[typing.Union[CachingConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     code: typing.Optional[Code] = None,
     max_batch_size: typing.Optional[jsii.Number] = None,
+    metrics_config: typing.Optional[ResolverMetricsConfig] = None,
     pipeline_config: typing.Optional[typing.Sequence[_IFunctionConfigurationRef_6eb53e57]] = None,
     request_mapping_template: typing.Optional[MappingTemplate] = None,
     response_mapping_template: typing.Optional[MappingTemplate] = None,
@@ -29918,6 +30602,7 @@ def _typecheckingstub__bea2d00276bc1b45e9a26da67eba934f53db82f49e29640aa05289870
     *,
     api: _IGraphQLApiRef_d46d77ba,
     description: typing.Optional[builtins.str] = None,
+    metrics_config: typing.Optional[DataSourceMetricsConfig] = None,
     name: typing.Optional[builtins.str] = None,
     service_role: typing.Optional[_IRole_235f5d8e] = None,
 ) -> None:
@@ -29974,6 +30659,7 @@ def _typecheckingstub__fb501305798213be783a45c59d39c261a182cd09ad0d40d480253e28a
     service_role: typing.Optional[_IRole_235f5d8e] = None,
     api: _IGraphQLApiRef_d46d77ba,
     description: typing.Optional[builtins.str] = None,
+    metrics_config: typing.Optional[DataSourceMetricsConfig] = None,
     name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -29983,6 +30669,7 @@ def _typecheckingstub__4b2cd0eab2d8bf885992981b7b491d32e73f943353d4564c2a504d315
     *,
     api: _IGraphQLApiRef_d46d77ba,
     description: typing.Optional[builtins.str] = None,
+    metrics_config: typing.Optional[DataSourceMetricsConfig] = None,
     name: typing.Optional[builtins.str] = None,
     service_role: typing.Optional[_IRole_235f5d8e] = None,
     table: _ITable_504fd401,
@@ -30000,6 +30687,7 @@ def _typecheckingstub__0e54d95c1db8116ebc9ebacf3e6a8c3fa0a47859bc0f72493b58e8941
     service_role: typing.Optional[_IRole_235f5d8e] = None,
     api: _IGraphQLApiRef_d46d77ba,
     description: typing.Optional[builtins.str] = None,
+    metrics_config: typing.Optional[DataSourceMetricsConfig] = None,
     name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -30009,6 +30697,7 @@ def _typecheckingstub__6153bccef60ecdf62438c139adee9ab9afb1c0361813760bad95eae9e
     *,
     api: _IGraphQLApiRef_d46d77ba,
     description: typing.Optional[builtins.str] = None,
+    metrics_config: typing.Optional[DataSourceMetricsConfig] = None,
     name: typing.Optional[builtins.str] = None,
     service_role: typing.Optional[_IRole_235f5d8e] = None,
     domain: _IDomain_0c9006b4,
@@ -30143,6 +30832,7 @@ def _typecheckingstub__ac2aea20ec487bb19cfbb1a301369050ec488bf91096759b3fb3c226c
     service_role: typing.Optional[_IRole_235f5d8e] = None,
     api: _IGraphQLApiRef_d46d77ba,
     description: typing.Optional[builtins.str] = None,
+    metrics_config: typing.Optional[DataSourceMetricsConfig] = None,
     name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -30152,6 +30842,7 @@ def _typecheckingstub__e00da245f6e9b76ee0cfe04414b7bce864ba4a2790c154b23dc47e4ee
     *,
     api: _IGraphQLApiRef_d46d77ba,
     description: typing.Optional[builtins.str] = None,
+    metrics_config: typing.Optional[DataSourceMetricsConfig] = None,
     name: typing.Optional[builtins.str] = None,
     service_role: typing.Optional[_IRole_235f5d8e] = None,
     event_bus: _IEventBus_88d13111,
@@ -30176,6 +30867,7 @@ def _typecheckingstub__e5231a54be88b667c5a5a1bc5329dbbb64c8799d82120069adc12366c
     table: _ITable_504fd401,
     *,
     description: typing.Optional[builtins.str] = None,
+    metrics_config: typing.Optional[DataSourceMetricsConfig] = None,
     name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -30186,6 +30878,7 @@ def _typecheckingstub__72f496dfc677644fac1f40399c0372134a286d0cd64c4afc8c8506b52
     domain: _IDomain_0c9006b4,
     *,
     description: typing.Optional[builtins.str] = None,
+    metrics_config: typing.Optional[DataSourceMetricsConfig] = None,
     name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -30196,6 +30889,7 @@ def _typecheckingstub__a520f759496ebb7823d10727dc78034711f5090c53ba71c8d7a1dc184
     event_bus: _IEventBus_88d13111,
     *,
     description: typing.Optional[builtins.str] = None,
+    metrics_config: typing.Optional[DataSourceMetricsConfig] = None,
     name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -30207,6 +30901,7 @@ def _typecheckingstub__0deca16db4175c13560dbb7b3c4aa8cf9a8d20110a58f0ac2ce906daf
     *,
     authorization_config: typing.Optional[typing.Union[AwsIamConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     description: typing.Optional[builtins.str] = None,
+    metrics_config: typing.Optional[DataSourceMetricsConfig] = None,
     name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -30217,6 +30912,7 @@ def _typecheckingstub__82b9734a5029f4e20ff30bb852586ba9b413700a9b7453b7113bf1db1
     lambda_function: _IFunction_6adb0ab8,
     *,
     description: typing.Optional[builtins.str] = None,
+    metrics_config: typing.Optional[DataSourceMetricsConfig] = None,
     name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -30226,6 +30922,7 @@ def _typecheckingstub__41813b6c71fbc2a0901dfef0dd1b464af643898b532103ddead5829c1
     id: builtins.str,
     *,
     description: typing.Optional[builtins.str] = None,
+    metrics_config: typing.Optional[DataSourceMetricsConfig] = None,
     name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -30236,6 +30933,7 @@ def _typecheckingstub__1e2a17558b2960e621e2eca90fe762c3ea77844a8d87d843ffdbbad82
     domain: _IDomain_3c13cbdd,
     *,
     description: typing.Optional[builtins.str] = None,
+    metrics_config: typing.Optional[DataSourceMetricsConfig] = None,
     name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -30248,6 +30946,7 @@ def _typecheckingstub__5c5e408fa29227d2c0f12593dd86151b649a2b97300fea604c91973af
     database_name: typing.Optional[builtins.str] = None,
     *,
     description: typing.Optional[builtins.str] = None,
+    metrics_config: typing.Optional[DataSourceMetricsConfig] = None,
     name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -30260,6 +30959,7 @@ def _typecheckingstub__0d4d8935d69e29b6975caad596c95628af13c6b8e33430de653066520
     database_name: typing.Optional[builtins.str] = None,
     *,
     description: typing.Optional[builtins.str] = None,
+    metrics_config: typing.Optional[DataSourceMetricsConfig] = None,
     name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -30280,6 +30980,7 @@ def _typecheckingstub__d8efe28cf6861260ad6e47a65b8be5e006016a7c27a4ee3f2cac0e898
     caching_config: typing.Optional[typing.Union[CachingConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     code: typing.Optional[Code] = None,
     max_batch_size: typing.Optional[jsii.Number] = None,
+    metrics_config: typing.Optional[ResolverMetricsConfig] = None,
     pipeline_config: typing.Optional[typing.Sequence[_IFunctionConfigurationRef_6eb53e57]] = None,
     request_mapping_template: typing.Optional[MappingTemplate] = None,
     response_mapping_template: typing.Optional[MappingTemplate] = None,
@@ -30326,6 +31027,7 @@ def _typecheckingstub__08c251fa7555c0770f24a577dcd59d2f51898cf46299807eda335998d
     service_role: typing.Optional[_IRole_235f5d8e] = None,
     api: _IGraphQLApiRef_d46d77ba,
     description: typing.Optional[builtins.str] = None,
+    metrics_config: typing.Optional[DataSourceMetricsConfig] = None,
     name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -30335,6 +31037,7 @@ def _typecheckingstub__91183bd6fd5a10b6ae91fe2450b1ca1b99e291ac5b272e3c6ccfffaa2
     *,
     api: _IGraphQLApiRef_d46d77ba,
     description: typing.Optional[builtins.str] = None,
+    metrics_config: typing.Optional[DataSourceMetricsConfig] = None,
     name: typing.Optional[builtins.str] = None,
     service_role: typing.Optional[_IRole_235f5d8e] = None,
     endpoint: builtins.str,
@@ -30351,6 +31054,7 @@ def _typecheckingstub__72e9eb5236f193b30b614aad3d73de37944e1dc26e925a87b1683e077
     service_role: typing.Optional[_IRole_235f5d8e] = None,
     api: _IGraphQLApiRef_d46d77ba,
     description: typing.Optional[builtins.str] = None,
+    metrics_config: typing.Optional[DataSourceMetricsConfig] = None,
     name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -30360,6 +31064,7 @@ def _typecheckingstub__bd360baebe2cc73f8afb0301b4c78dd7e9c49ef5e7f543f97d3ca94cc
     *,
     api: _IGraphQLApiRef_d46d77ba,
     description: typing.Optional[builtins.str] = None,
+    metrics_config: typing.Optional[DataSourceMetricsConfig] = None,
     name: typing.Optional[builtins.str] = None,
     service_role: typing.Optional[_IRole_235f5d8e] = None,
     lambda_function: _IFunction_6adb0ab8,
@@ -30375,6 +31080,7 @@ def _typecheckingstub__cf111cfb617596222f7a6819bc86667f0aa3335d65397549bc520d302
     service_role: typing.Optional[_IRole_235f5d8e] = None,
     api: _IGraphQLApiRef_d46d77ba,
     description: typing.Optional[builtins.str] = None,
+    metrics_config: typing.Optional[DataSourceMetricsConfig] = None,
     name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -30384,6 +31090,7 @@ def _typecheckingstub__6d43f1439475200e8855550373e564cf774bcfb1c24a9ca37182ca314
     *,
     api: _IGraphQLApiRef_d46d77ba,
     description: typing.Optional[builtins.str] = None,
+    metrics_config: typing.Optional[DataSourceMetricsConfig] = None,
     name: typing.Optional[builtins.str] = None,
     service_role: typing.Optional[_IRole_235f5d8e] = None,
     domain: _IDomain_3c13cbdd,
@@ -30413,6 +31120,7 @@ def _typecheckingstub__568b99c9d3f9eb137243f7121761a99603a4994f00bae5826acff0b7a
     service_role: typing.Optional[_IRole_235f5d8e] = None,
     api: _IGraphQLApiRef_d46d77ba,
     description: typing.Optional[builtins.str] = None,
+    metrics_config: typing.Optional[DataSourceMetricsConfig] = None,
     name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -30422,6 +31130,7 @@ def _typecheckingstub__c062ac22fbaef687d5273408a83f4b49e1466d504c5d1d22aa7e464c3
     *,
     api: _IGraphQLApiRef_d46d77ba,
     description: typing.Optional[builtins.str] = None,
+    metrics_config: typing.Optional[DataSourceMetricsConfig] = None,
     name: typing.Optional[builtins.str] = None,
     service_role: typing.Optional[_IRole_235f5d8e] = None,
     secret_store: _ISecret_6e020e6a,
@@ -30435,6 +31144,7 @@ def _typecheckingstub__2a4c5dd27ab94dcef9db42bba97fd0abc5e49c989bce0ba0ca35793d1
     *,
     api: _IGraphQLApiRef_d46d77ba,
     description: typing.Optional[builtins.str] = None,
+    metrics_config: typing.Optional[DataSourceMetricsConfig] = None,
     name: typing.Optional[builtins.str] = None,
     service_role: typing.Optional[_IRole_235f5d8e] = None,
     secret_store: _ISecret_6e020e6a,
@@ -30479,6 +31189,7 @@ def _typecheckingstub__cdc21261f45618890d843fff7978e6e8e4f4cfe7884c4fffbff6b8dad
     authorization_config: typing.Optional[typing.Union[AuthorizationConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     definition: typing.Optional[Definition] = None,
     domain_name: typing.Optional[typing.Union[DomainOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    enhanced_metrics_config: typing.Optional[typing.Union[EnhancedMetricsConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     environment_variables: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     introspection_config: typing.Optional[IntrospectionConfig] = None,
     log_config: typing.Optional[typing.Union[LogConfig, typing.Dict[builtins.str, typing.Any]]] = None,

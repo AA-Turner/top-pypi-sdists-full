@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: causal_conv1d
-Version: 1.6.0
+Version: 1.6.1
 Summary: Causal depthwise conv1d in CUDA, with a PyTorch interface
 Home-page: https://github.com/Dao-AILab/causal-conv1d
 Author: Tri Dao

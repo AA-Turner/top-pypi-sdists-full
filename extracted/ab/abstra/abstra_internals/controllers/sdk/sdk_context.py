@@ -1,5 +1,5 @@
 import threading
-from typing import Dict
+from typing import Dict, Optional
 
 from abstra_internals.controllers.execution.execution_client import ExecutionClient
 from abstra_internals.controllers.execution.execution_client_form import FormClient
@@ -19,10 +19,12 @@ class SDKContext:
         execution: Execution,
         client: ExecutionClient,
         repositories: Repositories,
+        user_jwt: Optional[str] = None,
     ):
         self.repositories = repositories
         self.execution = execution
         self.client = client
+        self.user_jwt = user_jwt
 
         self.ai_sdk = AiSDKController(self.repositories.ai)
 

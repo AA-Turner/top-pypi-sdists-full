@@ -24,7 +24,7 @@ def zip(
 
     Parameters
     ----------
-    job_folder : {str}
+    job_folder : {str, pathlib.Path}
         A full or partial path to the job folder to be zipped.
 
     overwrite : {bool}, default False
@@ -82,7 +82,7 @@ def unzip(
 
     Parameters
     ----------
-    job_folder_zip : {str}
+    job_folder_zip : {str, pathlib.Path}
         A full or partial path to the job folder zip file to be un-zipped.
 
     overwrite : {bool}, default False

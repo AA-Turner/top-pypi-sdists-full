@@ -115,6 +115,8 @@ class CodebaseController:
         # Ensure we are listing relative to root
         full_path = Settings.root_path / path
 
+        ALWAYS_HIDDEN = {".git", ".venv", "venv", "__pycache__"}
+
         return [
             AbstraLibApiEditorCodebaseFilesGetResponseItem(
                 file=self.file_node(child_path.relative_to(Settings.root_path)),
@@ -130,11 +132,11 @@ class CodebaseController:
             for child_path in FileSystemService.list_files(
                 full_path,
                 include_dirs=True,
-                use_ignore=True,
+                use_ignore=False,
                 recursive=False,
                 allowed_suffixes=allowed_suffixes,
             )
-            if child_path != full_path
+            if child_path != full_path and child_path.name not in ALWAYS_HIDDEN
         ]
 
     def init_file(self, path: str, type: str):

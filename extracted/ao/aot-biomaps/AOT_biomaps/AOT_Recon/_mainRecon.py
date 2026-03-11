@@ -1,7 +1,8 @@
 from AOT_biomaps.Config import config
 from AOT_biomaps.AOT_Experiment.Tomography import Tomography
 from .ReconEnums import ReconType
-from .ReconTools import mse, ssim
+from .ReconTools import mse
+from skimage.metrics import structural_similarity as ssim
 
 import os
 import numpy as np
@@ -42,7 +43,7 @@ class Recon(ABC):
         Warnings:
             reconPhantom and reconLaser are lists of 2D numpy arrays, each array corresponding to one iteration.
         """
-        isExisting, filepath = self.checkExistingFile(date=date)
+        isExisting, filepath = self.checkExistingFile(date=date, withTumor=withTumor)
         if isExisting and not overwrite:
             return
         
@@ -59,14 +60,14 @@ class Recon(ABC):
             np.save(filepathRecon, np.array(self.reconLaser))
 
         if self.indices is not None and len(self.indices) > 0:
-            filepathIndices = os.path.join(filepath, "indices.npy")
+            filepathIndices = os.path.join(filepath, f"indices_{'withTumor' if withTumor else 'withoutTumor'}.npy")
             np.save(filepathIndices, np.array(self.indices))
 
         if show_logs:
             print(f"Reconstruction results saved to {os.path.dirname(filepath)}")
 
     @abstractmethod
-    def checkExistingFile(self, date = None):
+    def checkExistingFile(self, date=None, withTumor=True):
         pass
 
     def calculateCRC(self, use_ROI=True):
@@ -126,7 +127,7 @@ class Recon(ABC):
 
             self.CRC = crc_list
 
-    def calculateMSE(self):
+    def calculateMSE(self,withTumor=True):
         """
         Calculate the Mean Squared Error (MSE) of the reconstruction.
 
@@ -142,30 +143,50 @@ class Recon(ABC):
 
         elif self.reconType in (ReconType.Algebraic, ReconType.Bayesian, ReconType.Convex):
             self.MSE = []
-            for theta in self.reconPhantom:
-                self.MSE.append(mse(self.experiment.OpticImage.phantom, theta))
-  
-    def calculateSSIM(self):
-        """
-        Calculate the Structural Similarity Index (SSIM) of the reconstruction.
+            if withTumor:
+                for theta in self.reconPhantom:
+                    self.MSE.append(mse(self.experiment.OpticImage.phantom, theta))
+            else:
+                for theta in self.reconLaser:
+                    self.MSE.append(mse(self.experiment.OpticImage.laser.intensity, theta))
 
-        Returns:
-            ssim: float or list of floats, Structural Similarity Index of the reconstruction
+    def calculateSSIM(self, withTumor=True, show_log=False):
         """
-
+        Calculate SSIM without normalizing images, using original data_range.
+        """
         if self.reconPhantom is None or self.reconPhantom == []:
             raise ValueError("Reconstructed phantom is empty. Run reconstruction first.")
-    
-        if self.reconType in (ReconType.Analytic, ReconType.DeepLearning):
-            data_range = self.reconPhantom.max() - self.reconPhantom.min()
-            self.SSIM = ssim(self.experiment.OpticImage.phantom, self.reconPhantom, data_range=data_range)
 
-        elif self.reconType in (ReconType.Algebraic, ReconType.Bayesian):
+        # Select reference image
+        if withTumor:
+            ref_img = self.experiment.OpticImage.phantom
+        else:
+            ref_img = self.experiment.OpticImage.laser.intensity
+
+        # Get data_range for reference image
+        ref_min, ref_max = ref_img.min(), ref_img.max()
+        data_range = ref_max - ref_min
+
+        # Process reconstructions
+        if self.reconType in (ReconType.Analytic, ReconType.DeepLearning):
+            # Single reconstruction case
+            recon = self.reconPhantom
+            self.SSIM = ssim(ref_img, recon, data_range=data_range)
+
+        else:  # Algebraic/Bayesian (multiple reconstructions)
             self.SSIM = []
-            for theta in self.reconPhantom:
-                data_range = theta.max() - theta.min()
-                ssim_value = ssim(self.experiment.OpticImage.phantom, theta, data_range=data_range)
-                self.SSIM.append(ssim_value)
+            recon_list = self.reconPhantom if withTumor else self.reconLaser
+
+            # Use trange if show_log is True, otherwise range
+            iteration = trange(len(recon_list), desc=f"Calculating SSIM {'with' if withTumor else 'without'} tumor") if show_log else range(len(recon_list))
+
+            for i in iteration:
+                theta = recon_list[i]
+                # Calculate data_range for each reconstruction (if different from reference)
+                theta_min, theta_max = theta.min(), theta.max()
+                current_data_range = max(data_range, theta_max - theta_min)  # Use the larger range
+                self.SSIM.append(ssim(ref_img, theta, data_range=current_data_range))
+
     
     def show(self, withTumor=True, savePath=None, scale='same'):
         """

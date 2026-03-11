@@ -445,6 +445,31 @@ domain = Domain(self, "Domain",
 )
 ```
 
+## S3 Vectors Engine
+
+Amazon OpenSearch Service offers [the ability to use Amazon S3 as a vector engine for vector indexes](https://docs.aws.amazon.com/opensearch-service/latest/developerguide/s3-vector-opensearch-integration-engine.html).
+This feature allows you to offload vector data to Amazon S3 while maintaining sub-second vector search capabilities at low cost.
+
+Requirements:
+
+* OpenSearch version 2.19 or later
+* OpenSearch Optimized instance types (OR1, OR2, OM2, OI2) for data nodes
+* Encryption at rest must be enabled
+
+```python
+from aws_cdk.aws_opensearchservice import CapacityConfig, EncryptionAtRestOptions
+domain = Domain(self, "Domain",
+    version=EngineVersion.OPENSEARCH_2_19,
+    s3_vectors_engine_enabled=True,
+    capacity=CapacityConfig(
+        data_node_instance_type="or1.medium.search"
+    ),
+    encryption_at_rest=EncryptionAtRestOptions(
+        enabled=True
+    )
+)
+```
+
 ## Custom endpoint
 
 Custom endpoints can be configured to reach the domain under a custom domain name.
@@ -6340,6 +6365,7 @@ class DomainGrants(
         "off_peak_window_enabled": "offPeakWindowEnabled",
         "off_peak_window_start": "offPeakWindowStart",
         "removal_policy": "removalPolicy",
+        "s3_vectors_engine_enabled": "s3VectorsEngineEnabled",
         "security_groups": "securityGroups",
         "suppress_logs_resource_policy": "suppressLogsResourcePolicy",
         "tls_security_policy": "tlsSecurityPolicy",
@@ -6374,6 +6400,7 @@ class DomainProps:
         off_peak_window_enabled: typing.Optional[builtins.bool] = None,
         off_peak_window_start: typing.Optional[typing.Union["WindowStartTime", typing.Dict[builtins.str, typing.Any]]] = None,
         removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
+        s3_vectors_engine_enabled: typing.Optional[builtins.bool] = None,
         security_groups: typing.Optional[typing.Sequence["_ISecurityGroup_acf8a799"]] = None,
         suppress_logs_resource_policy: typing.Optional[builtins.bool] = None,
         tls_security_policy: typing.Optional["TLSSecurityPolicy"] = None,
@@ -6405,6 +6432,7 @@ class DomainProps:
         :param off_peak_window_enabled: Options for enabling a domain's off-peak window, during which OpenSearch Service can perform mandatory configuration changes on the domain. Off-peak windows were introduced on February 16, 2023. All domains created before this date have the off-peak window disabled by default. You must manually enable and configure the off-peak window for these domains. All domains created after this date will have the off-peak window enabled by default. You can't disable the off-peak window for a domain after it's enabled. Default: - Disabled for domains created before February 16, 2023. Enabled for domains created after. Enabled if ``offPeakWindowStart`` is set.
         :param off_peak_window_start: Start time for the off-peak window, in Coordinated Universal Time (UTC). The window length will always be 10 hours, so you can't specify an end time. For example, if you specify 11:00 P.M. UTC as a start time, the end time will automatically be set to 9:00 A.M. Default: - 10:00 P.M. local time
         :param removal_policy: Policy to apply when the domain is removed from the stack. Default: RemovalPolicy.RETAIN
+        :param s3_vectors_engine_enabled: Whether to enable S3 vectors engine. This feature allows you to offload vector data to Amazon S3 while maintaining sub-second vector search capabilities at low cost. Requirements: - OpenSearch version 2.19 or later - OpenSearch Optimized instance types (OR*, OM*, OI*) for data nodes - Encryption at rest must be enabled Default: undefined - AWS OpenSearch Service default is false
         :param security_groups: The list of security groups that are associated with the VPC endpoints for the domain. Only used if ``vpc`` is specified. Default: - One new security group is created.
         :param suppress_logs_resource_policy: Specify whether to create a CloudWatch Logs resource policy or not. When logging is enabled for the domain, a CloudWatch Logs resource policy is created by default. However, CloudWatch Logs supports only 10 resource policies per region. If you enable logging for several domains, it may hit the quota and cause an error. By setting this property to true, creating a resource policy is suppressed, allowing you to avoid this problem. If you set this option to true, you must create a resource policy before deployment. Default: - false
         :param tls_security_policy: The minimum TLS version required for traffic to the domain. Default: - TLSSecurityPolicy.TLS_1_2
@@ -6471,6 +6499,7 @@ class DomainProps:
             check_type(argname="argument off_peak_window_enabled", value=off_peak_window_enabled, expected_type=type_hints["off_peak_window_enabled"])
             check_type(argname="argument off_peak_window_start", value=off_peak_window_start, expected_type=type_hints["off_peak_window_start"])
             check_type(argname="argument removal_policy", value=removal_policy, expected_type=type_hints["removal_policy"])
+            check_type(argname="argument s3_vectors_engine_enabled", value=s3_vectors_engine_enabled, expected_type=type_hints["s3_vectors_engine_enabled"])
             check_type(argname="argument security_groups", value=security_groups, expected_type=type_hints["security_groups"])
             check_type(argname="argument suppress_logs_resource_policy", value=suppress_logs_resource_policy, expected_type=type_hints["suppress_logs_resource_policy"])
             check_type(argname="argument tls_security_policy", value=tls_security_policy, expected_type=type_hints["tls_security_policy"])
@@ -6521,6 +6550,8 @@ class DomainProps:
             self._values["off_peak_window_start"] = off_peak_window_start
         if removal_policy is not None:
             self._values["removal_policy"] = removal_policy
+        if s3_vectors_engine_enabled is not None:
+            self._values["s3_vectors_engine_enabled"] = s3_vectors_engine_enabled
         if security_groups is not None:
             self._values["security_groups"] = security_groups
         if suppress_logs_resource_policy is not None:
@@ -6762,6 +6793,25 @@ class DomainProps:
         '''
         result = self._values.get("removal_policy")
         return typing.cast(typing.Optional["_RemovalPolicy_9f93c814"], result)
+
+    @builtins.property
+    def s3_vectors_engine_enabled(self) -> typing.Optional[builtins.bool]:
+        '''Whether to enable S3 vectors engine.
+
+        This feature allows you to offload vector data to Amazon S3 while maintaining sub-second vector search capabilities at low cost.
+
+        Requirements:
+
+        - OpenSearch version 2.19 or later
+        - OpenSearch Optimized instance types (OR*, OM*, OI*) for data nodes
+        - Encryption at rest must be enabled
+
+        :default: undefined - AWS OpenSearch Service default is false
+
+        :see: https://docs.aws.amazon.com/opensearch-service/latest/developerguide/s3-vector-opensearch-integration-engine.html
+        '''
+        result = self._values.get("s3_vectors_engine_enabled")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def security_groups(
@@ -9877,6 +9927,7 @@ class Domain(
         off_peak_window_enabled: typing.Optional[builtins.bool] = None,
         off_peak_window_start: typing.Optional[typing.Union["WindowStartTime", typing.Dict[builtins.str, typing.Any]]] = None,
         removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
+        s3_vectors_engine_enabled: typing.Optional[builtins.bool] = None,
         security_groups: typing.Optional[typing.Sequence["_ISecurityGroup_acf8a799"]] = None,
         suppress_logs_resource_policy: typing.Optional[builtins.bool] = None,
         tls_security_policy: typing.Optional["TLSSecurityPolicy"] = None,
@@ -9909,6 +9960,7 @@ class Domain(
         :param off_peak_window_enabled: Options for enabling a domain's off-peak window, during which OpenSearch Service can perform mandatory configuration changes on the domain. Off-peak windows were introduced on February 16, 2023. All domains created before this date have the off-peak window disabled by default. You must manually enable and configure the off-peak window for these domains. All domains created after this date will have the off-peak window enabled by default. You can't disable the off-peak window for a domain after it's enabled. Default: - Disabled for domains created before February 16, 2023. Enabled for domains created after. Enabled if ``offPeakWindowStart`` is set.
         :param off_peak_window_start: Start time for the off-peak window, in Coordinated Universal Time (UTC). The window length will always be 10 hours, so you can't specify an end time. For example, if you specify 11:00 P.M. UTC as a start time, the end time will automatically be set to 9:00 A.M. Default: - 10:00 P.M. local time
         :param removal_policy: Policy to apply when the domain is removed from the stack. Default: RemovalPolicy.RETAIN
+        :param s3_vectors_engine_enabled: Whether to enable S3 vectors engine. This feature allows you to offload vector data to Amazon S3 while maintaining sub-second vector search capabilities at low cost. Requirements: - OpenSearch version 2.19 or later - OpenSearch Optimized instance types (OR*, OM*, OI*) for data nodes - Encryption at rest must be enabled Default: undefined - AWS OpenSearch Service default is false
         :param security_groups: The list of security groups that are associated with the VPC endpoints for the domain. Only used if ``vpc`` is specified. Default: - One new security group is created.
         :param suppress_logs_resource_policy: Specify whether to create a CloudWatch Logs resource policy or not. When logging is enabled for the domain, a CloudWatch Logs resource policy is created by default. However, CloudWatch Logs supports only 10 resource policies per region. If you enable logging for several domains, it may hit the quota and cause an error. By setting this property to true, creating a resource policy is suppressed, allowing you to avoid this problem. If you set this option to true, you must create a resource policy before deployment. Default: - false
         :param tls_security_policy: The minimum TLS version required for traffic to the domain. Default: - TLSSecurityPolicy.TLS_1_2
@@ -9943,6 +9995,7 @@ class Domain(
             off_peak_window_enabled=off_peak_window_enabled,
             off_peak_window_start=off_peak_window_start,
             removal_policy=removal_policy,
+            s3_vectors_engine_enabled=s3_vectors_engine_enabled,
             security_groups=security_groups,
             suppress_logs_resource_policy=suppress_logs_resource_policy,
             tls_security_policy=tls_security_policy,
@@ -11821,6 +11874,7 @@ def _typecheckingstub__0435b5d94950ff07269642dd229e13535b70e6b92e19fbea5906bff08
     off_peak_window_enabled: typing.Optional[builtins.bool] = None,
     off_peak_window_start: typing.Optional[typing.Union[WindowStartTime, typing.Dict[builtins.str, typing.Any]]] = None,
     removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+    s3_vectors_engine_enabled: typing.Optional[builtins.bool] = None,
     security_groups: typing.Optional[typing.Sequence[_ISecurityGroup_acf8a799]] = None,
     suppress_logs_resource_policy: typing.Optional[builtins.bool] = None,
     tls_security_policy: typing.Optional[TLSSecurityPolicy] = None,
@@ -12027,6 +12081,7 @@ def _typecheckingstub__3b55c263a445ddb2a2f58a555600f616a7f051ea1adc2ff24d3c1b949
     off_peak_window_enabled: typing.Optional[builtins.bool] = None,
     off_peak_window_start: typing.Optional[typing.Union[WindowStartTime, typing.Dict[builtins.str, typing.Any]]] = None,
     removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+    s3_vectors_engine_enabled: typing.Optional[builtins.bool] = None,
     security_groups: typing.Optional[typing.Sequence[_ISecurityGroup_acf8a799]] = None,
     suppress_logs_resource_policy: typing.Optional[builtins.bool] = None,
     tls_security_policy: typing.Optional[TLSSecurityPolicy] = None,

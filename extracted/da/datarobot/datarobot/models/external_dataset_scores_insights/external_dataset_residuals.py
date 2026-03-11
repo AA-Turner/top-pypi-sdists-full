@@ -56,7 +56,8 @@ class ExternalResidualsChart(APIObject):
     """
 
     _converter = (
-        t.Dict({
+        t
+        .Dict({
             t.Key("dataset_id"): String,
             t.Key("data"): t.List(t.Tuple(t.Float, t.Float, t.Float, t.Or(Int, t.Null))),
         })

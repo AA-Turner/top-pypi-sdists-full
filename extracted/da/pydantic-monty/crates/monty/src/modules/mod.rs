@@ -9,16 +9,18 @@ use strum::FromRepr;
 
 use crate::{
     args::ArgValues,
+    bytecode::{CallResult, VM},
     exception_private::RunResult,
-    heap::{Heap, HeapId},
-    intern::{Interns, StaticStrings, StringId},
+    heap::HeapId,
+    intern::{StaticStrings, StringId},
     resource::{ResourceError, ResourceTracker},
-    types::AttrCallResult,
 };
 
 pub(crate) mod asyncio;
+pub(crate) mod math;
 pub(crate) mod os;
 pub(crate) mod pathlib;
+pub(crate) mod re;
 pub(crate) mod sys;
 pub(crate) mod typing;
 
@@ -36,6 +38,10 @@ pub(crate) enum BuiltinModule {
     Pathlib,
     /// The `os` module providing operating system interface (only `getenv()` implemented).
     Os,
+    /// The `math` module providing mathematical functions and constants.
+    Math,
+    /// The `re` module providing regular expression matching.
+    Re,
 }
 
 impl BuiltinModule {
@@ -47,6 +53,8 @@ impl BuiltinModule {
             StaticStrings::Asyncio => Some(Self::Asyncio),
             StaticStrings::Pathlib => Some(Self::Pathlib),
             StaticStrings::Os => Some(Self::Os),
+            StaticStrings::Math => Some(Self::Math),
+            StaticStrings::Re => Some(Self::Re),
             _ => None,
         }
     }
@@ -58,13 +66,15 @@ impl BuiltinModule {
     /// # Panics
     ///
     /// Panics if the required strings have not been pre-interned during prepare phase.
-    pub fn create(self, heap: &mut Heap<impl ResourceTracker>, interns: &Interns) -> Result<HeapId, ResourceError> {
+    pub fn create(self, vm: &mut VM<'_, '_, impl ResourceTracker>) -> Result<HeapId, ResourceError> {
         match self {
-            Self::Sys => sys::create_module(heap, interns),
-            Self::Typing => typing::create_module(heap, interns),
-            Self::Asyncio => asyncio::create_module(heap, interns),
-            Self::Pathlib => pathlib::create_module(heap, interns),
-            Self::Os => os::create_module(heap, interns),
+            Self::Sys => sys::create_module(vm),
+            Self::Typing => typing::create_module(vm),
+            Self::Asyncio => asyncio::create_module(vm),
+            Self::Pathlib => pathlib::create_module(vm),
+            Self::Os => os::create_module(vm),
+            Self::Math => math::create_module(vm),
+            Self::Re => re::create_module(vm),
         }
     }
 }
@@ -73,14 +83,18 @@ impl BuiltinModule {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub(crate) enum ModuleFunctions {
     Asyncio(asyncio::AsyncioFunctions),
+    Math(math::MathFunctions),
     Os(os::OsFunctions),
+    Re(re::ReFunctions),
 }
 
 impl fmt::Display for ModuleFunctions {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Asyncio(func) => write!(f, "{func}"),
+            Self::Math(func) => write!(f, "{func}"),
             Self::Os(func) => write!(f, "{func}"),
+            Self::Re(func) => write!(f, "{func}"),
         }
     }
 }
@@ -88,12 +102,14 @@ impl fmt::Display for ModuleFunctions {
 impl ModuleFunctions {
     /// Calls the module function with the given arguments.
     ///
-    /// Returns `AttrCallResult` to support both immediate values and OS calls that
+    /// Returns `CallResult` to support both immediate values and OS calls that
     /// require host involvement (e.g., `os.getenv()` needs the host to provide environment variables).
-    pub fn call(self, heap: &mut Heap<impl ResourceTracker>, args: ArgValues) -> RunResult<AttrCallResult> {
+    pub fn call(self, vm: &mut VM<'_, '_, impl ResourceTracker>, args: ArgValues) -> RunResult<CallResult> {
         match self {
-            Self::Asyncio(functions) => asyncio::call(heap, functions, args),
-            Self::Os(functions) => os::call(heap, functions, args),
+            Self::Asyncio(functions) => asyncio::call(vm.heap, functions, args),
+            Self::Math(functions) => math::call(vm, functions, args).map(CallResult::Value),
+            Self::Os(functions) => os::call(vm.heap, functions, args),
+            Self::Re(functions) => re::call(vm, functions, args),
         }
     }
 

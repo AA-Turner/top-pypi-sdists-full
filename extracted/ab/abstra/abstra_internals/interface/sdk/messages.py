@@ -1,8 +1,17 @@
 import io
-from typing import List, Union
+from typing import List, Optional, Union
 
 from abstra_internals.controllers.sdk.sdk_context import SDKContextStore
 from abstra_internals.email_templates import message_template
+
+
+def _get_user_jwt_from_context() -> Optional[str]:
+    """Get the user JWT from the SDK context."""
+    try:
+        ctx = SDKContextStore.get_by_thread()
+        return ctx.user_jwt
+    except Exception:
+        return None
 
 
 def send_email(
@@ -26,8 +35,11 @@ def send_email(
     """
     if isinstance(to, str):
         to = [to]
+
+    user_jwt = _get_user_jwt_from_context()
     SDKContextStore.get_by_thread().repositories.email.send(
-        message_template.generate_email(to, message, title, attachments, is_html)
+        message_template.generate_email(to, message, title, attachments, is_html),
+        user_jwt=user_jwt,
     )
 
 

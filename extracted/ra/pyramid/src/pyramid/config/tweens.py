@@ -102,7 +102,6 @@ class TweensConfiguratorMixin:
 
     @action_method
     def _add_tween(self, tween_factory, under=None, over=None, explicit=False):
-
         if not isinstance(tween_factory, str):
             raise ConfigurationError(
                 'The "tween_factory" argument to add_tween must be a '
@@ -121,7 +120,7 @@ class TweensConfiguratorMixin:
             if p is not None:
                 if not is_string_or_iterable(p):
                     raise ConfigurationError(
-                        '"%s" must be a string or iterable, not %s' % (t, p)
+                        f'"{t}" must be a string or iterable, not {p}'
                     )
 
         if over is INGRESS or is_nonstr_iter(over) and INGRESS in over:

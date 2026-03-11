@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mamba_ssm
-Version: 2.3.0
+Version: 2.3.1
 Summary: Mamba state-space model
 Home-page: https://github.com/state-spaces/mamba
 Author: Tri Dao, Albert Gu

@@ -1,17 +1,17 @@
 Metadata-Version: 2.4
 Name: mockito
-Version: 1.5.5
+Version: 2.0.1
 Summary: Spying framework
 Author-email: herr kaste <herr.kaste@gmail.com>
 License: MIT
 License-File: AUTHORS
 License-File: LICENSE
-Requires-Python: >=3.7
+Requires-Python: >=3.8
 Description-Content-Type: text/x-rst
 
 Mockito is a spying framework originally based on `the Java library with the same name
 <https://github.com/mockito/mockito>`_.  (Actually *we* invented the strict stubbing mode
-back in 2009.)  
+back in 2009.)
 
 .. image:: https://github.com/kaste/mockito-python/actions/workflows/test-lint-go.yml/badge.svg
     :target: https://github.com/kaste/mockito-python/actions/workflows/test-lint-go.yml
@@ -56,14 +56,55 @@ Read the docs
 http://mockito-python.readthedocs.io/en/latest/
 
 
+Breaking changes in v2
+======================
+
+Two functions have been renamed:
+
+- `verifyNoMoreInteractions` is deprecated. Use `ensureNoUnverifiedInteractions` instead.
+
+Although `verifyNoMoreInteractions` is the name used in mockito for Java, it is a misnomer over there
+too (imo).  Its docs say "Checks if any of given mocks has any unverified interaction.", and we
+make that clear now in the name of the function, so you don't need the docs to tell you what it does.
+
+- `verifyNoUnwantedInteractions` is deprecated. Use `verifyExpectedInteractions` instead.
+
+The new name should make it clear that it corresponds to the usage of `expect` (as alternative to `when`).
+
+Context managers now check the usage and any expectations (if you used `expect`) on exit.  You can
+disable this check by setting the environment variable `MOCKITO_CONTEXT_MANAGERS_CHECK_USAGE` to `"0"`.
+Note that this does not disable the check for any explicit expectations you might have set with `expect`.
+
+This roughly corresponds to the `verifyStubbedInvocationsAreUsed` contra the `verifyExpectedInteractions`
+functions.
+
+- The (limited) in-order verification mode (`inorder.verify(...)`)
+  is deprecated in favor of `InOrder(...)`.  `InOrder` support true ordered, cross-mock
+  verification.
+
+
+New in v2
+=========
+
+First-class async/await and property/descriptor support.  Chaining.  InOrder.
+Enhanced `captor`, new `patch_attr` and `patch_dict`.  Refer the `changelog<https://mockito-python.readthedocs.io/en/latest/changes.html>`.
+
 
 Development
 ===========
 
-I use `rye <https://rye-up.com/>`_, and if you do too: you just clone this repo
-to your computer, then run ``rye sync`` in the root directory.  Finally, activate
-the virtualenv.  (``rye shell`` gives you a hint on how to do that.)
+I use `uv <https://docs.astral.sh/uv/>`_, and if you do too: you just clone this repo
+to your computer, then run ``uv sync`` in the root directory.  Example usage::
 
-::
+    uv run pytest
 
-    pytest
+Note: development and docs tooling target Python >=3.12, while the library itself
+supports older Python versions at runtime.
+
+To install everything (all dependency groups, Python >=3.12), run::
+
+    uv sync --all-groups
+
+Start the sphinx server::
+
+    uv run sphinx-autobuild docs docs/_build/html

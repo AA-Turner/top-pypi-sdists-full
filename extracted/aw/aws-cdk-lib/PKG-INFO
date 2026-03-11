@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: aws-cdk-lib
-Version: 2.241.0
+Version: 2.242.0
 Summary: Version 2 of the AWS Cloud Development Kit library
 Home-page: https://github.com/aws/aws-cdk
 Author: Amazon Web Services
@@ -743,7 +743,7 @@ currently only supports Node.js-based user handlers, represents permissions as r
 JSON blobs instead of `iam.PolicyStatement` objects, and it does not have
 support for asynchronous waiting (handler cannot exceed the 15min lambda
 timeout). The `CustomResourceProviderRuntime` supports runtime `nodejs12.x`,
-`nodejs14.x`, `nodejs16.x`, `nodejs18.x`.
+`nodejs14.x`, `nodejs16.x`, `nodejs18.x`, `nodejs20.x`, and `nodejs22.x`.
 
 > **As an application builder, we do not recommend you use this provider type.** This provider exists purely for custom resources that are part of the AWS Construct Library.
 >
@@ -755,7 +755,7 @@ stack-unique identifier and returns the service token:
 ```python
 service_token = CustomResourceProvider.get_or_create(self, "Custom::MyCustomResourceType",
     code_directory=f"{__dirname}/my-handler",
-    runtime=CustomResourceProviderRuntime.NODEJS_18_X,
+    runtime=CustomResourceProviderRuntime.NODEJS_22_X,
     description="Lambda function created by the custom resource provider"
 )
 
@@ -839,7 +839,7 @@ class Sum(Construct):
         resource_type = "Custom::Sum"
         service_token = CustomResourceProvider.get_or_create(self, resource_type,
             code_directory=f"{__dirname}/sum-handler",
-            runtime=CustomResourceProviderRuntime.NODEJS_18_X
+            runtime=CustomResourceProviderRuntime.NODEJS_22_X
         )
 
         resource = CustomResource(self, "Resource",
@@ -867,7 +867,7 @@ built-in singleton method:
 ```python
 provider = CustomResourceProvider.get_or_create_provider(self, "Custom::MyCustomResourceType",
     code_directory=f"{__dirname}/my-handler",
-    runtime=CustomResourceProviderRuntime.NODEJS_18_X
+    runtime=CustomResourceProviderRuntime.NODEJS_22_X
 )
 
 role_arn = provider.role_arn
@@ -880,7 +880,7 @@ To add IAM policy statements to this role, use `addToRolePolicy()`:
 ```python
 provider = CustomResourceProvider.get_or_create_provider(self, "Custom::MyCustomResourceType",
     code_directory=f"{__dirname}/my-handler",
-    runtime=CustomResourceProviderRuntime.NODEJS_18_X
+    runtime=CustomResourceProviderRuntime.NODEJS_22_X
 )
 provider.add_to_role_policy({
     "Effect": "Allow",
@@ -1751,15 +1751,15 @@ They are applied during or after construct construction using the `.with()` meth
 
 ```python
 # Apply mixins fluently with .with()
-s3.CfnBucket(scope, "MyL1Bucket").with(EncryptionAtRest()).with(AutoDeleteObjects())
+s3.CfnBucket(scope, "MyL1Bucket").with(BucketBlockPublicAccess()).with(BucketAutoDeleteObjects())
 
 # Apply multiple mixins to the same construct
-s3.CfnBucket(scope, "MyL1Bucket").with(EncryptionAtRest(), AutoDeleteObjects())
+s3.CfnBucket(scope, "MyL1Bucket").with(BucketBlockPublicAccess(), BucketAutoDeleteObjects())
 
 # Mixins work with all types of constructs:
 # L1, L2 and even custom constructs
-s3.Bucket(stack, "MyL2Bucket").with(EncryptionAtRest())
-CustomBucket(stack, "MyCustomBucket").with(EncryptionAtRest())
+s3.Bucket(stack, "MyL2Bucket").with(BucketBlockPublicAccess())
+CustomBucket(stack, "MyCustomBucket").with(BucketBlockPublicAccess())
 ```
 
 There is an alternative form available that allows additional, advanced configuration of Mixin application: `Mixins.of()`.
@@ -1770,17 +1770,17 @@ from aws_cdk import ConstructSelector
 
 # Basic: Apply mixins to any construct, calls can be chained
 my_bucket = s3.CfnBucket(scope, "MyBucket")
-Mixins.of(my_bucket).apply(EncryptionAtRest()).apply(AutoDeleteObjects())
+Mixins.of(my_bucket).apply(BucketBlockPublicAccess()).apply(BucketAutoDeleteObjects())
 
 # Basic: Or multiple Mixins passed to apply
-Mixins.of(my_bucket).apply(EncryptionAtRest(), AutoDeleteObjects())
+Mixins.of(my_bucket).apply(BucketBlockPublicAccess(), BucketAutoDeleteObjects())
 
 # Advanced: Apply to constructs matching a selector, e.g. match by ID
 Mixins.of(scope,
-    ConstructSelector.by_id("prod/**")).apply(ProductionSecurityMixin())
+    ConstructSelector.by_id("prod/**")).apply(CustomProdSecurityConfig())
 
 # Advanced: Require a mixin to be applied to every node in the construct tree
-Mixins.of(stack).apply(ProductionSecurityMixin()).require_all()
+Mixins.of(stack).apply(CustomProdSecurityConfig()).require_all()
 ```
 
 ### How Mixins are applied
@@ -1800,7 +1800,7 @@ By default, Mixins are applied to all supported constructs in the tree:
 
 ```python
 # Apply to all constructs in a scope
-Mixins.of(scope).apply(EncryptionAtRest())
+Mixins.of(scope).apply(BucketBlockPublicAccess())
 ```
 
 Optionally, you may select specific constructs:
@@ -1811,23 +1811,23 @@ from aws_cdk import ConstructSelector
 
 # Apply to a given L1 resource or L2 resource construct
 Mixins.of(bucket,
-    ConstructSelector.cfn_resource()).apply(EncryptionAtRest())
+    ConstructSelector.cfn_resource()).apply(BucketBlockPublicAccess())
 
 # Apply to all resources of a specific type
 Mixins.of(scope,
-    ConstructSelector.resources_of_type(s3.CfnBucket.CFN_RESOURCE_TYPE_NAME)).apply(EncryptionAtRest())
+    ConstructSelector.resources_of_type(s3.CfnBucket.CFN_RESOURCE_TYPE_NAME)).apply(BucketBlockPublicAccess())
 
 # Alternative: select by CloudFormation resource type name
 Mixins.of(scope,
-    ConstructSelector.resources_of_type("AWS::S3::Bucket")).apply(EncryptionAtRest())
+    ConstructSelector.resources_of_type("AWS::S3::Bucket")).apply(BucketBlockPublicAccess())
 
 # Apply to constructs matching a pattern
 Mixins.of(scope,
-    ConstructSelector.by_id("prod/**")).apply(ProductionSecurityMixin())
+    ConstructSelector.by_id("prod/**")).apply(CustomProdSecurityConfig())
 
 # The default is to apply to all constructs in the scope
 Mixins.of(scope,
-    ConstructSelector.all()).apply(ProductionSecurityMixin())
+    ConstructSelector.all()).apply(CustomProdSecurityConfig())
 ```
 
 #### Mixins that must be used
@@ -1845,10 +1845,10 @@ Both helpers will only check future calls of `apply()`.
 Set them before calling `apply()` to take effect.
 
 ```python
-Mixins.of(scope, selector).require_all().apply(EncryptionAtRest())
+Mixins.of(scope, selector).require_all().apply(BucketBlockPublicAccess())
 
 # Get an application report for manual assertions
-report = Mixins.of(scope).apply(EncryptionAtRest()).report
+report = Mixins.of(scope).apply(BucketBlockPublicAccess()).report
 ```
 
 ### Creating Custom Mixins

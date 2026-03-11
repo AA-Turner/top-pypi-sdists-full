@@ -535,7 +535,7 @@ class SessionState:
 
         At least one of the arguments must have a value.
         """
-        if user_key is None and widget_id is None:
+        if user_key is None and widget_id is None:  # pragma: no cover - defensive
             raise ValueError(
                 "user_key and widget_id cannot both be None. This should never happen."
             )
@@ -733,6 +733,17 @@ class SessionState:
         ``"event"`` field that maps to the corresponding callback name in
         ``metadata.callbacks``.
 
+        Parameters
+        ----------
+        wid : str
+            The widget ID.
+        metadata : WidgetMetadata[Any]
+            Metadata for the widget, including registered callbacks.
+        args : WidgetArgs
+            Positional arguments forwarded to the callback.
+        kwargs : dict[str, Any]
+            Keyword arguments forwarded to the callback.
+
         Examples
         --------
         A component with a "submit" callback:
@@ -746,17 +757,6 @@ class SessionState:
         Or a list of event payloads to be processed in order:
 
         >>> [{"event": "edit", ...}, {"event": "submit", ...}]
-
-        Parameters
-        ----------
-        wid : str
-            The widget ID.
-        metadata : WidgetMetadata[Any]
-            Metadata for the widget, including registered callbacks.
-        args : WidgetArgs
-            Positional arguments forwarded to the callback.
-        kwargs : dict[str, Any]
-            Keyword arguments forwarded to the callback.
         """
         widget_proto_state = self._new_widget_state.get_serialized(wid)
         if not widget_proto_state:
@@ -973,6 +973,9 @@ class SessionState:
             url_value_seeded = self._handle_query_param_binding(
                 metadata, user_key, widget_id
             )
+        elif metadata.bind is None and user_key is not None:
+            # Widget stopped using bind — clean up any stale binding
+            self.query_params.unbind_and_clear_param(widget_id)
 
         if (
             widget_id not in self

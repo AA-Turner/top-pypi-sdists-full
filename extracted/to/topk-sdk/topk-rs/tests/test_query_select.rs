@@ -163,7 +163,7 @@ async fn test_query_select_bm25_score(ctx: &mut ProjectTestContext) {
         .client
         .collection(&collection.name)
         .query(
-            select([("bm25_score", fns::bm25_score())])
+            select([("bm25_score", fns::bm25_score(None, None))])
                 .filter(r#match("pride", None, None, false))
                 .topk(field("bm25_score"), 100, true),
             None,
@@ -455,4 +455,21 @@ async fn test_query_select_list(ctx: &mut ProjectTestContext) {
     ];
 
     assert_eq!(results, expected);
+}
+
+#[test_context(ProjectTestContext)]
+#[tokio::test]
+async fn test_query_without_collector(ctx: &mut ProjectTestContext) {
+    let collection = dataset::books::setup(ctx).await;
+
+    let result = ctx
+        .client
+        .collection(&collection.name)
+        .query(select([("_id", field("_id"))]), None, None)
+        .await
+        .expect("could not query");
+
+    // We only assert contract-level behavior here: the query is accepted and returns data.
+    assert_eq!(result.len(), 10);
+    assert_fields!(&result, ["_id"]);
 }

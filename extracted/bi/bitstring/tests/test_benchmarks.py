@@ -38,8 +38,8 @@ def test_token_parsing(benchmark):
 def test_findall(benchmark):
     def finding():
         random.seed(999)
-        i = random.randrange(0, 2 ** 20000000)
-        s = bitstring.BitArray(uint=i, length=20000000)
+        i = int.to_bytes(random.getrandbits(20000000), 20000000 // 8, 'big')
+        s = bitstring.BitArray(bytes=i)
         for ss in ['0b11010010101', '0xabcdef1234, 0b000101111010101010011010100100101010101', '0x4321']:
             x = len(list(s.findall(ss)))
         return x
@@ -49,8 +49,8 @@ def test_findall(benchmark):
 def test_repeated_reading(benchmark):
     def repeating_reading():
         random.seed(1414)
-        i = random.randrange(0, 2 ** 800000)
-        s = bitstring.ConstBitStream(uint=i, length=800000)
+        i = int.to_bytes(random.getrandbits(100000*8), 100000, 'big')
+        s = bitstring.ConstBitStream(bytes=i)
         for _ in range(800000 // 40):
             _ = s.readlist('uint:4, float:32, bool, bool, bool, bool')
     benchmark(repeating_reading)

@@ -11,12 +11,13 @@
 # Released under the terms of DataRobot Tool and Utility Agreement.
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any, Dict, List, Optional
 
 import trafaret as t
 
 from datarobot.models.api_object import APIObject
+from datarobot.models.otel.utils import to_datetime_param
 from datarobot.utils import parse_time
 from datarobot.utils.pagination import unpaginate
 
@@ -72,8 +73,8 @@ class OtelLogEntry(APIObject):
         cls,
         entity_type: str,
         entity_id: str,
-        start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None,
+        start_time: Optional[datetime | date | str] = None,
+        end_time: Optional[datetime | date | str] = None,
         level: Optional[str] = None,
         includes: Optional[str | List[str]] = None,
         excludes: Optional[str | List[str]] = None,
@@ -92,9 +93,9 @@ class OtelLogEntry(APIObject):
             The entity type of the log entries (e.g. deployment or use_case).
         entity_id: str
             The entity ID of the log entries (e.g. `123456`).
-        start_time: Optional[datetime]
+        start_time: Optional[datetime | date | str]
             The start time of the log list.
-        end_time: Optional[datetime]
+        end_time: Optional[datetime | date | str]
             The end time of the log list.
         level: Optional[str]
             The minimum log level of the log entries.
@@ -118,9 +119,9 @@ class OtelLogEntry(APIObject):
         path = cls._path.format(entity_type, entity_id)
         params: Dict[str, Any] = {}
         if start_time:
-            params["startTime"] = start_time
+            params["startTime"] = to_datetime_param(start_time)
         if end_time:
-            params["endTime"] = end_time
+            params["endTime"] = to_datetime_param(end_time)
         if level:
             params["level"] = level
         if includes:
@@ -139,5 +140,41 @@ class OtelLogEntry(APIObject):
         if offset is None:
             data = unpaginate(path, params, cls._client)
         else:
-            data = cls._client.get(path, params=params if params else None).json()["data"]
+            data = cls._client.get(path, params=params or None).json()["data"]
         return [cls.from_server_data(d) for d in data]
+
+    @classmethod
+    def delete(
+        cls,
+        entity_type: str,
+        entity_id: str,
+        start_time: Optional[datetime | date | str] = None,
+        end_time: Optional[datetime | date | str] = None,
+    ) -> None:
+        """Delete all the log entries associated with the specified entity type/id.
+
+        .. versionadded:: v3.13
+
+        Parameters
+        ----------
+        entity_type: str
+            The entity type of the log entries (e.g. deployment or use_case).
+        entity_id: str
+            The entity ID of the log entries (e.g. `123456`).
+        start_time: Optional[datetime | date | str]
+            The start time of the logs to delete.
+        end_time: Optional[datetime | date | str]
+            The end time of the log to delete.
+
+        Returns
+        -------
+        None
+        """
+        path = cls._path.format(entity_type, entity_id)
+        params: Dict[str, Any] = {}
+        if start_time:
+            params["startTime"] = to_datetime_param(start_time)
+        if end_time:
+            params["endTime"] = to_datetime_param(end_time)
+
+        cls._client.delete(path, params=params or None)

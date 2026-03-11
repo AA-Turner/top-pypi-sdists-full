@@ -177,7 +177,7 @@ base_options.add_argument(
 )
 base_options.add_argument(
     "--output-model-type",
-    help="Output model type (default: pydantic.BaseModel)",
+    help="Output model type (default: pydantic_v2.BaseModel)",
     choices=[i.value for i in DataModelType],
 )
 base_options.add_argument(
@@ -831,7 +831,7 @@ field_options.add_argument(
 )
 field_options.add_argument(
     "--use-frozen-field",
-    help="Use Field(frozen=True) for readOnly fields (Pydantic v2) or Field(allow_mutation=False) (Pydantic v1)",
+    help="Use Field(frozen=True) for readOnly fields (Pydantic v2).",
     action="store_true",
     default=None,
 )
@@ -914,6 +914,15 @@ template_options.add_argument(
     help="Validators configuration file (JSON). Defines field validators for Pydantic v2 models. "
     "Keys are model names, values contain validator definitions with field, function, and mode.",
     type=Path,
+)
+template_options.add_argument(
+    "--use-type-checking-imports",
+    help="Allow Ruff to move typing-only imports into TYPE_CHECKING blocks. "
+    "By default this stays enabled, except for multi-module Ruff formatting of modular Pydantic output "
+    "where referenced models stay imported at runtime. "
+    "Use --no-use-type-checking-imports to force runtime imports.",
+    action=BooleanOptionalAction,
+    default=None,
 )
 template_options.add_argument(
     "--use-double-quotes",

@@ -310,19 +310,27 @@ async def importacao_extratos_748(task: RpaProcessoEntradaDTO) -> RpaRetornoProc
 
             # 4) Capturar janela de diálogo de arquivo
             log("Aguardando diálogo de arquivo (%s)...", DLG_TIT_RE)
+
             dlg = None
-            for _ in range(30):
+            TEMPO_MAX = 120  # segundos
+            inicio = time.time()
+
+            while time.time() - inicio < TEMPO_MAX:
                 try:
                     app_dlg = Application().connect(title_re=DLG_TIT_RE)
                     dlg = app_dlg.window(title_re=DLG_TIT_RE)
+
                     if dlg.exists() and dlg.is_enabled():
+                        log("[green]Diálogo de arquivo encontrado![/green]")
                         break
+
                 except Exception:
                     pass
-                await worker_sleep(0.5)
+
+                await worker_sleep(1)
 
             if dlg is None or not dlg.exists():
-                msg = "Diálogo de arquivo (#32770) não apareceu."
+                msg = f"Diálogo de arquivo (#32770) não apareceu dentro de {TEMPO_MAX}s."
                 log(f"[red]{msg}[/red]")
                 falhas.append({"arquivo": sel["arquivo"], "motivo": msg})
                 continue
@@ -353,6 +361,7 @@ async def importacao_extratos_748(task: RpaProcessoEntradaDTO) -> RpaRetornoProc
                 log("Arquivo confirmado no diálogo: %s", sel["caminho"])
 
                 await worker_sleep(2)
+                
                 pyautogui.click(1203, 509)
 
                 await worker_sleep(10)

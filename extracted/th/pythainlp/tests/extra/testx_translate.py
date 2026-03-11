@@ -1,5 +1,4 @@
-# -*- coding: utf-8 -*-
-# SPDX-FileCopyrightText: 2016-2025 PyThaiNLP Project
+# SPDX-FileCopyrightText: 2016-2026 PyThaiNLP Project
 # SPDX-FileType: SOURCE
 # SPDX-License-Identifier: Apache-2.0
 
@@ -29,6 +28,18 @@ class TranslateTestCaseX(unittest.TestCase):
                 "the cat eats fish.",
             )
         )
+        # Test exclude_words feature
+        result_with_exclusion = self.th_en_translator.translate(
+            "แมวกินปลา", exclude_words=["แมว"]
+        )
+        self.assertIsNotNone(result_with_exclusion)
+        self.assertIn("แมว", result_with_exclusion)
+
+        result_with_exclusion_en = self.en_th_translator.translate(
+            "the cat eats fish.", exclude_words=["cat"]
+        )
+        self.assertIsNotNone(result_with_exclusion_en)
+        self.assertIn("cat", result_with_exclusion_en)
         # self.th_zh_translator = ThZhTranslator()
         # self.assertIsNotNone(
         #     self.th_zh_translator.translate(
@@ -72,7 +83,7 @@ class TranslateTestCaseX(unittest.TestCase):
         #     )
         # )
         with self.assertRaises(ValueError):
-            self.th_cat_translator = Translate('th', 'cat', engine="fkfj")
+            self.th_cat_translator = Translate("th", "cat", engine="fkfj")
 
     def test_word_translate(self):
         self.assertIsNone(word_translate("cat", src="en", target="th"))

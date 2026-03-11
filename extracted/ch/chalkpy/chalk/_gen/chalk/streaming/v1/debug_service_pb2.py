@@ -14,11 +14,12 @@ _sym_db = _symbol_database.Default()
 
 
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as chalk_dot_auth_dot_v1_dot_permissions__pb2
+from chalk._gen.chalk.common.v1 import chalk_error_pb2 as chalk_dot_common_dot_v1_dot_chalk__error__pb2
 from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n&chalk/streaming/v1/debug_service.proto\x12\x12\x63halk.streaming.v1\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a\x1fgoogle/protobuf/timestamp.proto"`\n\x16\x45nableDebugModeRequest\x12!\n\x0cresolver_fqn\x18\x01 \x01(\tR\x0bresolverFqn\x12#\n\rdeployment_id\x18\x02 \x01(\tR\x0c\x64\x65ploymentId"n\n\x17\x45nableDebugModeResponse\x12\x18\n\x07\x65nabled\x18\x01 \x01(\x08R\x07\x65nabled\x12\x39\n\nenabled_at\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tenabledAt"<\n\x17\x44isableDebugModeRequest\x12!\n\x0cresolver_fqn\x18\x01 \x01(\tR\x0bresolverFqn"4\n\x18\x44isableDebugModeResponse\x12\x18\n\x07\x65nabled\x18\x01 \x01(\x08R\x07\x65nabled">\n\x19GetDebugModeStatusRequest\x12!\n\x0cresolver_fqn\x18\x01 \x01(\tR\x0bresolverFqn"\xe8\x01\n\x1aGetDebugModeStatusResponse\x12\x18\n\x07\x65nabled\x18\x01 \x01(\x08R\x07\x65nabled\x12>\n\nenabled_at\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x00R\tenabledAt\x88\x01\x01\x12%\n\x0estorage_bucket\x18\x03 \x01(\tR\rstorageBucket\x12(\n\rdeployment_id\x18\x04 \x01(\tH\x01R\x0c\x64\x65ploymentId\x88\x01\x01\x42\r\n\x0b_enabled_atB\x10\n\x0e_deployment_id"<\n\x17GetDebugMessagesRequest\x12!\n\x0cresolver_fqn\x18\x01 \x01(\tR\x0bresolverFqn"Y\n\x18GetDebugMessagesResponse\x12\x18\n\x07parquet\x18\x01 \x01(\x0cR\x07parquet\x12\x19\n\x05\x65rror\x18\x02 \x01(\tH\x00R\x05\x65rror\x88\x01\x01\x42\x08\n\x06_error2\xf0\x03\n\x15StreamingDebugService\x12o\n\x0f\x45nableDebugMode\x12*.chalk.streaming.v1.EnableDebugModeRequest\x1a+.chalk.streaming.v1.EnableDebugModeResponse"\x03\x80}\x0c\x12r\n\x10\x44isableDebugMode\x12+.chalk.streaming.v1.DisableDebugModeRequest\x1a,.chalk.streaming.v1.DisableDebugModeResponse"\x03\x80}\x0c\x12{\n\x12GetDebugModeStatus\x12-.chalk.streaming.v1.GetDebugModeStatusRequest\x1a..chalk.streaming.v1.GetDebugModeStatusResponse"\x06\x90\x02\x01\x80}\x0b\x12u\n\x10GetDebugMessages\x12+.chalk.streaming.v1.GetDebugMessagesRequest\x1a,.chalk.streaming.v1.GetDebugMessagesResponse"\x06\x90\x02\x01\x80}\x0b\x42\x95\x01\n\x16\x63om.chalk.streaming.v1B\x11\x44\x65\x62ugServiceProtoP\x01\xa2\x02\x03\x43SX\xaa\x02\x12\x43halk.Streaming.V1\xca\x02\x12\x43halk\\Streaming\\V1\xe2\x02\x1e\x43halk\\Streaming\\V1\\GPBMetadata\xea\x02\x14\x43halk::Streaming::V1b\x06proto3'
+    b'\n&chalk/streaming/v1/debug_service.proto\x12\x12\x63halk.streaming.v1\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a!chalk/common/v1/chalk_error.proto\x1a\x1fgoogle/protobuf/timestamp.proto"`\n\x16\x45nableDebugModeRequest\x12!\n\x0cresolver_fqn\x18\x01 \x01(\tR\x0bresolverFqn\x12#\n\rdeployment_id\x18\x02 \x01(\tR\x0c\x64\x65ploymentId"n\n\x17\x45nableDebugModeResponse\x12\x18\n\x07\x65nabled\x18\x01 \x01(\x08R\x07\x65nabled\x12\x39\n\nenabled_at\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tenabledAt"<\n\x17\x44isableDebugModeRequest\x12!\n\x0cresolver_fqn\x18\x01 \x01(\tR\x0bresolverFqn"4\n\x18\x44isableDebugModeResponse\x12\x18\n\x07\x65nabled\x18\x01 \x01(\x08R\x07\x65nabled">\n\x19GetDebugModeStatusRequest\x12!\n\x0cresolver_fqn\x18\x01 \x01(\tR\x0bresolverFqn"\xe8\x01\n\x1aGetDebugModeStatusResponse\x12\x18\n\x07\x65nabled\x18\x01 \x01(\x08R\x07\x65nabled\x12>\n\nenabled_at\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x00R\tenabledAt\x88\x01\x01\x12%\n\x0estorage_bucket\x18\x03 \x01(\tR\rstorageBucket\x12(\n\rdeployment_id\x18\x04 \x01(\tH\x01R\x0c\x64\x65ploymentId\x88\x01\x01\x42\r\n\x0b_enabled_atB\x10\n\x0e_deployment_id"<\n\x17GetDebugMessagesRequest\x12!\n\x0cresolver_fqn\x18\x01 \x01(\tR\x0bresolverFqn"Y\n\x18GetDebugMessagesResponse\x12\x18\n\x07parquet\x18\x01 \x01(\x0cR\x07parquet\x12\x19\n\x05\x65rror\x18\x02 \x01(\tH\x00R\x05\x65rror\x88\x01\x01\x42\x08\n\x06_error"\xaa\x01\n\x17WatchDebugStreamRequest\x12\x19\n\x08\x62\x61se_uri\x18\x01 \x01(\tR\x07\x62\x61seUri\x12!\n\x0cresolver_fqn\x18\x02 \x01(\tR\x0bresolverFqn\x12\x37\n\x15poll_interval_seconds\x18\x03 \x01(\x05H\x00R\x13pollIntervalSeconds\x88\x01\x01\x42\x18\n\x16_poll_interval_seconds"p\n\x18WatchDebugStreamResponse\x12\x1b\n\tfile_path\x18\x01 \x01(\tR\x08\x66ilePath\x12\x18\n\x07\x63ontent\x18\x02 \x01(\x0cR\x07\x63ontent\x12\x1d\n\nsize_bytes\x18\x03 \x01(\x03R\tsizeBytes"\xec\x01\n\x10PushTopicRequest\x12\x19\n\x05topic\x18\x01 \x01(\tH\x00R\x05topic\x88\x01\x01\x12\x19\n\x05value\x18\x02 \x01(\x0cH\x01R\x05value\x88\x01\x01\x12\x17\n\x04text\x18\x03 \x01(\tH\x02R\x04text\x88\x01\x01\x12\x10\n\x03key\x18\x04 \x01(\tR\x03key\x12%\n\x0bintegration\x18\x05 \x01(\tH\x03R\x0bintegration\x88\x01\x01\x12\x19\n\x05\x63ount\x18\x06 \x01(\x05H\x04R\x05\x63ount\x88\x01\x01\x42\x08\n\x06_topicB\x08\n\x06_valueB\x07\n\x05_textB\x0e\n\x0c_integrationB\x08\n\x06_count"\xc9\x01\n\x11PushTopicResponse\x12\x16\n\x06status\x18\x01 \x01(\tR\x06status\x12\x19\n\x05topic\x18\x02 \x01(\tH\x00R\x05topic\x88\x01\x01\x12%\n\x0bintegration\x18\x03 \x01(\tH\x01R\x0bintegration\x88\x01\x01\x12\x36\n\x05\x65rror\x18\x04 \x01(\x0b\x32\x1b.chalk.common.v1.ChalkErrorH\x02R\x05\x65rror\x88\x01\x01\x42\x08\n\x06_topicB\x0e\n\x0c_integrationB\x08\n\x06_error2\xc5\x05\n\x15StreamingDebugService\x12o\n\x0f\x45nableDebugMode\x12*.chalk.streaming.v1.EnableDebugModeRequest\x1a+.chalk.streaming.v1.EnableDebugModeResponse"\x03\x80}\x0c\x12r\n\x10\x44isableDebugMode\x12+.chalk.streaming.v1.DisableDebugModeRequest\x1a,.chalk.streaming.v1.DisableDebugModeResponse"\x03\x80}\x0c\x12{\n\x12GetDebugModeStatus\x12-.chalk.streaming.v1.GetDebugModeStatusRequest\x1a..chalk.streaming.v1.GetDebugModeStatusResponse"\x06\x90\x02\x01\x80}\x0b\x12u\n\x10GetDebugMessages\x12+.chalk.streaming.v1.GetDebugMessagesRequest\x1a,.chalk.streaming.v1.GetDebugMessagesResponse"\x06\x90\x02\x01\x80}\x0b\x12t\n\x10WatchDebugStream\x12+.chalk.streaming.v1.WatchDebugStreamRequest\x1a,.chalk.streaming.v1.WatchDebugStreamResponse"\x03\x80}\x0b\x30\x01\x12]\n\tPushTopic\x12$.chalk.streaming.v1.PushTopicRequest\x1a%.chalk.streaming.v1.PushTopicResponse"\x03\x80}\x03\x42\x95\x01\n\x16\x63om.chalk.streaming.v1B\x11\x44\x65\x62ugServiceProtoP\x01\xa2\x02\x03\x43SX\xaa\x02\x12\x43halk.Streaming.V1\xca\x02\x12\x43halk\\Streaming\\V1\xe2\x02\x1e\x43halk\\Streaming\\V1\\GPBMetadata\xea\x02\x14\x43halk::Streaming::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -41,22 +42,34 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals["_STREAMINGDEBUGSERVICE"].methods_by_name[
         "GetDebugMessages"
     ]._serialized_options = b"\220\002\001\200}\013"
-    _globals["_ENABLEDEBUGMODEREQUEST"]._serialized_start = 128
-    _globals["_ENABLEDEBUGMODEREQUEST"]._serialized_end = 224
-    _globals["_ENABLEDEBUGMODERESPONSE"]._serialized_start = 226
-    _globals["_ENABLEDEBUGMODERESPONSE"]._serialized_end = 336
-    _globals["_DISABLEDEBUGMODEREQUEST"]._serialized_start = 338
-    _globals["_DISABLEDEBUGMODEREQUEST"]._serialized_end = 398
-    _globals["_DISABLEDEBUGMODERESPONSE"]._serialized_start = 400
-    _globals["_DISABLEDEBUGMODERESPONSE"]._serialized_end = 452
-    _globals["_GETDEBUGMODESTATUSREQUEST"]._serialized_start = 454
-    _globals["_GETDEBUGMODESTATUSREQUEST"]._serialized_end = 516
-    _globals["_GETDEBUGMODESTATUSRESPONSE"]._serialized_start = 519
-    _globals["_GETDEBUGMODESTATUSRESPONSE"]._serialized_end = 751
-    _globals["_GETDEBUGMESSAGESREQUEST"]._serialized_start = 753
-    _globals["_GETDEBUGMESSAGESREQUEST"]._serialized_end = 813
-    _globals["_GETDEBUGMESSAGESRESPONSE"]._serialized_start = 815
-    _globals["_GETDEBUGMESSAGESRESPONSE"]._serialized_end = 904
-    _globals["_STREAMINGDEBUGSERVICE"]._serialized_start = 907
-    _globals["_STREAMINGDEBUGSERVICE"]._serialized_end = 1403
+    _globals["_STREAMINGDEBUGSERVICE"].methods_by_name["WatchDebugStream"]._options = None
+    _globals["_STREAMINGDEBUGSERVICE"].methods_by_name["WatchDebugStream"]._serialized_options = b"\200}\013"
+    _globals["_STREAMINGDEBUGSERVICE"].methods_by_name["PushTopic"]._options = None
+    _globals["_STREAMINGDEBUGSERVICE"].methods_by_name["PushTopic"]._serialized_options = b"\200}\003"
+    _globals["_ENABLEDEBUGMODEREQUEST"]._serialized_start = 163
+    _globals["_ENABLEDEBUGMODEREQUEST"]._serialized_end = 259
+    _globals["_ENABLEDEBUGMODERESPONSE"]._serialized_start = 261
+    _globals["_ENABLEDEBUGMODERESPONSE"]._serialized_end = 371
+    _globals["_DISABLEDEBUGMODEREQUEST"]._serialized_start = 373
+    _globals["_DISABLEDEBUGMODEREQUEST"]._serialized_end = 433
+    _globals["_DISABLEDEBUGMODERESPONSE"]._serialized_start = 435
+    _globals["_DISABLEDEBUGMODERESPONSE"]._serialized_end = 487
+    _globals["_GETDEBUGMODESTATUSREQUEST"]._serialized_start = 489
+    _globals["_GETDEBUGMODESTATUSREQUEST"]._serialized_end = 551
+    _globals["_GETDEBUGMODESTATUSRESPONSE"]._serialized_start = 554
+    _globals["_GETDEBUGMODESTATUSRESPONSE"]._serialized_end = 786
+    _globals["_GETDEBUGMESSAGESREQUEST"]._serialized_start = 788
+    _globals["_GETDEBUGMESSAGESREQUEST"]._serialized_end = 848
+    _globals["_GETDEBUGMESSAGESRESPONSE"]._serialized_start = 850
+    _globals["_GETDEBUGMESSAGESRESPONSE"]._serialized_end = 939
+    _globals["_WATCHDEBUGSTREAMREQUEST"]._serialized_start = 942
+    _globals["_WATCHDEBUGSTREAMREQUEST"]._serialized_end = 1112
+    _globals["_WATCHDEBUGSTREAMRESPONSE"]._serialized_start = 1114
+    _globals["_WATCHDEBUGSTREAMRESPONSE"]._serialized_end = 1226
+    _globals["_PUSHTOPICREQUEST"]._serialized_start = 1229
+    _globals["_PUSHTOPICREQUEST"]._serialized_end = 1465
+    _globals["_PUSHTOPICRESPONSE"]._serialized_start = 1468
+    _globals["_PUSHTOPICRESPONSE"]._serialized_end = 1669
+    _globals["_STREAMINGDEBUGSERVICE"]._serialized_start = 1672
+    _globals["_STREAMINGDEBUGSERVICE"]._serialized_end = 2381
 # @@protoc_insertion_point(module_scope)

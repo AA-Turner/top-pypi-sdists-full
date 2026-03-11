@@ -1,3 +1,4 @@
+import json
 import os
 from dataclasses import dataclass
 from enum import Enum
@@ -59,6 +60,7 @@ class ModelEncoding(str, Enum):
 class ModelClass(str, Enum):
     CLASSIFICATION = "classification"
     REGRESSION = "regression"
+    RANKING = "ranking"
     CLUSTERING = "clustering"
     DIMENSIONALITY_REDUCTION = "dimensionality_reduction"
     EMBEDDING = "embedding"
@@ -162,6 +164,30 @@ def model_encoding_from_proto(me: pb.ModelEncoding) -> ModelEncoding:
     if _me is None:
         raise ValueError(f"Unsupported model encoding: {me}")
     return _me
+
+
+def _infer_xgboost_model_class(model: Any) -> Optional[ModelClass]:
+    try:
+        if hasattr(model, "get_xgb_params"):
+            objective = model.get_xgb_params().get("objective")
+        elif hasattr(model, "save_config"):
+            cfg = json.loads(model.save_config())
+            objective = cfg["learner"]["objective"]["name"]
+        else:
+            return None
+
+        if not objective:
+            return None
+
+        if objective in ("binary:logistic", "binary:hinge", "multi:softmax", "multi:softprob"):
+            return ModelClass.CLASSIFICATION
+        if objective.startswith("reg:") or objective in ("count:poisson", "survival:cox", "survival:aft"):
+            return ModelClass.REGRESSION
+        if objective.startswith("rank:"):
+            return ModelClass.RANKING
+    except Exception:
+        pass
+    return None
 
 
 class ModelAttributeExtractor:
@@ -448,11 +474,14 @@ class ModelAttributeExtractor:
             if isinstance(model, xgb.XGBRegressor):
                 return ModelType.XGBOOST, ModelClass.REGRESSION
 
-            if isinstance(model, (xgb.XGBModel, xgb.Booster)):
-                return ModelType.XGBOOST, None
+            if isinstance(model, xgb.Booster):
+                # we don't support Booster models yet
+                return None, None
+            if isinstance(model, xgb.XGBModel):
+                return ModelType.XGBOOST, _infer_xgboost_model_class(model)
             # Also check for XGBoost sklearn API
             if hasattr(model, "__class__") and "xgboost" in model.__class__.__module__:
-                return ModelType.XGBOOST, None
+                return ModelType.XGBOOST, _infer_xgboost_model_class(model)
         except ImportError:
             pass
 

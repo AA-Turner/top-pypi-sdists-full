@@ -1,68 +1,110 @@
-# -*- coding: utf-8 -*-
-# SPDX-FileCopyrightText: 2016-2025 PyThaiNLP Project
+# SPDX-FileCopyrightText: 2016-2026 PyThaiNLP Project
 # SPDX-FileType: SOURCE
 # SPDX-License-Identifier: Apache-2.0
-"""
-Corpus related functions.
-"""
+"""Corpus related functions."""
+
+from __future__ import annotations
 
 import json
 import os
 import re
-from typing import Union
+import sys
+import tarfile
+import zipfile
+from functools import lru_cache
+from importlib.resources import files
+from typing import TYPE_CHECKING
 
 from pythainlp import __version__
 from pythainlp.corpus import corpus_db_path, corpus_db_url, corpus_path
 from pythainlp.tools import get_full_data_path
+from pythainlp.tools.path import is_offline_mode, is_read_only_mode
 
-_CHECK_MODE = os.getenv("PYTHAINLP_READ_MODE")
+if TYPE_CHECKING:
+    from http.client import HTTPMessage, HTTPResponse
+    from typing import Any, Optional
+
+_USER_AGENT: str = (
+    f"PyThaiNLP/{__version__} "
+    f"(Python/{sys.version_info.major}.{sys.version_info.minor}; "
+    f"{sys.platform})"
+)
 
 
-def get_corpus_db(url: str):
-    """
-    Get corpus catalog from server.
+class _ResponseWrapper:
+    """Wrapper to provide requests.Response-like interface for urllib response."""
+
+    status_code: int
+    headers: HTTPMessage
+    _content: bytes
+
+    def __init__(self, response: HTTPResponse) -> None:
+        self.status_code = response.status
+        self.headers = response.headers
+        self._content = response.read()
+
+    def json(self) -> dict[str, Any]:
+        """Parse JSON content from response."""
+        try:
+            return json.loads(self._content.decode("utf-8"))  # type: ignore[no-any-return]
+        except (json.JSONDecodeError, UnicodeDecodeError) as err:
+            raise ValueError(f"Failed to parse JSON response: {err}") from err
+
+
+def get_corpus_db(url: str) -> Optional[_ResponseWrapper]:
+    """Get corpus catalog from server.
 
     :param str url: URL corpus catalog
+
+    Security Note: Uses HTTPS with certificate validation enabled by default
+    in Python's urllib. Only download corpus from trusted URLs.
     """
-    import requests
+    from urllib.error import HTTPError, URLError
+    from urllib.request import Request, urlopen
 
     corpus_db = None
     try:
-        corpus_db = requests.get(url, timeout=10)
-    except requests.exceptions.HTTPError as http_err:
+        req = Request(url, headers={"User-Agent": _USER_AGENT})
+        # SSL certificate verification is enabled by default
+        with urlopen(req, timeout=10) as response:
+            corpus_db = _ResponseWrapper(response)
+    except HTTPError as http_err:
         print(f"HTTP error occurred: {http_err}")
-    except requests.exceptions.RequestException as err:
-        print(f"Non-HTTP error occurred: {err}")
+    except URLError as err:
+        print(f"URL error occurred: {err}")
+    except Exception as err:
+        print(f"Error occurred: {err}")
 
     return corpus_db
 
 
-def get_corpus_db_detail(name: str, version: str = "") -> dict:
-    """
-    Get details about a corpus, using information from local catalog.
+def get_corpus_db_detail(name: str, version: str = "") -> dict[str, Any]:
+    """Get details about a corpus, using information from local catalog.
 
     :param str name: name of corpus
     :return: details about corpus
     :rtype: dict
     """
-    with open(corpus_db_path(), "r", encoding="utf-8-sig") as f:
+    db_path = corpus_db_path()
+    if not os.path.exists(db_path):
+        return {}
+    with open(db_path, encoding="utf-8-sig") as f:
         local_db = json.load(f)
 
     if not version:
         for corpus in local_db["_default"].values():
             if corpus["name"] == name:
-                return corpus
+                return corpus  # type: ignore[no-any-return]
     else:
         for corpus in local_db["_default"].values():
             if corpus["name"] == name and corpus["version"] == version:
-                return corpus
+                return corpus  # type: ignore[no-any-return]
 
     return {}
 
 
 def path_pythainlp_corpus(filename: str) -> str:
-    """
-    Get path pythainlp.corpus data
+    """Get path pythainlp.corpus data
 
     :param str filename: filename of the corpus to be read
 
@@ -72,9 +114,9 @@ def path_pythainlp_corpus(filename: str) -> str:
     return os.path.join(corpus_path(), filename)
 
 
-def get_corpus(filename: str, comments: bool = True) -> frozenset:
-    """
-    Read corpus data from file and return a frozenset.
+@lru_cache(maxsize=None)
+def get_corpus(filename: str, comments: bool = True) -> frozenset[str]:
+    """Read corpus data from file and return a frozenset.
 
     Each line in the file will be a member of the set.
 
@@ -131,10 +173,10 @@ def get_corpus(filename: str, comments: bool = True) -> frozenset:
         #     ...})
 
     """
-    path = path_pythainlp_corpus(filename)
-    lines = []
-    with open(path, "r", encoding="utf-8-sig") as fh:
-        lines = fh.read().splitlines()
+    corpus_files = files("pythainlp.corpus")
+    corpus_file = corpus_files.joinpath(filename)
+    text = corpus_file.read_text(encoding="utf-8-sig")
+    lines = text.splitlines()
 
     if not comments:
         # if the line has a '#' character, take only text before the first '#'
@@ -143,9 +185,9 @@ def get_corpus(filename: str, comments: bool = True) -> frozenset:
     return frozenset(filter(None, lines))
 
 
-def get_corpus_as_is(filename: str) -> list:
-    """
-    Read corpus data from file, as it is, and return a list.
+@lru_cache(maxsize=None)
+def get_corpus_as_is(filename: str) -> list[str]:
+    """Read corpus data from file, as it is, and return a list.
 
     Each line in the file will be a member of the list.
 
@@ -171,17 +213,25 @@ def get_corpus_as_is(filename: str) -> list:
         # output:
         # ['แต่', 'ไม่']
     """
-    path = path_pythainlp_corpus(filename)
-    lines = []
-    with open(path, "r", encoding="utf-8-sig") as fh:
-        lines = fh.read().splitlines()
+    corpus_files = files("pythainlp.corpus")
+    corpus_file = corpus_files.joinpath(filename)
+    text = corpus_file.read_text(encoding="utf-8-sig")
+    lines = text.splitlines()
 
     return lines
 
 
-def get_corpus_default_db(name: str, version: str = "") -> Union[str, None]:
-    """
-    Get model path from default_db.json
+@lru_cache(maxsize=None)
+def _load_default_db() -> dict[str, Any]:
+    """Load and cache the bundled default_db.json corpus catalog."""
+    corpus_files = files("pythainlp.corpus")
+    default_db_file = corpus_files.joinpath("default_db.json")
+    text = default_db_file.read_text(encoding="utf-8-sig")
+    return json.loads(text)  # type: ignore[no-any-return]
+
+
+def get_corpus_default_db(name: str, version: str = "") -> Optional[str]:
+    """Get model path from default_db.json
 
     :param str name: corpus name
     :return: path to the corpus or **None** if the corpus doesn't \
@@ -191,12 +241,10 @@ def get_corpus_default_db(name: str, version: str = "") -> Union[str, None]:
     If you want to edit default_db.json, \
         you can edit pythainlp/corpus/default_db.json
     """
-    default_db_path = path_pythainlp_corpus("default_db.json")
-    with open(default_db_path, encoding="utf-8-sig") as fh:
-        corpus_db = json.load(fh)
+    corpus_db = _load_default_db()
 
-    if name in list(corpus_db.keys()):
-        if version in list(corpus_db[name]["versions"].keys()):
+    if name in corpus_db:
+        if version in corpus_db[name]["versions"]:
             return path_pythainlp_corpus(
                 corpus_db[name]["versions"][version]["filename"]
             )
@@ -209,122 +257,167 @@ def get_corpus_default_db(name: str, version: str = "") -> Union[str, None]:
     return None
 
 
-def get_corpus_path(
-    name: str, version: str = "", force: bool = False
-) -> Union[str, None]:
+def _resolve_corpus_file_path(
+    corpus_db_detail: dict[str, Any],
+) -> Optional[str]:
+    """Resolve the local filesystem path for a corpus catalog entry.
+
+    :param dict corpus_db_detail: a corpus catalog entry from the local DB
+    :return: full local path to the corpus file or folder,
+             or ``None`` if required path information is missing
+    :rtype: Optional[str]
     """
-    Get corpus path.
+    if corpus_db_detail.get("is_folder"):
+        foldername = corpus_db_detail.get("foldername")
+        return get_full_data_path(foldername) if foldername else None
+    filename = corpus_db_detail.get("filename")
+    return get_full_data_path(filename) if filename else None
+
+
+def get_corpus_path(name: str, version: str = "") -> Optional[str]:
+    """Get corpus path.
+
+    The function checks the following locations in order:
+
+    1. A user-defined path override (``CUSTOMIZE`` mapping).
+    2. Bundled (default) corpora shipped with PyThaiNLP.
+    3. The local download catalog (``~/pythainlp-data/``).
+
+    When the corpus file is not present locally, the behavior depends on the
+    ``PYTHAINLP_OFFLINE`` environment variable:
+
+    - If ``PYTHAINLP_OFFLINE`` is set to a truthy value (e.g., ``"1"``),
+      a :exc:`FileNotFoundError` is raised immediately.
+    - Otherwise, the corpus is downloaded automatically.
 
     :param str name: corpus name
-    :param str version: version
-    :param bool force: force downloading
-    :return: path to the corpus or **None** if the corpus doesn't \
-             exist on the device
-    :rtype: str
+    :param str version: corpus version (empty string means latest)
+    :return: full local path when the corpus exists,
+             or ``None`` when the corpus cannot be found or downloaded.
+    :rtype: Optional[str]
+
+    :raises FileNotFoundError: when the corpus is missing locally and
+        ``PYTHAINLP_OFFLINE`` is set to a truthy value.
 
     :Example:
 
     (Please see the filename in
-    `this file
-    <https://pythainlp.org/pythainlp-corpus/db.json>`_
+    `this file <https://pythainlp.org/pythainlp-corpus/db.json>`_)
 
     If the corpus already exists::
 
         from pythainlp.corpus import get_corpus_path
 
-        print(get_corpus_path('ttc'))
+        print(get_corpus_path("ttc"))
         # output: /root/pythainlp-data/ttc_freq.txt
 
-    If the corpus has not been downloaded yet::
+    If the corpus has not been downloaded yet (online mode)::
+
+        from pythainlp.corpus import get_corpus_path
+
+        print(get_corpus_path("wiki_lm_lstm"))
+        # output: /root/pythainlp-data/thwiki_model_lstm.pth
+        # (downloads automatically on first call)
+
+    To download manually::
 
         from pythainlp.corpus import download, get_corpus_path
 
-        print(get_corpus_path('wiki_lm_lstm'))
-        # output: None
-
-        download('wiki_lm_lstm')
-        # output:
-        # Download: wiki_lm_lstm
-        # wiki_lm_lstm 0.32
-        # thwiki_lm.pth?dl=1: 1.05GB [00:25, 41.5MB/s]
-        # /root/pythainlp-data/thwiki_model_lstm.pth
-
-        print(get_corpus_path('wiki_lm_lstm'))
+        download("wiki_lm_lstm")
+        print(get_corpus_path("wiki_lm_lstm"))
         # output: /root/pythainlp-data/thwiki_model_lstm.pth
     """
-    from typing import Dict
-
-    CUSTOMIZE: Dict[str, str] = {
+    CUSTOMIZE: dict[str, str] = {
         # "the corpus name":"path"
     }
-    if name in list(CUSTOMIZE):
+    if name in CUSTOMIZE:
         return CUSTOMIZE[name]
 
+    # Check bundled (default) corpora first
     default_path = get_corpus_default_db(name=name, version=version)
     if default_path is not None:
         return default_path
 
-    # check if the corpus is in local catalog, download it if not
+    # Check the local download catalog
     corpus_db_detail = get_corpus_db_detail(name, version=version)
-
-    if not corpus_db_detail or not corpus_db_detail.get("filename"):
-        download(name, version=version, force=force)
+    if not corpus_db_detail:
+        # Corpus not in local catalog; download it unless in offline mode
+        if is_offline_mode():
+            raise FileNotFoundError(
+                f"corpus-not-found name={name!r}\n"
+                f"  Corpus '{name}' not found locally.\n"
+                f"  PYTHAINLP_OFFLINE is set; automatic downloading is disabled.\n"
+                f"  To download, unset PYTHAINLP_OFFLINE, then run:\n"
+                f"    Python: pythainlp.corpus.download('{name}')\n"
+                f"    CLI:    thainlp data get {name}"
+            )
+        if not download(name, version=version):
+            return None
         corpus_db_detail = get_corpus_db_detail(name, version=version)
+        if not corpus_db_detail:
+            return None
 
-    if corpus_db_detail and corpus_db_detail.get("filename"):
-        # corpus is in the local catalog, get full path to the file
-        if corpus_db_detail.get("is_folder"):
-            path = get_full_data_path(corpus_db_detail.get("foldername"))
-        else:
-            path = get_full_data_path(corpus_db_detail.get("filename"))
-        # check if the corpus file actually exists, download it if not
-        if not os.path.exists(path):
-            download(name, version=version, force=force)
-        if os.path.exists(path):
-            return path
+    path = _resolve_corpus_file_path(corpus_db_detail)
+    if path is None:
+        return None
 
-    return None
+    if os.path.exists(path):
+        return path
+
+    # File is registered in catalog but missing from disk
+    if is_offline_mode():
+        raise FileNotFoundError(
+            f"corpus-not-found name={name!r} expected-path={path!r}\n"
+            f"  Corpus '{name}' expected at '{path}' but file not found.\n"
+            f"  PYTHAINLP_OFFLINE is set; automatic re-downloading is disabled.\n"
+            f"  To re-download, unset PYTHAINLP_OFFLINE, then run:\n"
+            f"    Python: pythainlp.corpus.download('{name}', force=True)\n"
+            f"    CLI:    thainlp data get {name}"
+        )
+    if not download(name, version=version, force=True):
+        return None
+    return path if os.path.exists(path) else None
 
 
 def _download(url: str, dst: str) -> int:
-    """
-    Download helper.
+    """Download helper.
 
     @param: URL for downloading file
     @param: dst place to put the file into
+
+    Security Note: Downloads use HTTPS with SSL certificate validation.
+    Files are verified using MD5 checksums after download.
     """
     CHUNK_SIZE = 64 * 1024  # 64 KiB
 
-    from urllib.request import urlopen
+    from urllib.request import Request, urlopen
 
-    import requests
-
-    file_size = int(urlopen(url).info().get("Content-Length", -1))
-    r = requests.get(url, stream=True, timeout=10)
-    with open(get_full_data_path(dst), "wb") as f:
-        pbar = None
-        try:
-            from tqdm.auto import tqdm
-
-            pbar = tqdm(total=int(r.headers["Content-Length"]))
-        except ImportError:
+    req = Request(url, headers={"User-Agent": _USER_AGENT})
+    # SSL certificate verification is enabled by default
+    with urlopen(req, timeout=10) as response:
+        file_size = int(response.info().get("Content-Length", -1))
+        with open(get_full_data_path(dst), "wb") as f:
             pbar = None
+            try:
+                from tqdm.auto import tqdm
 
-        for chunk in r.iter_content(chunk_size=CHUNK_SIZE):
-            if chunk:
+                pbar = tqdm(total=file_size)
+            except ImportError:
+                pbar = None
+
+            while chunk := response.read(CHUNK_SIZE):
                 f.write(chunk)
                 if pbar:
                     pbar.update(len(chunk))
-        if pbar:
-            pbar.close()
-        else:
-            print("Done.")
+            if pbar:
+                pbar.close()
+            else:
+                print("Done.")
     return file_size
 
 
 def _check_hash(dst: str, md5: str) -> None:
-    """
-    Check hash helper.
+    """Check hash helper.
 
     @param: dst place to put the file into
     @param: md5 place to file hash (MD5)
@@ -334,16 +427,152 @@ def _check_hash(dst: str, md5: str) -> None:
 
         with open(get_full_data_path(dst), "rb") as f:
             content = f.read()
-            file_md5 = hashlib.md5(content).hexdigest()
+            # MD5 is insecure but sufficient here
+            file_md5 = hashlib.md5(content).hexdigest()  # noqa: S324
 
             if md5 != file_md5:
                 raise ValueError("Hash does not match expected.")
 
 
+def _is_within_directory(directory: str, target: str) -> bool:
+    """Check if target path is within directory (prevent path traversal).
+
+    @param: directory base directory path
+    @param: target target file path to check
+    @return: True if target is within directory, False otherwise
+
+    Security Note: This function normalizes paths using os.path.abspath()
+    to handle relative paths and .. sequences. It does NOT follow symlinks
+    (unlike os.path.realpath()), because:
+    - Symlink validation is handled separately in extraction functions
+    - We want to check if the path string itself is safe, not where it points
+    - This prevents false negatives when symlinks don't exist yet
+
+    For symlink security, use the extraction function's symlink validation.
+    """
+    # Use abspath to normalize paths but NOT realpath (which follows symlinks)
+    abs_directory = os.path.abspath(directory)
+    abs_target = os.path.abspath(target)
+
+    # Ensure directory ends with separator for proper prefix check
+    # This prevents /foo/bar from matching /foo/barz
+    if not abs_directory.endswith(os.sep):
+        abs_directory += os.sep
+
+    return abs_target.startswith(
+        abs_directory
+    ) or abs_target == abs_directory.rstrip(os.sep)
+
+
+def _safe_extract_tar(tar: tarfile.TarFile, path: str) -> None:
+    """Safely extract tar archive, preventing path traversal attacks.
+
+    @param: tar tarfile object
+    @param: path destination path for extraction
+
+    Security Note: This function prevents path traversal attacks including:
+    - Files with .. in their path
+    - Symlinks pointing outside the extraction directory
+    - Files extracted through malicious symlinks
+
+    For Python 3.12+, uses tarfile.data_filter for additional protection.
+    For Python 3.9-3.11, implements custom validation of all members.
+    """
+    # Check if data_filter is available (Python 3.12+)
+    if hasattr(tarfile, "data_filter"):
+        # Use built-in filter which handles symlinks and other security issues
+        try:
+            tar.extractall(path=path, filter="data")
+        except (
+            tarfile.OutsideDestinationError,
+            tarfile.LinkOutsideDestinationError,
+        ) as e:
+            # Re-raise as ValueError for consistency with older Python versions
+            raise ValueError(str(e))
+    else:
+        # Manual validation for older Python versions
+        for member in tar.getmembers():
+            # Check the member's target path
+            member_path = os.path.join(path, member.name)
+            if not _is_within_directory(path, member_path):
+                raise ValueError(
+                    f"Attempted path traversal in tar file: {member.name}"
+                )
+
+            # For symlinks, also validate the link target
+            if member.issym() or member.islnk():
+                # Get the link target (can be absolute or relative)
+                link_target = member.linkname
+
+                # If it's a relative symlink, resolve it relative to the member's directory
+                if not os.path.isabs(link_target):
+                    member_dir = os.path.dirname(member_path)
+                    link_target = os.path.join(member_dir, link_target)
+                else:
+                    # Absolute symlinks are dangerous - make them relative to extraction path
+                    link_target = os.path.join(
+                        path, link_target.lstrip(os.sep)
+                    )
+
+                # Check if the resolved symlink target is within the directory
+                if not _is_within_directory(path, link_target):
+                    raise ValueError(
+                        f"Symlink {member.name} points outside extraction directory: {member.linkname}"
+                    )
+
+        tar.extractall(path=path)
+
+
+def _safe_extract_zip(zip_file: zipfile.ZipFile, path: str) -> None:
+    """Safely extract zip archive, preventing path traversal attacks.
+
+    @param: zip_file zipfile object
+    @param: path destination path for extraction
+
+    Security Note: This function prevents path traversal attacks including:
+    - Files with .. in their path
+    - Symlinks pointing outside the extraction directory (on Unix systems)
+
+    Note: ZIP format has limited symlink support. Symlinks are primarily
+    created by Unix-based archiving tools and may not be portable.
+    """
+    for member in zip_file.namelist():
+        member_path = os.path.join(path, member)
+        if not _is_within_directory(path, member_path):
+            raise ValueError(f"Attempted path traversal in zip file: {member}")
+
+        # Check for potential symlinks in ZIP files
+        # ZIP files can contain symlinks on Unix systems (external_attr indicates this)
+        info = zip_file.getinfo(member)
+        # Check if this is a symlink (Unix: external_attr with S_IFLNK set)
+        # The high 16 bits of external_attr contain Unix file mode
+        is_symlink = (info.external_attr >> 16) & 0o170000 == 0o120000
+
+        if is_symlink:
+            # Read the symlink target from the file content
+            link_target = zip_file.read(member).decode("utf-8")
+
+            # Resolve the link target relative to the member's directory
+            if not os.path.isabs(link_target):
+                member_dir = os.path.dirname(member_path)
+                resolved_target = os.path.join(member_dir, link_target)
+            else:
+                # Absolute symlinks - make them relative to extraction path
+                resolved_target = os.path.join(
+                    path, link_target.lstrip(os.sep)
+                )
+
+            # Check if the symlink target is within the directory
+            if not _is_within_directory(path, resolved_target):
+                raise ValueError(
+                    f"Symlink {member} points outside extraction directory: {link_target}"
+                )
+
+    zip_file.extractall(path=path)
+
+
 def _version2int(v: str) -> int:
-    """
-    X.X.X => X0X0X
-    """
+    """X.X.X => X0X0X"""
     if "-" in v:
         v = v.split("-")[0]
     if v.endswith(".*"):
@@ -385,14 +614,14 @@ def _check_version(cause: str) -> bool:
         temp = cause.replace(">", "")
         check = v > _version2int(temp)
     elif cause.startswith(">=") and "<=" not in cause and "<" in cause:
-        temp = cause.replace(">=", "").split("<")
-        check = _version2int(temp[0]) <= v < _version2int(temp[1])
+        temp_parts = cause.replace(">=", "").split("<")
+        check = _version2int(temp_parts[0]) <= v < _version2int(temp_parts[1])
     elif cause.startswith(">=") and "<=" in cause:
-        temp = cause.replace(">=", "").split("<=")
-        check = _version2int(temp[0]) <= v <= _version2int(temp[1])
+        temp_parts = cause.replace(">=", "").split("<=")
+        check = _version2int(temp_parts[0]) <= v <= _version2int(temp_parts[1])
     elif cause.startswith(">") and "<" in cause:
-        temp = cause.replace(">", "").split("<")
-        check = _version2int(temp[0]) < v < _version2int(temp[1])
+        temp_parts = cause.replace(">", "").split("<")
+        check = _version2int(temp_parts[0]) < v < _version2int(temp_parts[1])
     elif cause.startswith("<="):
         temp = cause.replace("<=", "")
         check = v <= _version2int(temp[0])
@@ -406,11 +635,16 @@ def _check_version(cause: str) -> bool:
 def download(
     name: str, force: bool = False, url: str = "", version: str = ""
 ) -> bool:
-    """
-    Download corpus.
+    """Download corpus.
 
     The available corpus names can be seen in this file:
     https://pythainlp.org/pythainlp-corpus/db.json
+
+    This function always performs the download regardless of the
+    ``PYTHAINLP_OFFLINE`` environment variable, because an explicit call
+    to ``download()`` is a deliberate user action.
+    ``PYTHAINLP_OFFLINE`` only blocks the *automatic* download triggered
+    by :func:`pythainlp.corpus.get_corpus_path`.
 
     :param str name: corpus name
     :param bool force: force downloading
@@ -435,9 +669,10 @@ def download(
     ``$HOME/pythainlp-data/``
     (e.g. ``/Users/bact/pythainlp-data/wiki_lm_lstm.pth``).
     """
-    if _CHECK_MODE == "1":
-        print("PyThaiNLP is read-only mode. It can't download.")
+    if is_read_only_mode():
+        print("PyThaiNLP is in read-only mode. It cannot download.")
         return False
+
     if not url:
         url = corpus_db_url()
 
@@ -446,14 +681,18 @@ def download(
         print(f"Cannot download corpus catalog from: {url}")
         return False
 
-    corpus_db = corpus_db.json()
+    corpus_db_dict = corpus_db.json()
 
     # check if corpus is available
-    if name in corpus_db:
-        with open(corpus_db_path(), "r", encoding="utf-8-sig") as f:
-            local_db = json.load(f)
+    if name in corpus_db_dict:
+        db_path = corpus_db_path()
+        if os.path.exists(db_path):
+            with open(db_path, encoding="utf-8-sig") as f:
+                local_db = json.load(f)
+        else:
+            local_db = {"_default": {}}
 
-        corpus = corpus_db[name]
+        corpus = corpus_db_dict[name]
         print("Corpus:", name)
         if not version:
             for v, file in corpus["versions"].items():
@@ -496,17 +735,13 @@ def download(
             foldername = None
 
             if corpus_versions["is_tar_gz"] == "True":
-                import tarfile
-
                 is_folder = True
                 foldername = name + "_" + str(version)
                 if not os.path.exists(get_full_data_path(foldername)):
                     os.mkdir(get_full_data_path(foldername))
                 with tarfile.open(get_full_data_path(file_name)) as tar:
-                    tar.extractall(path=get_full_data_path(foldername))
+                    _safe_extract_tar(tar, get_full_data_path(foldername))
             elif corpus_versions["is_zip"] == "True":
-                import zipfile
-
                 is_folder = True
                 foldername = name + "_" + str(version)
                 if not os.path.exists(get_full_data_path(foldername)):
@@ -514,7 +749,7 @@ def download(
                 with zipfile.ZipFile(
                     get_full_data_path(file_name), "r"
                 ) as zip_file:
-                    zip_file.extractall(path=get_full_data_path(foldername))
+                    _safe_extract_zip(zip_file, get_full_data_path(foldername))
 
             if found:
                 local_db["_default"][found]["version"] = version
@@ -525,9 +760,7 @@ def download(
                 # This awkward behavior is for backward-compatibility with
                 # database files generated previously using TinyDB
                 if local_db["_default"]:
-                    corpus_no = (
-                        max((int(no) for no in local_db["_default"])) + 1
-                    )
+                    corpus_no = max(int(no) for no in local_db["_default"]) + 1
                 else:
                     corpus_no = 1
                 local_db["_default"][str(corpus_no)] = {
@@ -561,8 +794,7 @@ def download(
 
 
 def remove(name: str) -> bool:
-    """
-    Remove corpus
+    """Remove corpus
 
     :param str name: corpus name
     :return: **True** if the corpus is found and successfully removed.
@@ -585,10 +817,13 @@ def remove(name: str) -> bool:
         # FileNotFoundError: [Errno 2] No such file or directory:
         # '/usr/local/lib/python3.6/dist-packages/pythainlp/corpus/ttc'
     """
-    if _CHECK_MODE == "1":
-        print("PyThaiNLP is read-only mode. It can't download.")
+    if is_read_only_mode():
+        print("PyThaiNLP is in read-only mode. It cannot remove corpus.")
         return False
-    with open(corpus_db_path(), "r", encoding="utf-8-sig") as f:
+    db_path = corpus_db_path()
+    if not os.path.exists(db_path):
+        return False
+    with open(db_path, encoding="utf-8-sig") as f:
         db = json.load(f)
     data = [
         corpus for corpus in db["_default"].values() if corpus["name"] == name
@@ -599,10 +834,14 @@ def remove(name: str) -> bool:
         if data[0].get("is_folder"):
             import shutil
 
-            os.remove(get_full_data_path(data[0].get("filename")))
-            shutil.rmtree(path, ignore_errors=True)
+            filename = data[0].get("filename")
+            if filename:
+                os.remove(get_full_data_path(filename))
+            if path:
+                shutil.rmtree(path, ignore_errors=True)
         else:
-            os.remove(path)
+            if path:
+                os.remove(path)
         for i, corpus in db["_default"].copy().items():
             if corpus["name"] == name:
                 del db["_default"][i]
@@ -613,59 +852,88 @@ def remove(name: str) -> bool:
     return False
 
 
-def get_path_folder_corpus(name, version, *path):
-    return os.path.join(get_corpus_path(name, version), *path)
+def get_path_folder_corpus(name: str, version: str, *path: str) -> str:
+    corpus_path = get_corpus_path(name, version)
+    if not corpus_path:
+        raise FileNotFoundError(
+            f"corpus-not-found name={name!r} version={version!r}\n"
+            f"  Corpus '{name}' (version {version}) not found.\n"
+            f"    Python: pythainlp.corpus.download('{name}')\n"
+            f"    CLI:    thainlp data get {name}"
+        )
+    return os.path.join(corpus_path, *path)
 
 
-def make_safe_directory_name(name:str) -> str:
-    """
-    Make safe directory name
+def make_safe_directory_name(name: str) -> str:
+    """Make safe directory name
 
     :param str name: directory name
     :return: safe directory name
     :rtype: str
     """
     # Replace invalid characters with an underscore
-    safe_name = re.sub(r'[<>:"/\\|?*]', '_', name)
+    safe_name = re.sub(r'[<>:"/\\|?*]', "_", name)
     # Remove leading/trailing spaces or periods (especially important for Windows)
-    safe_name = safe_name.strip(' .')
+    safe_name = safe_name.strip(" .")
     # Prevent names that are reserved on Windows
-    reserved_names = ['CON', 'PRN', 'AUX', 'NUL', 'COM1', 'COM2', 'COM3', 'COM4', 'COM5', 'COM6', 'COM7', 'COM8', 'COM9', 'LPT1', 'LPT2', 'LPT3', 'LPT4', 'LPT5', 'LPT6', 'LPT7', 'LPT8', 'LPT9']
+    reserved_names = [
+        "CON",
+        "PRN",
+        "AUX",
+        "NUL",
+        "COM1",
+        "COM2",
+        "COM3",
+        "COM4",
+        "COM5",
+        "COM6",
+        "COM7",
+        "COM8",
+        "COM9",
+        "LPT1",
+        "LPT2",
+        "LPT3",
+        "LPT4",
+        "LPT5",
+        "LPT6",
+        "LPT7",
+        "LPT8",
+        "LPT9",
+    ]
     if safe_name.upper() in reserved_names:
-        safe_name = f"_{safe_name}" # Prepend underscore to avoid conflict
+        safe_name = f"_{safe_name}"  # Prepend underscore to avoid conflict
     return safe_name
 
 
-def get_hf_hub(repo_id:str, filename: str=None) -> str:
-    """
-    HuggingFace Hub in :mod:`pythainlp` data directory.
+def get_hf_hub(repo_id: str, filename: str = "") -> str:
+    """HuggingFace Hub in :mod:`pythainlp` data directory.
 
     :param str repo_id: repo_id
-    :param str filename: filename
+    :param str filename: filename (optional, default is empty string).
+        If empty, downloads entire snapshot.
     :return: path
     :rtype: str
     """
     try:
         from huggingface_hub import hf_hub_download, snapshot_download
     except ModuleNotFoundError:
-        raise ModuleNotFoundError("""
+        raise ModuleNotFoundError(
+            """
         huggingface-hub isn't found!
         Please installing the package via 'pip install huggingface-hub'.
-        """)
+        """
+        )
     except Exception as e:
-        raise Exception(f"An unexpected error occurred: {e}")
+        raise RuntimeError(f"An unexpected error occurred: {e}") from e
     hf_root = get_full_data_path("hf_models")
     name_dir = make_safe_directory_name(repo_id)
     root_project = os.path.join(hf_root, name_dir)
-    if filename!=None:
+    if filename:
         output_path = hf_hub_download(
-            repo_id=repo_id,
-            filename=filename,
-            local_dir=root_project
+            repo_id=repo_id, filename=filename, local_dir=root_project
         )
     else:
         output_path = snapshot_download(
-            repo_id=repo_id,
-            local_dir=root_project
+            repo_id=repo_id, local_dir=root_project
         )
-    return output_path
+    return output_path  # type: ignore[no-any-return]

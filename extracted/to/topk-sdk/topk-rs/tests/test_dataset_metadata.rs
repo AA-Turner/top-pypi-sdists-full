@@ -1,44 +1,51 @@
 use std::collections::HashMap;
 use test_context::test_context;
-use topk_rs::proto::v1::{ctx::file::InputFile, data::Value};
+use topk_rs::doc;
+use topk_rs::proto::v1::data::Value;
 
 mod utils;
-use utils::{dataset::test_pdf_path, ProjectTestContext};
+use utils::{dataset::test_pdf, ProjectTestContext};
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
+#[ignore]
 async fn test_get_metadata(ctx: &mut ProjectTestContext) {
-    let dataset = ctx
+    let response = ctx
         .client
         .datasets()
         .create(ctx.wrap("test"))
         .await
         .expect("could not create dataset");
 
-    let original_metadata = HashMap::from([("title".to_string(), Value::string("test"))]);
-
     // Upsert file with metadata
-    let _handle = ctx
+    let upsert = ctx
         .client
-        .dataset(&dataset.name)
+        .dataset(&response.dataset().unwrap().name)
         .upsert_file(
             "doc1".to_string(),
-            InputFile::from_path(test_pdf_path()).expect("could not create InputFile from path"),
-            original_metadata.clone(),
+            test_pdf(),
+            vec![("title", Value::string("test"))],
         )
         .await
         .expect("could not upsert file");
 
+    // Wait for file to be processed
+    ctx.client
+        .dataset(&response.dataset().unwrap().name)
+        .wait_for_handle(&upsert.handle, None)
+        .await
+        .expect("could not wait for handle");
+
     // Get metadata and verify it matches
-    let retrieved_metadata = ctx
+    let response = ctx
         .client
-        .dataset(&dataset.name)
-        .get_metadata("doc1".to_string())
+        .dataset(&response.dataset().unwrap().name)
+        .get_metadata(vec!["doc1"], None)
         .await
         .expect("could not get metadata");
 
     assert_eq!(
-        retrieved_metadata.get("title"),
-        original_metadata.get("title")
+        response.docs,
+        HashMap::from([("doc1".to_string(), doc!("title" => Value::string("test")))])
     );
 }

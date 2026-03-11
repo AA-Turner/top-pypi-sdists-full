@@ -5,6 +5,7 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 from dateutil.parser import isoparse
 
+from ..models.get_kafka_trigger_response_200_auto_offset_reset import GetKafkaTriggerResponse200AutoOffsetReset
 from ..models.get_kafka_trigger_response_200_mode import GetKafkaTriggerResponse200Mode
 from ..types import UNSET, Unset
 
@@ -35,6 +36,9 @@ class GetKafkaTriggerResponse200:
         edited_at (datetime.datetime): Timestamp of the last edit
         is_flow (bool): True if script_path points to a flow, false if it points to a script
         mode (GetKafkaTriggerResponse200Mode): job trigger mode
+        auto_offset_reset (Union[Unset, GetKafkaTriggerResponse200AutoOffsetReset]): Initial offset behavior when
+            consumer group has no committed offset. 'latest' starts from new messages only, 'earliest' starts from the
+            beginning. Default: GetKafkaTriggerResponse200AutoOffsetReset.LATEST.
         server_id (Union[Unset, str]): ID of the server currently handling this trigger (internal)
         last_server_ping (Union[Unset, datetime.datetime]): Timestamp of last server heartbeat (internal)
         error (Union[Unset, str]): Last error message if the trigger failed
@@ -57,6 +61,9 @@ class GetKafkaTriggerResponse200:
     edited_at: datetime.datetime
     is_flow: bool
     mode: GetKafkaTriggerResponse200Mode
+    auto_offset_reset: Union[
+        Unset, GetKafkaTriggerResponse200AutoOffsetReset
+    ] = GetKafkaTriggerResponse200AutoOffsetReset.LATEST
     server_id: Union[Unset, str] = UNSET
     last_server_ping: Union[Unset, datetime.datetime] = UNSET
     error: Union[Unset, str] = UNSET
@@ -87,6 +94,10 @@ class GetKafkaTriggerResponse200:
 
         is_flow = self.is_flow
         mode = self.mode.value
+
+        auto_offset_reset: Union[Unset, str] = UNSET
+        if not isinstance(self.auto_offset_reset, Unset):
+            auto_offset_reset = self.auto_offset_reset.value
 
         server_id = self.server_id
         last_server_ping: Union[Unset, str] = UNSET
@@ -122,6 +133,8 @@ class GetKafkaTriggerResponse200:
                 "mode": mode,
             }
         )
+        if auto_offset_reset is not UNSET:
+            field_dict["auto_offset_reset"] = auto_offset_reset
         if server_id is not UNSET:
             field_dict["server_id"] = server_id
         if last_server_ping is not UNSET:
@@ -178,6 +191,13 @@ class GetKafkaTriggerResponse200:
 
         mode = GetKafkaTriggerResponse200Mode(d.pop("mode"))
 
+        _auto_offset_reset = d.pop("auto_offset_reset", UNSET)
+        auto_offset_reset: Union[Unset, GetKafkaTriggerResponse200AutoOffsetReset]
+        if isinstance(_auto_offset_reset, Unset):
+            auto_offset_reset = UNSET
+        else:
+            auto_offset_reset = GetKafkaTriggerResponse200AutoOffsetReset(_auto_offset_reset)
+
         server_id = d.pop("server_id", UNSET)
 
         _last_server_ping = d.pop("last_server_ping", UNSET)
@@ -219,6 +239,7 @@ class GetKafkaTriggerResponse200:
             edited_at=edited_at,
             is_flow=is_flow,
             mode=mode,
+            auto_offset_reset=auto_offset_reset,
             server_id=server_id,
             last_server_ping=last_server_ping,
             error=error,

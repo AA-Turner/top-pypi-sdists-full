@@ -19,8 +19,8 @@
 #
 class Version:
     """The version information about the tosfs package."""
-    version = "2025.6.0"
-    revision = "1e7c9872097b220bad8359d1dd38eb3a86764a19"
+    version = "2026.3.0"
+    revision = "fc1022d19141fc63e2d47c1f7fb0e19a71a7bca9"
     user = "bytedance"
-    date = "Wed Jun 11 18:55:17 CST 2025"
+    date = "Tue Mar 10 19:52:36 CST 2026"
     repo_url = "https://github.com/fsspec/tosfs.git"

@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: runloop_api_client
-Version: 1.10.3
+Version: 1.11.0
 Summary: The official Python library for the runloop API
 Project-URL: Homepage, https://github.com/runloopai/api-client-python
 Project-URL: Repository, https://github.com/runloopai/api-client-python
@@ -124,6 +124,23 @@ asyncio.run(main())
 ```
 
 Functionality between the synchronous and asynchronous clients is otherwise identical.
+
+## Examples
+
+Workflow-oriented runnable examples are documented in [`EXAMPLES.md`](./EXAMPLES.md).
+
+`EXAMPLES.md` is generated from metadata in `examples/*.py` and should not be edited manually.
+Regenerate it with:
+
+```sh
+uv run python scripts/generate_examples_md.py
+```
+
+## Agent Guidance
+
+Detailed agent-specific instructions for developing using this package live in [`llms.txt`](./llms.txt). Consolidated recipes for frequent tasks are in [`EXAMPLES.md`](./EXAMPLES.md).
+
+After completing any modifications to this project, ensure `llms.txt` and `README.md` are kept in sync.
 
 ### With aiohttp
 
@@ -516,6 +533,17 @@ print(runloop_api_client.__version__)
 ## Requirements
 
 Python 3.9 or higher.
+
+## Development
+
+After cloning the repository, run the bootstrap script and install git hooks:
+
+```sh
+./scripts/bootstrap
+./scripts/install-hooks
+```
+
+This installs pre-push hooks that run linting and verify generated files are up to date.
 
 ## Contributing
 

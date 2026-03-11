@@ -1,6 +1,9 @@
 use futures_util::TryFutureExt;
 use tonic::Streaming;
 
+use super::Response;
+use crate::create_client;
+use crate::proto::v1::ctx::context_service_client::ContextServiceClient;
 use crate::proto::v1::ctx::SearchRequest;
 use crate::proto::v1::ctx::SearchResult;
 use crate::proto::v1::ctx::Source;
@@ -16,8 +19,8 @@ impl super::Client {
         top_k: u32,
         filter: Option<LogicalExpr>,
         select_fields: impl IntoIterator<Item = impl Into<String>>,
-    ) -> Result<Streaming<SearchResult>, Error> {
-        let client = super::create_ctx_client(&self.config(), &self.channel()).await?;
+    ) -> Result<Response<Streaming<SearchResult>>, Error> {
+        let client = create_client!(ContextServiceClient, self.channel, self.config).await?;
 
         let request = SearchRequest {
             query: query.into(),
@@ -34,6 +37,6 @@ impl super::Client {
         })
         .await?;
 
-        Ok(response.into_inner())
+        Ok(response.into())
     }
 }

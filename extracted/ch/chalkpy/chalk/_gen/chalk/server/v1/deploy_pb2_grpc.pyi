@@ -18,6 +18,8 @@ from chalk._gen.chalk.server.v1.deploy_pb2 import (
     GetDeploymentResponse,
     GetDeploymentSourceRequest,
     GetDeploymentSourceResponse,
+    GetResolverHistoryRequest,
+    GetResolverHistoryResponse,
     ListDeploymentsRequest,
     ListDeploymentsResponse,
     ScaleDeploymentRequest,
@@ -71,6 +73,10 @@ class DeployServiceStub:
     GetDeploymentSource: UnaryUnaryMultiCallable[
         GetDeploymentSourceRequest,
         GetDeploymentSourceResponse,
+    ]
+    GetResolverHistory: UnaryUnaryMultiCallable[
+        GetResolverHistoryRequest,
+        GetResolverHistoryResponse,
     ]
 
 class DeployServiceServicer(metaclass=ABCMeta):
@@ -128,5 +134,11 @@ class DeployServiceServicer(metaclass=ABCMeta):
         request: GetDeploymentSourceRequest,
         context: ServicerContext,
     ) -> GetDeploymentSourceResponse: ...
+    @abstractmethod
+    def GetResolverHistory(
+        self,
+        request: GetResolverHistoryRequest,
+        context: ServicerContext,
+    ) -> GetResolverHistoryResponse: ...
 
 def add_DeployServiceServicer_to_server(servicer: DeployServiceServicer, server: Server) -> None: ...

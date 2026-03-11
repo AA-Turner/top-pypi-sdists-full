@@ -4,7 +4,7 @@ from rest_framework.test import APIClient, APIRequestFactory
 from wbcore.contrib.authentication.factories import UserFactory
 from wbcore.contrib.directory.factories import PersonFactory
 from wbcore.contrib.notifications.factories.notification_types import (
-    NotificationTypeModelFactory,
+    NotificationTypeFactory,
     NotificationTypeSettingModelFactory,
 )
 from wbcore.contrib.notifications.factories.notifications import (
@@ -17,7 +17,7 @@ from wbcore.tests.conftest import *
 
 register(UserFactory)
 register(PersonFactory)
-register(NotificationTypeModelFactory, name="notification_type")
+register(NotificationTypeFactory)
 register(NotificationTypeSettingModelFactory, name="notification_type_setting")
 register(NotificationFactory)
 register(NotificationUserTokenModelFactory, name="notification_user_token")

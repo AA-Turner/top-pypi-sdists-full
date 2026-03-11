@@ -10,12 +10,11 @@ class BadCSRFOrigin(HTTPBadRequest):
     origin validation.
     """
 
-    title = "Bad CSRF Origin"
     explanation = (
-        "Access is denied. This server can not verify that the origin or "
-        "referrer of your request matches the current site. Either your "
-        "browser supplied the wrong Origin or Referrer or it did not supply "
-        "one at all."
+        "Bad CSRF Origin. Access is denied. This server can not verify that "
+        "the origin or referrer of your request matches the current site. "
+        "Either your browser supplied the wrong Origin or Referrer or it did "
+        "not supply one at all."
     )
 
 
@@ -25,14 +24,13 @@ class BadCSRFToken(HTTPBadRequest):
     forgery token validation.
     """
 
-    title = 'Bad CSRF Token'
     explanation = (
-        'Access is denied.  This server can not verify that your cross-site '
-        'request forgery token belongs to your login session.  Either you '
-        'supplied the wrong cross-site request forgery token or your session '
-        'no longer exists.  This may be due to session timeout or because '
-        'browser is not supplying the credentials required, as can happen '
-        'when the browser has cookies turned off.'
+        'Bad CSRF token received. Access is denied. This server can not '
+        'verify that your cross-site request forgery token belongs to your '
+        'login session. Either you supplied the wrong cross-site request '
+        'forgery token or your session no longer exists. This may be due to '
+        'session timeout or because browser is not supplying the credentials '
+        'required, as can happen when the browser has cookies turned off.'
     )
 
 
@@ -91,7 +89,7 @@ class ConfigurationConflictError(ConfigurationError):
     def __str__(self):
         r = ["Conflicting configuration actions"]
         for discriminator, infos in self._conflicts.items():
-            r.append("  For: %s" % (discriminator,))
+            r.append(f"  For: {discriminator}")
             for info in infos:
                 for line in str(info).rstrip().split('\n'):
                     r.append("    " + line)
@@ -106,7 +104,7 @@ class ConfigurationExecutionError(ConfigurationError):
         self.etype, self.evalue, self.info = etype, evalue, info
 
     def __str__(self):
-        return "%s: %s\n  in:\n  %s" % (self.etype, self.evalue, self.info)
+        return f"{self.etype}: {self.evalue}\n  in:\n  {self.info}"
 
 
 class CyclicDependencyError(Exception):
@@ -122,6 +120,6 @@ class CyclicDependencyError(Exception):
         for cycle in cycles:
             dependent = cycle
             dependees = cycles[cycle]
-            L.append('%r sorts before %r' % (dependent, dependees))
+            L.append(f'{dependent!r} sorts before {dependees!r}')
         msg = 'Implicit ordering cycle:' + '; '.join(L)
         return msg

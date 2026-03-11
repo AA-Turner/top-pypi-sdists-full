@@ -21,6 +21,7 @@ import json
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
+from typing_extensions import Annotated
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -34,7 +35,7 @@ class OpenPGPSignatureResponse(BaseModel):
     pulp_last_updated: Optional[datetime] = Field(default=None, description="Timestamp of the last time this resource was updated. Note: for immutable resources - like content, repository versions, and publication - pulp_created and pulp_last_updated dates will be the same.")
     pulp_labels: Optional[Dict[str, Optional[StrictStr]]] = Field(default=None, description="A dictionary of arbitrary key/value pairs used to describe a specific Content instance.")
     vuln_report: Optional[StrictStr] = None
-    issuer: Optional[StrictStr] = None
+    issuer: Optional[Annotated[str, Field(strict=True, max_length=16)]] = None
     created: datetime
     expiration_time: Optional[StrictStr] = None
     signers_user_id: Optional[StrictStr] = None

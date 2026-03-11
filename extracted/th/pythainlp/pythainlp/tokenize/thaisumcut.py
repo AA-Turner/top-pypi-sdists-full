@@ -1,9 +1,8 @@
-# -*- coding: utf-8 -*-
-# SPDX-FileCopyrightText: 2016-2025 PyThaiNLP Project
-# SPDX-FileCopyrightText: Copyright 2020 Nakhun Chumpolsathien
+# SPDX-FileCopyrightText: 2016-2026 PyThaiNLP Project
+# SPDX-FileCopyrightText: 2020 Nakhun Chumpolsathien
+# SPDX-FileType: SOURCE
 # SPDX-License-Identifier: Apache-2.0
-"""
-The implementation of sentence segmentator from Nakhun Chumpolsathien, 2020
+"""The implementation of sentence segmentator from Nakhun Chumpolsathien, 2020
 original codes are from: https://github.com/nakhunchumpolsathien/ThaiSum
 
 Cite:
@@ -15,33 +14,44 @@ Cite:
     school={Beijing Institute of Technology}
 """
 
+from __future__ import annotations
+
 import math
 import operator
 import re
-from typing import List
 
 from pythainlp.tokenize import word_tokenize
 
 
-def list_to_string(list: List[str]) -> str:
+def list_to_string(list: list[str]) -> str:
     string = "".join(list)
     string = " ".join(string.split())
     return string
 
 
-def middle_cut(sentences: List[str]) -> List[str]:
-    new_text = ""
+def middle_cut(sentences: list[str]) -> list[str]:
+    if not sentences:
+        return []
+
+    result_parts = []
     for sentence in sentences:
         sentence_size = len(word_tokenize(sentence, keep_whitespace=False))
 
-        for k in range(0, len(sentence)):
-            if k == 0 or k + 1 >= len(sentence):
+        sentence_len = len(sentence)
+        for k in range(0, sentence_len):
+            if k == 0 or k + 1 >= sentence_len:
                 continue
             if sentence[k].isdigit() and sentence[k - 1] == " ":
                 sentence = sentence[: k - 1] + sentence[k:]
-            if k + 2 <= len(sentence):
+                sentence_len = len(
+                    sentence
+                )  # Update length after modification
+            if k + 2 <= sentence_len:
                 if sentence[k].isdigit() and sentence[k + 1] == " ":
                     sentence = sentence[: k + 1] + sentence[k + 2 :]
+                    sentence_len = len(
+                        sentence
+                    )  # Update length after modification
 
         fixed_text_lenth = 20
 
@@ -53,40 +63,37 @@ def middle_cut(sentences: List[str]) -> List[str]:
                 white_space_index = []
                 white_space_diff = {}
 
-                for j in range(len(tokens)):
-                    if tokens[j] == " ":
+                for j, tok in enumerate(tokens):
+                    if tok == " ":
                         white_space_index.append(j)
 
                 for white_space in white_space_index:
-                    white_space_diff.update(
-                        {white_space: abs(white_space - middle_space)}
+                    white_space_diff[white_space] = abs(
+                        white_space - middle_space
                     )
 
-                if len(white_space_diff) > 0:
+                if white_space_diff:
                     min_diff = min(
                         white_space_diff.items(), key=operator.itemgetter(1)
                     )
                     tokens.pop(min_diff[0])
                     tokens.insert(min_diff[0], "<stop>")
-            new_text = new_text + list_to_string(tokens) + "<stop>"
+            result_parts.append(list_to_string(tokens))
         else:
-            new_text = new_text + sentence + "<stop>"
+            result_parts.append(sentence)
 
-    sentences = new_text.split("<stop>")
-    sentences = [s.strip() for s in sentences]
-    if "" in sentences:
-        sentences.remove("")
-    if "nan" in sentences:
-        sentences.remove("nan")
+    # Split all result parts by <stop> and filter
+    all_sentences = (
+        s.strip() for part in result_parts for s in part.split("<stop>")
+    )
 
-    sentences = list(filter(None, sentences))
-    return sentences
+    return list(filter(None, all_sentences))
 
 
 class ThaiSentenceSegmentor:
     def split_into_sentences(
         self, text: str, isMiddleCut: bool = False
-    ) -> List[str]:
+    ) -> list[str]:
         # Declare Variables
         th_alphabets = "([ก-๙])"
         th_conjunction = "(ทำให้|โดย|เพราะ|นอกจากนี้|แต่|กรณีที่|หลังจากนี้|ต่อมา|ภายหลัง|นับตั้งแต่|หลังจาก|ซึ่งเหตุการณ์|ผู้สื่อข่าวรายงานอีก|ส่วนที่|ส่วนสาเหตุ|ฉะนั้น|เพราะฉะนั้น|เพื่อ|เนื่องจาก|จากการสอบสวนทราบว่า|จากกรณี|จากนี้|อย่างไรก็ดี)"
@@ -171,14 +178,14 @@ class ThaiSentenceSegmentor:
             last_position = len(tokens)
             pop_split_position = []
             split_position = []
-            for i in range(len(tokens)):
-                if tokens[i] == "และ":
+            for i, tok in enumerate(tokens):
+                if tok == "และ":
                     and_position = i
 
                 if (
                     and_position != -1
                     and i > and_position
-                    and tokens[i] == " "
+                    and tok == " "
                     and nearest_space_position == -1
                 ):
                     if i - and_position != 1:
@@ -210,13 +217,13 @@ class ThaiSentenceSegmentor:
             last_position = len(tokens)
             pop_split_position = []
             split_position = []
-            for i in range(len(tokens)):
-                if tokens[i] == "หรือ":
+            for i, tok in enumerate(tokens):
+                if tok == "หรือ":
                     or_position = i
                 if (
                     or_position != -1
                     and i > or_position
-                    and tokens[i] == " "
+                    and tok == " "
                     and nearest_space_position == -1
                 ):
                     if i - or_position != 1:
@@ -248,13 +255,13 @@ class ThaiSentenceSegmentor:
             pop_split_position = []
             last_position = len(tokens)
             split_position = []
-            for i in range(len(tokens)):
-                if tokens[i] == "จึง":
+            for i, tok in enumerate(tokens):
+                if tok == "จึง":
                     cung_position = i
 
                 if (
                     cung_position != -1
-                    and tokens[i] == " "
+                    and tok == " "
                     and i > cung_position
                     and nearest_space_position == -1
                 ):
@@ -365,13 +372,7 @@ class ThaiSentenceSegmentor:
         text = text.replace("!", "!<stop>")
         text = text.replace("<prd>", ".")
         sentences = text.split("<stop>")
-        sentences = [s.strip() for s in sentences]
-        if "" in sentences:
-            sentences.remove("")
-        if "nan" in sentences:
-            sentences.remove("nan")
-
-        sentences = list(filter(None, sentences))
+        sentences = [s for s in map(str.strip, sentences) if s and s != "nan"]
 
         if isMiddleCut:
             return middle_cut(sentences)

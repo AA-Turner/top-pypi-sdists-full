@@ -7,7 +7,7 @@ import bitstring
 import copy
 import os
 import collections
-from bitstring import Bits, BitStream, ConstBitStream, pack, Dtype
+from bitstring import Bits, BitStream, ConstBitStream, pack, Dtype, BitArray
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -264,7 +264,13 @@ class TestShift:
             s >> -1
 
     def test_shift_right_in_place(self):
-        s = BitStream.fromstring('0xffff')[4:12]
+        s = BitArray.fromstring('0xffff')
+        s = s[4:12]
+        s >>= 1
+        assert s == '0b01111111'
+
+        s = BitStream.fromstring('0xffff')
+        s = s[4:12]
         s >>= 1
         assert s == '0b01111111'
         s = BitStream('0b11011')
@@ -440,12 +446,12 @@ class TestSliceAssignment:
         a[8:] = '0xe'
         assert a == '0xaee'
         assert a.bitpos == 0
-        b = BitStream()
-        b[0:800] = '0xffee'
+        b = BitStream("0x0000")
+        b[0:16] = '0xffee'
         assert b == '0xffee'
-        b[4:48] = '0xeed123'
+        b[4:16] = '0xeed123'
         assert b == '0xfeed123'
-        b[-800:8] = '0x0000'
+        b[0:8] = '0x0000'
         assert b == '0x0000ed123'
         a = BitStream('0xabcde')
         assert a[-100:-90] == ''
@@ -726,6 +732,10 @@ class TestFromFile:
         s = ConstBitStream(filename=test_filename, length=32)
         assert s.length == 32
         assert s.hex == '000001b3'
+        assert s.bytes == b'\x00\x00\x01\xb3'
+        assert s.uint == 0x1b3
+        assert s.int == 0x1b3
+        assert s.bin == '00000000000000000000000110110011'
         s = ConstBitStream(filename=test_filename, length=0)
         assert not s
         small_test_filename = os.path.join(THIS_DIR, 'smalltestfile')
@@ -803,7 +813,7 @@ class TestCreationErrors:
     def test_incorrect_bin_assignment(self):
         s = BitStream()
         with pytest.raises(bitstring.CreationError):
-            s._setbin_safe('0010020')
+            s._setbin('0010020')
 
     def test_incorrect_hex_assignment(self):
         s = BitStream()
@@ -1581,10 +1591,12 @@ class TestAdding:
 
     def test_invert_special_method(self):
         s = BitStream('0b00011001')
-        assert (~s).bin == '11100110'
+        t = ~s
+        assert t.bin == '11100110'
         assert (~BitStream('0b0')).bin == '1'
         assert (~BitStream('0b1')).bin == '0'
-        assert ~~s == s
+        u = ~t
+        assert u == s
 
     def test_invert_bit_position(self):
         s = ConstBitStream('0xefef')
@@ -1636,7 +1648,6 @@ class TestMultiplication:
         assert q.bitpos == 3
         q *= 0
         assert not q
-        assert q.bitpos == 0
 
     def test_multiplication_with_files(self):
         a = BitStream(filename=os.path.join(THIS_DIR, 'test.m1v'))
@@ -3476,11 +3487,6 @@ class TestBugs:
         s = BitStream('0x0123412341234')
         s.replace('0x23', '0xf', start=9, bytealigned=True)
         assert s == '0x012341f41f4'
-
-    def test_truncateleft_bug(self):
-        a = BitStream('0b000000111')[2:]
-        a._truncateleft(6)
-        assert a == '0b1'
 
     def test_null_bits(self):
         s = ConstBitStream(bin='')

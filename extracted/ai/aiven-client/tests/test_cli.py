@@ -383,6 +383,31 @@ def test_service_topic_create(command_line: str, expected_post_data: Mapping[str
                 },
             },
         ),
+        (
+            ("service topic-update --project project1 --partitions 3 --cleanup-policy delete service1 topic1"),
+            {
+                "partitions": 3,
+                "replication": None,
+                "min_insync_replicas": None,
+                "retention_bytes": None,
+                "retention_hours": None,
+                "cleanup_policy": "delete",
+            },
+        ),
+        (
+            (
+                "service topic-update --project project1 --partitions 3 --cleanup-policy compact "
+                + "--min-insync-replicas 2 service1 topic1"
+            ),
+            {
+                "partitions": 3,
+                "replication": None,
+                "min_insync_replicas": 2,
+                "retention_bytes": None,
+                "retention_hours": None,
+                "cleanup_policy": "compact",
+            },
+        ),
     ],
 )
 def test_service_topic_update(command_line: str, expected_put_data: Mapping[str, str | int | None]) -> None:
@@ -1985,7 +2010,8 @@ def test_byoc_provision_args() -> None:
     aiven_client.byoc_provision.assert_not_called()
 
 
-def test_byoc_delete() -> None:
+@pytest.mark.parametrize("force", (False, True))
+def test_byoc_delete(force: bool) -> None:
     aiven_client = mock.Mock(spec_set=AivenClient)
     aiven_client.byoc_delete.return_value = {"message": "deleting"}
     args = [
@@ -1994,10 +2020,13 @@ def test_byoc_delete() -> None:
         "--organization-id=org123456789a",
         "--byoc-id=d6a490ad-f43d-49d8-b3e5-45bc5dbfb387",
     ]
+    if force:
+        args.append("--force")
     build_aiven_cli(aiven_client).run(args=args)
     aiven_client.byoc_delete.assert_called_once_with(
         organization_id="org123456789a",
         byoc_id="d6a490ad-f43d-49d8-b3e5-45bc5dbfb387",
+        force=force,
     )
 
 
@@ -2969,3 +2998,78 @@ def test_service_cli(url: str, command: str) -> None:
         build_aiven_cli(aiven_client).run(args=["service", "cli", "myservice"])
         command_called, _, _ = mock_exec.call_args[0]
         assert command_called == command
+
+
+def test_inkless_offering_list() -> None:
+    """Test listing inkless offerings"""
+    aiven_client = mock.Mock(spec_set=AivenClient)
+    aiven_client.get_inkless_offerings.return_value = [
+        {
+            "offering_name": "inkless-professional-3x-8-1",
+            "compute_tier": 1,
+            "max_ingress_mbps": 60,
+            "max_egress_mbps": 180,
+            "available_clouds": ["google-europe-west1", "aws-us-east-1"],
+        },
+        {
+            "offering_name": "inkless-professional-3x-8-2",
+            "compute_tier": 2,
+            "max_ingress_mbps": 120,
+            "max_egress_mbps": 360,
+            "available_clouds": ["google-europe-west1"],
+        },
+        {
+            "offering_name": "inkless-professional-3x-8-3",
+            "compute_tier": 3,
+            "max_ingress_mbps": 30,
+            "max_egress_mbps": 90,
+            "available_clouds": ["aws-us-east-1"],
+        },
+    ]
+    args = [
+        "inkless",
+        "offering",
+        "list",
+        "--organization-id=org123",
+        "--project=test-project",
+    ]
+    assert build_aiven_cli(aiven_client).run(args=args) is None
+    aiven_client.get_inkless_offerings.assert_called_once_with(
+        organization_id="org123",
+        project="test-project",
+    )
+
+
+def test_inkless_offering_rates() -> None:
+    """Test getting inkless offering rates"""
+    aiven_client = mock.Mock(spec_set=AivenClient)
+    aiven_client.get_inkless_offering_rates.return_value = [
+        {
+            "offering_name": "inkless-professional-3x-8-1",
+            "cloud_name": "aws-eu-north-1",
+            "compute_fee": "400.00",
+            "storage_hourly_price_per_gb_usd": "0.05",
+            "classic_ingress_hourly_price_per_gb_usd": "0.05",
+            "classic_egress_hourly_price_per_gb_usd": "0.05",
+            "diskless_ingress_hourly_price_per_gb_usd": "0.08",
+            "diskless_egress_hourly_price_per_gb_usd": "0.08",
+        },
+    ]
+    args = [
+        "inkless",
+        "offering",
+        "rates",
+        "--organization-id=org123",
+        "--project=test-project",
+        "--cloud-provider=aws",
+        "--offering-name=inkless-professional-3x-8-1",
+        "--cloud-name=aws-eu-north-1",
+    ]
+    assert build_aiven_cli(aiven_client).run(args=args) is None
+    aiven_client.get_inkless_offering_rates.assert_called_once_with(
+        organization_id="org123",
+        project="test-project",
+        offering_name="inkless-professional-3x-8-1",
+        cloud_provider="aws",
+        cloud_name="aws-eu-north-1",
+    )

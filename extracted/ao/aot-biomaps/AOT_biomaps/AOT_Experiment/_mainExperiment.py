@@ -103,12 +103,13 @@ class Experiment(ABC):
         """
         pass
 
-    def cutAcousticFields(self, max_t, min_t=0):
+    def cutAcousticFields(self, max_t, min_t=0, show_log=True):
         """
         Cut the acoustic fields to a specified time range.
         Args:
             max_t: Maximum time in SAMPLE to keep in the fields.
             min_t: Minimum time in SAMPLE to keep in the fields (default is 0).
+            show_log: Whether to display a progress bar.
         """
 
         if min_t < 0 or max_t < 0:
@@ -119,14 +120,14 @@ class Experiment(ABC):
         if not self.AcousticFields:
             raise ValueError("AcousticFields is empty. Cannot cut fields.")
 
-        for i in trange(len(self.AcousticFields), desc=f"Cutting Acoustic Fields ({min_t} to {max_t} samples)"):
+        iteration = range(len(self.AcousticFields)) if not show_log else trange(len(self.AcousticFields), desc=f"Cutting Acoustic Fields ({min_t} to {max_t} samples)")
+        for i in iteration:
             field = self.AcousticFields[i]
             if field.field.shape[0] < max_t:
                 raise ValueError(f"Field {field.getName_field()} has an invalid shape: {field.field.shape}. Expected shape to be at least ({max_t},).")
             self.AcousticFields[i].field = field.field[min_t:max_t, :, :]
 
-
-    def addNoise(self, noiseType='gaussian', noiseLvl=0.1, withTumor=True):
+    def addNoise(self, noiseType='gaussian', noiseLvl=0.1, withTumor=True, show_log=True):
         """
         Ajoute du bruit (gaussien ou poisson) au signal AO sélectionné.
 
@@ -146,7 +147,8 @@ class Experiment(ABC):
             AOsignals = self.AOsignal_withoutTumor
         
         noiseSignals = np.zeros_like(AOsignals)
-        for i in trange(AOsignals.shape[1], desc=f"Adding {noiseType} noise to AO signal {'with' if withTumor else 'without'} tumor"):
+        iteration = range(AOsignals.shape[1]) if not show_log else trange(AOsignals.shape[1], desc=f"Adding {noiseType} noise to AO signal {'with' if withTumor else 'without'} tumor")
+        for i in iteration:
             AOsignal = AOsignals[:, i]
             if noiseType.lower() == 'gaussian':
                 noise = np.random.normal(0, noiseLvl*np.max(AOsignal), AOsignal.shape)

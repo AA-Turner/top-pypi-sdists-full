@@ -20,13 +20,11 @@ from seeq.spy._session import Session
 from seeq.spy._status import Status
 from seeq.spy.workbooks import _item, _render
 from seeq.spy.workbooks._content import Content, DateRange, AssetSelection
-from seeq.spy.workbooks._context import WorkbookPushContext
+from seeq.spy.workbooks._context import WorkbookPushContext, WorkbookPushMode
 from seeq.spy.workbooks._item import Item
 from seeq.spy.workbooks._item_map import ItemMap, OverrideItemMap
 from seeq.spy.workbooks._user import ItemWithOwnerAndAcl, Identity
 from seeq.spy.workbooks._workstep import AnalysisWorkstep
-
-FIXUP_PREFIX = 'Annotation to fix up'
 
 
 class Annotation(Item):
@@ -56,8 +54,8 @@ class Annotation(Item):
     def id(self, _id):
         self._parent['Annotation ID'] = _id
 
-    def refresh_from(self, new_item, item_map: ItemMap, status: Status):
-        super().refresh_from(new_item, item_map, status)
+    def refresh_from(self, context: WorkbookPushContext, new_item, item_map: ItemMap, status: Status):
+        super().refresh_from(context, new_item, item_map, status)
 
         self.annotation_type = new_item.annotation_type
         # Note that we purposefully don't touch the worksheet reference, since it will have stayed the same
@@ -204,6 +202,7 @@ class Annotation(Item):
                 request_url = api_client_url + query_params
 
                 self.images[(annotation_id, image_id)] = _login.pull_image(session, request_url)
+                status.log(f'Succeeded to download image file {image_id} for annotation {annotation_id}')
 
         return annotation_output
 
@@ -253,7 +252,8 @@ class Annotation(Item):
         else:
             relevant_annotation = relevant_annotations[0]
 
-        item_map[self.id] = relevant_annotation.id
+        if context.mode != WorkbookPushMode.IN_PLACE_DATASOURCE_SWAP or self.id != relevant_annotation.id:
+            item_map[self.id] = relevant_annotation.id
 
         html = self._push_specific(context, item_map, datasource_output, label, new_annotation, relevant_annotation,
                                    access_control)
@@ -262,13 +262,13 @@ class Annotation(Item):
         # template
         images_map = dict()
 
-        # We add a prefix to existing image references in the HTML so that we can handle cases where
-        # the names that are picked by "POST /annotations/{id}/images" overlap with existing names and would
-        # otherwise cause the find & replace that happens later to be non-deterministic
-        image_prefix = 'ToBeMapped_'
-
         if push_images:
-            item_map[f'Images for {self.id}'] = images_map
+            # We add a prefix to existing image references in the HTML so that we can handle cases where
+            # the names that are picked by "POST /annotations/{id}/images" overlap with existing names and would
+            # otherwise cause the find & replace that happens later to be non-deterministic
+            image_prefix = 'ToBeMapped_'
+
+            item_map.image_mappings[self.id] = images_map
 
             for _, annotation_id, image_id in Annotation._find_image_references(html):
                 api_client_url = session.get_api_url()
@@ -303,10 +303,8 @@ class Annotation(Item):
 
                 else:
                     status.log(f'[Dry Run] Would upload image file {image_id} for worksheet {pushed_parent_id}')
-        else:
-            images_map = item_map[f'Images for {self.id}']
 
-        html = re.sub(r'src="(/api/annotations/.*?/images/)(.*?)"', rf'src="\1{image_prefix}\2"', html)
+            html = re.sub(r'src="(/api/annotations/.*?/images/)(.*?)"', rf'src="\1{image_prefix}\2"', html)
 
         bs = BeautifulSoup(html, features='html.parser')
         find_result = bs.find_all(['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'title'])
@@ -328,7 +326,8 @@ class Annotation(Item):
 
         original_server_url = _common.get(self._get_parent_workbook(), 'Original Server URL')
         new_server_url = _item.get_canonical_server_url(session)
-        if original_server_url is not None and new_server_url is not None:
+        if (original_server_url is not None and new_server_url is not None and
+                original_server_url != new_server_url):
             item_map[original_server_url] = new_server_url
 
         new_annotation.name = name if len(name.strip()) > 0 else 'Unnamed'
@@ -352,48 +351,53 @@ class Annotation(Item):
             new_annotation.interests.append(new_interest)
 
         new_annotation.created_by_id = relevant_annotation.created_by.id
-        safely(lambda: annotations_api.update_annotation(id=relevant_annotation.id, body=new_annotation),
-               action_description=f'update Annotation {new_annotation.type} {relevant_annotation.id} for '
-                                  f'pushed parent {pushed_parent_id}',
-               status=status, additional_errors=[400], dry_run=context.dry_run)
 
-        # Annotations have a lot of properties that are managed by Appserver and shouldn't be pushed. We need to push
-        # only a small, curated set that are actually configuration items on the Topic Document.
-        properties_to_push = [
-            SeeqNames.Properties.margin_top,
-            SeeqNames.Properties.margin_bottom,
-            SeeqNames.Properties.margin_left,
-            SeeqNames.Properties.margin_right,
-            SeeqNames.Properties.orientation,
-            SeeqNames.Properties.page_size,
-            SeeqNames.Properties.is_fixed_with,
-            SeeqNames.Properties.discoverable,
-            SeeqNames.Properties.timezone,
-            SeeqNames.Properties.is_ck_enabled
-        ]
-
-        added_or_updated_properties = [ScalarPropertyV1(name=k, value=v)
-                                       for k, v in self.definition_dict.items()
-                                       if k in properties_to_push and v is not None]
-
-        deleted_properties = [ScalarPropertyV1(name=k, value=v)
-                              for k, v in self.definition_dict.items()
-                              if k in properties_to_push and v is None]
-
-        if len(added_or_updated_properties) > 0:
-            safely(lambda: items_api.set_properties(id=relevant_annotation.id, body=added_or_updated_properties),
-                   action_description=f'set properties for Annotation {relevant_annotation.id}',
+        if context.mode == WorkbookPushMode.IN_PLACE_DATASOURCE_SWAP and html == self.html:
+            status.log(f'No HTML changes for {self} -- skipping')
+        else:
+            safely(lambda: annotations_api.update_annotation(id=relevant_annotation.id, body=new_annotation),
+                   action_description=f'update Annotation {new_annotation.type} {relevant_annotation.id} for '
+                                      f'pushed parent {pushed_parent_id}',
                    status=status, additional_errors=[400], dry_run=context.dry_run)
 
-        if len(deleted_properties) > 0:
-            for deleted_property in deleted_properties:
-                safely(lambda: items_api.delete_property(id=relevant_annotation.id,
-                                                         property_name=deleted_property.name),
-                       action_description=f'delete property {deleted_property.name} '
-                                          f'for Annotation {relevant_annotation.id}',
+            # Annotations have a lot of properties that are managed by Appserver and shouldn't be pushed. We need to
+            # push only a small, curated set that are actually configuration items on the Topic Document.
+            properties_to_push = [
+                SeeqNames.Properties.margin_top,
+                SeeqNames.Properties.margin_bottom,
+                SeeqNames.Properties.margin_left,
+                SeeqNames.Properties.margin_right,
+                SeeqNames.Properties.orientation,
+                SeeqNames.Properties.page_size,
+                SeeqNames.Properties.is_fixed_with,
+                SeeqNames.Properties.discoverable,
+                SeeqNames.Properties.timezone,
+                SeeqNames.Properties.is_ck_enabled
+            ]
+
+            added_or_updated_properties = [ScalarPropertyV1(name=k, value=v)
+                                           for k, v in self.definition_dict.items()
+                                           if k in properties_to_push and v is not None]
+
+            deleted_properties = [ScalarPropertyV1(name=k, value=v)
+                                  for k, v in self.definition_dict.items()
+                                  if k in properties_to_push and v is None]
+
+            if len(added_or_updated_properties) > 0:
+                safely(lambda: items_api.set_properties(id=relevant_annotation.id, body=added_or_updated_properties),
+                       action_description=f'set properties for Annotation {relevant_annotation.id}',
                        status=status, additional_errors=[400], dry_run=context.dry_run)
 
-        item_map[f'{FIXUP_PREFIX} - {self.id}'] = types.SimpleNamespace(id=relevant_annotation.id, body=new_annotation)
+            if len(deleted_properties) > 0:
+                for deleted_property in deleted_properties:
+                    safely(lambda: items_api.delete_property(id=relevant_annotation.id,
+                                                             property_name=deleted_property.name),
+                           action_description=f'delete property {deleted_property.name} '
+                                              f'for Annotation {relevant_annotation.id}',
+                           status=status, additional_errors=[400], dry_run=context.dry_run)
+
+        context.annotations_to_fixup[relevant_annotation.id] = types.SimpleNamespace(id=relevant_annotation.id,
+                                                                                     body=new_annotation)
 
     @staticmethod
     def push_fixups(context: WorkbookPushContext, item_map: ItemMap):
@@ -401,16 +405,14 @@ class Annotation(Item):
         status = context.status
         annotations_api = AnnotationsApi(session.client)
 
-        for key in item_map.keys():
-            if not key.startswith(FIXUP_PREFIX):
+        for annotation in context.annotations_to_fixup.values():
+            new_html = item_map.replace_items(annotation.body.document)
+            if new_html == annotation.body.document:
                 continue
 
-            annotation = item_map[key]
-
-            annotation.body.document = _item.replace_items(annotation.body.document, item_map)
-
+            annotation.body.document = new_html
             safely(lambda: annotations_api.update_annotation(id=annotation.id, body=annotation.body),
-                   action_description=f'fixup Annotation {annotation.id}',
+                   action_description=f'fixup {annotation.body.type} {annotation.id}',
                    status=status, additional_errors=[400], dry_run=context.dry_run)
 
     def _replace_items_in_html(self, item_map: ItemMap, html):
@@ -419,11 +421,11 @@ class Annotation(Item):
         # workbook/worksheet they're associated with. When pulling, we accommodate this by pulling a Workstep and
         # associating it with the "proper" Worksheet object, but then during push we have to fix up the links in case
         # the "original" workbook/worksheet wasn't included in the workbooks to be pushed.
-        workstep_map = _common.get(item_map, self._parent.item_map_worksteps_key())
+        workstep_map = item_map.workstep_mappings.get(self._parent.id)
         if workstep_map:
             html = _item.replace_items(html, workstep_map)
 
-        html = _item.replace_items(html, item_map)
+        html = item_map.replace_items(html)
 
         return html
 
@@ -802,7 +804,8 @@ class Report(Annotation):
         return recipient_dicts
 
     @staticmethod
-    def _refresh_child_dict(existing_item_dict: dict, new_item_dict: dict, item_map: ItemMap, status: Status):
+    def _refresh_child_dict(existing_item_dict: dict, new_item_dict: dict, item_map: ItemMap, status: Status,
+                            context: WorkbookPushContext):
         items = list(existing_item_dict.items())
         for _original_id, existing_item in items:
             if existing_item.id not in item_map or item_map[existing_item.id] not in new_item_dict:
@@ -818,14 +821,14 @@ class Report(Annotation):
             existing_item_dict[new_item_id] = existing_item
 
             # Refresh item itself
-            existing_item.refresh_from(new_item, item_map, status)
+            existing_item.refresh_from(context, new_item, item_map, status)
 
-    def refresh_from(self, new_item, item_map: ItemMap, status: Status):
-        super().refresh_from(new_item, item_map, status)
+    def refresh_from(self, context: WorkbookPushContext, new_item, item_map: ItemMap, status: Status):
+        super().refresh_from(context, new_item, item_map, status)
 
-        Report._refresh_child_dict(self.date_ranges, new_item.date_ranges, item_map, status)
-        Report._refresh_child_dict(self.asset_selections, new_item.asset_selections, item_map, status)
-        Report._refresh_child_dict(self.content, new_item.content, item_map, status)
+        Report._refresh_child_dict(self.date_ranges, new_item.date_ranges, item_map, status, context)
+        Report._refresh_child_dict(self.asset_selections, new_item.asset_selections, item_map, status, context)
+        Report._refresh_child_dict(self.content, new_item.content, item_map, status, context)
 
         self.schedule = new_item.schedule
 
@@ -865,19 +868,22 @@ class Report(Annotation):
         # and asset selections here already have the correct reportIds attached.
         optional_report = OptionalReportInputV1(enabled=False, cron_schedule=None)
 
+        # This push has custom error handling so always use errors='raise'
+        inner_status = status.create_inner(f'Pushing Report components', errors='raise')
+
         def _push_it(_item_type, _item_dict, _existing, _ids_to_archive):
             for _item_object in _item_dict.values():  # type: Union[DateRange, AssetSelection, Content]
                 try:
                     if not context.dry_run:
-                        # This push has custom error handling so always use errors='raise'
-                        _item_output = _item_object.push(session, item_map, _existing, status=Status(errors='raise'))
+                        _item_output = _item_object.push(
+                            context, session, item_map, _existing, status=inner_status)
                         status.log(f'Pushed {_item_object} to {_item_output.id}')
                         if _item_output.id in _ids_to_archive:
                             _ids_to_archive.remove(_item_output.id)
                     else:
                         status.log(f'[Dry Run] Would push {_item_object}')
                 except ApiException as e:
-                    getattr(self._get_parent_workbook(), '_push_context').status.on_error(
+                    status.on_error(
                         f'Error processing {_item_type}: {_item_object}\n{_common.format_exception(e)}')
 
         _push_it('Date Range', self.date_ranges, existing_date_ranges, date_range_ids_to_archive)
@@ -1103,8 +1109,8 @@ class Report(Annotation):
             return set()
 
         content_dict = self.content
-        if item_map is not None and f'Content for {self.id}' in item_map:
-            content_dict = item_map[f'Content for {self.id}']
+        if item_map is not None and self.id in item_map.content_mappings:
+            content_dict = item_map.content_mappings[self.id]
 
         workstep_references = set()
         for content in content_dict.values():

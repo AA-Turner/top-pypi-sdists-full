@@ -25,6 +25,26 @@ class FeatureMetadataServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_feature__metadata__pb2.FeatureMigrateTypeRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_feature__metadata__pb2.FeatureMigrateTypeResponse.FromString,
         )
+        self.DeleteFeatureObservations = channel.unary_unary(
+            "/chalk.server.v1.FeatureMetadataService/DeleteFeatureObservations",
+            request_serializer=chalk_dot_server_dot_v1_dot_feature__metadata__pb2.DeleteFeatureObservationsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_feature__metadata__pb2.DeleteFeatureObservationsResponse.FromString,
+        )
+        self.GetIncrementalProgress = channel.unary_unary(
+            "/chalk.server.v1.FeatureMetadataService/GetIncrementalProgress",
+            request_serializer=chalk_dot_server_dot_v1_dot_feature__metadata__pb2.GetIncrementalProgressRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_feature__metadata__pb2.GetIncrementalProgressResponse.FromString,
+        )
+        self.SetIncrementalProgress = channel.unary_unary(
+            "/chalk.server.v1.FeatureMetadataService/SetIncrementalProgress",
+            request_serializer=chalk_dot_server_dot_v1_dot_feature__metadata__pb2.SetIncrementalProgressRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_feature__metadata__pb2.SetIncrementalProgressResponse.FromString,
+        )
+        self.DeleteIncrementalProgress = channel.unary_unary(
+            "/chalk.server.v1.FeatureMetadataService/DeleteIncrementalProgress",
+            request_serializer=chalk_dot_server_dot_v1_dot_feature__metadata__pb2.DeleteIncrementalProgressRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_feature__metadata__pb2.DeleteIncrementalProgressResponse.FromString,
+        )
 
 
 class FeatureMetadataServiceServicer(object):
@@ -42,6 +62,30 @@ class FeatureMetadataServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def DeleteFeatureObservations(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetIncrementalProgress(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def SetIncrementalProgress(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def DeleteIncrementalProgress(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_FeatureMetadataServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -54,6 +98,26 @@ def add_FeatureMetadataServiceServicer_to_server(servicer, server):
             servicer.FeatureMigrateType,
             request_deserializer=chalk_dot_server_dot_v1_dot_feature__metadata__pb2.FeatureMigrateTypeRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_feature__metadata__pb2.FeatureMigrateTypeResponse.SerializeToString,
+        ),
+        "DeleteFeatureObservations": grpc.unary_unary_rpc_method_handler(
+            servicer.DeleteFeatureObservations,
+            request_deserializer=chalk_dot_server_dot_v1_dot_feature__metadata__pb2.DeleteFeatureObservationsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_feature__metadata__pb2.DeleteFeatureObservationsResponse.SerializeToString,
+        ),
+        "GetIncrementalProgress": grpc.unary_unary_rpc_method_handler(
+            servicer.GetIncrementalProgress,
+            request_deserializer=chalk_dot_server_dot_v1_dot_feature__metadata__pb2.GetIncrementalProgressRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_feature__metadata__pb2.GetIncrementalProgressResponse.SerializeToString,
+        ),
+        "SetIncrementalProgress": grpc.unary_unary_rpc_method_handler(
+            servicer.SetIncrementalProgress,
+            request_deserializer=chalk_dot_server_dot_v1_dot_feature__metadata__pb2.SetIncrementalProgressRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_feature__metadata__pb2.SetIncrementalProgressResponse.SerializeToString,
+        ),
+        "DeleteIncrementalProgress": grpc.unary_unary_rpc_method_handler(
+            servicer.DeleteIncrementalProgress,
+            request_deserializer=chalk_dot_server_dot_v1_dot_feature__metadata__pb2.DeleteIncrementalProgressRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_feature__metadata__pb2.DeleteIncrementalProgressResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -114,6 +178,122 @@ class FeatureMetadataService(object):
             "/chalk.server.v1.FeatureMetadataService/FeatureMigrateType",
             chalk_dot_server_dot_v1_dot_feature__metadata__pb2.FeatureMigrateTypeRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_feature__metadata__pb2.FeatureMigrateTypeResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def DeleteFeatureObservations(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.FeatureMetadataService/DeleteFeatureObservations",
+            chalk_dot_server_dot_v1_dot_feature__metadata__pb2.DeleteFeatureObservationsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_feature__metadata__pb2.DeleteFeatureObservationsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetIncrementalProgress(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.FeatureMetadataService/GetIncrementalProgress",
+            chalk_dot_server_dot_v1_dot_feature__metadata__pb2.GetIncrementalProgressRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_feature__metadata__pb2.GetIncrementalProgressResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def SetIncrementalProgress(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.FeatureMetadataService/SetIncrementalProgress",
+            chalk_dot_server_dot_v1_dot_feature__metadata__pb2.SetIncrementalProgressRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_feature__metadata__pb2.SetIncrementalProgressResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def DeleteIncrementalProgress(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.FeatureMetadataService/DeleteIncrementalProgress",
+            chalk_dot_server_dot_v1_dot_feature__metadata__pb2.DeleteIncrementalProgressRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_feature__metadata__pb2.DeleteIncrementalProgressResponse.FromString,
             options,
             channel_credentials,
             insecure,

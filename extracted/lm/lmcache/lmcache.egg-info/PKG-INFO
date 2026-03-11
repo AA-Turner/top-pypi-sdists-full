@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lmcache
-Version: 0.3.15
+Version: 0.4.0
 Summary: A LLM serving engine extension to reduce TTFT and increase throughput, especially under long-context scenarios.
 Author-email: LMCache Team <lmcacheteam@gmail.com>
 License-Expression: Apache-2.0
@@ -34,6 +34,7 @@ Requires-Dist: httpx
 Requires-Dist: msgspec
 Requires-Dist: nixl; python_version < "3.13"
 Requires-Dist: numpy<=2.2.6
+Requires-Dist: numba
 Requires-Dist: nvtx
 Requires-Dist: prometheus_client>=0.18.0
 Requires-Dist: psutil

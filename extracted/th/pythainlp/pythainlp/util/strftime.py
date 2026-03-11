@@ -1,14 +1,16 @@
-# -*- coding: utf-8 -*-
-# SPDX-FileCopyrightText: 2016-2025 PyThaiNLP Project
+# SPDX-FileCopyrightText: 2016-2026 PyThaiNLP Project
 # SPDX-FileType: SOURCE
 # SPDX-License-Identifier: Apache-2.0
-"""
-Thai date/time formatting.
-"""
+"""Thai date/time formatting."""
+
+from __future__ import annotations
 
 import warnings
-from datetime import datetime
 from string import digits
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from datetime import datetime
 
 from pythainlp import thai_digits
 from pythainlp.util.date import (
@@ -18,25 +20,23 @@ from pythainlp.util.date import (
     thai_full_weekdays,
 )
 
-__all__ = [
+__all__: list[str] = [
     "thai_strftime",
 ]
 
-_HA_TH_DIGITS = str.maketrans(digits, thai_digits)
-_BE_AD_DIFFERENCE = 543
+_HA_TH_DIGITS: dict[int, int] = str.maketrans(digits, thai_digits)
+_BE_AD_DIFFERENCE: int = 543
 
-_NEED_L10N = "AaBbCcDFGgvXxYy+"  # flags that need localization
-_EXTENSIONS = "EO-_0^#"  # extension flags
+_NEED_L10N: str = "AaBbCcDFGgvXxYy+"  # flags that need localization
+_EXTENSIONS: str = "EO-_0^#"  # extension flags
 
 
 def _std_strftime(dt_obj: datetime, fmt_char: str) -> str:
-    """
-    Standard datetime.strftime() with normalization and exception handling.
-    """
+    """Standard datetime.strftime() with normalization and exception handling."""
     str_ = ""
     try:
         str_ = dt_obj.strftime(f"%{fmt_char}")
-        if not str_ or str_ == "%{}".format(fmt_char):
+        if not str_ or str_ == f"%{fmt_char}":
             # Normalize outputs for unsupported directives
             # in different platforms:
             # "%Q" may result "", "%Q", or "Q", make it all "Q"
@@ -50,15 +50,15 @@ def _std_strftime(dt_obj: datetime, fmt_char: str) -> str:
                 f"The system raises this ValueError: {err}\n"
                 f"Continue working without the directive."
             ),
-            UserWarning,
+            category=UserWarning,
+            stacklevel=2,
         )
         str_ = fmt_char
     return str_
 
 
 def _thai_strftime(dt_obj: datetime, fmt_char: str) -> str:
-    """
-    Conversion support for thai_strftime().
+    """Conversion support for thai_strftime().
 
     The fmt_char should be in _NEED_L10N when calling this function.
     """
@@ -114,21 +114,13 @@ def _thai_strftime(dt_obj: datetime, fmt_char: str) -> str:
         ).zfill(2)
     elif fmt_char == "v":
         # BSD extension, ' 6-Oct-1976'
-        str_ = "{:>2}-{}-{}".format(
-            dt_obj.day,
-            thai_abbr_months[dt_obj.month - 1],
-            str(dt_obj.year + _BE_AD_DIFFERENCE).zfill(4),
-        )
+        str_ = f"{dt_obj.day:>2}-{thai_abbr_months[dt_obj.month - 1]}-{str(dt_obj.year + _BE_AD_DIFFERENCE).zfill(4)}"
     elif fmt_char == "X":
         # Locale’s appropriate time representation.
         str_ = dt_obj.strftime("%H:%M:%S")
     elif fmt_char == "x":
         # Locale’s appropriate date representation.
-        str_ = "{}/{}/{}".format(
-            str(dt_obj.day).zfill(2),
-            str(dt_obj.month).zfill(2),
-            str(dt_obj.year + _BE_AD_DIFFERENCE).zfill(4),
-        )
+        str_ = f"{str(dt_obj.day).zfill(2)}/{str(dt_obj.month).zfill(2)}/{str(dt_obj.year + _BE_AD_DIFFERENCE).zfill(4)}"
     elif fmt_char == "Y":
         # Year with century
         str_ = (str(dt_obj.year + _BE_AD_DIFFERENCE)).zfill(4)
@@ -159,8 +151,7 @@ def thai_strftime(
     fmt: str = "%-d %b %y",
     thaidigit: bool = False,
 ) -> str:
-    """
-    Convert :class:`datetime.datetime` into Thai date and time format.
+    """Convert :class:`datetime.datetime` into Thai date and time format.
 
     The formatting directives are similar to :func:`datatime.strrftime`.
 
@@ -198,7 +189,7 @@ def thai_strftime(
 
         * Python
           https://docs.python.org/3/library/datetime.html#strftime-strptime-behavior
-        * C http://www.cplusplus.com/reference/ctime/strftime/
+        * C https://en.cppreference.com/w/cpp/chrono/c/strftime
         * GNU https://metacpan.org/pod/POSIX::strftime::GNU
         * Linux https://linux.die.net/man/3/strftime
         * OpenBSD https://man.openbsd.org/strftime.3
@@ -207,7 +198,7 @@ def thai_strftime(
           https://developer.apple.com/library/archive/documentation/System/Conceptual/ManPages_iPhoneOS/man3/strftime.3.html
         * PHP https://secure.php.net/manual/en/function.strftime.php
         * JavaScript's implementation https://github.com/samsonjs/strftime
-        * strftime() quick reference http://www.strftime.net/
+        * strftime() quick reference https://strftime.net/
 
     :param datetime dt_obj: an instantiatetd object of
                             :mod:`datetime.datetime`

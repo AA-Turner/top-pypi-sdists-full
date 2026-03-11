@@ -50,6 +50,16 @@ class GraphServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_graph__pb2.TestGraphMutationsRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_graph__pb2.TestGraphMutationsResponse.FromString,
         )
+        self.GetDataLineageIndex = channel.unary_unary(
+            "/chalk.server.v1.GraphService/GetDataLineageIndex",
+            request_serializer=chalk_dot_server_dot_v1_dot_graph__pb2.GetDataLineageIndexRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_graph__pb2.GetDataLineageIndexResponse.FromString,
+        )
+        self.GetOfflineStoreTable = channel.unary_unary(
+            "/chalk.server.v1.GraphService/GetOfflineStoreTable",
+            request_serializer=chalk_dot_server_dot_v1_dot_graph__pb2.GetOfflineStoreTableRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_graph__pb2.GetOfflineStoreTableResponse.FromString,
+        )
 
 
 class GraphServiceServicer(object):
@@ -99,6 +109,18 @@ class GraphServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def GetDataLineageIndex(self, request, context):
+        """GetDataLineageIndex returns a mapping of resolver names to their data lineage information"""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetOfflineStoreTable(self, request, context):
+        """GetOfflineStoreTable returns the offline store table names for a feature"""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_GraphServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -136,6 +158,16 @@ def add_GraphServiceServicer_to_server(servicer, server):
             servicer.TestGraphMutations,
             request_deserializer=chalk_dot_server_dot_v1_dot_graph__pb2.TestGraphMutationsRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_graph__pb2.TestGraphMutationsResponse.SerializeToString,
+        ),
+        "GetDataLineageIndex": grpc.unary_unary_rpc_method_handler(
+            servicer.GetDataLineageIndex,
+            request_deserializer=chalk_dot_server_dot_v1_dot_graph__pb2.GetDataLineageIndexRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_graph__pb2.GetDataLineageIndexResponse.SerializeToString,
+        ),
+        "GetOfflineStoreTable": grpc.unary_unary_rpc_method_handler(
+            servicer.GetOfflineStoreTable,
+            request_deserializer=chalk_dot_server_dot_v1_dot_graph__pb2.GetOfflineStoreTableRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_graph__pb2.GetOfflineStoreTableResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.server.v1.GraphService", rpc_method_handlers)
@@ -339,6 +371,64 @@ class GraphService(object):
             "/chalk.server.v1.GraphService/TestGraphMutations",
             chalk_dot_server_dot_v1_dot_graph__pb2.TestGraphMutationsRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_graph__pb2.TestGraphMutationsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetDataLineageIndex(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.GraphService/GetDataLineageIndex",
+            chalk_dot_server_dot_v1_dot_graph__pb2.GetDataLineageIndexRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_graph__pb2.GetDataLineageIndexResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetOfflineStoreTable(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.GraphService/GetOfflineStoreTable",
+            chalk_dot_server_dot_v1_dot_graph__pb2.GetOfflineStoreTableRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_graph__pb2.GetOfflineStoreTableResponse.FromString,
             options,
             channel_credentials,
             insecure,

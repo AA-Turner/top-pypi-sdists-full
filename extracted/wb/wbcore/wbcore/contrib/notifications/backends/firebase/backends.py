@@ -29,7 +29,7 @@ class NotificationBackend(AbstractNotificationBackend):
         return Certificate(certificate)
 
     @classmethod
-    def send_notification(cls, notification: Notification):
+    def send_mobile_notification(cls, notification: Notification):
         app = cls.get_firebase_app(cls.get_firebase_credentials())
         notification_user_setting = notification.notification_type.get_setting_for_user(notification.user)
         tokens = NotificationUserToken.objects.filter_for_user_settings(notification_user_setting)
@@ -69,7 +69,18 @@ class NotificationBackend(AbstractNotificationBackend):
                 expired_tokens.append(token)
             except InvalidArgumentError:  # this happens if the body is too big for the mobile push
                 pass
+        for expired_token in expired_tokens:
+            expired_token.delete()
 
+    @classmethod
+    def send_web_notification(cls, notification: Notification):
+        app = cls.get_firebase_app(cls.get_firebase_credentials())
+        notification_user_setting = notification.notification_type.get_setting_for_user(notification.user)
+        tokens = NotificationUserToken.objects.filter_for_user_settings(notification_user_setting)
+        endpoint_data = {}  # Firebase can't accept non-string value
+        if full_endpoint := notification.get_full_endpoint():
+            endpoint_data["endpoint"] = full_endpoint
+        expired_tokens = []
         for token in tokens.filter(device_type=NotificationUserToken.NotificationDeviceType.WEB):
             data = {
                 "title": notification.title,

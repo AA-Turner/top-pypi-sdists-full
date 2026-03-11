@@ -1,14 +1,17 @@
+from __future__ import annotations
+
 import copy
 import csv
 import hashlib
 import json
 import os
 from dataclasses import dataclass, field
-from typing import Any, List, Optional, Dict, Set
+from typing import Any, List, Optional, Dict, Set, Tuple
 
 import pandas as pd
 
 from seeq.base import util
+from seeq.sdk import *
 from seeq.spy import _common
 from seeq.spy._errors import *
 from seeq.spy._session import Session
@@ -29,6 +32,9 @@ class DatasourceMapList:
 
     def __len__(self):
         return self._maps.__len__()
+
+    def __repr__(self):
+        return self._maps.__repr__()
 
     def _find(self, datasource_class: str, datasource_id: str) -> int:
         for i in range(len(self._maps)):
@@ -76,6 +82,11 @@ class DatasourceMapList:
         return DatasourceMapList(copy.deepcopy(self._maps))
 
 
+class WorkbookPushMode:
+    NORMAL = 'normal'
+    IN_PLACE_DATASOURCE_SWAP = 'in-place datasource swap'
+
+
 @dataclass
 class WorkbookPushContext:
     access_control: Optional[str]
@@ -91,8 +102,14 @@ class WorkbookPushContext:
     pushed_inventory: Optional[Dict[str, pd.DataFrame]]
     status: Status
     dry_run: bool
+    mode: str = WorkbookPushMode.NORMAL
     datasource_maps: Optional[DatasourceMapList] = None
+    datasource_id_cache: Dict[Tuple[str, str], str] = field(default_factory=dict)
     failed_mappings: Set[str] = field(default_factory=set)
+    errors_displayed_count: int = 0
+    annotations_to_fixup: Dict[str, Any] = field(default_factory=dict)
+    all_users: Optional[List[UserOutputV1]] = None
+    all_groups: Optional[List[IdentityPreviewV1]] = None
 
     def add_server_scoped_item_level_map_files(self, datasource_map_list: DatasourceMapList):
         # These "server-scoped item-level map files" serve as a sort of cache, one that
@@ -168,3 +185,46 @@ class WorkbookPushContext:
 
         self.status.log(f'Appended item-level mapping to {os.path.basename(server_scoped_filename)}: '
                         f'{source_item.id} -> {destination_item.id}')
+
+    def fetch_all_users(self):
+        if self.all_users is not None:
+            return
+
+        users_api = UsersApi(self.session.client)
+
+        offset = 0
+        limit = 10_000
+        self.all_users = list()
+        auth_providers_dict = {p.name: p for p in self.session.auth_providers}
+        while True:
+            user_output_list = users_api.get_users(offset=offset, limit=limit)
+
+            # UserOutputV1 doesn't have a datasource sub-object, but it's much easier
+            # to treat Users and Groups similarly if we just plant it there anyways
+            for user_output in user_output_list.users:  # type: UserOutputV1
+                setattr(user_output, 'datasource', auth_providers_dict[user_output.datasource_name])
+
+            self.all_users.extend(user_output_list.users)
+
+            if len(user_output_list.users) < limit:
+                break
+
+            offset += limit
+
+    def fetch_all_groups(self):
+        if self.all_groups is not None:
+            return
+
+        user_groups_api = UserGroupsApi(self.session.client)
+
+        offset = 0
+        limit = 10_000
+        self.all_groups = list()
+        while True:
+            identity_preview_list = user_groups_api.get_user_groups(offset=offset, limit=limit)
+            self.all_groups.extend(identity_preview_list.items)
+
+            if len(identity_preview_list.items) < limit:
+                break
+
+            offset += limit

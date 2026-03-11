@@ -1,15 +1,15 @@
-# -*- coding: utf-8 -*-
-# SPDX-FileCopyrightText: 2016-2025 PyThaiNLP Project
+# SPDX-FileCopyrightText: 2016-2026 PyThaiNLP Project
 # SPDX-FileType: SOURCE
 # SPDX-License-Identifier: Apache-2.0
-"""
-Corpus related functions.
+"""Corpus related functions.
 
 Access to dictionaries, word lists, and language models.
 Including download manager.
 """
 
-__all__ = [
+from __future__ import annotations
+
+__all__: list[str] = [
     "corpus_db_path",
     "corpus_db_url",
     "corpus_path",
@@ -34,6 +34,7 @@ __all__ = [
     "thai_male_names",
     "thai_negations",
     "thai_orst_words",
+    "thai_profanity_words",
     "thai_stopwords",
     "thai_syllables",
     "thai_synonym",
@@ -51,47 +52,35 @@ from pythainlp.tools import get_full_data_path, get_pythainlp_path
 
 # Remote and local corpus databases
 
-_CORPUS_DIRNAME = "corpus"
-_CORPUS_PATH = os.path.join(get_pythainlp_path(), _CORPUS_DIRNAME)
-_CHECK_MODE = os.getenv("PYTHAINLP_READ_MODE")
-
-# URL of remote corpus catalog
-_CORPUS_DB_URL = "https://pythainlp.org/pythainlp-corpus/db.json"
+_CORPUS_DIRNAME: str = "corpus"
+_CORPUS_PATH: str = os.path.join(get_pythainlp_path(), _CORPUS_DIRNAME)
+_CORPUS_DB_URL: str = "https://pythainlp.org/pythainlp-corpus/db.json"
 
 # filename of local corpus catalog
-_CORPUS_DB_FILENAME = "db.json"
+_CORPUS_DB_FILENAME: str = "db.json"
 
 # full path of local corpus catalog
-_CORPUS_DB_PATH = get_full_data_path(_CORPUS_DB_FILENAME)
-
-# create a local corpus database if it does not already exist
-if not os.path.exists(_CORPUS_DB_PATH) and _CHECK_MODE != "1":
-    with open(_CORPUS_DB_PATH, "w", encoding="utf-8") as f:
-        f.write(r'{"_default": {}}')
+_CORPUS_DB_PATH: str = get_full_data_path(_CORPUS_DB_FILENAME)
 
 
 def corpus_path() -> str:
-    """
-    Get path where corpus files are kept locally.
-    """
+    """Get path where corpus files are kept locally."""
     return _CORPUS_PATH
 
 
 def corpus_db_url() -> str:
-    """
-    Get remote URL of corpus catalog.
-    """
+    """Get remote URL of corpus catalog."""
     return _CORPUS_DB_URL
 
 
 def corpus_db_path() -> str:
-    """
-    Get local path of corpus catalog.
-    """
+    """Get local path of corpus catalog."""
     return _CORPUS_DB_PATH
 
 
-from pythainlp.corpus.core import (
+# DO NOT REORDER these pythainlp.corpus.core imports.
+# These imports must come before other pythainlp.corpus.* imports
+from pythainlp.corpus.core import (  # noqa: I001
     download,
     get_corpus,
     get_corpus_as_is,
@@ -99,12 +88,12 @@ from pythainlp.corpus.core import (
     get_corpus_db_detail,
     get_corpus_default_db,
     get_corpus_path,
+    get_hf_hub,
     get_path_folder_corpus,
     make_safe_directory_name,
-    get_hf_hub,
     path_pythainlp_corpus,
     remove,
-)  # these imports must come before other pythainlp.corpus.* imports
+)
 from pythainlp.corpus.common import (
     countries,
     find_synonyms,
@@ -115,6 +104,7 @@ from pythainlp.corpus.common import (
     thai_male_names,
     thai_negations,
     thai_orst_words,
+    thai_profanity_words,
     thai_stopwords,
     thai_syllables,
     thai_synonym,

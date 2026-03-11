@@ -42,7 +42,7 @@ def _get_print_format(fmt, max_name, max_pattern, max_view, max_method):
 
     for index, col in enumerate(fmt):
         size = max_map[col] + PAD
-        print_fmt += '{{%s: <{%s}}} ' % (col, index)
+        print_fmt += f'{{{{{col}: <{{{index}}}}}}} '
         sizes.append(size)
 
     return print_fmt.format(*sizes)
@@ -103,7 +103,7 @@ def _get_view_module(view_callable):
 
         if isinstance(original_view, static_view):
             if original_view.package_name is not None:
-                return '%s:%s' % (
+                return '{}:{}'.format(
                     original_view.package_name,
                     original_view.docroot,
                 )
@@ -117,7 +117,7 @@ def _get_view_module(view_callable):
         # for them and remove this logic
         view_name = str(view_callable)
 
-    view_module = '%s.%s' % (view_callable.__module__, view_name)
+    view_module = f'{view_callable.__module__}.{view_name}'
 
     # If pyramid wraps something in wsgiapp or wsgiapp2 decorators
     # that is currently returned as pyramid.router.decorator, lets
@@ -171,7 +171,7 @@ def get_route_data(route, registry):
                 if request_method is not None:
                     if view.get('attr') is not None:
                         view_callable = getattr(view['callable'], view['attr'])
-                        view_module = '%s.%s' % (
+                        view_module = '{}.{}'.format(
                             _get_view_module(view['callable']),
                             view['attr'],
                         )
@@ -224,6 +224,7 @@ class PRoutesCommand:
     will be assumed.  Example: 'proutes myapp.ini'.
 
     """
+    script_name = 'proutes'
     bootstrap = staticmethod(bootstrap)  # testing
     get_config_loader = staticmethod(get_config_loader)  # testing
     stdout = sys.stdout
@@ -316,6 +317,7 @@ class PRoutesCommand:
 
         config_uri = self.args.config_uri
         config_vars = parse_vars(self.args.config_vars)
+        config_vars.setdefault('__script__', self.script_name)
         loader = self.get_config_loader(config_uri)
         loader.setup_logging(config_vars)
         self.proutes_file_config(loader, config_vars)

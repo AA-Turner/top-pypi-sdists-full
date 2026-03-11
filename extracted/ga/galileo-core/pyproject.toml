@@ -1,6 +1,6 @@
 [project]
 name = "galileo-core"
-version = "3.100.1"
+version = "4.1.0"
 description = "Shared schemas and configuration for Galileo's Python packages."
 authors = [{ name = "Galileo Technologies Inc.", email = "team@rungalileo.io" }]
 readme = "README.md"

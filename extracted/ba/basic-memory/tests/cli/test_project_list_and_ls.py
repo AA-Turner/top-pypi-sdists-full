@@ -29,6 +29,8 @@ def write_config(tmp_path, monkeypatch):
         from basic_memory import config as config_module
 
         config_module._CONFIG_CACHE = None
+        config_module._CONFIG_MTIME = None
+        config_module._CONFIG_SIZE = None
 
         config_dir = tmp_path / ".basic-memory"
         config_dir.mkdir(parents=True, exist_ok=True)
@@ -122,15 +124,16 @@ def test_project_list_shows_local_cloud_presence_and_routes(
     assert "Local Path" in result.stdout
     assert "Cloud Path" in result.stdout
     assert "CLI Route" in result.stdout
-    assert "MCP (stdio)" in result.stdout
+    assert "MCP" in result.stdout
 
     lines = result.stdout.splitlines()
     alpha_line = next(line for line in lines if "│ alpha" in line)
     beta_line = next(line for line in lines if "│ beta" in line)
 
     assert "local" in alpha_line  # CLI route for alpha
+    assert "stdio" in alpha_line  # Local projects use stdio transport
     assert "cloud" in beta_line  # CLI route for beta
-    assert "n/a" in beta_line  # MCP stdio route is unavailable for cloud-only projects
+    assert "https" in beta_line  # Cloud projects use HTTPS transport
     assert "alpha-local" in result.stdout
     assert "/alpha" in result.stdout
     assert "/beta" in result.stdout

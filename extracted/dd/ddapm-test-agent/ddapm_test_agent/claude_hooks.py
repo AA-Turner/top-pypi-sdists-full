@@ -18,6 +18,7 @@ from typing import Dict
 from typing import List
 from typing import Optional
 from typing import Set
+from urllib.parse import urlparse
 
 from aiohttp import ClientSession
 from aiohttp import web
@@ -32,6 +33,15 @@ log = logging.getLogger(__name__)
 
 _HOSTNAME = socket.gethostname()
 _USERNAME = os.environ.get("HOST_USER") or getpass.getuser()
+
+MODEL_CONTEXT_LIMITS: Dict[str, int] = {}  # empty; default fallback handles all models
+
+
+def _get_context_limit(model: str) -> int:
+    """Return the context window size for a given model."""
+    if model in MODEL_CONTEXT_LIMITS:
+        return MODEL_CONTEXT_LIMITS[model]
+    return 200_000  # all current Claude models
 
 
 class PendingToolSpan:
@@ -66,6 +76,11 @@ class SessionState:
         # so they are not matched again when a second SubagentStart fires.
         self.claimed_task_tools: Set[str] = set()
         self.conversation_title: str = ""
+        # Persists across turns so each turn's context_delta reflects growth from
+        # the previous turn's final context size.
+        self.last_known_input_tokens: int = 0
+        # Tracks the time when the permission dialog appeared, so we can compute the elapsed time.
+        self.pending_permission_at_ns: Optional[int] = None
 
 
 _MAX_UINT_64 = (1 << 64) - 1
@@ -144,6 +159,59 @@ def _read_console_output(transcript_path: str) -> str:
         return ""
 
 
+def _extract_intent(tool_name: str, tool_input: Any) -> str:
+    """Extract a concise human-readable intent from tool input."""
+    if not isinstance(tool_input, dict):
+        return ""
+
+    def _g(key: str) -> str:
+        return str(tool_input.get(key, ""))
+
+    if tool_name == "Bash":
+        desc = _g("description")
+        if desc:
+            return desc
+        cmd = _g("command")
+        return cmd[:80] + "..." if len(cmd) > 80 else cmd
+
+    if tool_name in ("Read", "Write", "Edit"):
+        return os.path.basename(_g("file_path"))
+
+    if tool_name == "Glob":
+        return _g("pattern")
+
+    if tool_name == "Grep":
+        pattern = _g("pattern")
+        path = _g("path")
+        if path:
+            return f'"{pattern}" in {os.path.basename(path)}'
+        return f'"{pattern}"'
+
+    if tool_name == "Task":
+        return _g("description")
+
+    if tool_name == "WebFetch":
+        url = _g("url")
+        if url:
+            return urlparse(url).hostname or ""
+        return ""
+
+    if tool_name == "WebSearch":
+        return _g("query")
+
+    if tool_name == "TaskCreate":
+        return _g("subject")
+
+    if tool_name == "TaskUpdate":
+        return _g("status")
+
+    for key in ("description", "query", "pattern", "file_path", "command", "subject"):
+        val = _g(key)
+        if val:
+            return val[:80] + "..." if len(val) > 80 else val
+    return ""
+
+
 class ClaudeHooksAPI:
     """Handler for Claude Code hook events."""
 
@@ -178,6 +246,16 @@ class ClaudeHooksAPI:
             return str(session.agent_span_stack[-1]["span_id"])
         return session.root_span_id
 
+    def _current_span_ref(self, session: SessionState) -> Optional[Dict[str, Any]]:
+        """Return the span dict of the current active agent (top of stack), or root."""
+        if session.agent_span_stack:
+            return session.agent_span_stack[-1].get("_span_ref")
+        return getattr(session, "_root_span_ref", None)
+
+    def _set_hidden_metadata(self, span: Dict[str, Any], **kwargs: Any) -> None:
+        """Merge key-value pairs into span['meta']['metadata']['_dd'], preserving existing values."""
+        span["meta"].setdefault("metadata", {}).setdefault("_dd", {}).update(kwargs)
+
     def _handle_session_start(self, session_id: str, body: Dict[str, Any]) -> None:
         """Handle SessionStart hook event."""
         session = self._get_or_create_session(session_id)
@@ -195,6 +273,13 @@ class ClaudeHooksAPI:
         """
         now_ns = int(time.time() * 1_000_000_000)
         duration = now_ns - session.start_ns
+
+        # Discard any pending permission wait — the turn was interrupted so we don't
+        # want it bleeding into the next turn's accumulated total.
+        session.pending_permission_at_ns = None
+        root_span_ref: Optional[Dict[str, Any]] = getattr(session, "_root_span_ref", None)
+        if root_span_ref is not None and root_span_ref["duration"] == -1:
+            root_span_ref["duration"] = 0
 
         # Finalize any in-progress subagent spans on the stack
         while session.agent_span_stack:
@@ -340,14 +425,26 @@ class ClaudeHooksAPI:
             start_ns = pending.start_ns
             input_value = str(pending.tool_input) if pending.tool_input else ""
             actual_tool_name = pending.tool_name
+            tool_input_dict = pending.tool_input if isinstance(pending.tool_input, dict) else {}
         else:
             span_id = _format_span_id()
             parent_id = self._current_parent_id(session)
             start_ns = now_ns
             input_value = ""
             actual_tool_name = tool_name
+            tool_input_dict = {}
+
+        intent = _extract_intent(actual_tool_name, tool_input_dict)
 
         output_str = str(tool_output)[:4096] if tool_output else ""
+
+        estimated_permission_wait_ms: Optional[int] = None
+        if session.pending_permission_at_ns is not None:
+            estimated_permission_wait_ms = (now_ns - session.pending_permission_at_ns) // 1_000_000
+            session.pending_permission_at_ns = None
+            root_span_ref: Optional[Dict[str, Any]] = getattr(session, "_root_span_ref", None)
+            if root_span_ref is not None and root_span_ref["duration"] == -1:
+                root_span_ref["duration"] = 0
 
         # Check if this Task tool has a deferred agent span to update instead
         deferred = session.deferred_agent_spans.pop(tool_use_id, None)
@@ -363,12 +460,15 @@ class ClaudeHooksAPI:
                 span_links = [link.to_dict() for link in links]
 
             span_ref = deferred.get("_span_ref")
+            context_delta = deferred.get("context_delta")
             if span_ref:
                 # Update the preliminary span in-place
                 span_ref["duration"] = deferred["duration"]
                 span_ref["meta"]["input"] = {"value": input_value}
                 span_ref["meta"]["output"] = {"value": output_str}
                 span_ref["span_links"] = span_links
+                if context_delta:
+                    self._set_hidden_metadata(span_ref, context_delta=context_delta)
             else:
                 # Fallback: no preliminary span — append a new one
                 span = {
@@ -400,6 +500,8 @@ class ClaudeHooksAPI:
                     "metrics": {},
                     "span_links": span_links,
                 }
+                if context_delta:
+                    self._set_hidden_metadata(span, context_delta=context_delta)
                 self._assembled_spans.append(span)
             return
 
@@ -411,11 +513,13 @@ class ClaudeHooksAPI:
             links = self._link_tracker.on_tool_call(tool_use_id, span_id, session.trace_id, parent_id)
             span_links = [link.to_dict() for link in links]
 
+        span_name = f"{actual_tool_name} - {intent}" if intent else actual_tool_name
+
         span = {
             "span_id": span_id,
             "trace_id": session.trace_id,
             "parent_id": parent_id,
-            "name": actual_tool_name,
+            "name": span_name,
             "status": "ok",
             "start_ns": start_ns,
             "duration": duration,
@@ -431,6 +535,7 @@ class ClaudeHooksAPI:
                 "source:claude-code-hooks",
                 "language:python",
                 f"hostname:{_HOSTNAME}",
+                f"tool_name:{actual_tool_name}",
             ],
             "meta": {
                 "span": {"kind": "tool"},
@@ -440,6 +545,8 @@ class ClaudeHooksAPI:
             "metrics": {},
             "span_links": span_links,
         }
+        if estimated_permission_wait_ms is not None:
+            self._set_hidden_metadata(span, estimated_permission_wait_ms=estimated_permission_wait_ms)
         self._assembled_spans.append(span)
 
     def _handle_subagent_start(self, session_id: str, body: Dict[str, Any]) -> None:
@@ -470,6 +577,13 @@ class ClaudeHooksAPI:
                 task_tool_input = pending.tool_input
                 session.claimed_task_tools.add(tid)
                 break
+
+        # Enrich agent name with the Task tool's description if available
+        task_desc = ""
+        if isinstance(task_tool_input, dict):
+            task_desc = task_tool_input.get("description", "")
+        if task_desc:
+            agent_name = f"{agent_name} - {task_desc}"
 
         # Emit a preliminary agent span so the trace shows the subagent immediately
         preliminary_span: Dict[str, Any] = {
@@ -535,11 +649,34 @@ class ClaudeHooksAPI:
         task_tool_input = agent_info.get("task_tool_input")
         span_ref = agent_info.get("_span_ref")
 
+        context_delta = self._compute_context_delta(
+            session.trace_id,
+            agent_info["span_id"],
+            first_input_tokens=0,
+        )
+
+        estimated_perm_wait = self._sum_estimated_permission_wait_ms(
+            parent_id=str(agent_info["span_id"])
+        )
+        # If SubagentStart fired before PreToolUse(Task), retry the match now.
+        if not task_tool_use_id:
+            for tid, pending in session.pending_tools.items():
+                if pending.tool_name == "Task" and tid not in session.claimed_task_tools:
+                    task_tool_use_id = tid
+                    task_tool_input = pending.tool_input
+                    session.claimed_task_tools.add(tid)
+                    desc = _extract_intent("Task", task_tool_input)
+                    if desc and span_ref:
+                        span_ref["name"] = f"{agent_info['name']} - {desc}"
+                    break
+
         if task_tool_use_id:
             # Defer final update — PostToolUse(Task) will set I/O and span links.
             # Update duration on the preliminary span so the UI shows progress.
             if span_ref:
                 span_ref["duration"] = duration
+                if estimated_perm_wait > 0:
+                    self._set_hidden_metadata(span_ref, estimated_permission_wait_ms=estimated_perm_wait)
             session.deferred_agent_spans[task_tool_use_id] = {
                 "span_id": agent_info["span_id"],
                 "trace_id": session.trace_id,
@@ -548,12 +685,20 @@ class ClaudeHooksAPI:
                 "start_ns": agent_info["start_ns"],
                 "duration": duration,
                 "input": str(task_tool_input) if task_tool_input else "",
+                "context_delta": context_delta,
                 "_span_ref": span_ref,
             }
         else:
             # Update the eagerly-emitted span in-place
             if span_ref:
                 span_ref["duration"] = duration
+                dd_fields: Dict[str, Any] = {}
+                if context_delta:
+                    dd_fields["context_delta"] = context_delta
+                if estimated_perm_wait > 0:
+                    dd_fields["estimated_permission_wait_ms"] = estimated_perm_wait
+                if dd_fields:
+                    self._set_hidden_metadata(span_ref, **dd_fields)
             else:
                 # Fallback: no preliminary span (shouldn't happen)
                 span = {
@@ -584,6 +729,8 @@ class ClaudeHooksAPI:
                     },
                     "metrics": {},
                 }
+                if context_delta:
+                    self._set_hidden_metadata(span, context_delta=context_delta)
                 self._assembled_spans.append(span)
 
     def _compute_token_usage(self, trace_id: str) -> Dict[str, int]:
@@ -604,43 +751,43 @@ class ClaudeHooksAPI:
             "total_tokens": total_input + total_output,
         }
 
-    def _compute_context_delta(self, trace_id: str) -> Optional[Dict[str, Any]]:
-        """Compare context usage between the first and last LLM spans in a trace.
+    def _compute_context_delta(
+        self, trace_id: str, parent_span_id: str, first_input_tokens: int = 0
+    ) -> Optional[Dict[str, Any]]:
+        """Return context delta for an agent span.
 
-        Filters to spans matching the last span's model so that utility calls
-        (e.g. haiku summarization) are excluded from the comparison.
+        parent_span_id: only consider LLM spans whose parent is this span.
+        first_input_tokens: context size at the beginning of this span.
+        - Root agent: session.last_known_input_tokens (persists across turns)
+        - Subagent:   0 (each subagent has its own fresh context window)
         """
-        all_llm_spans = sorted(
+        llm_spans = sorted(
             [
                 s
                 for s in self._assembled_spans
-                if s.get("trace_id") == trace_id and s.get("meta", {}).get("span", {}).get("kind") == "llm"
+                if s.get("trace_id") == trace_id
+                and s.get("meta", {}).get("span", {}).get("kind") == "llm"
+                and s.get("parent_id") == parent_span_id
             ],
             key=lambda s: s.get("start_ns", 0),
         )
-        if not all_llm_spans:
+        last_span = next(
+            (s for s in reversed(llm_spans) if s.get("metrics", {}).get("input_tokens", 0) > 0),
+            None,
+        )
+        if last_span is None:
             return None
-        # Use the last span's model as the primary model, filtering out utility calls
-        primary_model = all_llm_spans[-1].get("meta", {}).get("model_name", "")
-        llm_spans = [s for s in all_llm_spans if s.get("meta", {}).get("model_name", "") == primary_model]
-        if len(llm_spans) < 2:
-            return None
-        first_cb = llm_spans[0].get("meta", {}).get("metadata", {}).get("context_breakdown", {})
-        last_cb = llm_spans[-1].get("meta", {}).get("metadata", {}).get("context_breakdown", {})
-        first_tokens = first_cb.get("total_input_tokens", 0)
-        last_tokens = last_cb.get("total_input_tokens", 0)
-        window = last_cb.get("context_window_size", 200000)
-        first_sections = first_cb.get("sections", [])
-        last_sections = last_cb.get("sections", [])
+        last_input_tokens = last_span.get("metrics", {}).get("input_tokens", 0)
+        primary_model = last_span.get("meta", {}).get("model_name", "")
+        window = _get_context_limit(primary_model)
+        delta_tokens = max(last_input_tokens - first_input_tokens, 0)
         return {
-            "first_input_tokens": first_tokens,
-            "last_input_tokens": last_tokens,
-            "delta_tokens": last_tokens - first_tokens,
+            "first_input_tokens": first_input_tokens,
+            "last_input_tokens": last_input_tokens,
+            "delta_tokens": delta_tokens,
             "context_window_size": window,
-            "first_usage_pct": round(first_tokens / window * 100, 1) if window else 0,
-            "last_usage_pct": round(last_tokens / window * 100, 1) if window else 0,
-            "first_sections": first_sections,
-            "last_sections": last_sections,
+            "first_usage_pct": round(first_input_tokens / window * 100, 1) if window else 0.0,
+            "last_usage_pct": round(last_input_tokens / window * 100, 1) if window else 0.0,
         }
 
     def _handle_stop(self, session_id: str, body: Dict[str, Any]) -> None:
@@ -679,9 +826,17 @@ class ClaudeHooksAPI:
             )
         # Compute aggregate token usage from LLM spans in this trace
         token_usage = self._compute_token_usage(session.trace_id)
-        context_delta = self._compute_context_delta(session.trace_id)
+        context_delta = self._compute_context_delta(
+            session.trace_id, session.root_span_id, session.last_known_input_tokens
+        )
+        if context_delta:
+            session.last_known_input_tokens = context_delta["last_input_tokens"]
 
         root_span_name = session.conversation_title or "claude-code-request"
+
+        estimated_permission_wait_ms = self._sum_estimated_permission_wait_ms(
+            trace_id=session.trace_id
+        )
 
         if root_span:
             root_span["name"] = root_span_name
@@ -690,12 +845,19 @@ class ClaudeHooksAPI:
             root_span["meta"]["output"]["value"] = output_value
             root_span["meta"]["model_name"] = session.model
             root_span["meta"]["model_provider"] = "anthropic"
-            root_span["meta"]["metadata"] = {
-                "agent_manifest": agent_manifest,
-                "model_name": session.model,
-                "model_provider": "anthropic",
-                "context_delta": context_delta,
-            }
+            root_meta = root_span["meta"].setdefault("metadata", {})
+            root_meta.update(
+                {
+                    "model_name": session.model,
+                    "model_provider": "anthropic",
+                }
+            )
+            dd_fields: Dict[str, Any] = {"agent_manifest": agent_manifest}
+            if context_delta:
+                dd_fields["context_delta"] = context_delta
+            if estimated_permission_wait_ms > 0:
+                dd_fields["estimated_permission_wait_ms"] = estimated_permission_wait_ms
+            self._set_hidden_metadata(root_span, **dd_fields)
             root_span["metrics"] = token_usage
         else:
             # No eagerly-emitted root span found — create one as fallback
@@ -728,14 +890,18 @@ class ClaudeHooksAPI:
                     "model_name": session.model,
                     "model_provider": "anthropic",
                     "metadata": {
-                        "agent_manifest": agent_manifest,
                         "model_name": session.model,
                         "model_provider": "anthropic",
-                        "context_delta": context_delta,
                     },
                 },
                 "metrics": token_usage,
             }
+            dd_fields = {"agent_manifest": agent_manifest}
+            if context_delta:
+                dd_fields["context_delta"] = context_delta
+            if estimated_permission_wait_ms > 0:
+                dd_fields["estimated_permission_wait_ms"] = estimated_permission_wait_ms
+            self._set_hidden_metadata(root_span, **dd_fields)
             self._assembled_spans.append(root_span)
 
         session.root_span_emitted = True
@@ -757,6 +923,60 @@ class ClaudeHooksAPI:
         """Handle Notification hook event — logged but no span emitted."""
         log.info("Claude notification for session %s: %s", session_id, body.get("message", ""))
 
+    def _handle_pre_compact(self, session_id: str, body: Dict[str, Any]) -> None:
+        """Handle PreCompact hook event — marks the current active span with compaction metadata.
+
+        Fires before Claude Code runs a context compaction operation.
+        trigger is 'manual' (user ran /compact) or 'auto' (context window full).
+        """
+        log.info("pre_compact body: %s", body)
+        trigger = body.get("trigger", "")
+        custom_instructions = body.get("custom_instructions", "")
+        session = self._sessions.get(session_id)
+        if not session:
+            return
+        span_ref = self._current_span_ref(session)
+        log.info("span_ref: %s", span_ref)
+        if span_ref is None:
+            return
+        dd = span_ref.setdefault("meta", {}).setdefault("metadata", {}).setdefault("_dd", {})
+        dd.setdefault("compactions", []).append({
+            "trigger": trigger,
+            "custom_instructions": custom_instructions,
+        })
+        log.info("set compaction event on span %s", span_ref["span_id"])
+
+    def _sum_estimated_permission_wait_ms(self, *, parent_id: Optional[str] = None, trace_id: Optional[str] = None) -> int:
+        """Sum estimated_permission_wait_ms from tool spans.
+
+        If trace_id is provided, sums across all tool spans in the trace (all descendants).
+        If parent_id is provided, sums only direct children of that span.
+        """
+        total = 0
+        for s in self._assembled_spans:
+            if s.get("meta", {}).get("span", {}).get("kind") != "tool":
+                continue
+            if trace_id is not None and s.get("trace_id") != trace_id:
+                continue
+            if parent_id is not None and str(s.get("parent_id")) != str(parent_id):
+                continue
+            total += s.get("meta", {}).get("metadata", {}).get("_dd", {}).get("estimated_permission_wait_ms", 0)
+        return total
+
+    def _handle_permission_request(self, session_id: str, body: Dict[str, Any]) -> None:
+        """Handle PermissionRequest hook — records when the permission dialog appeared.
+
+        PermissionRequest fires when the dialog is shown to the user.
+        If the next hook is PostToolUse, the elapsed time is computed there and tagged on
+        the tool span. Otherwise it is consumed in _dispatch_hook and accumulated on the
+        session without span-level tagging.
+        """
+        session = self._get_or_create_session(session_id)
+        session.pending_permission_at_ns = int(time.time() * 1_000_000_000)
+        root_span: Optional[Dict[str, Any]] = getattr(session, "_root_span_ref", None)
+        if root_span is not None:
+            root_span["duration"] = -1
+
     def _dispatch_hook(self, body: Dict[str, Any]) -> None:
         """Dispatch a hook event to the appropriate handler."""
         session_id = body.get("session_id", "")
@@ -772,6 +992,8 @@ class ClaudeHooksAPI:
             "Stop": self._handle_stop,
             "SessionEnd": self._handle_session_end,
             "Notification": self._handle_notification,
+            "PreCompact": self._handle_pre_compact,
+            "PermissionRequest": self._handle_permission_request,
         }
 
         handler = handlers.get(hook_event_name)

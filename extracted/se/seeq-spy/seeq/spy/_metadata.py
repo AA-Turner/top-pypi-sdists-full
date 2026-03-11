@@ -6,7 +6,7 @@ import re
 import types
 import warnings
 from dataclasses import dataclass
-from typing import Callable, Dict, Optional, List, Tuple, Set, Union
+from typing import Any, Callable, Dict, Optional, List, Tuple, Set, Union
 
 import numpy as np
 import pandas as pd
@@ -535,7 +535,7 @@ def _process_metric(index, push_context, row_dict, scoped_data_id, session, stat
     threshold_metric_input = ThresholdMetricInputV1()
     dict_to_threshold_metric_input(row_dict, threshold_metric_input)
     if _common.get(row_dict, 'Formula') == '<ThresholdMetric>':
-        threshold_metric_input_from_formula_parameters(
+        fill_in_threshold_metric_input_from_formula_parameters_with_mapping(
             threshold_metric_input, _common.get(row_dict, 'Formula Parameters'), push_context)
     else:
         _set_threshold_levels_from_system(session, threshold_metric_input)
@@ -2233,7 +2233,7 @@ def _get_threshold_value(threshold_entry: dict, push_context: PushContext) -> Op
             return _threshold_value
 
 
-def _convert_thresholds_to_input(thresholds_obj: Union[dict[str, any], list[Union[str, dict]]],
+def _convert_thresholds_to_input(thresholds_obj: Union[dict[str, Any], list[Union[str, dict]]],
                                  push_context: PushContext, current_item) -> list[str]:
     """
     Convert a dictionary with keys threshold levels and values of either scalars or metadata to a list of strings
@@ -2271,17 +2271,43 @@ def _convert_thresholds_to_input(thresholds_obj: Union[dict[str, any], list[Unio
     return thresholds_list
 
 
-def threshold_metric_input_from_formula_parameters(
+def fill_in_threshold_metric_input_from_formula_parameters_with_mapping(
         threshold_metric_input: ThresholdMetricInputV1, parameters, push_context: PushContext):
+    mapped_parameters = dict()
+
+    for key in ['Aggregation Function', 'Metric Neutral Color']:
+        if _common.present(parameters, key):
+            mapped_parameters[key] = parameters[key]
+
+    for key in ['Bounding Condition', 'Measured Item']:
+        if _common.present(parameters, key):
+            mapped_parameters[key] = _item_id_from_parameter_value(parameters[key], push_context)
+
+    for key in ['Bounding Condition Maximum Duration', 'Duration', 'Period']:
+        if _common.present(parameters, key):
+            mapped_parameters[key] = parameters[key]
+
+    if _common.present(parameters, 'Thresholds'):
+        mapped_thresholds = []
+        for threshold_dict in parameters['Thresholds']:
+            mapped_threshold = threshold_dict.copy()
+            if _common.present(threshold_dict, 'Item ID'):
+                mapped_threshold['Item ID'] = _item_id_from_parameter_value(threshold_dict['Item ID'], push_context)
+            mapped_thresholds.append(mapped_threshold)
+        mapped_parameters['Thresholds'] = mapped_thresholds
+
+    fill_in_threshold_metric_input_from_formula_parameters(threshold_metric_input, mapped_parameters)
+
+
+def fill_in_threshold_metric_input_from_formula_parameters(threshold_metric_input: ThresholdMetricInputV1, parameters):
     def _add_scalar_value(_attr, _key):
         if _common.present(parameters, _key):
             setattr(threshold_metric_input, _attr, str_from_scalar_value_dict(parameters[_key]))
 
-    def _add_mapped_item(_attr, _key):
+    def _add_item_id(_attr, _key):
         if _common.present(parameters, _key):
-            mapped_id = _item_id_from_parameter_value(parameters[_key], push_context)
-
-            setattr(threshold_metric_input, _attr, mapped_id)
+            # Assume the ID is already mapped
+            setattr(threshold_metric_input, _attr, parameters[_key])
 
     def _get_thresholds() -> list[str]:
         _thresholds_list = list()
@@ -2289,17 +2315,27 @@ def threshold_metric_input_from_formula_parameters(
             return _thresholds_list
         for threshold_dict in parameters['Thresholds']:
             level = _get_threshold_level(threshold_dict)
-            value = _get_threshold_value(threshold_dict, push_context)
+            # Get value directly, assuming IDs are already mapped
+            if _common.present(threshold_dict, 'Item ID'):
+                value = threshold_dict['Item ID']
+            elif _common.present(threshold_dict, 'Value'):
+                _threshold_value = threshold_dict['Value']
+                if isinstance(_threshold_value, dict):
+                    value = str_from_scalar_value_dict(_threshold_value)
+                else:
+                    value = _threshold_value
+            else:
+                continue
             if level and value:
                 _thresholds_list.append(f'{level}={value}')
         return _thresholds_list
 
     threshold_metric_input.aggregation_function = _common.get(parameters, 'Aggregation Function')
     threshold_metric_input.neutral_color = _common.get(parameters, 'Metric Neutral Color')
-    _add_mapped_item('bounding_condition', 'Bounding Condition')
+    _add_item_id('bounding_condition', 'Bounding Condition')
     _add_scalar_value('bounding_condition_maximum_duration', 'Bounding Condition Maximum Duration')
     _add_scalar_value('duration', 'Duration')
-    _add_mapped_item('measured_item', 'Measured Item')
+    _add_item_id('measured_item', 'Measured Item')
     _add_scalar_value('period', 'Period')
     threshold_metric_input.thresholds = _get_thresholds()
 

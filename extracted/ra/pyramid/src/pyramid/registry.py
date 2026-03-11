@@ -208,7 +208,6 @@ class Introspector:
 
 @implementer(IIntrospectable)
 class Introspectable(dict):
-
     order = 0  # mutated by introspector.add
     action_info = None  # mutated by self.register
 
@@ -239,7 +238,7 @@ class Introspectable(dict):
 
     def __repr__(self):
         self._assert_resolved()
-        return '<%s category %r, discriminator %r>' % (
+        return '<{} category {!r}, discriminator {!r}>'.format(
             self.__class__.__name__,
             self.category_name,
             self.discriminator,

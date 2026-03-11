@@ -1,12 +1,14 @@
-# -*- coding: utf-8 -*-
-# SPDX-FileCopyrightText: 2016-2025 PyThaiNLP Project
+# SPDX-FileCopyrightText: 2016-2026 PyThaiNLP Project
 # SPDX-FileType: SOURCE
 # SPDX-License-Identifier: Apache-2.0
-"""
-Text summarization and keyword extraction
-"""
+"""Text summarization and keyword extraction"""
 
-from typing import Iterable, List, Optional, Tuple
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Optional, cast
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 from pythainlp.summarize import (
     CPE_KMUTT_THAI_SENTENCE_SUM,
@@ -22,9 +24,8 @@ def summarize(
     n: int = 1,
     engine: str = DEFAULT_SUMMARIZE_ENGINE,
     tokenizer: str = "newmm",
-) -> List[str]:
-    """
-    This function summarizes text based on frequency of words.
+) -> list[str]:
+    """Summarizes text based on frequency of words.
 
     Under the hood, this function first tokenizes sentences from the given
     text with :func:`pythainlp.tokenize.sent_tokenize`.
@@ -112,27 +113,27 @@ def summarize(
 
         sents = mT5Summarizer(model_size=size).summarize(text)
     else:  # if engine not found, return first n sentences
-        sents = sent_tokenize(text, engine="whitespace+newline")[:n]
+        # sent_tokenize with str input returns list[str]
+        sents = sent_tokenize(text, engine="whitespace+newline")[:n]  # type: ignore[assignment]
 
     return sents
 
 
 def extract_keywords(
     text: str,
-    keyphrase_ngram_range: Tuple[int, int] = (1, 2),
+    keyphrase_ngram_range: tuple[int, int] = (1, 2),
     max_keywords: int = 5,
     min_df: int = 1,
     engine: str = DEFAULT_KEYWORD_EXTRACTION_ENGINE,
     tokenizer: str = "newmm",
     stop_words: Optional[Iterable[str]] = None,
-) -> List[str]:
-    """
-    This function returns most-relevant keywords (and/or keyphrases) from the input document.
+) -> list[str]:
+    """Returns most-relevant keywords (and/or keyphrases) from the input document.
     Each algorithm may produce completely different keywords from each other,
     so please be careful when choosing the algorithm.
 
     *Note*: Calling :func: `extract_keywords()` is expensive. For repetitive use of KeyBERT (the default engine),
-    creating KeyBERT object is highly recommended.
+    creating a KeyBERT object is highly recommended.
 
     :param str text: text to be summarized
     :param Tuple[int, int] keyphrase_ngram_range: Number of token units to be defined as keyword.
@@ -198,7 +199,7 @@ def extract_keywords(
         min_df: int = 5,
         tokenizer: str = "newmm",
         stop_words: Optional[Iterable[str]] = None,
-    ):
+    ) -> list[str]:
         from pythainlp.tokenize import word_tokenize
         from pythainlp.util.keywords import rank
 
@@ -206,10 +207,13 @@ def extract_keywords(
 
         use_custom_stop_words = stop_words is not None
 
-        if use_custom_stop_words:
+        if use_custom_stop_words and stop_words is not None:
             tokens = [token for token in tokens if token not in stop_words]
 
         word_rank = rank(tokens, exclude_stopwords=not use_custom_stop_words)
+
+        if word_rank is None:
+            return []
 
         keywords = [
             kw
@@ -224,14 +228,17 @@ def extract_keywords(
     if engine == "keybert":
         from .keybert import KeyBERT
 
-        keywords = KeyBERT().extract_keywords(
-            text,
-            keyphrase_ngram_range=keyphrase_ngram_range,
-            max_keywords=max_keywords,
-            min_df=min_df,
-            tokenizer=tokenizer,
-            return_similarity=False,
-            stop_words=stop_words,
+        keywords = cast(
+            "list[str]",
+            KeyBERT().extract_keywords(
+                text,
+                keyphrase_ngram_range=keyphrase_ngram_range,
+                max_keywords=max_keywords,
+                min_df=min_df,
+                tokenizer=tokenizer,
+                return_similarity=False,
+                stop_words=stop_words,
+            ),
         )
     elif engine == "frequency":
         return rank_by_frequency(

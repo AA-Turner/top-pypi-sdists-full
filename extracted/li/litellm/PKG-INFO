@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: litellm
-Version: 1.82.0
+Version: 1.82.1
 Summary: Library to easily interface with LLM API providers
 License: MIT
 Author: BerriAI
@@ -28,7 +28,7 @@ Requires-Dist: azure-identity (>=1.15.0,<2.0.0) ; (python_version >= "3.9") and 
 Requires-Dist: azure-keyvault-secrets (>=4.8.0,<5.0.0) ; extra == "extra-proxy"
 Requires-Dist: azure-storage-blob (>=12.25.1,<13.0.0) ; extra == "proxy"
 Requires-Dist: backoff ; extra == "proxy"
-Requires-Dist: boto3 (==1.40.76) ; extra == "proxy"
+Requires-Dist: boto3 (>=1.40.76,<2.0.0) ; extra == "proxy"
 Requires-Dist: click
 Requires-Dist: cryptography ; extra == "proxy"
 Requires-Dist: diskcache (>=5.6.1,<6.0.0) ; extra == "caching"
@@ -45,24 +45,24 @@ Requires-Dist: httpx (>=0.23.0)
 Requires-Dist: importlib-metadata (>=6.8.0)
 Requires-Dist: jinja2 (>=3.1.2,<4.0.0)
 Requires-Dist: jsonschema (>=4.23.0,<5.0.0)
-Requires-Dist: litellm-enterprise (==0.1.33) ; extra == "proxy"
-Requires-Dist: litellm-proxy-extras (==0.4.50) ; extra == "proxy"
+Requires-Dist: litellm-enterprise (>=0.1.33,<0.2.0) ; extra == "proxy"
+Requires-Dist: litellm-proxy-extras (>=0.4.53,<0.5.0) ; extra == "proxy"
 Requires-Dist: mcp (>=1.25.0,<2.0.0) ; (python_version >= "3.10") and (extra == "proxy")
 Requires-Dist: mlflow (>3.1.4) ; (python_version >= "3.10") and (extra == "mlflow")
 Requires-Dist: numpydoc ; extra == "utils"
 Requires-Dist: openai (>=2.8.0)
 Requires-Dist: orjson (>=3.9.7,<4.0.0) ; extra == "proxy"
 Requires-Dist: polars (>=1.31.0,<2.0.0) ; (python_version >= "3.10") and (extra == "proxy")
-Requires-Dist: prisma (==0.11.0) ; extra == "extra-proxy"
+Requires-Dist: prisma (>=0.11.0,<0.12.0) ; extra == "extra-proxy"
 Requires-Dist: pydantic (>=2.5.0,<3.0.0)
 Requires-Dist: pynacl (>=1.5.0,<2.0.0) ; extra == "proxy"
 Requires-Dist: pyroscope-io (>=0.8,<0.9) ; (sys_platform != "win32") and (extra == "proxy")
 Requires-Dist: python-dotenv (>=0.2.0)
-Requires-Dist: python-multipart (>=0.0.22,<0.0.23) ; (python_version >= "3.10") and (extra == "proxy")
+Requires-Dist: python-multipart (>=0.0.20) ; extra == "proxy"
 Requires-Dist: pyyaml (>=6.0.1,<7.0.0) ; extra == "proxy"
 Requires-Dist: redisvl (>=0.4.1,<0.5.0) ; (python_version >= "3.9" and python_version < "3.14") and (extra == "extra-proxy")
 Requires-Dist: resend (>=0.8.0) ; extra == "extra-proxy"
-Requires-Dist: rich (==13.7.1) ; extra == "proxy"
+Requires-Dist: rich (>=13.7.1,<14.0.0) ; extra == "proxy"
 Requires-Dist: rq ; extra == "proxy"
 Requires-Dist: semantic-router (>=0.1.12) ; (python_version >= "3.9" and python_version < "3.14") and (extra == "semantic-router")
 Requires-Dist: soundfile (>=0.12.1,<0.13.0) ; extra == "proxy"

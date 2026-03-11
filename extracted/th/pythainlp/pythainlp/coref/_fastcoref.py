@@ -1,17 +1,28 @@
-# -*- coding: utf-8 -*-
-# SPDX-FileCopyrightText: 2016-2025 PyThaiNLP Project
+# SPDX-FileCopyrightText: 2016-2026 PyThaiNLP Project
 # SPDX-FileType: SOURCE
 # SPDX-License-Identifier: Apache-2.0
-from typing import List
+from __future__ import annotations
 
-import spacy
+from typing import TYPE_CHECKING, Optional, TypedDict
+
+if TYPE_CHECKING:
+    from fastcoref.modeling import CorefModel, CorefResult
+    from spacy.language import Language
+
+
+class CorefResultDict(TypedDict):
+    """Dictionary representation of coreference resolution results."""
+
+    text: str
+    clusters_string: list[list[str]]
+    clusters: list[list[tuple[int, int]]]
 
 
 class FastCoref:
     def __init__(
         self,
-        model_name,
-        nlp=spacy.blank("th"),
+        model_name: str,
+        nlp: Optional[Language] = None,
         device: str = "cpu",
         type: str = "FCoref",
     ) -> None:
@@ -19,18 +30,26 @@ class FastCoref:
             from fastcoref import FCoref as _model
         else:
             from fastcoref import LingMessCoref as _model
-        self.model_name = model_name
-        self.nlp = nlp
-        self.model = _model(self.model_name, device=device, nlp=self.nlp)
 
-    def _to_json(self, _predict):
+        if nlp is None:
+            import spacy
+
+            nlp = spacy.blank("th")
+
+        self.model_name: str = model_name
+        self.nlp: Language = nlp
+        self.model: CorefModel = _model(
+            self.model_name, device=device, nlp=self.nlp
+        )
+
+    def _to_json(self, _predict: "CorefResult") -> CorefResultDict:
         return {
             "text": _predict.text,
             "clusters_string": _predict.get_clusters(as_strings=True),
             "clusters": _predict.get_clusters(as_strings=False),
         }
 
-    def predict(self, texts: List[str]) -> List[dict]:
+    def predict(self, texts: list[str]) -> list[CorefResultDict]:
         return [
             self._to_json(pred) for pred in self.model.predict(texts=texts)
         ]

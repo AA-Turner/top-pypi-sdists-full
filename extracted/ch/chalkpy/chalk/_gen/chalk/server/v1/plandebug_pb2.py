@@ -19,7 +19,7 @@ from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n\x1f\x63halk/server/v1/plandebug.proto\x12\x0f\x63halk.server.v1\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto"^\n\x18GetQueryPlanStageRequest\x12\x1f\n\x0boperator_id\x18\x01 \x01(\tR\noperatorId\x12!\n\x0coperation_id\x18\x02 \x01(\tR\x0boperationId"\xd8\x02\n\x19GetQueryPlanStageResponse\x12\x1f\n\x0boperator_id\x18\x01 \x01(\tR\noperatorId\x12!\n\x0coperation_id\x18\x02 \x01(\tR\x0boperationId\x12?\n\x0c\x64\x61ta_preview\x18\x03 \x01(\x0b\x32\x17.google.protobuf.StructH\x00R\x0b\x64\x61taPreview\x88\x01\x01\x12?\n\x0c\x64\x61ta_summary\x18\x04 \x01(\x0b\x32\x17.google.protobuf.StructH\x01R\x0b\x64\x61taSummary\x88\x01\x01\x12\x41\n\rgroup_preview\x18\x05 \x01(\x0b\x32\x17.google.protobuf.StructH\x02R\x0cgroupPreview\x88\x01\x01\x42\x0f\n\r_data_previewB\x0f\n\r_data_summaryB\x10\n\x0e_group_preview"l\n&GetQueryPlanStageResolverInputsRequest\x12\x1f\n\x0boperator_id\x18\x01 \x01(\tR\noperatorId\x12!\n\x0coperation_id\x18\x02 \x01(\tR\x0boperationId"\xf8\x01\n\'GetQueryPlanStageResolverInputsResponse\x12:\n\tresolvers\x18\x01 \x01(\x0b\x32\x17.google.protobuf.StructH\x00R\tresolvers\x88\x01\x01\x12\x36\n\x07scalars\x18\x02 \x01(\x0b\x32\x17.google.protobuf.StructH\x01R\x07scalars\x88\x01\x01\x12\x34\n\x06tables\x18\x03 \x01(\x0b\x32\x17.google.protobuf.StructH\x02R\x06tables\x88\x01\x01\x42\x0c\n\n_resolversB\n\n\x08_scalarsB\t\n\x07_tables"j\n$GetQueryPlanStageDownloadLinkRequest\x12\x1f\n\x0boperator_id\x18\x01 \x01(\tR\noperatorId\x12!\n\x0coperation_id\x18\x02 \x01(\tR\x0boperationId"\x9b\x02\n%GetQueryPlanStageDownloadLinkResponse\x12"\n\nsigned_url\x18\x01 \x01(\tH\x00R\tsignedUrl\x88\x01\x01\x12;\n\ngroup_urls\x18\x02 \x01(\x0b\x32\x17.google.protobuf.StructH\x01R\tgroupUrls\x88\x01\x01\x12\x19\n\x05\x65rror\x18\x03 \x01(\tH\x02R\x05\x65rror\x88\x01\x01\x12?\n\nexpiration\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x03R\nexpiration\x88\x01\x01\x42\r\n\x0b_signed_urlB\r\n\x0b_group_urlsB\x08\n\x06_errorB\r\n\x0b_expiration2\xb5\x03\n\x10PlanDebugService\x12o\n\x11GetQueryPlanStage\x12).chalk.server.v1.GetQueryPlanStageRequest\x1a*.chalk.server.v1.GetQueryPlanStageResponse"\x03\x80}\x04\x12\x99\x01\n\x1fGetQueryPlanStageResolverInputs\x12\x37.chalk.server.v1.GetQueryPlanStageResolverInputsRequest\x1a\x38.chalk.server.v1.GetQueryPlanStageResolverInputsResponse"\x03\x80}\x04\x12\x93\x01\n\x1dGetQueryPlanStageDownloadLink\x12\x35.chalk.server.v1.GetQueryPlanStageDownloadLinkRequest\x1a\x36.chalk.server.v1.GetQueryPlanStageDownloadLinkResponse"\x03\x80}\x04\x42\x97\x01\n\x13\x63om.chalk.server.v1B\x0ePlandebugProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
+    b'\n\x1f\x63halk/server/v1/plandebug.proto\x12\x0f\x63halk.server.v1\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto"^\n\x18GetQueryPlanStageRequest\x12\x1f\n\x0boperator_id\x18\x01 \x01(\tR\noperatorId\x12!\n\x0coperation_id\x18\x02 \x01(\tR\x0boperationId"\xd6\x02\n\x19GetQueryPlanStageResponse\x12\x1f\n\x0boperator_id\x18\x01 \x01(\tR\noperatorId\x12!\n\x0coperation_id\x18\x02 \x01(\tR\x0boperationId\x12>\n\x0c\x64\x61ta_preview\x18\x03 \x01(\x0b\x32\x16.google.protobuf.ValueH\x00R\x0b\x64\x61taPreview\x88\x01\x01\x12>\n\x0c\x64\x61ta_summary\x18\x04 \x01(\x0b\x32\x16.google.protobuf.ValueH\x01R\x0b\x64\x61taSummary\x88\x01\x01\x12\x41\n\rgroup_preview\x18\x05 \x01(\x0b\x32\x17.google.protobuf.StructH\x02R\x0cgroupPreview\x88\x01\x01\x42\x0f\n\r_data_previewB\x0f\n\r_data_summaryB\x10\n\x0e_group_preview"l\n&GetQueryPlanStageResolverInputsRequest\x12\x1f\n\x0boperator_id\x18\x01 \x01(\tR\noperatorId\x12!\n\x0coperation_id\x18\x02 \x01(\tR\x0boperationId"\xcc\x01\n\'GetQueryPlanStageResolverInputsResponse\x12\x1c\n\tresolvers\x18\x01 \x03(\tR\tresolvers\x12\x36\n\x07scalars\x18\x02 \x01(\x0b\x32\x17.google.protobuf.StructH\x00R\x07scalars\x88\x01\x01\x12\x34\n\x06tables\x18\x03 \x01(\x0b\x32\x17.google.protobuf.StructH\x01R\x06tables\x88\x01\x01\x42\n\n\x08_scalarsB\t\n\x07_tables"j\n$GetQueryPlanStageDownloadLinkRequest\x12\x1f\n\x0boperator_id\x18\x01 \x01(\tR\noperatorId\x12!\n\x0coperation_id\x18\x02 \x01(\tR\x0boperationId"\x9b\x02\n%GetQueryPlanStageDownloadLinkResponse\x12"\n\nsigned_url\x18\x01 \x01(\tH\x00R\tsignedUrl\x88\x01\x01\x12;\n\ngroup_urls\x18\x02 \x01(\x0b\x32\x17.google.protobuf.StructH\x01R\tgroupUrls\x88\x01\x01\x12\x19\n\x05\x65rror\x18\x03 \x01(\tH\x02R\x05\x65rror\x88\x01\x01\x12?\n\nexpiration\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x03R\nexpiration\x88\x01\x01\x42\r\n\x0b_signed_urlB\r\n\x0b_group_urlsB\x08\n\x06_errorB\r\n\x0b_expiration"\x99\x01\n0GetQueryPlanStageResolverInputScalarLinksRequest\x12!\n\x0coperation_id\x18\x01 \x01(\tR\x0boperationId\x12\x1f\n\x0boperator_id\x18\x02 \x01(\tR\noperatorId\x12!\n\x0cresolver_fqn\x18\x03 \x01(\tR\x0bresolverFqn"\xbc\x01\n1GetQueryPlanStageResolverInputScalarLinksResponse\x12\x12\n\x04urls\x18\x01 \x03(\tR\x04urls\x12\x19\n\x05\x65rror\x18\x02 \x01(\tH\x00R\x05\x65rror\x88\x01\x01\x12?\n\nexpiration\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x01R\nexpiration\x88\x01\x01\x42\x08\n\x06_errorB\r\n\x0b_expiration"\xc1\x01\n3GetQueryPlanStageResolverInputDataframeLinksRequest\x12!\n\x0coperation_id\x18\x01 \x01(\tR\x0boperationId\x12\x1f\n\x0boperator_id\x18\x02 \x01(\tR\noperatorId\x12!\n\x0cresolver_fqn\x18\x03 \x01(\tR\x0bresolverFqn\x12#\n\rargument_name\x18\x04 \x01(\tR\x0c\x61rgumentName"\xbf\x01\n4GetQueryPlanStageResolverInputDataframeLinksResponse\x12\x12\n\x04urls\x18\x01 \x03(\tR\x04urls\x12\x19\n\x05\x65rror\x18\x02 \x01(\tH\x00R\x05\x65rror\x88\x01\x01\x12?\n\nexpiration\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x01R\nexpiration\x88\x01\x01\x42\x08\n\x06_errorB\r\n\x0b_expiration2\xb2\x06\n\x10PlanDebugService\x12o\n\x11GetQueryPlanStage\x12).chalk.server.v1.GetQueryPlanStageRequest\x1a*.chalk.server.v1.GetQueryPlanStageResponse"\x03\x80}\x04\x12\x99\x01\n\x1fGetQueryPlanStageResolverInputs\x12\x37.chalk.server.v1.GetQueryPlanStageResolverInputsRequest\x1a\x38.chalk.server.v1.GetQueryPlanStageResolverInputsResponse"\x03\x80}\x04\x12\x93\x01\n\x1dGetQueryPlanStageDownloadLink\x12\x35.chalk.server.v1.GetQueryPlanStageDownloadLinkRequest\x1a\x36.chalk.server.v1.GetQueryPlanStageDownloadLinkResponse"\x03\x80}\x04\x12\xb7\x01\n)GetQueryPlanStageResolverInputScalarLinks\x12\x41.chalk.server.v1.GetQueryPlanStageResolverInputScalarLinksRequest\x1a\x42.chalk.server.v1.GetQueryPlanStageResolverInputScalarLinksResponse"\x03\x80}\x04\x12\xc0\x01\n,GetQueryPlanStageResolverInputDataframeLinks\x12\x44.chalk.server.v1.GetQueryPlanStageResolverInputDataframeLinksRequest\x1a\x45.chalk.server.v1.GetQueryPlanStageResolverInputDataframeLinksResponse"\x03\x80}\x04\x42\x97\x01\n\x13\x63om.chalk.server.v1B\x0ePlandebugProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -36,18 +36,34 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals["_PLANDEBUGSERVICE"].methods_by_name["GetQueryPlanStageResolverInputs"]._serialized_options = b"\200}\004"
     _globals["_PLANDEBUGSERVICE"].methods_by_name["GetQueryPlanStageDownloadLink"]._options = None
     _globals["_PLANDEBUGSERVICE"].methods_by_name["GetQueryPlanStageDownloadLink"]._serialized_options = b"\200}\004"
+    _globals["_PLANDEBUGSERVICE"].methods_by_name["GetQueryPlanStageResolverInputScalarLinks"]._options = None
+    _globals["_PLANDEBUGSERVICE"].methods_by_name[
+        "GetQueryPlanStageResolverInputScalarLinks"
+    ]._serialized_options = b"\200}\004"
+    _globals["_PLANDEBUGSERVICE"].methods_by_name["GetQueryPlanStageResolverInputDataframeLinks"]._options = None
+    _globals["_PLANDEBUGSERVICE"].methods_by_name[
+        "GetQueryPlanStageResolverInputDataframeLinks"
+    ]._serialized_options = b"\200}\004"
     _globals["_GETQUERYPLANSTAGEREQUEST"]._serialized_start = 148
     _globals["_GETQUERYPLANSTAGEREQUEST"]._serialized_end = 242
     _globals["_GETQUERYPLANSTAGERESPONSE"]._serialized_start = 245
-    _globals["_GETQUERYPLANSTAGERESPONSE"]._serialized_end = 589
-    _globals["_GETQUERYPLANSTAGERESOLVERINPUTSREQUEST"]._serialized_start = 591
-    _globals["_GETQUERYPLANSTAGERESOLVERINPUTSREQUEST"]._serialized_end = 699
-    _globals["_GETQUERYPLANSTAGERESOLVERINPUTSRESPONSE"]._serialized_start = 702
-    _globals["_GETQUERYPLANSTAGERESOLVERINPUTSRESPONSE"]._serialized_end = 950
-    _globals["_GETQUERYPLANSTAGEDOWNLOADLINKREQUEST"]._serialized_start = 952
-    _globals["_GETQUERYPLANSTAGEDOWNLOADLINKREQUEST"]._serialized_end = 1058
-    _globals["_GETQUERYPLANSTAGEDOWNLOADLINKRESPONSE"]._serialized_start = 1061
-    _globals["_GETQUERYPLANSTAGEDOWNLOADLINKRESPONSE"]._serialized_end = 1344
-    _globals["_PLANDEBUGSERVICE"]._serialized_start = 1347
-    _globals["_PLANDEBUGSERVICE"]._serialized_end = 1784
+    _globals["_GETQUERYPLANSTAGERESPONSE"]._serialized_end = 587
+    _globals["_GETQUERYPLANSTAGERESOLVERINPUTSREQUEST"]._serialized_start = 589
+    _globals["_GETQUERYPLANSTAGERESOLVERINPUTSREQUEST"]._serialized_end = 697
+    _globals["_GETQUERYPLANSTAGERESOLVERINPUTSRESPONSE"]._serialized_start = 700
+    _globals["_GETQUERYPLANSTAGERESOLVERINPUTSRESPONSE"]._serialized_end = 904
+    _globals["_GETQUERYPLANSTAGEDOWNLOADLINKREQUEST"]._serialized_start = 906
+    _globals["_GETQUERYPLANSTAGEDOWNLOADLINKREQUEST"]._serialized_end = 1012
+    _globals["_GETQUERYPLANSTAGEDOWNLOADLINKRESPONSE"]._serialized_start = 1015
+    _globals["_GETQUERYPLANSTAGEDOWNLOADLINKRESPONSE"]._serialized_end = 1298
+    _globals["_GETQUERYPLANSTAGERESOLVERINPUTSCALARLINKSREQUEST"]._serialized_start = 1301
+    _globals["_GETQUERYPLANSTAGERESOLVERINPUTSCALARLINKSREQUEST"]._serialized_end = 1454
+    _globals["_GETQUERYPLANSTAGERESOLVERINPUTSCALARLINKSRESPONSE"]._serialized_start = 1457
+    _globals["_GETQUERYPLANSTAGERESOLVERINPUTSCALARLINKSRESPONSE"]._serialized_end = 1645
+    _globals["_GETQUERYPLANSTAGERESOLVERINPUTDATAFRAMELINKSREQUEST"]._serialized_start = 1648
+    _globals["_GETQUERYPLANSTAGERESOLVERINPUTDATAFRAMELINKSREQUEST"]._serialized_end = 1841
+    _globals["_GETQUERYPLANSTAGERESOLVERINPUTDATAFRAMELINKSRESPONSE"]._serialized_start = 1844
+    _globals["_GETQUERYPLANSTAGERESOLVERINPUTDATAFRAMELINKSRESPONSE"]._serialized_end = 2035
+    _globals["_PLANDEBUGSERVICE"]._serialized_start = 2038
+    _globals["_PLANDEBUGSERVICE"]._serialized_end = 2856
 # @@protoc_insertion_point(module_scope)

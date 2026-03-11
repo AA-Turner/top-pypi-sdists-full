@@ -943,7 +943,7 @@ class Platform(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_signer.Platfo
         
         lambda_.Function(self, "Function",
             code_signing_config=code_signing_config,
-            runtime=lambda_.Runtime.NODEJS_18_X,
+            runtime=lambda_.Runtime.NODEJS_LATEST,
             handler="index.handler",
             code=lambda_.Code.from_asset(path.join(__dirname, "lambda-handler"))
         )
@@ -1026,7 +1026,7 @@ class SigningProfile(
         
         lambda_.Function(self, "Function",
             code_signing_config=code_signing_config,
-            runtime=lambda_.Runtime.NODEJS_18_X,
+            runtime=lambda_.Runtime.NODEJS_LATEST,
             handler="index.handler",
             code=lambda_.Code.from_asset(path.join(__dirname, "lambda-handler"))
         )
@@ -1233,7 +1233,7 @@ class SigningProfileProps:
             
             lambda_.Function(self, "Function",
                 code_signing_config=code_signing_config,
-                runtime=lambda_.Runtime.NODEJS_18_X,
+                runtime=lambda_.Runtime.NODEJS_LATEST,
                 handler="index.handler",
                 code=lambda_.Code.from_asset(path.join(__dirname, "lambda-handler"))
             )

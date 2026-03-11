@@ -1,5 +1,4 @@
-# -*- coding: utf-8 -*-
-# SPDX-FileCopyrightText: 2016-2025 PyThaiNLP Project
+# SPDX-FileCopyrightText: 2016-2026 PyThaiNLP Project
 # SPDX-FileType: SOURCE
 # SPDX-License-Identifier: Apache-2.0
 
@@ -9,7 +8,16 @@ import unittest
 import fastai
 import pandas as pd
 import torch
-from fastai.text import *
+from fastai.text import (
+    AWD_LSTM,
+    NumericalizeProcessor,
+    TextList,
+    TokenizeProcessor,
+    Tokenizer,
+    URLs,
+    language_model_learner,
+    untar_data,
+)
 
 from pythainlp.tokenize import THAI2FIT_TOKENIZER
 from pythainlp.ulmfit import (
@@ -215,7 +223,10 @@ class UlmfitTestCaseX(unittest.TestCase):
         imdb = untar_data(URLs.IMDB_SAMPLE)
         dummy_df = pd.read_csv(imdb / "texts.csv")
         thwiki = THWIKI_LSTM
-        thwiki_itos = pickle.load(open(thwiki["itos_fname"], "rb"))
+        # Security note: pickle.load() executes arbitrary code if file is malicious.
+        # These corpus files come from a trusted source with MD5 verification.
+        with open(thwiki["itos_fname"], "rb") as f:
+            thwiki_itos = pickle.load(f)
         thwiki_vocab = fastai.text.transform.Vocab(thwiki_itos)
         tt = Tokenizer(
             tok_func=ThaiTokenizer,

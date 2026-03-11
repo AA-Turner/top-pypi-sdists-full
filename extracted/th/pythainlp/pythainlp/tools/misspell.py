@@ -1,33 +1,34 @@
-# -*- coding: utf-8 -*-
-# SPDX-FileCopyrightText: 2016-2025 PyThaiNLP Project
+# SPDX-FileCopyrightText: 2016-2026 PyThaiNLP Project
 # SPDX-FileType: SOURCE
 # SPDX-License-Identifier: Apache-2.0
-from typing import List
+from __future__ import annotations
 
-import numpy as np
+import math
+import random
+from typing import Optional
 
-THAI_CHARACTERS_WITHOUT_SHIFT = [
+THAI_CHARACTERS_WITHOUT_SHIFT: list[str] = [
     "ผปแอิืทมใฝ",
     "ฟหกดเ้่าสวง",
     "ๆไำพะัีรนยบลฃ",
     "ๅ/_ภถุึคตจขช",
 ]
 
-THAI_CHARACTERS_WITH_SHIFT = [
+THAI_CHARACTERS_WITH_SHIFT: list[str] = [
     "()ฉฮฺ์?ฒฬฦ",
     "ฤฆฏโฌ็๋ษศซ.",
     '๐"ฎฑธํ๊ณฯญฐ,',
     "+๑๒๓๔ู฿๕๖๗๘๙",
 ]
 
-ENGLISH_CHARACTERS_WITHOUT_SHIFT = [
+ENGLISH_CHARACTERS_WITHOUT_SHIFT: list[str] = [
     "1234567890-=",
     "qwertyuiop[]\\",
     "asdfghjkl;'",
     "zxcvbnm,./",
 ]
 
-ENGLISH_CHARACTERS_WITH_SHIFT = [
+ENGLISH_CHARACTERS_WITH_SHIFT: list[str] = [
     "!@#$%^&*()_+",
     "QWERTYUIOP{}|",
     'ASDFGHJKL:"',
@@ -35,24 +36,34 @@ ENGLISH_CHARACTERS_WITH_SHIFT = [
 ]
 
 
-ALL_CHARACTERS = [
+ALL_CHARACTERS: list[list[str]] = [
     THAI_CHARACTERS_WITHOUT_SHIFT + THAI_CHARACTERS_WITH_SHIFT,
     ENGLISH_CHARACTERS_WITHOUT_SHIFT + ENGLISH_CHARACTERS_WITH_SHIFT,
 ]
 
 
-def search_location_of_character(char: str):
+def search_location_of_character(
+    char: str,
+) -> Optional[tuple[int, int, int, int]]:
     for language_ix in [0, 1]:
         for ix, row in enumerate(ALL_CHARACTERS[language_ix]):
             if char in row:
                 return (language_ix, ix // 4, ix % 4, row.index(char))
+    return None
 
 
 def find_neighbour_locations(
-    loc: tuple,
+    loc: tuple[int, int, int, int],
     char: str,
-    kernel: List = [(-1, -1), (-1, 0), (1, 1), (0, 1), (0, -1), (1, 0)],
-):
+    kernel: list[tuple[int, int]] = [
+        (-1, -1),
+        (-1, 0),
+        (1, 1),
+        (0, 1),
+        (0, -1),
+        (1, 0),
+    ],
+) -> list[tuple[int, int, int, int, str]]:
     language_ix, is_shift, row, pos = loc
 
     valid_neighbours = []
@@ -66,7 +77,9 @@ def find_neighbour_locations(
     return valid_neighbours
 
 
-def find_misspell_candidates(char: str, verbose: bool = False):
+def find_misspell_candidates(
+    char: str, verbose: bool = False
+) -> Optional[list[str]]:
     loc = search_location_of_character(char)
     if loc is None:
         return None
@@ -104,9 +117,8 @@ def find_misspell_candidates(char: str, verbose: bool = False):
     return chars
 
 
-def misspell(sentence: str, ratio: float = 0.05):
-    """
-    Simulate some misspellings of the input sentence.
+def misspell(sentence: str, ratio: float = 0.05) -> str:
+    """Simulate some misspellings of the input sentence.
     The number of misspelled locations is governed by ratio.
 
     :params str sentence: sentence to be misspelled
@@ -126,10 +138,8 @@ def misspell(sentence: str, ratio: float = 0.05):
         # output:
         ภาษาไทยปรากฏครั้งแรกในกุทธศักราช 1727
     """
-    num_misspells = np.floor(len(sentence) * ratio).astype(int)
-    positions = np.random.choice(
-        len(sentence), size=num_misspells, replace=False
-    )
+    num_misspells = math.floor(len(sentence) * ratio)
+    positions = random.sample(range(len(sentence)), k=num_misspells)
 
     # convert strings to array of characters
     misspelled = list(sentence)
@@ -138,7 +148,8 @@ def misspell(sentence: str, ratio: float = 0.05):
         if potential_candidates is None:
             continue
 
-        candidate = np.random.choice(potential_candidates)
+        # Non-cryptographic use, pseudo-random generator is acceptable here
+        candidate = random.choice(potential_candidates)  # noqa: S311
 
         misspelled[pos] = candidate
 

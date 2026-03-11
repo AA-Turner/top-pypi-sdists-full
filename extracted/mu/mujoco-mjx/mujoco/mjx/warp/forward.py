@@ -1,4 +1,4 @@
-# Copyright 2025 DeepMind Technologies Limited
+# Copyright 2026 DeepMind Technologies Limited
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
 
 """DO NOT EDIT. This file is auto-generated."""
 import dataclasses
+import functools
 import jax
 from mujoco.mjx._src import types
 from mujoco.mjx.warp import ffi
@@ -41,7 +42,6 @@ _c = mjwarp.Contact(
 _e = mjwarp.Constraint(
     **{f.name: None for f in dataclasses.fields(mjwarp.Constraint) if f.init}
 )
-
 
 @ffi.format_args_for_warp
 def _forward_shim(
@@ -213,6 +213,7 @@ def _forward_shim(
     mesh_graphadr: wp.array(dtype=int),
     mesh_normal: wp.array(dtype=wp.vec3),
     mesh_normaladr: wp.array(dtype=int),
+    mesh_normalnum: wp.array(dtype=int),
     mesh_polyadr: wp.array(dtype=int),
     mesh_polymap: wp.array(dtype=int),
     mesh_polymapadr: wp.array(dtype=int),
@@ -646,6 +647,7 @@ def _forward_shim(
   _m.mesh_graphadr = mesh_graphadr
   _m.mesh_normal = mesh_normal
   _m.mesh_normaladr = mesh_normaladr
+  _m.mesh_normalnum = mesh_normalnum
   _m.mesh_polyadr = mesh_polyadr
   _m.mesh_polymap = mesh_polymap
   _m.mesh_polymapadr = mesh_polymapadr
@@ -1011,7 +1013,7 @@ def _forward_jax_impl(m: types.Model, d: types.Data):
       num_outputs=92,
       output_dims=output_dims,
       vmap_method=None,
-      in_out_argnames={
+      in_out_argnames=set([
           'act_dot',
           'actuator_force',
           'actuator_length',
@@ -1104,8 +1106,8 @@ def _forward_jax_impl(m: types.Model, d: types.Data):
           'efc__state',
           'efc__type',
           'efc__vel',
-      },
-      stage_in_argnames={
+      ]),
+      stage_in_argnames=set([
           'act',
           'act_dot',
           'actuator_acc0',
@@ -1241,8 +1243,8 @@ def _forward_jax_impl(m: types.Model, d: types.Data):
           'xmat',
           'xpos',
           'xquat',
-      },
-      stage_out_argnames={
+      ]),
+      stage_out_argnames=set([
           'act_dot',
           'actuator_force',
           'actuator_length',
@@ -1275,8 +1277,9 @@ def _forward_jax_impl(m: types.Model, d: types.Data):
           'xmat',
           'xpos',
           'xquat',
-      },
+      ]),
       graph_mode=m.opt._impl.graph_mode,
+      has_side_effect=False,
   )
   out = jf(
       d.qpos.shape[0],
@@ -1446,6 +1449,7 @@ def _forward_jax_impl(m: types.Model, d: types.Data):
       m.mesh_graphadr,
       m.mesh_normal,
       m.mesh_normaladr,
+      m.mesh_normalnum,
       m._impl.mesh_polyadr,
       m._impl.mesh_polymap,
       m._impl.mesh_polymapadr,
@@ -1809,9 +1813,11 @@ def _forward_jax_impl(m: types.Model, d: types.Data):
 @ffi.marshal_jax_warp_callable
 def forward(m: types.Model, d: types.Data):
   return _forward_jax_impl(m, d)
+
+
 @forward.def_vmap
 @ffi.marshal_custom_vmap
-def forward_vmap(unused_axis_size, is_batched, m, d):
+def forward_vmap(unused_axis_size, is_batched, m: types.Model, d: types.Data):
   d = forward(m, d)
   return d, is_batched[1]
 
@@ -1986,6 +1992,7 @@ def _step_shim(
     mesh_graphadr: wp.array(dtype=int),
     mesh_normal: wp.array(dtype=wp.vec3),
     mesh_normaladr: wp.array(dtype=int),
+    mesh_normalnum: wp.array(dtype=int),
     mesh_polyadr: wp.array(dtype=int),
     mesh_polymap: wp.array(dtype=int),
     mesh_polymapadr: wp.array(dtype=int),
@@ -2421,6 +2428,7 @@ def _step_shim(
   _m.mesh_graphadr = mesh_graphadr
   _m.mesh_normal = mesh_normal
   _m.mesh_normaladr = mesh_normaladr
+  _m.mesh_normalnum = mesh_normalnum
   _m.mesh_polyadr = mesh_polyadr
   _m.mesh_polymap = mesh_polymap
   _m.mesh_polymapadr = mesh_polymapadr
@@ -2792,7 +2800,7 @@ def _step_jax_impl(m: types.Model, d: types.Data):
       num_outputs=96,
       output_dims=output_dims,
       vmap_method=None,
-      in_out_argnames={
+      in_out_argnames=set([
           'act',
           'act_dot',
           'actuator_force',
@@ -2889,8 +2897,8 @@ def _step_jax_impl(m: types.Model, d: types.Data):
           'efc__state',
           'efc__type',
           'efc__vel',
-      },
-      stage_in_argnames={
+      ]),
+      stage_in_argnames=set([
           'act',
           'act_dot',
           'actuator_acc0',
@@ -3026,8 +3034,8 @@ def _step_jax_impl(m: types.Model, d: types.Data):
           'xmat',
           'xpos',
           'xquat',
-      },
-      stage_out_argnames={
+      ]),
+      stage_out_argnames=set([
           'act',
           'act_dot',
           'actuator_force',
@@ -3064,8 +3072,9 @@ def _step_jax_impl(m: types.Model, d: types.Data):
           'xmat',
           'xpos',
           'xquat',
-      },
+      ]),
       graph_mode=m.opt._impl.graph_mode,
+      has_side_effect=False,
   )
   out = jf(
       d.qpos.shape[0],
@@ -3235,6 +3244,7 @@ def _step_jax_impl(m: types.Model, d: types.Data):
       m.mesh_graphadr,
       m.mesh_normal,
       m.mesh_normaladr,
+      m.mesh_normalnum,
       m._impl.mesh_polyadr,
       m._impl.mesh_polymap,
       m._impl.mesh_polymapadr,
@@ -3604,8 +3614,10 @@ def _step_jax_impl(m: types.Model, d: types.Data):
 @ffi.marshal_jax_warp_callable
 def step(m: types.Model, d: types.Data):
   return _step_jax_impl(m, d)
+
+
 @step.def_vmap
 @ffi.marshal_custom_vmap
-def step_vmap(unused_axis_size, is_batched, m, d):
+def step_vmap(unused_axis_size, is_batched, m: types.Model, d: types.Data):
   d = step(m, d)
   return d, is_batched[1]

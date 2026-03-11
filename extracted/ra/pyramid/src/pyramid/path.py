@@ -1,3 +1,5 @@
+import functools
+from importlib import import_module
 from importlib.machinery import SOURCE_SUFFIXES
 import os
 import pkg_resources
@@ -98,7 +100,7 @@ class Resolver:
                     __import__(package)
                 except ImportError:
                     raise ValueError(
-                        'The dotted name %r cannot be imported' % (package,)
+                        f'The dotted name {package!r} cannot be imported'
                     )
                 package = sys.modules[package]
             self.package = package_of(package)
@@ -209,7 +211,7 @@ class AssetResolver(Resolver):
                 package_name = getattr(self.package, '__name__', None)
             if package_name is None:
                 raise ValueError(
-                    'relative spec %r irresolveable without package' % (spec,)
+                    f'relative spec {spec!r} irresolveable without package'
                 )
         return PkgResourcesAssetDescriptor(package_name, path)
 
@@ -300,7 +302,7 @@ class DottedNameResolver(Resolver):
 
         """
         if not isinstance(dotted, str):
-            raise ValueError('%r is not a string' % (dotted,))
+            raise ValueError(f'{dotted!r} is not a string')
         package = self.package
         if package is CALLER_PACKAGE:
             package = caller_package()
@@ -338,20 +340,24 @@ class DottedNameResolver(Resolver):
         if value.startswith(('.', ':')):
             if not package:
                 raise ValueError(
-                    'relative name %r irresolveable without package' % (value,)
+                    f'relative name {value!r} irresolveable without package'
                 )
             if value in ['.', ':']:
                 value = package.__name__
             else:
                 value = package.__name__ + value
-        # Calling EntryPoint.load with an argument is deprecated.
-        # See https://pythonhosted.org/setuptools/history.html#id8
-        ep = pkg_resources.EntryPoint.parse('x=%s' % value)
-        if hasattr(ep, 'resolve'):
-            # setuptools>=10.2
-            return ep.resolve()  # pragma: NO COVER
-        else:
-            return ep.load(False)  # pragma: NO COVER
+        # logic below is similar to importlib.metadata.EntryPoint.load()
+        module = value
+        attrs = []
+        parts = value.split(':', 1)
+        if len(parts) == 2:
+            module, attrs = parts
+            attrs = attrs.split('.')
+        module = import_module(module)
+        try:
+            return functools.reduce(getattr, attrs, module)
+        except AttributeError as ex:
+            raise ImportError(str(ex))
 
     def _zope_dottedname_style(self, value, package):
         """package.module.attr style"""
@@ -361,7 +367,7 @@ class DottedNameResolver(Resolver):
         if value == '.':
             if module is None:
                 raise ValueError(
-                    'relative name %r irresolveable without package' % (value,)
+                    f'relative name {value!r} irresolveable without package'
                 )
             name = module.split('.')
         else:
@@ -401,7 +407,7 @@ class PkgResourcesAssetDescriptor:
         self.path = path
 
     def absspec(self):
-        return '%s:%s' % (self.pkg_name, self.path)
+        return f'{self.pkg_name}:{self.path}'
 
     def abspath(self):
         return os.path.abspath(

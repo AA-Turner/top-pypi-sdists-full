@@ -26,7 +26,7 @@ def redo(
 
     Parameters
     ----------
-    job_folder : {str}
+    job_folder : {str, pathlib.Path}
         A full or partial path to the job folder.
 
     workbooks_df : {pd.DataFrame, str, list}

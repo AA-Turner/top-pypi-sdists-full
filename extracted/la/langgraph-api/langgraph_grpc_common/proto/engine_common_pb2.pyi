@@ -13,9 +13,9 @@ from google.protobuf import wrappers_pb2 as _wrappers_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 import builtins as _builtins
-from . import enum_durability_pb2 as _enum_durability_pb2
-from . import enum_stream_mode_pb2 as _enum_stream_mode_pb2
-from . import errors_pb2 as _errors_pb2
+import enum_durability_pb2 as _enum_durability_pb2
+import enum_stream_mode_pb2 as _enum_stream_mode_pb2
+import errors_pb2 as _errors_pb2
 import sys
 import typing as _typing
 

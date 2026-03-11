@@ -95,6 +95,10 @@ pub enum RepositoryErrorKind {
     ParentDirectoryNotClean,
     #[error("the repository doesn't exist")]
     RepositoryDoesntExist,
+    #[error(
+        "this repository uses Icechunk v2 format, please upgrade the icechunk library"
+    )]
+    RepositoryIsV2,
     #[error("error in repository serialization")]
     SerializationError(#[from] Box<rmp_serde::encode::Error>),
     #[error("error in repository deserialization")]
@@ -192,8 +196,14 @@ impl Repository {
             config.map(|c| RepositoryConfig::default().merge(c)).unwrap_or_default();
         let compression = config.compression().level();
         let storage_c = Arc::clone(&storage);
-        let storage_settings =
-            config.storage().cloned().unwrap_or_else(|| storage.default_settings());
+        // Merge two layers of storage config (in order of preference):
+        //   - User-provided config (passed to create())
+        //   - Backend storage defaults (e.g. S3 retry/concurrency settings)
+        let storage_defaults = storage.default_settings();
+        let storage_settings = match config.storage() {
+            Some(user_storage) => storage_defaults.merge(user_storage.clone()),
+            None => storage_defaults,
+        };
 
         if !storage.root_is_clean().await? {
             return Err(RepositoryErrorKind::ParentDirectoryNotClean.into());
@@ -254,6 +264,10 @@ impl Repository {
         authorize_virtual_chunk_access: HashMap<String, Option<Credentials>>,
     ) -> RepositoryResult<Self> {
         debug!("Opening Repository");
+        if storage.has_v2_repo_info().await? {
+            return Err(RepositoryErrorKind::RepositoryIsV2.into());
+        }
+
         let storage_c = Arc::clone(&storage);
         let handle1 = tokio::spawn(
             async move { Self::fetch_config(storage_c.as_ref()).await }.in_current_span(),
@@ -314,8 +328,12 @@ impl Repository {
     ) -> RepositoryResult<Self> {
         let containers = config.virtual_chunk_containers().cloned();
         validate_credentials(&config, &authorized_virtual_containers)?;
-        let storage_settings =
-            config.storage().cloned().unwrap_or_else(|| storage.default_settings());
+        // Merge user storage config on top of backend defaults
+        let storage_defaults = storage.default_settings();
+        let storage_settings = match config.storage() {
+            Some(user_storage) => storage_defaults.merge(user_storage.clone()),
+            None => storage_defaults,
+        };
         let virtual_resolver = Arc::new(VirtualChunkResolver::new(
             containers,
             authorized_virtual_containers.clone(),
@@ -429,8 +447,11 @@ impl Repository {
         }
 
         let bytes = Bytes::from(serde_yaml_ng::to_string(config)?);
-        let storage_settings =
-            config.storage().cloned().unwrap_or_else(|| storage.default_settings());
+        let storage_defaults = storage.default_settings();
+        let storage_settings = match config.storage() {
+            Some(user_storage) => storage_defaults.merge(user_storage.clone()),
+            None => storage_defaults,
+        };
         match storage.update_config(&storage_settings, bytes, previous_version).await? {
             UpdateConfigResult::Updated { new_version } => Ok(new_version),
             UpdateConfigResult::NotOnLatestVersion => {
@@ -2577,6 +2598,29 @@ mod tests {
 
         assert!(
             Repository::create(None, Arc::clone(&storage), HashMap::new()).await.is_err()
+        );
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_open_fails_for_v2_repo() -> Result<(), Box<dyn Error>> {
+        let repo_dir = TempDir::new()?;
+
+        // Write a fake v2 repo info file
+        std::fs::write(repo_dir.path().join("repo"), b"fake v2 repo info")?;
+
+        let storage: Arc<dyn Storage + Send + Sync> =
+            new_local_filesystem_storage(repo_dir.path())
+                .await
+                .expect("Creating local storage failed");
+
+        let result = Repository::open(None, Arc::clone(&storage), HashMap::new()).await;
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(
+            matches!(err.kind, RepositoryErrorKind::RepositoryIsV2),
+            "Expected RepositoryIsV2 error, got: {err:?}"
         );
 
         Ok(())

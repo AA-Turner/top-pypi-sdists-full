@@ -55,6 +55,31 @@ class DatasetMetadataServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_datasets__pb2.ArchiveDatasetRevisionsRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_datasets__pb2.ArchiveDatasetRevisionsResponse.FromString,
         )
+        self.DeleteDataset = channel.unary_unary(
+            "/chalk.server.v1.DatasetMetadataService/DeleteDataset",
+            request_serializer=chalk_dot_server_dot_v1_dot_datasets__pb2.DeleteDatasetRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_datasets__pb2.DeleteDatasetResponse.FromString,
+        )
+        self.GetDatasetRevisionPreview = channel.unary_unary(
+            "/chalk.server.v1.DatasetMetadataService/GetDatasetRevisionPreview",
+            request_serializer=chalk_dot_server_dot_v1_dot_datasets__pb2.GetDatasetRevisionPreviewRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_datasets__pb2.GetDatasetRevisionPreviewResponse.FromString,
+        )
+        self.GenerateDatasetStats = channel.unary_unary(
+            "/chalk.server.v1.DatasetMetadataService/GenerateDatasetStats",
+            request_serializer=chalk_dot_server_dot_v1_dot_datasets__pb2.GenerateDatasetStatsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_datasets__pb2.GenerateDatasetStatsResponse.FromString,
+        )
+        self.GetDatasetEdfs = channel.unary_unary(
+            "/chalk.server.v1.DatasetMetadataService/GetDatasetEdfs",
+            request_serializer=chalk_dot_server_dot_v1_dot_datasets__pb2.GetDatasetEdfsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_datasets__pb2.GetDatasetEdfsResponse.FromString,
+        )
+        self.GenerateDatasetEdfs = channel.unary_unary(
+            "/chalk.server.v1.DatasetMetadataService/GenerateDatasetEdfs",
+            request_serializer=chalk_dot_server_dot_v1_dot_datasets__pb2.GenerateDatasetEdfsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_datasets__pb2.GenerateDatasetEdfsResponse.FromString,
+        )
 
 
 class DatasetMetadataServiceServicer(object):
@@ -108,6 +133,36 @@ class DatasetMetadataServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def DeleteDataset(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetDatasetRevisionPreview(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GenerateDatasetStats(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetDatasetEdfs(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GenerateDatasetEdfs(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_DatasetMetadataServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -150,6 +205,31 @@ def add_DatasetMetadataServiceServicer_to_server(servicer, server):
             servicer.ArchiveDatasetRevisions,
             request_deserializer=chalk_dot_server_dot_v1_dot_datasets__pb2.ArchiveDatasetRevisionsRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_datasets__pb2.ArchiveDatasetRevisionsResponse.SerializeToString,
+        ),
+        "DeleteDataset": grpc.unary_unary_rpc_method_handler(
+            servicer.DeleteDataset,
+            request_deserializer=chalk_dot_server_dot_v1_dot_datasets__pb2.DeleteDatasetRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_datasets__pb2.DeleteDatasetResponse.SerializeToString,
+        ),
+        "GetDatasetRevisionPreview": grpc.unary_unary_rpc_method_handler(
+            servicer.GetDatasetRevisionPreview,
+            request_deserializer=chalk_dot_server_dot_v1_dot_datasets__pb2.GetDatasetRevisionPreviewRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_datasets__pb2.GetDatasetRevisionPreviewResponse.SerializeToString,
+        ),
+        "GenerateDatasetStats": grpc.unary_unary_rpc_method_handler(
+            servicer.GenerateDatasetStats,
+            request_deserializer=chalk_dot_server_dot_v1_dot_datasets__pb2.GenerateDatasetStatsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_datasets__pb2.GenerateDatasetStatsResponse.SerializeToString,
+        ),
+        "GetDatasetEdfs": grpc.unary_unary_rpc_method_handler(
+            servicer.GetDatasetEdfs,
+            request_deserializer=chalk_dot_server_dot_v1_dot_datasets__pb2.GetDatasetEdfsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_datasets__pb2.GetDatasetEdfsResponse.SerializeToString,
+        ),
+        "GenerateDatasetEdfs": grpc.unary_unary_rpc_method_handler(
+            servicer.GenerateDatasetEdfs,
+            request_deserializer=chalk_dot_server_dot_v1_dot_datasets__pb2.GenerateDatasetEdfsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_datasets__pb2.GenerateDatasetEdfsResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -384,6 +464,151 @@ class DatasetMetadataService(object):
             "/chalk.server.v1.DatasetMetadataService/ArchiveDatasetRevisions",
             chalk_dot_server_dot_v1_dot_datasets__pb2.ArchiveDatasetRevisionsRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_datasets__pb2.ArchiveDatasetRevisionsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def DeleteDataset(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.DatasetMetadataService/DeleteDataset",
+            chalk_dot_server_dot_v1_dot_datasets__pb2.DeleteDatasetRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_datasets__pb2.DeleteDatasetResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetDatasetRevisionPreview(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.DatasetMetadataService/GetDatasetRevisionPreview",
+            chalk_dot_server_dot_v1_dot_datasets__pb2.GetDatasetRevisionPreviewRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_datasets__pb2.GetDatasetRevisionPreviewResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GenerateDatasetStats(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.DatasetMetadataService/GenerateDatasetStats",
+            chalk_dot_server_dot_v1_dot_datasets__pb2.GenerateDatasetStatsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_datasets__pb2.GenerateDatasetStatsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetDatasetEdfs(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.DatasetMetadataService/GetDatasetEdfs",
+            chalk_dot_server_dot_v1_dot_datasets__pb2.GetDatasetEdfsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_datasets__pb2.GetDatasetEdfsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GenerateDatasetEdfs(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.DatasetMetadataService/GenerateDatasetEdfs",
+            chalk_dot_server_dot_v1_dot_datasets__pb2.GenerateDatasetEdfsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_datasets__pb2.GenerateDatasetEdfsResponse.FromString,
             options,
             channel_credentials,
             insecure,

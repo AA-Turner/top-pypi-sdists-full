@@ -1,2 +1,1 @@
-from ...imports import math
-from functools import reduce
+from ...imports import math,reduce

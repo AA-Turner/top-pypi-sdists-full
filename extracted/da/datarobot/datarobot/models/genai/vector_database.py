@@ -1195,7 +1195,7 @@ class VectorDatabase(APIObject):
         if credential_id:
             payload_data["credential_id"] = credential_id
 
-        response_data = self._client.post(url, data={})
+        response_data = self._client.post(url, data=payload_data)
         location = wait_for_async_resolution(self._client, response_data.headers["Location"])
         return Deployment.from_location(location)
 

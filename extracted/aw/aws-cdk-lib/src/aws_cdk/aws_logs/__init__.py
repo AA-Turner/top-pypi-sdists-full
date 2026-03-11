@@ -1608,7 +1608,6 @@ class CfnDeliveryDestination(
 
     Example::
 
-        from aws_cdk.mixins_preview.with import
         import aws_cdk.mixins_preview.aws_cloudfront.mixins as cloudfront_mixins
         
         # Create CloudFront distribution
@@ -1997,7 +1996,6 @@ class CfnDeliveryDestinationProps:
 
         Example::
 
-            from aws_cdk.mixins_preview.with import
             import aws_cdk.mixins_preview.aws_cloudfront.mixins as cloudfront_mixins
             
             # Create CloudFront distribution
@@ -3995,16 +3993,33 @@ class CfnLogGroup(
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-logs-loggroup.html
     :cloudformationResource: AWS::Logs::LogGroup
-    :exampleMetadata: infused
+    :exampleMetadata: fixture=_generated
 
     Example::
 
-        # Works across different resource types
-        my_bucket = s3.CfnBucket(scope, "Bucket")
-        Mixins.of(my_bucket).apply(EncryptionAtRest())
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_logs as logs
         
-        my_log_group = logs.CfnLogGroup(scope, "LogGroup")
-        Mixins.of(my_log_group).apply(EncryptionAtRest())
+        # data_protection_policy: Any
+        # field_index_policies: Any
+        # resource_policy_document: Any
+        
+        cfn_log_group = logs.CfnLogGroup(self, "MyCfnLogGroup",
+            data_protection_policy=data_protection_policy,
+            deletion_protection_enabled=False,
+            field_index_policies=[field_index_policies],
+            kms_key_id="kmsKeyId",
+            log_group_class="logGroupClass",
+            log_group_name="logGroupName",
+            resource_policy_document=resource_policy_document,
+            retention_in_days=123,
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
     '''
 
     def __init__(

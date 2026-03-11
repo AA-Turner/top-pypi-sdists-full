@@ -389,6 +389,9 @@ class Session:
         self.client.set_default_header('x-sq-origin-url', value)
         self.client.set_default_header('Referer', value)
 
+    def clear_user_folder_cache(self):
+        self._user_folders = None
+
     def get_user_folder(self, user_id: str) -> FolderOutputV1:
         """
         Get the specified user's home folder. Requires admin permissions.

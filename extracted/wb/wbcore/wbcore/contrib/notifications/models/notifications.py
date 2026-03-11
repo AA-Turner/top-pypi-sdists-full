@@ -7,16 +7,86 @@ from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
 from django.core.validators import URLValidator, ValidationError
 from django.db import models
+from django.db.models import BooleanField, Case, F, OuterRef, Q, Subquery, Value, When
+from django.db.models.functions import Coalesce
 from django.template.loader import get_template
-from django.urls import Resolver404, resolve
+from django.urls import Resolver404, resolve, reverse
 from django.utils import timezone
 from django.utils.functional import cached_property
 from django.utils.html import strip_tags
 from django.utils.module_loading import import_string
 
 from wbcore.contrib.authentication.models.users import User
+from wbcore.contrib.notifications.backends.abstract_backend import AbstractNotificationBackend
+from wbcore.contrib.notifications.models import NotificationTypeSetting
 from wbcore.contrib.notifications.utils import base_domain, create_notification_type, get_checksum
 from wbcore.workers import Queue
+
+
+def get_notification_backend() -> AbstractNotificationBackend:
+    return import_string(settings.NOTIFICATION_BACKEND)
+
+
+class NotificationQueryset(models.QuerySet):
+    def filter_unsent_and_due(self):
+        unsent_notifications = self.filter(sent_email__isnull=True)
+        return unsent_notifications.annotate(
+            frequency=Coalesce(
+                Subquery(
+                    NotificationTypeSetting.objects.filter(
+                        notification_type=OuterRef("notification_type"), user=OuterRef("user")
+                    ).values("frequency")[:1]
+                ),
+                Value(NotificationTypeSetting.Frequency.IMMEDIATLY.value),
+            ),
+            allow_email=Coalesce(
+                Subquery(
+                    NotificationTypeSetting.objects.filter(
+                        notification_type=OuterRef("notification_type"), user=OuterRef("user")
+                    ).values("enable_email")[:1]
+                ),
+                Value(False),
+            ),
+            first_unsent_encounter=Coalesce(
+                Subquery(
+                    unsent_notifications.exclude(id=OuterRef("id"))
+                    .filter(
+                        user=OuterRef("user"),
+                        notification_type=OuterRef("notification_type"),
+                        created__lt=OuterRef("created"),
+                    )
+                    .order_by("created")
+                    .values("created")[:1]
+                ),
+                F("created"),
+            ),
+            elapse_time=timezone.now() - F("first_unsent_encounter"),
+            send_due=Case(
+                When(
+                    Q(frequency=NotificationTypeSetting.Frequency.IMMEDIATLY)
+                    | Q(notification_type__is_important=True),
+                    then=Value(True),
+                ),
+                When(
+                    Q(frequency=NotificationTypeSetting.Frequency.HOURLY) & Q(elapse_time__gt=timedelta(hours=1)),
+                    then=Value(True),
+                ),
+                When(
+                    Q(frequency=NotificationTypeSetting.Frequency.DAILY) & Q(elapse_time__gt=timedelta(hours=24)),
+                    then=Value(True),
+                ),
+                default=False,
+                output_field=BooleanField(),
+            ),
+        ).filter(send_due=True, allow_email=True)
+
+
+class NotificationManager(models.Manager):
+    def get_queryset(self) -> NotificationQueryset:
+        return NotificationQueryset(self.model, using=self._db)
+
+    def filter_unsent_and_due(self):
+        return self.get_queryset().filter_unsent_and_due()
 
 
 class Notification(models.Model):
@@ -30,9 +100,13 @@ class Notification(models.Model):
     )
 
     created = models.DateTimeField(auto_now_add=True)
-    sent = models.DateTimeField(null=True, blank=True)
+    sent_email = models.DateTimeField(null=True, blank=True)
+    sent_mobile = models.DateTimeField(null=True, blank=True)
+    sent_web = models.DateTimeField(null=True, blank=True)
     read = models.DateTimeField(null=True, blank=True)
     checksum = models.CharField(max_length=64)
+
+    objects = NotificationManager()
 
     def __str__(self) -> str:
         return f"{self.user} {self.title}"
@@ -53,10 +127,9 @@ class Notification(models.Model):
         ]
         indexes = [
             models.Index(fields=["user", "notification_type", "checksum"]),
+            models.Index(fields=["user", "notification_type", "created"]),
+            models.Index(fields=["sent_email"]),
         ]
-        # constraints = [
-        #     models.UniqueConstraint(fields=["user", "checksum"], name="checksum_unique"),
-        # ]
 
     @cached_property
     def is_endpoint_internal(self) -> bool:
@@ -76,57 +149,80 @@ class Notification(models.Model):
         except ValidationError:
             return False
 
-    def _send_as_mail(self):
-        """Sends out a notification to the user specified inside the notification"""
+    @cached_property
+    def notification_setting(self) -> "NotificationTypeSetting":
+        return self.notification_type.get_setting_for_user(self.user)
 
-        context = {
-            "title": self.title,
-            "message": self.body or "",
-            "notification_share_url": self.get_full_endpoint(as_shareable_internal_link=True),
-            "notification_endpoint": self.get_full_endpoint(),
-        }
-        rendered_template = get_template("notifications/notification_template.html").render(context)
-        msg = EmailMultiAlternatives(
-            subject=self.title,
-            body=strip_tags(rendered_template),
-            from_email=getattr(settings, "WBCORE_NOTIFICATION_EMAIL_FROM", "no_reply@stainly.com"),
-            to=[self.user.email],  # type: ignore
-        )
-        msg.attach_alternative(rendered_template, "text/html")
-        msg.send()
+    @cached_property
+    def shareable_link(self) -> str | None:
+        return self.get_full_endpoint(as_shareable_internal_link=True)
+
+    @cached_property
+    def notification_link(self) -> str:
+        return f"{base_domain()}?widget_endpoint={reverse('wbcore:notifications:notification-detail', args=[self.id])}"
 
     def save(self, *args, **kwargs):
         if not self.checksum:
             self.checksum = self.get_checksum()
         super().save(*args, **kwargs)
 
-    def has_duplicated(self, interval: int = 60 * 4) -> bool:
+    def has_email_duplicated(self, interval: int = 60 * 4) -> bool:
         return (
             Notification.objects.exclude(id=self.id)
             .filter(
                 user=self.user,
                 notification_type=self.notification_type,
                 checksum=self.checksum,
-                sent__isnull=False,
+                sent_email__isnull=False,
                 created__gt=self.created - timedelta(minutes=interval),
                 created__lt=self.created + timedelta(minutes=interval),
             )
             .exists()
         )
 
-    def send(self):
-        notification_user_setting = self.notification_type.get_setting_for_user(self.user)
+    def send_email(self):
+        """Sends out a notification to the user specified inside the notification"""
 
-        # we do not sent notification through email if we detect similar already sent notification
-        if notification_user_setting.enable_email and not self.has_duplicated():
-            self._send_as_mail()
-        if notification_user_setting.enable_web or notification_user_setting.enable_mobile:
-            backend = import_string(settings.NOTIFICATION_BACKEND)
-            backend.send_notification(self)
+        if not self.notification_setting.enable_email:
+            raise ValueError("This notification cannot be sent by email")
+        if not self.has_email_duplicated():
+            rendered_template = get_template("notifications/notification_template.html").render({"notification": self})
+            msg = EmailMultiAlternatives(
+                subject=self.title,
+                body=strip_tags(rendered_template),
+                from_email=getattr(settings, "WBCORE_NOTIFICATION_EMAIL_FROM", "no_reply@stainly.com"),
+                to=[self.user.email],  # type: ignore
+            )
+            msg.attach_alternative(rendered_template, "text/html")
+            msg.send()
+            self.sent_email = timezone.now()
+            self.save()
 
-        # mark this notification as sent
-        self.sent = timezone.now()
+    def send_web(self):
+        if not self.notification_setting.enable_web:
+            raise ValueError("This notification cannot be sent by web")
+        get_notification_backend().send_web_notification(self)
+        self.sent_web = timezone.now()
         self.save()
+
+    def send_mobile(self):
+        if not self.notification_setting.enable_mobile:
+            raise ValueError("This notification cannot be sent by mobile")
+        get_notification_backend().send_mobile_notification(self)
+        # mark this notification as sent
+        self.sent_mobile = timezone.now()
+        self.save()
+
+    def send(self):
+        if self.notification_setting.enable_web:
+            self.send_web()
+        if self.notification_setting.enable_mobile:
+            self.send_mobile()
+        if self.notification_setting.enable_email and (
+            self.notification_setting.frequency == NotificationTypeSetting.Frequency.IMMEDIATLY
+            or self.notification_type.is_important
+        ):
+            self.send_email()
 
     def get_checksum(self) -> str:
         return get_checksum(self.title, self.body, self.endpoint)

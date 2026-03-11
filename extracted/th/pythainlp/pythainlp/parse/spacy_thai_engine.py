@@ -1,18 +1,22 @@
-# -*- coding: utf-8 -*-
-"""
-spacy_thai: Tokenizer, POS tagger, and dependency parser for the Thai language using Universal Dependencies.
+"""spacy_thai: Tokenizer, POS tagger, and dependency parser for the Thai language using Universal Dependencies.
 
 GitHub: https://github.com/KoichiYasuoka/spacy-thai
 
 """
-from typing import List, Union
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, List, Union
 
 import spacy_thai
+
+if TYPE_CHECKING:
+    from spacy_thai import Language
 
 
 class Parse:
     def __init__(self, model: str = "th") -> None:
-        self.nlp = spacy_thai.load()
+        self.nlp: Language = spacy_thai.load()
 
     def __call__(
         self, text: str, tag: str = "str"

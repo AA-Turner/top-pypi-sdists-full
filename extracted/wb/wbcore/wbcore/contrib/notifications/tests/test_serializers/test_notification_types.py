@@ -40,6 +40,7 @@ class TestNotificationTypeSettingModelSerializer:
             "enable_web": notification_type_setting.enable_web,
             "enable_mobile": notification_type_setting.enable_mobile,
             "enable_email": notification_type_setting.enable_email,
+            "frequency": notification_type_setting.frequency,
             "_additional_resources": {},
             "_update_url": reverse(
                 "wbcore:notifications:notification_type_setting-list", args=[], request=request_with_user

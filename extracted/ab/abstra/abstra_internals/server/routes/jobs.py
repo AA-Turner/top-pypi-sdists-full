@@ -69,6 +69,7 @@ def get_editor_bp(controller: MainController):
         if status == "disabled":
             return {"status": "disabled"}
 
-        return controller.run_job(id)
+        user_jwt = flask.request.cookies.get("editor_auth")
+        return controller.run_job(id, user_jwt=user_jwt)
 
     return bp

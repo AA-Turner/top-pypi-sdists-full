@@ -1,4 +1,4 @@
-from django.db import models
+from django.db import models, transaction
 from django.db.models import Q, UniqueConstraint
 from django.utils.translation import gettext_lazy as _
 from django.utils.translation import pgettext_lazy
@@ -421,15 +421,11 @@ class EmailContact(ComplexToStringMixin, PrimaryMixin, WBModel):
         ]
 
     @classmethod
+    @transaction.atomic
     def set_entry_primary_email(cls, entry, address):
-        try:
-            contact = EmailContact.objects.get(address=address, entry=entry)
-        except EmailContact.DoesNotExist:
-            try:
-                contact = EmailContact.objects.get(address=address)
-                contact.entry = entry
-            except EmailContact.DoesNotExist:
-                contact = EmailContact(address=address, entry=entry)
+        contact = EmailContact.objects.select_for_update().update_or_create(
+            address=address, defaults={"entry": entry}
+        )[0]
         contact.primary = True
         contact.save()
 

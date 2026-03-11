@@ -1,10 +1,4 @@
-from __future__ import annotations
-from typing import Any, Callable, Iterable, Iterator, List, Tuple, Union, Dict
-import re
-
-JSONLike = Union[dict, list, tuple, set, str, int, float, bool, None]
-PathType = Tuple[Union[str, int], ...]  # ('window_title',) or ('tabs', 2, 'name'), etc.
-
+from .imports import *
 def iter_values(obj: JSONLike, path: PathType = ()) -> Iterator[Tuple[PathType, Any]]:
     """
     Depth-first walk of nested dict/list/tuple/set. Yields (path, value) for every leaf.

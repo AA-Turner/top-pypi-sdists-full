@@ -9,7 +9,7 @@ from pathlib import Path
 
 import typer
 
-from plato.cli.utils import console, require_api_key
+from plato.cli.utils import console, maybe_bump_package_version, require_api_key
 from plato.utils.ecr import ECR_REGISTRY, get_image_digest, publish_docker_image
 
 world_app = typer.Typer(help="Manage and deploy worlds")
@@ -92,6 +92,12 @@ def _extract_schema_from_wheel(wheel_path: Path, module_name: str) -> dict | Non
 @world_app.command(name="publish")
 def world_publish(
     path: str = typer.Argument(".", help="Path to the world package directory"),
+    minor: bool = typer.Option(False, "--minor", help="Bump the minor version before publishing"),
+    dev: bool = typer.Option(
+        False,
+        "--dev",
+        help="Publish the next dated PEP 440 dev version without prompting",
+    ),
     dry_run: bool = typer.Option(False, "--dry-run", help="Build without uploading"),
 ):
     """Build and publish a world package to the Plato worlds repository.
@@ -157,6 +163,14 @@ def world_publish(
     if not version:
         console.print("[red]Error: No version in pyproject.toml[/red]")
         raise typer.Exit(1)
+
+    version = maybe_bump_package_version(
+        pyproject_file,
+        version,
+        minor=minor,
+        dev=dev,
+        dry_run=dry_run,
+    )
 
     console.print(f"[cyan]Package:[/cyan] {package_name}")
     console.print(f"[cyan]Version:[/cyan] {version}")

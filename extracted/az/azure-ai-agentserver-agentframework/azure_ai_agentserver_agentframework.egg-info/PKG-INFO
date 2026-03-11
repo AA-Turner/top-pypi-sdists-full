@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: azure-ai-agentserver-agentframework
-Version: 1.0.0b15
+Version: 1.0.0b16
 Summary: Agents server adapter for Azure AI
 Author-email: Microsoft Corporation <azpysdkhelp@microsoft.com>
 License-Expression: MIT
@@ -17,12 +17,10 @@ Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: azure-ai-agentserver-core==1.0.0b15
-Requires-Dist: agent-framework-azure-ai<=1.0.0b260107,>=1.0.0b251112
-Requires-Dist: agent-framework-core<=1.0.0b260107,>=1.0.0b251112
-Requires-Dist: opentelemetry-exporter-otlp-proto-grpc<=1.39.0,>=1.36.0
-Requires-Dist: opentelemetry-semantic-conventions-ai==0.4.13
-Requires-Dist: azure-ai-projects==2.0.0b3
+Requires-Dist: azure-ai-agentserver-core==1.0.0b16
+Requires-Dist: agent-framework-azure-ai<=1.0.0rc3,>=1.0.0rc2
+Requires-Dist: agent-framework-core<=1.0.0rc3,>=1.0.0rc2
+Requires-Dist: opentelemetry-exporter-otlp-proto-grpc>=1.39.0
 Dynamic: license-file
 
 # Azure AI Agent Server Adapter for Agent-framework Python

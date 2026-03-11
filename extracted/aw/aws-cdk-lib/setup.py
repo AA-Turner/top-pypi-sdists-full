@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "aws-cdk-lib",
-    "version": "2.241.0",
+    "version": "2.242.0",
     "description": "Version 2 of the AWS Cloud Development Kit library",
     "license": "Apache-2.0",
     "url": "https://github.com/aws/aws-cdk",
@@ -62,6 +62,7 @@ kwargs = json.loads(
         "aws_cdk.aws_bcmdataexports",
         "aws_cdk.aws_bedrock",
         "aws_cdk.aws_bedrockagentcore",
+        "aws_cdk.aws_bedrockmantle",
         "aws_cdk.aws_billingconductor",
         "aws_cdk.aws_budgets",
         "aws_cdk.aws_cases",
@@ -123,8 +124,10 @@ kwargs = json.loads(
         "aws_cdk.aws_ec2",
         "aws_cdk.aws_ecr",
         "aws_cdk.aws_ecr_assets",
+        "aws_cdk.aws_ecr.mixins",
         "aws_cdk.aws_ecs",
         "aws_cdk.aws_ecs_patterns",
+        "aws_cdk.aws_ecs.mixins",
         "aws_cdk.aws_efs",
         "aws_cdk.aws_eks",
         "aws_cdk.aws_eks_v2",
@@ -275,6 +278,7 @@ kwargs = json.loads(
         "aws_cdk.aws_s3_assets",
         "aws_cdk.aws_s3_deployment",
         "aws_cdk.aws_s3_notifications",
+        "aws_cdk.aws_s3.mixins",
         "aws_cdk.aws_s3express",
         "aws_cdk.aws_s3objectlambda",
         "aws_cdk.aws_s3outposts",
@@ -364,6 +368,7 @@ kwargs = json.loads(
         "aws_cdk.interfaces.aws_bcmdataexports",
         "aws_cdk.interfaces.aws_bedrock",
         "aws_cdk.interfaces.aws_bedrockagentcore",
+        "aws_cdk.interfaces.aws_bedrockmantle",
         "aws_cdk.interfaces.aws_billing",
         "aws_cdk.interfaces.aws_billingconductor",
         "aws_cdk.interfaces.aws_budgets",
@@ -611,7 +616,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "aws_cdk._jsii": [
-            "aws-cdk-lib@2.241.0.jsii.tgz"
+            "aws-cdk-lib@2.242.0.jsii.tgz"
         ],
         "aws_cdk": [
             "py.typed"

@@ -1,3 +1,4 @@
+from datetime import timezone
 import os
 import unittest
 import warnings
@@ -315,7 +316,7 @@ class TestViewsConfigurationMixin(unittest.TestCase):
         self.assertFalse(wrapper is view)
         self.assertEqual(wrapper.__doc__, view.__doc__)
         request = testing.DummyRequest()
-        when = datetime.datetime.utcnow() + datetime.timedelta(days=1)
+        when = datetime.datetime.now(timezone.utc) + datetime.timedelta(days=1)
         result = wrapper(None, request)
         self.assertEqual(result, response)
         headers = dict(response.headerlist)
@@ -554,7 +555,7 @@ class TestViewsConfigurationMixin(unittest.TestCase):
         self.assertEqual(wrapper, view)
 
     def test_add_view_same_phash_overrides_existing_single_view(self):
-        from hashlib import md5
+        from hashlib import sha256
         from zope.interface import Interface
 
         from pyramid.interfaces import (
@@ -565,7 +566,7 @@ class TestViewsConfigurationMixin(unittest.TestCase):
         )
         from pyramid.renderers import null_renderer
 
-        phash = md5()
+        phash = sha256()
         phash.update(b'xhr = True')
         view = lambda *arg: 'NOT OK'
         view.__phash__ = phash.hexdigest()
@@ -585,7 +586,7 @@ class TestViewsConfigurationMixin(unittest.TestCase):
         self.assertEqual(wrapper(None, request), 'OK')
 
     def test_add_view_exc_same_phash_overrides_existing_single_view(self):
-        from hashlib import md5
+        from hashlib import sha256
         from zope.interface import implementedBy
 
         from pyramid.interfaces import (
@@ -596,7 +597,7 @@ class TestViewsConfigurationMixin(unittest.TestCase):
         )
         from pyramid.renderers import null_renderer
 
-        phash = md5()
+        phash = sha256()
         phash.update(b'xhr = True')
         view = lambda *arg: 'NOT OK'
         view.__phash__ = phash.hexdigest()
@@ -4065,9 +4066,12 @@ class TestStaticURLInfo(unittest.TestCase):
         config = testing.setUp()
         try:
             request = testing.DummyRequest()
-            config.add_static_view('static', 'path')
+            config.add_static_view(
+                'static', 'tests.test_config.pkgs.cachebust:path/'
+            )
             config.override_asset(
-                'tests.test_config:path/', 'tests.test_config:other_path/'
+                'tests.test_config.pkgs.cachebust:path/',
+                'tests.test_config.pkgs.cachebust:override/',
             )
 
             def cb(val):
@@ -4077,11 +4081,21 @@ class TestStaticURLInfo(unittest.TestCase):
 
                 return cb_
 
-            config.add_cache_buster('path', cb('foo'))
-            result = request.static_url('path/foo.png')
+            config.add_cache_buster(
+                'tests.test_config.pkgs.cachebust:path/', cb('foo')
+            )
+            result = request.static_url(
+                'tests.test_config.pkgs.cachebust:path/foo.png'
+            )
             self.assertEqual(result, 'http://example.com/static/foo.png?x=foo')
-            config.add_cache_buster('other_path', cb('bar'), explicit=True)
-            result = request.static_url('path/foo.png')
+            config.add_cache_buster(
+                'tests.test_config.pkgs.cachebust:override/',
+                cb('bar'),
+                explicit=True,
+            )
+            result = request.static_url(
+                'tests.test_config.pkgs.cachebust:path/foo.png'
+            )
             self.assertEqual(result, 'http://example.com/static/foo.png?x=bar')
         finally:
             testing.tearDown()
@@ -4399,7 +4413,7 @@ def assert_similar_datetime(one, two):
         one_attr = getattr(one, attr)
         two_attr = getattr(two, attr)
         if not one_attr == two_attr:  # pragma: no cover
-            raise AssertionError('%r != %r in %s' % (one_attr, two_attr, attr))
+            raise AssertionError(f'{one_attr!r} != {two_attr!r} in {attr}')
 
 
 class DummyStaticURLInfo:

@@ -1,19 +1,22 @@
-# -*- coding: utf-8 -*-
-# SPDX-FileCopyrightText: 2016-2025 PyThaiNLP Project
+# SPDX-FileCopyrightText: 2016-2026 PyThaiNLP Project
 # SPDX-FileType: SOURCE
 # SPDX-License-Identifier: Apache-2.0
-"""
-Command line for PyThaiNLP's dataset/corpus management.
-"""
+"""Command line for PyThaiNLP's dataset/corpus management."""
+
+from __future__ import annotations
 
 import argparse
+from typing import TYPE_CHECKING
 
 from pythainlp import corpus
 from pythainlp.tools import get_pythainlp_data_path
 
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
 
 class App:
-    def __init__(self, argv):
+    def __init__(self, argv: Sequence[str]) -> None:
         parser = argparse.ArgumentParser(
             prog="data",
             description="Manage dataset/corpus.",
@@ -30,7 +33,8 @@ class App:
                 "Current data path:\n\n"
                 f"{get_pythainlp_data_path()}\n\n"
                 "To change PyThaiNLP data path, set the operating system's\n"
-                "PYTHAINLP_DATA_DIR environment variable.\n\n"
+                "PYTHAINLP_DATA environment variable.\n"
+                "(PYTHAINLP_DATA_DIR is also accepted but deprecated.)\n\n"
                 "For more information about corpora that PyThaiNLP use, see:\n"
                 "https://github.com/PyThaiNLP/pythainlp-corpus/\n\n"
                 "--"
@@ -45,7 +49,7 @@ class App:
         args = parser.parse_args(argv[2:3])
         getattr(self, args.subcommand)(argv)
 
-    def get(self, argv):
+    def get(self, argv: Sequence[str]) -> None:
         parser = argparse.ArgumentParser(
             description="Download a dataset",
             usage="thainlp data get <dataset_name>",
@@ -61,7 +65,7 @@ class App:
         else:
             print("Not found.")
 
-    def rm(self, argv):
+    def rm(self, argv: Sequence[str]) -> None:
         parser = argparse.ArgumentParser(
             description="Remove a dataset",
             usage="thainlp data rm <dataset_name>",
@@ -77,7 +81,7 @@ class App:
         else:
             print("Not found.")
 
-    def info(self, argv):
+    def info(self, argv: Sequence[str]) -> None:
         parser = argparse.ArgumentParser(
             description="Print information about a dataset",
             usage="thainlp data info <dataset_name>",
@@ -94,14 +98,14 @@ class App:
         else:
             print("Not found.")
 
-    def catalog(self, argv):
+    def catalog(self, argv: Sequence[str]) -> None:
         """Print dataset/corpus available for download."""
-        corpus_db = corpus.get_corpus_db(corpus.corpus_db_url())
-        corpus_db = corpus_db.json()
-        corpus_names = sorted(corpus_db.keys())
+        corpus_db_response = corpus.get_corpus_db(corpus.corpus_db_url())
+        corpus_db_dict: dict[str, dict[str, str]] = corpus_db_response.json()  # type: ignore[union-attr]
+        corpus_names = sorted(corpus_db_dict.keys())
         print("Dataset/corpus available for download:")
         for name in corpus_names:
-            print(f"- {name} {corpus_db[name]['latest_version']}", end="")
+            print(f"- {name} {corpus_db_dict[name]['latest_version']}", end="")
             corpus_info = corpus.get_corpus_db_detail(name)
             if corpus_info:
                 print(f"  (Local: {corpus_info['version']})")
@@ -113,6 +117,6 @@ class App:
             "Example: thainlp data get crfcut\n"
         )
 
-    def path(self, argv):
+    def path(self, argv: Sequence[str]) -> None:
         """Print path of local dataset."""
         print(get_pythainlp_data_path())

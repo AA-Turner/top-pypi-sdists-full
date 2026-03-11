@@ -1,32 +1,56 @@
-# -*- coding: utf-8 -*-
-# SPDX-FileCopyrightText: 2016-2025 PyThaiNLP Project
+# SPDX-FileCopyrightText: 2016-2026 PyThaiNLP Project
 # SPDX-FileType: SOURCE
 # SPDX-License-Identifier: Apache-2.0
+from __future__ import annotations
+
 import re
 import warnings
-from typing import List, Tuple, Union
+from typing import TYPE_CHECKING, Optional, Union
 
-from transformers import (
-    CamembertTokenizer,
-    pipeline,
-)
+if TYPE_CHECKING:
+    from transformers import (
+        CamembertTokenizer,
+        PreTrainedModel,
+        PreTrainedTokenizerBase,
+    )
+    from transformers.pipelines import TokenClassificationPipeline
 
 from pythainlp.tokenize import word_tokenize
 
-_model_name = "wangchanberta-base-att-spm-uncased"
-_tokenizer = CamembertTokenizer.from_pretrained(
-    f"airesearch/{_model_name}", revision="main"
-)
-if _model_name == "wangchanberta-base-att-spm-uncased":
-    _tokenizer.additional_special_tokens = ["<s>NOTUSED", "</s>NOTUSED", "<_>"]
+_model_name: str = "wangchanberta-base-att-spm-uncased"
+_tokenizer: Optional["CamembertTokenizer"] = None
+
+
+def _get_tokenizer() -> CamembertTokenizer:
+    """Get the tokenizer, initializing it if necessary."""
+    global _tokenizer
+    if _tokenizer is None:
+        from transformers import CamembertTokenizer
+
+        _tokenizer = CamembertTokenizer.from_pretrained(
+            f"airesearch/{_model_name}", revision="main"
+        )
+        if _model_name == "wangchanberta-base-att-spm-uncased":
+            _tokenizer.additional_special_tokens = [
+                "<s>NOTUSED",
+                "</s>NOTUSED",
+                "<_>",
+            ]
+    return _tokenizer
 
 
 class ThaiNameTagger:
+    dataset_name: str
+    grouped_entities: bool
+    classify_tokens: TokenClassificationPipeline
+    json_ner: list[dict[str, str]]
+    output: str
+    sent_ner: list[tuple[str, str]]
+
     def __init__(
         self, dataset_name: str = "thainer", grouped_entities: bool = True
-    ):
-        """
-        This function tags named entities in text in IOB format.
+    ) -> None:
+        """This function tags named entities in text in IOB format.
 
         Powered by wangchanberta from VISTEC-depa\
              AI Research Institute of Thailand
@@ -35,30 +59,31 @@ class ThaiNameTagger:
             * *thainer* - ThaiNER dataset
         :param bool grouped_entities: grouped entities
         """
+        from transformers import pipeline
+
         self.dataset_name = dataset_name
         self.grouped_entities = grouped_entities
         self.classify_tokens = pipeline(
             task="ner",
-            tokenizer=_tokenizer,
+            tokenizer=_get_tokenizer(),
             model=f"airesearch/{_model_name}",
             revision=f"finetuned@{self.dataset_name}-ner",
             ignore_labels=[],
             grouped_entities=self.grouped_entities,
         )
 
-    def _IOB(self, tag):
+    def _IOB(self, tag: str) -> str:
         if tag != "O":
             return "B-" + tag
         return "O"
 
-    def _clear_tag(self, tag):
+    def _clear_tag(self, tag: str) -> str:
         return tag.replace("B-", "").replace("I-", "")
 
     def get_ner(
         self, text: str, pos: bool = False, tag: bool = False
-    ) -> Union[List[Tuple[str, str]], str]:
-        """
-        This function tags named entities in text in IOB format.
+    ) -> Union[list[tuple[str, str]], str]:
+        """This function tags named entities in text in IOB format.
         Powered by wangchanberta from VISTEC-depa\
              AI Research Institute of Thailand
 
@@ -73,13 +98,14 @@ class ThaiNameTagger:
         """
         if pos:
             warnings.warn(
-                "This model doesn't support output of POS tags and it doesn't output the POS tags."
+                "This model doesn't support output of POS tags and it doesn't output the POS tags.",
+                stacklevel=2,
             )
         text = re.sub(" ", "<_>", text)
-        self.json_ner = self.classify_tokens(text)
-        self.output = ""
+        self.json_ner: list[dict[str, str]] = self.classify_tokens(text)
+        self.output: str = ""
         if self.grouped_entities and self.dataset_name == "thainer":
-            self.sent_ner = [
+            self.sent_ner: list[tuple[str, str]] = [
                 (
                     i["word"].replace("<_>", " ").replace("▁", ""),
                     self._IOB(i["entity_group"]),
@@ -133,11 +159,13 @@ class ThaiNameTagger:
 
 
 class NamedEntityRecognition:
+    tokenizer: PreTrainedTokenizerBase
+    model: PreTrainedModel
+
     def __init__(
         self, model: str = "pythainlp/thainer-corpus-v2-base-model"
     ) -> None:
-        """
-        This function tags named entities in text in IOB format.
+        """This function tags named entities in text in IOB format.
 
         Powered by wangchanberta from VISTEC-depa\
              AI Research Institute of Thailand
@@ -145,29 +173,34 @@ class NamedEntityRecognition:
         """
         from transformers import AutoModelForTokenClassification, AutoTokenizer
 
-        self.tokenizer = AutoTokenizer.from_pretrained(model)
-        self.model = AutoModelForTokenClassification.from_pretrained(model)
+        self.tokenizer: PreTrainedTokenizerBase = (
+            AutoTokenizer.from_pretrained(model)
+        )
+        self.model: PreTrainedModel = (
+            AutoModelForTokenClassification.from_pretrained(model)
+        )
 
-    def _fix_span_error(self, words, ner):
+    def _fix_span_error(
+        self, words: list[int], ner: list[str]
+    ) -> list[tuple[str, str]]:
         _ner = []
         _ner = ner
         _new_tag = []
         for i, j in zip(words, _ner):
-            i = self.tokenizer.decode(i)
-            if i.isspace() and j.startswith("B-"):
+            i_decoded = self.tokenizer.decode(i)
+            if i_decoded.isspace() and j.startswith("B-"):
                 j = "O"
-            if i in ("", "<s>", "</s>"):
+            if i_decoded in ("", "<s>", "</s>"):
                 continue
-            if i == "<_>":
-                i = " "
-            _new_tag.append((i, j))
+            if i_decoded == "<_>":
+                i_decoded = " "
+            _new_tag.append((i_decoded, j))
         return _new_tag
 
     def get_ner(
         self, text: str, pos: bool = False, tag: bool = False
-    ) -> Union[List[Tuple[str, str]], str]:
-        """
-        This function tags named entities in text in IOB format.
+    ) -> Union[list[tuple[str, str]], str]:
+        """This function tags named entities in text in IOB format.
         Powered by wangchanberta from VISTEC-depa\
              AI Research Institute of Thailand
 
@@ -184,7 +217,8 @@ class NamedEntityRecognition:
 
         if pos:
             warnings.warn(
-                "This model doesn't support output postag and It doesn't output the postag."
+                "This model doesn't support output postag and It doesn't output the postag.",
+                stacklevel=2,
             )
         words_token = word_tokenize(text.replace(" ", "<_>"))
         inputs = self.tokenizer(
@@ -225,9 +259,8 @@ class NamedEntityRecognition:
         return ner_tag
 
 
-def segment(text: str) -> List[str]:
-    """
-    Subword tokenize. SentencePiece from wangchanberta model.
+def segment(text: str) -> list[str]:
+    """Subword tokenize. SentencePiece from wangchanberta model.
 
     :param str text: text to be tokenized
     :return: list of subwords
@@ -236,4 +269,4 @@ def segment(text: str) -> List[str]:
     if not text or not isinstance(text, str):
         return []
 
-    return _tokenizer.tokenize(text)
+    return _get_tokenizer().tokenize(text)  # type: ignore[no-any-return]

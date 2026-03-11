@@ -19,7 +19,7 @@ import aws_cdk.triggers as triggers
 
 
 triggers.TriggerFunction(self, "MyTrigger",
-    runtime=lambda_.Runtime.NODEJS_18_X,
+    runtime=lambda_.Runtime.NODEJS_LATEST,
     handler="index.handler",
     code=lambda_.Code.from_asset(__dirname + "/my-trigger")
 )
@@ -36,7 +36,7 @@ import aws_cdk.triggers as triggers
 
 func = lambda_.Function(self, "MyFunction",
     handler="index.handler",
-    runtime=lambda_.Runtime.NODEJS_18_X,
+    runtime=lambda_.Runtime.NODEJS_LATEST,
     code=lambda_.Code.from_inline("foo")
 )
 
@@ -272,7 +272,7 @@ class InvocationType(enum.Enum):
         
         func = lambda_.Function(self, "MyFunction",
             handler="index.handler",
-            runtime=lambda_.Runtime.NODEJS_18_X,
+            runtime=lambda_.Runtime.NODEJS_LATEST,
             code=lambda_.Code.from_inline("foo")
         )
         
@@ -316,7 +316,7 @@ class Trigger(
         
         func = lambda_.Function(self, "MyFunction",
             handler="index.handler",
-            runtime=lambda_.Runtime.NODEJS_18_X,
+            runtime=lambda_.Runtime.NODEJS_LATEST,
             code=lambda_.Code.from_inline("foo")
         )
         
@@ -409,7 +409,7 @@ class TriggerFunction(
         
         
         triggers.TriggerFunction(self, "MyTrigger",
-            runtime=lambda_.Runtime.NODEJS_18_X,
+            runtime=lambda_.Runtime.NODEJS_LATEST,
             handler="index.handler",
             code=lambda_.Code.from_asset(__dirname + "/my-trigger")
         )
@@ -809,7 +809,7 @@ class TriggerProps(TriggerOptions):
             
             func = lambda_.Function(self, "MyFunction",
                 handler="index.handler",
-                runtime=lambda_.Runtime.NODEJS_18_X,
+                runtime=lambda_.Runtime.NODEJS_LATEST,
                 code=lambda_.Code.from_inline("foo")
             )
             
@@ -1116,7 +1116,7 @@ class TriggerFunctionProps(_FunctionProps_a308e854, TriggerOptions):
             
             
             triggers.TriggerFunction(self, "MyTrigger",
-                runtime=lambda_.Runtime.NODEJS_18_X,
+                runtime=lambda_.Runtime.NODEJS_LATEST,
                 handler="index.handler",
                 code=lambda_.Code.from_asset(__dirname + "/my-trigger")
             )

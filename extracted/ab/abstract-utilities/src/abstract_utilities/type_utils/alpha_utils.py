@@ -29,24 +29,14 @@ def find_it_alph(ls: list, y: any) -> int:
     while str(ls[i]) != str(y):
         i += 1
     return i
-##def get_alpha(k: Union[int,float]) -> str:
-##    """
-##    Retrieves the alphabetic character corresponding to the given index.
-##
-##    Args:
-##        k (int|float): The index of the character.
-##
-##    Returns:
-##        str: The alphabetic character.
-##    """
-##    k, 
-##    if k <= len(get_alpha_list()):
-##        return 0, k
-##    mul = int(float(k) / float(len(get_alpha_list())))
-##    rem = int(k) - int(mul * len(get_alpha_list()))
-##    if mul - 1 > -1:
-##        return str(alph[mul]) + str(alph[rem])
-##    return str(alph[rem])
+def get_keys(mapping,typ=None):
+    typ = typ or set
+    if isinstance(mapping,dict):
+        mapping = mapping.keys()
+    return typ(mapping)
+def make_key_map(dict_obj):
+    return {k:get_keys(v) for k,v in dict_obj.items()}
+
 def getAlphas(lower=True,capitalize=False,listObj=False):
     obj = ''
     alphas = get_alpha()

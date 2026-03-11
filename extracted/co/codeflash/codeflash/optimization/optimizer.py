@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import ast
 import copy
 import os
 import tempfile
@@ -11,7 +10,13 @@ from typing import TYPE_CHECKING
 
 from codeflash.api.aiservice import AiServiceClient, LocalAiServiceClient
 from codeflash.api.cfapi import send_completion_email
-from codeflash.cli_cmds.console import console, logger, progress_bar
+from codeflash.cli_cmds.console import (  # noqa: F401
+    call_graph_live_display,
+    call_graph_summary,
+    console,
+    logger,
+    progress_bar,
+)
 from codeflash.code_utils import env_utils
 from codeflash.code_utils.code_utils import cleanup_paths, get_run_tmp_file
 from codeflash.code_utils.env_utils import get_pr_number, is_pr_draft
@@ -24,18 +29,20 @@ from codeflash.code_utils.git_worktree_utils import (
 )
 from codeflash.code_utils.time_utils import humanize_runtime
 from codeflash.either import is_successful
-from codeflash.languages import is_javascript, set_current_language
-from codeflash.models.models import ValidCode
+from codeflash.languages import current_language_support, set_current_language
+from codeflash.lsp.helpers import is_subagent_mode
 from codeflash.telemetry.posthog_cf import ph
 from codeflash.verification.verification_utils import TestConfig
 
 if TYPE_CHECKING:
+    import ast
     from argparse import Namespace
 
     from codeflash.benchmarking.function_ranker import FunctionRanker
     from codeflash.code_utils.checkpoint import CodeflashRunCheckpoint
     from codeflash.discovery.functions_to_optimize import FunctionToOptimize
-    from codeflash.models.models import BenchmarkKey, FunctionCalledInTest
+    from codeflash.languages.base import DependencyResolver
+    from codeflash.models.models import BenchmarkKey, FunctionCalledInTest, ValidCode
     from codeflash.optimization.function_optimizer import FunctionOptimizer
 
 
@@ -63,59 +70,6 @@ class Optimizer:
         self.current_worktree: Path | None = None
         self.original_args_and_test_cfg: tuple[Namespace, TestConfig] | None = None
         self.patch_files: list[Path] = []
-
-    @staticmethod
-    def _find_js_project_root(file_path: Path) -> Path | None:
-        """Find the JavaScript/TypeScript project root by looking for package.json.
-
-        Traverses up from the given file path to find the nearest directory
-        containing package.json or jest.config.js.
-
-        Args:
-            file_path: A file path within the JavaScript project.
-
-        Returns:
-            The project root directory, or None if not found.
-
-        """
-        current = file_path.parent if file_path.is_file() else file_path
-        while current != current.parent:  # Stop at filesystem root
-            if (
-                (current / "package.json").exists()
-                or (current / "jest.config.js").exists()
-                or (current / "jest.config.ts").exists()
-                or (current / "tsconfig.json").exists()
-            ):
-                return current
-            current = current.parent
-        return None
-
-    def _verify_js_requirements(self) -> None:
-        """Verify JavaScript/TypeScript requirements before optimization.
-
-        Checks that Node.js, npm, and the test framework are available.
-        Logs warnings if requirements are not met but does not abort.
-
-        """
-        from codeflash.languages import get_language_support
-        from codeflash.languages.base import Language
-        from codeflash.languages.test_framework import get_js_test_framework_or_default
-
-        js_project_root = self.test_cfg.js_project_root
-        if not js_project_root:
-            return
-
-        try:
-            js_support = get_language_support(Language.JAVASCRIPT)
-            test_framework = get_js_test_framework_or_default()
-            success, errors = js_support.verify_requirements(js_project_root, test_framework)
-
-            if not success:
-                logger.warning("JavaScript requirements check found issues:")
-                for error in errors:
-                    logger.warning(f"  - {error}")
-        except Exception as e:
-            logger.debug(f"Failed to verify JS requirements: {e}")
 
     def run_benchmarks(
         self, file_to_funcs_to_optimize: dict[Path, list[FunctionToOptimize]], num_optimizable_functions: int
@@ -239,23 +193,8 @@ class Optimizer:
         function_to_optimize_source_code: str | None = "",
         function_benchmark_timings: dict[str, dict[BenchmarkKey, float]] | None = None,
         total_benchmark_timings: dict[BenchmarkKey, float] | None = None,
-        original_module_ast: ast.Module | None = None,
-        original_module_path: Path | None = None,
+        call_graph: DependencyResolver | None = None,
     ) -> FunctionOptimizer | None:
-        from codeflash.code_utils.static_analysis import get_first_top_level_function_or_method_ast
-        from codeflash.optimization.function_optimizer import FunctionOptimizer
-
-        if function_to_optimize_ast is None and original_module_ast is not None:
-            function_to_optimize_ast = get_first_top_level_function_or_method_ast(
-                function_to_optimize.function_name, function_to_optimize.parents, original_module_ast
-            )
-            if function_to_optimize_ast is None:
-                logger.info(
-                    f"Function {function_to_optimize.qualified_name} not found in {original_module_path}.\n"
-                    f"Skipping optimization."
-                )
-                return None
-
         qualified_name_w_module = function_to_optimize.qualified_name_with_modules_from_root(self.args.project_root)
 
         function_specific_timings = None
@@ -268,7 +207,11 @@ class Optimizer:
         ):
             function_specific_timings = function_benchmark_timings[qualified_name_w_module]
 
-        return FunctionOptimizer(
+        cls = current_language_support().function_optimizer_class
+
+        # TODO: _resolve_function_ast re-parses source via ast.parse() per function, even when the caller already
+        # has a parsed module AST. Consider passing the pre-parsed AST through to avoid redundant parsing.
+        function_optimizer = cls(
             function_to_optimize=function_to_optimize,
             test_cfg=self.test_cfg,
             function_to_optimize_source_code=function_to_optimize_source_code,
@@ -279,62 +222,27 @@ class Optimizer:
             function_benchmark_timings=function_specific_timings,
             total_benchmark_timings=total_benchmark_timings if function_specific_timings else None,
             replay_tests_dir=self.replay_tests_dir,
+            call_graph=call_graph,
         )
+        if function_optimizer.function_to_optimize_ast is None and function_optimizer.requires_function_ast():
+            logger.info(
+                f"Function {function_to_optimize.qualified_name} not found in "
+                f"{function_to_optimize.file_path}.\nSkipping optimization."
+            )
+            return None
+        return function_optimizer
 
     def prepare_module_for_optimization(
         self, original_module_path: Path
     ) -> tuple[dict[Path, ValidCode], ast.Module | None] | None:
-        from codeflash.code_utils.code_replacer import normalize_code, normalize_node
-        from codeflash.code_utils.static_analysis import analyze_imported_modules
-
         logger.info(f"loading|Examining file {original_module_path!s}")
         console.rule()
 
         original_module_code: str = original_module_path.read_text(encoding="utf8")
 
-        # For JavaScript/TypeScript, skip Python-specific AST parsing
-        if is_javascript():
-            validated_original_code: dict[Path, ValidCode] = {
-                original_module_path: ValidCode(source_code=original_module_code, normalized_code=original_module_code)
-            }
-            return validated_original_code, None
-
-        # Python-specific parsing
-        try:
-            original_module_ast = ast.parse(original_module_code)
-        except SyntaxError as e:
-            logger.warning(f"Syntax error parsing code in {original_module_path}: {e}")
-            logger.info("Skipping optimization due to file error.")
-            return None
-        normalized_original_module_code = ast.unparse(normalize_node(original_module_ast))
-        validated_original_code = {
-            original_module_path: ValidCode(
-                source_code=original_module_code, normalized_code=normalized_original_module_code
-            )
-        }
-
-        imported_module_analyses = analyze_imported_modules(
+        return current_language_support().prepare_module(
             original_module_code, original_module_path, self.args.project_root
         )
-
-        has_syntax_error = False
-        for analysis in imported_module_analyses:
-            callee_original_code = analysis.file_path.read_text(encoding="utf8")
-            try:
-                normalized_callee_original_code = normalize_code(callee_original_code)
-            except SyntaxError as e:
-                logger.warning(f"Syntax error parsing code in callee module {analysis.file_path}: {e}")
-                logger.info("Skipping optimization due to helper file error.")
-                has_syntax_error = True
-                break
-            validated_original_code[analysis.file_path] = ValidCode(
-                source_code=callee_original_code, normalized_code=normalized_callee_original_code
-            )
-
-        if has_syntax_error:
-            return None
-
-        return validated_original_code, original_module_ast
 
     def discover_tests(
         self, file_to_funcs_to_optimize: dict[Path, list[FunctionToOptimize]]
@@ -422,7 +330,10 @@ class Optimizer:
             console.print(f"[dim]... and {len(globally_ranked) - display_count} more functions[/dim]")
 
     def rank_all_functions_globally(
-        self, file_to_funcs_to_optimize: dict[Path, list[FunctionToOptimize]], trace_file_path: Path | None
+        self,
+        file_to_funcs_to_optimize: dict[Path, list[FunctionToOptimize]],
+        trace_file_path: Path | None,
+        call_graph: DependencyResolver | None = None,
     ) -> list[tuple[Path, FunctionToOptimize]]:
         """Rank all functions globally across all files based on trace data.
 
@@ -442,8 +353,10 @@ class Optimizer:
         for file_path, functions in file_to_funcs_to_optimize.items():
             all_functions.extend((file_path, func) for func in functions)
 
-        # If no trace file, return in original order
+        # If no trace file, rank by dependency count if call graph is available
         if not trace_file_path or not trace_file_path.exists():
+            if call_graph is not None:
+                return self.rank_by_dependency_count(all_functions, call_graph)
             logger.debug("No trace file available, using original function order")
             return all_functions
 
@@ -494,6 +407,19 @@ class Optimizer:
         else:
             return globally_ranked
 
+    def rank_by_dependency_count(
+        self, all_functions: list[tuple[Path, FunctionToOptimize]], call_graph: DependencyResolver
+    ) -> list[tuple[Path, FunctionToOptimize]]:
+        file_to_qns: dict[Path, set[str]] = defaultdict(set)
+        for file_path, func in all_functions:
+            file_to_qns[file_path].add(func.qualified_name)
+        callee_counts = call_graph.count_callees_per_function(dict(file_to_qns))
+        ranked = sorted(
+            enumerate(all_functions), key=lambda x: (-callee_counts.get((x[1][0], x[1][1].qualified_name), 0), x[0])
+        )
+        logger.debug(f"Ranked {len(ranked)} functions by dependency count (most complex first)")
+        return [item for _, item in ranked]
+
     def run(self) -> None:
         from codeflash.code_utils.checkpoint import CodeflashRunCheckpoint
 
@@ -526,26 +452,39 @@ class Optimizer:
                 if funcs and funcs[0].language:
                     set_current_language(funcs[0].language)
                     self.test_cfg.set_language(funcs[0].language)
-                    # For JavaScript, also set js_project_root for test execution
-                    if is_javascript():
-                        self.test_cfg.js_project_root = self._find_js_project_root(file_path)
-                        # Verify JS requirements before proceeding
-                        self._verify_js_requirements()
+                    current_language_support().setup_test_config(self.test_cfg, file_path)
                     break
 
         if self.args.all:
             three_min_in_ns = int(1.8e11)
             console.rule()
-            pr_message = (
-                "\nCodeflash will keep opening pull requests as it finds optimizations." if not self.args.no_pr else ""
-            )
             logger.info(
-                f"It might take about {humanize_runtime(num_optimizable_functions * three_min_in_ns)} to fully optimize this project.{pr_message}"
+                f"It might take about {humanize_runtime(num_optimizable_functions * three_min_in_ns)} to fully optimize this project."
             )
+            if not self.args.no_pr:
+                logger.info("Codeflash will keep opening pull requests as it finds optimizations.")
+            console.rule()
 
         function_benchmark_timings, total_benchmark_timings = self.run_benchmarks(
             file_to_funcs_to_optimize, num_optimizable_functions
         )
+
+        # Create a language-specific dependency resolver (e.g. Jedi-based call graph for Python)
+        # Skip in CI — the cache DB doesn't persist between runs on ephemeral runners
+        lang_support = current_language_support()
+        resolver = None
+        # CURRENTLY DISABLED: The resolver is currently not used for anything until i clean up the repo structure for python
+        # if lang_support and not env_utils.is_ci():
+        #     resolver = lang_support.create_dependency_resolver(self.args.project_root)
+
+        # if resolver is not None and lang_support is not None and file_to_funcs_to_optimize:
+        #     supported_exts = lang_support.file_extensions
+        #     source_files = [f for f in file_to_funcs_to_optimize if f.suffix in supported_exts]
+        #     with call_graph_live_display(len(source_files), project_root=self.args.project_root) as on_progress:
+        #         resolver.build_index(source_files, on_progress=on_progress)
+        #     console.rule()
+        #     call_graph_summary(resolver, file_to_funcs_to_optimize)
+
         optimizations_found: int = 0
         self.test_cfg.concolic_test_root_dir = Path(
             tempfile.mkdtemp(dir=self.args.tests_root, prefix="codeflash_concolic_")
@@ -557,11 +496,13 @@ class Optimizer:
                 return
 
             function_to_tests, _ = self.discover_tests(file_to_funcs_to_optimize)
-            if self.args.all:
+            if self.args.all and not self.args.subagent:
                 self.functions_checkpoint = CodeflashRunCheckpoint(self.args.module_root)
 
             # GLOBAL RANKING: Rank all functions together before optimizing
-            globally_ranked_functions = self.rank_all_functions_globally(file_to_funcs_to_optimize, trace_file_path)
+            globally_ranked_functions = self.rank_all_functions_globally(
+                file_to_funcs_to_optimize, trace_file_path, call_graph=resolver
+            )
             # Cache for module preparation (avoid re-parsing same files)
             prepared_modules: dict[Path, tuple[dict[Path, ValidCode], ast.Module | None]] = {}
 
@@ -575,12 +516,13 @@ class Optimizer:
                         continue
                     prepared_modules[original_module_path] = module_prep_result
 
-                validated_original_code, original_module_ast = prepared_modules[original_module_path]
+                validated_original_code, _original_module_ast = prepared_modules[original_module_path]
 
                 function_iterator_count = i + 1
+                line_suffix = f":{function_to_optimize.starting_line}" if function_to_optimize.starting_line else ""
                 logger.info(
                     f"Optimizing function {function_iterator_count} of {len(globally_ranked_functions)}: "
-                    f"{function_to_optimize.qualified_name} (in {original_module_path.name})"
+                    f"{function_to_optimize.qualified_name} (in {original_module_path}{line_suffix})"
                 )
                 console.rule()
                 function_optimizer = None
@@ -591,8 +533,7 @@ class Optimizer:
                         function_to_optimize_source_code=validated_original_code[original_module_path].source_code,
                         function_benchmark_timings=function_benchmark_timings,
                         total_benchmark_timings=total_benchmark_timings,
-                        original_module_ast=original_module_ast,
-                        original_module_path=original_module_path,
+                        call_graph=resolver,
                     )
                     if function_optimizer is None:
                         continue
@@ -608,7 +549,7 @@ class Optimizer:
                     if is_successful(best_optimization):
                         optimizations_found += 1
                         # create a diff patch for successful optimization
-                        if self.current_worktree:
+                        if self.current_worktree and not is_subagent_mode():
                             best_opt = best_optimization.unwrap()
                             read_writable_code = best_opt.code_context.read_writable_code
                             relative_file_paths = [
@@ -641,7 +582,12 @@ class Optimizer:
                 self.functions_checkpoint.cleanup()
             if hasattr(self.args, "command") and self.args.command == "optimize":
                 self.cleanup_replay_tests()
-            if optimizations_found == 0:
+            if is_subagent_mode():
+                if optimizations_found == 0:
+                    import sys
+
+                    sys.stdout.write("<codeflash-summary>No optimizations found.</codeflash-summary>\n")
+            elif optimizations_found == 0:
                 logger.info("❌ No optimizations found.")
             elif self.args.all:
                 logger.info("✨ All functions have been optimized! ✨")
@@ -651,6 +597,9 @@ class Optimizer:
                 else:
                     logger.warning("⚠️ Failed to send completion email. Status")
         finally:
+            if resolver is not None:
+                resolver.close()
+
             if function_optimizer:
                 function_optimizer.cleanup_generated_files()
 
@@ -704,6 +653,8 @@ class Optimizer:
         if hasattr(get_run_tmp_file, "tmpdir"):
             get_run_tmp_file.tmpdir.cleanup()
             del get_run_tmp_file.tmpdir
+        if hasattr(get_run_tmp_file, "tmpdir_path"):
+            del get_run_tmp_file.tmpdir_path
 
         # Always clean up concolic test directory
         cleanup_paths([self.test_cfg.concolic_test_root_dir])

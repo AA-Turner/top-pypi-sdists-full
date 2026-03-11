@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: smartystreets_python_sdk
-Version: 5.3.1
+Version: 5.4.0
 Summary: An official library to help Python developers easily access the SmartyStreets APIs
 Home-page: https://github.com/smartystreets/smartystreets-python-sdk
-Download-URL: https://github.com/smartystreets/smartystreets-python-sdk/tarball/5.3.1
+Download-URL: https://github.com/smartystreets/smartystreets-python-sdk/tarball/5.4.0
 Author: SmartyStreets SDK Team
 Author-email: support@smartystreets.com
 License: Apache 2
@@ -12,7 +12,6 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Natural Language :: English
-Classifier: Programming Language :: Python :: 2.7
 Classifier: Programming Language :: Python :: 3
 License-File: LICENSE.md
 Requires-Dist: requests

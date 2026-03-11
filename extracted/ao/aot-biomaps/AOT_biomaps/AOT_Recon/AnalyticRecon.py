@@ -6,6 +6,8 @@ from .ReconTools import fourierz_gpu, EvalDelayLawOS_center, ifourierx_gpu, rota
 import numpy as np
 from tqdm import trange
 import cupy as cp
+import os
+from datetime import datetime
 
 
 class AnalyticRecon(Recon):
@@ -30,8 +32,35 @@ class AnalyticRecon(Recon):
         else:
             raise ValueError(f"Unknown analytic reconstruction type: {processType}")
         
-    def checkExistingFile(self, date = None):
-        raise NotImplementedError("checkExistingFile method is not implemented yet.")
+    def checkExistingFile(self, date=None, withTumor=True):
+        """
+        Check if the reconstruction file already exists, based on current instance parameters.
+
+        Args:
+            date (str, optional): Date string in format "ddmm". If None, uses current date.
+            withTumor (bool): If True, checks reconPhantom.npy; otherwise, checks reconLaser.npy.
+            overwrite (bool): If True, ignores existing files and returns True for saving.
+
+        Returns:
+            tuple: (bool: whether to save, str: the filepath)
+        """
+        if self.saveDir is None:
+            raise ValueError("Save directory is not specified.")
+        if date is None:
+            date = datetime.now().strftime("%d%m")
+        results_dir = os.path.join(self.saveDir, f'results_{date}_{self.analyticType.name}')
+        if not os.path.exists(results_dir):
+            os.makedirs(results_dir)
+
+        # Détermine le nom du fichier en fonction de withTumor
+        indices_file = os.path.join(results_dir, f"indices_{'withTumor' if withTumor else 'withoutTumor'}.npy")
+        # Si le fichier existe retourne True
+        if os.path.exists(indices_file):
+            return (True, results_dir)
+
+        # Sinon, retourne False
+        return (False, results_dir)
+
 
     def _analyticReconPython(self,withTumor):
         """

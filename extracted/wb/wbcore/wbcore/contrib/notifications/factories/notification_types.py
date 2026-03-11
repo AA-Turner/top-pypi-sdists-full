@@ -6,17 +6,18 @@ from wbcore.contrib.notifications.models import (
 )
 
 
-class NotificationTypeModelFactory(factory.django.DjangoModelFactory):
+class NotificationTypeFactory(factory.django.DjangoModelFactory):
     code = factory.Faker("pystr")
     title = factory.Faker("pystr")
     help_text = factory.Faker("pystr")
+    default_enable_email = False
 
     class Meta:
         model = NotificationType
 
 
 class NotificationTypeSettingModelFactory(factory.django.DjangoModelFactory):
-    notification_type = factory.SubFactory(NotificationTypeModelFactory)
+    notification_type = factory.SubFactory(NotificationTypeFactory)
     user = factory.SubFactory("wbcore.contrib.authentication.factories.UserFactory")
 
     class Meta:

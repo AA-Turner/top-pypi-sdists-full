@@ -234,7 +234,7 @@ ResourceTypeType = Literal["CUSTOM", "SYSTEM"]
 RestApiMethodType = Literal["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
 SchemaTypeType = Literal["array", "boolean", "integer", "number", "object", "string"]
 SearchTypeType = Literal["SEMANTIC"]
-ServerProtocolType = Literal["A2A", "HTTP", "MCP"]
+ServerProtocolType = Literal["A2A", "AGUI", "HTTP", "MCP"]
 TargetStatusType = Literal[
     "CREATING",
     "DELETING",

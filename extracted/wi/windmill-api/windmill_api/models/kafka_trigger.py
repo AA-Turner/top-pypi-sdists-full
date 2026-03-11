@@ -5,6 +5,7 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 from dateutil.parser import isoparse
 
+from ..models.kafka_trigger_auto_offset_reset import KafkaTriggerAutoOffsetReset
 from ..models.kafka_trigger_mode import KafkaTriggerMode
 from ..types import UNSET, Unset
 
@@ -35,6 +36,9 @@ class KafkaTrigger:
         edited_at (datetime.datetime): Timestamp of the last edit
         is_flow (bool): True if script_path points to a flow, false if it points to a script
         mode (KafkaTriggerMode): job trigger mode
+        auto_offset_reset (Union[Unset, KafkaTriggerAutoOffsetReset]): Initial offset behavior when consumer group has
+            no committed offset. 'latest' starts from new messages only, 'earliest' starts from the beginning. Default:
+            KafkaTriggerAutoOffsetReset.LATEST.
         server_id (Union[Unset, str]): ID of the server currently handling this trigger (internal)
         last_server_ping (Union[Unset, datetime.datetime]): Timestamp of last server heartbeat (internal)
         error (Union[Unset, str]): Last error message if the trigger failed
@@ -56,6 +60,7 @@ class KafkaTrigger:
     edited_at: datetime.datetime
     is_flow: bool
     mode: KafkaTriggerMode
+    auto_offset_reset: Union[Unset, KafkaTriggerAutoOffsetReset] = KafkaTriggerAutoOffsetReset.LATEST
     server_id: Union[Unset, str] = UNSET
     last_server_ping: Union[Unset, datetime.datetime] = UNSET
     error: Union[Unset, str] = UNSET
@@ -86,6 +91,10 @@ class KafkaTrigger:
 
         is_flow = self.is_flow
         mode = self.mode.value
+
+        auto_offset_reset: Union[Unset, str] = UNSET
+        if not isinstance(self.auto_offset_reset, Unset):
+            auto_offset_reset = self.auto_offset_reset.value
 
         server_id = self.server_id
         last_server_ping: Union[Unset, str] = UNSET
@@ -121,6 +130,8 @@ class KafkaTrigger:
                 "mode": mode,
             }
         )
+        if auto_offset_reset is not UNSET:
+            field_dict["auto_offset_reset"] = auto_offset_reset
         if server_id is not UNSET:
             field_dict["server_id"] = server_id
         if last_server_ping is not UNSET:
@@ -175,6 +186,13 @@ class KafkaTrigger:
 
         mode = KafkaTriggerMode(d.pop("mode"))
 
+        _auto_offset_reset = d.pop("auto_offset_reset", UNSET)
+        auto_offset_reset: Union[Unset, KafkaTriggerAutoOffsetReset]
+        if isinstance(_auto_offset_reset, Unset):
+            auto_offset_reset = UNSET
+        else:
+            auto_offset_reset = KafkaTriggerAutoOffsetReset(_auto_offset_reset)
+
         server_id = d.pop("server_id", UNSET)
 
         _last_server_ping = d.pop("last_server_ping", UNSET)
@@ -216,6 +234,7 @@ class KafkaTrigger:
             edited_at=edited_at,
             is_flow=is_flow,
             mode=mode,
+            auto_offset_reset=auto_offset_reset,
             server_id=server_id,
             last_server_ping=last_server_ping,
             error=error,

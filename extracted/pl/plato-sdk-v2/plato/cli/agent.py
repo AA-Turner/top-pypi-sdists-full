@@ -10,7 +10,12 @@ from pathlib import Path
 
 import typer
 
-from plato.cli.utils import console, prepare_build_context_with_sdk, require_api_key
+from plato.cli.utils import (
+    console,
+    maybe_bump_package_version,
+    prepare_build_context_with_sdk,
+    require_api_key,
+)
 from plato.utils.ecr import ECR_REGISTRY, get_image_digest, publish_docker_image
 from plato.v2 import Env, Plato
 from plato.v2.types import SimConfigCompute
@@ -659,6 +664,12 @@ def agent_schema(
 def agent_publish(
     target: str = typer.Argument(".", help="Path to agent directory"),
     all_agents: bool = typer.Option(False, "--all", "-a", help="Publish all agents in directory"),
+    minor: bool = typer.Option(False, "--minor", help="Bump the minor version before publishing"),
+    dev: bool = typer.Option(
+        False,
+        "--dev",
+        help="Publish the next dated PEP 440 dev version without prompting",
+    ),
     dry_run: bool = typer.Option(False, "--dry-run", help="Build without uploading"),
 ):
     """Build and publish an agent package to the Plato agents repository.
@@ -702,7 +713,7 @@ def agent_publish(
             console.print(f"[bold cyan]{'=' * 50}[/bold cyan]\n")
 
             try:
-                _push_single_agent(agent_dir, dry_run)
+                _push_single_agent(agent_dir, dry_run, minor=minor, dev=dev)
                 succeeded.append(agent_dir.name)
             except SystemExit:
                 failed.append(agent_dir.name)
@@ -723,10 +734,10 @@ def agent_publish(
         console.print(f"[red]Error: '{target}' is not a valid path[/red]")
         raise typer.Exit(1)
 
-    _push_single_agent(pkg_path, dry_run)
+    _push_single_agent(pkg_path, dry_run, minor=minor, dev=dev)
 
 
-def _push_single_agent(pkg_path: Path, dry_run: bool) -> None:
+def _push_single_agent(pkg_path: Path, dry_run: bool, *, minor: bool = False, dev: bool = False) -> None:
     """Publish a single agent package to PyPI and optionally Docker.
 
     Builds the package and uploads to the Plato agents repository.
@@ -754,6 +765,14 @@ def _push_single_agent(pkg_path: Path, dry_run: bool) -> None:
     if not version:
         console.print("[red]Error: No version in pyproject.toml[/red]")
         raise typer.Exit(1)
+
+    version = maybe_bump_package_version(
+        pyproject_file,
+        version,
+        minor=minor,
+        dev=dev,
+        dry_run=dry_run,
+    )
 
     # Extract short name (remove common prefixes)
     short_name = package_name

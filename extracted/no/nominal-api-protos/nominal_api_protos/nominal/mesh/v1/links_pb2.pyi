@@ -79,14 +79,16 @@ class GetLinkResponse(_message.Message):
     def __init__(self, link: _Optional[_Union[Link, _Mapping]] = ...) -> None: ...
 
 class UpdateLinkRequest(_message.Message):
-    __slots__ = ("link_rid", "remote_connection_rid", "enabled")
+    __slots__ = ("link_rid", "remote_connection_rid", "enabled", "remote_resource_rid")
     LINK_RID_FIELD_NUMBER: _ClassVar[int]
     REMOTE_CONNECTION_RID_FIELD_NUMBER: _ClassVar[int]
     ENABLED_FIELD_NUMBER: _ClassVar[int]
+    REMOTE_RESOURCE_RID_FIELD_NUMBER: _ClassVar[int]
     link_rid: str
     remote_connection_rid: str
     enabled: bool
-    def __init__(self, link_rid: _Optional[str] = ..., remote_connection_rid: _Optional[str] = ..., enabled: bool = ...) -> None: ...
+    remote_resource_rid: str
+    def __init__(self, link_rid: _Optional[str] = ..., remote_connection_rid: _Optional[str] = ..., enabled: bool = ..., remote_resource_rid: _Optional[str] = ...) -> None: ...
 
 class UpdateLinkResponse(_message.Message):
     __slots__ = ("link",)

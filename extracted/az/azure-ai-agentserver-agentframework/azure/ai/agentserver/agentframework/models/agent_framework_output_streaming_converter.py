@@ -7,19 +7,9 @@ from __future__ import annotations
 
 import datetime
 import json
-from typing import Any, AsyncIterable, List, Union
+from typing import Any, AsyncIterable, List
 
-from agent_framework import (
-    AgentRunResponseUpdate,
-    BaseContent,
-    FunctionResultContent,
-)
-from agent_framework._types import (
-    ErrorContent,
-    FunctionCallContent,
-    TextContent,
-    UserInputRequestContents,
-)
+from agent_framework import AgentResponseUpdate, Content
 
 from azure.ai.agentserver.core import AgentRunContext
 from azure.ai.agentserver.core.models import (
@@ -45,7 +35,7 @@ from azure.ai.agentserver.core.models.projects import (
     ResponseTextDoneEvent,
 )
 
-from .agent_id_generator import AgentIdGenerator
+from .agent_id_generator import generate_agent_id
 from .human_in_the_loop_helper import HumanInTheLoopHelper
 from .utils.async_iter import chunk_on_change, peek
 
@@ -55,7 +45,7 @@ class _BaseStreamingState:
 
     async def convert_contents(
         self,
-        contents: AsyncIterable[BaseContent],
+        contents: AsyncIterable[Content],
         author_name: str,
     ) -> AsyncIterable[ResponseStreamEvent]:
         # pylint: disable=unused-argument
@@ -70,7 +60,7 @@ class _TextContentStreamingState(_BaseStreamingState):
 
     async def convert_contents(
         self,
-        contents: AsyncIterable[TextContent],
+        contents: AsyncIterable[Content],
         author_name: str,
     ) -> AsyncIterable[ResponseStreamEvent]:
         item_id = self._parent.context.id_generator.generate_message_id()
@@ -150,14 +140,14 @@ class _FunctionCallStreamingState(_BaseStreamingState):
         self._hitl_helper = hitl_helper
 
     async def convert_contents(
-            self, contents: AsyncIterable[Union[FunctionCallContent, UserInputRequestContents]], author_name: str
+            self, contents: AsyncIterable[Content], author_name: str
         ) -> AsyncIterable[ResponseStreamEvent]:
         content_by_call_id = {}
         ids_by_call_id = {}
         hitl_contents = []
 
         async for content in contents:
-            if isinstance(content, FunctionCallContent):
+            if content.type == "function_call":
                 if content.call_id not in content_by_call_id:
                     item_id = self._parent.context.id_generator.generate_function_call_id()
                     output_index = self._parent.next_output_index()
@@ -189,7 +179,7 @@ class _FunctionCallStreamingState(_BaseStreamingState):
                         delta=args_delta,
                     )
 
-            elif isinstance(content, UserInputRequestContents):
+            elif content.type == "user_input_request":
                 converted_hitl = self._hitl_helper.convert_user_input_request_content(content)
                 if converted_hitl:
                     hitl_contents.append(converted_hitl)
@@ -281,7 +271,7 @@ class _FunctionCallOutputStreamingState(_BaseStreamingState):
         self._parent = parent
 
     async def convert_contents(
-            self, contents: AsyncIterable[FunctionResultContent], author_name: str
+            self, contents: AsyncIterable[Content], author_name: str
         ) -> AsyncIterable[ResponseStreamEvent]:
         async for content in contents:
             item_id = self._parent.context.id_generator.generate_function_output_id()
@@ -320,7 +310,7 @@ class _FunctionCallOutputStreamingState(_BaseStreamingState):
         if isinstance(result, list):
             text = []
             for item in result:
-                if isinstance(item, BaseContent):
+                if isinstance(item, Content):
                     text.append(item.to_dict())
                 else:
                     text.append(str(item))
@@ -356,7 +346,7 @@ class AgentFrameworkOutputStreamingConverter:
     def context(self) -> AgentRunContext:
         return self._context
 
-    async def convert(self, updates: AsyncIterable[AgentRunResponseUpdate]) -> AsyncIterable[ResponseStreamEvent]:
+    async def convert(self, updates: AsyncIterable[AgentResponseUpdate]) -> AsyncIterable[ResponseStreamEvent]:
         self._ensure_response_started()
 
         created_response = self._build_response(status="in_progress")
@@ -384,13 +374,13 @@ class AgentFrameworkOutputStreamingConverter:
             first, author_name = first_tuple  # Extract content and author_name from tuple
 
             state = None
-            if isinstance(first, TextContent):
+            if first.type == "text":
                 state = _TextContentStreamingState(self)
-            elif isinstance(first, (FunctionCallContent, UserInputRequestContents)):
+            elif first.type in ("function_call", "user_input_request"):
                 state = _FunctionCallStreamingState(self, self._hitl_helper)
-            elif isinstance(first, FunctionResultContent):
+            elif first.type == "function_result":
                 state = _FunctionCallOutputStreamingState(self)
-            elif isinstance(first, ErrorContent):
+            elif first.type == "error":
                 error_msg = (
                     f"ErrorContent received: code={first.error_code}, "
                     f"message={first.message}"
@@ -426,8 +416,8 @@ class AgentFrameworkOutputStreamingConverter:
 
     async def _read_updates(
         self,
-        updates: AsyncIterable[AgentRunResponseUpdate],
-    ) -> AsyncIterable[tuple[BaseContent, str]]:
+        updates: AsyncIterable[AgentResponseUpdate],
+    ) -> AsyncIterable[tuple[Content, str]]:
         async for update in updates:
             if not update.contents:
                 continue
@@ -435,13 +425,9 @@ class AgentFrameworkOutputStreamingConverter:
             # Extract author_name from each update
             author_name = getattr(update, "author_name", "") or ""
 
-            accepted_types = (TextContent,
-                              FunctionCallContent,
-                              UserInputRequestContents,
-                              FunctionResultContent,
-                              ErrorContent)
+            accepted_types = {"text", "function_call", "user_input_request", "function_result", "error"}
             for content in update.contents:
-                if isinstance(content, accepted_types):
+                if content.type in accepted_types:
                     yield (content, author_name)
 
     def _ensure_response_started(self) -> None:
@@ -450,7 +436,7 @@ class AgentFrameworkOutputStreamingConverter:
 
     def _build_response(self, status: str) -> OpenAIResponse:
         self._ensure_response_started()
-        agent_id = AgentIdGenerator.generate(self._context)
+        agent_id = generate_agent_id(self._context)
         response_data = {
             "object": "response",
             "agent_id": agent_id,

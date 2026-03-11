@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: arize-phoenix
-Version: 13.12.0
+Version: 13.13.0
 Summary: AI Observability and Evaluation
 Project-URL: Documentation, https://arize.com/docs/phoenix/
 Project-URL: Issues, https://github.com/Arize-ai/phoenix/issues
@@ -89,7 +89,6 @@ Provides-Extra: experimental
 Provides-Extra: pg
 Requires-Dist: asyncpg; extra == 'pg'
 Requires-Dist: psycopg[binary,pool]; extra == 'pg'
-Provides-Extra: test
 Description-Content-Type: text/markdown
 
 <p align="center">

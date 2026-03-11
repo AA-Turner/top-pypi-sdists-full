@@ -33,6 +33,7 @@ from plato.worlds.config import AgentConfig, DevConfig, LLMConfig, RunConfig, Se
 from plato.worlds.human_annotation import RequiresHumanAnnotation
 from plato.worlds.models import Observation, StateHistoryEntry, StepResult, WorkspaceSnapshot
 from plato.worlds.schema import get_world_schema
+from plato.worlds.slack import send_slack_world_completion_notification
 from plato.worlds.workspace import Workspace
 
 if TYPE_CHECKING:
@@ -40,6 +41,7 @@ if TYPE_CHECKING:
     from plato.worlds.result_store import ResultStore
 
 logger = logging.getLogger(__name__)
+_WORLD_DEV_MODE_ENV = "PLATO_WORLD_DEV_MODE"
 
 
 @dataclass
@@ -306,7 +308,12 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
 
     def llm(self, config: LLMConfig, store: ResultStore | None = None):
         """Get an LLM client for the given config, with optional ResultStore caching."""
-        return LLMClient(config, store=store)
+        return LLMClient(
+            config,
+            store=store,
+            tracer_name=f"plato.worlds.{self.name}.llm",
+            atif_source="world",
+        )
 
     def agent(
         self,
@@ -515,7 +522,22 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
         if not self.config.state.enabled:
             return False
 
-        workspace_specs = self.config.state.workspaces
+        raw_workspace_specs = self.config.state.workspaces
+        # Build a reverse map: full repo name → field name
+        # Configs must use full repo names (e.g. "webclone/stripe/code") as keys.
+        repo_to_field: dict[str, str] = {}
+        for field_name in self._workspaces:
+            repo_to_field[self.workspace_repo_name(field_name)] = field_name
+        # Normalize workspace_specs keys: convert full repo names to field names
+        workspace_specs: dict[str, str] = {}
+        for key, val in raw_workspace_specs.items():
+            field = repo_to_field.get(key)
+            if field is None:
+                raise RuntimeError(
+                    f"Unknown workspace repo name '{key}' in state.workspaces. "
+                    f"Expected one of: {list(repo_to_field.keys())}"
+                )
+            workspace_specs[field] = val
         use_workspace_specs_mode = bool(workspace_specs)
         sid = session_id or self.session.session_id
         if not sid and not use_workspace_specs_mode:
@@ -1291,13 +1313,17 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
         """Report completion/failure to Chronos and shutdown tracing."""
         await shutdown_metrics()
 
-        is_dev = bool(self.dev and self.dev.world)
+        is_dev = os.environ.get(_WORLD_DEV_MODE_ENV) == "1"
         final_result = getattr(self, "_final_result", None)
+        completion_status = "completed"
+        completion_error: str | None = None
         if run_error and isinstance(run_error, RequiresHumanAnnotation):
             payload: dict[str, Any] = {}
             if isinstance(final_result, dict):
                 payload.update(final_result)
             payload.update(run_error.result_payload())
+            completion_status = "needs_human_annotation"
+            completion_error = str(run_error)
             self.logger.warning(
                 "Completing session as needs_human_annotation: title=%s items=%d",
                 run_error.request.title,
@@ -1312,6 +1338,8 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
         elif not is_dev:
             if run_error:
                 error_msg = f"{type(run_error).__name__}: {run_error}"
+                completion_status = "failed"
+                completion_error = error_msg
                 await self._complete_chronos_session(
                     "failed",
                     exit_code=1,
@@ -1325,6 +1353,16 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
                 "Skipping Chronos completion in dev-world mode (run_error=%s)",
                 type(run_error).__name__ if run_error else "None",
             )
+
+        await send_slack_world_completion_notification(
+            config=self.config.slack_notifications,
+            session=self.session,
+            world_name=self.name,
+            world_version=self.get_version(),
+            status=completion_status,
+            error_message=completion_error,
+            step_count=self._step_count,
+        )
 
         shutdown_tracing()
         self._session_id = None

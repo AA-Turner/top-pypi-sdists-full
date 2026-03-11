@@ -82,7 +82,7 @@ def find_resource(resource, path):
     view_name = D['view_name']
     context = D['context']
     if view_name:
-        raise KeyError('%r has no subelement %s' % (context, view_name))
+        raise KeyError(f'{context!r} has no subelement {view_name}')
     return context
 
 
@@ -597,7 +597,6 @@ class ResourceTreeTraverser:
         matchdict = request.matchdict
 
         if matchdict is not None:
-
             path = matchdict.get('traverse', '/') or '/'
             if is_nonstr_iter(path):
                 # this is a *traverse stararg (not a {traverse})

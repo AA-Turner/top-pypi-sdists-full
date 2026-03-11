@@ -347,6 +347,14 @@ def _process_for_vlm(
 
 
 _DEFAULT_MODEL_NAME: str = "meta/llama3-8b-instruct"
+_DEFAULT_REASONING_MODEL: str = "openai/gpt-oss-120b"
+_DEFAULT_THINKING_MODELS = [
+    "nvidia/nemotron-3-nano-30b-a3b",
+    "nvidia/nvidia-nemotron-nano-9b-v2",
+]
+_DEFAULT_TOOL_MODEL: str = "meta/llama-3.3-70b-instruct"
+_DEFAULT_STRUCTURED_MODEL: str = "nvidia/llama-3.3-nemotron-super-49b-v1"
+_DEFAULT_VLM_MODEL: str = "meta/llama-3.2-11b-vision-instruct"
 
 
 class ChatNVIDIA(BaseChatModel):
@@ -797,9 +805,10 @@ class ChatNVIDIA(BaseChatModel):
         kw_left = msg.copy()
         content = kw_left.pop("content", "") or ""
 
-        # Extract reasoning: check reasoning_content field first,
+        # Extract reasoning: check reasoning_content or reasoning field first,
         # then parse <think> tags if needed
         reasoning_from_reasoning_content = kw_left.pop("reasoning_content", None)
+        reasoning_from_reasoning_field = kw_left.pop("reasoning", None)
 
         # Parse thinking content
         # For structured output: remove tags
@@ -837,8 +846,12 @@ class ChatNVIDIA(BaseChatModel):
                     stacklevel=2,
                 )
 
-        # Prioritize reasoning from reasoning_content field
-        reasoning = reasoning_from_reasoning_content or reasoning_from_tags
+        # Prioritize reasoning from API fields over tag-based reasoning.
+        # For tag-based reasoning, extract the reasoning to be added in
+        # additional_kwargs["reasoning_content"] so that it can be exposed
+        # through the reasoning content block in the content_blocks property.
+        reasoning_content = reasoning_from_reasoning_content or reasoning_from_tags
+        reasoning_field = reasoning_from_reasoning_field or reasoning_from_tags
         final_content = content_without_tags if structured_output else content_with_tags
 
         out_dict = {
@@ -850,8 +863,18 @@ class ChatNVIDIA(BaseChatModel):
             "response_metadata": {},
         }
 
-        if reasoning:
-            out_dict["additional_kwargs"]["reasoning_content"] = reasoning
+        if reasoning_content:
+            out_dict["additional_kwargs"]["reasoning_content"] = reasoning_content
+        if reasoning_field:
+            out_dict["additional_kwargs"]["reasoning"] = reasoning_field
+        # Track which reasoning fields came from API (not tags)
+        api_fields = []
+        if reasoning_from_reasoning_content:
+            api_fields.append("reasoning_content")
+        if reasoning_from_reasoning_field:
+            api_fields.append("reasoning")
+        if api_fields:
+            out_dict["additional_kwargs"]["_reasoning_api_fields"] = api_fields
 
         if token_usage := kw_left.pop("token_usage", None):
             out_dict["usage_metadata"] = {

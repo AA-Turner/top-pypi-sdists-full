@@ -1,9 +1,7 @@
-# -*- coding: utf-8 -*-
-# SPDX-FileCopyrightText: 2016-2025 PyThaiNLP Project
+# SPDX-FileCopyrightText: 2016-2026 PyThaiNLP Project
 # SPDX-FileType: SOURCE
 # SPDX-License-Identifier: Apache-2.0
-"""
-Dictionary-based longest-matching Thai word segmentation. Implementation is based
+"""Dictionary-based longest-matching Thai word segmentation. Implementation is based
 on the codes from Patorn Utenpattanun.
 
 :See Also:
@@ -11,14 +9,20 @@ on the codes from Patorn Utenpattanun.
        <https://github.com/patorn/thaitokenizer/blob/master/thaitokenizer/tokenizer.py>`_
 
 """
+
+from __future__ import annotations
+
 import re
-from typing import Dict, List, Union
+import threading
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    from pythainlp.util import Trie
 
 from pythainlp import thai_tonemarks
-from pythainlp.tokenize import DEFAULT_WORD_DICT_TRIE
-from pythainlp.util import Trie
+from pythainlp.tokenize import word_dict_trie
 
-_FRONT_DEP_CHAR = [
+_FRONT_DEP_CHAR: list[str] = [
     "ะ",
     "ั",
     "า ",
@@ -34,22 +38,26 @@ _FRONT_DEP_CHAR = [
     "์",
     "ํ",
 ]
-_REAR_DEP_CHAR = ["ั", "ื", "เ", "แ", "โ", "ใ", "ไ", "ํ"]
-_TRAILING_CHAR = ["ๆ", "ฯ"]
+_REAR_DEP_CHAR: list[str] = ["ั", "ื", "เ", "แ", "โ", "ใ", "ไ", "ํ"]
+_TRAILING_CHAR: list[str] = ["ๆ", "ฯ"]
 
-_RE_NONTHAI = re.compile(r"[A-Za-z\d]*")
+_RE_NONTHAI: re.Pattern[str] = re.compile(r"[A-Za-z\d]*")
 
-_KNOWN = True
-_UNKNOWN = False
+_KNOWN: bool = True
+_UNKNOWN: bool = False
 
 
 class LongestMatchTokenizer:
-    def __init__(self, trie: Trie):
-        self.__trie = trie
+    __trie: Trie
+
+    def __init__(self, trie: Trie) -> None:
+        self.__trie: Trie = trie
 
     @staticmethod
-    def __search_nonthai(text: str) -> Union[None, str]:
+    def __search_nonthai(text: str) -> Optional[str]:
         match = _RE_NONTHAI.search(text)
+        if not match:
+            return None
         if match.group(0):
             return match.group(0).lower()
         return None
@@ -102,11 +110,11 @@ class LongestMatchTokenizer:
         else:
             return ""
 
-    def __segment(self, text: str):
+    def __segment(self, text: str) -> list[str]:
         begin_pos = 0
         len_text = len(text)
-        tokens = []
-        token_statuses = []
+        tokens: list[str] = []
+        token_statuses: list[int] = []
         while begin_pos < len_text:
             match = self.__longest_matching(text, begin_pos)
             if not match:
@@ -135,26 +143,33 @@ class LongestMatchTokenizer:
                 begin_pos += len(match)
 
         # Group consecutive spaces into one token
-        grouped_tokens = []
+        grouped_tokens: list[str] = []
         for token in tokens:
-            if token.isspace() and grouped_tokens and grouped_tokens[-1].isspace():
+            if (
+                token.isspace()
+                and grouped_tokens
+                and grouped_tokens[-1].isspace()
+            ):
                 grouped_tokens[-1] += token
             else:
                 grouped_tokens.append(token)
 
         return grouped_tokens
 
-    def tokenize(self, text: str) -> List[str]:
+    def tokenize(self, text: str) -> list[str]:
         tokens = self.__segment(text)
         return tokens
 
 
-_tokenizers: Dict[int, LongestMatchTokenizer] = {}
+_tokenizers: dict[int, LongestMatchTokenizer] = {}
+_tokenizers_lock: threading.Lock = threading.Lock()
 
 
-def segment(text: str, custom_dict: Trie = DEFAULT_WORD_DICT_TRIE) -> List[str]:
-    """
-    Dictionary-based longest matching word segmentation.
+def segment(text: str, custom_dict: Optional[Trie] = None) -> list[str]:
+    """Dictionary-based longest matching word segmentation.
+
+    This function is thread-safe. It uses a lock to protect access to the
+    internal tokenizer cache.
 
     :param str text: text to be tokenized into words
     :param pythainlp.util.Trie custom_dict: dictionary for tokenization
@@ -164,11 +179,16 @@ def segment(text: str, custom_dict: Trie = DEFAULT_WORD_DICT_TRIE) -> List[str]:
         return []
 
     if not custom_dict:
-        custom_dict = DEFAULT_WORD_DICT_TRIE
+        custom_dict = word_dict_trie()
 
-    global _tokenizers
     custom_dict_ref_id = id(custom_dict)
-    if custom_dict_ref_id not in _tokenizers:
-        _tokenizers[custom_dict_ref_id] = LongestMatchTokenizer(custom_dict)
 
-    return _tokenizers[custom_dict_ref_id].tokenize(text)
+    # Thread-safe access to the tokenizers cache
+    with _tokenizers_lock:
+        if custom_dict_ref_id not in _tokenizers:
+            _tokenizers[custom_dict_ref_id] = LongestMatchTokenizer(
+                custom_dict
+            )
+        tokenizer = _tokenizers[custom_dict_ref_id]
+
+    return tokenizer.tokenize(text)

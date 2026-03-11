@@ -28,6 +28,7 @@ from legit_api_client.models.issue_closing_location_dto import IssueClosingLocat
 from legit_api_client.models.issue_comment_dto import IssueCommentDto
 from legit_api_client.models.issue_ignoring_reason_dto import IssueIgnoringReasonDto
 from legit_api_client.models.issue_origin_dto import IssueOriginDto
+from legit_api_client.models.issue_reachability import IssueReachability
 from legit_api_client.models.issue_status import IssueStatus
 from legit_api_client.models.issue_tag_dto import IssueTagDto
 from legit_api_client.models.issue_ticketing_dto import IssueTicketingDto
@@ -76,7 +77,8 @@ class IssueDto(BaseModel):
     validity_status: Optional[SecretIssueValidityStatus] = Field(default=None, alias="validityStatus")
     verified_validation_url: Optional[StrictStr] = Field(default=None, alias="verifiedValidationUrl")
     dependency_fix_type: Optional[DependencyFixType] = Field(default=None, alias="dependencyFixType")
-    __properties: ClassVar[List[str]] = ["id", "policyName", "title", "description", "relatedActionId", "origin", "ticketing", "productUnits", "detectedAt", "lastClosedAt", "status", "type", "severity", "policySeverity", "payload", "integration", "score", "epssScore", "assignedUser", "comments", "lastUpdateTime", "ignoringReason", "closingLocation", "tags", "statusChangedNote", "remediationSteps", "snoozedType", "snoozedUntil", "aiValidationResult", "dastConfidenceLevel", "validityStatus", "verifiedValidationUrl", "dependencyFixType"]
+    reachability: Optional[IssueReachability] = None
+    __properties: ClassVar[List[str]] = ["id", "policyName", "title", "description", "relatedActionId", "origin", "ticketing", "productUnits", "detectedAt", "lastClosedAt", "status", "type", "severity", "policySeverity", "payload", "integration", "score", "epssScore", "assignedUser", "comments", "lastUpdateTime", "ignoringReason", "closingLocation", "tags", "statusChangedNote", "remediationSteps", "snoozedType", "snoozedUntil", "aiValidationResult", "dastConfidenceLevel", "validityStatus", "verifiedValidationUrl", "dependencyFixType", "reachability"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -306,7 +308,8 @@ class IssueDto(BaseModel):
             "dastConfidenceLevel": obj.get("dastConfidenceLevel"),
             "validityStatus": obj.get("validityStatus"),
             "verifiedValidationUrl": obj.get("verifiedValidationUrl"),
-            "dependencyFixType": obj.get("dependencyFixType")
+            "dependencyFixType": obj.get("dependencyFixType"),
+            "reachability": obj.get("reachability")
         })
         return _obj
 

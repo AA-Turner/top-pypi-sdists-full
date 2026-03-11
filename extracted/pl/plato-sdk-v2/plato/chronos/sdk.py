@@ -291,8 +291,20 @@ class Chronos(_ChronosBase):
 
     # -- OTel --
 
-    def get_traces(self, session_id: str) -> OTelTraceResponse:
-        return get_traces_api.sync(self._client, session_id=session_id)
+    def get_traces(
+        self,
+        session_id: str,
+        atif_only: bool = False,
+        errors_only: bool = False,
+        search: str | None = None,
+    ) -> OTelTraceResponse:
+        return get_traces_api.sync(
+            self._client,
+            session_id=session_id,
+            atif_only=atif_only,
+            errors_only=errors_only,
+            search=search,
+        )
 
     def get_all_traces(self, session_id: str) -> list[OTelSpan]:
         """Auto-paginated: fetches ALL spans for a session."""
@@ -564,8 +576,20 @@ class AsyncChronos(_ChronosBase):
 
     # -- OTel --
 
-    async def get_traces(self, session_id: str) -> OTelTraceResponse:
-        return await get_traces_api.asyncio(self._client, session_id=session_id)
+    async def get_traces(
+        self,
+        session_id: str,
+        atif_only: bool = False,
+        errors_only: bool = False,
+        search: str | None = None,
+    ) -> OTelTraceResponse:
+        return await get_traces_api.asyncio(
+            self._client,
+            session_id=session_id,
+            atif_only=atif_only,
+            errors_only=errors_only,
+            search=search,
+        )
 
     async def get_all_traces(self, session_id: str) -> list[OTelSpan]:
         """Auto-paginated: fetches ALL spans for a session."""

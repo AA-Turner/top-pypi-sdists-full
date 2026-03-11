@@ -673,6 +673,18 @@ class InviteTeamMemberResponse(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
 
+class InviteTeamMemberWithTeamRoleRequest(_message.Message):
+    __slots__ = ("email", "team_role_id")
+    EMAIL_FIELD_NUMBER: _ClassVar[int]
+    TEAM_ROLE_ID_FIELD_NUMBER: _ClassVar[int]
+    email: str
+    team_role_id: str
+    def __init__(self, email: _Optional[str] = ..., team_role_id: _Optional[str] = ...) -> None: ...
+
+class InviteTeamMemberWithTeamRoleResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
 class ExpireTeamInviteRequest(_message.Message):
     __slots__ = ("id",)
     ID_FIELD_NUMBER: _ClassVar[int]
@@ -684,17 +696,19 @@ class ExpireTeamInviteResponse(_message.Message):
     def __init__(self) -> None: ...
 
 class TeamInvite(_message.Message):
-    __slots__ = ("id", "email", "team", "role", "created_at")
+    __slots__ = ("id", "email", "team", "role", "created_at", "role_id_scope")
     ID_FIELD_NUMBER: _ClassVar[int]
     EMAIL_FIELD_NUMBER: _ClassVar[int]
     TEAM_FIELD_NUMBER: _ClassVar[int]
     ROLE_FIELD_NUMBER: _ClassVar[int]
     CREATED_AT_FIELD_NUMBER: _ClassVar[int]
+    ROLE_ID_SCOPE_FIELD_NUMBER: _ClassVar[int]
     id: str
     email: str
     team: str
     role: str
     created_at: _timestamp_pb2.Timestamp
+    role_id_scope: str
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -702,6 +716,7 @@ class TeamInvite(_message.Message):
         team: _Optional[str] = ...,
         role: _Optional[str] = ...,
         created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        role_id_scope: _Optional[str] = ...,
     ) -> None: ...
 
 class ListTeamInvitesRequest(_message.Message):
@@ -776,6 +791,21 @@ class UserPermissions(_message.Message):
         user_permissions: _Optional[_Iterable[_Union[_permissions_pb2.Permission, str]]] = ...,
     ) -> None: ...
 
+class UserTeamPermissions(_message.Message):
+    __slots__ = ("user_id", "user_roles", "user_permissions")
+    USER_ID_FIELD_NUMBER: _ClassVar[int]
+    USER_ROLES_FIELD_NUMBER: _ClassVar[int]
+    USER_PERMISSIONS_FIELD_NUMBER: _ClassVar[int]
+    user_id: str
+    user_roles: _containers.RepeatedCompositeFieldContainer[UserRoleAssignment]
+    user_permissions: _containers.RepeatedScalarFieldContainer[_permissions_pb2.Permission]
+    def __init__(
+        self,
+        user_id: _Optional[str] = ...,
+        user_roles: _Optional[_Iterable[_Union[UserRoleAssignment, _Mapping]]] = ...,
+        user_permissions: _Optional[_Iterable[_Union[_permissions_pb2.Permission, str]]] = ...,
+    ) -> None: ...
+
 class User(_message.Message):
     __slots__ = ("id", "name", "email", "image", "team_id", "deactivated_at")
     ID_FIELD_NUMBER: _ClassVar[int]
@@ -815,26 +845,37 @@ class EnvironmentPermissions(_message.Message):
         user_permissions: _Optional[_Iterable[_Union[UserPermissions, _Mapping]]] = ...,
     ) -> None: ...
 
+class TeamPermissions(_message.Message):
+    __slots__ = ("user_team_permissions",)
+    USER_TEAM_PERMISSIONS_FIELD_NUMBER: _ClassVar[int]
+    user_team_permissions: _containers.RepeatedCompositeFieldContainer[UserTeamPermissions]
+    def __init__(
+        self, user_team_permissions: _Optional[_Iterable[_Union[UserTeamPermissions, _Mapping]]] = ...
+    ) -> None: ...
+
 class GetTeamPermissionsRequest(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
 
 class GetTeamPermissionsResponse(_message.Message):
-    __slots__ = ("roles", "scim_groups", "environment_permissions", "team_members")
+    __slots__ = ("roles", "scim_groups", "environment_permissions", "team_members", "team_permissions")
     ROLES_FIELD_NUMBER: _ClassVar[int]
     SCIM_GROUPS_FIELD_NUMBER: _ClassVar[int]
     ENVIRONMENT_PERMISSIONS_FIELD_NUMBER: _ClassVar[int]
     TEAM_MEMBERS_FIELD_NUMBER: _ClassVar[int]
+    TEAM_PERMISSIONS_FIELD_NUMBER: _ClassVar[int]
     roles: _containers.RepeatedCompositeFieldContainer[RoleDescription]
     scim_groups: _containers.RepeatedCompositeFieldContainer[ScimGroup]
     environment_permissions: _containers.RepeatedCompositeFieldContainer[EnvironmentPermissions]
     team_members: _containers.RepeatedCompositeFieldContainer[User]
+    team_permissions: TeamPermissions
     def __init__(
         self,
         roles: _Optional[_Iterable[_Union[RoleDescription, _Mapping]]] = ...,
         scim_groups: _Optional[_Iterable[_Union[ScimGroup, _Mapping]]] = ...,
         environment_permissions: _Optional[_Iterable[_Union[EnvironmentPermissions, _Mapping]]] = ...,
         team_members: _Optional[_Iterable[_Union[User, _Mapping]]] = ...,
+        team_permissions: _Optional[_Union[TeamPermissions, _Mapping]] = ...,
     ) -> None: ...
 
 class ArchiveEnvironmentRequest(_message.Message):
@@ -876,6 +917,30 @@ class AssignTeamRoleRequest(_message.Message):
     def __init__(self, user_id: _Optional[str] = ..., role_id: _Optional[str] = ...) -> None: ...
 
 class AssignTeamRoleResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class AssignEnvironmentRoleRequest(_message.Message):
+    __slots__ = ("user_id", "role_id")
+    USER_ID_FIELD_NUMBER: _ClassVar[int]
+    ROLE_ID_FIELD_NUMBER: _ClassVar[int]
+    user_id: str
+    role_id: str
+    def __init__(self, user_id: _Optional[str] = ..., role_id: _Optional[str] = ...) -> None: ...
+
+class AssignEnvironmentRoleResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class AssignScimGroupEnvironmentRoleRequest(_message.Message):
+    __slots__ = ("group_id", "role_id")
+    GROUP_ID_FIELD_NUMBER: _ClassVar[int]
+    ROLE_ID_FIELD_NUMBER: _ClassVar[int]
+    group_id: str
+    role_id: str
+    def __init__(self, group_id: _Optional[str] = ..., role_id: _Optional[str] = ...) -> None: ...
+
+class AssignScimGroupEnvironmentRoleResponse(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
 

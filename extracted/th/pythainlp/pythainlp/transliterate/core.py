@@ -1,11 +1,13 @@
-# -*- coding: utf-8 -*-
-# SPDX-FileCopyrightText: 2016-2025 PyThaiNLP Project
+# SPDX-FileCopyrightText: 2016-2026 PyThaiNLP Project
 # SPDX-FileType: SOURCE
 # SPDX-License-Identifier: Apache-2.0
+from __future__ import annotations
 
-DEFAULT_ROMANIZE_ENGINE = "royin"
-DEFAULT_TRANSLITERATE_ENGINE = "thaig2p"
-DEFAULT_PRONUNCIATE_ENGINE = "w2p"
+from typing import Callable
+
+DEFAULT_ROMANIZE_ENGINE: str = "royin"
+DEFAULT_TRANSLITERATE_ENGINE: str = "thaig2p"
+DEFAULT_PRONUNCIATE_ENGINE: str = "w2p"
 
 
 def romanize(
@@ -13,18 +15,19 @@ def romanize(
     engine: str = DEFAULT_ROMANIZE_ENGINE,
     fallback_engine: str = DEFAULT_ROMANIZE_ENGINE,
 ) -> str:
-    """
-    This function renders Thai word in the Latin alphabet or "romanization",
+    """Renders Thai words in the Latin alphabet or "romanization",
     using the Royal Thai General System of Transcription (RTGS)
     [#rtgs_transcription]_. RTGS is the official system published
     by the Royal Institute of Thailand. (Thai: ถอดเสียงภาษาไทยเป็นอักษรละติน)
 
     :param str text: A Thai word to be romanized. \
         The input should not include whitespace because \
-        the function is support subwords by spliting whitespace.
-    :param str engine: One of 'royin' (default), 'thai2rom', 'thai2rom_onnx, 'tltk', and 'lookup'. See more in options for engine section.
-    :param str fallback_engine: If engine equals 'lookup', use `fallback_engine` for words that are not in the transliteration dict.
-                                No effect on other engines. Default to 'royin'.
+        the function is support subwords by splitting whitespace.
+    :param str engine: One of 'royin' (default), 'thai2rom', 'thai2rom_onnx,
+        'tltk', and 'lookup'. See more in options for engine section.
+    :param str fallback_engine: If engine equals 'lookup',
+        use `fallback_engine` for words that are not in the lookup dictionary.
+        No effect on other engines. Default to 'royin'.
 
     :return: A string of a Thai word rendered in the Latin alphabet.
     :rtype: str
@@ -69,7 +72,7 @@ def romanize(
 
     """
 
-    def select_romanize_engine(engine: str):
+    def select_romanize_engine(engine: str) -> Callable[[str], str]:
         if engine == "thai2rom":
             from pythainlp.transliterate.thai2rom import romanize
         elif engine == "thai2rom_onnx":
@@ -92,17 +95,16 @@ def romanize(
     else:
         rom_engine = select_romanize_engine(engine)
         trans_word = []
-        for subword in text.split(' '):
+        for subword in text.split(" "):
             trans_word.append(rom_engine(subword))
-        new_word = ' '.join(trans_word)
+        new_word = " ".join(trans_word)
         return new_word
 
 
 def transliterate(
     text: str, engine: str = DEFAULT_TRANSLITERATE_ENGINE
 ) -> str:
-    """
-    This function transliterates Thai text.
+    """Transliterates Thai text.
 
     :param str text: Thai text to be transliterated
     :param str engine: 'icu', 'ipa', or 'thaig2p' (default)
@@ -161,33 +163,31 @@ def transliterate(
         transliterate("ภาพยนตร์", engine="iso_11940")
         # output: 'p̣hāphyntr'
     """
-
     if not text or not isinstance(text, str):
         return ""
 
     if engine in ("icu", "pyicu"):
         from pythainlp.transliterate.pyicu import transliterate
     elif engine == "ipa":
-        from pythainlp.transliterate.ipa import transliterate
+        from pythainlp.transliterate.ipa import transliterate  # noqa: I001
     elif engine == "tltk_g2p":
-        from pythainlp.transliterate.tltk import tltk_g2p as transliterate
+        from pythainlp.transliterate.tltk import tltk_g2p as transliterate  # noqa: I001
     elif engine == "tltk_ipa":
-        from pythainlp.transliterate.tltk import tltk_ipa as transliterate
+        from pythainlp.transliterate.tltk import tltk_ipa as transliterate  # noqa: I001
     elif engine == "iso_11940":
-        from pythainlp.transliterate.iso_11940 import transliterate
+        from pythainlp.transliterate.iso_11940 import transliterate  # type: ignore[assignment]  # noqa: I001
     elif engine == "thaig2p_v2":
-        from pythainlp.transliterate.thaig2p_v2 import transliterate
+        from pythainlp.transliterate.thaig2p_v2 import transliterate  # noqa: I001
     elif engine == "umt5_thaig2p":
-        from pythainlp.translate.umt5_thaig2p import transliterate
+        from pythainlp.transliterate.umt5_thaig2p import transliterate  # noqa: I001
     else:  # use default engine: "thaig2p"
-        from pythainlp.transliterate.thaig2p import transliterate
+        from pythainlp.transliterate.thaig2p import transliterate  # noqa: I001
 
     return transliterate(text)
 
 
 def pronunciate(word: str, engine: str = DEFAULT_PRONUNCIATE_ENGINE) -> str:
-    """
-    This function pronunciates Thai word.
+    """Pronunciates Thai words.
 
     :param str word: Thai text to be pronunciated
     :param str engine: 'w2p' (default)

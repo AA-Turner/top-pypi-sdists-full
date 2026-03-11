@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: recommender-xblock
-Version: 3.1.0
+Version: 5.0.0
 Summary: recommender XBlock
 Home-page: https://github.com/openedx/RecommenderXBlock
 Author: edX
@@ -12,8 +12,10 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Framework :: Django
+Classifier: Framework :: Django :: 4.2
+Classifier: Framework :: Django :: 5.2
 License-File: LICENSE
 Dynamic: author
 Dynamic: author-email

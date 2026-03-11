@@ -76,8 +76,16 @@ class NotificationDisplayConfig(DisplayViewConfig):
                 Field(key="notification_type", label="Type"),
                 Field(key="title", label="Title"),
                 Field(key="body", label="body"),
-                Field(key="sent", label="Sent"),
-                Field(key="read", label="Read"),
+                Field(
+                    key=None,
+                    label="Info",
+                    children=[
+                        Field(key="sent_email", label="Email"),
+                        Field(key="sent_web", label="Web"),
+                        Field(key="sent_mobile", label="Mobile"),
+                        Field(key="read", label="Read"),
+                    ],
+                ),
             ],
         )
 
@@ -85,7 +93,8 @@ class NotificationDisplayConfig(DisplayViewConfig):
         return create_simple_display(
             [
                 ["notification_type", ".", "."],
-                ["title", "sent", "read"],
+                ["title", "title", "read"],
+                ["sent_email", "sent_web", "sent_mobile"],
                 ["body", "body", "body"],
             ]
         )

@@ -68,6 +68,7 @@ class ExecuteRequest:
     request: ClientContext
     connection: Optional[Connection]
     rabbitmq_params: Optional["RabbitMQParams"]
+    user_jwt: Optional[str] = None
 
 
 @dataclass
@@ -237,6 +238,7 @@ def handle_execute(
             stage=request.stage,
             client=make_client_from_context(request.request, actual_connection),
             context=request.request,
+            user_jwt=request.user_jwt,
         )
 
         def sigterm_handler(signum, frame):

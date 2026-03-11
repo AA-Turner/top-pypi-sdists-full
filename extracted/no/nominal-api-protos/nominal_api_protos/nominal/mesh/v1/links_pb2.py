@@ -27,7 +27,7 @@ from nominal.gen.v1 import alias_pb2 as nominal_dot_gen_dot_v1_dot_alias__pb2
 from nominal.gen.v1 import error_pb2 as nominal_dot_gen_dot_v1_dot_error__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1bnominal/mesh/v1/links.proto\x12\x0fnominal.mesh.v1\x1a\x1b\x62uf/validate/validate.proto\x1a\x1anominal/gen/v1/alias.proto\x1a\x1anominal/gen/v1/error.proto\"\xdd\x02\n\x04Link\x12.\n\x03rid\x18\x01 \x01(\tB!\x9a\xb2\x1a\x1d\n\x1bio.nominal.api.rids.LinkRid\x12\x46\n\x12local_resource_rid\x18\x02 \x01(\tB*\x9a\xb2\x1a&\n$io.nominal.api.rids.LocalResourceRid\x12H\n\x13remote_resource_rid\x18\x03 \x01(\tB+\x9a\xb2\x1a\'\n%io.nominal.api.rids.RemoteResourceRid\x12L\n\x15remote_connection_rid\x18\x04 \x01(\tB-\x9a\xb2\x1a)\n\'io.nominal.api.rids.RemoteConnectionRid\x12\x0f\n\x07\x65nabled\x18\x05 \x01(\x08\x12\x34\n\rresource_type\x18\x06 \x01(\x0e\x32\x1d.nominal.mesh.v1.ResourceType\"\xf9\x02\n\x11\x43reateLinkRequest\x12\x46\n\x12local_resource_rid\x18\x01 \x01(\tB*\x9a\xb2\x1a&\n$io.nominal.api.rids.LocalResourceRid\x12H\n\x13remote_resource_rid\x18\x02 \x01(\tB+\x9a\xb2\x1a\'\n%io.nominal.api.rids.RemoteResourceRid\x12L\n\x15remote_connection_rid\x18\x03 \x01(\tB-\x9a\xb2\x1a)\n\'io.nominal.api.rids.RemoteConnectionRid\x12\x0f\n\x07\x65nabled\x18\x04 \x01(\x08\x12\x34\n\rresource_type\x18\x05 \x01(\x0e\x32\x1d.nominal.mesh.v1.ResourceType\x12=\n\rworkspace_rid\x18\x06 \x01(\tB&\x9a\xb2\x1a\"\n io.nominal.api.rids.WorkspaceRid\"\x14\n\x12\x43reateLinkResponse\"E\n\x0eGetLinkRequest\x12\x33\n\x08link_rid\x18\x01 \x01(\tB!\x9a\xb2\x1a\x1d\n\x1bio.nominal.api.rids.LinkRid\"6\n\x0fGetLinkResponse\x12#\n\x04link\x18\x01 \x01(\x0b\x32\x15.nominal.mesh.v1.Link\"\xd7\x01\n\x11UpdateLinkRequest\x12\x33\n\x08link_rid\x18\x01 \x01(\tB!\x9a\xb2\x1a\x1d\n\x1bio.nominal.api.rids.LinkRid\x12Q\n\x15remote_connection_rid\x18\x02 \x01(\tB-\x9a\xb2\x1a)\n\'io.nominal.api.rids.RemoteConnectionRidH\x00\x88\x01\x01\x12\x14\n\x07\x65nabled\x18\x03 \x01(\x08H\x01\x88\x01\x01\x42\x18\n\x16_remote_connection_ridB\n\n\x08_enabled\"9\n\x12UpdateLinkResponse\x12#\n\x04link\x18\x01 \x01(\x0b\x32\x15.nominal.mesh.v1.Link\"H\n\x11\x44\x65leteLinkRequest\x12\x33\n\x08link_rid\x18\x01 \x01(\tB!\x9a\xb2\x1a\x1d\n\x1bio.nominal.api.rids.LinkRid\"\x14\n\x12\x44\x65leteLinkResponse\"\xda\x03\n\x12SearchLinksRequest\x12=\n\rworkspace_rid\x18\x01 \x01(\tB&\x9a\xb2\x1a\"\n io.nominal.api.rids.WorkspaceRid\x12\x1d\n\tpage_size\x18\x02 \x01(\x05\x42\n\xbaH\x07\x1a\x05\x18\xe8\x07(\x01\x12\x14\n\x07\x65nabled\x18\x03 \x01(\x08H\x00\x88\x01\x01\x12\x39\n\rresource_type\x18\x04 \x01(\x0e\x32\x1d.nominal.mesh.v1.ResourceTypeH\x01\x88\x01\x01\x12K\n\x12local_resource_rid\x18\x05 \x01(\tB*\x9a\xb2\x1a&\n$io.nominal.api.rids.LocalResourceRidH\x02\x88\x01\x01\x12Q\n\x15remote_connection_rid\x18\x06 \x01(\tB-\x9a\xb2\x1a)\n\'io.nominal.api.rids.RemoteConnectionRidH\x03\x88\x01\x01\x12\x17\n\npage_token\x18\x07 \x01(\tH\x04\x88\x01\x01\x42\n\n\x08_enabledB\x10\n\x0e_resource_typeB\x15\n\x13_local_resource_ridB\x18\n\x16_remote_connection_ridB\r\n\x0b_page_token\"m\n\x13SearchLinksResponse\x12$\n\x05links\x18\x01 \x03(\x0b\x32\x15.nominal.mesh.v1.Link\x12\x1c\n\x0fnext_page_token\x18\x02 \x01(\tH\x00\x88\x01\x01\x42\x12\n\x10_next_page_token*H\n\x0cResourceType\x12\x1d\n\x19RESOURCE_TYPE_UNSPECIFIED\x10\x00\x12\x19\n\x15RESOURCE_TYPE_DATASET\x10\x01*\xf6\x03\n\x10MeshServiceError\x12\x44\n!MESH_SERVICE_ERROR_LINK_NOT_FOUND\x10\x00\x1a\x1d\xb2\xb2\x1a\x19\n\tNOT_FOUND\x12\x0cLinkNotFound\x12S\n&MESH_SERVICE_ERROR_LINK_ALREADY_EXISTS\x10\x01\x1a\'\xb2\xb2\x1a#\n\x0e\x41LREADY_EXISTS\x12\x11LinkAlreadyExists\x12]\n.MESH_SERVICE_ERROR_REMOTE_CONNECTION_NOT_FOUND\x10\x02\x1a)\xb2\xb2\x1a%\n\tNOT_FOUND\x12\x18RemoteConnectionNotFound\x12l\n3MESH_SERVICE_ERROR_REMOTE_CONNECTION_ALREADY_EXISTS\x10\x03\x1a\x33\xb2\xb2\x1a/\n\x0e\x41LREADY_EXISTS\x12\x1dRemoteConnectionAlreadyExists\x12z\n8MESH_SERVICE_ERROR_REMOTE_CONNECTION_HAS_DEPENDENT_LINKS\x10\x04\x1a<\xb2\xb2\x1a\x38\n\x13\x46\x41ILED_PRECONDITION\x12!RemoteConnectionHasDependentLinksB\x16\n\x12io.nominal.mesh.v1P\x01\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1bnominal/mesh/v1/links.proto\x12\x0fnominal.mesh.v1\x1a\x1b\x62uf/validate/validate.proto\x1a\x1anominal/gen/v1/alias.proto\x1a\x1anominal/gen/v1/error.proto\"\xdd\x02\n\x04Link\x12.\n\x03rid\x18\x01 \x01(\tB!\x9a\xb2\x1a\x1d\n\x1bio.nominal.api.rids.LinkRid\x12\x46\n\x12local_resource_rid\x18\x02 \x01(\tB*\x9a\xb2\x1a&\n$io.nominal.api.rids.LocalResourceRid\x12H\n\x13remote_resource_rid\x18\x03 \x01(\tB+\x9a\xb2\x1a\'\n%io.nominal.api.rids.RemoteResourceRid\x12L\n\x15remote_connection_rid\x18\x04 \x01(\tB-\x9a\xb2\x1a)\n\'io.nominal.api.rids.RemoteConnectionRid\x12\x0f\n\x07\x65nabled\x18\x05 \x01(\x08\x12\x34\n\rresource_type\x18\x06 \x01(\x0e\x32\x1d.nominal.mesh.v1.ResourceType\"\xf9\x02\n\x11\x43reateLinkRequest\x12\x46\n\x12local_resource_rid\x18\x01 \x01(\tB*\x9a\xb2\x1a&\n$io.nominal.api.rids.LocalResourceRid\x12H\n\x13remote_resource_rid\x18\x02 \x01(\tB+\x9a\xb2\x1a\'\n%io.nominal.api.rids.RemoteResourceRid\x12L\n\x15remote_connection_rid\x18\x03 \x01(\tB-\x9a\xb2\x1a)\n\'io.nominal.api.rids.RemoteConnectionRid\x12\x0f\n\x07\x65nabled\x18\x04 \x01(\x08\x12\x34\n\rresource_type\x18\x05 \x01(\x0e\x32\x1d.nominal.mesh.v1.ResourceType\x12=\n\rworkspace_rid\x18\x06 \x01(\tB&\x9a\xb2\x1a\"\n io.nominal.api.rids.WorkspaceRid\"\x14\n\x12\x43reateLinkResponse\"E\n\x0eGetLinkRequest\x12\x33\n\x08link_rid\x18\x01 \x01(\tB!\x9a\xb2\x1a\x1d\n\x1bio.nominal.api.rids.LinkRid\"6\n\x0fGetLinkResponse\x12#\n\x04link\x18\x01 \x01(\x0b\x32\x15.nominal.mesh.v1.Link\"\xbe\x02\n\x11UpdateLinkRequest\x12\x33\n\x08link_rid\x18\x01 \x01(\tB!\x9a\xb2\x1a\x1d\n\x1bio.nominal.api.rids.LinkRid\x12Q\n\x15remote_connection_rid\x18\x02 \x01(\tB-\x9a\xb2\x1a)\n\'io.nominal.api.rids.RemoteConnectionRidH\x00\x88\x01\x01\x12\x14\n\x07\x65nabled\x18\x03 \x01(\x08H\x01\x88\x01\x01\x12M\n\x13remote_resource_rid\x18\x04 \x01(\tB+\x9a\xb2\x1a\'\n%io.nominal.api.rids.RemoteResourceRidH\x02\x88\x01\x01\x42\x18\n\x16_remote_connection_ridB\n\n\x08_enabledB\x16\n\x14_remote_resource_rid\"9\n\x12UpdateLinkResponse\x12#\n\x04link\x18\x01 \x01(\x0b\x32\x15.nominal.mesh.v1.Link\"H\n\x11\x44\x65leteLinkRequest\x12\x33\n\x08link_rid\x18\x01 \x01(\tB!\x9a\xb2\x1a\x1d\n\x1bio.nominal.api.rids.LinkRid\"\x14\n\x12\x44\x65leteLinkResponse\"\xda\x03\n\x12SearchLinksRequest\x12=\n\rworkspace_rid\x18\x01 \x01(\tB&\x9a\xb2\x1a\"\n io.nominal.api.rids.WorkspaceRid\x12\x1d\n\tpage_size\x18\x02 \x01(\x05\x42\n\xbaH\x07\x1a\x05\x18\xe8\x07(\x01\x12\x14\n\x07\x65nabled\x18\x03 \x01(\x08H\x00\x88\x01\x01\x12\x39\n\rresource_type\x18\x04 \x01(\x0e\x32\x1d.nominal.mesh.v1.ResourceTypeH\x01\x88\x01\x01\x12K\n\x12local_resource_rid\x18\x05 \x01(\tB*\x9a\xb2\x1a&\n$io.nominal.api.rids.LocalResourceRidH\x02\x88\x01\x01\x12Q\n\x15remote_connection_rid\x18\x06 \x01(\tB-\x9a\xb2\x1a)\n\'io.nominal.api.rids.RemoteConnectionRidH\x03\x88\x01\x01\x12\x17\n\npage_token\x18\x07 \x01(\tH\x04\x88\x01\x01\x42\n\n\x08_enabledB\x10\n\x0e_resource_typeB\x15\n\x13_local_resource_ridB\x18\n\x16_remote_connection_ridB\r\n\x0b_page_token\"m\n\x13SearchLinksResponse\x12$\n\x05links\x18\x01 \x03(\x0b\x32\x15.nominal.mesh.v1.Link\x12\x1c\n\x0fnext_page_token\x18\x02 \x01(\tH\x00\x88\x01\x01\x42\x12\n\x10_next_page_token*H\n\x0cResourceType\x12\x1d\n\x19RESOURCE_TYPE_UNSPECIFIED\x10\x00\x12\x19\n\x15RESOURCE_TYPE_DATASET\x10\x01*\xf6\x03\n\x10MeshServiceError\x12\x44\n!MESH_SERVICE_ERROR_LINK_NOT_FOUND\x10\x00\x1a\x1d\xb2\xb2\x1a\x19\n\tNOT_FOUND\x12\x0cLinkNotFound\x12S\n&MESH_SERVICE_ERROR_LINK_ALREADY_EXISTS\x10\x01\x1a\'\xb2\xb2\x1a#\n\x0e\x41LREADY_EXISTS\x12\x11LinkAlreadyExists\x12]\n.MESH_SERVICE_ERROR_REMOTE_CONNECTION_NOT_FOUND\x10\x02\x1a)\xb2\xb2\x1a%\n\tNOT_FOUND\x12\x18RemoteConnectionNotFound\x12l\n3MESH_SERVICE_ERROR_REMOTE_CONNECTION_ALREADY_EXISTS\x10\x03\x1a\x33\xb2\xb2\x1a/\n\x0e\x41LREADY_EXISTS\x12\x1dRemoteConnectionAlreadyExists\x12z\n8MESH_SERVICE_ERROR_REMOTE_CONNECTION_HAS_DEPENDENT_LINKS\x10\x04\x1a<\xb2\xb2\x1a\x38\n\x13\x46\x41ILED_PRECONDITION\x12!RemoteConnectionHasDependentLinksB\x16\n\x12io.nominal.mesh.v1P\x01\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -67,6 +67,8 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_UPDATELINKREQUEST'].fields_by_name['link_rid']._serialized_options = b'\232\262\032\035\n\033io.nominal.api.rids.LinkRid'
   _globals['_UPDATELINKREQUEST'].fields_by_name['remote_connection_rid']._loaded_options = None
   _globals['_UPDATELINKREQUEST'].fields_by_name['remote_connection_rid']._serialized_options = b'\232\262\032)\n\'io.nominal.api.rids.RemoteConnectionRid'
+  _globals['_UPDATELINKREQUEST'].fields_by_name['remote_resource_rid']._loaded_options = None
+  _globals['_UPDATELINKREQUEST'].fields_by_name['remote_resource_rid']._serialized_options = b'\232\262\032\'\n%io.nominal.api.rids.RemoteResourceRid'
   _globals['_DELETELINKREQUEST'].fields_by_name['link_rid']._loaded_options = None
   _globals['_DELETELINKREQUEST'].fields_by_name['link_rid']._serialized_options = b'\232\262\032\035\n\033io.nominal.api.rids.LinkRid'
   _globals['_SEARCHLINKSREQUEST'].fields_by_name['workspace_rid']._loaded_options = None
@@ -77,10 +79,10 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_SEARCHLINKSREQUEST'].fields_by_name['local_resource_rid']._serialized_options = b'\232\262\032&\n$io.nominal.api.rids.LocalResourceRid'
   _globals['_SEARCHLINKSREQUEST'].fields_by_name['remote_connection_rid']._loaded_options = None
   _globals['_SEARCHLINKSREQUEST'].fields_by_name['remote_connection_rid']._serialized_options = b'\232\262\032)\n\'io.nominal.api.rids.RemoteConnectionRid'
-  _globals['_RESOURCETYPE']._serialized_start=1975
-  _globals['_RESOURCETYPE']._serialized_end=2047
-  _globals['_MESHSERVICEERROR']._serialized_start=2050
-  _globals['_MESHSERVICEERROR']._serialized_end=2552
+  _globals['_RESOURCETYPE']._serialized_start=2078
+  _globals['_RESOURCETYPE']._serialized_end=2150
+  _globals['_MESHSERVICEERROR']._serialized_start=2153
+  _globals['_MESHSERVICEERROR']._serialized_end=2655
   _globals['_LINK']._serialized_start=134
   _globals['_LINK']._serialized_end=483
   _globals['_CREATELINKREQUEST']._serialized_start=486
@@ -92,15 +94,15 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_GETLINKRESPONSE']._serialized_start=958
   _globals['_GETLINKRESPONSE']._serialized_end=1012
   _globals['_UPDATELINKREQUEST']._serialized_start=1015
-  _globals['_UPDATELINKREQUEST']._serialized_end=1230
-  _globals['_UPDATELINKRESPONSE']._serialized_start=1232
-  _globals['_UPDATELINKRESPONSE']._serialized_end=1289
-  _globals['_DELETELINKREQUEST']._serialized_start=1291
-  _globals['_DELETELINKREQUEST']._serialized_end=1363
-  _globals['_DELETELINKRESPONSE']._serialized_start=1365
-  _globals['_DELETELINKRESPONSE']._serialized_end=1385
-  _globals['_SEARCHLINKSREQUEST']._serialized_start=1388
-  _globals['_SEARCHLINKSREQUEST']._serialized_end=1862
-  _globals['_SEARCHLINKSRESPONSE']._serialized_start=1864
-  _globals['_SEARCHLINKSRESPONSE']._serialized_end=1973
+  _globals['_UPDATELINKREQUEST']._serialized_end=1333
+  _globals['_UPDATELINKRESPONSE']._serialized_start=1335
+  _globals['_UPDATELINKRESPONSE']._serialized_end=1392
+  _globals['_DELETELINKREQUEST']._serialized_start=1394
+  _globals['_DELETELINKREQUEST']._serialized_end=1466
+  _globals['_DELETELINKRESPONSE']._serialized_start=1468
+  _globals['_DELETELINKRESPONSE']._serialized_end=1488
+  _globals['_SEARCHLINKSREQUEST']._serialized_start=1491
+  _globals['_SEARCHLINKSREQUEST']._serialized_end=1965
+  _globals['_SEARCHLINKSRESPONSE']._serialized_start=1967
+  _globals['_SEARCHLINKSRESPONSE']._serialized_end=2076
 # @@protoc_insertion_point(module_scope)

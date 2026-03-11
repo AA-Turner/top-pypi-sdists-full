@@ -16,6 +16,7 @@ class GitSyncObjectType(str, Enum):
     TRIGGER = "trigger"
     USER = "user"
     VARIABLE = "variable"
+    WORKSPACEDEPENDENCIES = "workspacedependencies"
 
     def __str__(self) -> str:
         return str(self.value)

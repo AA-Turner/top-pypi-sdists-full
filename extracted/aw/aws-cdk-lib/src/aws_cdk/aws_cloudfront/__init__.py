@@ -8447,7 +8447,7 @@ class CfnDistribution(
             :param https_port: The HTTPS port that CloudFront uses to connect to the origin. Specify the HTTPS port that the origin listens on. Default: - 443
             :param ip_address_type: Specifies which IP protocol CloudFront uses when connecting to your origin. If your origin uses both IPv4 and IPv6 protocols, you can choose ``dualstack`` to help optimize reliability.
             :param origin_keepalive_timeout: Specifies how long, in seconds, CloudFront persists its connection to the origin. The minimum timeout is 1 second, the maximum is 120 seconds, and the default (if you don't specify otherwise) is 5 seconds. For more information, see `Keep-alive timeout (custom origins only) <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/DownloadDistValuesOrigin.html#DownloadDistValuesOriginKeepaliveTimeout>`_ in the *Amazon CloudFront Developer Guide* . Default: - 5
-            :param origin_mtls_config: 
+            :param origin_mtls_config: Configures mutual TLS authentication between CloudFront and your origin server.
             :param origin_read_timeout: Specifies how long, in seconds, CloudFront waits for a response from the origin. This is also known as the *origin response timeout* . The minimum timeout is 1 second, the maximum is 120 seconds, and the default (if you don't specify otherwise) is 30 seconds. For more information, see `Response timeout <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/DownloadDistValuesOrigin.html#DownloadDistValuesOriginResponseTimeout>`_ in the *Amazon CloudFront Developer Guide* . Default: - 30
             :param origin_ssl_protocols: Specifies the minimum SSL/TLS protocol that CloudFront uses when connecting to your origin over HTTPS. Valid values include ``SSLv3`` , ``TLSv1`` , ``TLSv1.1`` , and ``TLSv1.2`` . For more information, see `Minimum Origin SSL Protocol <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/DownloadDistValuesOrigin.html#DownloadDistValuesOriginSSLProtocols>`_ in the *Amazon CloudFront Developer Guide* .
 
@@ -8573,7 +8573,8 @@ class CfnDistribution(
         def origin_mtls_config(
             self,
         ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDistribution.OriginMtlsConfigProperty"]]:
-            '''
+            '''Configures mutual TLS authentication between CloudFront and your origin server.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distribution-customoriginconfig.html#cfn-cloudfront-distribution-customoriginconfig-originmtlsconfig
             '''
             result = self._values.get("origin_mtls_config")
@@ -11186,8 +11187,9 @@ class CfnDistribution(
     )
     class OriginMtlsConfigProperty:
         def __init__(self, *, client_certificate_arn: builtins.str) -> None:
-            '''
-            :param client_certificate_arn: 
+            '''Configures mutual TLS authentication between CloudFront and your origin server.
+
+            :param client_certificate_arn: The Amazon Resource Name (ARN) of the client certificate stored in AWS Certificate Manager (ACM) that CloudFront uses to authenticate with your origin using Mutual TLS.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distribution-originmtlsconfig.html
             :exampleMetadata: fixture=_generated
@@ -11211,7 +11213,8 @@ class CfnDistribution(
 
         @builtins.property
         def client_certificate_arn(self) -> builtins.str:
-            '''
+            '''The Amazon Resource Name (ARN) of the client certificate stored in AWS Certificate Manager (ACM) that CloudFront uses to authenticate with your origin using Mutual TLS.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distribution-originmtlsconfig.html#cfn-cloudfront-distribution-originmtlsconfig-clientcertificatearn
             '''
             result = self._values.get("client_certificate_arn")

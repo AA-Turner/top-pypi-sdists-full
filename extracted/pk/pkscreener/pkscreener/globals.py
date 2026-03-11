@@ -750,13 +750,13 @@ def refreshStockData(startupoptions=None):
     if indexOption == 0:
         listStockCodes = handleRequestForSpecificStocks(options,indexOption=indexOption)
     listStockCodes = prepareStocksForScreening(testing=False, downloadOnly=False, listStockCodes=listStockCodes,indexOption=indexOption)
-    try:
-        import tensorflow as tf
-        with tf.device("/device:GPU:0"):
-            stockDictPrimary,stockDictSecondary = loadDatabaseOrFetch(downloadOnly=False, listStockCodes=listStockCodes, menuOption=menuOption,indexOption=indexOption)
-    except: # pragma: no cover
-        stockDictPrimary,stockDictSecondary = loadDatabaseOrFetch(downloadOnly=False, listStockCodes=listStockCodes, menuOption=menuOption,indexOption=indexOption)
-        pass
+    # try:
+    #     import tensorflow as tf
+    #     with tf.device("/device:GPU:0"):
+    #         stockDictPrimary,stockDictSecondary = loadDatabaseOrFetch(downloadOnly=False, listStockCodes=listStockCodes, menuOption=menuOption,indexOption=indexOption)
+    # except: # pragma: no cover
+    stockDictPrimary,stockDictSecondary = loadDatabaseOrFetch(downloadOnly=False, listStockCodes=listStockCodes, menuOption=menuOption,indexOption=indexOption)
+    # pass
     PKScanRunner.refreshDatabase(consumers,stockDictPrimary,stockDictSecondary)
 
 def closeWorkersAndExit():
@@ -1131,8 +1131,8 @@ def main(userArgs=None,optionalFinalOutcome_df=None):
             elif indexOption == "N":
                 import pandas as pd
                 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
-                import tensorflow as tf
-                tf.get_logger().setLevel('ERROR')
+                # import tensorflow as tf
+                # tf.get_logger().setLevel('ERROR')
                 if stockDictPrimary is None or (len(stockDictPrimary.keys()) == 0):
                     stockDictPrimary,stockDictSecondary = loadDatabaseOrFetch(downloadOnly=False, listStockCodes=["NIFTY 50"], menuOption=menuOption,indexOption=indexOption)
                 hostData = stockDictPrimary.get("NIFTY 50") if (stockDictPrimary is not None and len(stockDictPrimary) > 0) else None
@@ -1239,13 +1239,13 @@ def main(userArgs=None,optionalFinalOutcome_df=None):
             and not loadedStockData
             and not testing
         ):
-            try:
-                import tensorflow as tf
-                with tf.device("/device:GPU:0"):
-                    stockDictPrimary,stockDictSecondary = loadDatabaseOrFetch(downloadOnly, listStockCodes, menuOption, indexOption)
-            except: # pragma: no cover
-                stockDictPrimary,stockDictSecondary = loadDatabaseOrFetch(downloadOnly, listStockCodes, menuOption, indexOption)
-                pass
+            # try:
+            #     import tensorflow as tf
+            #     with tf.device("/device:GPU:0"):
+            #         stockDictPrimary,stockDictSecondary = loadDatabaseOrFetch(downloadOnly, listStockCodes, menuOption, indexOption)
+            # except: # pragma: no cover
+            stockDictPrimary,stockDictSecondary = loadDatabaseOrFetch(downloadOnly, listStockCodes, menuOption, indexOption)
+                # pass
         loadCount = len(stockDictPrimary) if stockDictPrimary is not None else 0
         # Let's use screening only for the stocks for which we could get the data.
         savedOrDownloadedKeys = listStockCodes if (userArgs.options is not None and "," in userArgs.options) else list(stockDictPrimary.keys())

@@ -1,12 +1,18 @@
-import random
 import pytest
 import time
 
+from duplocloud.controller import DuploCtl
 from duplocloud.errors import DuploError
+from tests.conftest import get_test_data
 
+@pytest.mark.integration
+@pytest.mark.lifecycle
+@pytest.mark.k8s
+@pytest.mark.aws
+@pytest.mark.ecs
 class TestTenant:
 
-  @pytest.mark.integration
+  @pytest.mark.order(11)
   def test_listing_tenants(self, duplo):
     r = duplo.load("tenant")
     try:
@@ -16,7 +22,7 @@ class TestTenant:
     # there is at least one tenant
     assert len(lot) > 0
 
-  @pytest.mark.integration
+  @pytest.mark.order(11)
   def test_finding_tenants(self, duplo):
     r = duplo.load("tenant")
     try:
@@ -25,43 +31,42 @@ class TestTenant:
       pytest.fail(f"Failed to list tenants: {e}")
     assert t["AccountName"] == "default"
 
-  @pytest.mark.integration
   @pytest.mark.dependency(name="create_tenant", scope='session')
-  @pytest.mark.order(2)
-  def test_creating_tenants(self, duplo, infra_name, e2e):
+  @pytest.mark.order(10)
+  def test_creating_tenants(self, duplo, infra_name, tenant_name):
     t = duplo.load("tenant")
-    name = duplo.tenant
-    if not name:
-      inc = random.randint(1, 100)
-      name = f"duploctl{inc}"
-      duplo.tenant = name
-    # check if the tenant already exists
+    name = tenant_name
+    # check if the tenant already exists — pass without creating if it does
     try:
-      print(f"Processing tenant '{name}'")
+      print(f"\n  host:    {duplo.host}")
+      print(f"  tenant:  {name}  (infra={infra_name})")
       i = t("find", name)
-      print(f"Tenant '{name}' already exists")
       if i:
-        pytest.skip(f"Tenant '{name}' already exists")
-    except DuploError as e:
+        print(f"  status:  pre-existing  (plan={i.get('PlanID')}, id={i.get('TenantId')})")
+        return
+    except DuploError:
       pass
+    print(f"  creating tenant '{name}' on infra '{infra_name}'")
+    duplo.wait = True
     try:
       t.create({
         "AccountName": name,
         "PlanID": infra_name,
         "TenantBlueprint": None
-      }, wait=True)
-      print(f"Tenant '{name}' created")
+      })
+      print(f"  result:  tenant '{name}' created")
     except DuploError as e:
       pytest.fail(f"Failed to create tenant: {e}")
     time.sleep(180)
 
-  @pytest.mark.integration
   @pytest.mark.dependency(name="delete_tenant", depends=["create_tenant"], scope='session')
   @pytest.mark.order(998)
-  def test_find_delete_tenant(self, duplo):
+  def test_find_delete_tenant(self, duplo, tenant_name, owns_tenant: bool):
+    if not owns_tenant:
+      pytest.skip(f"Tenant '{tenant_name}' was pre-existing — not destroying")
     # now find it
     r = duplo.load("tenant")
-    name = duplo.tenant
+    name = tenant_name
     print(f"Delete tenant '{name}'")
     try:
       nt = r("find", name)
@@ -77,7 +82,7 @@ class TestTenant:
     except DuploError as e:
       pytest.fail(f"Failed to delete tenant: {e}")
 
-  @pytest.mark.integration
+  @pytest.mark.order(12)
   def test_list_users(self, duplo):
     r = duplo.load("tenant")
     try:
@@ -86,7 +91,7 @@ class TestTenant:
       pytest.fail(f"Failed to list users: {e}")
     assert isinstance(users, list)
 
-  @pytest.mark.integration
+  @pytest.mark.order(12)
   def test_billing(self, duplo):
     r = duplo.load("tenant")
     try:
@@ -95,7 +100,7 @@ class TestTenant:
       pytest.fail(f"Failed to get billing info: {e}")
     assert isinstance(billing, dict)
 
-  @pytest.mark.integration
+  @pytest.mark.order(12)
   def test_region(self, duplo):
     r = duplo.load("tenant")
     try:
@@ -104,7 +109,7 @@ class TestTenant:
       pytest.fail(f"Failed to get region: {e}")
     assert "region" in region
 
-  @pytest.mark.integration
+  @pytest.mark.order(12)
   def test_dns_config(self, duplo):
     r = duplo.load("tenant")
     try:
@@ -112,3 +117,24 @@ class TestTenant:
     except DuploError as e:
       pytest.fail(f"Failed to get DNS config: {e}")
     assert isinstance(dns, dict)
+
+
+@pytest.mark.unit
+def test_tenant_create_model_annotation():
+  """create command on DuploTenant is annotated with the AddTenantRequest model"""
+  from duplocloud.commander import get_command_schema
+  from duplo_resource.tenant import DuploTenant
+  cmd = get_command_schema(DuploTenant, "create")
+  assert cmd["model"] == "AddTenantRequest"
+
+
+@pytest.mark.unit
+def test_validate_tenant_yaml():
+  """validate_model accepts tenant.yaml test data against AddTenantRequest"""
+  duplo = DuploCtl(host="https://example.duplocloud.net")
+  model_cls = duplo.load_model("AddTenantRequest")
+  data = get_test_data("tenant")
+  result = duplo.validate_model(model_cls, data)
+  assert isinstance(result, dict)
+  assert result["AccountName"] == data["AccountName"]
+  assert result["PlanID"] == data["PlanID"]

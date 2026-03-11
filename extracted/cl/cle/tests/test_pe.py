@@ -174,6 +174,15 @@ class TestPEBackend(unittest.TestCase):
         ]
         assert section_names[-len(debug_section_names) :] == debug_section_names
 
+    def test_tls_directory_address_of_callbacks_null(self):
+        # https://github.com/angr/cle/issues/657
+        exe = os.path.join(
+            TEST_BASE, "tests", "x86_64", "windows", "7107ab06446ce4a51226196453066e7d361972364ad1543fe8a3a03a957e1bd5"
+        )
+        ld = cle.Loader(exe, auto_load_libs=False)
+
+        assert ld.main_object.tls_callbacks == []
+
     def test_coff_symbol_loaded(self):
         exe = os.path.join(TEST_BASE, "tests", "x86_64", "windows", "simple_crackme_x64.exe")
         ld = cle.Loader(exe, auto_load_libs=False)
@@ -257,6 +266,18 @@ class TestPEBackend(unittest.TestCase):
                 main_opts={"debug_symbol_paths": [nonexistent, tmpdir]},
             )
             assert ld.find_symbol("authenticate")
+
+    def test_load_binary_larger_than_highest_address(self):
+        # https://github.com/angr/angr/issues/6209
+        exe = os.path.join(
+            TEST_BASE, "tests", "i386", "windows", "aa893de523f58ee14972b94fef7ecdbb930cbdc700d8be097eb8a6de2549ce73"
+        )
+        ld = cle.Loader(exe, auto_load_libs=False)
+
+        assert len(ld.all_objects) == 2
+        assert ld.main_object.min_addr == 0x400000
+        assert ld.main_object.max_addr == 0x44F02D
+        assert ld.all_objects[1].min_addr == 0x500000
 
 
 if __name__ == "__main__":

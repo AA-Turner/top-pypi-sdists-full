@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import copy
 import hashlib
 import json
 import re
@@ -145,7 +144,7 @@ class Item:
         hashed.update(hash_string.encode('utf-8'))
         return hashed.hexdigest()
 
-    def refresh_from(self, new_item, item_map: ItemMap, status: Status):
+    def refresh_from(self, context, new_item, item_map: ItemMap, status: Status):
         self._definition = new_item.definition_dict
         self._provenance = new_item.provenance
 
@@ -486,10 +485,14 @@ class Reference:
         return self.worksheet.id if self.worksheet is not None else None
 
     def __repr__(self):
+        identifier = self.id
+        if self._item_search_preview is not None:
+            identifier = f'{self._item_search_preview.type} "{self._item_search_preview.name}" ({self.id})'
+
         if self.worksheet is not None:
-            return '%s reference on "%s" (%s)' % (self.provenance, self.worksheet.name, self.id)
+            return f'{self.provenance} reference on "{self.worksheet.name}": {identifier}'
         else:
-            return '%s (%s)' % (self.provenance, self.id)
+            return f'{self.provenance}: {identifier}'
 
     def __hash__(self):
         return hash((self.id, self.provenance, self.worksheet_id))
@@ -561,3 +564,6 @@ class ItemList(list):
     def __delitem__(self, key):
         index = self._index_of(key)
         return super().__delitem__(index)
+
+    def __repr__(self):
+        return '[\n    ' + '\n    '.join([repr(item) for item in self]) + '\n]'

@@ -1122,6 +1122,14 @@ class PyXCP(Application):
             )
             self.log.addHandler(rich_handler)
 
+        # Ensure the pyxcp logger hierarchy inherits the configured level and has a handler
+        # so transport-layer debug output is emitted when requested via CLI (-l/--log-level).
+        pyxcp_logger = logging.getLogger("pyxcp")
+        pyxcp_logger.setLevel(self.log_level)
+        if not pyxcp_logger.handlers or all(isinstance(h, logging.NullHandler) for h in pyxcp_logger.handlers):
+            for handler in self.log.handlers:
+                pyxcp_logger.addHandler(handler)
+
     def initialize(self, argv=None):
         from pyxcp import __version__ as pyxcp_version
 
@@ -1202,24 +1210,26 @@ class PyXCP(Application):
             # If env var set but file doesn't exist, log warning but continue search
             self.log.warning(f"PYXCP_CONFIG points to non-existent file: {env_config}")
 
-        # 2. Direct path (absolute or relative to CWD)
+        # 2. Direct path if absolute
         direct_path = Path(file_name)
         if direct_path.is_absolute():
             return direct_path if direct_path.exists() else None
+
+        # 3. User home ~/.pyxcp/ (preferred over packaged examples)
+        home_path = Path.home() / ".pyxcp" / file_name
+        if home_path.exists():
+            return home_path
+
+        # 4. Relative to current working directory
         if direct_path.exists():
             return direct_path.resolve()
 
-        # 3. Script directory (where the calling script is located)
+        # 5. Script directory (where the calling script is located)
         if sys.argv and sys.argv[0]:
             script_dir = Path(sys.argv[0]).parent.resolve()
             script_path = script_dir / file_name
             if script_path.exists():
                 return script_path
-
-        # 4. User home ~/.pyxcp/
-        home_path = Path.home() / ".pyxcp" / file_name
-        if home_path.exists():
-            return home_path
 
         return None
 

@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, Optional, TypeVar, Union
 from warnings import warn
 
-from pydantic import Field
+from pydantic import ConfigDict, Field
 from typing_extensions import Self
 
 from datamodel_code_generator import cached_path_exists
@@ -25,7 +25,7 @@ from datamodel_code_generator.imports import (
     IMPORT_UNION,
     Import,
 )
-from datamodel_code_generator.model._types import WrappedDefault
+from datamodel_code_generator.model._types import ValidatedDefault, WrappedDefault
 from datamodel_code_generator.reference import Reference, _BaseModel
 from datamodel_code_generator.types import (
     ANY,
@@ -37,9 +37,8 @@ from datamodel_code_generator.types import (
     chain_as_tuple,
     get_optional_type,
 )
-from datamodel_code_generator.util import ConfigDict, is_pydantic_v2, model_copy, model_dump, model_validate
 
-__all__ = ["WrappedDefault"]
+__all__ = ["ValidatedDefault", "WrappedDefault"]
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -103,35 +102,27 @@ class ConstraintsBase(_BaseModel):
 
     unique_items: Optional[bool] = Field(None, alias="uniqueItems")  # noqa: UP045
     _exclude_fields: ClassVar[set[str]] = {"has_constraints"}
-    if is_pydantic_v2():
-        model_config = ConfigDict(  # ty: ignore
-            arbitrary_types_allowed=True, ignored_types=(cached_property,)
-        )
-    else:
-
-        class Config:
-            """Pydantic v1 configuration for ConstraintsBase."""
-
-            arbitrary_types_allowed = True
-            keep_untouched = (cached_property,)
+    model_config = ConfigDict(  # ty: ignore
+        arbitrary_types_allowed=True, ignored_types=(cached_property,)
+    )
 
     @cached_property
     def has_constraints(self) -> bool:
         """Check if any constraint values are set."""
-        return any(v is not None for v in model_dump(self).values())
+        return any(v is not None for v in self.model_dump().values())
 
     @staticmethod
     def merge_constraints(a: ConstraintsBaseT | None, b: ConstraintsBaseT | None) -> ConstraintsBaseT | None:
         """Merge two constraint objects, with b taking precedence over a."""
         constraints_class = None
         if isinstance(a, ConstraintsBase):  # pragma: no cover
-            root_type_field_constraints = {k: v for k, v in model_dump(a, by_alias=True).items() if v is not None}
+            root_type_field_constraints = {k: v for k, v in a.model_dump(by_alias=True).items() if v is not None}
             constraints_class = a.__class__
         else:
             root_type_field_constraints = {}  # pragma: no cover
 
         if isinstance(b, ConstraintsBase):  # pragma: no cover
-            model_field_constraints = {k: v for k, v in model_dump(b, by_alias=True).items() if v is not None}
+            model_field_constraints = {k: v for k, v in b.model_dump(by_alias=True).items() if v is not None}
             constraints_class = constraints_class or b.__class__
         else:
             model_field_constraints = {}
@@ -139,8 +130,7 @@ class ConstraintsBase(_BaseModel):
         if constraints_class is None or not issubclass(constraints_class, ConstraintsBase):  # pragma: no cover
             return None
 
-        return model_validate(
-            constraints_class,
+        return constraints_class.model_validate(
             {
                 **root_type_field_constraints,
                 **model_field_constraints,
@@ -151,17 +141,10 @@ class ConstraintsBase(_BaseModel):
 class DataModelFieldBase(_BaseModel):
     """Base class for model field representation and rendering."""
 
-    if is_pydantic_v2():
-        model_config = ConfigDict(  # ty: ignore
-            arbitrary_types_allowed=True,
-            defer_build=True,
-        )
-    else:
-
-        class Config:
-            """Pydantic v1 configuration for DataModelFieldBase."""
-
-            arbitrary_types_allowed = True
+    model_config = ConfigDict(  # ty: ignore
+        arbitrary_types_allowed=True,
+        defer_build=True,
+    )
 
     name: Optional[str] = None  # noqa: UP045
     default: Optional[Any] = None  # noqa: UP045
@@ -195,17 +178,6 @@ class DataModelFieldBase(_BaseModel):
     use_default_factory_for_optional_nested_models: bool = False
 
     if not TYPE_CHECKING:  # pragma: no branch
-        if not is_pydantic_v2():
-
-            @classmethod
-            def model_rebuild(
-                cls,
-                *,
-                _types_namespace: dict[str, type] | None = None,
-            ) -> None:
-                """Update forward references for Pydantic v1."""
-                localns = _types_namespace or {}
-                cls.update_forward_refs(**localns)
 
         def __init__(self, **data: Any) -> None:
             """Initialize the field and set up parent relationships."""
@@ -215,13 +187,7 @@ class DataModelFieldBase(_BaseModel):
             self.process_const()
 
     def process_const(self) -> None:
-        """Process const values by setting them as defaults."""
-        if "const" not in self.extras:
-            return
-        self.default = self.extras["const"]
-        self.const = True
-        self.required = False
-        self.nullable = False
+        """Process const fields in subclasses."""
 
     def _process_const_as_literal(self) -> None:
         """Process const values by converting to literal type. Used by subclasses."""
@@ -238,7 +204,7 @@ class DataModelFieldBase(_BaseModel):
         """Check if field references its parent model.
 
         Result is cached after first call since parent is stable at render time.
-        Uses __dict__ for caching to avoid Pydantic v1 field assignment restrictions.
+        Uses __dict__ for caching to avoid Pydantic-managed field assignment.
         """
         if "_self_reference_cache" in self.__dict__:
             return self.__dict__["_self_reference_cache"]
@@ -445,14 +411,14 @@ class DataModelFieldBase(_BaseModel):
 
     def copy_deep(self) -> Self:
         """Create a deep copy of this field to avoid mutating the original."""
-        copied = model_copy(self)
+        copied = self.model_copy()
         copied.parent = None
         copied.extras = deepcopy(self.extras)
-        copied.data_type = model_copy(self.data_type)
+        copied.data_type = self.data_type.model_copy()
         if self.data_type.data_types:
-            copied.data_type.data_types = [model_copy(dt) for dt in self.data_type.data_types]
+            copied.data_type.data_types = [dt.model_copy() for dt in self.data_type.data_types]
         if self.data_type.dict_key:
-            copied.data_type.dict_key = model_copy(self.data_type.dict_key)
+            copied.data_type.dict_key = self.data_type.dict_key.model_copy()
         return copied
 
     def replace_data_type(self, new_data_type: DataType, *, clear_old_parent: bool = True) -> None:
@@ -633,7 +599,9 @@ class DataModel(TemplateBase, Nullable, ABC):  # noqa: PLR0904
     SUPPORTS_DISCRIMINATOR: ClassVar[bool] = False
     SUPPORTS_FIELD_RENAMING: ClassVar[bool] = False
     SUPPORTS_WRAPPED_DEFAULT: ClassVar[bool] = False
+    SUPPORTS_VALIDATED_DEFAULT: ClassVar[bool] = False
     SUPPORTS_KW_ONLY: ClassVar[bool] = False
+    REQUIRES_RUNTIME_IMPORTS_WITH_RUFF_CHECK: ClassVar[bool] = False
     has_forward_reference: bool = False
 
     def __init__(  # noqa: PLR0913
@@ -772,6 +740,15 @@ class DataModel(TemplateBase, Nullable, ABC):  # noqa: PLR0904
             keyword_only=self.keyword_only,
             treat_dot_as_module=self._treat_dot_as_module,
         )
+
+    def _set_deprecated_decorator(self) -> None:
+        """Add a class-level deprecated decorator when schema metadata requires it."""
+        if not self.extra_template_data.get("deprecated"):
+            return
+        if not any(decorator.startswith("@deprecated") for decorator in self.decorators):
+            message = f"{self.class_name} is deprecated."
+            self.decorators = [*self.decorators, f"@deprecated({message!r})"]
+        self._additional_imports.append(Import.from_full_path("typing_extensions.deprecated"))
 
     def replace_children_in_models(self, models: list[DataModel], new_ref: Reference) -> None:
         """Replace reference children if their parent model is in models list."""
@@ -942,13 +919,7 @@ class DataModel(TemplateBase, Nullable, ABC):  # noqa: PLR0904
         )
 
 
-if is_pydantic_v2():
-    _rebuild_namespace = {"Union": Union, "DataModelFieldBase": DataModelFieldBase, "DataType": DataType}
-    DataType.model_rebuild(_types_namespace=_rebuild_namespace)
-    BaseClassDataType.model_rebuild(_types_namespace=_rebuild_namespace)
-    DataModelFieldBase.model_rebuild(_types_namespace={"DataModel": DataModel})
-else:
-    _rebuild_namespace = {"Union": Union, "DataModelFieldBase": DataModelFieldBase, "DataType": DataType}
-    DataType.model_rebuild(_types_namespace=_rebuild_namespace)
-    BaseClassDataType.model_rebuild(_types_namespace=_rebuild_namespace)
-    DataModelFieldBase.model_rebuild(_types_namespace={"DataModel": DataModel})
+_rebuild_namespace = {"Union": Union, "DataModelFieldBase": DataModelFieldBase, "DataType": DataType}
+DataType.model_rebuild(_types_namespace=_rebuild_namespace)
+BaseClassDataType.model_rebuild(_types_namespace=_rebuild_namespace)
+DataModelFieldBase.model_rebuild(_types_namespace={"DataModel": DataModel})

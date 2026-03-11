@@ -714,7 +714,7 @@ currently only supports Node.js-based user handlers, represents permissions as r
 JSON blobs instead of `iam.PolicyStatement` objects, and it does not have
 support for asynchronous waiting (handler cannot exceed the 15min lambda
 timeout). The `CustomResourceProviderRuntime` supports runtime `nodejs12.x`,
-`nodejs14.x`, `nodejs16.x`, `nodejs18.x`.
+`nodejs14.x`, `nodejs16.x`, `nodejs18.x`, `nodejs20.x`, and `nodejs22.x`.
 
 > **As an application builder, we do not recommend you use this provider type.** This provider exists purely for custom resources that are part of the AWS Construct Library.
 >
@@ -726,7 +726,7 @@ stack-unique identifier and returns the service token:
 ```python
 service_token = CustomResourceProvider.get_or_create(self, "Custom::MyCustomResourceType",
     code_directory=f"{__dirname}/my-handler",
-    runtime=CustomResourceProviderRuntime.NODEJS_18_X,
+    runtime=CustomResourceProviderRuntime.NODEJS_22_X,
     description="Lambda function created by the custom resource provider"
 )
 
@@ -810,7 +810,7 @@ class Sum(Construct):
         resource_type = "Custom::Sum"
         service_token = CustomResourceProvider.get_or_create(self, resource_type,
             code_directory=f"{__dirname}/sum-handler",
-            runtime=CustomResourceProviderRuntime.NODEJS_18_X
+            runtime=CustomResourceProviderRuntime.NODEJS_22_X
         )
 
         resource = CustomResource(self, "Resource",
@@ -838,7 +838,7 @@ built-in singleton method:
 ```python
 provider = CustomResourceProvider.get_or_create_provider(self, "Custom::MyCustomResourceType",
     code_directory=f"{__dirname}/my-handler",
-    runtime=CustomResourceProviderRuntime.NODEJS_18_X
+    runtime=CustomResourceProviderRuntime.NODEJS_22_X
 )
 
 role_arn = provider.role_arn
@@ -851,7 +851,7 @@ To add IAM policy statements to this role, use `addToRolePolicy()`:
 ```python
 provider = CustomResourceProvider.get_or_create_provider(self, "Custom::MyCustomResourceType",
     code_directory=f"{__dirname}/my-handler",
-    runtime=CustomResourceProviderRuntime.NODEJS_18_X
+    runtime=CustomResourceProviderRuntime.NODEJS_22_X
 )
 provider.add_to_role_policy({
     "Effect": "Allow",
@@ -1722,15 +1722,15 @@ They are applied during or after construct construction using the `.with()` meth
 
 ```python
 # Apply mixins fluently with .with()
-s3.CfnBucket(scope, "MyL1Bucket").with(EncryptionAtRest()).with(AutoDeleteObjects())
+s3.CfnBucket(scope, "MyL1Bucket").with(BucketBlockPublicAccess()).with(BucketAutoDeleteObjects())
 
 # Apply multiple mixins to the same construct
-s3.CfnBucket(scope, "MyL1Bucket").with(EncryptionAtRest(), AutoDeleteObjects())
+s3.CfnBucket(scope, "MyL1Bucket").with(BucketBlockPublicAccess(), BucketAutoDeleteObjects())
 
 # Mixins work with all types of constructs:
 # L1, L2 and even custom constructs
-s3.Bucket(stack, "MyL2Bucket").with(EncryptionAtRest())
-CustomBucket(stack, "MyCustomBucket").with(EncryptionAtRest())
+s3.Bucket(stack, "MyL2Bucket").with(BucketBlockPublicAccess())
+CustomBucket(stack, "MyCustomBucket").with(BucketBlockPublicAccess())
 ```
 
 There is an alternative form available that allows additional, advanced configuration of Mixin application: `Mixins.of()`.
@@ -1741,17 +1741,17 @@ from aws_cdk import ConstructSelector
 
 # Basic: Apply mixins to any construct, calls can be chained
 my_bucket = s3.CfnBucket(scope, "MyBucket")
-Mixins.of(my_bucket).apply(EncryptionAtRest()).apply(AutoDeleteObjects())
+Mixins.of(my_bucket).apply(BucketBlockPublicAccess()).apply(BucketAutoDeleteObjects())
 
 # Basic: Or multiple Mixins passed to apply
-Mixins.of(my_bucket).apply(EncryptionAtRest(), AutoDeleteObjects())
+Mixins.of(my_bucket).apply(BucketBlockPublicAccess(), BucketAutoDeleteObjects())
 
 # Advanced: Apply to constructs matching a selector, e.g. match by ID
 Mixins.of(scope,
-    ConstructSelector.by_id("prod/**")).apply(ProductionSecurityMixin())
+    ConstructSelector.by_id("prod/**")).apply(CustomProdSecurityConfig())
 
 # Advanced: Require a mixin to be applied to every node in the construct tree
-Mixins.of(stack).apply(ProductionSecurityMixin()).require_all()
+Mixins.of(stack).apply(CustomProdSecurityConfig()).require_all()
 ```
 
 ### How Mixins are applied
@@ -1771,7 +1771,7 @@ By default, Mixins are applied to all supported constructs in the tree:
 
 ```python
 # Apply to all constructs in a scope
-Mixins.of(scope).apply(EncryptionAtRest())
+Mixins.of(scope).apply(BucketBlockPublicAccess())
 ```
 
 Optionally, you may select specific constructs:
@@ -1782,23 +1782,23 @@ from aws_cdk import ConstructSelector
 
 # Apply to a given L1 resource or L2 resource construct
 Mixins.of(bucket,
-    ConstructSelector.cfn_resource()).apply(EncryptionAtRest())
+    ConstructSelector.cfn_resource()).apply(BucketBlockPublicAccess())
 
 # Apply to all resources of a specific type
 Mixins.of(scope,
-    ConstructSelector.resources_of_type(s3.CfnBucket.CFN_RESOURCE_TYPE_NAME)).apply(EncryptionAtRest())
+    ConstructSelector.resources_of_type(s3.CfnBucket.CFN_RESOURCE_TYPE_NAME)).apply(BucketBlockPublicAccess())
 
 # Alternative: select by CloudFormation resource type name
 Mixins.of(scope,
-    ConstructSelector.resources_of_type("AWS::S3::Bucket")).apply(EncryptionAtRest())
+    ConstructSelector.resources_of_type("AWS::S3::Bucket")).apply(BucketBlockPublicAccess())
 
 # Apply to constructs matching a pattern
 Mixins.of(scope,
-    ConstructSelector.by_id("prod/**")).apply(ProductionSecurityMixin())
+    ConstructSelector.by_id("prod/**")).apply(CustomProdSecurityConfig())
 
 # The default is to apply to all constructs in the scope
 Mixins.of(scope,
-    ConstructSelector.all()).apply(ProductionSecurityMixin())
+    ConstructSelector.all()).apply(CustomProdSecurityConfig())
 ```
 
 #### Mixins that must be used
@@ -1816,10 +1816,10 @@ Both helpers will only check future calls of `apply()`.
 Set them before calling `apply()` to take effect.
 
 ```python
-Mixins.of(scope, selector).require_all().apply(EncryptionAtRest())
+Mixins.of(scope, selector).require_all().apply(BucketBlockPublicAccess())
 
 # Get an application report for manual assertions
-report = Mixins.of(scope).apply(EncryptionAtRest()).report
+report = Mixins.of(scope).apply(BucketBlockPublicAccess()).report
 ```
 
 ### Creating Custom Mixins
@@ -12256,7 +12256,7 @@ class CustomResourceProviderProps(CustomResourceProviderOptions):
 
             provider = CustomResourceProvider.get_or_create_provider(self, "Custom::MyCustomResourceType",
                 code_directory=f"{__dirname}/my-handler",
-                runtime=CustomResourceProviderRuntime.NODEJS_18_X
+                runtime=CustomResourceProviderRuntime.NODEJS_22_X
             )
             provider.add_to_role_policy({
                 "Effect": "Allow",
@@ -12409,7 +12409,7 @@ class CustomResourceProviderRuntime(enum.Enum):
 
         provider = CustomResourceProvider.get_or_create_provider(self, "Custom::MyCustomResourceType",
             code_directory=f"{__dirname}/my-handler",
-            runtime=CustomResourceProviderRuntime.NODEJS_18_X
+            runtime=CustomResourceProviderRuntime.NODEJS_22_X
         )
         provider.add_to_role_policy({
             "Effect": "Allow",
@@ -12440,7 +12440,12 @@ class CustomResourceProviderRuntime(enum.Enum):
     :stability: deprecated
     '''
     NODEJS_18_X = "NODEJS_18_X"
-    '''Node.js 18.x.'''
+    '''(deprecated) Node.js 18.x.
+
+    :deprecated: Use latest version
+
+    :stability: deprecated
+    '''
     NODEJS_20_X = "NODEJS_20_X"
     '''Node.js 20.x.'''
     NODEJS_22_X = "NODEJS_22_X"
@@ -17294,6 +17299,55 @@ class _ILocalBundlingProxy:
 typing.cast(typing.Any, ILocalBundling).__jsii_proxy_class__ = lambda : _ILocalBundlingProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.IMergeStrategy")
+class IMergeStrategy(typing_extensions.Protocol):
+    '''Interface for applying properties to a target using a specific strategy.'''
+
+    @jsii.member(jsii_name="apply")
+    def apply(
+        self,
+        target: typing.Mapping[typing.Any, typing.Any],
+        source: typing.Mapping[typing.Any, typing.Any],
+        allowed_keys: typing.Sequence[builtins.str],
+    ) -> None:
+        '''Apply properties from source to target for the given keys.
+
+        :param target: - The construct to apply properties to.
+        :param source: - The property values to apply.
+        :param allowed_keys: - Only properties whose names are in this list will be read from ``source`` and written to ``target``. This acts as an allowlist to ensure only known CloudFormation resource properties are applied.
+        '''
+        ...
+
+
+class _IMergeStrategyProxy:
+    '''Interface for applying properties to a target using a specific strategy.'''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.IMergeStrategy"
+
+    @jsii.member(jsii_name="apply")
+    def apply(
+        self,
+        target: typing.Mapping[typing.Any, typing.Any],
+        source: typing.Mapping[typing.Any, typing.Any],
+        allowed_keys: typing.Sequence[builtins.str],
+    ) -> None:
+        '''Apply properties from source to target for the given keys.
+
+        :param target: - The construct to apply properties to.
+        :param source: - The property values to apply.
+        :param allowed_keys: - Only properties whose names are in this list will be read from ``source`` and written to ``target``. This acts as an allowlist to ensure only known CloudFormation resource properties are applied.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5929416ccf53dc76ee5c878890fc07c5f2bfc00f6b0d8af0157751d8b5c1c718)
+            check_type(argname="argument target", value=target, expected_type=type_hints["target"])
+            check_type(argname="argument source", value=source, expected_type=type_hints["source"])
+            check_type(argname="argument allowed_keys", value=allowed_keys, expected_type=type_hints["allowed_keys"])
+        return typing.cast(None, jsii.invoke(self, "apply", [target, source, allowed_keys]))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IMergeStrategy).__jsii_proxy_class__ = lambda : _IMergeStrategyProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.INumberProducer")
 class INumberProducer(typing_extensions.Protocol):
     '''Interface for lazy number producers.'''
@@ -20984,6 +21038,34 @@ class PropertyInjectors(
         return typing.cast("_constructs_77d1e7e8.IConstruct", jsii.get(self, "scope"))
 
 
+class PropertyMergeStrategy(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.PropertyMergeStrategy",
+):
+    '''Strategy for handling nested properties in L1 property mixins.'''
+
+    @jsii.member(jsii_name="combine")
+    @builtins.classmethod
+    def combine(cls) -> "IMergeStrategy":
+        '''Deep merges nested objects from source into target.
+
+        When both the existing and new value for a key are plain objects,
+        their properties are merged recursively. Primitives, arrays, and
+        mismatched types are overridden by the source value.
+        '''
+        return typing.cast("IMergeStrategy", jsii.sinvoke(cls, "combine", []))
+
+    @jsii.member(jsii_name="override")
+    @builtins.classmethod
+    def override(cls) -> "IMergeStrategy":
+        '''Replaces existing property values on the target with the values from the source.
+
+        Each allowed key is copied from source to target as-is, without
+        inspecting nested objects. Any previous value on the target is discarded.
+        '''
+        return typing.cast("IMergeStrategy", jsii.sinvoke(cls, "override", []))
+
+
 class Reference(
     Intrinsic,
     metaclass=jsii.JSIIAbstractClass,
@@ -23111,6 +23193,8 @@ class Stack(
 
         Fails if there is no stack up the tree.
 
+        Will return the closest containing ``Stack`` or ``NestedStack``.
+
         :param construct: The construct to start the search from.
         '''
         if __debug__:
@@ -23739,7 +23823,7 @@ class Stack(
     @builtins.property
     @jsii.member(jsii_name="nestedStackParent")
     def nested_stack_parent(self) -> typing.Optional["Stack"]:
-        '''If this is a nested stack, returns it's parent stack.'''
+        '''If this is a nested stack, returns its parent stack.'''
         return typing.cast(typing.Optional["Stack"], jsii.get(self, "nestedStackParent"))
 
     @builtins.property
@@ -37075,7 +37159,7 @@ class CustomResourceProvider(
 
         provider = CustomResourceProvider.get_or_create_provider(self, "Custom::MyCustomResourceType",
             code_directory=f"{__dirname}/my-handler",
-            runtime=CustomResourceProviderRuntime.NODEJS_18_X
+            runtime=CustomResourceProviderRuntime.NODEJS_22_X
         )
         provider.add_to_role_policy({
             "Effect": "Allow",
@@ -39449,6 +39533,7 @@ __all__ = [
     "IInspectable",
     "IListProducer",
     "ILocalBundling",
+    "IMergeStrategy",
     "INumberProducer",
     "IPolicyValidationContextBeta1",
     "IPolicyValidationPluginBeta1",
@@ -39498,6 +39583,7 @@ __all__ = [
     "PolicyViolatingResourceBeta1",
     "PolicyViolationBeta1",
     "PropertyInjectors",
+    "PropertyMergeStrategy",
     "Reference",
     "RemovalPolicies",
     "RemovalPolicy",
@@ -39581,6 +39667,7 @@ __all__ = [
     "aws_bcmdataexports",
     "aws_bedrock",
     "aws_bedrockagentcore",
+    "aws_bedrockmantle",
     "aws_billingconductor",
     "aws_budgets",
     "aws_cases",
@@ -39897,6 +39984,7 @@ from . import aws_batch
 from . import aws_bcmdataexports
 from . import aws_bedrock
 from . import aws_bedrockagentcore
+from . import aws_bedrockmantle
 from . import aws_billingconductor
 from . import aws_budgets
 from . import aws_cases
@@ -42063,6 +42151,14 @@ def _typecheckingstub__218c8a03cb3dcf5b235ec3caba6a460cc22efe76513ec926cb85d9399
     volumes: typing.Optional[typing.Sequence[typing.Union[DockerVolume, typing.Dict[builtins.str, typing.Any]]]] = None,
     volumes_from: typing.Optional[typing.Sequence[builtins.str]] = None,
     working_directory: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5929416ccf53dc76ee5c878890fc07c5f2bfc00f6b0d8af0157751d8b5c1c718(
+    target: typing.Mapping[typing.Any, typing.Any],
+    source: typing.Mapping[typing.Any, typing.Any],
+    allowed_keys: typing.Sequence[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -45247,5 +45343,5 @@ def _typecheckingstub__47e469f0015340593bcbbe8474c853bc170a6dfd3bcb31e6795042408
     """Type checking stubs"""
     pass
 
-for cls in [IAnyProducer, IAspect, IAsset, IBoundStackSynthesizer, ICfnConditionExpression, ICfnResourceOptions, ICfnRuleConditionExpression, IConstructSelector, IFragmentConcatenator, IInspectable, IListProducer, ILocalBundling, INumberProducer, IPolicyValidationContextBeta1, IPolicyValidationPluginBeta1, IPostProcessor, IPropertyInjector, IResolvable, IResolveContext, IResource, IReusableStackSynthesizer, IStableAnyProducer, IStableListProducer, IStableNumberProducer, IStableStringProducer, IStackSynthesizer, IStringProducer, ISynthesisSession, ITaggable, ITaggableV2, ITemplateOptions, ITokenMapper, ITokenResolver]:
+for cls in [IAnyProducer, IAspect, IAsset, IBoundStackSynthesizer, ICfnConditionExpression, ICfnResourceOptions, ICfnRuleConditionExpression, IConstructSelector, IFragmentConcatenator, IInspectable, IListProducer, ILocalBundling, IMergeStrategy, INumberProducer, IPolicyValidationContextBeta1, IPolicyValidationPluginBeta1, IPostProcessor, IPropertyInjector, IResolvable, IResolveContext, IResource, IReusableStackSynthesizer, IStableAnyProducer, IStableListProducer, IStableNumberProducer, IStableStringProducer, IStackSynthesizer, IStringProducer, ISynthesisSession, ITaggable, ITaggableV2, ITemplateOptions, ITokenMapper, ITokenResolver]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

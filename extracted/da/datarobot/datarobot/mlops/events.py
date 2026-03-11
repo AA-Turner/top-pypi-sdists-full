@@ -155,8 +155,8 @@ class MLOpsEvent(APIObject):
             "deploymentId": str(deployment_id),
             "eventType": event_type,
             "moderationData": {
-                "guardName": guard_name if guard_name else "",
-                "metricName": metric_name if metric_name else "",
+                "guardName": guard_name or "",
+                "metricName": metric_name or "",
             },
             "orgId": org_id,
         }

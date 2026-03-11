@@ -95,6 +95,66 @@ class BrowserCustomReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_bedrockagentcore.BrowserProfileReference",
+    jsii_struct_bases=[],
+    name_mapping={"profile_arn": "profileArn", "profile_id": "profileId"},
+)
+class BrowserProfileReference:
+    def __init__(self, *, profile_arn: builtins.str, profile_id: builtins.str) -> None:
+        '''A reference to a BrowserProfile resource.
+
+        :param profile_arn: The ARN of the BrowserProfile resource.
+        :param profile_id: The ProfileId of the BrowserProfile resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_bedrockagentcore as interfaces_bedrockagentcore
+            
+            browser_profile_reference = interfaces_bedrockagentcore.BrowserProfileReference(
+                profile_arn="profileArn",
+                profile_id="profileId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a7892c81335b99bdd3f64213133e62d6d9197507de560d727bce231271663010)
+            check_type(argname="argument profile_arn", value=profile_arn, expected_type=type_hints["profile_arn"])
+            check_type(argname="argument profile_id", value=profile_id, expected_type=type_hints["profile_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "profile_arn": profile_arn,
+            "profile_id": profile_id,
+        }
+
+    @builtins.property
+    def profile_arn(self) -> builtins.str:
+        '''The ARN of the BrowserProfile resource.'''
+        result = self._values.get("profile_arn")
+        assert result is not None, "Required property 'profile_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def profile_id(self) -> builtins.str:
+        '''The ProfileId of the BrowserProfile resource.'''
+        result = self._values.get("profile_id")
+        assert result is not None, "Required property 'profile_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "BrowserProfileReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_bedrockagentcore.CodeInterpreterCustomReference",
     jsii_struct_bases=[],
     name_mapping={
@@ -158,6 +218,55 @@ class CodeInterpreterCustomReference:
 
     def __repr__(self) -> str:
         return "CodeInterpreterCustomReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_bedrockagentcore.EvaluatorReference",
+    jsii_struct_bases=[],
+    name_mapping={"evaluator_arn": "evaluatorArn"},
+)
+class EvaluatorReference:
+    def __init__(self, *, evaluator_arn: builtins.str) -> None:
+        '''A reference to a Evaluator resource.
+
+        :param evaluator_arn: The EvaluatorArn of the Evaluator resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_bedrockagentcore as interfaces_bedrockagentcore
+            
+            evaluator_reference = interfaces_bedrockagentcore.EvaluatorReference(
+                evaluator_arn="evaluatorArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5f1fa2ba5daf86bd2c75ee6985f54875f6e176a5051bbaf53aadbabb2c0604e2)
+            check_type(argname="argument evaluator_arn", value=evaluator_arn, expected_type=type_hints["evaluator_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "evaluator_arn": evaluator_arn,
+        }
+
+    @builtins.property
+    def evaluator_arn(self) -> builtins.str:
+        '''The EvaluatorArn of the Evaluator resource.'''
+        result = self._values.get("evaluator_arn")
+        assert result is not None, "Required property 'evaluator_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "EvaluatorReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -343,6 +452,53 @@ typing.cast(typing.Any, IBrowserCustomRef).__jsii_proxy_class__ = lambda : _IBro
 
 
 @jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_bedrockagentcore.IBrowserProfileRef"
+)
+class IBrowserProfileRef(
+    _constructs_77d1e7e8.IConstruct,
+    _IEnvironmentAware_f39049ee,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a BrowserProfile.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="browserProfileRef")
+    def browser_profile_ref(self) -> "BrowserProfileReference":
+        '''(experimental) A reference to a BrowserProfile resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IBrowserProfileRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a BrowserProfile.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_bedrockagentcore.IBrowserProfileRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="browserProfileRef")
+    def browser_profile_ref(self) -> "BrowserProfileReference":
+        '''(experimental) A reference to a BrowserProfile resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("BrowserProfileReference", jsii.get(self, "browserProfileRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IBrowserProfileRef).__jsii_proxy_class__ = lambda : _IBrowserProfileRefProxy
+
+
+@jsii.interface(
     jsii_type="aws-cdk-lib.interfaces.aws_bedrockagentcore.ICodeInterpreterCustomRef"
 )
 class ICodeInterpreterCustomRef(
@@ -387,6 +543,51 @@ class _ICodeInterpreterCustomRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, ICodeInterpreterCustomRef).__jsii_proxy_class__ = lambda : _ICodeInterpreterCustomRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_bedrockagentcore.IEvaluatorRef")
+class IEvaluatorRef(
+    _constructs_77d1e7e8.IConstruct,
+    _IEnvironmentAware_f39049ee,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Evaluator.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="evaluatorRef")
+    def evaluator_ref(self) -> "EvaluatorReference":
+        '''(experimental) A reference to a Evaluator resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IEvaluatorRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Evaluator.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_bedrockagentcore.IEvaluatorRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="evaluatorRef")
+    def evaluator_ref(self) -> "EvaluatorReference":
+        '''(experimental) A reference to a Evaluator resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("EvaluatorReference", jsii.get(self, "evaluatorRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IEvaluatorRef).__jsii_proxy_class__ = lambda : _IEvaluatorRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_bedrockagentcore.IGatewayRef")
@@ -524,6 +725,145 @@ class _IMemoryRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IMemoryRef).__jsii_proxy_class__ = lambda : _IMemoryRefProxy
+
+
+@jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_bedrockagentcore.IOnlineEvaluationConfigRef"
+)
+class IOnlineEvaluationConfigRef(
+    _constructs_77d1e7e8.IConstruct,
+    _IEnvironmentAware_f39049ee,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a OnlineEvaluationConfig.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="onlineEvaluationConfigRef")
+    def online_evaluation_config_ref(self) -> "OnlineEvaluationConfigReference":
+        '''(experimental) A reference to a OnlineEvaluationConfig resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IOnlineEvaluationConfigRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a OnlineEvaluationConfig.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_bedrockagentcore.IOnlineEvaluationConfigRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="onlineEvaluationConfigRef")
+    def online_evaluation_config_ref(self) -> "OnlineEvaluationConfigReference":
+        '''(experimental) A reference to a OnlineEvaluationConfig resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("OnlineEvaluationConfigReference", jsii.get(self, "onlineEvaluationConfigRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IOnlineEvaluationConfigRef).__jsii_proxy_class__ = lambda : _IOnlineEvaluationConfigRefProxy
+
+
+@jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_bedrockagentcore.IPolicyEngineRef"
+)
+class IPolicyEngineRef(
+    _constructs_77d1e7e8.IConstruct,
+    _IEnvironmentAware_f39049ee,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a PolicyEngine.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="policyEngineRef")
+    def policy_engine_ref(self) -> "PolicyEngineReference":
+        '''(experimental) A reference to a PolicyEngine resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IPolicyEngineRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a PolicyEngine.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_bedrockagentcore.IPolicyEngineRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="policyEngineRef")
+    def policy_engine_ref(self) -> "PolicyEngineReference":
+        '''(experimental) A reference to a PolicyEngine resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("PolicyEngineReference", jsii.get(self, "policyEngineRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IPolicyEngineRef).__jsii_proxy_class__ = lambda : _IPolicyEngineRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_bedrockagentcore.IPolicyRef")
+class IPolicyRef(
+    _constructs_77d1e7e8.IConstruct,
+    _IEnvironmentAware_f39049ee,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Policy.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="policyRef")
+    def policy_ref(self) -> "PolicyReference":
+        '''(experimental) A reference to a Policy resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IPolicyRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Policy.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_bedrockagentcore.IPolicyRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="policyRef")
+    def policy_ref(self) -> "PolicyReference":
+        '''(experimental) A reference to a Policy resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("PolicyReference", jsii.get(self, "policyRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IPolicyRef).__jsii_proxy_class__ = lambda : _IPolicyRefProxy
 
 
 @jsii.interface(
@@ -715,6 +1055,153 @@ class MemoryReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_bedrockagentcore.OnlineEvaluationConfigReference",
+    jsii_struct_bases=[],
+    name_mapping={"online_evaluation_config_arn": "onlineEvaluationConfigArn"},
+)
+class OnlineEvaluationConfigReference:
+    def __init__(self, *, online_evaluation_config_arn: builtins.str) -> None:
+        '''A reference to a OnlineEvaluationConfig resource.
+
+        :param online_evaluation_config_arn: The OnlineEvaluationConfigArn of the OnlineEvaluationConfig resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_bedrockagentcore as interfaces_bedrockagentcore
+            
+            online_evaluation_config_reference = interfaces_bedrockagentcore.OnlineEvaluationConfigReference(
+                online_evaluation_config_arn="onlineEvaluationConfigArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__41b12f526905c57ce10965672acf38889fef11dffed975afd9fe0777ca5d18e9)
+            check_type(argname="argument online_evaluation_config_arn", value=online_evaluation_config_arn, expected_type=type_hints["online_evaluation_config_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "online_evaluation_config_arn": online_evaluation_config_arn,
+        }
+
+    @builtins.property
+    def online_evaluation_config_arn(self) -> builtins.str:
+        '''The OnlineEvaluationConfigArn of the OnlineEvaluationConfig resource.'''
+        result = self._values.get("online_evaluation_config_arn")
+        assert result is not None, "Required property 'online_evaluation_config_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "OnlineEvaluationConfigReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_bedrockagentcore.PolicyEngineReference",
+    jsii_struct_bases=[],
+    name_mapping={"policy_engine_arn": "policyEngineArn"},
+)
+class PolicyEngineReference:
+    def __init__(self, *, policy_engine_arn: builtins.str) -> None:
+        '''A reference to a PolicyEngine resource.
+
+        :param policy_engine_arn: The PolicyEngineArn of the PolicyEngine resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_bedrockagentcore as interfaces_bedrockagentcore
+            
+            policy_engine_reference = interfaces_bedrockagentcore.PolicyEngineReference(
+                policy_engine_arn="policyEngineArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2fa924f63bb2382a1f90bd31f51c74f59ed9157e097951038e7aa14c70bbe994)
+            check_type(argname="argument policy_engine_arn", value=policy_engine_arn, expected_type=type_hints["policy_engine_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "policy_engine_arn": policy_engine_arn,
+        }
+
+    @builtins.property
+    def policy_engine_arn(self) -> builtins.str:
+        '''The PolicyEngineArn of the PolicyEngine resource.'''
+        result = self._values.get("policy_engine_arn")
+        assert result is not None, "Required property 'policy_engine_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PolicyEngineReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_bedrockagentcore.PolicyReference",
+    jsii_struct_bases=[],
+    name_mapping={"policy_arn": "policyArn"},
+)
+class PolicyReference:
+    def __init__(self, *, policy_arn: builtins.str) -> None:
+        '''A reference to a Policy resource.
+
+        :param policy_arn: The PolicyArn of the Policy resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_bedrockagentcore as interfaces_bedrockagentcore
+            
+            policy_reference = interfaces_bedrockagentcore.PolicyReference(
+                policy_arn="policyArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__08bc4654cb104ca74cd4550a6ac0a70ed1abc6c342ed1e4ac3a12ace8f5bee9e)
+            check_type(argname="argument policy_arn", value=policy_arn, expected_type=type_hints["policy_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "policy_arn": policy_arn,
+        }
+
+    @builtins.property
+    def policy_arn(self) -> builtins.str:
+        '''The PolicyArn of the Policy resource.'''
+        result = self._values.get("policy_arn")
+        assert result is not None, "Required property 'policy_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PolicyReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_bedrockagentcore.RuntimeEndpointReference",
     jsii_struct_bases=[],
     name_mapping={"agent_runtime_endpoint_arn": "agentRuntimeEndpointArn"},
@@ -901,18 +1388,28 @@ class WorkloadIdentityReference:
 
 __all__ = [
     "BrowserCustomReference",
+    "BrowserProfileReference",
     "CodeInterpreterCustomReference",
+    "EvaluatorReference",
     "GatewayReference",
     "GatewayTargetReference",
     "IBrowserCustomRef",
+    "IBrowserProfileRef",
     "ICodeInterpreterCustomRef",
+    "IEvaluatorRef",
     "IGatewayRef",
     "IGatewayTargetRef",
     "IMemoryRef",
+    "IOnlineEvaluationConfigRef",
+    "IPolicyEngineRef",
+    "IPolicyRef",
     "IRuntimeEndpointRef",
     "IRuntimeRef",
     "IWorkloadIdentityRef",
     "MemoryReference",
+    "OnlineEvaluationConfigReference",
+    "PolicyEngineReference",
+    "PolicyReference",
     "RuntimeEndpointReference",
     "RuntimeReference",
     "WorkloadIdentityReference",
@@ -928,10 +1425,25 @@ def _typecheckingstub__30d539b77517d652d5c6fba79e5a649664ea046fd158b0c2a9c0c103e
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__a7892c81335b99bdd3f64213133e62d6d9197507de560d727bce231271663010(
+    *,
+    profile_arn: builtins.str,
+    profile_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__31803efaee1e805b6555da7f5c0c2c409540346b67d7cb412b9f78fbe7b6198d(
     *,
     code_interpreter_arn: builtins.str,
     code_interpreter_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5f1fa2ba5daf86bd2c75ee6985f54875f6e176a5051bbaf53aadbabb2c0604e2(
+    *,
+    evaluator_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -959,6 +1471,27 @@ def _typecheckingstub__f87b5beb1d0be1ca0ef1075ebb74f73e86e27b1cb381596715a5727c0
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__41b12f526905c57ce10965672acf38889fef11dffed975afd9fe0777ca5d18e9(
+    *,
+    online_evaluation_config_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2fa924f63bb2382a1f90bd31f51c74f59ed9157e097951038e7aa14c70bbe994(
+    *,
+    policy_engine_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__08bc4654cb104ca74cd4550a6ac0a70ed1abc6c342ed1e4ac3a12ace8f5bee9e(
+    *,
+    policy_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__77f731eb99d3edd4594a77aea4dc91d39b42d1521809385fa10f06922fbc1c08(
     *,
     agent_runtime_endpoint_arn: builtins.str,
@@ -982,5 +1515,5 @@ def _typecheckingstub__f4c87d0628ada636c999bb25ecf8067b788ff440bac34ff64b11d374d
     """Type checking stubs"""
     pass
 
-for cls in [IBrowserCustomRef, ICodeInterpreterCustomRef, IGatewayRef, IGatewayTargetRef, IMemoryRef, IRuntimeEndpointRef, IRuntimeRef, IWorkloadIdentityRef]:
+for cls in [IBrowserCustomRef, IBrowserProfileRef, ICodeInterpreterCustomRef, IEvaluatorRef, IGatewayRef, IGatewayTargetRef, IMemoryRef, IOnlineEvaluationConfigRef, IPolicyEngineRef, IPolicyRef, IRuntimeEndpointRef, IRuntimeRef, IWorkloadIdentityRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

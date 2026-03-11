@@ -1,4 +1,5 @@
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
+from chalk._gen.chalk.common.v1 import offline_query_pb2 as _offline_query_pb2
 from chalk._gen.chalk.server.v1 import batch_pb2 as _batch_pb2
 from chalk._gen.chalk.server.v1 import scheduled_query_run_pb2 as _scheduled_query_run_pb2
 from google.protobuf import field_mask_pb2 as _field_mask_pb2
@@ -102,34 +103,57 @@ class CronResolverRun(_message.Message):
     ) -> None: ...
 
 class ManualTriggerCronResolverRequest(_message.Message):
-    __slots__ = ("resolver_fqn", "max_samples", "lower_bound", "upper_bound", "timestamping_mode", "job_options")
+    __slots__ = (
+        "resolver_fqn",
+        "max_samples",
+        "lower_bound",
+        "upper_bound",
+        "persistence_settings",
+        "timestamping_mode",
+        "job_options",
+        "idempotency_key",
+        "override_target_image_tag",
+    )
     RESOLVER_FQN_FIELD_NUMBER: _ClassVar[int]
     MAX_SAMPLES_FIELD_NUMBER: _ClassVar[int]
     LOWER_BOUND_FIELD_NUMBER: _ClassVar[int]
     UPPER_BOUND_FIELD_NUMBER: _ClassVar[int]
+    PERSISTENCE_SETTINGS_FIELD_NUMBER: _ClassVar[int]
     TIMESTAMPING_MODE_FIELD_NUMBER: _ClassVar[int]
     JOB_OPTIONS_FIELD_NUMBER: _ClassVar[int]
+    IDEMPOTENCY_KEY_FIELD_NUMBER: _ClassVar[int]
+    OVERRIDE_TARGET_IMAGE_TAG_FIELD_NUMBER: _ClassVar[int]
     resolver_fqn: str
     max_samples: int
     lower_bound: _timestamp_pb2.Timestamp
     upper_bound: _timestamp_pb2.Timestamp
+    persistence_settings: _offline_query_pb2.PersistenceSettings
     timestamping_mode: str
     job_options: str
+    idempotency_key: str
+    override_target_image_tag: str
     def __init__(
         self,
         resolver_fqn: _Optional[str] = ...,
         max_samples: _Optional[int] = ...,
         lower_bound: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         upper_bound: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        persistence_settings: _Optional[_Union[_offline_query_pb2.PersistenceSettings, _Mapping]] = ...,
         timestamping_mode: _Optional[str] = ...,
         job_options: _Optional[str] = ...,
+        idempotency_key: _Optional[str] = ...,
+        override_target_image_tag: _Optional[str] = ...,
     ) -> None: ...
 
 class ManualTriggerCronResolverResponse(_message.Message):
-    __slots__ = ("cron_resolver_run",)
+    __slots__ = ("cron_resolver_run", "progress_url")
     CRON_RESOLVER_RUN_FIELD_NUMBER: _ClassVar[int]
+    PROGRESS_URL_FIELD_NUMBER: _ClassVar[int]
     cron_resolver_run: CronResolverRun
-    def __init__(self, cron_resolver_run: _Optional[_Union[CronResolverRun, _Mapping]] = ...) -> None: ...
+    progress_url: str
+    def __init__(
+        self, cron_resolver_run: _Optional[_Union[CronResolverRun, _Mapping]] = ..., progress_url: _Optional[str] = ...
+    ) -> None: ...
 
 class ManualTriggerScheduledQueryRequest(_message.Message):
     __slots__ = (

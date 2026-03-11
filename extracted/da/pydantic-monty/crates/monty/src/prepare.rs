@@ -3,11 +3,11 @@ use std::collections::hash_map::Entry;
 use ahash::{AHashMap, AHashSet};
 
 use crate::{
-    args::ArgExprs,
+    args::{ArgExprs, CallArg, CallKwarg},
     builtins::Builtins,
     expressions::{
-        Callable, CmpOperator, Comprehension, Expr, ExprLoc, Identifier, Literal, NameScope, Node, Operator,
-        PreparedFunctionDef, PreparedNode, UnpackTarget,
+        Callable, CmpOperator, Comprehension, DictItem, Expr, ExprLoc, Identifier, Literal, NameScope, Node, Operator,
+        PreparedFunctionDef, PreparedNode, SequenceItem, UnpackTarget,
     },
     fstring::{FStringPart, FormatSpec},
     intern::{InternerBuilder, StringId},
@@ -43,13 +43,9 @@ pub struct PrepareResult {
 ///
 /// The namespace will be converted to runtime Objects when execution begins and the heap is available.
 /// At module level, the local namespace IS the global namespace.
-pub(crate) fn prepare(
-    parse_result: ParseResult,
-    input_names: Vec<String>,
-    external_functions: &[String],
-) -> Result<PrepareResult, ParseError> {
+pub(crate) fn prepare(parse_result: ParseResult, input_names: Vec<String>) -> Result<PrepareResult, ParseError> {
     let ParseResult { nodes, interner } = parse_result;
-    let mut p = Prepare::new_module(input_names, external_functions, &interner);
+    let mut p = Prepare::new_module(input_names, &interner);
     let mut prepared_nodes = p.prepare_nodes(nodes)?;
 
     // In the root frame, the last expression is implicitly returned
@@ -148,6 +144,13 @@ struct Prepare<'i> {
     /// that are both nonlocal and captured by nested functions), then extended as new
     /// captures are discovered during nested function preparation.
     cell_var_map: AHashMap<String, NamespaceId>,
+    /// Names that were resolved as `LocalUnassigned` in step 8 of `get_id`.
+    ///
+    /// These names are never assigned and not parameters - they were only referenced
+    /// (e.g., external function names). Tracking them prevents step 6 from incorrectly
+    /// classifying subsequent references as `Local` (like parameters) when the name
+    /// appears in `name_map` from a previous `get_id` call.
+    unassigned_ref_names: AHashSet<String>,
 }
 
 impl<'i> Prepare<'i> {
@@ -157,16 +160,12 @@ impl<'i> Prepare<'i> {
     /// since all variables are already in the global namespace.
     ///
     /// # Arguments
-    /// * `input_names` - Names that should be pre-registered in the namespace (e.g., external variables)
-    /// * `external_functions` - Names of external functions to pre-register
+    /// * `input_names` - Names that should be pre-registered in the namespace (e.g., input variables)
     /// * `interner` - Reference to the string interner for looking up names
-    fn new_module(input_names: Vec<String>, external_functions: &[String], interner: &'i InternerBuilder) -> Self {
-        let mut name_map = AHashMap::with_capacity(input_names.len() + external_functions.len());
-        for (index, name) in external_functions.iter().enumerate() {
-            name_map.insert(name.clone(), NamespaceId::new(index));
-        }
+    fn new_module(input_names: Vec<String>, interner: &'i InternerBuilder) -> Self {
+        let mut name_map = AHashMap::with_capacity(input_names.len());
         for (index, name) in input_names.into_iter().enumerate() {
-            name_map.insert(name, NamespaceId::new(external_functions.len() + index));
+            name_map.insert(name, NamespaceId::new(index));
         }
         let namespace_size = name_map.len();
         Self {
@@ -181,6 +180,7 @@ impl<'i> Prepare<'i> {
             enclosing_locals: None,
             free_var_map: AHashMap::new(),
             cell_var_map: AHashMap::new(),
+            unassigned_ref_names: AHashSet::new(),
         }
     }
 
@@ -206,6 +206,7 @@ impl<'i> Prepare<'i> {
             enclosing_locals: None,
             free_var_map: AHashMap::new(),
             cell_var_map: AHashMap::new(),
+            unassigned_ref_names: AHashSet::new(),
         }
     }
 
@@ -292,6 +293,7 @@ impl<'i> Prepare<'i> {
             enclosing_locals,
             free_var_map,
             cell_var_map,
+            unassigned_ref_names: AHashSet::new(),
         }
     }
 
@@ -376,6 +378,24 @@ impl<'i> Prepare<'i> {
                     let target = self.get_id(target).0;
                     let object = self.prepare_expression(object)?;
                     new_nodes.push(Node::OpAssign { target, op, object });
+                }
+                Node::SubscriptOpAssign {
+                    target,
+                    index,
+                    op,
+                    object,
+                    target_position,
+                } => {
+                    let target = self.get_id(target).0;
+                    let index = self.prepare_expression(index)?;
+                    let object = self.prepare_expression(object)?;
+                    new_nodes.push(Node::SubscriptOpAssign {
+                        target,
+                        index,
+                        op,
+                        object,
+                        target_position,
+                    });
                 }
                 Node::SubscriptAssign {
                     target,
@@ -668,36 +688,41 @@ impl<'i> Prepare<'i> {
                 Expr::AttrGet { object, attr }
             }
             Expr::List(elements) => {
-                let expressions = elements
+                let items = elements
                     .into_iter()
-                    .map(|e| self.prepare_expression(e))
+                    .map(|item| self.prepare_sequence_item(item))
                     .collect::<Result<_, ParseError>>()?;
-                Expr::List(expressions)
+                Expr::List(items)
             }
             Expr::Tuple(elements) => {
-                let expressions = elements
+                let items = elements
                     .into_iter()
-                    .map(|e| self.prepare_expression(e))
+                    .map(|item| self.prepare_sequence_item(item))
                     .collect::<Result<_, ParseError>>()?;
-                Expr::Tuple(expressions)
+                Expr::Tuple(items)
             }
             Expr::Subscript { object, index } => Expr::Subscript {
                 object: Box::new(self.prepare_expression(*object)?),
                 index: Box::new(self.prepare_expression(*index)?),
             },
-            Expr::Dict(pairs) => {
-                let prepared_pairs = pairs
+            Expr::Dict(dict_items) => {
+                let prepared = dict_items
                     .into_iter()
-                    .map(|(k, v)| Ok((self.prepare_expression(k)?, self.prepare_expression(v)?)))
+                    .map(|item| match item {
+                        DictItem::Pair(k, v) => {
+                            Ok(DictItem::Pair(self.prepare_expression(k)?, self.prepare_expression(v)?))
+                        }
+                        DictItem::Unpack(e) => Ok(DictItem::Unpack(self.prepare_expression(e)?)),
+                    })
                     .collect::<Result<_, ParseError>>()?;
-                Expr::Dict(prepared_pairs)
+                Expr::Dict(prepared)
             }
             Expr::Set(elements) => {
-                let expressions = elements
+                let items = elements
                     .into_iter()
-                    .map(|e| self.prepare_expression(e))
+                    .map(|item| self.prepare_sequence_item(item))
                     .collect::<Result<_, ParseError>>()?;
-                Expr::Set(expressions)
+                Expr::Set(items)
             }
             Expr::Not(operand) => Expr::Not(Box::new(self.prepare_expression(*operand)?)),
             Expr::UnaryMinus(operand) => Expr::UnaryMinus(Box::new(self.prepare_expression(*operand)?)),
@@ -841,6 +866,17 @@ impl<'i> Prepare<'i> {
         Expr::Name(self.get_id(name).0)
     }
 
+    /// Prepares a `SequenceItem` by recursively preparing its inner expression.
+    ///
+    /// Both `Value` and `Unpack` variants need their expressions prepared
+    /// (name resolution, scope analysis, builtin detection, etc.).
+    fn prepare_sequence_item(&mut self, item: SequenceItem) -> Result<SequenceItem, ParseError> {
+        match item {
+            SequenceItem::Value(e) => Ok(SequenceItem::Value(self.prepare_expression(e)?)),
+            SequenceItem::Unpack(e) => Ok(SequenceItem::Unpack(self.prepare_expression(e)?)),
+        }
+    }
+
     /// Prepares a comprehension with scope isolation for loop variables.
     ///
     /// Comprehension loop variables are isolated from the enclosing scope - they do not
@@ -895,6 +931,7 @@ impl<'i> Prepare<'i> {
         let saved_free_var_map = self.free_var_map.clone();
         let saved_cell_var_map = self.cell_var_map.clone();
         let saved_enclosing_locals = self.enclosing_locals.clone();
+        let saved_unassigned_ref_names = self.unassigned_ref_names.clone();
 
         // Step 1: Prepare first generator's iter in enclosing scope (before any shadowing)
         let mut generators_iter = generators.into_iter();
@@ -967,6 +1004,7 @@ impl<'i> Prepare<'i> {
         self.free_var_map = saved_free_var_map;
         self.cell_var_map = saved_cell_var_map;
         self.enclosing_locals = saved_enclosing_locals;
+        self.unassigned_ref_names = saved_unassigned_ref_names;
 
         Ok((prepared_generators, prepared_elt, prepared_key_value))
     }
@@ -1563,13 +1601,23 @@ impl<'i> Prepare<'i> {
     fn get_id(&mut self, ident: Identifier) -> (Identifier, bool) {
         let name_str = self.interner.get_str(ident.name_id);
 
-        // At module level, all names are local (which is also the global namespace)
+        // At module level, all names are local (which is also the global namespace).
+        // The compiler emits global opcodes for these, so the VM reads/writes
+        // directly from the globals array rather than the stack.
         if self.is_module_scope {
             return match self.name_map.entry(name_str.to_string()) {
                 Entry::Occupied(e) => {
-                    // Name already exists (from prior assignment or pre-registered)
+                    // Name already exists (from prior reference or pre-registered).
+                    // Determine scope the same way as for vacant entries: if the name
+                    // has been assigned so far, it's a true local; otherwise it's an
+                    // unassigned reference that should yield NameLookup at runtime.
+                    let scope = if self.names_assigned_in_order.contains(name_str) {
+                        NameScope::Local
+                    } else {
+                        NameScope::LocalUnassigned
+                    };
                     (
-                        Identifier::new_with_scope(ident.name_id, ident.position, *e.get(), NameScope::Local),
+                        Identifier::new_with_scope(ident.name_id, ident.position, *e.get(), scope),
                         false,
                     )
                 }
@@ -1667,7 +1715,26 @@ impl<'i> Prepare<'i> {
             );
         }
 
-        // 5. Check if exists in enclosing scope (implicit closure capture)
+        // 5. Check if name was pre-populated in name_map (from function parameters)
+        // This ensures parameters shadow both enclosing locals and global variables
+        // with the same name. Parameters are added to name_map during
+        // FunctionScope::new_function() but are NOT in assigned_names (since they're
+        // not assigned in the function body). This MUST be checked before
+        // enclosing_locals, otherwise a parameter like `def inner(x)` would be
+        // incorrectly resolved as a closure capture when an outer scope also has `x`.
+        // Excludes names tracked in `unassigned_ref_names` — those were added to
+        // `name_map` by step 8 as `LocalUnassigned` references and must stay that way
+        // to trigger NameLookup at runtime (e.g., for external function resolution).
+        if !self.unassigned_ref_names.contains(name_str)
+            && let Some(&id) = self.name_map.get(name_str)
+        {
+            return (
+                Identifier::new_with_scope(ident.name_id, ident.position, id, NameScope::Local),
+                false, // Not new - was pre-populated from parameters
+            );
+        }
+
+        // 6. Check if exists in enclosing scope (implicit closure capture)
         // This handles reading variables from enclosing functions without explicit `nonlocal`
         if let Some(ref enclosing) = self.enclosing_locals
             && enclosing.contains(name_str)
@@ -1689,17 +1756,6 @@ impl<'i> Prepare<'i> {
             );
         }
 
-        // 6. Check if name was pre-populated in name_map (from function parameters)
-        // This ensures parameters shadow global variables with the same name.
-        // Parameters are added to name_map during FunctionScope::new_function() but are NOT
-        // in assigned_names (since they're not assigned in the function body).
-        if let Some(&id) = self.name_map.get(name_str) {
-            return (
-                Identifier::new_with_scope(ident.name_id, ident.position, id, NameScope::Local),
-                false, // Not new - was pre-populated from parameters
-            );
-        }
-
         // 7. Check if exists in global namespace (implicit global read)
         if let Some(ref global_map) = self.global_name_map
             && let Some(&global_id) = global_map.get(name_str)
@@ -1714,6 +1770,9 @@ impl<'i> Prepare<'i> {
         // This handles names that are only read (never assigned) and don't exist globally.
         // We allocate a local slot that will never be written to.
         // Mark as LocalUnassigned so runtime raises NameError (not UnboundLocalError).
+        // Track in `unassigned_ref_names` so step 6 doesn't treat subsequent references
+        // as `Local` (parameters).
+        self.unassigned_ref_names.insert(name_str.to_string());
         let (id, is_new) = match self.name_map.entry(name_str.to_string()) {
             Entry::Occupied(e) => (*e.get(), false),
             Entry::Vacant(e) => {
@@ -1903,6 +1962,10 @@ fn collect_scope_info_from_node(
             // Scan value expression for walrus operators
             collect_assigned_names_from_expr(object, assigned_names, interner);
         }
+        Node::SubscriptOpAssign { index, object, .. } => {
+            collect_assigned_names_from_expr(index, assigned_names, interner);
+            collect_assigned_names_from_expr(object, assigned_names, interner);
+        }
         Node::SubscriptAssign { index, value, .. } => {
             // Subscript assignment doesn't create a new name, it modifies existing container
             // But scan expressions for walrus operators
@@ -2030,13 +2093,21 @@ fn collect_assigned_names_from_expr(expr: &ExprLoc, assigned_names: &mut AHashSe
         // Recurse into sub-expressions
         Expr::List(items) | Expr::Tuple(items) | Expr::Set(items) => {
             for item in items {
-                collect_assigned_names_from_expr(item, assigned_names, interner);
+                let expr = match item {
+                    SequenceItem::Value(e) | SequenceItem::Unpack(e) => e,
+                };
+                collect_assigned_names_from_expr(expr, assigned_names, interner);
             }
         }
-        Expr::Dict(pairs) => {
-            for (key, value) in pairs {
-                collect_assigned_names_from_expr(key, assigned_names, interner);
-                collect_assigned_names_from_expr(value, assigned_names, interner);
+        Expr::Dict(dict_items) => {
+            for item in dict_items {
+                match item {
+                    DictItem::Pair(key, value) => {
+                        collect_assigned_names_from_expr(key, assigned_names, interner);
+                        collect_assigned_names_from_expr(value, assigned_names, interner);
+                    }
+                    DictItem::Unpack(e) => collect_assigned_names_from_expr(e, assigned_names, interner),
+                }
             }
         }
         Expr::Op { left, right, .. } | Expr::CmpOp { left, right, .. } => {
@@ -2170,6 +2241,25 @@ fn collect_assigned_names_from_args(
                 collect_assigned_names_from_expr(var_kwargs, assigned_names, interner);
             }
         }
+        ArgExprs::GeneralizedCall { args, kwargs } => {
+            for arg in args {
+                match arg {
+                    CallArg::Value(e) | CallArg::Unpack(e) => {
+                        collect_assigned_names_from_expr(e, assigned_names, interner);
+                    }
+                }
+            }
+            for kwarg in kwargs {
+                match kwarg {
+                    CallKwarg::Named(kw) => {
+                        collect_assigned_names_from_expr(&kw.value, assigned_names, interner);
+                    }
+                    CallKwarg::Unpack(e) => {
+                        collect_assigned_names_from_expr(e, assigned_names, interner);
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -2277,6 +2367,10 @@ fn collect_cell_vars_from_node(
         Node::OpAssign { object, .. } => {
             collect_cell_vars_from_expr(object, our_locals, cell_vars, interner);
         }
+        Node::SubscriptOpAssign { index, object, .. } => {
+            collect_cell_vars_from_expr(index, our_locals, cell_vars, interner);
+            collect_cell_vars_from_expr(object, our_locals, cell_vars, interner);
+        }
         Node::SubscriptAssign { index, value, .. } => {
             collect_cell_vars_from_expr(index, our_locals, cell_vars, interner);
             collect_cell_vars_from_expr(value, our_locals, cell_vars, interner);
@@ -2350,13 +2444,21 @@ fn collect_cell_vars_from_expr(
         // Recurse into sub-expressions
         Expr::List(items) | Expr::Tuple(items) | Expr::Set(items) => {
             for item in items {
-                collect_cell_vars_from_expr(item, our_locals, cell_vars, interner);
+                let expr = match item {
+                    SequenceItem::Value(e) | SequenceItem::Unpack(e) => e,
+                };
+                collect_cell_vars_from_expr(expr, our_locals, cell_vars, interner);
             }
         }
-        Expr::Dict(pairs) => {
-            for (key, value) in pairs {
-                collect_cell_vars_from_expr(key, our_locals, cell_vars, interner);
-                collect_cell_vars_from_expr(value, our_locals, cell_vars, interner);
+        Expr::Dict(dict_items) => {
+            for item in dict_items {
+                match item {
+                    DictItem::Pair(key, value) => {
+                        collect_cell_vars_from_expr(key, our_locals, cell_vars, interner);
+                        collect_cell_vars_from_expr(value, our_locals, cell_vars, interner);
+                    }
+                    DictItem::Unpack(e) => collect_cell_vars_from_expr(e, our_locals, cell_vars, interner),
+                }
             }
         }
         Expr::Op { left, right, .. } | Expr::CmpOp { left, right, .. } => {
@@ -2440,7 +2542,6 @@ fn collect_cell_vars_from_args(
     cell_vars: &mut AHashSet<String>,
     interner: &InternerBuilder,
 ) {
-    use crate::args::ArgExprs;
     match args {
         ArgExprs::Empty => {}
         ArgExprs::One(arg) => collect_cell_vars_from_expr(arg, our_locals, cell_vars, interner),
@@ -2481,6 +2582,25 @@ fn collect_cell_vars_from_args(
                 collect_cell_vars_from_expr(var_kwargs, our_locals, cell_vars, interner);
             }
         }
+        ArgExprs::GeneralizedCall { args, kwargs } => {
+            for arg in args {
+                match arg {
+                    CallArg::Value(e) | CallArg::Unpack(e) => {
+                        collect_cell_vars_from_expr(e, our_locals, cell_vars, interner);
+                    }
+                }
+            }
+            for kwarg in kwargs {
+                match kwarg {
+                    CallKwarg::Named(kw) => {
+                        collect_cell_vars_from_expr(&kw.value, our_locals, cell_vars, interner);
+                    }
+                    CallKwarg::Unpack(e) => {
+                        collect_cell_vars_from_expr(e, our_locals, cell_vars, interner);
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -2508,6 +2628,13 @@ fn collect_referenced_names_from_node(node: &ParseNode, referenced: &mut AHashSe
         Node::OpAssign { target, object, .. } => {
             // OpAssign reads the target before writing
             referenced.insert(interner.get_str(target.name_id).to_string());
+            collect_referenced_names_from_expr(object, referenced, interner);
+        }
+        Node::SubscriptOpAssign {
+            target, index, object, ..
+        } => {
+            referenced.insert(interner.get_str(target.name_id).to_string());
+            collect_referenced_names_from_expr(index, referenced, interner);
             collect_referenced_names_from_expr(object, referenced, interner);
         }
         Node::SubscriptAssign {
@@ -2604,13 +2731,21 @@ fn collect_referenced_names_from_expr(
         Expr::Builtin(_) => {}
         Expr::List(items) | Expr::Tuple(items) | Expr::Set(items) => {
             for item in items {
-                collect_referenced_names_from_expr(item, referenced, interner);
+                let expr = match item {
+                    SequenceItem::Value(e) | SequenceItem::Unpack(e) => e,
+                };
+                collect_referenced_names_from_expr(expr, referenced, interner);
             }
         }
-        Expr::Dict(pairs) => {
-            for (key, value) in pairs {
-                collect_referenced_names_from_expr(key, referenced, interner);
-                collect_referenced_names_from_expr(value, referenced, interner);
+        Expr::Dict(dict_items) => {
+            for item in dict_items {
+                match item {
+                    DictItem::Pair(key, value) => {
+                        collect_referenced_names_from_expr(key, referenced, interner);
+                        collect_referenced_names_from_expr(value, referenced, interner);
+                    }
+                    DictItem::Unpack(e) => collect_referenced_names_from_expr(e, referenced, interner),
+                }
             }
         }
         Expr::Op { left, right, .. } | Expr::CmpOp { left, right, .. } => {
@@ -2783,12 +2918,7 @@ fn collect_referenced_names_from_comprehension(
 }
 
 /// Collects referenced names from argument expressions.
-fn collect_referenced_names_from_args(
-    args: &crate::args::ArgExprs,
-    referenced: &mut AHashSet<String>,
-    interner: &InternerBuilder,
-) {
-    use crate::args::ArgExprs;
+fn collect_referenced_names_from_args(args: &ArgExprs, referenced: &mut AHashSet<String>, interner: &InternerBuilder) {
     match args {
         ArgExprs::Empty => {}
         ArgExprs::One(e) => collect_referenced_names_from_expr(e, referenced, interner),
@@ -2801,8 +2931,52 @@ fn collect_referenced_names_from_args(
                 collect_referenced_names_from_expr(e, referenced, interner);
             }
         }
-        ArgExprs::Kwargs(_) | ArgExprs::ArgsKargs { .. } => {
-            // TODO: handle kwargs when needed
+        ArgExprs::Kwargs(kwargs) => {
+            for kwarg in kwargs {
+                collect_referenced_names_from_expr(&kwarg.value, referenced, interner);
+            }
+        }
+        ArgExprs::ArgsKargs {
+            args,
+            kwargs,
+            var_args,
+            var_kwargs,
+        } => {
+            if let Some(args) = args {
+                for e in args {
+                    collect_referenced_names_from_expr(e, referenced, interner);
+                }
+            }
+            if let Some(kwargs) = kwargs {
+                for kwarg in kwargs {
+                    collect_referenced_names_from_expr(&kwarg.value, referenced, interner);
+                }
+            }
+            if let Some(e) = var_args {
+                collect_referenced_names_from_expr(e, referenced, interner);
+            }
+            if let Some(e) = var_kwargs {
+                collect_referenced_names_from_expr(e, referenced, interner);
+            }
+        }
+        ArgExprs::GeneralizedCall { args, kwargs } => {
+            for arg in args {
+                match arg {
+                    CallArg::Value(e) | CallArg::Unpack(e) => {
+                        collect_referenced_names_from_expr(e, referenced, interner);
+                    }
+                }
+            }
+            for kwarg in kwargs {
+                match kwarg {
+                    CallKwarg::Named(kw) => {
+                        collect_referenced_names_from_expr(&kw.value, referenced, interner);
+                    }
+                    CallKwarg::Unpack(e) => {
+                        collect_referenced_names_from_expr(e, referenced, interner);
+                    }
+                }
+            }
         }
     }
 }

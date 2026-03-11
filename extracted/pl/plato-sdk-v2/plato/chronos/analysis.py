@@ -251,8 +251,12 @@ def analyze_session(spans: list[OTelSpan], session_id: str) -> SessionAnalysis:
             executions.append(exec_info)
 
     # Strategy 2: spans with atif.agent.name not yet claimed
+    # Skip spans whose parent is already claimed (e.g. "session" spans nested
+    # under "agent.execution.output" — their steps were already collected).
     for sid, node in tree.by_id.items():
         if sid in claimed_span_ids:
+            continue
+        if node.parent_span_id and node.parent_span_id in claimed_span_ids:
             continue
         if node.get_attr("atif.agent.name") and node.span.name != "agent.execution.output":
             step_nodes = _collect_descendant_steps(node)
@@ -282,22 +286,7 @@ def analyze_session(spans: list[OTelSpan], session_id: str) -> SessionAnalysis:
     for i, ex in enumerate(executions):
         ex.execution_index = i
 
-    # Check for a "session" span with authoritative token/cost data
-    session_token_summary: TokenSummary | None = None
-    for node in tree.by_id.values():
-        if node.span.name == "session":
-            attrs = node.span.attributes or {}
-            if attrs.get("atif.agent.cost_usd") is not None:
-                session_token_summary = TokenSummary(
-                    prompt_tokens=int(attrs.get("atif.agent.prompt_tokens", 0)),
-                    completion_tokens=int(attrs.get("atif.agent.completion_tokens", 0)),
-                    cache_read_tokens=int(attrs.get("atif.agent.cache_read_tokens", 0)),
-                    cache_write_tokens=int(attrs.get("atif.agent.cache_write_tokens", 0)),
-                    cost_usd=float(attrs.get("atif.agent.cost_usd", 0)),
-                )
-                break
-
-    # Aggregate tokens/tools
+    # Aggregate tokens/tools across all executions
     global_tokens = TokenSummary()
     global_tools: dict[str, int] = defaultdict(int)
     for ex in executions:
@@ -308,10 +297,6 @@ def analyze_session(spans: list[OTelSpan], session_id: str) -> SessionAnalysis:
         global_tokens.cost_usd += ex.token_summary.cost_usd
         for tool, count in ex.tool_usage.items():
             global_tools[tool] += count
-
-    # Prefer session-level totals when available (authoritative)
-    if session_token_summary is not None:
-        global_tokens = session_token_summary
 
     return SessionAnalysis(
         session_id=session_id,
@@ -355,20 +340,33 @@ def _build_execution(
             tool_usage[tool] += 1
         total_prompt += info.prompt_tokens
         total_completion += info.completion_tokens
+        total_cost += float(sn.get_attr("atif.step.cost_usd", 0) or 0)
 
-    # Try to get cost/tokens from root node agent-level attributes
+    # Try to get cost/tokens from the root node or its immediate children
+    # (e.g. "session" spans carry cost data but live under "agent.execution.output")
     cache_read = 0
     cache_write = 0
+    cost_node = None
     if root_node:
-        total_cost = float(root_node.get_attr("atif.agent.cost_usd", 0))
-        root_prompt = root_node.get_attr("atif.agent.prompt_tokens")
-        root_completion = root_node.get_attr("atif.agent.completion_tokens")
+        if root_node.get_attr("atif.agent.cost_usd"):
+            cost_node = root_node
+        else:
+            for child in root_node.children:
+                if child.get_attr("atif.agent.cost_usd"):
+                    cost_node = child
+                    break
+    if cost_node:
+        total_cost = float(cost_node.get_attr("atif.agent.cost_usd", 0))
+        root_prompt = cost_node.get_attr("atif.agent.prompt_tokens")
+        root_completion = cost_node.get_attr("atif.agent.completion_tokens")
         if root_prompt is not None:
             total_prompt = int(root_prompt)
         if root_completion is not None:
             total_completion = int(root_completion)
-        cache_read = int(root_node.get_attr("atif.agent.cache_read_tokens", 0))
-        cache_write = int(root_node.get_attr("atif.agent.cache_write_tokens", 0))
+        cache_read = int(cost_node.get_attr("atif.agent.cache_read_tokens", 0))
+        cache_write = int(cost_node.get_attr("atif.agent.cache_write_tokens", 0))
+        if not agent_name:
+            agent_name = cost_node.get_attr("atif.agent.name")
 
     duration = root_node.duration_ms if root_node else None
     if duration is None and step_nodes:

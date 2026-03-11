@@ -26,7 +26,7 @@ def get_inputs(cls, *args, **kwargs):
     return cls(**values)
 
 
-from abstract_utilities import *
+
 class SingletonMeta(type):
     _instances = {}
     def __call__(cls, *args, **kwargs):

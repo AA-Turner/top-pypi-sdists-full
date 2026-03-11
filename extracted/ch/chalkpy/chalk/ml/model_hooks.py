@@ -76,6 +76,21 @@ class XGBoostRegressorInference(ModelInference):
         return model.predict(X)
 
 
+class XGBoostRankerInference(ModelInference):
+    """Model inference for XGBoost rankers."""
+
+    def load_model(self, path: str, resource_hint: Optional["ResourceHint"] = None) -> Any:
+        import xgboost  # pyright: ignore[reportMissingImports]
+
+        model = xgboost.XGBRanker()
+        model.load_model(path)
+        return model
+
+    def predict(self, model: Any, X: Any) -> Any:
+        # Returns relevance scores — higher = more relevant, not a class label
+        return model.predict(X)
+
+
 class PyTorchInference(ModelInference):
     """Model inference for PyTorch models."""
 
@@ -511,10 +526,11 @@ class ModelInferenceRegistry:
         encoding: ModelEncoding,
         inference: Union[ModelInference, Callable[[], ModelInference]],
     ) -> None:
-        """Register inference for None, CLASSIFICATION, and REGRESSION variants."""
+        """Register inference for all ModelClass variants."""
         self.register(model_type, encoding, None, inference)
         self.register(model_type, encoding, ModelClass.CLASSIFICATION, inference)
         self.register(model_type, encoding, ModelClass.REGRESSION, inference)
+        self.register(model_type, encoding, ModelClass.RANKING, inference)
 
     def get(
         self,
@@ -565,7 +581,8 @@ MODEL_REGISTRY.register_for_all_classes(ModelType.LIGHTGBM, ModelEncoding.TEXT, 
 MODEL_REGISTRY.register_for_all_classes(ModelType.CATBOOST, ModelEncoding.CBM, CatBoostInference())
 MODEL_REGISTRY.register_for_all_classes(ModelType.ONNX, ModelEncoding.PROTOBUF, lambda: NativeONNXInference())
 
-# XGBoost requires different implementations for classification vs regression
+# XGBoost requires different implementations for task types; defaults to regression
 MODEL_REGISTRY.register(ModelType.XGBOOST, ModelEncoding.JSON, None, XGBoostRegressorInference())
 MODEL_REGISTRY.register(ModelType.XGBOOST, ModelEncoding.JSON, ModelClass.CLASSIFICATION, XGBoostClassifierInference())
 MODEL_REGISTRY.register(ModelType.XGBOOST, ModelEncoding.JSON, ModelClass.REGRESSION, XGBoostRegressorInference())
+MODEL_REGISTRY.register(ModelType.XGBOOST, ModelEncoding.JSON, ModelClass.RANKING, XGBoostRankerInference())

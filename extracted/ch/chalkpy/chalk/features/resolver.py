@@ -2865,6 +2865,7 @@ class StreamResolver(Resolver[P, T]):
         skip_offline: bool = False,
         include_message_envelope: bool = False,
         message_header_filters: list[tuple[str, bytes]] | None = None,
+        resource_group: str | None = None,
     ):
         super().__init__(
             function_definition=function_definition,
@@ -2897,6 +2898,7 @@ class StreamResolver(Resolver[P, T]):
             partitioned_by=None,
             data_lineage=None,
             sql_settings=sql_settings,
+            resource_group=resource_group,
         )
         self.source = source
         self.message = message
@@ -3854,6 +3856,7 @@ def make_stream_resolver(
     update_aggregates: bool = True,
     include_message_envelope: bool = False,
     message_header_filters: list[tuple[str, bytes]] | None = None,
+    resource_group: Optional[str] = None,
 ) -> StreamResolver:
     """Constructs a streaming resolver that, instead of a Python function,
     defines its output features as column projections on an input message.
@@ -3901,6 +3904,15 @@ def make_stream_resolver(
     update_aggregates
         Whether this stream resolver should update materialized aggregations.
         Default: True
+    include_message_envelope
+        If `True`, the message envelope will be included in the output features.
+        Default: False
+    message_header_filters
+        A list of tuples of (header_name, header_value) to filter the message by.
+        Default: None
+    resource_group
+        If specified, this resolver will only run on streaming servers
+        whose resource group matches. If None, the resolver runs on all servers.
 
     Returns
     -------
@@ -4106,6 +4118,7 @@ def make_stream_resolver(
         skip_offline=skip_offline,
         include_message_envelope=include_message_envelope,
         message_header_filters=message_header_filters,
+        resource_group=resource_group,
     )
     resolver.add_to_registry(override=False)
     return resolver

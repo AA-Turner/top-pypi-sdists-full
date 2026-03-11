@@ -438,15 +438,20 @@ class TestAsyncDevboxNetworking:
             await devbox.shutdown()
 
     @pytest.mark.timeout(TWO_MINUTE_TIMEOUT)
-    async def test_create_and_remove_tunnel(self, async_sdk_client: AsyncRunloopSDK) -> None:
-        """Test creating and removing a tunnel."""
+    async def test_create_tunnel_deprecated(self, async_sdk_client: AsyncRunloopSDK) -> None:
+        """Test creating a tunnel (deprecated - now creates v2 tunnel).
+
+        Note: The deprecated create_tunnel endpoint now creates v2 Portal tunnels
+        which cannot be removed. They remain active until the devbox is stopped.
+        Use enable_tunnel for creating v2 tunnels instead.
+        """
         devbox = await async_sdk_client.devbox.create(
             name=unique_name("sdk-async-devbox-tunnel"),
             launch_parameters={"resource_size_request": "SMALL", "keep_alive_time_seconds": 60 * 5},
         )
 
         try:
-            # Create tunnel
+            # Create tunnel (now creates v2 Portal tunnel)
             with pytest.warns(DeprecationWarning, match="create_tunnel is deprecated"):
                 tunnel = await devbox.net.create_tunnel(port=8080)
             assert tunnel is not None
@@ -454,9 +459,10 @@ class TestAsyncDevboxNetworking:
             assert tunnel.port == 8080
             assert tunnel.devbox_id == devbox.id
 
-            # Remove tunnel
-            with pytest.warns(DeprecationWarning, match="remove_tunnel is deprecated"):
-                await devbox.net.remove_tunnel(port=8080)
+            # Verify tunnel persists in devbox info (v2 tunnels cannot be removed)
+            info = await devbox.get_info()
+            assert info.tunnel is not None
+            assert info.tunnel.tunnel_key is not None
         finally:
             await devbox.shutdown()
 
@@ -1058,3 +1064,55 @@ class TestAsyncDevboxNamedShell:
         # Verify streaming captured same data as result
         assert stdout_combined == await result.stdout()
         assert stderr_combined == await result.stderr()
+
+
+class TestAsyncDevboxLogs:
+    """Test async devbox logs retrieval functionality."""
+
+    @pytest.mark.timeout(THIRTY_SECOND_TIMEOUT)
+    async def test_logs_basic(self, shared_devbox: AsyncDevbox) -> None:
+        """Test retrieving devbox logs returns valid response structure."""
+        test_message = "async basic log test message"
+        result = await shared_devbox.cmd.exec(f'echo "{test_message}"')
+        assert result.exit_code == 0
+
+        logs = await shared_devbox.logs()
+
+        assert logs is not None
+        assert hasattr(logs, "logs")
+        assert isinstance(logs.logs, list)
+        log_content = " ".join(str(log) for log in logs.logs)
+        assert test_message in log_content
+
+    @pytest.mark.timeout(THIRTY_SECOND_TIMEOUT)
+    async def test_logs_with_execution_filter(self, shared_devbox: AsyncDevbox) -> None:
+        """Test retrieving devbox logs filtered by execution ID."""
+        test_message = "async filtered log test"
+        result = await shared_devbox.cmd.exec(f'echo "{test_message}"')
+        assert result.exit_code == 0
+
+        logs = await shared_devbox.logs(execution_id=result.execution_id)
+
+        assert logs is not None
+        assert hasattr(logs, "logs")
+        assert isinstance(logs.logs, list)
+        log_content = " ".join(str(log) for log in logs.logs)
+        assert test_message in log_content
+
+    @pytest.mark.timeout(THIRTY_SECOND_TIMEOUT)
+    async def test_logs_with_shell_name_filter(self, shared_devbox: AsyncDevbox) -> None:
+        """Test retrieving devbox logs filtered by shell name."""
+        shell_name = "async-test-logs-shell"
+        shell = shared_devbox.shell(shell_name)
+
+        test_message = "async shell log test"
+        result = await shell.exec(f'echo "{test_message}"')
+        assert result.exit_code == 0
+
+        logs = await shared_devbox.logs(shell_name=shell_name)
+
+        assert logs is not None
+        assert hasattr(logs, "logs")
+        assert isinstance(logs.logs, list)
+        log_content = " ".join(str(log) for log in logs.logs)
+        assert test_message in log_content

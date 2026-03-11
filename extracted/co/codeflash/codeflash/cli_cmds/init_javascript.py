@@ -128,7 +128,7 @@ def determine_js_package_manager(project_root: Path) -> JsPackageManager:
     """
     # Search from project_root up to filesystem root for lock files
     # This supports monorepo setups where lock file is at workspace root
-    current_dir = project_root.resolve()
+    current_dir = project_root
     while current_dir != current_dir.parent:
         if (current_dir / "bun.lockb").exists() or (current_dir / "bun.lock").exists():
             return JsPackageManager.BUN
@@ -161,7 +161,7 @@ def find_node_modules_with_package(project_root: Path, package_name: str) -> Pat
         Path to the node_modules directory containing the package, or None if not found.
 
     """
-    current_dir = project_root.resolve()
+    current_dir = project_root
     while current_dir != current_dir.parent:
         node_modules = current_dir / "node_modules"
         if node_modules.exists():
@@ -208,7 +208,7 @@ def get_package_install_command(project_root: Path, package: str, dev: bool = Tr
     return cmd
 
 
-def init_js_project(language: ProjectLanguage) -> None:
+def init_js_project(language: ProjectLanguage, *, skip_confirm: bool = False, skip_api_key: bool = False) -> None:
     """Initialize Codeflash for a JavaScript/TypeScript project."""
     from codeflash.cli_cmds.cmd_init import install_github_actions, install_github_app, prompt_api_key
 
@@ -226,15 +226,15 @@ def init_js_project(language: ProjectLanguage) -> None:
     console.print(lang_panel)
     console.print()
 
-    did_add_new_key = prompt_api_key()
+    did_add_new_key = False if skip_api_key else prompt_api_key()
 
-    should_modify, _config = should_modify_package_json_config()
+    should_modify, _config = should_modify_package_json_config(skip_confirm=skip_confirm)
 
     # Default git remote
     git_remote = "origin"
 
     if should_modify:
-        setup_info = collect_js_setup_info(language)
+        setup_info = collect_js_setup_info(language, skip_confirm=skip_confirm)
         git_remote = setup_info.git_remote or "origin"
         configured = configure_package_json(setup_info)
         if not configured:
@@ -279,7 +279,7 @@ def init_js_project(language: ProjectLanguage) -> None:
     sys.exit(0)
 
 
-def should_modify_package_json_config() -> tuple[bool, dict[str, Any] | None]:
+def should_modify_package_json_config(*, skip_confirm: bool = False) -> tuple[bool, dict[str, Any] | None]:
     """Check if package.json has valid codeflash config for JS/TS projects."""
     package_json_path = Path("package.json")
 
@@ -305,6 +305,10 @@ def should_modify_package_json_config() -> tuple[bool, dict[str, Any] | None]:
         if tests_root and not Path(tests_root).is_dir():
             return True, None
 
+        # In skip_confirm mode, don't reconfigure a valid config
+        if skip_confirm:
+            return False, config
+
         # Config is valid - ask if user wants to reconfigure
         return Confirm.ask(
             "✅ A valid Codeflash config already exists in package.json. Do you want to re-configure it?",
@@ -315,13 +319,12 @@ def should_modify_package_json_config() -> tuple[bool, dict[str, Any] | None]:
         return True, None
 
 
-def collect_js_setup_info(language: ProjectLanguage) -> JSSetupInfo:
+def collect_js_setup_info(language: ProjectLanguage, *, skip_confirm: bool = False) -> JSSetupInfo:
     """Collect setup information for JavaScript/TypeScript projects.
 
     Uses auto-detection for most settings and only asks for overrides if needed.
+    When skip_confirm is True, uses all auto-detected defaults without prompting.
     """
-    from rich.prompt import Confirm
-
     from codeflash.cli_cmds.cmd_init import ask_for_telemetry, get_valid_subdirs
     from codeflash.code_utils.config_js import (
         detect_formatter,
@@ -346,6 +349,20 @@ def collect_js_setup_info(language: ProjectLanguage) -> JSSetupInfo:
     detected_module_root = detect_module_root(curdir, package_data)
     detected_test_runner = detect_test_runner(curdir, package_data)
     detected_formatter = detect_formatter(curdir, package_data)
+
+    # In skip_confirm mode, use all auto-detected defaults
+    if skip_confirm:
+        git_remote = "origin"
+        try:
+            repo = Repo(Path.cwd(), search_parent_directories=True)
+            git_remotes = get_git_remotes(repo)
+            if git_remotes:
+                git_remote = git_remotes[0]
+        except InvalidGitRepositoryError:
+            pass
+        return JSSetupInfo(git_remote=git_remote)
+
+    from rich.prompt import Confirm
 
     # Build detection summary
     formatter_display = detected_formatter[0] if detected_formatter else "none detected"
@@ -673,22 +690,9 @@ def get_js_codeflash_install_step(pkg_manager: JsPackageManager, *, is_dependenc
         # Codeflash will be installed with other dependencies
         return ""
 
-    # Need to install codeflash separately
-    if pkg_manager == JsPackageManager.BUN:
-        return """- name: 📥 Install Codeflash
-        run: bun add -g codeflash"""
-
-    if pkg_manager == JsPackageManager.PNPM:
-        return """- name: 📥 Install Codeflash
-        run: pnpm add -g codeflash"""
-
-    if pkg_manager == JsPackageManager.YARN:
-        return """- name: 📥 Install Codeflash
-        run: yarn global add codeflash"""
-
-    # NPM or UNKNOWN
+    # Install codeflash via uv (Python + uv are set up in the workflow)
     return """- name: 📥 Install Codeflash
-        run: npm install -g codeflash"""
+        run: uv tool install codeflash"""
 
 
 def get_js_codeflash_run_command(pkg_manager: JsPackageManager, *, is_dependency: bool) -> str:

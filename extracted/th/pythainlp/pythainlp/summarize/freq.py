@@ -1,35 +1,40 @@
-# -*- coding: utf-8 -*-
-# SPDX-FileCopyrightText: 2016-2025 PyThaiNLP Project
+# SPDX-FileCopyrightText: 2016-2026 PyThaiNLP Project
 # SPDX-FileType: SOURCE
 # SPDX-License-Identifier: Apache-2.0
-"""
-Summarization by frequency of words
-"""
+"""Summarization by frequency of words"""
+
+from __future__ import annotations
+
 from collections import defaultdict
 from heapq import nlargest
 from string import punctuation
-from typing import List
+from typing import cast
 
 from pythainlp.corpus import thai_stopwords
 from pythainlp.tokenize import sent_tokenize, word_tokenize
 
-_STOPWORDS = thai_stopwords()
+_STOPWORDS: frozenset[str] = thai_stopwords()
 
 
 class FrequencySummarizer:
-    def __init__(self, min_cut: float = 0.1, max_cut: float = 0.9):
-        self.__min_cut = min_cut
-        self.__max_cut = max_cut
-        self.__stopwords = set(punctuation).union(_STOPWORDS)
+    __min_cut: float
+    __max_cut: float
+    __stopwords: set[str]
+    __freq: "defaultdict[str, float]"
+
+    def __init__(self, min_cut: float = 0.1, max_cut: float = 0.9) -> None:
+        self.__min_cut: float = min_cut
+        self.__max_cut: float = max_cut
+        self.__stopwords: set[str] = set(punctuation).union(_STOPWORDS)
 
     @staticmethod
-    def __rank(ranking, n: int):
-        return nlargest(n, ranking, key=ranking.get)
+    def __rank(ranking: dict, n: int) -> list:
+        return nlargest(n, ranking, key=ranking.get)  # type: ignore[arg-type]
 
     def __compute_frequencies(
-        self, word_tokenized_sents: List[List[str]]
+        self, word_tokenized_sents: list[list[str]]
     ) -> defaultdict:
-        word_freqs = defaultdict(int)
+        word_freqs: defaultdict[str, float] = defaultdict(int)
         for sent in word_tokenized_sents:
             for word in sent:
                 if word not in self.__stopwords:
@@ -48,13 +53,18 @@ class FrequencySummarizer:
 
     def summarize(
         self, text: str, n: int, tokenizer: str = "newmm"
-    ) -> List[str]:
-        sents = sent_tokenize(text, engine="whitespace+newline")
+    ) -> list[str]:
+        # sent_tokenize with str input returns list[str]
+        sents = cast(
+            "list[str]", sent_tokenize(text, engine="whitespace+newline")
+        )
         word_tokenized_sents = [
             word_tokenize(sent, engine=tokenizer) for sent in sents
         ]
-        self.__freq = self.__compute_frequencies(word_tokenized_sents)
-        ranking = defaultdict(int)
+        self.__freq: "defaultdict[str, float]" = self.__compute_frequencies(
+            word_tokenized_sents
+        )
+        ranking: defaultdict[int, float] = defaultdict(int)
 
         for i, sent in enumerate(word_tokenized_sents):
             for w in sent:

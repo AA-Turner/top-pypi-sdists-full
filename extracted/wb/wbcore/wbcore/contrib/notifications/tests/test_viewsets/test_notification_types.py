@@ -3,7 +3,7 @@ from rest_framework.reverse import reverse
 
 from wbcore.contrib.authentication.factories import InternalUserFactory, UserFactory
 from wbcore.contrib.notifications.factories.notification_types import (
-    NotificationTypeModelFactory,
+    NotificationTypeFactory,
 )
 
 
@@ -91,7 +91,7 @@ class TestNotificationTypeSettingModelViewSet:
     def test_change_notification_type_and_user(self, notification_type_setting, client, user, status_code):
         """Regardless of the permission, you should never be able to change the user or notification type"""
         user2 = UserFactory()
-        notification_type2 = NotificationTypeModelFactory()
+        notification_type2 = NotificationTypeFactory()
 
         assert user != user2
         assert notification_type_setting.notification_type != notification_type2

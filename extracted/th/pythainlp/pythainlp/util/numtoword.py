@@ -1,18 +1,20 @@
-# -*- coding: utf-8 -*-
-# SPDX-FileCopyrightText: 2016-2025 PyThaiNLP Project
+# SPDX-FileCopyrightText: 2016-2026 PyThaiNLP Project
 # SPDX-FileType: SOURCE
 # SPDX-License-Identifier: Apache-2.0
-"""
-Convert number value to Thai read out
+"""Convert number value to Thai read out
 
 Adapted from
-http://justmindthought.blogspot.com/2012/12/code-php.html
+https://justmindthought.blogspot.com/2012/12/code-php.html
 https://suksit.com/post/writing-bahttext-in-php/
 """
 
-__all__ = ["bahttext", "num_to_thaiword"]
+from __future__ import annotations
 
-_VALUES = [
+from typing import Optional
+
+__all__: list[str] = ["bahttext", "num_to_thaiword"]
+
+_VALUES: list[str] = [
     "",
     "หนึ่ง",
     "สอง",
@@ -24,17 +26,16 @@ _VALUES = [
     "แปด",
     "เก้า",
 ]
-_PLACES = ["", "สิบ", "ร้อย", "พัน", "หมื่น", "แสน", "ล้าน"]
-_EXCEPTIONS = {"หนึ่งสิบ": "สิบ", "สองสิบ": "ยี่สิบ", "สิบหนึ่ง": "สิบเอ็ด"}
+_PLACES: list[str] = ["", "สิบ", "ร้อย", "พัน", "หมื่น", "แสน", "ล้าน"]
+_EXCEPTIONS: dict[str, str] = {"หนึ่งสิบ": "สิบ", "สองสิบ": "ยี่สิบ", "สิบหนึ่ง": "สิบเอ็ด"}
 
 
 def bahttext(number: float) -> str:
-    """
-    This function converts a number to Thai text and adds
+    """Converts a number to Thai text and adds
     a suffix "บาท" (Baht).
     The precision will be fixed at two decimal places (0.00)
-    to fits "สตางค์" (Satang) unit.
-    This function works similar to `BAHTTEXT` function in Microsoft Excel.
+    to fit "สตางค์" (Satang) unit.
+    This function works similarly to the `BAHTTEXT` function in Microsoft Excel.
 
     :param float number: number to be converted into Thai Baht currency format
     :return: text representing the amount of money in the format
@@ -61,9 +62,9 @@ def bahttext(number: float) -> str:
     elif number == 0:
         ret = "ศูนย์บาทถ้วน"
     else:
-        num_int, num_dec = "{:.2f}".format(number).split(".")
-        num_int = int(num_int)
-        num_dec = int(num_dec)
+        num_int_str, num_dec_str = f"{number:.2f}".split(".")
+        num_int = int(num_int_str)
+        num_dec = int(num_dec_str)
 
         baht = num_to_thaiword(num_int)
         if baht:
@@ -78,9 +79,8 @@ def bahttext(number: float) -> str:
     return ret
 
 
-def num_to_thaiword(number: int) -> str:
-    """
-    This function converts number to Thai text
+def num_to_thaiword(number: Optional[int]) -> str:
+    """Converts a number to Thai text.
 
     :param int number: an integer number to be converted to Thai text
     :return: text representing the number in Thai
@@ -97,16 +97,16 @@ def num_to_thaiword(number: int) -> str:
         num_to_thaiword(11)
         # output: สิบเอ็ด
     """
+    if number is None:
+        return ""
 
     output = ""
     number_temp = number
-    if number is None:
-        return ""
-    elif number == 0:
+    if number == 0:
         output = "ศูนย์"
 
-    number = str(abs(number))
-    for place, value in enumerate(list(number[::-1])):
+    number_str = str(abs(number))
+    for place, value in enumerate(list(number_str[::-1])):
         if place % 6 == 0 and place > 0:
             output = _PLACES[6] + output
 

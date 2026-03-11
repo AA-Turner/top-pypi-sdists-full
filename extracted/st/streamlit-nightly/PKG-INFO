@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: streamlit-nightly
-Version: 1.54.1.dev20260301
+Version: 1.55.1.dev20260309
 Summary: A faster way to build and share data apps
 Author-email: Snowflake Inc <hello@streamlit.io>
 License-Expression: Apache-2.0
@@ -38,7 +38,7 @@ Requires-Dist: packaging>=20
 Requires-Dist: pandas<3,>=1.4.0
 Requires-Dist: pillow<13,>=7.1.0
 Requires-Dist: pydeck<1,>=0.8.0b4
-Requires-Dist: protobuf<7,>=3.20
+Requires-Dist: protobuf<8,>=3.20
 Requires-Dist: pyarrow>=7.0
 Requires-Dist: requests<3,>=2.27
 Requires-Dist: tenacity<10,>=8.1.0

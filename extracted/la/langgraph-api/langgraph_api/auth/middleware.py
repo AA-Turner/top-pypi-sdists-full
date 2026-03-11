@@ -35,7 +35,10 @@ def get_auth_backend():
 
 
 def on_error(conn: HTTPConnection, exc: AuthenticationError):
-    return JSONResponse({"detail": str(exc)}, status_code=403)
+    # Preserve 401 from custom auth (Auth.exceptions.HTTPException or HTTPException)
+    status_code = getattr(exc, "status_code", None)
+    code = 401 if status_code == 401 else 403
+    return JSONResponse({"detail": str(exc)}, status_code=code)
 
 
 class ConditionalAuthenticationMiddleware(AuthenticationMiddleware):

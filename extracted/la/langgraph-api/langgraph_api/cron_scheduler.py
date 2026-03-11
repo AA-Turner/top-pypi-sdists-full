@@ -129,6 +129,7 @@ async def cron_scheduler():
                                 next_cron_date,
                                 cron["schedule"],
                                 cron["now"],
+                                cron.get("timezone"),
                             )
                             await Crons.set_next_run_date(
                                 conn, cron["cron_id"], next_run_date

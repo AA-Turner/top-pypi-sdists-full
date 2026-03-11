@@ -1,13 +1,12 @@
 import pickle
+from collections.abc import Mapping
 from uuid import uuid4
 
 import pytest
 import hypothesis.strategies as st
-from hypothesis import given, assume
+from hypothesis import given, assume, settings, HealthCheck
 
 import marisa_trie
-
-from .utils import Mapping
 
 text = st.binary()
 
@@ -75,12 +74,12 @@ def test_get(keys):
     assert trie.get(b"non_existing_bytes_key", "default value") == "default value"
 
 
+@settings(suppress_health_check=[HealthCheck.function_scoped_fixture])
 @given(st.sets(text))
-def test_saveload(tmpdir_factory, keys):
+def test_saveload(tmp_path, keys):
     trie = marisa_trie.BinaryTrie(keys)
 
-    dirname = f"{uuid4()}_"
-    path = str(tmpdir_factory.mktemp(dirname).join("trie.bin"))
+    path = str(tmp_path / f"{uuid4()}.bin")
     trie.save(path)
 
     trie2 = marisa_trie.BinaryTrie()
@@ -90,12 +89,12 @@ def test_saveload(tmpdir_factory, keys):
         assert key in trie2
 
 
+@settings(suppress_health_check=[HealthCheck.function_scoped_fixture])
 @given(st.sets(text))
-def test_mmap(tmpdir_factory, keys):
+def test_mmap(tmp_path, keys):
     trie = marisa_trie.BinaryTrie(keys)
 
-    dirname = f"{uuid4()}_"
-    path = str(tmpdir_factory.mktemp(dirname).join("trie.bin"))
+    path = str(tmp_path / f"{uuid4()}.bin")
     trie.save(path)
 
     trie2 = marisa_trie.BinaryTrie()
@@ -258,6 +257,6 @@ def test_invalid_file():
         pytest.fail("Exception is not raised")
 
 
-def test_mutable_mapping():
+def test_mapping():
     for method in Mapping.__abstractmethods__:
         assert hasattr(marisa_trie.BinaryTrie, method)

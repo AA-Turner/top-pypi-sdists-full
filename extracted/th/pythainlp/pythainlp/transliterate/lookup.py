@@ -1,16 +1,19 @@
-# -*- coding: utf-8 -*-
-# SPDX-FileCopyrightText: 2016-2025 PyThaiNLP Project
+# SPDX-FileCopyrightText: 2016-2026 PyThaiNLP Project
 # SPDX-FileType: SOURCE
 # SPDX-License-Identifier: Apache-2.0
-"""
-Look up romanized Thai words in a predefined dictionary compiled by Wannaphong, 2022.
+"""Look up romanized Thai words in a predefined dictionary compiled by Wannaphong, 2022.
 
 Wannaphong Phatthiyaphaibun. (2022).
 wannaphong/thai-english-transliteration-dictionary: v1.4 (v1.4).
 Zenodo. https://doi.org/10.5281/zenodo.6716672
 """
 
-from typing import Callable, Optional
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 from pythainlp.corpus.th_en_translit import (
     TRANSLITERATE_DICT,
@@ -18,12 +21,11 @@ from pythainlp.corpus.th_en_translit import (
     TRANSLITERATE_FOLLOW_RTSG,
 )
 
-_TRANSLITERATE_IDX = 0
+_TRANSLITERATE_IDX: int = 0
 
 
 def follow_rtgs(text: str) -> Optional[bool]:
-    """
-    Check if the `text` follows romanization defined by Royal Society of Thailand (RTGS).
+    """Check if the `text` follows romanization defined by Royal Society of Thailand (RTGS).
     :param str text: Text to look up. Must be a self-contained word.
     :return: True if text follows the definition by RTGS, False otherwise.
             `None` means unverified or unknown word.
@@ -36,13 +38,11 @@ def follow_rtgs(text: str) -> Optional[bool]:
     except IndexError:
         return None
     else:
-        return follow
+        return follow  # type: ignore[return-value]
 
 
 def _romanize(text: str, fallback_func: Callable[[str], str]) -> str:
-    """
-    Romanize one word. Look up first, call `fallback_func` if not found.
-    """
+    """Romanize one word. Look up first, call `fallback_func` if not found."""
     try:
         # try to get 0-th idx of look up result, simply ignore other possible variations.
         # not found means no mapping.
@@ -50,14 +50,13 @@ def _romanize(text: str, fallback_func: Callable[[str], str]) -> str:
     except IndexError:
         return fallback_func(text)
     except TypeError as e:
-        raise TypeError(f"`fallback_engine` is not callable. {e}")
+        raise TypeError(f"`fallback_engine` is not callable. {e}") from e
     else:
-        return lookup
+        return lookup  # type: ignore[return-value]
 
 
 def romanize(text: str, fallback_func: Callable[[str], str]) -> str:
-    """
-    Render Thai words in Latin alphabet by looking up
+    """Render Thai words in Latin alphabet by looking up
     Thai-English transliteration dictionary.
 
     :param str text: Thai text to be romanized

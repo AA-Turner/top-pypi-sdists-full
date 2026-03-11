@@ -831,7 +831,10 @@ class DevRunner:
                 if self.memray:
                     reinstall_cmd += "uv pip install --system memray -q 2>/dev/null; "
                     runner_cmd = f"memray run --output /tmp/memray.bin --force -m plato.worlds.runner -- run --world {world_name} --config /tmp/config.json"
-                world_cmd = f"{write_config_cmd}{reinstall_cmd}PLATO_API_KEY='{self.api_key}' {runner_cmd}"
+                world_cmd = (
+                    f"{write_config_cmd}{reinstall_cmd}"
+                    f"PLATO_API_KEY='{self.api_key}' PLATO_WORLD_DEV_MODE='1' {runner_cmd}"
+                )
 
                 exit_code = await self._run_world_command(world_cmd)
 

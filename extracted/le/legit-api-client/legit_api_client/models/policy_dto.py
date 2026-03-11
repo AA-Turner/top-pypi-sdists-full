@@ -24,6 +24,7 @@ from legit_api_client.models.category import Category
 from legit_api_client.models.issue_type import IssueType
 from legit_api_client.models.origin_type import OriginType
 from legit_api_client.models.scm_type import ScmType
+from legit_api_client.models.secret_type import SecretType
 from legit_api_client.models.severity import Severity
 from typing import Optional, Set
 from typing_extensions import Self
@@ -50,7 +51,8 @@ class PolicyDto(BaseModel):
     definition_time: Optional[datetime] = Field(default=None, alias="definitionTime")
     source: Optional[StrictStr] = None
     remediation: Optional[StrictStr] = None
-    __properties: ClassVar[List[str]] = ["id", "policyName", "issueType", "severity", "originalSeverity", "category", "title", "description", "compliances", "isDisabled", "isUserCreated", "isLocked", "targetOriginType", "targetScmTypes", "openIssuesCount", "definitionTime", "source", "remediation"]
+    secret_type: Optional[SecretType] = Field(default=None, alias="secretType")
+    __properties: ClassVar[List[str]] = ["id", "policyName", "issueType", "severity", "originalSeverity", "category", "title", "description", "compliances", "isDisabled", "isUserCreated", "isLocked", "targetOriginType", "targetScmTypes", "openIssuesCount", "definitionTime", "source", "remediation", "secretType"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -136,6 +138,11 @@ class PolicyDto(BaseModel):
         if self.remediation is None and "remediation" in self.model_fields_set:
             _dict['remediation'] = None
 
+        # set to None if secret_type (nullable) is None
+        # and model_fields_set contains the field
+        if self.secret_type is None and "secret_type" in self.model_fields_set:
+            _dict['secretType'] = None
+
         return _dict
 
     @classmethod
@@ -165,7 +172,8 @@ class PolicyDto(BaseModel):
             "openIssuesCount": obj.get("openIssuesCount"),
             "definitionTime": obj.get("definitionTime"),
             "source": obj.get("source"),
-            "remediation": obj.get("remediation")
+            "remediation": obj.get("remediation"),
+            "secretType": obj.get("secretType")
         })
         return _obj
 

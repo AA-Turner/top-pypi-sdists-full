@@ -24,6 +24,7 @@ from cognite_toolkit._cdf_tk.client.api.robotics_maps import MapsAPI
 from cognite_toolkit._cdf_tk.client.api.robotics_robots import RobotsAPI
 from cognite_toolkit._cdf_tk.client.api.search_config import SearchConfigurationsAPI
 from cognite_toolkit._cdf_tk.client.api.signal_sinks import SignalSinksAPI
+from cognite_toolkit._cdf_tk.client.api.signal_subscriptions import SignalSubscriptionsAPI
 from cognite_toolkit._cdf_tk.client.api.spaces import SpacesAPI
 from cognite_toolkit._cdf_tk.client.api.transformation_notifications import TransformationNotificationsAPI
 from cognite_toolkit._cdf_tk.client.api.transformation_schedules import TransformationSchedulesAPI
@@ -91,7 +92,8 @@ from .api.three_d import (
     ThreeDDMAssetMappingAPI,
 )
 from .api.timeseries import TimeSeriesAPI
-from .api.token import TokenAPI
+from .api.token import TokenAPI as LegacyTokenAPI
+from .api.token import ToolkitTokenAPI
 from .api.transformations import TransformationsAPI
 from .api.verify import VerifyAPI
 from .api.workflow_triggers import WorkflowTriggersAPI
@@ -171,6 +173,7 @@ class ToolkitClientMock(CogniteClientMock):
         self.tool.groups = MagicMock(spec_set=GroupsAPI)
         self.tool.search_configurations = MagicMock(spec_set=SearchConfigurationsAPI)
         self.tool.signal_sinks = MagicMock(spec_set=SignalSinksAPI)
+        self.tool.signal_subscriptions = MagicMock(spec_set=SignalSubscriptionsAPI)
         self.tool.simulators = MagicMock(spec=SimulatorsAPI)
         self.tool.simulators.models = MagicMock(spec_set=SimulatorModelsAPI)
         self.tool.simulators.model_revisions = MagicMock(spec_set=SimulatorModelRevisionsAPI)
@@ -201,6 +204,7 @@ class ToolkitClientMock(CogniteClientMock):
         self.tool.sequences.rows = MagicMock(spec_set=SequenceRowsAPI)
         self.tool.transformations = MagicMock(spec=TransformationsAPI)
         self.tool.streamlit = MagicMock(spec=StreamlitAPI)
+        self.tool.token = MagicMock(spec=ToolkitTokenAPI)
         self.tool.transformations.schedules = MagicMock(spec=TransformationSchedulesAPI)
         self.tool.transformations.notifications = MagicMock(spec=TransformationNotificationsAPI)
         self.tool.workflows = MagicMock(spec=WorkflowsAPI)
@@ -212,7 +216,7 @@ class ToolkitClientMock(CogniteClientMock):
         self.streams = MagicMock(spec=StreamsAPI)
 
         # This is a helper API, not a real API.
-        self.token = TokenAPI(self)
+        self.token = LegacyTokenAPI(self)
         self.verify = MagicMock(spec_set=VerifyAPI)
 
 

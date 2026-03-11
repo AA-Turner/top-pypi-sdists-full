@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: django-rest-knox
-Version: 5.0.2
+Version: 5.0.4
 Summary: Authentication for django rest framework
 Home-page: https://github.com/jazzband/django-rest-knox
 Author: James McMahon
@@ -17,6 +17,8 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
@@ -24,6 +26,19 @@ Requires-Dist: django>=4.2
 Requires-Dist: djangorestframework
 Provides-Extra: dev
 Provides-Extra: test
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 django-rest-knox
 ================

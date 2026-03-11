@@ -187,6 +187,7 @@ from legit_api_client.models.sdlc_asset_graph_link_dto_evidences import SdlcAsse
 from legit_api_client.models.sdlc_asset_meta_type import SdlcAssetMetaType
 from legit_api_client.models.sdlc_asset_type import SdlcAssetType
 from legit_api_client.models.secret_issue_validity_status import SecretIssueValidityStatus
+from legit_api_client.models.secret_type import SecretType
 from legit_api_client.models.secrets_data_dto import SecretsDataDto
 from legit_api_client.models.set_product_unit_ticket_template_dto import SetProductUnitTicketTemplateDto
 from legit_api_client.models.severity import Severity

@@ -6,6 +6,7 @@ import os
 from .base import (
     get_registry,
     build_summarization_prompt,
+    strip_summary_preamble,
     SUMMARIZATION_SYSTEM_PROMPT,
     TAGGING_SYSTEM_PROMPT,
     parse_tag_json,
@@ -72,12 +73,15 @@ class AnthropicSummarization:
         *,
         max_length: int = 500,
         context: str | None = None,
+        system_prompt: str | None = None,
     ) -> str:
         """Generate summary using Anthropic Claude."""
         truncated = content[:50000] if len(content) > 50000 else content
         prompt = build_summarization_prompt(truncated, context)
-        result = self.generate(SUMMARIZATION_SYSTEM_PROMPT, prompt)
-        return result if result else truncated[:max_length]
+        result = self.generate(system_prompt or SUMMARIZATION_SYSTEM_PROMPT, prompt)
+        if not result:
+            return truncated[:max_length]
+        return strip_summary_preamble(result)
 
     def generate(
         self,
@@ -146,12 +150,15 @@ class OpenAISummarization:
         *,
         max_length: int = 500,
         context: str | None = None,
+        system_prompt: str | None = None,
     ) -> str:
         """Generate a summary using OpenAI."""
         truncated = content[:50000] if len(content) > 50000 else content
         prompt = build_summarization_prompt(truncated, context)
-        result = self.generate(SUMMARIZATION_SYSTEM_PROMPT, prompt)
-        return result if result else truncated[:max_length]
+        result = self.generate(system_prompt or SUMMARIZATION_SYSTEM_PROMPT, prompt)
+        if not result:
+            return truncated[:max_length]
+        return strip_summary_preamble(result)
 
     def generate(
         self,
@@ -196,12 +203,17 @@ class OllamaSummarization:
         *,
         max_length: int = 500,
         context: str | None = None,
+        system_prompt: str | None = None,
     ) -> str:
         """Generate a summary using Ollama."""
-        truncated = content[:50000] if len(content) > 50000 else content
+        # Small local models degrade with long inputs; truncate aggressively.
+        limit = 15000
+        truncated = content[:limit] if len(content) > limit else content
         prompt = build_summarization_prompt(truncated, context)
-        result = self.generate(SUMMARIZATION_SYSTEM_PROMPT, prompt)
-        return result if result else truncated[:max_length]
+        result = self.generate(system_prompt or SUMMARIZATION_SYSTEM_PROMPT, prompt)
+        if not result:
+            return truncated[:max_length]
+        return strip_summary_preamble(result)
 
     def generate(
         self,
@@ -263,12 +275,15 @@ class GeminiSummarization:
         *,
         max_length: int = 500,
         context: str | None = None,
+        system_prompt: str | None = None,
     ) -> str:
         """Generate summary using Google Gemini."""
         truncated = content[:50000] if len(content) > 50000 else content
         prompt = build_summarization_prompt(truncated, context)
-        result = self.generate(SUMMARIZATION_SYSTEM_PROMPT, prompt)
-        return result if result else truncated[:max_length]
+        result = self.generate(system_prompt or SUMMARIZATION_SYSTEM_PROMPT, prompt)
+        if not result:
+            return truncated[:max_length]
+        return strip_summary_preamble(result)
 
     def generate(
         self,
@@ -301,8 +316,9 @@ class PassthroughSummarization:
         *,
         max_length: int = 500,
         context: str | None = None,
+        system_prompt: str | None = None,
     ) -> str:
-        """Return truncated content as summary (ignores context)."""
+        """Return truncated content as summary (ignores context/system_prompt)."""
         limit = min(self.max_chars, max_length)
         if len(content) <= limit:
             return content
@@ -666,11 +682,14 @@ class MistralSummarization:
         *,
         max_length: int = 500,
         context: str | None = None,
+        system_prompt: str | None = None,
     ) -> str:
         truncated = content[:50000] if len(content) > 50000 else content
         prompt = build_summarization_prompt(truncated, context)
-        result = self.generate(SUMMARIZATION_SYSTEM_PROMPT, prompt)
-        return result if result else truncated[:max_length]
+        result = self.generate(system_prompt or SUMMARIZATION_SYSTEM_PROMPT, prompt)
+        if not result:
+            return truncated[:max_length]
+        return strip_summary_preamble(result)
 
     def generate(
         self,

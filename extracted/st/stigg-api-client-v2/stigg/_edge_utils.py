@@ -4,18 +4,18 @@ from stigg.generated import FetchEntitlementsQuery, GetPaywallInput, FetchEntitl
 
 
 def build_get_entitlement_data(edge_url: str, query: FetchEntitlementQuery) -> Tuple[str, Dict]:
-  url = f"{edge_url}/v1/c/{query.customer_id}/entitlements.json"
-  params = {}
-  if query.resource_id is not None:
-    params["resourceId"] = query.resource_id
+    url = f"{edge_url}/v1/c/{query.customer_id}/entitlements.json"
+    params = {}
+    if query.resource_id is not None:
+        params["resourceId"] = query.resource_id
 
-  if query.feature_id is not None:
-    params["featureId"] = query.feature_id
+    if query.feature_id is not None:
+        params["featureId"] = query.feature_id
 
-  if query.options is not None and query.options.requested_usage is not None:
-    params['requestedUsage'] = query.options.requested_usage
+    if query.options is not None and query.options.requested_usage is not None:
+        params['requestedUsage'] = query.options.requested_usage
 
-  return url, params
+    return url, params
 
 
 def build_get_entitlements_data(edge_url: str, query: FetchEntitlementsQuery) -> Tuple[str, Dict]:
@@ -53,6 +53,7 @@ def build_get_paywall_data(edge_url: str, _input: GetPaywallInput) -> Tuple[str,
         params["includeHiddenPlans"] = _input.include_hidden_plans
 
     return url, params
+
 
 def build_get_subscriptions_data(edge_url: str, _input: GetActiveSubscriptionsInput) -> Tuple[str, Dict]:
     url = f"{edge_url}/v1/c/{_input.customer_id}/subscriptions.json"

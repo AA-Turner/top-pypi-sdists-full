@@ -456,7 +456,7 @@ def match(
     field: builtins.str | None = None,
     weight: builtins.float = 1.0,
     all: builtins.bool = False,
-) -> LogicalExpr:
+) -> TextExpr:
     """
     Perform a keyword search for documents that contain specific keywords or phrases.
 
@@ -468,6 +468,24 @@ def match(
     """
 
 ...
+
+def match_tokens(
+    tokens: typing.Sequence[builtins.str | tuple[builtins.str, builtins.float]],
+    field: builtins.str | None = None,
+    all: builtins.bool = False,
+) -> TextExpr:
+    """
+    Filters documents that match the provided tokens with optional per-token weights.
+
+    Each token can be a string (with the default weight of 1.0) or a (token, weight) tuple.
+
+    When ``field`` is provided, matches only against that field (must have a keyword index).
+    When ``field`` is None (default), matches against all keyword-indexed fields.
+
+    When ``all`` is False (default), matches documents containing any of the tokens (OR).
+    When ``all`` is True, matches only documents containing all tokens (AND).
+    """
+    ...
 
 def not_(expr: LogicalExpr) -> LogicalExpr:
     """
@@ -634,9 +652,14 @@ class fn:
         """
         ...
     @staticmethod
-    def bm25_score() -> FunctionExpr:
+    def bm25_score(
+        b: typing.Optional[builtins.float] = None,
+        k1: typing.Optional[builtins.float] = None,
+    ) -> FunctionExpr:
         """
         Calculate the BM25 score for a keyword search.
+
+        Optional parameters: b (0-1), k1 (>=0) to override BM25 scoring behavior.
 
         ```python
         # Example:

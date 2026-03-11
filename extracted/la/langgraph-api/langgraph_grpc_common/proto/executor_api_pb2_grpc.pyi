@@ -6,8 +6,8 @@ isort:skip_file
 from collections import abc as _abc
 from grpc import aio as _aio
 import abc as _abc_1
-from . import engine_common_pb2 as _engine_common_pb2
-from . import executor_api_pb2 as _executor_api_pb2
+import engine_common_pb2 as _engine_common_pb2
+import executor_api_pb2 as _executor_api_pb2
 import grpc as _grpc
 import sys
 import typing as _typing

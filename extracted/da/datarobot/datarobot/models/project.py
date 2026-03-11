@@ -1629,7 +1629,7 @@ OR individual keyword arguments. You cannot pass both."
 
         aim_payload = self._construct_aim_payload(target, mode, metric)
 
-        self._load_autopilot_options(opts=advanced_options if advanced_options else self._options, payload=aim_payload)
+        self._load_autopilot_options(opts=advanced_options or self._options, payload=aim_payload)
         if positive_class is not None:
             aim_payload["positive_class"] = positive_class
         if target_type is not None:

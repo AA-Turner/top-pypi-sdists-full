@@ -14,12 +14,13 @@ _sym_db = _symbol_database.Default()
 
 
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as chalk_dot_auth_dot_v1_dot_permissions__pb2
+from chalk._gen.chalk.chart.v1 import densetimeserieschart_pb2 as chalk_dot_chart_dot_v1_dot_densetimeserieschart__pb2
 from google.protobuf import duration_pb2 as google_dot_protobuf_dot_duration__pb2
 from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n\x1b\x63halk/server/v1/trace.proto\x12\x0f\x63halk.server.v1\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto"\xe1\x06\n\tChalkSpan\x12\x17\n\x07span_id\x18\x01 \x01(\tR\x06spanId\x12\x19\n\x08trace_id\x18\x02 \x01(\tR\x07traceId\x12)\n\x0eparent_span_id\x18\x03 \x01(\tH\x00R\x0cparentSpanId\x88\x01\x01\x12%\n\x0eoperation_name\x18\x04 \x01(\tR\roperationName\x12\x39\n\nstart_time\x18\x05 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tstartTime\x12\x35\n\x08\x65nd_time\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\x07\x65ndTime\x12\x35\n\x08\x64uration\x18\x07 \x01(\x0b\x32\x19.google.protobuf.DurationR\x08\x64uration\x12\x38\n\x06status\x18\x08 \x01(\x0b\x32 .chalk.server.v1.ChalkSpanStatusR\x06status\x12J\n\nattributes\x18\t \x03(\x0b\x32*.chalk.server.v1.ChalkSpan.AttributesEntryR\nattributes\x12\x37\n\x06\x65vents\x18\n \x03(\x0b\x32\x1f.chalk.server.v1.ChalkSpanEventR\x06\x65vents\x12\x34\n\x05links\x18\x0b \x03(\x0b\x32\x1e.chalk.server.v1.ChalkSpanLinkR\x05links\x12\x32\n\x04kind\x18\x0c \x01(\x0e\x32\x1e.chalk.server.v1.ChalkSpanKindR\x04kind\x12\x63\n\x13resource_attributes\x18\r \x03(\x0b\x32\x32.chalk.server.v1.ChalkSpan.ResourceAttributesEntryR\x12resourceAttributes\x1a=\n\x0f\x41ttributesEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01\x1a\x45\n\x17ResourceAttributesEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01\x42\x11\n\x0f_parent_span_id"~\n\x0f\x43halkSpanStatus\x12\x34\n\x04\x63ode\x18\x01 \x01(\x0e\x32 .chalk.server.v1.ChalkStatusCodeR\x04\x63ode\x12%\n\x0b\x64\x65scription\x18\x02 \x01(\tH\x00R\x0b\x64\x65scription\x88\x01\x01\x42\x0e\n\x0c_description"\xee\x01\n\x0e\x43halkSpanEvent\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12\x38\n\ttimestamp\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\ttimestamp\x12O\n\nattributes\x18\x03 \x03(\x0b\x32/.chalk.server.v1.ChalkSpanEvent.AttributesEntryR\nattributes\x1a=\n\x0f\x41ttributesEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01"\xd2\x01\n\rChalkSpanLink\x12\x19\n\x08trace_id\x18\x01 \x01(\tR\x07traceId\x12\x17\n\x07span_id\x18\x02 \x01(\tR\x06spanId\x12N\n\nattributes\x18\x03 \x03(\x0b\x32..chalk.server.v1.ChalkSpanLink.AttributesEntryR\nattributes\x1a=\n\x0f\x41ttributesEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01"\xe1\x02\n\nChalkTrace\x12\x19\n\x08trace_id\x18\x01 \x01(\tR\x07traceId\x12\x30\n\x05spans\x18\x02 \x03(\x0b\x32\x1a.chalk.server.v1.ChalkSpanR\x05spans\x12%\n\x0croot_span_id\x18\x03 \x01(\tH\x00R\nrootSpanId\x88\x01\x01\x12!\n\x0cservice_name\x18\x04 \x01(\tR\x0bserviceName\x12\x64\n\x13resource_attributes\x18\x05 \x03(\x0b\x32\x33.chalk.server.v1.ChalkTrace.ResourceAttributesEntryR\x12resourceAttributes\x1a\x45\n\x17ResourceAttributesEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01\x42\x0f\n\r_root_span_id"w\n\x0fGetTraceRequest\x12&\n\x0coperation_id\x18\x01 \x01(\tH\x00R\x0boperationId\x88\x01\x01\x12\x1e\n\x08trace_id\x18\x02 \x01(\tH\x01R\x07traceId\x88\x01\x01\x42\x0f\n\r_operation_idB\x0b\n\t_trace_id"E\n\x10GetTraceResponse\x12\x31\n\x05trace\x18\x01 \x01(\x0b\x32\x1b.chalk.server.v1.ChalkTraceR\x05trace"\xeb\x02\n\x10ListTraceRequest\x12>\n\nstart_time\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x00R\tstartTime\x88\x01\x01\x12:\n\x08\x65nd_time\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x01R\x07\x65ndTime\x88\x01\x01\x12\x19\n\x05limit\x18\x03 \x01(\x05H\x02R\x05limit\x88\x01\x01\x12&\n\x0cservice_name\x18\x04 \x01(\tH\x03R\x0bserviceName\x88\x01\x01\x12 \n\tspan_name\x18\x05 \x01(\tH\x04R\x08spanName\x88\x01\x01\x12"\n\npage_token\x18\x06 \x01(\tH\x05R\tpageToken\x88\x01\x01\x42\r\n\x0b_start_timeB\x0b\n\t_end_timeB\x08\n\x06_limitB\x0f\n\r_service_nameB\x0c\n\n_span_nameB\r\n\x0b_page_token"\x89\x01\n\x11ListTraceResponse\x12\x33\n\x06traces\x18\x01 \x03(\x0b\x32\x1b.chalk.server.v1.ChalkTraceR\x06traces\x12+\n\x0fnext_page_token\x18\x02 \x01(\tH\x00R\rnextPageToken\x88\x01\x01\x42\x12\n\x10_next_page_token"D\n\x0eGetSpanRequest\x12\x17\n\x07span_id\x18\x01 \x01(\tR\x06spanId\x12\x19\n\x08trace_id\x18\x02 \x01(\tR\x07traceId"A\n\x0fGetSpanResponse\x12.\n\x04span\x18\x01 \x01(\x0b\x32\x1a.chalk.server.v1.ChalkSpanR\x04span"\xbe\x05\n\x0fListSpanRequest\x12\x1e\n\x08trace_id\x18\x01 \x01(\tH\x00R\x07traceId\x88\x01\x01\x12>\n\nstart_time\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x01R\tstartTime\x88\x01\x01\x12:\n\x08\x65nd_time\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x02R\x07\x65ndTime\x88\x01\x01\x12\x19\n\x05limit\x18\x04 \x01(\x05H\x03R\x05limit\x88\x01\x01\x12"\n\npage_token\x18\x05 \x01(\tH\x04R\tpageToken\x88\x01\x01\x12)\n\x0eparent_span_id\x18\x06 \x01(\tH\x05R\x0cparentSpanId\x88\x01\x01\x12*\n\x0eoperation_name\x18\x07 \x01(\tH\x06R\roperationName\x88\x01\x01\x12&\n\x0cservice_name\x18\x08 \x01(\tH\x07R\x0bserviceName\x88\x01\x01\x12\x46\n\x0bstatus_code\x18\t \x01(\x0e\x32 .chalk.server.v1.ChalkStatusCodeH\x08R\nstatusCode\x88\x01\x01\x12+\n\x0fmin_duration_us\x18\n \x01(\x03H\tR\rminDurationUs\x88\x01\x01\x12+\n\x0fmax_duration_us\x18\x0b \x01(\x03H\nR\rmaxDurationUs\x88\x01\x01\x42\x0b\n\t_trace_idB\r\n\x0b_start_timeB\x0b\n\t_end_timeB\x08\n\x06_limitB\r\n\x0b_page_tokenB\x11\n\x0f_parent_span_idB\x11\n\x0f_operation_nameB\x0f\n\r_service_nameB\x0e\n\x0c_status_codeB\x12\n\x10_min_duration_usB\x12\n\x10_max_duration_us"\x85\x01\n\x10ListSpanResponse\x12\x30\n\x05spans\x18\x01 \x03(\x0b\x32\x1a.chalk.server.v1.ChalkSpanR\x05spans\x12+\n\x0fnext_page_token\x18\x02 \x01(\tH\x00R\rnextPageToken\x88\x01\x01\x42\x12\n\x10_next_page_token*k\n\x0f\x43halkStatusCode\x12!\n\x1d\x43HALK_STATUS_CODE_UNSPECIFIED\x10\x00\x12\x18\n\x14\x43HALK_STATUS_CODE_OK\x10\x01\x12\x1b\n\x17\x43HALK_STATUS_CODE_ERROR\x10\x02*\xc2\x01\n\rChalkSpanKind\x12\x1f\n\x1b\x43HALK_SPAN_KIND_UNSPECIFIED\x10\x00\x12\x1a\n\x16\x43HALK_SPAN_KIND_SERVER\x10\x01\x12\x1a\n\x16\x43HALK_SPAN_KIND_CLIENT\x10\x02\x12\x1c\n\x18\x43HALK_SPAN_KIND_PRODUCER\x10\x03\x12\x1c\n\x18\x43HALK_SPAN_KIND_CONSUMER\x10\x04\x12\x1c\n\x18\x43HALK_SPAN_KIND_INTERNAL\x10\x05\x32\xf2\x02\n\x0cTraceService\x12W\n\x08GetTrace\x12 .chalk.server.v1.GetTraceRequest\x1a!.chalk.server.v1.GetTraceResponse"\x06\x90\x02\x01\x80}\x06\x12Z\n\tListTrace\x12!.chalk.server.v1.ListTraceRequest\x1a".chalk.server.v1.ListTraceResponse"\x06\x90\x02\x01\x80}\x06\x12T\n\x07GetSpan\x12\x1f.chalk.server.v1.GetSpanRequest\x1a .chalk.server.v1.GetSpanResponse"\x06\x90\x02\x01\x80}\x06\x12W\n\x08ListSpan\x12 .chalk.server.v1.ListSpanRequest\x1a!.chalk.server.v1.ListSpanResponse"\x06\x90\x02\x01\x80}\x06\x42\x93\x01\n\x13\x63om.chalk.server.v1B\nTraceProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
+    b'\n\x1b\x63halk/server/v1/trace.proto\x12\x0f\x63halk.server.v1\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a)chalk/chart/v1/densetimeserieschart.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto"\xe1\x06\n\tChalkSpan\x12\x17\n\x07span_id\x18\x01 \x01(\tR\x06spanId\x12\x19\n\x08trace_id\x18\x02 \x01(\tR\x07traceId\x12)\n\x0eparent_span_id\x18\x03 \x01(\tH\x00R\x0cparentSpanId\x88\x01\x01\x12%\n\x0eoperation_name\x18\x04 \x01(\tR\roperationName\x12\x39\n\nstart_time\x18\x05 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tstartTime\x12\x35\n\x08\x65nd_time\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\x07\x65ndTime\x12\x35\n\x08\x64uration\x18\x07 \x01(\x0b\x32\x19.google.protobuf.DurationR\x08\x64uration\x12\x38\n\x06status\x18\x08 \x01(\x0b\x32 .chalk.server.v1.ChalkSpanStatusR\x06status\x12J\n\nattributes\x18\t \x03(\x0b\x32*.chalk.server.v1.ChalkSpan.AttributesEntryR\nattributes\x12\x37\n\x06\x65vents\x18\n \x03(\x0b\x32\x1f.chalk.server.v1.ChalkSpanEventR\x06\x65vents\x12\x34\n\x05links\x18\x0b \x03(\x0b\x32\x1e.chalk.server.v1.ChalkSpanLinkR\x05links\x12\x32\n\x04kind\x18\x0c \x01(\x0e\x32\x1e.chalk.server.v1.ChalkSpanKindR\x04kind\x12\x63\n\x13resource_attributes\x18\r \x03(\x0b\x32\x32.chalk.server.v1.ChalkSpan.ResourceAttributesEntryR\x12resourceAttributes\x1a=\n\x0f\x41ttributesEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01\x1a\x45\n\x17ResourceAttributesEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01\x42\x11\n\x0f_parent_span_id"~\n\x0f\x43halkSpanStatus\x12\x34\n\x04\x63ode\x18\x01 \x01(\x0e\x32 .chalk.server.v1.ChalkStatusCodeR\x04\x63ode\x12%\n\x0b\x64\x65scription\x18\x02 \x01(\tH\x00R\x0b\x64\x65scription\x88\x01\x01\x42\x0e\n\x0c_description"\xee\x01\n\x0e\x43halkSpanEvent\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12\x38\n\ttimestamp\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\ttimestamp\x12O\n\nattributes\x18\x03 \x03(\x0b\x32/.chalk.server.v1.ChalkSpanEvent.AttributesEntryR\nattributes\x1a=\n\x0f\x41ttributesEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01"\xd2\x01\n\rChalkSpanLink\x12\x19\n\x08trace_id\x18\x01 \x01(\tR\x07traceId\x12\x17\n\x07span_id\x18\x02 \x01(\tR\x06spanId\x12N\n\nattributes\x18\x03 \x03(\x0b\x32..chalk.server.v1.ChalkSpanLink.AttributesEntryR\nattributes\x1a=\n\x0f\x41ttributesEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01"\xe1\x02\n\nChalkTrace\x12\x19\n\x08trace_id\x18\x01 \x01(\tR\x07traceId\x12\x30\n\x05spans\x18\x02 \x03(\x0b\x32\x1a.chalk.server.v1.ChalkSpanR\x05spans\x12%\n\x0croot_span_id\x18\x03 \x01(\tH\x00R\nrootSpanId\x88\x01\x01\x12!\n\x0cservice_name\x18\x04 \x01(\tR\x0bserviceName\x12\x64\n\x13resource_attributes\x18\x05 \x03(\x0b\x32\x33.chalk.server.v1.ChalkTrace.ResourceAttributesEntryR\x12resourceAttributes\x1a\x45\n\x17ResourceAttributesEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01\x42\x0f\n\r_root_span_id"w\n\x0fGetTraceRequest\x12&\n\x0coperation_id\x18\x01 \x01(\tH\x00R\x0boperationId\x88\x01\x01\x12\x1e\n\x08trace_id\x18\x02 \x01(\tH\x01R\x07traceId\x88\x01\x01\x42\x0f\n\r_operation_idB\x0b\n\t_trace_id"E\n\x10GetTraceResponse\x12\x31\n\x05trace\x18\x01 \x01(\x0b\x32\x1b.chalk.server.v1.ChalkTraceR\x05trace"\xeb\x02\n\x10ListTraceRequest\x12>\n\nstart_time\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x00R\tstartTime\x88\x01\x01\x12:\n\x08\x65nd_time\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x01R\x07\x65ndTime\x88\x01\x01\x12\x19\n\x05limit\x18\x03 \x01(\x05H\x02R\x05limit\x88\x01\x01\x12&\n\x0cservice_name\x18\x04 \x01(\tH\x03R\x0bserviceName\x88\x01\x01\x12 \n\tspan_name\x18\x05 \x01(\tH\x04R\x08spanName\x88\x01\x01\x12"\n\npage_token\x18\x06 \x01(\tH\x05R\tpageToken\x88\x01\x01\x42\r\n\x0b_start_timeB\x0b\n\t_end_timeB\x08\n\x06_limitB\x0f\n\r_service_nameB\x0c\n\n_span_nameB\r\n\x0b_page_token"\x89\x01\n\x11ListTraceResponse\x12\x33\n\x06traces\x18\x01 \x03(\x0b\x32\x1b.chalk.server.v1.ChalkTraceR\x06traces\x12+\n\x0fnext_page_token\x18\x02 \x01(\tH\x00R\rnextPageToken\x88\x01\x01\x42\x12\n\x10_next_page_token"D\n\x0eGetSpanRequest\x12\x17\n\x07span_id\x18\x01 \x01(\tR\x06spanId\x12\x19\n\x08trace_id\x18\x02 \x01(\tR\x07traceId"A\n\x0fGetSpanResponse\x12.\n\x04span\x18\x01 \x01(\x0b\x32\x1a.chalk.server.v1.ChalkSpanR\x04span"\xbe\x05\n\x0fListSpanRequest\x12\x1e\n\x08trace_id\x18\x01 \x01(\tH\x00R\x07traceId\x88\x01\x01\x12>\n\nstart_time\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x01R\tstartTime\x88\x01\x01\x12:\n\x08\x65nd_time\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x02R\x07\x65ndTime\x88\x01\x01\x12\x19\n\x05limit\x18\x04 \x01(\x05H\x03R\x05limit\x88\x01\x01\x12"\n\npage_token\x18\x05 \x01(\tH\x04R\tpageToken\x88\x01\x01\x12)\n\x0eparent_span_id\x18\x06 \x01(\tH\x05R\x0cparentSpanId\x88\x01\x01\x12*\n\x0eoperation_name\x18\x07 \x01(\tH\x06R\roperationName\x88\x01\x01\x12&\n\x0cservice_name\x18\x08 \x01(\tH\x07R\x0bserviceName\x88\x01\x01\x12\x46\n\x0bstatus_code\x18\t \x01(\x0e\x32 .chalk.server.v1.ChalkStatusCodeH\x08R\nstatusCode\x88\x01\x01\x12+\n\x0fmin_duration_us\x18\n \x01(\x03H\tR\rminDurationUs\x88\x01\x01\x12+\n\x0fmax_duration_us\x18\x0b \x01(\x03H\nR\rmaxDurationUs\x88\x01\x01\x42\x0b\n\t_trace_idB\r\n\x0b_start_timeB\x0b\n\t_end_timeB\x08\n\x06_limitB\r\n\x0b_page_tokenB\x11\n\x0f_parent_span_idB\x11\n\x0f_operation_nameB\x0f\n\r_service_nameB\x0e\n\x0c_status_codeB\x12\n\x10_min_duration_usB\x12\n\x10_max_duration_us"\x85\x01\n\x10ListSpanResponse\x12\x30\n\x05spans\x18\x01 \x03(\x0b\x32\x1a.chalk.server.v1.ChalkSpanR\x05spans\x12+\n\x0fnext_page_token\x18\x02 \x01(\tH\x00R\rnextPageToken\x88\x01\x01\x42\x12\n\x10_next_page_token"3\n\tSpanFacet\x12\x12\n\x04path\x18\x01 \x01(\tR\x04path\x12\x12\n\x04name\x18\x02 \x01(\tR\x04name"\x16\n\x14GetSpanFacetsRequest"K\n\x15GetSpanFacetsResponse\x12\x32\n\x06\x66\x61\x63\x65ts\x18\x01 \x03(\x0b\x32\x1a.chalk.server.v1.SpanFacetR\x06\x66\x61\x63\x65ts"\xec\x01\n\x19GetSpanFacetValuesRequest\x12\x12\n\x04path\x18\x01 \x01(\tR\x04path\x12>\n\nstart_time\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x00R\tstartTime\x88\x01\x01\x12:\n\x08\x65nd_time\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x01R\x07\x65ndTime\x88\x01\x01\x12\x19\n\x05limit\x18\x04 \x01(\x05H\x02R\x05limit\x88\x01\x01\x42\r\n\x0b_start_timeB\x0b\n\t_end_timeB\x08\n\x06_limit"<\n\x0eSpanFacetValue\x12\x14\n\x05value\x18\x01 \x01(\tR\x05value\x12\x14\n\x05\x63ount\x18\x02 \x01(\x03R\x05\x63ount"U\n\x1aGetSpanFacetValuesResponse\x12\x37\n\x06values\x18\x01 \x03(\x0b\x32\x1f.chalk.server.v1.SpanFacetValueR\x06values"\xeb\x02\n\x19ListSpanAggregatedRequest\x12>\n\nstart_time\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x00R\tstartTime\x88\x01\x01\x12:\n\x08\x65nd_time\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x01R\x07\x65ndTime\x88\x01\x01\x12>\n\rwindow_period\x18\x03 \x01(\x0b\x32\x19.google.protobuf.DurationR\x0cwindowPeriod\x12*\n\x0eoperation_name\x18\x04 \x01(\tH\x02R\roperationName\x88\x01\x01\x12&\n\x0cservice_name\x18\x05 \x01(\tH\x03R\x0bserviceName\x88\x01\x01\x42\r\n\x0b_start_timeB\x0b\n\t_end_timeB\x11\n\x0f_operation_nameB\x0f\n\r_service_name"X\n\x1aListSpanAggregatedResponse\x12:\n\x05\x63hart\x18\x01 \x01(\x0b\x32$.chalk.chart.v1.DenseTimeSeriesChartR\x05\x63hart*k\n\x0f\x43halkStatusCode\x12!\n\x1d\x43HALK_STATUS_CODE_UNSPECIFIED\x10\x00\x12\x18\n\x14\x43HALK_STATUS_CODE_OK\x10\x01\x12\x1b\n\x17\x43HALK_STATUS_CODE_ERROR\x10\x02*\xc2\x01\n\rChalkSpanKind\x12\x1f\n\x1b\x43HALK_SPAN_KIND_UNSPECIFIED\x10\x00\x12\x1a\n\x16\x43HALK_SPAN_KIND_SERVER\x10\x01\x12\x1a\n\x16\x43HALK_SPAN_KIND_CLIENT\x10\x02\x12\x1c\n\x18\x43HALK_SPAN_KIND_PRODUCER\x10\x03\x12\x1c\n\x18\x43HALK_SPAN_KIND_CONSUMER\x10\x04\x12\x1c\n\x18\x43HALK_SPAN_KIND_INTERNAL\x10\x05\x32\xc8\x05\n\x0cTraceService\x12W\n\x08GetTrace\x12 .chalk.server.v1.GetTraceRequest\x1a!.chalk.server.v1.GetTraceResponse"\x06\x90\x02\x01\x80}\x06\x12Z\n\tListTrace\x12!.chalk.server.v1.ListTraceRequest\x1a".chalk.server.v1.ListTraceResponse"\x06\x90\x02\x01\x80}\x06\x12T\n\x07GetSpan\x12\x1f.chalk.server.v1.GetSpanRequest\x1a .chalk.server.v1.GetSpanResponse"\x06\x90\x02\x01\x80}\x06\x12W\n\x08ListSpan\x12 .chalk.server.v1.ListSpanRequest\x1a!.chalk.server.v1.ListSpanResponse"\x06\x90\x02\x01\x80}\x06\x12\x66\n\rGetSpanFacets\x12%.chalk.server.v1.GetSpanFacetsRequest\x1a&.chalk.server.v1.GetSpanFacetsResponse"\x06\x90\x02\x01\x80}\x06\x12u\n\x12GetSpanFacetValues\x12*.chalk.server.v1.GetSpanFacetValuesRequest\x1a+.chalk.server.v1.GetSpanFacetValuesResponse"\x06\x90\x02\x01\x80}\x06\x12u\n\x12ListSpanAggregated\x12*.chalk.server.v1.ListSpanAggregatedRequest\x1a+.chalk.server.v1.ListSpanAggregatedResponse"\x06\x90\x02\x01\x80}\x06\x42\x93\x01\n\x13\x63om.chalk.server.v1B\nTraceProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -48,46 +49,68 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals["_TRACESERVICE"].methods_by_name["GetSpan"]._serialized_options = b"\220\002\001\200}\006"
     _globals["_TRACESERVICE"].methods_by_name["ListSpan"]._options = None
     _globals["_TRACESERVICE"].methods_by_name["ListSpan"]._serialized_options = b"\220\002\001\200}\006"
-    _globals["_CHALKSTATUSCODE"]._serialized_start = 3628
-    _globals["_CHALKSTATUSCODE"]._serialized_end = 3735
-    _globals["_CHALKSPANKIND"]._serialized_start = 3738
-    _globals["_CHALKSPANKIND"]._serialized_end = 3932
-    _globals["_CHALKSPAN"]._serialized_start = 147
-    _globals["_CHALKSPAN"]._serialized_end = 1012
-    _globals["_CHALKSPAN_ATTRIBUTESENTRY"]._serialized_start = 861
-    _globals["_CHALKSPAN_ATTRIBUTESENTRY"]._serialized_end = 922
-    _globals["_CHALKSPAN_RESOURCEATTRIBUTESENTRY"]._serialized_start = 924
-    _globals["_CHALKSPAN_RESOURCEATTRIBUTESENTRY"]._serialized_end = 993
-    _globals["_CHALKSPANSTATUS"]._serialized_start = 1014
-    _globals["_CHALKSPANSTATUS"]._serialized_end = 1140
-    _globals["_CHALKSPANEVENT"]._serialized_start = 1143
-    _globals["_CHALKSPANEVENT"]._serialized_end = 1381
-    _globals["_CHALKSPANEVENT_ATTRIBUTESENTRY"]._serialized_start = 861
-    _globals["_CHALKSPANEVENT_ATTRIBUTESENTRY"]._serialized_end = 922
-    _globals["_CHALKSPANLINK"]._serialized_start = 1384
-    _globals["_CHALKSPANLINK"]._serialized_end = 1594
-    _globals["_CHALKSPANLINK_ATTRIBUTESENTRY"]._serialized_start = 861
-    _globals["_CHALKSPANLINK_ATTRIBUTESENTRY"]._serialized_end = 922
-    _globals["_CHALKTRACE"]._serialized_start = 1597
-    _globals["_CHALKTRACE"]._serialized_end = 1950
-    _globals["_CHALKTRACE_RESOURCEATTRIBUTESENTRY"]._serialized_start = 924
-    _globals["_CHALKTRACE_RESOURCEATTRIBUTESENTRY"]._serialized_end = 993
-    _globals["_GETTRACEREQUEST"]._serialized_start = 1952
-    _globals["_GETTRACEREQUEST"]._serialized_end = 2071
-    _globals["_GETTRACERESPONSE"]._serialized_start = 2073
-    _globals["_GETTRACERESPONSE"]._serialized_end = 2142
-    _globals["_LISTTRACEREQUEST"]._serialized_start = 2145
-    _globals["_LISTTRACEREQUEST"]._serialized_end = 2508
-    _globals["_LISTTRACERESPONSE"]._serialized_start = 2511
-    _globals["_LISTTRACERESPONSE"]._serialized_end = 2648
-    _globals["_GETSPANREQUEST"]._serialized_start = 2650
-    _globals["_GETSPANREQUEST"]._serialized_end = 2718
-    _globals["_GETSPANRESPONSE"]._serialized_start = 2720
-    _globals["_GETSPANRESPONSE"]._serialized_end = 2785
-    _globals["_LISTSPANREQUEST"]._serialized_start = 2788
-    _globals["_LISTSPANREQUEST"]._serialized_end = 3490
-    _globals["_LISTSPANRESPONSE"]._serialized_start = 3493
-    _globals["_LISTSPANRESPONSE"]._serialized_end = 3626
-    _globals["_TRACESERVICE"]._serialized_start = 3935
-    _globals["_TRACESERVICE"]._serialized_end = 4305
+    _globals["_TRACESERVICE"].methods_by_name["GetSpanFacets"]._options = None
+    _globals["_TRACESERVICE"].methods_by_name["GetSpanFacets"]._serialized_options = b"\220\002\001\200}\006"
+    _globals["_TRACESERVICE"].methods_by_name["GetSpanFacetValues"]._options = None
+    _globals["_TRACESERVICE"].methods_by_name["GetSpanFacetValues"]._serialized_options = b"\220\002\001\200}\006"
+    _globals["_TRACESERVICE"].methods_by_name["ListSpanAggregated"]._options = None
+    _globals["_TRACESERVICE"].methods_by_name["ListSpanAggregated"]._serialized_options = b"\220\002\001\200}\006"
+    _globals["_CHALKSTATUSCODE"]._serialized_start = 4669
+    _globals["_CHALKSTATUSCODE"]._serialized_end = 4776
+    _globals["_CHALKSPANKIND"]._serialized_start = 4779
+    _globals["_CHALKSPANKIND"]._serialized_end = 4973
+    _globals["_CHALKSPAN"]._serialized_start = 190
+    _globals["_CHALKSPAN"]._serialized_end = 1055
+    _globals["_CHALKSPAN_ATTRIBUTESENTRY"]._serialized_start = 904
+    _globals["_CHALKSPAN_ATTRIBUTESENTRY"]._serialized_end = 965
+    _globals["_CHALKSPAN_RESOURCEATTRIBUTESENTRY"]._serialized_start = 967
+    _globals["_CHALKSPAN_RESOURCEATTRIBUTESENTRY"]._serialized_end = 1036
+    _globals["_CHALKSPANSTATUS"]._serialized_start = 1057
+    _globals["_CHALKSPANSTATUS"]._serialized_end = 1183
+    _globals["_CHALKSPANEVENT"]._serialized_start = 1186
+    _globals["_CHALKSPANEVENT"]._serialized_end = 1424
+    _globals["_CHALKSPANEVENT_ATTRIBUTESENTRY"]._serialized_start = 904
+    _globals["_CHALKSPANEVENT_ATTRIBUTESENTRY"]._serialized_end = 965
+    _globals["_CHALKSPANLINK"]._serialized_start = 1427
+    _globals["_CHALKSPANLINK"]._serialized_end = 1637
+    _globals["_CHALKSPANLINK_ATTRIBUTESENTRY"]._serialized_start = 904
+    _globals["_CHALKSPANLINK_ATTRIBUTESENTRY"]._serialized_end = 965
+    _globals["_CHALKTRACE"]._serialized_start = 1640
+    _globals["_CHALKTRACE"]._serialized_end = 1993
+    _globals["_CHALKTRACE_RESOURCEATTRIBUTESENTRY"]._serialized_start = 967
+    _globals["_CHALKTRACE_RESOURCEATTRIBUTESENTRY"]._serialized_end = 1036
+    _globals["_GETTRACEREQUEST"]._serialized_start = 1995
+    _globals["_GETTRACEREQUEST"]._serialized_end = 2114
+    _globals["_GETTRACERESPONSE"]._serialized_start = 2116
+    _globals["_GETTRACERESPONSE"]._serialized_end = 2185
+    _globals["_LISTTRACEREQUEST"]._serialized_start = 2188
+    _globals["_LISTTRACEREQUEST"]._serialized_end = 2551
+    _globals["_LISTTRACERESPONSE"]._serialized_start = 2554
+    _globals["_LISTTRACERESPONSE"]._serialized_end = 2691
+    _globals["_GETSPANREQUEST"]._serialized_start = 2693
+    _globals["_GETSPANREQUEST"]._serialized_end = 2761
+    _globals["_GETSPANRESPONSE"]._serialized_start = 2763
+    _globals["_GETSPANRESPONSE"]._serialized_end = 2828
+    _globals["_LISTSPANREQUEST"]._serialized_start = 2831
+    _globals["_LISTSPANREQUEST"]._serialized_end = 3533
+    _globals["_LISTSPANRESPONSE"]._serialized_start = 3536
+    _globals["_LISTSPANRESPONSE"]._serialized_end = 3669
+    _globals["_SPANFACET"]._serialized_start = 3671
+    _globals["_SPANFACET"]._serialized_end = 3722
+    _globals["_GETSPANFACETSREQUEST"]._serialized_start = 3724
+    _globals["_GETSPANFACETSREQUEST"]._serialized_end = 3746
+    _globals["_GETSPANFACETSRESPONSE"]._serialized_start = 3748
+    _globals["_GETSPANFACETSRESPONSE"]._serialized_end = 3823
+    _globals["_GETSPANFACETVALUESREQUEST"]._serialized_start = 3826
+    _globals["_GETSPANFACETVALUESREQUEST"]._serialized_end = 4062
+    _globals["_SPANFACETVALUE"]._serialized_start = 4064
+    _globals["_SPANFACETVALUE"]._serialized_end = 4124
+    _globals["_GETSPANFACETVALUESRESPONSE"]._serialized_start = 4126
+    _globals["_GETSPANFACETVALUESRESPONSE"]._serialized_end = 4211
+    _globals["_LISTSPANAGGREGATEDREQUEST"]._serialized_start = 4214
+    _globals["_LISTSPANAGGREGATEDREQUEST"]._serialized_end = 4577
+    _globals["_LISTSPANAGGREGATEDRESPONSE"]._serialized_start = 4579
+    _globals["_LISTSPANAGGREGATEDRESPONSE"]._serialized_end = 4667
+    _globals["_TRACESERVICE"]._serialized_start = 4976
+    _globals["_TRACESERVICE"]._serialized_end = 5688
 # @@protoc_insertion_point(module_scope)

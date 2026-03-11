@@ -6010,6 +6010,112 @@ class Sve2(System.Runtime.Intrinsics.Arm.Sve, metaclass=abc.ABCMeta):
         ...
 
     @staticmethod
+    @overload
+    def gather_vector_byte_zero_extend_non_temporal(mask: System.Numerics.Vector[int], address: typing.Any, offsets: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def gather_vector_byte_zero_extend_non_temporal(mask: System.Numerics.Vector[int], addresses: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def gather_vector_int_16_sign_extend_non_temporal(mask: System.Numerics.Vector[int], address: typing.Any, indices: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def gather_vector_int_16_sign_extend_non_temporal(mask: System.Numerics.Vector[int], addresses: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        ...
+
+    @staticmethod
+    def gather_vector_int_16_with_byte_offsets_sign_extend_non_temporal(mask: System.Numerics.Vector[int], address: typing.Any, offsets: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def gather_vector_int_32_sign_extend_non_temporal(mask: System.Numerics.Vector[int], address: typing.Any, indices: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def gather_vector_int_32_sign_extend_non_temporal(mask: System.Numerics.Vector[int], addresses: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        ...
+
+    @staticmethod
+    def gather_vector_int_32_with_byte_offsets_sign_extend_non_temporal(mask: System.Numerics.Vector[int], address: typing.Any, offsets: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def gather_vector_non_temporal(mask: System.Numerics.Vector[float], address: typing.Any, indices: System.Numerics.Vector[int]) -> System.Numerics.Vector[float]:
+        ...
+
+    @staticmethod
+    @overload
+    def gather_vector_non_temporal(mask: System.Numerics.Vector[int], address: typing.Any, indices: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def gather_vector_non_temporal(mask: System.Numerics.Vector[float], addresses: System.Numerics.Vector[int]) -> System.Numerics.Vector[float]:
+        ...
+
+    @staticmethod
+    @overload
+    def gather_vector_non_temporal(mask: System.Numerics.Vector[int], addresses: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def gather_vector_s_byte_sign_extend_non_temporal(mask: System.Numerics.Vector[int], address: typing.Any, offsets: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def gather_vector_s_byte_sign_extend_non_temporal(mask: System.Numerics.Vector[int], addresses: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        ...
+
+    @staticmethod
+    def gather_vector_u_int_16_with_byte_offsets_zero_extend_non_temporal(mask: System.Numerics.Vector[int], address: typing.Any, offsets: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def gather_vector_u_int_16_zero_extend_non_temporal(mask: System.Numerics.Vector[int], address: typing.Any, indices: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def gather_vector_u_int_16_zero_extend_non_temporal(mask: System.Numerics.Vector[int], addresses: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        ...
+
+    @staticmethod
+    def gather_vector_u_int_32_with_byte_offsets_zero_extend_non_temporal(mask: System.Numerics.Vector[int], address: typing.Any, offsets: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def gather_vector_u_int_32_zero_extend_non_temporal(mask: System.Numerics.Vector[int], address: typing.Any, indices: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def gather_vector_u_int_32_zero_extend_non_temporal(mask: System.Numerics.Vector[int], addresses: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def gather_vector_with_byte_offsets_non_temporal(mask: System.Numerics.Vector[float], address: typing.Any, offsets: System.Numerics.Vector[int]) -> System.Numerics.Vector[float]:
+        ...
+
+    @staticmethod
+    @overload
+    def gather_vector_with_byte_offsets_non_temporal(mask: System.Numerics.Vector[int], address: typing.Any, offsets: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        ...
+
+    @staticmethod
     def interleaving_xor_even_odd(odd: System.Numerics.Vector[int], left_even: System.Numerics.Vector[int], right_odd: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
         ...
 

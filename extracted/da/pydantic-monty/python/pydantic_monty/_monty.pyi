@@ -11,13 +11,16 @@ __all__ = [
     'Monty',
     'MontyRepl',
     'MontyComplete',
-    'MontySnapshot',
-    'MontyFutureSnapshot',
+    'FunctionSnapshot',
+    'NameLookupSnapshot',
+    'FutureSnapshot',
     'MontyError',
     'MontySyntaxError',
     'MontyRuntimeError',
     'MontyTypingError',
     'Frame',
+    'load_snapshot',
+    'load_repl_snapshot',
 ]
 __version__: str
 
@@ -37,7 +40,6 @@ class Monty:
         *,
         script_name: str = 'main.py',
         inputs: list[str] | None = None,
-        external_functions: list[str] | None = None,
         type_check: bool = False,
         type_check_stubs: str | None = None,
         dataclass_registry: list[type] | None = None,
@@ -49,7 +51,6 @@ class Monty:
             code: Python code to execute
             script_name: Name used in tracebacks and error messages
             inputs: List of input variable names available in the code
-            external_functions: List of external function names the code can call
             type_check: Whether to perform type checking on the code (default: True)
             type_check_stubs: Optional code to prepend before type checking,
                 e.g. with input variable declarations or external function signatures
@@ -95,7 +96,7 @@ class Monty:
         Arguments:
             inputs: Dict of input variable values (must match names from __init__)
             limits: Optional resource limits configuration
-            external_functions: Dict of external function callbacks (must match names from __init__)
+            external_functions: Dict of external function callbacks
             print_callback: Optional callback for print output
             os: Optional callback for OS calls.
                 Called with (function_name, args) where function_name is like 'Path.exists'
@@ -115,7 +116,7 @@ class Monty:
         inputs: dict[str, Any] | None = None,
         limits: ResourceLimits | None = None,
         print_callback: Callable[[Literal['stdout'], str], None] | None = None,
-    ) -> MontySnapshot | MontyFutureSnapshot | MontyComplete:
+    ) -> FunctionSnapshot | NameLookupSnapshot | FutureSnapshot | MontyComplete:
         """
         Start the code execution and return a progress object, or completion.
 
@@ -129,8 +130,9 @@ class Monty:
             print_callback: Optional callback for print output
 
         Returns:
-            MontySnapshot if an external function call is pending,
-            MontyFutureSnapshot if futures need to be resolved,
+            FunctionSnapshot if an external function call is pending,
+            NameLookupSnapshot if more futures need to be resolved,
+            FutureSnapshot if futures need to be resolved,
             MontyComplete if execution finished without external calls.
 
         Raises:
@@ -156,7 +158,7 @@ class Monty:
         data: bytes,
         *,
         dataclass_registry: list[type] | None = None,
-    ) -> 'Monty':
+    ) -> Monty:
         """
         Deserialize a Monty instance from binary format.
 
@@ -194,40 +196,72 @@ class MontyRepl:
     """
     Incremental no-replay REPL session.
 
-    Each `feed()` call compiles and executes only the provided snippet against
-    preserved heap/global state.
+    Create with `MontyRepl()` then call `feed_run()` to execute snippets
+    incrementally against persistent heap and namespace state.
     """
 
-    @staticmethod
-    def create(
-        code: str,
+    def __new__(
+        cls,
         *,
         script_name: str = 'main.py',
-        inputs: list[str] | None = None,
-        external_functions: list[str] | None = None,
-        start_inputs: dict[str, Any] | None = None,
         limits: ResourceLimits | None = None,
-        print_callback: Callable[[Literal['stdout'], str], None] | None = None,
         dataclass_registry: list[type] | None = None,
-    ) -> tuple['MontyRepl', Any]:
+    ) -> Self:
         """
-        Create a REPL session directly from source code.
+        Create an empty REPL session ready to receive snippets via `feed_run()`.
 
-        Returns `(repl, output)` where `output` is the initial execution result.
+        No code is parsed or executed at construction time.
         """
 
     @property
     def script_name(self) -> str:
         """The name of the script being executed."""
 
-    def feed(
+    def register_dataclass(self, cls: type) -> None:
+        """
+        Register a dataclass type for proper isinstance() support on output.
+        """
+
+    def feed_run(
         self,
         code: str,
         *,
+        inputs: dict[str, Any] | None = None,
+        external_functions: dict[str, Callable[..., Any]] | None = None,
         print_callback: Callable[[Literal['stdout'], str], None] | None = None,
+        os: Callable[[str, tuple[Any, ...], dict[str, Any]], Any] | None = None,
     ) -> Any:
         """
         Execute one incremental snippet and return its output.
+
+        When `inputs` is provided, the key-value pairs are injected into
+        the REPL namespace before executing the snippet.
+
+        When `external_functions` is provided, external function calls and
+        name lookups are dispatched to the provided callables — matching the
+        behavior of `Monty.run(external_functions=...)`.
+        """
+
+    def feed_start(
+        self,
+        code: str,
+        *,
+        inputs: dict[str, Any] | None = None,
+        print_callback: Callable[[Literal['stdout'], str], None] | None = None,
+    ) -> FunctionSnapshot | NameLookupSnapshot | FutureSnapshot | MontyComplete:
+        """
+        Start executing an incremental snippet, yielding snapshots for external calls.
+
+        Unlike `feed_run()`, which handles external function dispatch internally,
+        `feed_start()` returns a snapshot object whenever the code needs an external
+        function call, OS call, name lookup, or future resolution. The caller provides
+        the result via `snapshot.resume(...)`, which returns the next snapshot or
+        `MontyComplete`.
+
+        This enables the same iterative start/resume pattern used by `Monty.start()`,
+        including support for async external functions via `FutureSnapshot`.
+
+        On completion or error, the REPL state is automatically restored.
         """
 
     def dump(self) -> bytes:
@@ -237,13 +271,12 @@ class MontyRepl:
     def load(
         data: bytes,
         *,
-        print_callback: Callable[[Literal['stdout'], str], None] | None = None,
         dataclass_registry: list[type] | None = None,
-    ) -> 'MontyRepl':
+    ) -> MontyRepl:
         """Restore a REPL session from bytes."""
 
 @final
-class MontySnapshot:
+class FunctionSnapshot:
     """
     Represents a paused execution waiting for an external function call return value.
 
@@ -258,6 +291,10 @@ class MontySnapshot:
     @property
     def is_os_function(self) -> bool:
         """Whether this snapshot is for an OS function call (e.g., Path.stat)."""
+
+    @property
+    def is_method_call(self) -> bool:
+        """Whether this snapshot is for a dataclass method call (first arg is `self`)."""
 
     @property
     def function_name(self) -> str | OsFunction:
@@ -279,10 +316,10 @@ class MontySnapshot:
         """The unique identifier for this external function call."""
 
     @overload
-    def resume(self, *, return_value: Any) -> MontySnapshot | MontyFutureSnapshot | MontyComplete:
+    def resume(self, *, return_value: Any) -> FunctionSnapshot | NameLookupSnapshot | FutureSnapshot | MontyComplete:
         """Resume execution with a return value from the external function.
 
-        `resume` may only be called once on each MontySnapshot instance.
+        `resume` may only be called once on each FunctionSnapshot instance.
 
         The GIL is released allowing parallel execution.
 
@@ -292,8 +329,9 @@ class MontySnapshot:
             future: A future to await in the Monty interpreter.
 
         Returns:
-            MontySnapshot if another external function call is pending,
-            MontyFutureSnapshot if futures need to be resolved,
+            FunctionSnapshot if another external function call is pending,
+            FutureSnapshot if another name lookup is pending,
+            FutureSnapshot if futures need to be resolved,
             MontyComplete if execution finished.
 
         Raises:
@@ -303,14 +341,16 @@ class MontySnapshot:
         """
 
     @overload
-    def resume(self, *, exception: BaseException) -> MontySnapshot | MontyFutureSnapshot | MontyComplete:
+    def resume(
+        self, *, exception: BaseException
+    ) -> FunctionSnapshot | NameLookupSnapshot | FutureSnapshot | MontyComplete:
         """Resume execution by raising the exception in the Monty interpreter.
 
         See docstring for the first overload for more information.
         """
 
     @overload
-    def resume(self, *, future: EllipsisType) -> MontySnapshot | MontyFutureSnapshot | MontyComplete:
+    def resume(self, *, future: EllipsisType) -> FunctionSnapshot | NameLookupSnapshot | FutureSnapshot | MontyComplete:
         """Resume execution by returning a pending future.
 
         No result is provided, we simply resume execution stating that a future is pending.
@@ -320,52 +360,91 @@ class MontySnapshot:
 
     def dump(self) -> bytes:
         """
-        Serialize the MontySnapshot instance to a binary format.
+        Serialize the FunctionSnapshot instance to a binary format.
 
-        The serialized data can be stored and later restored with `MontySnapshot.load()`.
+        The serialized data can be restored with `load_snapshot()` or `load_repl_snapshot()`.
         This allows suspending execution and resuming later, potentially in a different process.
 
         Note: The `print_callback` is not serialized and must be re-provided via
         `set_print_callback()` after loading if print output is needed.
 
         Returns:
-            Bytes containing the serialized MontySnapshot instance.
+            Bytes containing the serialized FunctionSnapshot instance.
 
         Raises:
             ValueError: If serialization fails.
             RuntimeError: If the progress has already been resumed.
         """
 
-    @staticmethod
-    def load(
-        data: bytes,
-        *,
-        print_callback: Callable[[Literal['stdout'], str], None] | None = None,
-        dataclass_registry: list[type] | None = None,
-    ) -> 'MontySnapshot':
-        """
-        Deserialize a MontySnapshot instance from binary format.
+    def __repr__(self) -> str: ...
 
-        Note: The `print_callback` is not preserved during serialization and must be
-        re-provided as a keyword argument if print output is needed.
+@final
+class NameLookupSnapshot:
+    """
+    Represents a paused execution waiting for multiple futures to be resolved.
+
+    Contains information about the pending futures and allows resuming execution
+    with the results.
+    """
+
+    @property
+    def script_name(self) -> str:
+        """The name of the script being executed."""
+
+    @property
+    def variable_name(self) -> str:
+        """The name of the variable being looked up."""
+
+    def resume(
+        self,
+        *,
+        value: Any | None = None,
+    ) -> FunctionSnapshot | NameLookupSnapshot | FutureSnapshot | MontyComplete:
+        """Resume execution with result the value from a name lookup, if any.
+
+        If no `value` is passed, a `NameError` is raised.
+
+        `resume` may only be called once on each NameLookupSnapshot instance.
+
+        The GIL is released allowing parallel execution.
 
         Arguments:
-            data: The serialized MontySnapshot data from `dump()`
-            print_callback: Optional callback for print output
-            dataclass_registry: Optional list of dataclass types to register for proper
-                isinstance() support on output, see `register_dataclass()` above.
+            value: The value from the name lookup, if any.
 
         Returns:
-            A new MontySnapshot instance.
+            FunctionSnapshot if an external function call is pending,
+            NameLookupSnapshot if more futures need to be resolved,
+            FutureSnapshot if another name lookup is pending,
+            MontyComplete if execution finished.
 
         Raises:
-            ValueError: If deserialization fails.
+            TypeError: If result dict has invalid keys.
+            RuntimeError: If execution has already completed.
+            MontyRuntimeError: If the code raises an exception during execution
+        """
+
+    def dump(self) -> bytes:
+        """
+        Serialize the NameLookupSnapshot instance to a binary format.
+
+        The serialized data can be restored with `load_snapshot()` or `load_repl_snapshot()`.
+        This allows suspending execution and resuming later, potentially in a different process.
+
+        Note: The `print_callback` is not serialized and must be re-provided via
+        `set_print_callback()` after loading if print output is needed.
+
+        Returns:
+            Bytes containing the serialized NameLookupSnapshot instance.
+
+        Raises:
+            ValueError: If serialization fails.
+            RuntimeError: If the progress has already been resumed.
         """
 
     def __repr__(self) -> str: ...
 
 @final
-class MontyFutureSnapshot:
+class FutureSnapshot:
     """
     Represents a paused execution waiting for multiple futures to be resolved.
 
@@ -387,10 +466,10 @@ class MontyFutureSnapshot:
     def resume(
         self,
         results: dict[int, ExternalResult],
-    ) -> MontySnapshot | MontyFutureSnapshot | MontyComplete:
+    ) -> FunctionSnapshot | NameLookupSnapshot | FutureSnapshot | MontyComplete:
         """Resume execution with results for one or more futures.
 
-        `resume` may only be called once on each MontyFutureSnapshot instance.
+        `resume` may only be called once on each FutureSnapshot instance.
 
         The GIL is released allowing parallel execution.
 
@@ -399,8 +478,9 @@ class MontyFutureSnapshot:
                 either 'return_value' or 'exception' key (not both).
 
         Returns:
-            MontySnapshot if an external function call is pending,
-            MontyFutureSnapshot if more futures need to be resolved,
+            FunctionSnapshot if an external function call is pending,
+            NameLookupSnapshot if more futures need to be resolved,
+            FutureSnapshot if more futures need to be resolved,
             MontyComplete if execution finished.
 
         Raises:
@@ -411,46 +491,20 @@ class MontyFutureSnapshot:
 
     def dump(self) -> bytes:
         """
-        Serialize the MontyFutureSnapshot instance to a binary format.
+        Serialize the FutureSnapshot instance to a binary format.
 
-        The serialized data can be stored and later restored with `MontyFutureSnapshot.load()`.
+        The serialized data can be restored with `load_snapshot()` or `load_repl_snapshot()`.
         This allows suspending execution and resuming later, potentially in a different process.
 
         Note: The `print_callback` is not serialized and must be re-provided via
         `set_print_callback()` after loading if print output is needed.
 
         Returns:
-            Bytes containing the serialized MontyFutureSnapshot instance.
+            Bytes containing the serialized FutureSnapshot instance.
 
         Raises:
             ValueError: If serialization fails.
             RuntimeError: If the progress has already been resumed.
-        """
-
-    @staticmethod
-    def load(
-        data: bytes,
-        *,
-        print_callback: Callable[[Literal['stdout'], str], None] | None = None,
-        dataclass_registry: list[type] | None = None,
-    ) -> 'MontyFutureSnapshot':
-        """
-        Deserialize a MontyFutureSnapshot instance from binary format.
-
-        Note: The `print_callback` is not preserved during serialization and must be
-        re-provided as a keyword argument if print output is needed.
-
-        Arguments:
-            data: The serialized MontyFutureSnapshot data from `dump()`
-            print_callback: Optional callback for print output
-            dataclass_registry: Optional list of dataclass types to register for proper
-                isinstance() support on output, see `register_dataclass()` above.
-
-        Returns:
-            A new MontyFutureSnapshot instance.
-
-        Raises:
-            ValueError: If deserialization fails.
         """
 
     def __repr__(self) -> str: ...
@@ -573,3 +627,51 @@ class Frame:
 
     def dict(self) -> dict[str, int | str | None]:
         """dict of attributes."""
+
+def load_snapshot(
+    data: bytes,
+    *,
+    print_callback: Callable[[Literal['stdout'], str], None] | None = None,
+    dataclass_registry: list[type] | None = None,
+) -> FunctionSnapshot | NameLookupSnapshot | FutureSnapshot:
+    """Load a non-REPL snapshot from serialized bytes.
+
+    Auto-detects the snapshot type (FunctionSnapshot, NameLookupSnapshot, or
+    FutureSnapshot) from the serialized data.
+
+    Arguments:
+        data: Serialized snapshot bytes from `.dump()`
+        print_callback: Optional callback for print output
+        dataclass_registry: Optional list of dataclass types to register
+
+    Returns:
+        The deserialized snapshot, ready to be resumed.
+
+    Raises:
+        ValueError: If deserialization fails or data contains a REPL snapshot
+            (use `load_repl_snapshot` for those).
+    """
+
+def load_repl_snapshot(
+    data: bytes,
+    *,
+    print_callback: Callable[[Literal['stdout'], str], None] | None = None,
+    dataclass_registry: list[type] | None = None,
+) -> tuple[FunctionSnapshot | NameLookupSnapshot | FutureSnapshot, MontyRepl]:
+    """Load a REPL snapshot from serialized bytes.
+
+    Returns both the snapshot and a reconstructed `MontyRepl` session.
+    The snapshot's REPL variant is wired to the returned `MontyRepl`,
+    so resuming the snapshot will update the REPL state.
+
+    Arguments:
+        data: Serialized snapshot bytes from `.dump()` on a REPL snapshot
+        print_callback: Optional callback for print output
+        dataclass_registry: Optional list of dataclass types to register
+
+    Returns:
+        A tuple of (snapshot, MontyRepl).
+
+    Raises:
+        ValueError: If deserialization fails.
+    """

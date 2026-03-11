@@ -56,7 +56,8 @@ class TestPolicyDto(unittest.TestCase):
                 open_issues_count = 56,
                 definition_time = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
                 source = '',
-                remediation = ''
+                remediation = '',
+                secret_type = 'Unknown'
             )
         else:
             return PolicyDto(

@@ -8,10 +8,18 @@ from abc import (
     abstractmethod,
 )
 from chalk._gen.chalk.server.v1.feature_metadata_pb2 import (
+    DeleteFeatureObservationsRequest,
+    DeleteFeatureObservationsResponse,
+    DeleteIncrementalProgressRequest,
+    DeleteIncrementalProgressResponse,
     DropFeatureVersionsRequest,
     DropFeatureVersionsResponse,
     FeatureMigrateTypeRequest,
     FeatureMigrateTypeResponse,
+    GetIncrementalProgressRequest,
+    GetIncrementalProgressResponse,
+    SetIncrementalProgressRequest,
+    SetIncrementalProgressResponse,
 )
 from grpc import (
     Channel,
@@ -30,6 +38,22 @@ class FeatureMetadataServiceStub:
         FeatureMigrateTypeRequest,
         FeatureMigrateTypeResponse,
     ]
+    DeleteFeatureObservations: UnaryUnaryMultiCallable[
+        DeleteFeatureObservationsRequest,
+        DeleteFeatureObservationsResponse,
+    ]
+    GetIncrementalProgress: UnaryUnaryMultiCallable[
+        GetIncrementalProgressRequest,
+        GetIncrementalProgressResponse,
+    ]
+    SetIncrementalProgress: UnaryUnaryMultiCallable[
+        SetIncrementalProgressRequest,
+        SetIncrementalProgressResponse,
+    ]
+    DeleteIncrementalProgress: UnaryUnaryMultiCallable[
+        DeleteIncrementalProgressRequest,
+        DeleteIncrementalProgressResponse,
+    ]
 
 class FeatureMetadataServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -44,5 +68,29 @@ class FeatureMetadataServiceServicer(metaclass=ABCMeta):
         request: FeatureMigrateTypeRequest,
         context: ServicerContext,
     ) -> FeatureMigrateTypeResponse: ...
+    @abstractmethod
+    def DeleteFeatureObservations(
+        self,
+        request: DeleteFeatureObservationsRequest,
+        context: ServicerContext,
+    ) -> DeleteFeatureObservationsResponse: ...
+    @abstractmethod
+    def GetIncrementalProgress(
+        self,
+        request: GetIncrementalProgressRequest,
+        context: ServicerContext,
+    ) -> GetIncrementalProgressResponse: ...
+    @abstractmethod
+    def SetIncrementalProgress(
+        self,
+        request: SetIncrementalProgressRequest,
+        context: ServicerContext,
+    ) -> SetIncrementalProgressResponse: ...
+    @abstractmethod
+    def DeleteIncrementalProgress(
+        self,
+        request: DeleteIncrementalProgressRequest,
+        context: ServicerContext,
+    ) -> DeleteIncrementalProgressResponse: ...
 
 def add_FeatureMetadataServiceServicer_to_server(servicer: FeatureMetadataServiceServicer, server: Server) -> None: ...

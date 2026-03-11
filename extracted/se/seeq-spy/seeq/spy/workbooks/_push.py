@@ -3,29 +3,61 @@ from __future__ import annotations
 import datetime
 import logging
 import types
+from pathlib import Path
 from typing import List, Optional, Union
 
 import numpy as np
 import pandas as pd
 
-from seeq.base.seeq_names import SeeqNames
-from seeq.sdk import *
 from seeq.spy import _common
 from seeq.spy import _login
 from seeq.spy import _metadata
 from seeq.spy._context import WorkbookContext
 from seeq.spy._errors import *
-from seeq.spy._redaction import safely
 from seeq.spy._session import Session
 from seeq.spy._status import Status
 from seeq.spy.workbooks import _folder
 from seeq.spy.workbooks import _pull
 from seeq.spy.workbooks import _user
 from seeq.spy.workbooks._annotation import Annotation
-from seeq.spy.workbooks._context import WorkbookPushContext
+from seeq.spy.workbooks._context import WorkbookPushContext, WorkbookPushMode
 from seeq.spy.workbooks._item import Item, ItemMap
 from seeq.spy.workbooks._template import ItemTemplate
 from seeq.spy.workbooks._workbook import Workbook, WorkbookList, DatasourceMapList
+
+MAX_PUSH_ERRORS_TO_DISPLAY = 10
+
+
+def _format_workbook_push_errors(push_errors: set, context: WorkbookPushContext, status: Status) -> str:
+    sorted_errors = sorted(list(push_errors))
+    errors_remaining_budget = MAX_PUSH_ERRORS_TO_DISPLAY - context.errors_displayed_count
+
+    if errors_remaining_budget > 0:
+        errors_to_display = sorted_errors[:errors_remaining_budget]
+        context.errors_displayed_count += len(errors_to_display)
+
+        errors_str = '\n'.join(errors_to_display)
+
+        total_undisplayed = len(sorted_errors) - len(errors_to_display)
+        if total_undisplayed > 0 or context.errors_displayed_count >= MAX_PUSH_ERRORS_TO_DISPLAY:
+            if status.log_filename is not None:
+                additional_message = (
+                    f'\n\n{total_undisplayed} additional error(s) from this workbook not shown above. '
+                    f'Check the log file for all errors: {status.log_filename}')
+            else:
+                additional_message = (
+                    f'\n\n{total_undisplayed} additional error(s) from this workbook not shown above. '
+                    f'To see all errors, specify a log file by setting verbose=True')
+            errors_str += additional_message
+
+        return errors_str
+    else:
+        if status.log_filename is not None:
+            return (f'{len(sorted_errors)} error(s) occurred but error display limit reached. '
+                    f'Check the log file for all errors: {status.log_filename}')
+        else:
+            return (f'{len(sorted_errors)} error(s) occurred but error display limit reached. '
+                    f'To see all errors, specify a log file by setting verbose=True')
 
 
 @Status.top_level_spy_function()
@@ -36,7 +68,8 @@ def push(
     owner: Optional[str] = None,
     label: Optional[str] = None,
     datasource: Optional[str] = None,
-    datasource_map_folder: Optional[str] = None,
+    datasource_map_folder: Optional[Union[str, Path]] = None,
+    mode: str = WorkbookPushMode.NORMAL,
     use_full_path: bool = False,
     access_control: Optional[str] = None,
     override_max_interp: bool = False,
@@ -124,7 +157,7 @@ def push(
         If you instead want access control for your items to be inherited from the
         workbook they are scoped to, specify `spy.INHERIT_FROM_WORKBOOK`.
 
-    datasource_map_folder : str, default None
+    datasource_map_folder : {str, pathlib.Path}, default None
         A folder containing Datasource_Map_Xxxx_Yyyy_Zzzz.json files that can
         provides a means to map stored items (i.e., those originating from
         external datasources like OSIsoft PI) from one server to another or
@@ -132,6 +165,16 @@ def push(
         set of datasource map files is created during a pull/save sequence, and
         you can copy these default files to a folder, alter them, and then
         specify the folder as this argument.
+
+    mode : {'normal', 'in-place datasource swap'}, default 'normal'
+        The push mode to use. The default is 'normal', which performs a full
+        push of all workbook content and inventory. When set to 'in-place
+        datasource swap', the push operation performs minimal updates to effect
+        a datasource swap using the provided datasource_map_folder. This mode
+        requires datasource_map_folder to be specified and enforces specific
+        parameter constraints (path, owner, label, and datasource must be None;
+        reconcile_inventory_by must be 'id'; global_inventory must be
+        'overwrite' or 'do not touch').
 
     use_full_path : bool, default False
         If True, the original full path for an item is reconstructed, as
@@ -220,14 +263,16 @@ def push(
         items "compatible" with the spy.push(metadata) function, which allows
         you to use spy.Tree() to make modifications to an asset tree.
 
-    global_inventory : {'copy global', 'copy local', 'always reuse'}, default 'copy global'
+    global_inventory : {'copy global', 'copy local', 'overwrite', 'do not touch'}, default 'copy global'
         Determines how SPy handles global inventory items, especially in
         conjunction with a label argument. 'copy global' will cause different
         global items to be created if their labels differ. If no label is
         specified, the existing global item will be reused/updated if possible.
         'copy local' will scope the global items to the pushed workbook,
-        making copies for different workbooks if necessary. 'always reuse' will
-        use an existing global item if possible and ignore the label.
+        making copies for different workbooks if necessary. 'overwrite' will
+        use an existing global item if possible and ignore the label. 'do not touch'
+        will skip processing global inventory entirely, using the items as-is
+        without any modifications or datasource mapping.
 
     item_map : dict
         A dictionary that "pre-maps" original IDs to new IDs. This is useful
@@ -327,8 +372,13 @@ def push(
         raise SPyValueError('reconcile_inventory_by must be either "id" or "name"')
 
     if global_inventory is not None:
-        if global_inventory not in ['copy global', 'copy local', 'always reuse']:
-            raise SPyValueError('global_inventory must be either "copy global", "copy local", or "always reuse"')
+        # For compatibility with older versions
+        if global_inventory == 'always reuse':
+            global_inventory = 'overwrite'
+
+        if global_inventory not in ['copy global', 'copy local', 'overwrite', 'do not touch']:
+            raise SPyValueError(
+                'global_inventory must be either "copy global", "copy local", "overwrite", or "do not touch"')
 
         if scope_globals_to_workbook is not None:
             raise SPyValueError('scope_globals_to_workbook argument cannot be combined with global_inventory. Use '
@@ -344,6 +394,45 @@ def push(
                 global_inventory = 'copy global'
         else:
             global_inventory = 'copy global'
+
+    # Validate mode parameter
+    if mode not in ['normal', 'in-place datasource swap']:
+        raise SPyValueError('mode must be either "normal" or "in-place datasource swap"')
+
+    # Validate in-place datasource swap mode requirements
+    if mode == 'in-place datasource swap':
+        if datasource_map_folder is None:
+            raise SPyValueError('datasource_map_folder must be specified when mode="in-place datasource swap"')
+        if path is not None:
+            raise SPyValueError('path must be None when mode="in-place datasource swap"')
+        if owner is not None:
+            raise SPyValueError('owner must be None when mode="in-place datasource swap"')
+        if label is not None:
+            raise SPyValueError('label must be None when mode="in-place datasource swap"')
+        if datasource is not None:
+            raise SPyValueError('datasource must be None when mode="in-place datasource swap"')
+        if use_full_path is not False:
+            raise SPyValueError('use_full_path must be False when mode="in-place datasource swap"')
+        if access_control is not None:
+            raise SPyValueError('access_control must be None when mode="in-place datasource swap"')
+        if override_max_interp is not False:
+            raise SPyValueError('override_max_interp must be False when mode="in-place datasource swap"')
+        if include_inventory is not None:
+            raise SPyValueError('include_inventory must be None when mode="in-place datasource swap"')
+        if include_annotations is not True:
+            raise SPyValueError('include_annotations must be True when mode="in-place datasource swap"')
+        if create_dummy_items_in_workbook is not None:
+            raise SPyValueError('create_dummy_items_in_workbook must be None when mode="in-place datasource swap"')
+        if assume_dependencies_exist is not False:
+            raise SPyValueError('assume_dependencies_exist must be False when mode="in-place datasource swap"')
+        if reconcile_inventory_by != 'id':
+            raise SPyValueError('reconcile_inventory_by must be "id" when mode="in-place datasource swap"')
+        if global_inventory not in ['overwrite', 'do not touch']:
+            raise SPyValueError('global_inventory must be "overwrite" or "do not touch" when '
+                                'mode="in-place datasource swap"')
+    else:
+        if global_inventory == 'do not touch':
+            raise SPyValueError('global_inventory="do not touch" is only valid when mode="in-place datasource swap"')
 
     if isinstance(item_map, dict):
         for k, v in item_map.values():
@@ -364,8 +453,10 @@ def push(
     if not isinstance(workbooks, list):
         workbooks = [workbooks]
 
-    # Make sure the datasource exists
-    datasource_output = _metadata.create_datasource(session, datasource, status=status, dry_run=dry_run)
+    # Make sure the datasource exists (skip for in-place datasource swap mode)
+    datasource_output = None
+    if mode != WorkbookPushMode.IN_PLACE_DATASOURCE_SWAP:
+        datasource_output = _metadata.create_datasource(session, datasource, status=status, dry_run=dry_run)
 
     workbook_context: Optional[WorkbookContext] = None
     if create_dummy_items_in_workbook is not None:
@@ -385,7 +476,8 @@ def push(
         specific_worksheet_ids=specific_worksheet_ids,
         pushed_inventory={},
         status=status,
-        dry_run=dry_run
+        dry_run=dry_run,
+        mode=mode
     )
 
     # Sort such that Analyses are pushed before Topics, since the latter usually depends on the former
@@ -409,9 +501,8 @@ def push(
         datasource_map_overrides = Workbook.load_datasource_maps(datasource_map_folder, overrides=True, status=status)
         context.add_server_scoped_item_level_map_files(datasource_map_overrides)
 
-    folder_id = _create_folder_path_if_necessary(context, path)
-
     at_least_one_thing_pushed = False
+    search_folder_ids = dict()
     while len(remaining_workbooks) > 0:
         at_least_one_thing_pushed_this_iteration = False
 
@@ -424,12 +515,16 @@ def push(
                 raise SPyValueError('Cannot specify a label when pushing a Template workbook')
 
             try:
-                status.log(f'Pushing {workbook}')
                 status.reset_timer()
                 status.current_df_index = index
                 status.put('Count', 0)
                 status.put('Time', datetime.timedelta(0))
                 status.put('Result', 'Pushing')
+
+                status.update('[%d/%d] Pushing %s "%s"' %
+                              (len(status.df[status.df['Result'] != 'Queued']),
+                               len(status.df), workbook['Workbook Type'], workbook['Name']),
+                              Status.RUNNING)
 
                 if label is None:
                     # If a label is not supplied, check to see if we should be automatically isolating by user.
@@ -471,9 +566,10 @@ def push(
                         status.warn('Ignoring datasource_map_folder argument because inventory is not being pushed. '
                                     'Add include_inventory=True to push inventory and use the datasource map folder.')
 
-                    workbook_folder_id = workbook.push_containing_folders(context, item_map, datasource_output,
-                                                                          use_full_path, folder_id, owner, label,
-                                                                          access_control)
+                    search_folder_id, workbook_folder_id = workbook.push_containing_folders(
+                        context, item_map, datasource_output, use_full_path, path, owner, label, access_control)
+
+                    search_folder_ids[workbook.id] = search_folder_id
 
                     # Grab the success message now because already_pushed will always be true after the push
                     success_message = 'Success'
@@ -496,11 +592,12 @@ def push(
                     status.put('Errors', len(workbook.push_errors))
 
                     if len(workbook.push_errors) > 0:
-                        success_message += f', but with errors:\n{workbook.push_errors_str}'
+                        errors_str = _format_workbook_push_errors(workbook.push_errors, context, status)
+                        success_message += f', but with errors:\n{errors_str}'
                         status.put('Result', success_message)
                         status.log(f'{workbook}: {success_message}', level=logging.ERROR)
                         if status.errors == 'raise':
-                            raise SPyRuntimeError(workbook.push_errors_str)
+                            raise SPyRuntimeError(errors_str)
                     else:
                         status.put('Result', success_message)
                         status.log(f'{workbook}: {success_message}')
@@ -536,7 +633,11 @@ def push(
 
         new_workbooks = WorkbookList()
         for workbook in workbooks:
-            new_workbook_id = item_map[workbook.id]
+            old_workbook_id = workbook.id
+            if context.mode == WorkbookPushMode.IN_PLACE_DATASOURCE_SWAP:
+                new_workbook_id = workbook.id
+            else:
+                new_workbook_id = item_map[workbook.id]
 
             specific_worksheet_ids_to_pull = None
             if specific_worksheet_ids is not None:
@@ -554,11 +655,14 @@ def push(
             if isinstance(workbook, ItemTemplate):
                 continue
 
-            workbook.refresh_from(new_workbook, item_map, refresh_workbook_inner_status,
+            workbook.refresh_from(context, new_workbook, item_map, refresh_workbook_inner_status,
                                   include_inventory=include_inventory_for_refresh,
                                   specific_worksheet_ids=specific_worksheet_ids)
-            if folder_id is not None and folder_id != _common.PATH_ROOT and folder_id != _folder.ORIGINAL_FOLDER:
-                workbook['Search Folder ID'] = folder_id
+
+            search_folder_id = search_folder_ids.get(old_workbook_id)
+            if (search_folder_id is not None and search_folder_id != _common.PATH_ROOT and
+                    search_folder_id != _folder.ORIGINAL_FOLDER):
+                workbook['Search Folder ID'] = search_folder_id
 
     max_errors = status.df['Errors'].max()
     if max_errors > 0:
@@ -589,106 +693,3 @@ def push(
     _common.put_properties_on_df(output_df, output_df_properties)
 
     return output_df
-
-
-def _create_folder_path_if_necessary(context: WorkbookPushContext, path):
-    session = context.session
-    status = context.status
-
-    if path == _folder.ORIGINAL_FOLDER:
-        status.log('"path" argument is spy.workbooks.ORIGINAL_FOLDER; recreating original folder path')
-        return _folder.ORIGINAL_FOLDER
-
-    if _common.is_guid(path):
-        status.log(f'"path" argument is a folder ID; using folder ID {path} directly')
-        return path
-
-    folders_api = FoldersApi(session.client)
-
-    if path is None:
-        status.log('"path" argument is None; the workbook will stay where it is (if it has already been pushed once)')
-        return None
-
-    path = path.strip()
-
-    if not path:
-        status.log('"path" argument is empty; the workbook will stay where it is (if it has already been pushed once)')
-        return None
-
-    if path == _folder.MY_FOLDER:
-        status.log('"path" argument is spy.workbooks.MY_FOLDER; using user\'s home folder')
-        return folders_api.get_folder(folder_id='mine').id
-
-    workbook_path = _common.path_string_to_list(path)
-
-    status.log(f'Creating folder path "{path}" if it does not already exist')
-
-    parent_id = None
-    folder_id = None
-    folder_filter = 'owner'
-    for i in range(0, len(workbook_path)):
-        existing_content_id = None
-        content_name = workbook_path[i]
-
-        if content_name in [_folder.SHARED, _folder.ALL, _folder.USERS]:
-            raise SPyRuntimeError(f'"path" argument cannot contain {content_name} folder in "{path}"')
-
-        if content_name == _folder.CORPORATE:
-            if not session.corporate_folder:
-                raise SPyRuntimeError(f'Attempting to push to Corporate folder but user does not have access')
-
-            parent_id = session.corporate_folder.id
-            folder_id = session.corporate_folder.id
-            folder_filter = 'corporate'
-            continue
-
-        kwargs = {
-            'filter': folder_filter,
-            'types': [SeeqNames.Types.folder],
-            'text_search': content_name,
-            'is_exact': True,
-            'limit': session.options.search_page_size,
-        }
-
-        if parent_id:
-            kwargs['folder_id'] = parent_id
-
-        folders = safely(lambda: folders_api.get_folders(**kwargs),
-                         action_description=f'get Folders using filter "{folder_filter}" and name "{content_name}" '
-                                            f'within {parent_id}',
-                         additional_errors=[400],
-                         status=status)  # type: WorkbenchItemOutputListV1
-
-        if folders is not None:
-            for content in folders.content:  # type: WorkbenchSearchResultPreviewV1
-                if content.type == 'Folder' and content_name == content.name:
-                    if (parent_id is not None and content.ancestors is not None and len(content.ancestors) >= 1
-                            and content.ancestors[-1].id != parent_id):
-                        continue
-
-                    status.log(f'Found existing Folder "{content.name}" ({content.id}) under parent ID {parent_id}')
-                    existing_content_id = content.id
-                    break
-
-        if not existing_content_id:
-            folder_input = FolderInputV1()
-            folder_input.name = content_name
-            folder_input.description = 'Created by Seeq Data Lab'
-            folder_input.owner_id = session.user.id
-            folder_input.parent_folder_id = parent_id
-
-            if not context.dry_run:
-                folder_output = safely(lambda: folders_api.create_folder(body=folder_input),
-                                       action_description=f'create Folder {folder_input.name}',
-                                       status=status)  # type: FolderOutputV1
-                if folder_output is not None:
-                    existing_content_id = folder_output.id
-                    status.log(f'Created Folder "{folder_output.name}" under parent ID {parent_id}')
-            else:
-                status.log(f'[Dry Run] Would create Folder "{folder_input.name}" under parent ID {parent_id}')
-                return None
-
-        parent_id = existing_content_id
-        folder_id = existing_content_id
-
-    return folder_id

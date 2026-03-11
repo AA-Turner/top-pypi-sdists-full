@@ -14,8 +14,16 @@ from chalk._gen.chalk.server.v1.chart_pb2 import (
     DeleteChartResponse,
     GetChartOptionsRequest,
     GetChartOptionsResponse,
+    GetChartSnapshotByQueryRequest,
+    GetChartSnapshotByQueryResponse,
     GetChartSnapshotRequest,
     GetChartSnapshotResponse,
+    GetFeatureMetricsRequest,
+    GetFeatureMetricsResponse,
+    GetQueryMetricsRequest,
+    GetQueryMetricsResponse,
+    GetResolverMetricsRequest,
+    GetResolverMetricsResponse,
     ListChartsRequest,
     ListChartsResponse,
     UpdateMetricConfigRequest,
@@ -38,6 +46,10 @@ class ChartsServiceStub:
         GetChartSnapshotRequest,
         GetChartSnapshotResponse,
     ]
+    GetChartSnapshotByQuery: UnaryUnaryMultiCallable[
+        GetChartSnapshotByQueryRequest,
+        GetChartSnapshotByQueryResponse,
+    ]
     UpdateMetricConfig: UnaryUnaryMultiCallable[
         UpdateMetricConfigRequest,
         UpdateMetricConfigResponse,
@@ -54,6 +66,18 @@ class ChartsServiceStub:
         GetChartOptionsRequest,
         GetChartOptionsResponse,
     ]
+    GetFeatureMetrics: UnaryUnaryMultiCallable[
+        GetFeatureMetricsRequest,
+        GetFeatureMetricsResponse,
+    ]
+    GetResolverMetrics: UnaryUnaryMultiCallable[
+        GetResolverMetricsRequest,
+        GetResolverMetricsResponse,
+    ]
+    GetQueryMetrics: UnaryUnaryMultiCallable[
+        GetQueryMetricsRequest,
+        GetQueryMetricsResponse,
+    ]
 
 class ChartsServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -68,6 +92,12 @@ class ChartsServiceServicer(metaclass=ABCMeta):
         request: GetChartSnapshotRequest,
         context: ServicerContext,
     ) -> GetChartSnapshotResponse: ...
+    @abstractmethod
+    def GetChartSnapshotByQuery(
+        self,
+        request: GetChartSnapshotByQueryRequest,
+        context: ServicerContext,
+    ) -> GetChartSnapshotByQueryResponse: ...
     @abstractmethod
     def UpdateMetricConfig(
         self,
@@ -92,5 +122,23 @@ class ChartsServiceServicer(metaclass=ABCMeta):
         request: GetChartOptionsRequest,
         context: ServicerContext,
     ) -> GetChartOptionsResponse: ...
+    @abstractmethod
+    def GetFeatureMetrics(
+        self,
+        request: GetFeatureMetricsRequest,
+        context: ServicerContext,
+    ) -> GetFeatureMetricsResponse: ...
+    @abstractmethod
+    def GetResolverMetrics(
+        self,
+        request: GetResolverMetricsRequest,
+        context: ServicerContext,
+    ) -> GetResolverMetricsResponse: ...
+    @abstractmethod
+    def GetQueryMetrics(
+        self,
+        request: GetQueryMetricsRequest,
+        context: ServicerContext,
+    ) -> GetQueryMetricsResponse: ...
 
 def add_ChartsServiceServicer_to_server(servicer: ChartsServiceServicer, server: Server) -> None: ...

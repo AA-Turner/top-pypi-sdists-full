@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyxcp
-Version: 0.28.1
+Version: 0.29.0
 Summary: Universal Calibration Protocol for Python
 License: LGPLv3
 License-File: LICENSE
@@ -92,7 +92,7 @@ Requirements
 Quick start
 -----------
 
-**New to pyXCP?** Start with the 15-minute `Quickstart Guide <quickstart.md>`_ for a hands-on introduction.
+**New to pyXCP?** Start with the 15-minute `Quickstart Guide <quickstart.rst>`_ for a hands-on introduction.
 
 The comprehensive `tutorial <tutorial.rst>`_ walks you through typical tasks end-to-end.
 

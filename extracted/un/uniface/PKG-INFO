@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: uniface
-Version: 3.0.0
+Version: 3.1.0
 Summary: UniFace: A Comprehensive Library for Face Detection, Recognition, Tracking, Landmark Analysis, Face Parsing, Gaze Estimation, Age, and Gender Detection
 Author-email: Yakhyokhuja Valikhujaev <yakhyo9696@gmail.com>
 Maintainer-email: Yakhyokhuja Valikhujaev <yakhyo9696@gmail.com>
@@ -11,7 +11,7 @@ Project-URL: Documentation, https://yakhyo.github.io/uniface
 Project-URL: Quick Start, https://yakhyo.github.io/uniface/quickstart/
 Project-URL: Model Zoo, https://yakhyo.github.io/uniface/models/
 Keywords: face-detection,face-recognition,face-tracking,facial-landmarks,face-parsing,face-segmentation,gaze-estimation,age-detection,gender-detection,computer-vision,deep-learning,onnx,onnxruntime,face-analysis,bisenet
-Classifier: Development Status :: 4 - Beta
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
 Classifier: Operating System :: OS Independent
@@ -53,7 +53,7 @@ Dynamic: license-file
 </div>
 
 <div align="center">
-    <img src="https://raw.githubusercontent.com/yakhyo/uniface/main/.github/logos/new/uniface_rounded_q80.webp" width="90%" alt="UniFace - All-in-One Open-Source Face Analysis Library">
+    <img src="https://raw.githubusercontent.com/yakhyo/uniface/main/.github/logos/uniface_rounded_q80.webp" width="90%" alt="UniFace - All-in-One Open-Source Face Analysis Library">
 </div>
 
 ---
@@ -71,6 +71,7 @@ Dynamic: license-file
 - **Face Parsing** — BiSeNet semantic segmentation (19 classes), XSeg face masking
 - **Gaze Estimation** — Real-time gaze direction with MobileGaze
 - **Attribute Analysis** — Age, gender, race (FairFace), and emotion
+- **Vector Indexing** — FAISS-backed embedding store for fast multi-identity search
 - **Anti-Spoofing** — Face liveness detection with MiniFASNet
 - **Face Anonymization** — 5 blur methods for privacy protection
 - **Hardware Acceleration** — ARM64 (Apple Silicon), CUDA (NVIDIA), CPU
@@ -96,6 +97,12 @@ pip install uniface[gpu]
 ```bash
 git clone https://github.com/yakhyo/uniface.git
 cd uniface && pip install -e .
+```
+
+**FAISS vector indexing**
+
+```bash
+pip install faiss-cpu   # or faiss-gpu for CUDA
 ```
 
 **Optional dependencies**
@@ -204,6 +211,23 @@ Full documentation: https://yakhyo.github.io/uniface/
 | [API Reference](https://yakhyo.github.io/uniface/modules/detection/) | Detailed module documentation |
 | [Tutorials](https://yakhyo.github.io/uniface/recipes/image-pipeline/) | Step-by-step workflow examples |
 | [Guides](https://yakhyo.github.io/uniface/concepts/overview/) | Architecture and design principles |
+| [Datasets](https://yakhyo.github.io/uniface/datasets/) | Training data and evaluation benchmarks |
+
+---
+
+## Datasets
+
+| Task | Training Dataset | Models |
+|------|-----------------|--------|
+| Detection | WIDER FACE | RetinaFace, SCRFD, YOLOv5-Face, YOLOv8-Face |
+| Recognition | MS1MV2 | MobileFace, SphereFace |
+| Recognition | WebFace600K | ArcFace |
+| Recognition | WebFace4M / 12M | AdaFace |
+| Gaze | Gaze360 | MobileGaze |
+| Parsing | CelebAMask-HQ | BiSeNet |
+| Attributes | CelebA, FairFace, AffectNet | AgeGender, FairFace, Emotion |
+
+> See [Datasets documentation](https://yakhyo.github.io/uniface/datasets/) for download links, benchmarks, and details.
 
 ---
 
@@ -220,6 +244,7 @@ Full documentation: https://yakhyo.github.io/uniface/
 | [07_face_anonymization.ipynb](examples/07_face_anonymization.ipynb) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/yakhyo/uniface/blob/main/examples/07_face_anonymization.ipynb) | Privacy-preserving blur |
 | [08_gaze_estimation.ipynb](examples/08_gaze_estimation.ipynb) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/yakhyo/uniface/blob/main/examples/08_gaze_estimation.ipynb) | Gaze direction estimation |
 | [09_face_segmentation.ipynb](examples/09_face_segmentation.ipynb) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/yakhyo/uniface/blob/main/examples/09_face_segmentation.ipynb) | Face segmentation with XSeg |
+| [10_face_vector_store.ipynb](examples/10_face_vector_store.ipynb) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/yakhyo/uniface/blob/main/examples/10_face_vector_store.ipynb) | FAISS-backed face database |
 
 ---
 

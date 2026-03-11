@@ -1,27 +1,30 @@
-# -*- coding: utf-8 -*-
-# SPDX-FileCopyrightText: 2016-2025 PyThaiNLP Project
+# SPDX-FileCopyrightText: 2016-2026 PyThaiNLP Project
 # SPDX-FileType: SOURCE
 # SPDX-License-Identifier: Apache-2.0
 
+import time
 import unittest
 
 from pythainlp.tokenize import (
-    DEFAULT_WORD_DICT_TRIE,
     Tokenizer,
+    display_cell_tokenize,
     etcc,
     longest,
     multi_cut,
     newmm,
+    paragraph_tokenize,
     sent_tokenize,
     subword_tokenize,
     syllable_tokenize,
     tcc,
     tcc_p,
     word_detokenize,
+    word_dict_trie,
     word_tokenize,
-    display_cell_tokenize,
 )
 from pythainlp.util import dict_trie
+
+from ..test_helpers import assert_segment_handles_none_and_empty
 
 TEXT_1 = "หมอนทองตากลมหูว์MBK39 :.ฉฺ๐๐๓-#™±"
 TEXT_2 = "ทดสอบ"
@@ -232,7 +235,7 @@ class DetokenizeTestCase(unittest.TestCase):
         )
 
     def test_numeric_data_format(self):
-        engines = ["newmm"]
+        engines = ["newmm", "longest"]
 
         for engine in engines:
             self.assertIn(
@@ -258,10 +261,39 @@ class DetokenizeTestCase(unittest.TestCase):
             self.assertIn("2.5:1", tokens)
             self.assertIn("5:2", tokens)
 
+        # Test join_broken_num parameter (defaults to True)
+        # When True, numeric data should be preserved
+        engine = "longest"
+        self.assertIn(
+            "127.0.0.1",
+            word_tokenize(
+                "ไอพีของคุณคือ 127.0.0.1 ครับ",
+                engine=engine,
+                join_broken_num=True,
+            ),
+        )
+        # When False, numbers may be broken up
+        self.assertNotIn(
+            "127.0.0.1",
+            word_tokenize(
+                "ไอพีของคุณคือ 127.0.0.1 ครับ",
+                engine=engine,
+                join_broken_num=False,
+            ),
+        )
+        self.assertNotIn(
+            "1,234,567.89",
+            word_tokenize(
+                "รางวัลมูลค่า 1,234,567.89 บาท",
+                engine=engine,
+                join_broken_num=False,
+            ),
+        )
+
 
 class TokenizeTestCase(unittest.TestCase):
     def test_Tokenizer(self):
-        _tokenizer = Tokenizer(DEFAULT_WORD_DICT_TRIE)
+        _tokenizer = Tokenizer(word_dict_trie())
         self.assertEqual(_tokenizer.word_tokenize(""), [])
         _tokenizer.set_tokenize_engine("longest")
         self.assertEqual(_tokenizer.word_tokenize(None), [])
@@ -362,8 +394,7 @@ class TokenizeTestCase(unittest.TestCase):
             )
 
     def test_etcc(self):
-        self.assertEqual(etcc.segment(None), [])
-        self.assertEqual(etcc.segment(""), [])
+        assert_segment_handles_none_and_empty(self, etcc.segment)
         self.assertIsInstance(etcc.segment("คืนความสุข"), list)
         self.assertEqual(
             etcc.segment("หาเงินเพื่อเรียน"),
@@ -378,8 +409,7 @@ class TokenizeTestCase(unittest.TestCase):
         )
 
     def test_longest(self):
-        self.assertEqual(longest.segment(None), [])
-        self.assertEqual(longest.segment(""), [])
+        assert_segment_handles_none_and_empty(self, longest.segment)
         self.assertIsInstance(
             longest.segment("กรุงเทพฯมากๆเพราโพาง BKKฯ"), list
         )
@@ -411,7 +441,6 @@ class TokenizeTestCase(unittest.TestCase):
 
     def test_longest_custom_dict(self):
         """Test switching the custom dict on longest segment function"""
-
         self.assertEqual(
             word_tokenize("ทดสอบ  ทดสอบ", engine="longest"),
             ["ทดสอบ", "  ", "ทดสอบ"],
@@ -432,8 +461,7 @@ class TokenizeTestCase(unittest.TestCase):
         )
 
     def test_mm(self):
-        self.assertEqual(multi_cut.segment(None), [])
-        self.assertEqual(multi_cut.segment(""), [])
+        assert_segment_handles_none_and_empty(self, multi_cut.segment)
         self.assertIsNotNone(multi_cut.segment("ตัด", dict_trie([""])))
 
         self.assertEqual(word_tokenize("", engine="mm"), [])
@@ -470,8 +498,7 @@ class TokenizeTestCase(unittest.TestCase):
         self.assertEqual(multi_cut.find_all_segment(None), [])
 
     def test_newmm(self):
-        self.assertEqual(newmm.segment(None), [])
-        self.assertEqual(newmm.segment(""), [])
+        assert_segment_handles_none_and_empty(self, newmm.segment)
         self.assertEqual(
             word_tokenize("ฉันรักภาษาไทยเพราะฉันเป็นคนไทย", engine="newmm"),
             ["ฉัน", "รัก", "ภาษาไทย", "เพราะ", "ฉัน", "เป็น", "คนไทย"],
@@ -557,9 +584,23 @@ class TokenizeTestCase(unittest.TestCase):
             word_tokenize(DANGER_TEXT_3, engine="newmm-safe"), list
         )
 
+    def test_newmm_ambiguous_performance(self):
+        # Regression test for issue #893: newmm BFS path explosion.
+        # Repeated ambiguous words (e.g. "ด้านหน้า" which can split as
+        # "ด้าน"+"หน้า" or stay whole) used to cause exponential BFS blowup.
+        # This test verifies that tokenizing 1,000 repetitions completes
+        # quickly (well under 1 second).
+        text = "ด้านหน้า" * 1000
+        t = time.perf_counter()
+        result = word_tokenize(text, engine="newmm")
+        elapsed = time.perf_counter() - t
+        self.assertIsInstance(result, list)
+        self.assertGreater(len(result), 0)
+        # Should complete in well under 1 second after the BFS fix.
+        self.assertLess(elapsed, 5.0)
+
     def test_tcc(self):
-        self.assertEqual(tcc.segment(None), [])
-        self.assertEqual(tcc.segment(""), [])
+        assert_segment_handles_none_and_empty(self, tcc.segment)
         self.assertEqual(
             tcc.segment("ประเทศไทย"), ["ป", "ระ", "เท", "ศ", "ไท", "ย"]
         )
@@ -618,8 +659,7 @@ class TokenizeTestCase(unittest.TestCase):
         self.assertEqual(tcc.tcc_pos(""), set())
 
     def test_tcc_p(self):
-        self.assertEqual(tcc_p.segment(None), [])
-        self.assertEqual(tcc_p.segment(""), [])
+        assert_segment_handles_none_and_empty(self, tcc_p.segment)
         self.assertEqual(
             tcc_p.segment("ประเทศไทย"), ["ป", "ระ", "เท", "ศ", "ไท", "ย"]
         )
@@ -644,6 +684,14 @@ class TokenizeTestCase(unittest.TestCase):
         # )
         self.assertEqual(list(tcc_p.tcc("")), [])
         self.assertEqual(tcc_p.tcc_pos(""), set())
+        # tcc_pos_array: edge cases
+        self.assertIsInstance(tcc_p.tcc_pos_array(""), bytearray)
+        self.assertIsInstance(tcc_p.tcc_pos_array(None), bytearray)
+        self.assertIsInstance(tcc_p.tcc_pos_array(42), bytearray)
+        # valid text: array length must equal len(text)+1 and mark boundaries
+        arr = tcc_p.tcc_pos_array("ประเทศ")
+        self.assertEqual(len(arr), len("ประเทศ") + 1)
+        self.assertEqual(arr[0], 0)  # position 0 is never a boundary
 
     def test_display_cell_tokenize(self):
         self.assertEqual(display_cell_tokenize(""), [])
@@ -654,3 +702,12 @@ class TokenizeTestCase(unittest.TestCase):
         self.assertEqual(display_cell_tokenize("สวัสดี"), ['ส', 'วั', 'ส', 'ดี'])
         self.assertEqual(display_cell_tokenize("ทดสอบ"), ["ท", "ด", "ส", "อ", "บ"])
         self.assertEqual(display_cell_tokenize("ภาษาไทย"), ["ภ", "า", "ษ", "า", "ไ", "ท", "ย"])
+
+    def test_paragraph_tokenize(self):
+        # Test error handling for invalid engine
+        text = (
+            "(1) บทความนี้ผู้เขียนสังเคราะห์ขึ้นมา"
+            "จากผลงานวิจัยที่เคยทำมาในอดีต"
+        )
+        with self.assertRaises(ValueError):
+            paragraph_tokenize(text, engine="non-existent-engine")

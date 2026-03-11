@@ -1,14 +1,15 @@
 # -*- coding_utf-8 -*-
-# SPDX-FileCopyrightText: 2016-2025 PyThaiNLP Project
+# SPDX-FileCopyrightText: 2016-2026 PyThaiNLP Project
 # SPDX-FileType: SOURCE
 # SPDX-License-Identifier: Apache-2.0
-"""
-Convert emojis
-"""
+"""Convert emojis"""
+
+from __future__ import annotations
 
 import re
+from typing import Pattern
 
-_emoji_th = {
+_emoji_th: dict[str, str] = {
     "😀": "หน้ายิ้มยิงฟัน",
     "😁": "ยิ้มยิงฟันตายิ้ม",
     "😂": "ร้องไห้ดีใจ",
@@ -1825,16 +1826,17 @@ _emoji_th = {
     "🏴󠁧󠁢󠁷󠁬󠁳󠁿": "ธง_เวลส์",
 }
 
-_th_emoji = {v: k for k, v in _emoji_th.items()}
+_th_emoji: dict[str, str] = {v: k for k, v in _emoji_th.items()}
 
-_emojis = sorted(_emoji_th.keys(), key=len, reverse=True)
-_emoji_regex = re.compile("|".join(map(re.escape, _emojis)))
-_delimiter = ":"
+_emojis: list[str] = sorted(_emoji_th.keys(), key=len, reverse=True)
+_emoji_regex: Pattern[str] = re.compile("|".join(map(re.escape, _emojis)))
+_delimiter: str = ":"
 
 
-def emoji_to_thai(text: str, delimiters=(_delimiter, _delimiter)) -> str:
-    """
-    This function converts emojis to their Thai meanings
+def emoji_to_thai(
+    text: str, delimiters: tuple[str, str] = (_delimiter, _delimiter)
+) -> str:
+    """Converts emojis to their Thai meanings.
 
     :param str text: Text with emojis
     :return: Text with emojis converted to their Thai meanings
@@ -1855,10 +1857,9 @@ def emoji_to_thai(text: str, delimiters=(_delimiter, _delimiter)) -> str:
         emoji_to_thai("🇹🇭 นี่คือธงประเทศไทย")
         # output: :ธง_ไทย: นี่คือธงประเทศไทย
     """
-
     return _emoji_regex.sub(
-        lambda match: delimiters[0]
-        + _emoji_th[match.group(0)]
-        + delimiters[1],
+        lambda match: (
+            delimiters[0] + _emoji_th[match.group(0)] + delimiters[1]
+        ),
         text,
     )

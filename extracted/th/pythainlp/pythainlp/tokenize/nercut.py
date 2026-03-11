@@ -1,9 +1,7 @@
-# -*- coding: utf-8 -*-
-# SPDX-FileCopyrightText: 2016-2025 PyThaiNLP Project
+# SPDX-FileCopyrightText: 2016-2026 PyThaiNLP Project
 # SPDX-FileType: SOURCE
 # SPDX-License-Identifier: Apache-2.0
-"""
-nercut 0.2
+"""nercut 0.2
 
 Dictionary-based maximal matching word segmentation, constrained by
 Thai Character Cluster (TCC) boundaries, and combining tokens that are
@@ -11,11 +9,17 @@ parts of the same named entity.
 
 Code by Wannaphong Phatthiyaphaibun
 """
-from typing import Iterable, List
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 from pythainlp.tag.named_entity import NER
 
-_thainer = NER(engine="thainer")
+_thainer: NER = NER(engine="thainer")
 
 
 def segment(
@@ -28,10 +32,9 @@ def segment(
         "DATE",
         "TIME",
     ],
-    tagger=_thainer,
-) -> List[str]:
-    """
-    Dictionary-based maximal matching word segmentation, constrained by
+    tagger: NER = _thainer,
+) -> list[str]:
+    """Dictionary-based maximal matching word segmentation, constrained by
     Thai Character Cluster (TCC) boundaries, and combining tokens that are
     parts of the same named-entity.
 
@@ -40,7 +43,7 @@ def segment(
     :param class tagger: NER tagger engine
     :return: list of words, tokenized from the text
     """
-    if not isinstance(text, str):
+    if not text:
         return []
 
     tagged_words = tagger.tag(text, pos=False)
@@ -73,7 +76,5 @@ def segment(
                 words.append(combining_word)
             elif curr_tag.startswith("I-") and combining_word != "":
                 words.append(combining_word)
-            else:
-                pass
 
     return words

@@ -3,7 +3,7 @@ from django.db.utils import IntegrityError
 
 from wbcore.contrib.authentication.factories import UserFactory
 from wbcore.contrib.notifications.factories.notification_types import (
-    NotificationTypeModelFactory,
+    NotificationTypeFactory,
 )
 from wbcore.contrib.notifications.models import (
     NotificationType,
@@ -40,7 +40,7 @@ class TestNotificationType:
         assert notification_type.pk is not None
 
         with pytest.raises(IntegrityError):
-            NotificationTypeModelFactory(code="code")
+            NotificationTypeFactory(code="code")
 
 
 @pytest.mark.django_db
@@ -72,7 +72,7 @@ class TestNotificationTypeSetting:
         assert user.pk is not None
         type_count = NotificationTypeSetting.objects.filter(user=user).count()
 
-        NotificationTypeModelFactory()
+        NotificationTypeFactory()
 
         assert NotificationTypeSetting.objects.filter(user=user).count() == type_count + 1
 

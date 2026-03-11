@@ -1264,14 +1264,13 @@ class DummyContext:
         return self.next
 
     def __repr__(self):
-        return '<DummyContext with name %s at id %s>' % (
+        return '<DummyContext with name {} at id {}>'.format(
             self.__name__,
             id(self),
         )
 
 
 class DummyRequest:
-
     application_url = (
         'http://example.com:5432'  # app_url never ends with slash
     )

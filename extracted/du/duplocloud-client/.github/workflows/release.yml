@@ -50,11 +50,12 @@ jobs:
         if [ -z "$GIT_TAG" ]; then
           GIT_TAG=${GITHUB_REF#refs/*/}
         fi
+        GIT_TAG="${GIT_TAG//\//-}"
         VERSION=$(echo $GIT_TAG | cut -d'v' -f2)
         NAME="duploctl-${VERSION}"
         PACKAGE_NAME="duplocloud_client-${VERSION}"
         RELEASE_URL="${REPO_URL}/releases/download/${GIT_TAG}"
-        echo "NOTES_ARTIFACT=notes-${GIT_TAG}" >> $GITHUB_OUTPUT
+        echo "NOTES_ARTIFACT=notes-${GIT_TAG//\//-}" >> $GITHUB_OUTPUT
         echo "GIT_TAG=${GIT_TAG}" >> $GITHUB_OUTPUT
         echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
         echo "NAME=${NAME}" >> $GITHUB_OUTPUT
@@ -68,13 +69,13 @@ jobs:
         pattern: ${{ steps.info.outputs.NAME }}-*
         path: artifacts/installer
         merge-multiple: false
-    
+
     - name: Download Package Artifacts
       uses: actions/download-artifact@v7
       with:
         pattern: duplocloud_client-*
         path: artifacts
-    
+
     - name: Download Notes
       uses: actions/download-artifact@v7
       with:
@@ -153,15 +154,16 @@ jobs:
 
     - name: Post to a Slack channel
       id: slack
-      uses: slackapi/slack-github-action@v1.25.0
+      uses: slackapi/slack-github-action@v2
       if: inputs.push == true
-      env:
-        SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
       with:
-        channel-id: ${{ vars.SLACK_CHANNEL_ID }}
-        slack-message: |
-          duploctl ${{ steps.info.outputs.GIT_TAG }} is out! 
-          ${{ steps.release.outputs.url }}
+        method: chat.postMessage
+        token: ${{ secrets.SLACK_BOT_TOKEN }}
+        payload: |
+          channel: ${{ vars.SLACK_CHANNEL_ID }}
+          text: |
+            duploctl ${{ steps.info.outputs.GIT_TAG }} is out!
+            ${{ steps.release.outputs.url }}
 
     - name: Job Summary
       env:

@@ -1758,7 +1758,8 @@ def _class_setattr(
 
 def parse_quoted_window_feature(annotation_str: str, module_str: str) -> Type[Windowed]:
     """
-    Parses a string like "Windowed[int]", "Windowed[list[int]]", "Windowed[SomeStruct]"
+    Parses a string like "Windowed[int]", "Windowed[list[int]]", "Windowed[SomeStruct]",
+    "Windowed[Optional[datetime]]", or "Windowed[dt.datetime | None]"
     and returns Windowed with the appropriate type.
     """
     match = re.fullmatch(r"Windowed\[(.+)\]", annotation_str)
@@ -1767,15 +1768,14 @@ def parse_quoted_window_feature(annotation_str: str, module_str: str) -> Type[Wi
 
     inner_type_str = match.group(1)
 
+    module = sys.modules.get(module_str, None)
+    module_globals = getattr(module, "__dict__", {})
+
     try:
-        # Handle built-in types and typing constructs
-        inner_type = eval(inner_type_str, {"__builtins__": builtins, **typing.__dict__})
-    except NameError:
-        # If it's not a built-in type, assume it's a user-defined type
-        try:
-            module = sys.modules.get(module_str, None)
-            inner_type = getattr(module, "__dict__", {})[inner_type_str]
-        except KeyError:
-            raise ValueError(f"Unknown type: {inner_type_str}")
+        # Handle built-in types, typing constructs, and module-level names (including
+        # dotted aliases like `dt.datetime` and union types like `dt.datetime | None`)
+        inner_type = eval(inner_type_str, {"__builtins__": builtins, **typing.__dict__, **module_globals})
+    except Exception:
+        raise ValueError(f"Unknown type: {inner_type_str}")
 
     return Windowed[inner_type]

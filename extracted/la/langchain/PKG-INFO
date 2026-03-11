@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langchain
-Version: 1.2.10
+Version: 1.2.11
 Summary: Building applications with LLMs through composability
 Project-URL: Homepage, https://docs.langchain.com/
 Project-URL: Documentation, https://reference.langchain.com/python/langchain/langchain/
@@ -25,7 +25,7 @@ Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: <4.0.0,>=3.10.0
 Requires-Dist: langchain-core<2.0.0,>=1.2.10
-Requires-Dist: langgraph<1.1.0,>=1.0.8
+Requires-Dist: langgraph<1.3.0,>=1.1.0
 Requires-Dist: pydantic<3.0.0,>=2.7.4
 Provides-Extra: anthropic
 Requires-Dist: langchain-anthropic; extra == 'anthropic'
@@ -70,8 +70,8 @@ Description-Content-Type: text/markdown
 
 Looking for the JS/TS version? Check out [LangChain.js](https://github.com/langchain-ai/langchainjs).
 
-To help you ship LangChain apps to production faster, check out [LangSmith](https://smith.langchain.com).
-[LangSmith](https://smith.langchain.com) is a unified developer platform for building, testing, and monitoring LLM applications.
+To help you ship LangChain apps to production faster, check out [LangSmith](https://www.langchain.com/langsmith).
+[LangSmith](https://www.langchain.com/langsmith) is a unified developer platform for building, testing, and monitoring LLM applications.
 
 ## Quick Install
 

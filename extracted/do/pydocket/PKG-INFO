@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydocket
-Version: 0.18.1
+Version: 0.18.2
 Summary: A distributed background task system for Python functions
 Project-URL: Homepage, https://docket.lol/
 Project-URL: Documentation, https://docket.lol/en/latest/
@@ -29,7 +29,7 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
 Requires-Python: >=3.10
 Requires-Dist: cloudpickle>=3.1.1
-Requires-Dist: croniter>=6
+Requires-Dist: cronsim>=2.6
 Requires-Dist: exceptiongroup>=1.2.0; python_version < '3.11'
 Requires-Dist: fakeredis[lua]>=2.32.1
 Requires-Dist: opentelemetry-api>=1.33.0

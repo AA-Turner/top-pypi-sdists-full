@@ -38,7 +38,7 @@ class BayesianRecon(AlgebraicRecon):
         if not isinstance(self.potentialFunction, PotentialType):
             raise TypeError(f"Potential functions must be of type PotentialType, got {type(self.potentialFunction)}")  
 
-    def checkExistingFile(self, date = None):
+    def checkExistingFile(self, date=None, withTumor=True):
         """
         Check if the reconstruction file already exists, based on current instance parameters.
 
@@ -69,9 +69,13 @@ class BayesianRecon(AlgebraicRecon):
         if not os.path.exists(results_dir):
             os.makedirs(results_dir)
 
-        if os.path.exists(os.path.join(results_dir,"indices.npy")):
+       # Détermine le nom du fichier en fonction de withTumor
+        indices_file = os.path.join(results_dir, f"indices_{'withTumor' if withTumor else 'withoutTumor'}.npy")
+        # Si le fichier existe, retourne True
+        if os.path.exists(indices_file):
             return (True, results_dir)
 
+        # Sinon, retourne False (on peut sauvegarder)
         return (False, results_dir)
 
     def load(self, withTumor=True, results_date=None, optimizer=None, potential_function=None, filePath=None, show_logs=True):

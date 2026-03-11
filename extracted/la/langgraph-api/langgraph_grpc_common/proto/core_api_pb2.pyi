@@ -13,16 +13,16 @@ from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 import builtins as _builtins
-from . import encryption_pb2 as _encryption_pb2
-from . import engine_common_pb2 as _engine_common_pb2
-from . import enum_cancel_run_action_pb2 as _enum_cancel_run_action_pb2
-from . import enum_control_signal_pb2 as _enum_control_signal_pb2
-from . import enum_cron_on_run_completed_pb2 as _enum_cron_on_run_completed_pb2
-from . import enum_multitask_strategy_pb2 as _enum_multitask_strategy_pb2
-from . import enum_run_status_pb2 as _enum_run_status_pb2
-from . import enum_stream_mode_pb2 as _enum_stream_mode_pb2
-from . import enum_thread_status_pb2 as _enum_thread_status_pb2
-from . import enum_thread_stream_mode_pb2 as _enum_thread_stream_mode_pb2
+import encryption_pb2 as _encryption_pb2
+import engine_common_pb2 as _engine_common_pb2
+import enum_cancel_run_action_pb2 as _enum_cancel_run_action_pb2
+import enum_control_signal_pb2 as _enum_control_signal_pb2
+import enum_cron_on_run_completed_pb2 as _enum_cron_on_run_completed_pb2
+import enum_multitask_strategy_pb2 as _enum_multitask_strategy_pb2
+import enum_run_status_pb2 as _enum_run_status_pb2
+import enum_stream_mode_pb2 as _enum_stream_mode_pb2
+import enum_thread_status_pb2 as _enum_thread_status_pb2
+import enum_thread_stream_mode_pb2 as _enum_thread_stream_mode_pb2
 import sys
 import typing as _typing
 
@@ -2976,12 +2976,14 @@ class Cron(_message.Message):
     NEXT_RUN_DATE_FIELD_NUMBER: _builtins.int
     METADATA_JSON_FIELD_NUMBER: _builtins.int
     ENABLED_FIELD_NUMBER: _builtins.int
+    TIMEZONE_FIELD_NUMBER: _builtins.int
     assistant_id: _builtins.str
     on_run_completed: _enum_cron_on_run_completed_pb2.CronOnRunCompleted.ValueType
     schedule: _builtins.str
     user_id: _builtins.str
     metadata_json: _builtins.bytes
     enabled: _builtins.bool
+    timezone: _builtins.str
     @_builtins.property
     def cron_id(self) -> Global___UUID: ...
     @_builtins.property
@@ -3012,10 +3014,11 @@ class Cron(_message.Message):
         next_run_date: _timestamp_pb2.Timestamp | None = ...,
         metadata_json: _builtins.bytes = ...,
         enabled: _builtins.bool = ...,
+        timezone: _builtins.str | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["_end_time", b"_end_time", "_on_run_completed", b"_on_run_completed", "_thread_id", b"_thread_id", "_user_id", b"_user_id", "created_at", b"created_at", "cron_id", b"cron_id", "end_time", b"end_time", "next_run_date", b"next_run_date", "on_run_completed", b"on_run_completed", "payload", b"payload", "thread_id", b"thread_id", "updated_at", b"updated_at", "user_id", b"user_id"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["_end_time", b"_end_time", "_on_run_completed", b"_on_run_completed", "_thread_id", b"_thread_id", "_timezone", b"_timezone", "_user_id", b"_user_id", "created_at", b"created_at", "cron_id", b"cron_id", "end_time", b"end_time", "next_run_date", b"next_run_date", "on_run_completed", b"on_run_completed", "payload", b"payload", "thread_id", b"thread_id", "timezone", b"timezone", "updated_at", b"updated_at", "user_id", b"user_id"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["_end_time", b"_end_time", "_on_run_completed", b"_on_run_completed", "_thread_id", b"_thread_id", "_user_id", b"_user_id", "assistant_id", b"assistant_id", "created_at", b"created_at", "cron_id", b"cron_id", "enabled", b"enabled", "end_time", b"end_time", "metadata_json", b"metadata_json", "next_run_date", b"next_run_date", "on_run_completed", b"on_run_completed", "payload", b"payload", "schedule", b"schedule", "thread_id", b"thread_id", "updated_at", b"updated_at", "user_id", b"user_id"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["_end_time", b"_end_time", "_on_run_completed", b"_on_run_completed", "_thread_id", b"_thread_id", "_timezone", b"_timezone", "_user_id", b"_user_id", "assistant_id", b"assistant_id", "created_at", b"created_at", "cron_id", b"cron_id", "enabled", b"enabled", "end_time", b"end_time", "metadata_json", b"metadata_json", "next_run_date", b"next_run_date", "on_run_completed", b"on_run_completed", "payload", b"payload", "schedule", b"schedule", "thread_id", b"thread_id", "timezone", b"timezone", "updated_at", b"updated_at", "user_id", b"user_id"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     _WhichOneofReturnType__end_time: _TypeAlias = _typing.Literal["end_time"]  # noqa: Y015
     _WhichOneofArgType__end_time: _TypeAlias = _typing.Literal["_end_time", b"_end_time"]  # noqa: Y015
@@ -3023,6 +3026,8 @@ class Cron(_message.Message):
     _WhichOneofArgType__on_run_completed: _TypeAlias = _typing.Literal["_on_run_completed", b"_on_run_completed"]  # noqa: Y015
     _WhichOneofReturnType__thread_id: _TypeAlias = _typing.Literal["thread_id"]  # noqa: Y015
     _WhichOneofArgType__thread_id: _TypeAlias = _typing.Literal["_thread_id", b"_thread_id"]  # noqa: Y015
+    _WhichOneofReturnType__timezone: _TypeAlias = _typing.Literal["timezone"]  # noqa: Y015
+    _WhichOneofArgType__timezone: _TypeAlias = _typing.Literal["_timezone", b"_timezone"]  # noqa: Y015
     _WhichOneofReturnType__user_id: _TypeAlias = _typing.Literal["user_id"]  # noqa: Y015
     _WhichOneofArgType__user_id: _TypeAlias = _typing.Literal["_user_id", b"_user_id"]  # noqa: Y015
     @_typing.overload
@@ -3031,6 +3036,8 @@ class Cron(_message.Message):
     def WhichOneof(self, oneof_group: _WhichOneofArgType__on_run_completed) -> _WhichOneofReturnType__on_run_completed | None: ...
     @_typing.overload
     def WhichOneof(self, oneof_group: _WhichOneofArgType__thread_id) -> _WhichOneofReturnType__thread_id | None: ...
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__timezone) -> _WhichOneofReturnType__timezone | None: ...
     @_typing.overload
     def WhichOneof(self, oneof_group: _WhichOneofArgType__user_id) -> _WhichOneofReturnType__user_id | None: ...
 
@@ -3053,11 +3060,13 @@ class CreateCronRequest(_message.Message):
     THREAD_FILTERS_FIELD_NUMBER: _builtins.int
     USER_ID_FIELD_NUMBER: _builtins.int
     ENCRYPTION_CONTEXT_FIELD_NUMBER: _builtins.int
+    TIMEZONE_FIELD_NUMBER: _builtins.int
     schedule: _builtins.str
     metadata_json: _builtins.bytes
     on_run_completed: _enum_cron_on_run_completed_pb2.CronOnRunCompleted.ValueType
     enabled: _builtins.bool
     user_id: _builtins.str
+    timezone: _builtins.str
     @_builtins.property
     def filters(self) -> _containers.RepeatedCompositeFieldContainer[Global___AuthFilter]: ...
     @_builtins.property
@@ -3090,10 +3099,11 @@ class CreateCronRequest(_message.Message):
         thread_filters: _abc.Iterable[Global___AuthFilter] | None = ...,
         user_id: _builtins.str | None = ...,
         encryption_context: _encryption_pb2.EncryptionContext | None = ...,
+        timezone: _builtins.str | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["_cron_id", b"_cron_id", "_encryption_context", b"_encryption_context", "_end_time", b"_end_time", "_on_run_completed", b"_on_run_completed", "_thread_id", b"_thread_id", "_user_id", b"_user_id", "cron_id", b"cron_id", "encryption_context", b"encryption_context", "end_time", b"end_time", "on_run_completed", b"on_run_completed", "payload", b"payload", "thread_id", b"thread_id", "user_id", b"user_id"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["_cron_id", b"_cron_id", "_encryption_context", b"_encryption_context", "_end_time", b"_end_time", "_on_run_completed", b"_on_run_completed", "_thread_id", b"_thread_id", "_timezone", b"_timezone", "_user_id", b"_user_id", "cron_id", b"cron_id", "encryption_context", b"encryption_context", "end_time", b"end_time", "on_run_completed", b"on_run_completed", "payload", b"payload", "thread_id", b"thread_id", "timezone", b"timezone", "user_id", b"user_id"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["_cron_id", b"_cron_id", "_encryption_context", b"_encryption_context", "_end_time", b"_end_time", "_on_run_completed", b"_on_run_completed", "_thread_id", b"_thread_id", "_user_id", b"_user_id", "assistant_filters", b"assistant_filters", "cron_id", b"cron_id", "enabled", b"enabled", "encryption_context", b"encryption_context", "end_time", b"end_time", "filters", b"filters", "metadata_json", b"metadata_json", "on_run_completed", b"on_run_completed", "payload", b"payload", "schedule", b"schedule", "thread_filters", b"thread_filters", "thread_id", b"thread_id", "user_id", b"user_id"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["_cron_id", b"_cron_id", "_encryption_context", b"_encryption_context", "_end_time", b"_end_time", "_on_run_completed", b"_on_run_completed", "_thread_id", b"_thread_id", "_timezone", b"_timezone", "_user_id", b"_user_id", "assistant_filters", b"assistant_filters", "cron_id", b"cron_id", "enabled", b"enabled", "encryption_context", b"encryption_context", "end_time", b"end_time", "filters", b"filters", "metadata_json", b"metadata_json", "on_run_completed", b"on_run_completed", "payload", b"payload", "schedule", b"schedule", "thread_filters", b"thread_filters", "thread_id", b"thread_id", "timezone", b"timezone", "user_id", b"user_id"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     _WhichOneofReturnType__cron_id: _TypeAlias = _typing.Literal["cron_id"]  # noqa: Y015
     _WhichOneofArgType__cron_id: _TypeAlias = _typing.Literal["_cron_id", b"_cron_id"]  # noqa: Y015
@@ -3105,6 +3115,8 @@ class CreateCronRequest(_message.Message):
     _WhichOneofArgType__on_run_completed: _TypeAlias = _typing.Literal["_on_run_completed", b"_on_run_completed"]  # noqa: Y015
     _WhichOneofReturnType__thread_id: _TypeAlias = _typing.Literal["thread_id"]  # noqa: Y015
     _WhichOneofArgType__thread_id: _TypeAlias = _typing.Literal["_thread_id", b"_thread_id"]  # noqa: Y015
+    _WhichOneofReturnType__timezone: _TypeAlias = _typing.Literal["timezone"]  # noqa: Y015
+    _WhichOneofArgType__timezone: _TypeAlias = _typing.Literal["_timezone", b"_timezone"]  # noqa: Y015
     _WhichOneofReturnType__user_id: _TypeAlias = _typing.Literal["user_id"]  # noqa: Y015
     _WhichOneofArgType__user_id: _TypeAlias = _typing.Literal["_user_id", b"_user_id"]  # noqa: Y015
     @_typing.overload
@@ -3117,6 +3129,8 @@ class CreateCronRequest(_message.Message):
     def WhichOneof(self, oneof_group: _WhichOneofArgType__on_run_completed) -> _WhichOneofReturnType__on_run_completed | None: ...
     @_typing.overload
     def WhichOneof(self, oneof_group: _WhichOneofArgType__thread_id) -> _WhichOneofReturnType__thread_id | None: ...
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__timezone) -> _WhichOneofReturnType__timezone | None: ...
     @_typing.overload
     def WhichOneof(self, oneof_group: _WhichOneofArgType__user_id) -> _WhichOneofReturnType__user_id | None: ...
 
@@ -3292,10 +3306,12 @@ class PatchCronRequest(_message.Message):
     PAYLOAD_FIELD_NUMBER: _builtins.int
     METADATA_JSON_FIELD_NUMBER: _builtins.int
     ENCRYPTION_CONTEXT_FIELD_NUMBER: _builtins.int
+    TIMEZONE_FIELD_NUMBER: _builtins.int
     schedule: _builtins.str
     enabled: _builtins.bool
     on_run_completed: _enum_cron_on_run_completed_pb2.CronOnRunCompleted.ValueType
     metadata_json: _builtins.bytes
+    timezone: _builtins.str
     @_builtins.property
     def cron_id(self) -> Global___UUID: ...
     @_builtins.property
@@ -3318,10 +3334,11 @@ class PatchCronRequest(_message.Message):
         payload: Global___CronPayload | None = ...,
         metadata_json: _builtins.bytes | None = ...,
         encryption_context: _encryption_pb2.EncryptionContext | None = ...,
+        timezone: _builtins.str | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["_enabled", b"_enabled", "_encryption_context", b"_encryption_context", "_end_time", b"_end_time", "_metadata_json", b"_metadata_json", "_on_run_completed", b"_on_run_completed", "_payload", b"_payload", "_schedule", b"_schedule", "cron_id", b"cron_id", "enabled", b"enabled", "encryption_context", b"encryption_context", "end_time", b"end_time", "metadata_json", b"metadata_json", "on_run_completed", b"on_run_completed", "payload", b"payload", "schedule", b"schedule"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["_enabled", b"_enabled", "_encryption_context", b"_encryption_context", "_end_time", b"_end_time", "_metadata_json", b"_metadata_json", "_on_run_completed", b"_on_run_completed", "_payload", b"_payload", "_schedule", b"_schedule", "_timezone", b"_timezone", "cron_id", b"cron_id", "enabled", b"enabled", "encryption_context", b"encryption_context", "end_time", b"end_time", "metadata_json", b"metadata_json", "on_run_completed", b"on_run_completed", "payload", b"payload", "schedule", b"schedule", "timezone", b"timezone"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["_enabled", b"_enabled", "_encryption_context", b"_encryption_context", "_end_time", b"_end_time", "_metadata_json", b"_metadata_json", "_on_run_completed", b"_on_run_completed", "_payload", b"_payload", "_schedule", b"_schedule", "cron_id", b"cron_id", "enabled", b"enabled", "encryption_context", b"encryption_context", "end_time", b"end_time", "filters", b"filters", "metadata_json", b"metadata_json", "on_run_completed", b"on_run_completed", "payload", b"payload", "schedule", b"schedule"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["_enabled", b"_enabled", "_encryption_context", b"_encryption_context", "_end_time", b"_end_time", "_metadata_json", b"_metadata_json", "_on_run_completed", b"_on_run_completed", "_payload", b"_payload", "_schedule", b"_schedule", "_timezone", b"_timezone", "cron_id", b"cron_id", "enabled", b"enabled", "encryption_context", b"encryption_context", "end_time", b"end_time", "filters", b"filters", "metadata_json", b"metadata_json", "on_run_completed", b"on_run_completed", "payload", b"payload", "schedule", b"schedule", "timezone", b"timezone"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     _WhichOneofReturnType__enabled: _TypeAlias = _typing.Literal["enabled"]  # noqa: Y015
     _WhichOneofArgType__enabled: _TypeAlias = _typing.Literal["_enabled", b"_enabled"]  # noqa: Y015
@@ -3337,6 +3354,8 @@ class PatchCronRequest(_message.Message):
     _WhichOneofArgType__payload: _TypeAlias = _typing.Literal["_payload", b"_payload"]  # noqa: Y015
     _WhichOneofReturnType__schedule: _TypeAlias = _typing.Literal["schedule"]  # noqa: Y015
     _WhichOneofArgType__schedule: _TypeAlias = _typing.Literal["_schedule", b"_schedule"]  # noqa: Y015
+    _WhichOneofReturnType__timezone: _TypeAlias = _typing.Literal["timezone"]  # noqa: Y015
+    _WhichOneofArgType__timezone: _TypeAlias = _typing.Literal["_timezone", b"_timezone"]  # noqa: Y015
     @_typing.overload
     def WhichOneof(self, oneof_group: _WhichOneofArgType__enabled) -> _WhichOneofReturnType__enabled | None: ...
     @_typing.overload
@@ -3351,6 +3370,8 @@ class PatchCronRequest(_message.Message):
     def WhichOneof(self, oneof_group: _WhichOneofArgType__payload) -> _WhichOneofReturnType__payload | None: ...
     @_typing.overload
     def WhichOneof(self, oneof_group: _WhichOneofArgType__schedule) -> _WhichOneofReturnType__schedule | None: ...
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__timezone) -> _WhichOneofReturnType__timezone | None: ...
 
 Global___PatchCronRequest: _TypeAlias = PatchCronRequest  # noqa: Y015
 

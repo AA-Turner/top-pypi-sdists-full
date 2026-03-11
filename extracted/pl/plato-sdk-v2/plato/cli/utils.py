@@ -2,7 +2,9 @@
 
 import asyncio
 import os
+import re
 import shutil
+from datetime import datetime
 from pathlib import Path
 
 import httpx
@@ -66,6 +68,108 @@ def handle_async(coro):
         if "401" in str(e) or "Unauthorized" in str(e):
             console.print("💡 [yellow]Hint: Make sure PLATO_API_KEY is set in your environment[/yellow]")
         raise typer.Exit(1) from e
+
+
+_PROJECT_VERSION_RE = re.compile(r"""^(\s*version\s*=\s*)(["'])([^"']+)(["'])(\s*(?:#.*)?)$""")
+_SEMVER_DEV_RE = re.compile(r"^(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)(?:\.dev(?P<dev>\d+))?$")
+
+
+def compute_bumped_version(
+    current_version: str,
+    *,
+    minor: bool = False,
+    dev: bool = False,
+    now: datetime | None = None,
+) -> str:
+    """Compute the next version for patch/minor and optional dev publishes."""
+    match = _SEMVER_DEV_RE.fullmatch(current_version)
+    if not match:
+        raise ValueError(f"Unsupported version format '{current_version}'. Expected X.Y.Z or X.Y.Z.devYYYYMMDDHHMMSS.")
+
+    major = int(match.group("major"))
+    minor_value = int(match.group("minor"))
+    patch = int(match.group("patch"))
+    existing_dev = match.group("dev")
+
+    if not (dev and existing_dev is not None):
+        if minor:
+            minor_value += 1
+            patch = 0
+        else:
+            patch += 1
+
+    next_version = f"{major}.{minor_value}.{patch}"
+    if dev:
+        stamp = (now or datetime.now()).strftime("%Y%m%d%H%M%S")
+        next_version = f"{next_version}.dev{stamp}"
+    return next_version
+
+
+def update_project_version(pyproject_file: Path, new_version: str) -> None:
+    """Rewrite project.version in pyproject.toml while preserving surrounding formatting."""
+    lines = pyproject_file.read_text().splitlines(keepends=True)
+    in_project = False
+
+    for index, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped.startswith("[") and stripped.endswith("]"):
+            in_project = stripped == "[project]"
+            continue
+
+        if not in_project:
+            continue
+
+        match = _PROJECT_VERSION_RE.match(line.rstrip("\n"))
+        if not match:
+            continue
+
+        prefix, quote, _, _, suffix = match.groups()
+        newline = "\n" if line.endswith("\n") else ""
+        lines[index] = f"{prefix}{quote}{new_version}{quote}{suffix}{newline}"
+        pyproject_file.write_text("".join(lines))
+        return
+
+    raise ValueError(f"Could not find [project].version in {pyproject_file}")
+
+
+def maybe_bump_package_version(
+    pyproject_file: Path,
+    current_version: str,
+    *,
+    minor: bool = False,
+    dev: bool = False,
+    dry_run: bool = False,
+) -> str:
+    """Optionally update a package version before publish and return the effective version."""
+    bump_kind = "minor" if minor else "patch"
+    next_version = compute_bumped_version(current_version, minor=minor, dev=dev)
+
+    if dry_run:
+        console.print(
+            f"[yellow]Dry run - would bump version ({bump_kind}) from {current_version} to {next_version}[/yellow]"
+        )
+        if dev:
+            console.print(f"[yellow]Updated version:[/yellow] {next_version}")
+            console.print("[yellow]Note:[/yellow] sdk changes will have to be published if there were any changes")
+        return current_version
+
+    if not dev:
+        should_bump = typer.confirm(
+            f"Bump version ({bump_kind}) from {current_version} to {next_version}?",
+            default=True,
+        )
+        if not should_bump:
+            console.print(f"[yellow]Keeping version:[/yellow] {current_version}")
+            return current_version
+
+    if next_version != current_version:
+        update_project_version(pyproject_file, next_version)
+        console.print(f"[green]Updated version:[/green] {next_version}")
+    else:
+        console.print(f"[green]Keeping existing dev version:[/green] {next_version}")
+    if dev:
+        console.print("[yellow]Note:[/yellow] sdk changes will have to be published if there were any changes")
+    return next_version
 
 
 # =============================================================================

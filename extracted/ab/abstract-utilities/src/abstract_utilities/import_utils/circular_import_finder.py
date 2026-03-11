@@ -12,7 +12,6 @@ def is_from_line_group(line):
 def clean_imports(text=None,file_path=None,import_pkg_js=None,fill_nulines=False):
     if text and os.path.isfile(text):
         file_path = text
-        input(file_path)
         text = read_from_file(file_path)    
     if not import_pkg_js:
         import_pkg_js = get_all_imports(text=text,file_path=file_path)

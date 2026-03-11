@@ -1,17 +1,22 @@
-# -*- coding: utf-8 -*-
-# SPDX-FileCopyrightText: 2016-2025 PyThaiNLP Project
+# SPDX-FileCopyrightText: 2016-2026 PyThaiNLP Project
 # SPDX-FileType: SOURCE
 # SPDX-License-Identifier: Apache-2.0
+
+from __future__ import annotations
 
 import argparse
 import os
 import random
+from typing import TYPE_CHECKING
 
 from pythainlp.tools.misspell import misspell
 
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
 
 class App:
-    def __init__(self, argv):
+    def __init__(self, argv: Sequence[str]) -> None:
         parser = argparse.ArgumentParser(
             prog="misspell",
             description="Generate misspelled texts from a given file.",
@@ -54,7 +59,7 @@ class App:
         if args.seed is not None:
             random.seed(args.seed)
 
-        with open(args.file, "r", encoding="utf-8") as f:
+        with open(args.file, encoding="utf-8") as f:
             lines = f.readlines()
 
         misspelled_lines = [

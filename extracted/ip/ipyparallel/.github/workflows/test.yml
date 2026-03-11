@@ -5,6 +5,7 @@ on:
   push:
     branches-ignore:
       - "pre-commit-ci*"
+      - "dependabot/**"
 
 concurrency:
   group: >-
@@ -21,7 +22,7 @@ env:
 
 jobs:
   test:
-    runs-on: ${{ matrix.runs_on || 'ubuntu-22.04' }}
+    runs-on: ${{ matrix.runs_on || 'ubuntu-24.04' }}
     timeout-minutes: 20
 
     strategy:
@@ -29,39 +30,37 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - python: "3.9"
-          - python: "3.8"
+          - python: "3.11"
             cluster_type: mpi
-          - python: "3.10"
+          - python: "3.12"
             cluster_type: slurm
             container: slurmctld
-          - python: "3.8"
           - python: "3.10"
             env:
               IPP_CONTROLLER_IP: "*"
-          - python: "3.9"
+          - python: "3.13"
             env:
               IPP_ENABLE_CURVE: "1"
-          - python: "3.9"
-            runs_on: windows-2022
-          - python: "3.9"
+          - python: "3.10"
+            runs_on: windows-2025
+          - python: "3.12"
             runs_on: macos-14
           - python: "3.11"
-          - python: "3.12"
+          - python: "3.14"
             pre: pre
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Cache conda environment
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/conda
           key: conda
 
       - name: Cache node_modules
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             node_modules
@@ -85,11 +84,14 @@ jobs:
 
       - name: Set up slurm
         if: ${{ matrix.cluster_type == 'slurm' }}
+        # docker build can lead to race condition -> image "docker.io/library/ipp-cluster:slurm": already exists
+        # see https://github.com/mlflow/mlflow/pull/20779
+        # work-a-round fix: docker compose again if first call failed
         run: |
           export DOCKER_BUILDKIT=1
           export COMPOSE_DOCKER_CLI_BUILD=1
           cd ci/slurm
-          docker compose up -d --build
+          docker compose up -d --build || docker compose up -d --build
 
       - name: Install Python (conda) ${{ matrix.python }}
         if: ${{ matrix.cluster_type == 'mpi' }}
@@ -104,9 +106,10 @@ jobs:
 
       - name: Install Python ${{ matrix.python }}
         if: ${{ matrix.cluster_type != 'mpi' }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python }}
+          allow-prereleases: true
 
       - name: Install ipyparallel itself
         run: |
@@ -127,6 +130,23 @@ jobs:
         run: |
           pip install distributed joblib
           pip install --only-binary :all: matplotlib
+
+      - name: Start MongoDB
+        if: ${{ (! matrix.runs_on) && (! matrix.cluster_type) }} # only under linux with no cluster
+        uses: supercharge/mongodb-github-action@1.12.1 # uses latest mongodb per default
+
+      - name: Install pymongo package
+        if: ${{ (! matrix.runs_on) && (! matrix.cluster_type) }} # only under linux with no cluster
+        run: pip install pymongo
+
+      - name: Try to connect to mongodb
+        if: ${{ (! matrix.runs_on) && (! matrix.cluster_type) }} # only under linux with no cluster
+        run: |
+          python3 <<EOF
+          from pymongo import MongoClient
+          client = MongoClient('mongodb://localhost:27017/',serverSelectionTimeoutMS=1)
+          print(client.server_info())
+          EOF
 
       - name: Show environment
         run: pip freeze

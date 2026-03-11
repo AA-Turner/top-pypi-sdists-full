@@ -658,3 +658,15 @@ class TestGetRequirementsLintMarkers(BaseTest):
         # "pandas" starts at index 5, ends at 11
         self.assertEqual(markers[0]["column"], 6)  # 5 + 1 for Monaco 1-indexing
         self.assertEqual(markers[0]["until_column"], 12)  # 11 + 1
+
+    def test_returns_empty_list_for_relative_imports(self):
+        """Relative imports should not be flagged as missing packages."""
+        code = "from .another_class import OTHER_VALUE"
+        markers = get_requirements_lint_markers(code)
+        self.assertEqual(markers, [])
+
+    def test_returns_empty_list_for_parent_relative_imports(self):
+        """Parent relative imports (from ..) should not be flagged as missing packages."""
+        code = "from ..utils import helper"
+        markers = get_requirements_lint_markers(code)
+        self.assertEqual(markers, [])

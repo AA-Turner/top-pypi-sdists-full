@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: AOT_biomaps
-Version: 2.9.477
+Version: 2.9.486
 Summary: Acousto-Optic Tomography
 Home-page: https://github.com/LucasDuclos/AcoustoOpticTomography
 Author: Lucas Duclos
@@ -16,6 +16,7 @@ Requires-Dist: numpy==1.26.4
 Requires-Dist: torch==2.7.0
 Requires-Dist: scipy==1.13.1
 Requires-Dist: cupy-cuda12x==13.6.0
+Requires-Dist: scikit-image==0.26.0
 Dynamic: author
 Dynamic: author-email
 Dynamic: home-page

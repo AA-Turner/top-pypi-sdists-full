@@ -219,7 +219,7 @@ class OtelMetricConfig(APIObject):
         if offset is None:
             data = unpaginate(path, params, cls._client)
         else:
-            response = cls._client.get(path, params=params if params else None)
+            response = cls._client.get(path, params=params or None)
             data = response.json()["data"]
 
         return [cls.from_server_data_with_entity(d, entity_type, entity_id) for d in data]

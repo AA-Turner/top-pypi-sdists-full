@@ -63,16 +63,16 @@ class WorkbookSearchContext:
 
 @Status.top_level_spy_function()
 def search(
-    query: dict,
-    *,
-    content_filter: str = 'owner',
-    all_properties: bool = False,
-    recursive: bool = False,
-    include_archived: bool = False,
-    errors: Optional[str] = None,
-    quiet: Optional[bool] = None,
-    status: Optional[Status] = None,
-    session: Optional[Session] = None
+        query: dict,
+        *,
+        content_filter: str = 'owner',
+        all_properties: bool = False,
+        recursive: bool = False,
+        include_archived: bool = False,
+        errors: Optional[str] = None,
+        quiet: Optional[bool] = None,
+        status: Optional[Status] = None,
+        session: Optional[Session] = None
 ):
     """
     Issues a query to the Seeq Server to retrieve metadata for workbooks.
@@ -240,8 +240,8 @@ def _search(context: WorkbookSearchContext, query: dict, content_filter, *, pare
             'Name': workbook_output.name,
             'Archived': workbook_output.is_archived,
             'Pinned': workbook_output.marked_as_favorite,
-            'Created At': pd.to_datetime(workbook_output.created_at),
-            'Updated At': pd.to_datetime(workbook_output.updated_at)
+            'Created At': _common.smart_pd_to_datetime(workbook_output.created_at),
+            'Updated At': _common.smart_pd_to_datetime(workbook_output.updated_at)
         }
 
         if workbook_output.owner:
@@ -353,8 +353,8 @@ def _process_content(context: WorkbookSearchContext, content: WorkbenchSearchRes
             'Name': content.name or np.nan,
             'Archived': content.is_archived or np.nan,
             'Pinned': content.is_pinned or np.nan,
-            'Created At': pd.to_datetime(content.created_at),
-            'Updated At': pd.to_datetime(content.updated_at)
+            'Created At': pd.to_datetime(_common.smart_pd_to_datetime(content.created_at)),
+            'Updated At': pd.to_datetime(_common.smart_pd_to_datetime(content.updated_at))
         }
 
         if content.owner:
@@ -405,7 +405,7 @@ def _process_content(context: WorkbookSearchContext, content: WorkbenchSearchRes
             new_parent_path = parent_path + ' >> ' + content.name
 
         child_query = dict(context.top_level_query)
-        if not child_path_filter and 'Path' in child_query:
+        if search_folder_id is None and not child_path_filter and 'Path' in child_query:
             # We've finished drilling down using the provided 'Path' so now we can use the current folder ID as the
             # "root" from which all paths can be made relative (if desired)
             search_folder_id = content.id

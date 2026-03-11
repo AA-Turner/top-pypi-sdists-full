@@ -44,8 +44,15 @@ benchmark-reset:
 benchmark-new-revision:
 	node update-revision.js
 
+benchmark-staircase:
+	python staircase.py
+
+benchmark-staircase-reset:
+	python ../../scripts/reset_deployment.py -a $(BENCHMARK_APP_NAME) -n $(BENCHMARK_NAMESPACE) -db $(BENCHMARK_DB_INSTANCE)
+	python staircase.py
+
 benchmark-clean:
-	rm -f results_*.json summary_*.json raw_data_*.json *_chart_*.png
+	rm -f results_*.json summary_*.json raw_data_*.json staircase_*.json *_chart_*.png
 
 benchmark-clean-charts:
 	rm -f *_chart_*.png

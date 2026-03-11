@@ -1,9 +1,7 @@
-# -*- coding: utf-8 -*-
-# SPDX-FileCopyrightText: 2016-2025 PyThaiNLP Project
+# SPDX-FileCopyrightText: 2016-2026 PyThaiNLP Project
 # SPDX-FileType: SOURCE
 # SPDX-License-Identifier: Apache-2.0
-"""
-Thai soundex - LK82 system
+"""Thai soundex - LK82 system
 
 Original paper:
 Vichit Lorchirachoonkul. 1982. A Thai soundex
@@ -15,30 +13,33 @@ Python implementation:
 by Korakot Chaovavanich
 https://gist.github.com/korakot/0b772e09340cac2f493868da035597e8
 """
+
+from __future__ import annotations
+
 import re
+from typing import Pattern
 
 from pythainlp.util import remove_tonemark
 
-_TRANS1 = str.maketrans(
+_TRANS1: dict[int, int] = str.maketrans(
     "กขฃคฅฆงจฉชฌซศษสญยฎดฏตณนฐฑฒถทธบปผพภฝฟมรลฬฤฦวหฮอ",
     "กกกกกกงจชชชซซซซยยดดตตนนททททททบปพพพฟฟมรรรรรวหหอ",
 )
-_TRANS2 = str.maketrans(
+_TRANS2: dict[int, int] = str.maketrans(
     "กขฃคฅฆงจฉชซฌฎฏฐฑฒดตถทธศษสญณนรลฬฤฦบปพฟภผฝมำยวไใหฮาๅึืเแโุูอ",
     "1111112333333333333333333444444445555555667777889AAABCDEEF",
 )
 
 # silenced
-_RE_KARANT = re.compile(r"จน์|มณ์|ณฑ์|ทร์|ตร์|[ก-ฮ]์|[ก-ฮ][ะ-ู]์")
+_RE_KARANT: Pattern[str] = re.compile(r"จน์|มณ์|ณฑ์|ทร์|ตร์|[ก-ฮ]์|[ก-ฮ][ะ-ู]์")
 
 # signs, symbols, vowel that has no explicit sounds
 # Paiyannoi, Phinthu, Maiyamok, Maitaikhu, Nikhahit
-_RE_SIGN = re.compile(r"[\u0e2f\u0e3a\u0e46\u0e47\u0e4d]")
+_RE_SIGN: Pattern[str] = re.compile(r"[\u0e2f\u0e3a\u0e46\u0e47\u0e4d]")
 
 
 def lk82(text: str) -> str:
-    """
-    This function converts Thai text into phonetic code with the
+    """Converts Thai text into phonetic code with the
     Thai soundex algorithm named **LK82** [#lk82]_.
 
     :param str text: Thai word

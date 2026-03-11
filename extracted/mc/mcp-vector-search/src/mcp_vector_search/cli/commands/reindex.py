@@ -63,6 +63,7 @@ def reindex_main(
         "-v",
         help="Show verbose output",
     ),
+    show_deprecation: bool = True,
 ) -> None:
     """🔄 Full reindex: chunk files, embed chunks, and build knowledge graph.
 
@@ -87,9 +88,10 @@ def reindex_main(
         return
 
     # Show deprecation warning
-    console.print(
-        "[yellow]⚠ 'mvs reindex' is deprecated. Use 'mvs index' instead.[/yellow]"
-    )
+    if show_deprecation:
+        console.print(
+            "[yellow]⚠ 'mvs reindex' is deprecated. Use 'mvs index' instead.[/yellow]"
+        )
 
     # --force is alias for --fresh
     if force:
@@ -145,7 +147,7 @@ async def _run_reindex(
     cache_dir = (
         get_default_cache_path(project_root) if config.cache_embeddings else None
     )
-    embedding_function, cache = create_embedding_function(
+    embedding_function, _ = create_embedding_function(
         model_name=config.embedding_model,
         cache_dir=cache_dir,
         cache_size=config.max_cache_size,

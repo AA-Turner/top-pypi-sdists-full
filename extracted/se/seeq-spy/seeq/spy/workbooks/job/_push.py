@@ -5,7 +5,7 @@ import os
 import pickle
 import types
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import List, Optional, Union, Tuple
 
 import pandas as pd
 
@@ -15,7 +15,7 @@ from seeq.spy import _common
 from seeq.spy._errors import *
 from seeq.spy._session import Session
 from seeq.spy._status import Status
-from seeq.spy.workbooks._context import WorkbookPushContext
+from seeq.spy.workbooks._context import WorkbookPushContext, WorkbookPushMode
 from seeq.spy.workbooks._item import Item
 from seeq.spy.workbooks._item_map import ItemMap
 from seeq.spy.workbooks._workbook import Workbook
@@ -31,6 +31,8 @@ def push(
     owner: Optional[str] = None,
     label: Optional[str] = None,
     datasource: Optional[str] = None,
+    datasource_map_folder: Optional[Union[str, Path]] = None,
+    mode: str = WorkbookPushMode.NORMAL,
     use_full_path: bool = False,
     access_control: Optional[str] = None,
     override_max_interp: bool = False,
@@ -50,7 +52,7 @@ def push(
 
     Parameters
     ----------
-    job_folder : {str}
+    job_folder : {str, pathlib.Path}
         A full or partial path to the job folder created by
         spy.workbooks.job.pull().
 
@@ -58,7 +60,7 @@ def push(
         True if the push should resume from where it left off, False if it
         should push everything again.
 
-    path : str, default None
+    path : {str, Path}, default None
         A '>>'-delimited folder path to create to contain the workbooks. Note
         that a further subfolder hierarchy will be created to preserve the
         relative paths that the folders were in when they were searched for
@@ -113,6 +115,25 @@ def push(
         If you instead want access control for your items to be inherited from the
         workbook they are scoped to, specify `spy.INHERIT_FROM_WORKBOOK`.
 
+    datasource_map_folder : {str, pathlib.Path}, default None
+        A folder containing Datasource_Map_Xxxx_Yyyy_Zzzz.json files that can
+        provides a means to map stored items (i.e., those originating from
+        external datasources like OSIsoft PI) from one server to another or
+        from one datasource to another (i.e., for workbook swapping). A default
+        set of datasource map files is created during a pull/save sequence, and
+        you can copy these default files to a folder, alter them, and then
+        specify the folder as this argument.
+
+    mode : {'normal', 'in-place datasource swap'}, default 'normal'
+        The push mode to use. The default is 'normal', which performs a full
+        push of all workbook content and inventory. When set to 'in-place
+        datasource swap', the push operation performs minimal updates to effect
+        a datasource swap using the provided datasource_map_folder. This mode
+        requires datasource_map_folder to be specified and enforces specific
+        parameter constraints (path, owner, label, and datasource must be None;
+        reconcile_inventory_by must be 'id'; global_inventory must be either
+        'overwrite' or 'do not touch').
+
     use_full_path : bool, default False
         If True, the original full path for an item is reconstructed, as
         opposed to the path that is relative to the Path property supplied to
@@ -139,14 +160,16 @@ def push(
         If True, then the Maximum Interpolation overrides from the source
         system will be written to the destination system.
 
-    global_inventory : {'copy global', copy local', 'always reuse'}, default 'copy global'
+    global_inventory : {'copy global', 'copy local', 'overwrite', 'do not touch'}, default 'copy global'
         Determines how SPy handles global inventory items, especially in
         conjunction with a label argument. 'copy global' will cause different
         global items to be created if their labels differ. If no label is
         specified, the existing global item will be reused/updated if possible.
         'copy local' will scope the global items to the pushed workbook,
-        making copies for different workbooks if necessary. 'always reuse' will
-        use an existing global item if possible and ignore the label.
+        making copies for different workbooks if necessary. 'overwrite' will
+        use an existing global item if possible and ignore the label. 'do not touch'
+        will skip processing global inventory entirely, using the items as-is
+        without any modifications or datasource mapping.
 
     create_dummy_items : bool, default False
         If true, then "dummy" items will be created for any stored items
@@ -210,8 +233,6 @@ def push(
     if resume:
         item_map = load_item_map(job_folder)
 
-    item_map.only_override_maps = True
-
     workbook_list: List[WorkbookFolderRef] = list()
     job_workbooks_folder = _pull.get_workbooks_folder(job_folder)
     for workbook_folder, _ in _pull.walk_workbook_folders(job_workbooks_folder):
@@ -220,16 +241,25 @@ def push(
             util.safe_remove(completely_pushed_filename)
         workbook_list.append(WorkbookFolderRef(os.path.join(job_workbooks_folder, workbook_folder), job_folder))
 
-    job_datasource_maps_folder = _pull.get_datasource_maps_folder(job_folder)
-    if not util.safe_exists(job_datasource_maps_folder):
-        job_datasource_maps_folder = None
+    job_datasource_map_folder = datasource_map_folder
+
+    if job_datasource_map_folder is None:
+        # We used to copy datasource maps to Datasource Maps and always use them as overrides, which causes
+        # subtle, confusing behavior differences between spy.workbooks.job.push() and spy.workbooks.push().
+        # Now we use the Datasource Map Overrides/Possibilities scheme, but for backward compatibility we look
+        # for the old folder and use it if it exists (and trigger the old, confusing, behavior).
+        if util.safe_exists(os.path.join(job_folder, 'Datasource Maps')):
+            job_datasource_map_folder = os.path.join(job_folder, 'Datasource Maps')
+            item_map.only_override_maps = True
+        elif util.safe_exists(os.path.join(job_folder, 'Datasource Map Overrides')):
+            job_datasource_map_folder = os.path.join(job_folder, 'Datasource Map Overrides')
 
     create_dummy_items_in_workbook = get_dummy_workbook_name(job_folder) if create_dummy_items else None
 
-    spy.workbooks.push(workbook_list, path=path, owner=owner, label=label, datasource=datasource,
+    spy.workbooks.push(workbook_list, path=path, owner=owner, label=label, datasource=datasource, mode=mode,
                        use_full_path=use_full_path, access_control=access_control,
                        override_max_interp=override_max_interp, global_inventory=global_inventory,
-                       datasource_map_folder=job_datasource_maps_folder, refresh=False,
+                       datasource_map_folder=job_datasource_map_folder, refresh=False,
                        create_dummy_items_in_workbook=create_dummy_items_in_workbook,
                        dry_run=dry_run, status=status, session=session, item_map=item_map,
                        scope_globals_to_workbook=scope_globals_to_workbook)
@@ -293,6 +323,7 @@ def redo(job_folder: str, hard: bool, status: Status):
 class WorkbookFolderRef(Workbook):
     workbook_folder: str
     _real_workbook: Optional[Workbook]
+    _search_folder_id: Optional[str]
     _parent_folder_id: Optional[str]
 
     def __init__(self, workbook_folder, job_folder):
@@ -302,6 +333,7 @@ class WorkbookFolderRef(Workbook):
         self.job_folder = job_folder
         self._provenance = Item.LOAD
         self._real_workbook = None
+        self._search_folder_id = None
         self._parent_folder_id = None
 
         with util.safe_open(os.path.join(self.workbook_folder, 'Workbook.json'), 'r', encoding='utf-8') as f:
@@ -319,21 +351,29 @@ class WorkbookFolderRef(Workbook):
             return
 
         self._real_workbook = Workbook.load(self.workbook_folder)
-        self._real_workbook.datasource_maps = self.datasource_maps
+
+    @property
+    def datasource_maps(self):
+        self._ensure_loaded()
+        return self._real_workbook.datasource_maps
 
     def push_containing_folders(self, context: WorkbookPushContext, item_map: ItemMap, datasource_output, use_full_path,
-                                parent_folder_id, owner, label, access_control):
+                                parent_folder_id, owner, label, access_control) -> Tuple[Optional[str], Optional[str]]:
         if self.already_pushed:
             with util.safe_open(self._already_pushed_filename(), 'r') as f:
                 d = json.load(f)
-            self._parent_folder_id = d['Parent Folder ID']
-            return self._parent_folder_id
+
+            # Older versions of SPy didn't store off Search Folder ID so we use get() to maintain compatibility with
+            # existing job folders.
+            self._search_folder_id = d.get('Search Folder ID')
+            self._parent_folder_id = d.get('Parent Folder ID')
+            return self._search_folder_id, self._parent_folder_id
 
         self._ensure_loaded()
-        self._parent_folder_id = self._real_workbook.push_containing_folders(
+        self._search_folder_id, self._parent_folder_id = self._real_workbook.push_containing_folders(
             context, item_map, datasource_output, use_full_path, parent_folder_id, owner, label, access_control)
 
-        return self._parent_folder_id
+        return self._search_folder_id, self._parent_folder_id
 
     def push(self, *, context: WorkbookPushContext, folder_id=None, item_map: ItemMap = None, label=None,
              include_inventory=True):
@@ -360,4 +400,7 @@ class WorkbookFolderRef(Workbook):
         Workbook.save_push_errors(self.workbook_folder, self._push_errors)
         if context.status.errors == 'catalog' or len(self._real_workbook.push_errors) == 0:
             with util.safe_open(self._already_pushed_filename(), 'w') as f:
-                json.dump({'Parent Folder ID': self._parent_folder_id}, f)
+                json.dump({
+                    'Search Folder ID': self._search_folder_id,
+                    'Parent Folder ID': self._parent_folder_id
+                }, f)

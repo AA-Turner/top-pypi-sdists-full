@@ -19,10 +19,10 @@ from seeq.spy._errors import *
 from seeq.spy._redaction import request_safely
 from seeq.spy._session import Session
 from seeq.spy._status import Status
-from seeq.spy.workbooks._context import WorkbookPushContext
+from seeq.spy.workbooks._context import WorkbookPushContext, WorkbookPushMode
 from seeq.spy.workbooks._data import StoredSignal, StoredCondition, StoredOrCalculatedItem, CalculatedItem
 from seeq.spy.workbooks._data import ThresholdMetric
-from seeq.spy.workbooks._item import Item, Reference, replace_items
+from seeq.spy.workbooks._item import Item, Reference
 from seeq.spy.workbooks._item_map import ItemMap
 from seeq.spy.workbooks._table_toolbar import ConditionTableToolbar
 from seeq.spy.workbooks._trend_toolbar import TrendToolbar
@@ -106,35 +106,44 @@ class Workstep(Item):
     def _apply_map(self, item_map: ItemMap, **kwargs):
         derived_class = AnalysisWorkstep
         definition_str = _common.safe_json_dumps(self.definition_dict)
-        replaced_str = replace_items(definition_str, item_map)
+        replaced_str = item_map.replace_items(definition_str)
+        if replaced_str == definition_str:
+            return self
+
         definition_dict = json.loads(replaced_str)
         kwargs['definition'] = definition_dict
         return derived_class(**kwargs)
 
-    def push_to_specific_worksheet(self, context: WorkbookPushContext, pushed_workbook_id, pushed_worksheet_output,
-                                   item_map, include_inventory, *, no_workstep_message=None):
+    def push_to_specific_worksheet(self, context: WorkbookPushContext, pushed_workbook_id: str,
+                                   pushed_worksheet_id: Optional[str], item_map, include_inventory, *,
+                                   no_workstep_message=None):
         session = context.session
         workbooks_api = WorkbooksApi(session.client)
 
-        item_map = item_map if item_map is not None else dict()
+        item_map = item_map if item_map is not None else ItemMap()
 
         self._validate_before_push()
 
         workstep_to_push = self._apply_map(item_map)
 
+        if context.mode == WorkbookPushMode.IN_PLACE_DATASOURCE_SWAP and workstep_to_push is self:
+            context.status.log(
+                f'No changes for Workstep {pushed_workbook_id}/{pushed_worksheet_id}/{self.id} -- skipping')
+            return self.id
+
         workstep_input = WorkstepInputV1(data=_common.safe_json_dumps(workstep_to_push.data))
         if not context.dry_run:
             workstep_output = workbooks_api.create_workstep(workbook_id=pushed_workbook_id,
-                                                            worksheet_id=pushed_worksheet_output.id,
+                                                            worksheet_id=pushed_worksheet_id,
                                                             no_workstep_message=no_workstep_message,
                                                             body=workstep_input)  # type: WorkstepOutputV1
             context.status.log(
-                f'Pushed Workstep {self.id} to Worksheet {pushed_worksheet_output.id} as Workstep'
+                f'Pushed Workstep {self.id} to Worksheet {pushed_worksheet_id} as Workstep'
                 f' {workstep_output.id}')
         else:
-            if pushed_worksheet_output is not None:
+            if pushed_worksheet_id is not None:
                 context.status.log(f'[Dry Run] Would push Workstep {self.id} to Worksheet'
-                                   f' {pushed_worksheet_output.id}')
+                                   f' {pushed_worksheet_id}')
             else:
                 context.status.log(f'[Dry Run] Would push Workstep {self.id} to new Worksheet')
             return None

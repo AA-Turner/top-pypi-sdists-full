@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import functools
 import importlib
+import inspect
 from dataclasses import asdict, dataclass
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Literal
@@ -14,6 +15,12 @@ from mindroom.config.main import Config
 from mindroom.tool_system.dependencies import auto_install_tool_extra, check_deps_installed
 from mindroom.tool_system.plugins import load_plugins
 from mindroom.tool_system.sandbox_proxy import maybe_wrap_toolkit_for_sandbox_proxy
+from mindroom.tool_system.worker_routing import (
+    WorkerScope,
+    requires_shared_only_integration_scope,
+    unsupported_shared_only_integration_message,
+    worker_scope_allows_shared_only_integrations,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -21,28 +28,10 @@ if TYPE_CHECKING:
 
     from agno.tools import Toolkit
 
-from mindroom.credentials import get_credentials_manager
+from mindroom.credentials import get_credentials_manager, load_scoped_credentials
 
 # Registry mapping tool names to their factory functions
 _TOOL_REGISTRY: dict[str, Callable[[], type[Toolkit]]] = {}
-
-
-def _register_tool(name: str) -> Callable[[Callable[[], type[Toolkit]]], Callable[[], type[Toolkit]]]:
-    """Decorator to register a tool factory function.
-
-    Args:
-        name: The name to register the tool under
-
-    Returns:
-        Decorator function
-
-    """
-
-    def decorator(func: Callable[[], type[Toolkit]]) -> Callable[[], type[Toolkit]]:
-        _TOOL_REGISTRY[name] = func
-        return func
-
-    return decorator
 
 
 def _build_tool_instance(
@@ -50,26 +39,69 @@ def _build_tool_instance(
     *,
     disable_sandbox_proxy: bool = False,
     credential_overrides: dict[str, object] | None = None,
-    sandbox_tools_override: list[str] | None = None,
+    worker_tools_override: list[str] | None = None,
+    runtime_overrides: dict[str, object] | None = None,
+    worker_scope: WorkerScope | None = None,
+    routing_agent_name: str | None = None,
 ) -> Toolkit:
     """Instantiate a tool from the registry, applying credentials and sandbox proxy."""
+    if requires_shared_only_integration_scope(tool_name) and not worker_scope_allows_shared_only_integrations(
+        worker_scope,
+    ):
+        msg = unsupported_shared_only_integration_message(
+            tool_name,
+            worker_scope,
+            agent_name=routing_agent_name,
+            subject="Tool",
+        )
+        raise ValueError(msg)
+
     tool_class = _TOOL_REGISTRY[tool_name]()
     creds_manager = get_credentials_manager()
-    credentials = creds_manager.load_credentials(tool_name) or {}
+    credentials = (
+        load_scoped_credentials(
+            tool_name,
+            worker_scope=worker_scope,
+            routing_agent_name=routing_agent_name,
+            credentials_manager=creds_manager,
+        )
+        or {}
+    )
     if credential_overrides:
         credentials = {**credentials, **credential_overrides}
     metadata = TOOL_METADATA[tool_name]
 
     init_kwargs = {}
     if metadata.config_fields:
+        config_field_names = {field.name for field in metadata.config_fields}
         for field in metadata.config_fields:
             if field.name in credentials:
                 init_kwargs[field.name] = credentials[field.name]
+        if runtime_overrides:
+            init_kwargs.update(
+                {
+                    field_name: value
+                    for field_name, value in runtime_overrides.items()
+                    if field_name in config_field_names
+                },
+            )
+
+    init_signature = inspect.signature(tool_class.__init__)
+    if "worker_scope" in init_signature.parameters:
+        init_kwargs["worker_scope"] = worker_scope
+    if "routing_agent_name" in init_signature.parameters:
+        init_kwargs["routing_agent_name"] = routing_agent_name
 
     toolkit = tool_class(**init_kwargs)
     if disable_sandbox_proxy:
         return toolkit
-    return maybe_wrap_toolkit_for_sandbox_proxy(tool_name, toolkit, sandbox_tools_override=sandbox_tools_override)
+    return maybe_wrap_toolkit_for_sandbox_proxy(
+        tool_name,
+        toolkit,
+        worker_tools_override=worker_tools_override,
+        worker_scope=worker_scope,
+        routing_agent_name=routing_agent_name,
+    )
 
 
 def get_tool_by_name(
@@ -77,7 +109,10 @@ def get_tool_by_name(
     *,
     disable_sandbox_proxy: bool = False,
     credential_overrides: dict[str, object] | None = None,
-    sandbox_tools_override: list[str] | None = None,
+    worker_tools_override: list[str] | None = None,
+    runtime_overrides: dict[str, object] | None = None,
+    worker_scope: WorkerScope | None = None,
+    routing_agent_name: str | None = None,
 ) -> Toolkit:
     """Get a tool instance by its registered name."""
     if tool_name not in _TOOL_REGISTRY:
@@ -90,7 +125,10 @@ def get_tool_by_name(
         tool_name,
         disable_sandbox_proxy=disable_sandbox_proxy,
         credential_overrides=credential_overrides,
-        sandbox_tools_override=sandbox_tools_override,
+        worker_tools_override=worker_tools_override,
+        runtime_overrides=runtime_overrides,
+        worker_scope=worker_scope,
+        routing_agent_name=routing_agent_name,
     )
 
     # Pre-check dependencies using find_spec (no side effects) before importing
@@ -157,6 +195,13 @@ class SetupType(str, Enum):
     SPECIAL = "special"  # Special setup (e.g., for Google)
 
 
+class ToolExecutionTarget(str, Enum):
+    """Default runtime location for one tool."""
+
+    PRIMARY = "primary"
+    WORKER = "worker"
+
+
 @dataclass
 class ConfigField:
     """Definition of a configuration field."""
@@ -182,6 +227,7 @@ class ToolMetadata:
     category: ToolCategory
     status: ToolStatus = ToolStatus.AVAILABLE
     setup_type: SetupType = SetupType.NONE
+    default_execution_target: ToolExecutionTarget = ToolExecutionTarget.PRIMARY
     icon: str | None = None  # Icon identifier for frontend
     icon_color: str | None = None  # Tailwind color class like "text-blue-500"
     config_fields: list[ConfigField] | None = None  # Detailed field definitions
@@ -204,6 +250,7 @@ def register_tool_with_metadata(
     category: ToolCategory,
     status: ToolStatus = ToolStatus.AVAILABLE,
     setup_type: SetupType = SetupType.NONE,
+    default_execution_target: ToolExecutionTarget = ToolExecutionTarget.PRIMARY,
     icon: str | None = None,
     icon_color: str | None = None,
     config_fields: list[ConfigField] | None = None,
@@ -224,6 +271,7 @@ def register_tool_with_metadata(
         category: Tool category for organization
         status: Availability status of the tool
         setup_type: Type of setup required
+        default_execution_target: Default runtime location for the tool
         icon: Icon identifier for frontend
         icon_color: CSS color class for the icon
         config_fields: List of configuration fields
@@ -246,6 +294,7 @@ def register_tool_with_metadata(
             category=category,
             status=status,
             setup_type=setup_type,
+            default_execution_target=default_execution_target,
             icon=icon,
             icon_color=icon_color,
             config_fields=config_fields,
@@ -267,16 +316,6 @@ def register_tool_with_metadata(
     return decorator
 
 
-def _get_tool_metadata(name: str) -> ToolMetadata | None:
-    """Get metadata for a tool by name."""
-    return TOOL_METADATA.get(name)
-
-
-def _get_all_tool_metadata() -> dict[str, ToolMetadata]:
-    """Get all tool metadata."""
-    return TOOL_METADATA.copy()
-
-
 def ensure_tool_registry_loaded(config: Config | None = None, *, config_path: Path | None = None) -> None:
     """Ensure core and plugin tools are registered in the metadata registry."""
     import mindroom.tools  # noqa: F401, PLC0415  # import here to avoid tools_metadata cycle
@@ -290,6 +329,16 @@ def ensure_tool_registry_loaded(config: Config | None = None, *, config_path: Pa
     load_plugins(config, config_path=config_path)
 
 
+def default_worker_routed_tools(tool_names: list[str]) -> list[str]:
+    """Return the tool names that default to worker execution."""
+    selected_tools: list[str] = []
+    for tool_name in tool_names:
+        metadata = TOOL_METADATA.get(tool_name)
+        if metadata is not None and metadata.default_execution_target == ToolExecutionTarget.WORKER:
+            selected_tools.append(tool_name)
+    return selected_tools
+
+
 def export_tools_metadata() -> list[dict[str, Any]]:
     """Export tool metadata as JSON-serializable dictionaries."""
     tools: list[dict[str, Any]] = []
@@ -299,6 +348,7 @@ def export_tools_metadata() -> list[dict[str, Any]]:
         tool_dict["category"] = metadata.category.value
         tool_dict["status"] = metadata.status.value
         tool_dict["setup_type"] = metadata.setup_type.value
+        tool_dict["default_execution_target"] = metadata.default_execution_target.value
         tool_dict.pop("factory", None)
         tools.append(tool_dict)
 

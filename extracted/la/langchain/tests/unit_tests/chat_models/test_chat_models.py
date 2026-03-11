@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING
 from unittest import mock
 
 import pytest
+from langchain_core.language_models.fake_chat_models import FakeChatModel
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnableConfig, RunnableSequence
 from pydantic import SecretStr
@@ -52,6 +53,12 @@ def test_init_chat_model(model_name: str, model_provider: str | None) -> None:
     assert llm1.dict() == llm2.dict()
 
 
+def test_init_chat_model_rejects_model_object() -> None:
+    """Passing a model object instead of a string should raise TypeError."""
+    with pytest.raises(TypeError, match="must be a string"):
+        init_chat_model(model=FakeChatModel())  # type: ignore[call-overload]
+
+
 def test_init_missing_dep() -> None:
     with pytest.raises(ImportError):
         init_chat_model("mixtral-8x7b-32768", model_provider="groq")
@@ -81,7 +88,7 @@ def test_supported_providers_is_sorted() -> None:
         ("Accounts/Fireworks/models/mixtral-8x7b-instruct", "fireworks"),
         ("gemini-1.5-pro", "google_vertexai"),
         ("gemini-2.5-pro", "google_vertexai"),
-        ("gemini-3-pro-preview", "google_vertexai"),
+        ("gemini-3.1-pro-preview", "google_vertexai"),
         ("amazon.titan-text-express-v1", "bedrock"),
         ("Amazon.Titan-Text-Express-v1", "bedrock"),
         ("anthropic.claude-v2", "bedrock"),
@@ -185,6 +192,7 @@ def test_configurable() -> None:
             "reasoning_effort": None,
             "verbosity": None,
             "frequency_penalty": None,
+            "context_management": None,
             "include": None,
             "seed": None,
             "service_tier": None,

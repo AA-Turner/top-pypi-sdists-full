@@ -1,25 +1,27 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: pyexasol
-Version: 2.0.0
+Version: 2.1.0
 Summary: Exasol python driver with extra features
-License: MIT
+License-Expression: MIT
+License-File: LICENSE.txt
 Keywords: exasol,sql,database,performance,websocket,import,export
 Author: Vitaly Markov
 Author-email: wild.desu@gmail.com
 Requires-Python: >=3.10,<3.15
 Classifier: Development Status :: 5 - Production/Stable
-Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Intended Audience :: Developers
 Classifier: Topic :: Database
 Provides-Extra: all
 Provides-Extra: examples
 Provides-Extra: orjson
 Provides-Extra: pandas
+Provides-Extra: performance
 Provides-Extra: polars
 Provides-Extra: pyarrow
 Provides-Extra: rapidjson
@@ -36,6 +38,7 @@ Requires-Dist: pproxy ; extra == "all"
 Requires-Dist: pproxy ; extra == "examples"
 Requires-Dist: pyarrow (>=21.0.0) ; extra == "all"
 Requires-Dist: pyarrow (>=21.0.0) ; extra == "pyarrow"
+Requires-Dist: pytest-benchmark[histogram] (>=5.1.0,<6) ; extra == "performance"
 Requires-Dist: python-rapidjson (>=1.21.0,<2.0.0) ; extra == "all"
 Requires-Dist: python-rapidjson (>=1.21.0,<2.0.0) ; extra == "rapidjson"
 Requires-Dist: ujson (>=5.10.0,<6.0.0) ; extra == "all"

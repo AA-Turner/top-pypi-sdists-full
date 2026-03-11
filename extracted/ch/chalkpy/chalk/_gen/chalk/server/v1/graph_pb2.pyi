@@ -448,3 +448,97 @@ class TestGraphMutationsResponse(_message.Message):
         export: _Optional[_Union[_export_pb2.Export, _Mapping]] = ...,
         errors: _Optional[_Iterable[_Union[_chalk_error_pb2.ChalkError, _Mapping]]] = ...,
     ) -> None: ...
+
+class ColumnList(_message.Message):
+    __slots__ = ("columns",)
+    COLUMNS_FIELD_NUMBER: _ClassVar[int]
+    columns: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, columns: _Optional[_Iterable[str]] = ...) -> None: ...
+
+class TableLineage(_message.Message):
+    __slots__ = ("features",)
+    class FeaturesEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: ColumnList
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[_Union[ColumnList, _Mapping]] = ...) -> None: ...
+
+    FEATURES_FIELD_NUMBER: _ClassVar[int]
+    features: _containers.MessageMap[str, ColumnList]
+    def __init__(self, features: _Optional[_Mapping[str, ColumnList]] = ...) -> None: ...
+
+class DataSourceLineage(_message.Message):
+    __slots__ = ("tables",)
+    class TablesEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: TableLineage
+        def __init__(
+            self, key: _Optional[str] = ..., value: _Optional[_Union[TableLineage, _Mapping]] = ...
+        ) -> None: ...
+
+    TABLES_FIELD_NUMBER: _ClassVar[int]
+    tables: _containers.MessageMap[str, TableLineage]
+    def __init__(self, tables: _Optional[_Mapping[str, TableLineage]] = ...) -> None: ...
+
+class ResolverDataLineage(_message.Message):
+    __slots__ = ("data_sources",)
+    class DataSourcesEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: DataSourceLineage
+        def __init__(
+            self, key: _Optional[str] = ..., value: _Optional[_Union[DataSourceLineage, _Mapping]] = ...
+        ) -> None: ...
+
+    DATA_SOURCES_FIELD_NUMBER: _ClassVar[int]
+    data_sources: _containers.MessageMap[str, DataSourceLineage]
+    def __init__(self, data_sources: _Optional[_Mapping[str, DataSourceLineage]] = ...) -> None: ...
+
+class GetDataLineageIndexRequest(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class GetDataLineageIndexResponse(_message.Message):
+    __slots__ = ("resolver_data_lineage",)
+    class ResolverDataLineageEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: ResolverDataLineage
+        def __init__(
+            self, key: _Optional[str] = ..., value: _Optional[_Union[ResolverDataLineage, _Mapping]] = ...
+        ) -> None: ...
+
+    RESOLVER_DATA_LINEAGE_FIELD_NUMBER: _ClassVar[int]
+    resolver_data_lineage: _containers.MessageMap[str, ResolverDataLineage]
+    def __init__(self, resolver_data_lineage: _Optional[_Mapping[str, ResolverDataLineage]] = ...) -> None: ...
+
+class OfflineTable(_message.Message):
+    __slots__ = ("internal_version", "table_name")
+    INTERNAL_VERSION_FIELD_NUMBER: _ClassVar[int]
+    TABLE_NAME_FIELD_NUMBER: _ClassVar[int]
+    internal_version: int
+    table_name: str
+    def __init__(self, internal_version: _Optional[int] = ..., table_name: _Optional[str] = ...) -> None: ...
+
+class GetOfflineStoreTableRequest(_message.Message):
+    __slots__ = ("fqn", "branch_id")
+    FQN_FIELD_NUMBER: _ClassVar[int]
+    BRANCH_ID_FIELD_NUMBER: _ClassVar[int]
+    fqn: str
+    branch_id: str
+    def __init__(self, fqn: _Optional[str] = ..., branch_id: _Optional[str] = ...) -> None: ...
+
+class GetOfflineStoreTableResponse(_message.Message):
+    __slots__ = ("tables",)
+    TABLES_FIELD_NUMBER: _ClassVar[int]
+    tables: _containers.RepeatedCompositeFieldContainer[OfflineTable]
+    def __init__(self, tables: _Optional[_Iterable[_Union[OfflineTable, _Mapping]]] = ...) -> None: ...

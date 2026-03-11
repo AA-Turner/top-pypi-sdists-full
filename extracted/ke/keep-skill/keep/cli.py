@@ -14,7 +14,7 @@ import shutil
 import sys
 import time
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 import typer
 from typing_extensions import Annotated
@@ -3459,25 +3459,85 @@ def _tail_ops_log(log_path: Path, kp) -> None:
         )
 
 
-@app.command("continue")
-def continue_cmd(
-    payload: Annotated[str, typer.Argument(
-        help="JSON payload, @file.json, or '-' for stdin",
-    )],
+@app.command("flow")
+def flow_cmd(
+    state: Annotated[Optional[str], typer.Argument(
+        help="State doc name (e.g. 'after-write', 'query-resolve')",
+    )] = None,
+    target: Annotated[Optional[str], typer.Option(
+        "--target", "-t", help="Target note ID to operate on",
+    )] = None,
+    file: Annotated[Optional[str], typer.Option(
+        "--file", "-f", help="YAML state doc file path, or '-' for stdin",
+    )] = None,
+    budget: Annotated[Optional[int], typer.Option(
+        "--budget", "-b", help="Max ticks for this invocation (default: from config)",
+    )] = None,
+    cursor: Annotated[Optional[str], typer.Option(
+        "--cursor", "-c", help="Cursor from a previous stopped flow to resume",
+    )] = None,
+    param: Annotated[Optional[list[str]], typer.Option(
+        "--param", "-p", help="Flow parameter as key=value",
+    )] = None,
     store: StoreOption = None,
 ):
-    """Run one local flow tick (API-first preview)."""
-    kp = _get_keeper(store)
-    if not hasattr(kp, "continue_flow"):
-        typer.echo(
-            "Error: flow API is only available in local mode for now.",
-            err=True,
-        )
-        kp.close()
+    """Run a state-doc flow synchronously.
+
+    \b
+    Examples:
+        keep flow after-write --target %abc123
+        keep flow query-resolve -p query="auth patterns"
+        keep flow --file review.yaml --target myproject
+        echo 'match: all' | keep flow --file - --target myproject
+        keep flow --cursor <token> --budget 5
+    """
+    if state is None and file is None and cursor is None:
+        typer.echo("Error: provide a state name, --file, or --cursor", err=True)
         raise typer.Exit(1)
+
+    # Parse params
+    flow_params: dict[str, Any] = {}
+    if target:
+        flow_params["id"] = target
+    for p in (param or []):
+        if "=" not in p:
+            typer.echo(f"Error: param must be key=value, got: {p!r}", err=True)
+            raise typer.Exit(1)
+        k, v = p.split("=", 1)
+        # Try to parse as number/bool for convenience
+        try:
+            flow_params[k] = json.loads(v)
+        except (json.JSONDecodeError, ValueError):
+            flow_params[k] = v
+
+    # Load inline state doc YAML if --file provided
+    state_doc_yaml: Optional[str] = None
+    if file is not None:
+        if file == "-":
+            import sys
+            state_doc_yaml = sys.stdin.read()
+        else:
+            try:
+                state_doc_yaml = Path(file).read_text()
+            except FileNotFoundError:
+                typer.echo(f"Error: file not found: {file}", err=True)
+                raise typer.Exit(1)
+        if state is None:
+            state = "inline"
+
+    # When resuming, state comes from the cursor
+    if cursor and state is None:
+        state = "__cursor__"  # placeholder; run_flow uses cursor.state
+
+    kp = _get_keeper(store)
     try:
-        data = _parse_json_arg(payload)
-        result = kp.continue_flow(data)
+        result = kp.run_flow_command(
+            state,
+            params=flow_params,
+            budget=budget,
+            cursor_token=cursor,
+            state_doc_yaml=state_doc_yaml,
+        )
     except Exception as e:
         typer.echo(f"Error: {e}", err=True)
         kp.close()
@@ -3485,40 +3545,23 @@ def continue_cmd(
     finally:
         kp.close()
 
-    if _get_json_output():
-        typer.echo(json.dumps(result, ensure_ascii=False))
-    else:
-        typer.echo(json.dumps(result, ensure_ascii=False, indent=2))
-
-
-@app.command("continue-work")
-def continue_work_cmd(
-    cursor: Annotated[str, typer.Argument(help="Flow cursor")],
-    work_id: Annotated[str, typer.Argument(help="Work item ID")],
-    store: StoreOption = None,
-):
-    """Execute a pending local flow work item and return work_result JSON."""
-    kp = _get_keeper(store)
-    if not hasattr(kp, "continue_run_work"):
-        typer.echo(
-            "Error: flow work runner is only available in local mode for now.",
-            err=True,
-        )
-        kp.close()
-        raise typer.Exit(1)
-    try:
-        result = kp.continue_run_work(cursor, work_id)
-    except Exception as e:
-        typer.echo(f"Error: {e}", err=True)
-        kp.close()
-        raise typer.Exit(1)
-    finally:
-        kp.close()
+    output: dict[str, Any] = {
+        "status": result.status,
+        "ticks": result.ticks,
+    }
+    if result.data:
+        output["data"] = result.data
+    if result.bindings:
+        output["bindings"] = result.bindings
+    if result.history:
+        output["history"] = result.history
+    if result.cursor:
+        output["cursor"] = result.cursor
 
     if _get_json_output():
-        typer.echo(json.dumps(result, ensure_ascii=False))
+        typer.echo(json.dumps(output, ensure_ascii=False))
     else:
-        typer.echo(json.dumps(result, ensure_ascii=False, indent=2))
+        typer.echo(json.dumps(output, ensure_ascii=False, indent=2))
 
 
 # -----------------------------------------------------------------------------
@@ -3676,6 +3719,9 @@ def doctor(
     def fail(msg):
         typer.echo(f"  [FAIL] {msg}")
 
+    def warn(msg):
+        typer.echo(f"  [WARN] {msg}")
+
     # 1. Environment
     from importlib.metadata import version as pkg_version
     try:
@@ -3773,8 +3819,105 @@ def doctor(
             ok(f"Media: {cfg.media.name} ({model})")
         except Exception as e:
             fail(f"Media: {e}")
-    else:
-        ok("Media: none configured (metadata-only indexing)")
+    elif cfg:
+        from .config import (
+            _detect_ollama, _ollama_vision_models, ollama_pull,
+            OLLAMA_DEFAULT_VISION_MODEL, OLLAMA_DEFAULT_OCR_MODEL,
+            save_config, ProviderConfig,
+        )
+        ollama = _detect_ollama()
+        if ollama:
+            vision = _ollama_vision_models(ollama["models"])
+            if vision:
+                # Vision model available but not configured — auto-configure
+                model_name = vision[0]
+                params: dict[str, Any] = {"model": model_name}
+                if ollama["base_url"] != "http://localhost:11434":
+                    params["base_url"] = ollama["base_url"]
+                cfg.media = ProviderConfig("ollama", params)
+                save_config(cfg)
+                ok(f"Media: auto-configured ollama ({model_name})")
+            else:
+                # Ollama running but no vision model — pull one
+                target = OLLAMA_DEFAULT_VISION_MODEL
+                typer.echo(f"         Pulling {target}...", nl=False)
+                last_status = [""]
+                def _progress(s: str) -> None:
+                    if s != last_status[0]:
+                        last_status[0] = s
+                        typer.echo(f"\r         Pulling {target}... {s}    ", nl=False)
+                if ollama_pull(target, ollama["base_url"], on_progress=_progress):
+                    typer.echo(f"\r         Pulling {target}... done.           ")
+                    params = {"model": target}
+                    if ollama["base_url"] != "http://localhost:11434":
+                        params["base_url"] = ollama["base_url"]
+                    cfg.media = ProviderConfig("ollama", params)
+                    save_config(cfg)
+                    ok(f"Media: pulled and configured ollama ({target})")
+                else:
+                    typer.echo()
+                    warn(f"Media: failed to pull {target}")
+        else:
+            ok("Media: none available (metadata-only indexing)")
+
+    # 7b. Content extractor (OCR for PDFs/images)
+    if cfg and cfg.content_extractor:
+        # Verify the model is actually available if it's Ollama
+        if cfg.content_extractor.name == "ollama":
+            from .config import _detect_ollama, _ollama_has_model, ollama_pull, OLLAMA_DEFAULT_OCR_MODEL, save_config
+            ce_model = cfg.content_extractor.params.get("model", OLLAMA_DEFAULT_OCR_MODEL)
+            if _ollama_has_model(ce_model):
+                ok(f"Content extractor: {cfg.content_extractor.name} ({ce_model})")
+            else:
+                typer.echo(f"         Pulling {ce_model}...", nl=False)
+                base_url = cfg.content_extractor.params.get("base_url")
+                last_status = [""]
+                def _ce_progress(s: str) -> None:
+                    if s != last_status[0]:
+                        last_status[0] = s
+                        typer.echo(f"\r         Pulling {ce_model}... {s}    ", nl=False)
+                if ollama_pull(ce_model, base_url, on_progress=_ce_progress):
+                    typer.echo(f"\r         Pulling {ce_model}... done.           ")
+                    ok(f"Content extractor: pulled {ce_model}")
+                else:
+                    typer.echo()
+                    warn(f"Content extractor: {ce_model} not available, pull it: ollama pull {ce_model}")
+        else:
+            ok(f"Content extractor: {cfg.content_extractor.name}")
+    elif cfg:
+        from .config import _detect_ollama, ollama_pull, OLLAMA_DEFAULT_OCR_MODEL, save_config, ProviderConfig
+        ollama = _detect_ollama()
+        if ollama:
+            # Ollama running — pull OCR model and configure
+            target = OLLAMA_DEFAULT_OCR_MODEL
+            if any(m.split(":")[0] == target.split(":")[0] for m in ollama["models"]):
+                # Model already present, just configure
+                params: dict[str, Any] = {"model": target}
+                if ollama["base_url"] != "http://localhost:11434":
+                    params["base_url"] = ollama["base_url"]
+                cfg.content_extractor = ProviderConfig("ollama", params)
+                save_config(cfg)
+                ok(f"Content extractor: auto-configured ollama ({target})")
+            else:
+                typer.echo(f"         Pulling {target}...", nl=False)
+                last_status = [""]
+                def _ocr_progress(s: str) -> None:
+                    if s != last_status[0]:
+                        last_status[0] = s
+                        typer.echo(f"\r         Pulling {target}... {s}    ", nl=False)
+                if ollama_pull(target, ollama["base_url"], on_progress=_ocr_progress):
+                    typer.echo(f"\r         Pulling {target}... done.           ")
+                    params = {"model": target}
+                    if ollama["base_url"] != "http://localhost:11434":
+                        params["base_url"] = ollama["base_url"]
+                    cfg.content_extractor = ProviderConfig("ollama", params)
+                    save_config(cfg)
+                    ok(f"Content extractor: pulled and configured ollama ({target})")
+                else:
+                    typer.echo()
+                    warn(f"Content extractor: failed to pull {target}")
+        else:
+            ok("Content extractor: none (PDFs use text extraction only)")
 
     # 8. Analyzer
     if cfg and cfg.analyzer:
@@ -3828,9 +3971,10 @@ def doctor(
     try:
         tmp_dir = tempfile.mkdtemp(prefix="keep_doctor_")
         tmp_path = Path(tmp_dir)
-        # Minimal config: passthrough summarization (no LLM)
+        # Minimal config: use store's embedding provider, passthrough summarization
         test_config = StoreConfig(
             path=tmp_path,
+            embedding=cfg.embedding if cfg else None,
             summarization=ProviderConfig("passthrough", {"max_chars": 10000}),
             max_summary_length=10000,
         )

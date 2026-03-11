@@ -110,6 +110,11 @@ class TeamServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_team__pb2.InviteTeamMemberRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.InviteTeamMemberResponse.FromString,
         )
+        self.InviteTeamMemberWithTeamRole = channel.unary_unary(
+            "/chalk.server.v1.TeamService/InviteTeamMemberWithTeamRole",
+            request_serializer=chalk_dot_server_dot_v1_dot_team__pb2.InviteTeamMemberWithTeamRoleRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.InviteTeamMemberWithTeamRoleResponse.FromString,
+        )
         self.ExpireTeamInvite = channel.unary_unary(
             "/chalk.server.v1.TeamService/ExpireTeamInvite",
             request_serializer=chalk_dot_server_dot_v1_dot_team__pb2.ExpireTeamInviteRequest.SerializeToString,
@@ -159,6 +164,16 @@ class TeamServiceStub(object):
             "/chalk.server.v1.TeamService/AssignTeamRole",
             request_serializer=chalk_dot_server_dot_v1_dot_team__pb2.AssignTeamRoleRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.AssignTeamRoleResponse.FromString,
+        )
+        self.AssignEnvironmentRole = channel.unary_unary(
+            "/chalk.server.v1.TeamService/AssignEnvironmentRole",
+            request_serializer=chalk_dot_server_dot_v1_dot_team__pb2.AssignEnvironmentRoleRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.AssignEnvironmentRoleResponse.FromString,
+        )
+        self.AssignScimGroupEnvironmentRole = channel.unary_unary(
+            "/chalk.server.v1.TeamService/AssignScimGroupEnvironmentRole",
+            request_serializer=chalk_dot_server_dot_v1_dot_team__pb2.AssignScimGroupEnvironmentRoleRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.AssignScimGroupEnvironmentRoleResponse.FromString,
         )
         self.CreateCustomRole = channel.unary_unary(
             "/chalk.server.v1.TeamService/CreateCustomRole",
@@ -299,6 +314,12 @@ class TeamServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def InviteTeamMemberWithTeamRole(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def ExpireTeamInvite(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -360,6 +381,18 @@ class TeamServiceServicer(object):
 
     def AssignTeamRole(self, request, context):
         """Assigns a team-scoped role to a user (i.e. role assignment with no environment)."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def AssignEnvironmentRole(self, request, context):
+        """Assigns an environment-scoped role to a user."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def AssignScimGroupEnvironmentRole(self, request, context):
+        """Assigns an environment-scoped role to a SCIM group."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
@@ -486,6 +519,11 @@ def add_TeamServiceServicer_to_server(servicer, server):
             request_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.InviteTeamMemberRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_team__pb2.InviteTeamMemberResponse.SerializeToString,
         ),
+        "InviteTeamMemberWithTeamRole": grpc.unary_unary_rpc_method_handler(
+            servicer.InviteTeamMemberWithTeamRole,
+            request_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.InviteTeamMemberWithTeamRoleRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_team__pb2.InviteTeamMemberWithTeamRoleResponse.SerializeToString,
+        ),
         "ExpireTeamInvite": grpc.unary_unary_rpc_method_handler(
             servicer.ExpireTeamInvite,
             request_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.ExpireTeamInviteRequest.FromString,
@@ -535,6 +573,16 @@ def add_TeamServiceServicer_to_server(servicer, server):
             servicer.AssignTeamRole,
             request_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.AssignTeamRoleRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_team__pb2.AssignTeamRoleResponse.SerializeToString,
+        ),
+        "AssignEnvironmentRole": grpc.unary_unary_rpc_method_handler(
+            servicer.AssignEnvironmentRole,
+            request_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.AssignEnvironmentRoleRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_team__pb2.AssignEnvironmentRoleResponse.SerializeToString,
+        ),
+        "AssignScimGroupEnvironmentRole": grpc.unary_unary_rpc_method_handler(
+            servicer.AssignScimGroupEnvironmentRole,
+            request_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.AssignScimGroupEnvironmentRoleRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_team__pb2.AssignScimGroupEnvironmentRoleResponse.SerializeToString,
         ),
         "CreateCustomRole": grpc.unary_unary_rpc_method_handler(
             servicer.CreateCustomRole,
@@ -1117,6 +1165,35 @@ class TeamService(object):
         )
 
     @staticmethod
+    def InviteTeamMemberWithTeamRole(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.TeamService/InviteTeamMemberWithTeamRole",
+            chalk_dot_server_dot_v1_dot_team__pb2.InviteTeamMemberWithTeamRoleRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_team__pb2.InviteTeamMemberWithTeamRoleResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
     def ExpireTeamInvite(
         request,
         target,
@@ -1396,6 +1473,64 @@ class TeamService(object):
             "/chalk.server.v1.TeamService/AssignTeamRole",
             chalk_dot_server_dot_v1_dot_team__pb2.AssignTeamRoleRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_team__pb2.AssignTeamRoleResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def AssignEnvironmentRole(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.TeamService/AssignEnvironmentRole",
+            chalk_dot_server_dot_v1_dot_team__pb2.AssignEnvironmentRoleRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_team__pb2.AssignEnvironmentRoleResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def AssignScimGroupEnvironmentRole(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.TeamService/AssignScimGroupEnvironmentRole",
+            chalk_dot_server_dot_v1_dot_team__pb2.AssignScimGroupEnvironmentRoleRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_team__pb2.AssignScimGroupEnvironmentRoleResponse.FromString,
             options,
             channel_credentials,
             insecure,

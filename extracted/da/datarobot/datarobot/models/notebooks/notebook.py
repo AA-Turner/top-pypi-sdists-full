@@ -625,7 +625,7 @@ class Notebook(APIObject, BrowserMixin):
         payload: ManualRunPayload = {
             "notebook_id": self.id,
             "manual_run_type": manual_run_type,
-            "title": (title if title else f"{self.name} {datetime.now(tz=utc).strftime('%Y-%m-%d %H:%M (UTC)')}"),
+            "title": (title or f"{self.name} {datetime.now(tz=utc).strftime('%Y-%m-%d %H:%M (UTC)')}"),
         }
         if notebook_path:
             payload["notebook_path"] = notebook_path

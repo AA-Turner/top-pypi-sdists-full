@@ -42,11 +42,19 @@ class CodebaseEventController:
             event=event,
             content=content,
         )
-        for listener in cls.listeners:
+        with cls._lock:
+            listeners = list(cls.listeners)
+
+        failed = []
+        for listener in listeners:
             try:
-                listener.send(json.dumps(message.to_dict()))
+                with cls._lock:
+                    listener.send(json.dumps(message.to_dict()))
             except Exception:
-                cls.unregister(listener)
+                failed.append(listener)
+
+        for listener in failed:
+            cls.unregister(listener)
 
     def __init__(self, repositories: Repositories):
         self.repositories = repositories

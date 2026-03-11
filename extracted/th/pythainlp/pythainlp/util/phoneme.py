@@ -1,16 +1,17 @@
-# -*- coding: utf-8 -*-
-# SPDX-FileCopyrightText: 2016-2025 PyThaiNLP Project
+# SPDX-FileCopyrightText: 2016-2026 PyThaiNLP Project
 # SPDX-FileType: SOURCE
 # SPDX-License-Identifier: Apache-2.0
-"""
-Phonemes util
-"""
+"""Phonemes util"""
+
+from __future__ import annotations
+
 import unicodedata
+from functools import lru_cache
 
 from pythainlp.tokenize import Tokenizer
 from pythainlp.util.trie import Trie
 
-consonants_ipa_nectec = [
+consonants_ipa_nectec: list[tuple[str, ...]] = [
     ("k", "k", "k^"),
     ("kʰ", "kh"),
     ("ŋ", "ng", "ng^"),
@@ -35,7 +36,7 @@ consonants_ipa_nectec = [
 ]
 # ipa, initial, final
 
-monophthong_ipa_nectec = [
+monophthong_ipa_nectec: list[tuple[str, str]] = [
     ("i", "i"),
     ("e", "e"),
     ("ɛ", "x"),
@@ -58,7 +59,7 @@ monophthong_ipa_nectec = [
     ("", "@@"),  # -อ long
 ]
 
-diphthong_ipa_nectec = [
+diphthong_ipa_nectec: list[tuple[str, str]] = [
     ("ia", "ia"),
     ("ɯa", "va"),
     ("ua", "ua"),
@@ -67,7 +68,7 @@ diphthong_ipa_nectec = [
     ("uua", "uua"),
 ]
 
-tones_ipa_nectec = [
+tones_ipa_nectec: list[tuple[str, str]] = [
     ("˧", "0"),
     ("˨˩", "1"),
     ("˥˩", "2"),
@@ -75,7 +76,7 @@ tones_ipa_nectec = [
     ("˩˩˦", "4"),
 ]
 
-dict_nectec_to_ipa = {
+dict_nectec_to_ipa: dict[str, str] = {
     i[1]: i[0]
     for i in consonants_ipa_nectec
     + monophthong_ipa_nectec
@@ -88,8 +89,7 @@ dict_nectec_to_ipa.update(
 
 
 def nectec_to_ipa(pronunciation: str) -> str:
-    """
-    Convert NECTEC system to IPA system
+    """Convert NECTEC system to IPA system
 
     :param str pronunciation: NECTEC phoneme
     :return: IPA that is converted
@@ -106,10 +106,10 @@ def nectec_to_ipa(pronunciation: str) -> str:
 
     References
     ----------
-
     Pornpimon Palingoon, Sumonmas Thatphithakkul. Chapter 4 Speech processing \
         and Speech corpus. In: Handbook of Thai Electronic Corpus. \
         1st ed. p. 122–56.
+
     """
     parts = pronunciation.split("-")
     ipa = []
@@ -121,7 +121,7 @@ def nectec_to_ipa(pronunciation: str) -> str:
     return " ".join(ipa)
 
 
-dict_ipa_rtgs = {
+dict_ipa_rtgs: dict[str, str] = {
     "b": "b",
     "d": "d",
     "f": "f",
@@ -191,14 +191,18 @@ dict_ipa_rtgs = {
     ".": ".",
 }
 
-dict_ipa_rtgs_final = {"w": "o"}
-trie = Trie(list(dict_ipa_rtgs.keys()) + list(dict_ipa_rtgs_final.keys()))
-ipa_cut = Tokenizer(custom_dict=trie, engine="newmm")
+dict_ipa_rtgs_final: dict[str, str] = {"w": "o"}
+
+
+@lru_cache
+def _ipa_cut() -> Tokenizer:
+    """Lazy load IPA tokenizer with cache"""
+    trie = Trie(list(dict_ipa_rtgs.keys()) + list(dict_ipa_rtgs_final.keys()))
+    return Tokenizer(custom_dict=trie, engine="newmm")
 
 
 def ipa_to_rtgs(ipa: str) -> str:
-    """
-    Convert IPA system to The Royal Thai General System of Transcription (RTGS)
+    """Convert IPA system to The Royal Thai General System of Transcription (RTGS)
 
     Docs: https://en.wikipedia.org/wiki/Help:IPA/Thai
 
@@ -216,6 +220,7 @@ def ipa_to_rtgs(ipa: str) -> str:
 
     """
     rtgs_parts = []
+    ipa_cut = _ipa_cut()
 
     ipa_parts = ipa_cut.word_tokenize(ipa)
     for i, ipa_part in enumerate(ipa_parts):
@@ -237,8 +242,7 @@ def ipa_to_rtgs(ipa: str) -> str:
 
 
 def remove_tone_ipa(ipa: str) -> str:
-    """
-    Remove Thai Tones from IPA system
+    """Remove Thai Tones from IPA system
 
     :param str ipa: IPA phoneme
     :return: IPA phoneme with tones removed

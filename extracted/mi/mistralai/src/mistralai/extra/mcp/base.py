@@ -11,7 +11,7 @@ from mcp.types import (  # pyright: ignore[reportMissingImports]
 )
 
 from mistralai.extra.exceptions import MCPException
-from mistralai.models import (
+from mistralai.client.models import (
     FunctionTool,
     Function,
     SystemMessageTypedDict,
@@ -84,7 +84,6 @@ class MCPClientBase(MCPClientProtocol):
         for mcp_tool in mcp_tools.tools:
             tools.append(
                 FunctionTool(
-                    type="function",
                     function=Function(
                         name=mcp_tool.name,
                         description=mcp_tool.description,

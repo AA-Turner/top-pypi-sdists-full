@@ -1,29 +1,32 @@
 Metadata-Version: 2.4
 Name: glum
-Version: 3.1.3
+Version: 3.2.0
 Summary: High performance Python GLMs with all the features!
 Home-page: https://github.com/Quantco/glum
 Author: QuantCo, Inc.
 Author-email: noreply@quantco.com
 License: BSD
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE
+Requires-Dist: formulaic>=1.2.0
 Requires-Dist: joblib
+Requires-Dist: narwhals>=2.0.0
 Requires-Dist: numexpr
-Requires-Dist: numpy
-Requires-Dist: pandas
-Requires-Dist: scikit-learn>=0.23
-Requires-Dist: scipy
-Requires-Dist: formulaic>=0.6
-Requires-Dist: tabmat>=4.0.0
+Requires-Dist: numpy>=1.24
+Requires-Dist: packaging
+Requires-Dist: pandas>=1.4
+Requires-Dist: pyarrow
+Requires-Dist: scikit-learn>=1.1.0
+Requires-Dist: scipy>=1.8.0
+Requires-Dist: tabmat>=4.1.5
+Requires-Dist: tqdm
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -51,19 +54,23 @@ Dynamic: summary
 
 Generalized linear models (GLM) are a core statistical tool that include many common methods like least-squares regression, Poisson regression and logistic regression as special cases. At QuantCo, we have used GLMs in e-commerce pricing, insurance claims prediction and more. We have developed `glum`, a fast Python-first GLM library. The development was based on [a fork of scikit-learn](https://github.com/scikit-learn/scikit-learn/pull/9405), so it has a scikit-learn-like API. We are thankful for the starting point provided by Christian Lorentzen in that PR!
 
-The goal of `glum` is to be at least as feature-complete as existing GLM libraries like `glmnet` or `h2o`. It supports
+We believe that for GLM development, broad support for distributions, regularization, and statistical inference, along with fast formula-based specification, is key. `glum` supports
 
 * Built-in cross validation for optimal regularization, efficiently exploiting a “regularization path”
 * L1 regularization, which produces sparse and easily interpretable solutions
 * L2 regularization, including variable matrix-valued (Tikhonov) penalties, which are useful in modeling correlated effects
 * Elastic net regularization
 * Normal, Poisson, logistic, gamma, and Tweedie distributions, plus varied and customizable link functions
+* Built-in formula-based model specification using `formulaic`
+* Classical statistical inference for unregularized models
 * Box constraints, linear inequality constraints, sample weights, offsets
 
-This repo also includes tools for benchmarking GLM implementations in the `glum_benchmarks` module. For details on the benchmarking, [see here](src/glum_benchmarks/README.md). Although the performance of `glum` relative to `glmnet` and `h2o` depends on the specific problem, we find that when N >> K (there are more observations than predictors), it is consistently much faster for a wide range of problems.
+Performance also matters, so we conducted extensive benchmarks against other modern libraries. Although performance depends on the specific problem, we find that when N >> K (there are more observations than predictors), `glum` is consistently much faster for a wide range of problems. This repo includes the benchmarking tools in the `glum_benchmarks` module. For details, [see here](glum_benchmarks/README.md).
 
-![Performance benchmarks](docs/_static/headline_benchmark.png#gh-light-mode-only)
-![Performance benchmarks](docs/_static/headline_benchmark_dark.png#gh-dark-mode-only)
+<!-- BENCHMARK_FIGURES_START -->
+<img src="docs/_static/wide-insurance-gamma-normalized.png#gh-light-mode-only" alt="Benchmark results" width="600">
+<img src="docs/_static/wide-insurance-gamma-normalized_dark.png#gh-dark-mode-only" alt="Benchmark results" width="600">
+<!-- BENCHMARK_FIGURES_END -->
 
 For more information on `glum`, including tutorials and API reference, please see [the documentation](https://glum.readthedocs.io/en/latest/).
 

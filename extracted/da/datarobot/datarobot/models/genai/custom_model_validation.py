@@ -284,7 +284,7 @@ class CustomModelValidation(APIObject):
             "playground_id": get_entity_id(playground) if playground else None,
             "completed_only": completed_only,
             "search": search,
-            "sort": sort if sort else "-creationDate",
+            "sort": sort or "-creationDate",
         }
         params = resolve_use_cases(use_cases=use_cases, params=params, use_case_key="use_case_id")
         r_data = unpaginate(url, params, cls._client)

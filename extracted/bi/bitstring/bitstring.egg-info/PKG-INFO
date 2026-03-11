@@ -1,8 +1,9 @@
 Metadata-Version: 2.4
 Name: bitstring
-Version: 4.3.1
+Version: 4.4.0
 Summary: Simple construction, analysis and modification of binary data.
 Author-email: Scott Griffiths <dr.scottgriffiths@gmail.com>
+License: MIT
 Project-URL: homepage, https://github.com/scott-griffiths/bitstring
 Project-URL: documentation, https://bitstring.readthedocs.io/
 Keywords: binary,bitarray,bitvector,bitfield
@@ -16,12 +17,14 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: bitarray<4.0,>=3.0.0
+Requires-Dist: tibs<0.6,>=0.5.6
 Dynamic: license-file
 
 
@@ -29,9 +32,6 @@ Dynamic: license-file
 ![bitstring](https://raw.githubusercontent.com/scott-griffiths/bitstring/main/doc/bitstring_logo_small.png "bitstring")
 
 **bitstring** is a Python library to help make the creation and analysis of all types of bit-level binary data as simple and efficient as possible. It has been actively maintained since 2006.
-
-The library has has now been downloaded over 100 million times! &nbsp; &nbsp; ✨ [![Pepy Total Downloads](https://img.shields.io/pepy/dt/bitstring?label=Downloads:&labelColor=orange&color=orange)](https://www.pepy.tech/projects/bitstring) ✨
-
 
 
 [![CI badge](https://github.com/scott-griffiths/bitstring/actions/workflows/.github/workflows/ci.yml/badge.svg)](https://github.com/scott-griffiths/bitstring/actions/workflows/ci.yml)
@@ -46,6 +46,14 @@ The library has has now been downloaded over 100 million times! &nbsp; &nbsp; �
 
 > [!NOTE]
 > To see what been added, improved or fixed, and also to see what's coming in the next version, see the [release notes](https://github.com/scott-griffiths/bitstring/blob/main/release_notes.md).
+
+# News
+
+I'm rewriting the core of bitstring in Rust, and have released that cut-down and streamlined interface as the [tibs](https://github.com/scott-griffiths/tibs) package. It's now in beta, and feedback is welcome. Just `pip install tibs` to try it out.
+
+[![tibs](https://raw.githubusercontent.com/scott-griffiths/tibs/main/doc/tibs.png)](https://github.com/scott-griffiths/tibs)
+
+A sleek Python library for your binary data
 
 
 # Overview
@@ -132,4 +140,4 @@ Array('uint7', [45, 100, 15, 1])
 ```
 
 
-<sub>Copyright (c) 2006 - 2025 Scott Griffiths</sub>
+<sub>Copyright (c) 2006 - 2026 Scott Griffiths</sub>

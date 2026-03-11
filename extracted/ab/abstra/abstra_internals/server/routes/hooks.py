@@ -83,6 +83,9 @@ def get_editor_bp(controller: MainController):
         if not hook:
             flask.abort(404)
 
-        return controller.run_hook(id, extract_flask_request(flask.request))
+        user_jwt = flask.request.cookies.get("editor_auth")
+        return controller.run_hook(
+            id, extract_flask_request(flask.request), user_jwt=user_jwt
+        )
 
     return bp

@@ -1,18 +1,26 @@
-# -*- coding: utf-8 -*-
-# SPDX-FileCopyrightText: 2016-2025 PyThaiNLP Project
+# SPDX-FileCopyrightText: 2016-2026 PyThaiNLP Project
 # SPDX-FileType: SOURCE
 # SPDX-License-Identifier: Apache-2.0
+from __future__ import annotations
 
 import random
 import re
-from typing import List
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from transformers import AutoModelForMaskedLM, AutoTokenizer, Pipeline
 
 from pythainlp.phayathaibert.core import ThaiTextProcessor
 
-_MODEL_NAME = "clicknext/phayathaibert"
+_MODEL_NAME: str = "clicknext/phayathaibert"
 
 
 class ThaiTextAugmenter:
+    tokenizer: "AutoTokenizer"
+    model_for_masked_lm: "AutoModelForMaskedLM"
+    model: "Pipeline"
+    processor: "ThaiTextProcessor"
+
     def __init__(self) -> None:
         from transformers import (
             AutoModelForMaskedLM,
@@ -20,16 +28,18 @@ class ThaiTextAugmenter:
             pipeline,
         )
 
-        self.tokenizer = AutoTokenizer.from_pretrained(_MODEL_NAME)
-        self.model_for_masked_lm = AutoModelForMaskedLM.from_pretrained(
+        self.tokenizer: AutoTokenizer = AutoTokenizer.from_pretrained(
             _MODEL_NAME
         )
-        self.model = pipeline(
+        self.model_for_masked_lm: AutoModelForMaskedLM = (
+            AutoModelForMaskedLM.from_pretrained(_MODEL_NAME)
+        )
+        self.model: Pipeline = pipeline(
             "fill-mask",
             tokenizer=self.tokenizer,
             model=self.model_for_masked_lm,
         )
-        self.processor = ThaiTextProcessor()
+        self.processor: ThaiTextProcessor = ThaiTextProcessor()
 
     def generate(
         self,
@@ -41,13 +51,14 @@ class ThaiTextAugmenter:
         sample_txt = sample_text
         final_text = ""
 
-        for j in range(max_length):
-            input = self.processor.preprocess(sample_txt)
+        for _ in range(max_length):
+            input_text = self.processor.preprocess(sample_txt)
             if sample:
-                random_word_idx = random.randint(0, 4)
-                output = self.model(input)[random_word_idx]["sequence"]
+                # Non-cryptographic use, pseudo-random generator is acceptable here
+                random_word_idx = random.randint(0, 4)  # noqa: S311
+                output = self.model(input_text)[random_word_idx]["sequence"]
             else:
-                output = self.model(input)[word_rank]["sequence"]
+                output = self.model(input_text)[word_rank]["sequence"]
             sample_txt = output + "<mask>"
             final_text = sample_txt
 
@@ -57,9 +68,8 @@ class ThaiTextAugmenter:
 
     def augment(
         self, text: str, num_augs: int = 3, sample: bool = False
-    ) -> List[str]:
-        """
-        Text augmentation from PhayaThaiBERT
+    ) -> list[str]:
+        """Text augmentation from PhayaThaiBERT
 
         :param str text: Thai text
         :param int num_augs: an amount of augmentation text needed as an output

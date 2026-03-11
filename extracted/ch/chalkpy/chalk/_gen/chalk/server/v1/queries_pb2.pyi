@@ -225,6 +225,52 @@ class GetQueryPlanResponse(_message.Message):
     query_plan: QueryPlan
     def __init__(self, query_plan: _Optional[_Union[QueryPlan, _Mapping]] = ...) -> None: ...
 
+class ListQueryPlansRequest(_message.Message):
+    __slots__ = ("query_plan_id", "cursor", "limit", "start", "end")
+    QUERY_PLAN_ID_FIELD_NUMBER: _ClassVar[int]
+    CURSOR_FIELD_NUMBER: _ClassVar[int]
+    LIMIT_FIELD_NUMBER: _ClassVar[int]
+    START_FIELD_NUMBER: _ClassVar[int]
+    END_FIELD_NUMBER: _ClassVar[int]
+    query_plan_id: str
+    cursor: str
+    limit: int
+    start: _timestamp_pb2.Timestamp
+    end: _timestamp_pb2.Timestamp
+    def __init__(
+        self,
+        query_plan_id: _Optional[str] = ...,
+        cursor: _Optional[str] = ...,
+        limit: _Optional[int] = ...,
+        start: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        end: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+    ) -> None: ...
+
+class QueryPlanReference(_message.Message):
+    __slots__ = ("id", "plan_type", "created_at")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    PLAN_TYPE_FIELD_NUMBER: _ClassVar[int]
+    CREATED_AT_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    plan_type: str
+    created_at: _timestamp_pb2.Timestamp
+    def __init__(
+        self,
+        id: _Optional[str] = ...,
+        plan_type: _Optional[str] = ...,
+        created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+    ) -> None: ...
+
+class ListQueryPlansResponse(_message.Message):
+    __slots__ = ("plans", "next_cursor")
+    PLANS_FIELD_NUMBER: _ClassVar[int]
+    NEXT_CURSOR_FIELD_NUMBER: _ClassVar[int]
+    plans: _containers.RepeatedCompositeFieldContainer[QueryPlanReference]
+    next_cursor: str
+    def __init__(
+        self, plans: _Optional[_Iterable[_Union[QueryPlanReference, _Mapping]]] = ..., next_cursor: _Optional[str] = ...
+    ) -> None: ...
+
 class AggregatedQueryError(_message.Message):
     __slots__ = ("sample_error", "count", "first_seen", "last_seen")
     SAMPLE_ERROR_FIELD_NUMBER: _ClassVar[int]
@@ -529,10 +575,16 @@ class ListMetaQueriesRequest(_message.Message):
     ) -> None: ...
 
 class ListMetaQueriesResponse(_message.Message):
-    __slots__ = ("meta_queries",)
+    __slots__ = ("meta_queries", "next_cursor")
     META_QUERIES_FIELD_NUMBER: _ClassVar[int]
+    NEXT_CURSOR_FIELD_NUMBER: _ClassVar[int]
     meta_queries: _containers.RepeatedCompositeFieldContainer[MetaQuery]
-    def __init__(self, meta_queries: _Optional[_Iterable[_Union[MetaQuery, _Mapping]]] = ...) -> None: ...
+    next_cursor: _timestamp_pb2.Timestamp
+    def __init__(
+        self,
+        meta_queries: _Optional[_Iterable[_Union[MetaQuery, _Mapping]]] = ...,
+        next_cursor: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+    ) -> None: ...
 
 class ListLatestMetaQueriesRequest(_message.Message):
     __slots__ = ("has_name",)
@@ -632,10 +684,16 @@ class ListMetaQueryVersionsRequest(_message.Message):
     ) -> None: ...
 
 class ListMetaQueryVersionsResponse(_message.Message):
-    __slots__ = ("meta_query_versions",)
+    __slots__ = ("meta_query_versions", "next_cursor")
     META_QUERY_VERSIONS_FIELD_NUMBER: _ClassVar[int]
+    NEXT_CURSOR_FIELD_NUMBER: _ClassVar[int]
     meta_query_versions: _containers.RepeatedCompositeFieldContainer[MetaQuery]
-    def __init__(self, meta_query_versions: _Optional[_Iterable[_Union[MetaQuery, _Mapping]]] = ...) -> None: ...
+    next_cursor: _timestamp_pb2.Timestamp
+    def __init__(
+        self,
+        meta_query_versions: _Optional[_Iterable[_Union[MetaQuery, _Mapping]]] = ...,
+        next_cursor: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+    ) -> None: ...
 
 class QueryRun(_message.Message):
     __slots__ = (
@@ -798,6 +856,30 @@ class PlanRunMetadataBlock(_message.Message):
         num_groups: _Optional[int] = ...,
         group_num_rows: _Optional[int] = ...,
     ) -> None: ...
+
+class ArchiveMetaQueryRequest(_message.Message):
+    __slots__ = ("query_name",)
+    QUERY_NAME_FIELD_NUMBER: _ClassVar[int]
+    query_name: str
+    def __init__(self, query_name: _Optional[str] = ...) -> None: ...
+
+class ArchiveMetaQueryResponse(_message.Message):
+    __slots__ = ("query_name",)
+    QUERY_NAME_FIELD_NUMBER: _ClassVar[int]
+    query_name: str
+    def __init__(self, query_name: _Optional[str] = ...) -> None: ...
+
+class UnarchiveMetaQueryRequest(_message.Message):
+    __slots__ = ("query_name",)
+    QUERY_NAME_FIELD_NUMBER: _ClassVar[int]
+    query_name: str
+    def __init__(self, query_name: _Optional[str] = ...) -> None: ...
+
+class UnarchiveMetaQueryResponse(_message.Message):
+    __slots__ = ("query_name",)
+    QUERY_NAME_FIELD_NUMBER: _ClassVar[int]
+    query_name: str
+    def __init__(self, query_name: _Optional[str] = ...) -> None: ...
 
 class GetPlanRunMetadataRequest(_message.Message):
     __slots__ = ("operation_id",)

@@ -36,15 +36,15 @@ class TestStorageResponse(unittest.TestCase):
         model = StorageResponse()
         if include_optional:
             return StorageResponse(
-                total = 56,
-                used = 56,
-                free = 56
+                total = 0,
+                used = 0,
+                free = 0
             )
         else:
             return StorageResponse(
-                total = 56,
-                used = 56,
-                free = 56,
+                total = 0,
+                used = 0,
+                free = 0,
         )
         """
 

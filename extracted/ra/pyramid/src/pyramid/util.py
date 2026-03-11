@@ -388,17 +388,17 @@ def object_description(object):
         return 'module %s' % modulename
     if inspect.ismethod(object):
         oself = getattr(object, '__self__', None)
-        return 'method %s of class %s.%s' % (
+        return 'method {} of class {}.{}'.format(
             object.__name__,
             modulename,
             oself.__class__.__name__,
         )
 
     if inspect.isclass(object):
-        dottedname = '%s.%s' % (modulename, object.__name__)
+        dottedname = f'{modulename}.{object.__name__}'
         return 'class %s' % dottedname
     if inspect.isfunction(object):
-        dottedname = '%s.%s' % (modulename, object.__name__)
+        dottedname = f'{modulename}.{object.__name__}'
         return 'function %s' % dottedname
     return 'object %s' % str(object)
 
@@ -652,7 +652,7 @@ def make_contextmanager(fn):
     return wrapper
 
 
-def takes_one_arg(callee, attr=None, argname=None):
+def takes_one_arg(callee, attr=None, argname=None, allow_varargs=True):
     ismethod = False
     if attr is None:
         attr = '__call__'
@@ -679,11 +679,13 @@ def takes_one_arg(callee, attr=None, argname=None):
     if not args:
         return False
 
+    if not allow_varargs and argspec.varargs:
+        return False
+
     if len(args) == 1:
         return True
 
     if argname:
-
         defaults = argspec[3]
         if defaults is None:
             defaults = ()

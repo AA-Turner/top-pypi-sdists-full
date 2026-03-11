@@ -1218,6 +1218,7 @@ class CfnContainerFleet(
                     ),
                     min_size=123
                 ),
+                player_gateway_status="playerGatewayStatus",
                 stopped_actions=["stoppedActions"]
             )],
             log_configuration=gamelift.CfnContainerFleet.LogConfigurationProperty(
@@ -1228,6 +1229,7 @@ class CfnContainerFleet(
             metric_groups=["metricGroups"],
             new_game_session_protection_policy="newGameSessionProtectionPolicy",
             per_instance_container_group_definition_name="perInstanceContainerGroupDefinitionName",
+            player_gateway_mode="playerGatewayMode",
             scaling_policies=[gamelift.CfnContainerFleet.ScalingPolicyProperty(
                 metric_name="metricName",
                 name="name",
@@ -1270,6 +1272,7 @@ class CfnContainerFleet(
         metric_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
         new_game_session_protection_policy: typing.Optional[builtins.str] = None,
         per_instance_container_group_definition_name: typing.Optional[builtins.str] = None,
+        player_gateway_mode: typing.Optional[builtins.str] = None,
         scaling_policies: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnContainerFleet.ScalingPolicyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -1292,6 +1295,7 @@ class CfnContainerFleet(
         :param metric_groups: The name of an AWS CloudWatch metric group to add this fleet to. Metric groups aggregate metrics for multiple fleets.
         :param new_game_session_protection_policy: Determines whether Amazon GameLift Servers can shut down game sessions on the fleet that are actively running and hosting players. Amazon GameLift Servers might prompt an instance shutdown when scaling down fleet capacity or when retiring unhealthy instances. You can also set game session protection for individual game sessions using `UpdateGameSession <https://docs.aws.amazon.com/gamelift/latest/apireference/API_UpdateGameSession.html>`_ . - *NoProtection* -- Game sessions can be shut down during active gameplay. - *FullProtection* -- Game sessions in ``ACTIVE`` status can't be shut down.
         :param per_instance_container_group_definition_name: The name of the fleet's per-instance container group definition.
+        :param player_gateway_mode: The player gateway mode for the container fleet.
         :param scaling_policies: A list of rules that control how a fleet is scaled.
         :param tags: An array of key-value pairs to apply to this resource.
         '''
@@ -1315,6 +1319,7 @@ class CfnContainerFleet(
             metric_groups=metric_groups,
             new_game_session_protection_policy=new_game_session_protection_policy,
             per_instance_container_group_definition_name=per_instance_container_group_definition_name,
+            player_gateway_mode=player_gateway_mode,
             scaling_policies=scaling_policies,
             tags=tags,
         )
@@ -1758,6 +1763,19 @@ class CfnContainerFleet(
             type_hints = typing.get_type_hints(_typecheckingstub__73062db2cea0b73eca7dbc19b367503a92d902e168720fb46aaaef0f68783f42)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "perInstanceContainerGroupDefinitionName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="playerGatewayMode")
+    def player_gateway_mode(self) -> typing.Optional[builtins.str]:
+        '''The player gateway mode for the container fleet.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "playerGatewayMode"))
+
+    @player_gateway_mode.setter
+    def player_gateway_mode(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d361ac295efb99b758f5878406e72e7692b15f54f617b28196e2fda3fa7ec5fa)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "playerGatewayMode", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="scalingPolicies")
@@ -2336,6 +2354,7 @@ class CfnContainerFleet(
         name_mapping={
             "location": "location",
             "location_capacity": "locationCapacity",
+            "player_gateway_status": "playerGatewayStatus",
             "stopped_actions": "stoppedActions",
         },
     )
@@ -2345,12 +2364,14 @@ class CfnContainerFleet(
             *,
             location: builtins.str,
             location_capacity: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnContainerFleet.LocationCapacityProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            player_gateway_status: typing.Optional[builtins.str] = None,
             stopped_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
         ) -> None:
             '''A remote location where a multi-location fleet can deploy game servers for game hosting.
 
             :param location: An AWS Region code, such as ``us-west-2`` . For a list of supported Regions and Local Zones, see `Amazon GameLift Servers service locations <https://docs.aws.amazon.com/gamelift/latest/developerguide/gamelift-regions.html>`_ for managed hosting.
             :param location_capacity: Current resource capacity settings in a specified fleet or location. The location value might refer to a fleet's remote location or its home Region.
+            :param player_gateway_status: The player gateway status for the location.
             :param stopped_actions: A list of fleet actions that have been suspended in the fleet location.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-gamelift-containerfleet-locationconfiguration.html
@@ -2379,6 +2400,7 @@ class CfnContainerFleet(
                         ),
                         min_size=123
                     ),
+                    player_gateway_status="playerGatewayStatus",
                     stopped_actions=["stoppedActions"]
                 )
             '''
@@ -2386,12 +2408,15 @@ class CfnContainerFleet(
                 type_hints = typing.get_type_hints(_typecheckingstub__6f0d55ebb1c8fdd9364a92df8152f6c91294e481bedd64b3458f3dff3c77ec80)
                 check_type(argname="argument location", value=location, expected_type=type_hints["location"])
                 check_type(argname="argument location_capacity", value=location_capacity, expected_type=type_hints["location_capacity"])
+                check_type(argname="argument player_gateway_status", value=player_gateway_status, expected_type=type_hints["player_gateway_status"])
                 check_type(argname="argument stopped_actions", value=stopped_actions, expected_type=type_hints["stopped_actions"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "location": location,
             }
             if location_capacity is not None:
                 self._values["location_capacity"] = location_capacity
+            if player_gateway_status is not None:
+                self._values["player_gateway_status"] = player_gateway_status
             if stopped_actions is not None:
                 self._values["stopped_actions"] = stopped_actions
 
@@ -2419,6 +2444,15 @@ class CfnContainerFleet(
             '''
             result = self._values.get("location_capacity")
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnContainerFleet.LocationCapacityProperty"]], result)
+
+        @builtins.property
+        def player_gateway_status(self) -> typing.Optional[builtins.str]:
+            '''The player gateway status for the location.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-gamelift-containerfleet-locationconfiguration.html#cfn-gamelift-containerfleet-locationconfiguration-playergatewaystatus
+            '''
+            result = self._values.get("player_gateway_status")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
         def stopped_actions(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -2905,6 +2939,7 @@ class CfnContainerFleet(
         "metric_groups": "metricGroups",
         "new_game_session_protection_policy": "newGameSessionProtectionPolicy",
         "per_instance_container_group_definition_name": "perInstanceContainerGroupDefinitionName",
+        "player_gateway_mode": "playerGatewayMode",
         "scaling_policies": "scalingPolicies",
         "tags": "tags",
     },
@@ -2928,6 +2963,7 @@ class CfnContainerFleetProps:
         metric_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
         new_game_session_protection_policy: typing.Optional[builtins.str] = None,
         per_instance_container_group_definition_name: typing.Optional[builtins.str] = None,
+        player_gateway_mode: typing.Optional[builtins.str] = None,
         scaling_policies: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnContainerFleet.ScalingPolicyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -2948,6 +2984,7 @@ class CfnContainerFleetProps:
         :param metric_groups: The name of an AWS CloudWatch metric group to add this fleet to. Metric groups aggregate metrics for multiple fleets.
         :param new_game_session_protection_policy: Determines whether Amazon GameLift Servers can shut down game sessions on the fleet that are actively running and hosting players. Amazon GameLift Servers might prompt an instance shutdown when scaling down fleet capacity or when retiring unhealthy instances. You can also set game session protection for individual game sessions using `UpdateGameSession <https://docs.aws.amazon.com/gamelift/latest/apireference/API_UpdateGameSession.html>`_ . - *NoProtection* -- Game sessions can be shut down during active gameplay. - *FullProtection* -- Game sessions in ``ACTIVE`` status can't be shut down.
         :param per_instance_container_group_definition_name: The name of the fleet's per-instance container group definition.
+        :param player_gateway_mode: The player gateway mode for the container fleet.
         :param scaling_policies: A list of rules that control how a fleet is scaled.
         :param tags: An array of key-value pairs to apply to this resource.
 
@@ -3006,6 +3043,7 @@ class CfnContainerFleetProps:
                         ),
                         min_size=123
                     ),
+                    player_gateway_status="playerGatewayStatus",
                     stopped_actions=["stoppedActions"]
                 )],
                 log_configuration=gamelift.CfnContainerFleet.LogConfigurationProperty(
@@ -3016,6 +3054,7 @@ class CfnContainerFleetProps:
                 metric_groups=["metricGroups"],
                 new_game_session_protection_policy="newGameSessionProtectionPolicy",
                 per_instance_container_group_definition_name="perInstanceContainerGroupDefinitionName",
+                player_gateway_mode="playerGatewayMode",
                 scaling_policies=[gamelift.CfnContainerFleet.ScalingPolicyProperty(
                     metric_name="metricName",
                     name="name",
@@ -3054,6 +3093,7 @@ class CfnContainerFleetProps:
             check_type(argname="argument metric_groups", value=metric_groups, expected_type=type_hints["metric_groups"])
             check_type(argname="argument new_game_session_protection_policy", value=new_game_session_protection_policy, expected_type=type_hints["new_game_session_protection_policy"])
             check_type(argname="argument per_instance_container_group_definition_name", value=per_instance_container_group_definition_name, expected_type=type_hints["per_instance_container_group_definition_name"])
+            check_type(argname="argument player_gateway_mode", value=player_gateway_mode, expected_type=type_hints["player_gateway_mode"])
             check_type(argname="argument scaling_policies", value=scaling_policies, expected_type=type_hints["scaling_policies"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3087,6 +3127,8 @@ class CfnContainerFleetProps:
             self._values["new_game_session_protection_policy"] = new_game_session_protection_policy
         if per_instance_container_group_definition_name is not None:
             self._values["per_instance_container_group_definition_name"] = per_instance_container_group_definition_name
+        if player_gateway_mode is not None:
+            self._values["player_gateway_mode"] = player_gateway_mode
         if scaling_policies is not None:
             self._values["scaling_policies"] = scaling_policies
         if tags is not None:
@@ -3266,6 +3308,15 @@ class CfnContainerFleetProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-containerfleet.html#cfn-gamelift-containerfleet-perinstancecontainergroupdefinitionname
         '''
         result = self._values.get("per_instance_container_group_definition_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def player_gateway_mode(self) -> typing.Optional[builtins.str]:
+        '''The player gateway mode for the container fleet.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-containerfleet.html#cfn-gamelift-containerfleet-playergatewaymode
+        '''
+        result = self._values.get("player_gateway_mode")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -5148,7 +5199,8 @@ class CfnFleet(
                         scale_in_after_inactivity_minutes=123
                     ),
                     min_size=123
-                )
+                ),
+                player_gateway_status="playerGatewayStatus"
             )],
             log_paths=["logPaths"],
             max_size=123,
@@ -5157,6 +5209,10 @@ class CfnFleet(
             new_game_session_protection_policy="newGameSessionProtectionPolicy",
             peer_vpc_aws_account_id="peerVpcAwsAccountId",
             peer_vpc_id="peerVpcId",
+            player_gateway_configuration=gamelift.CfnFleet.PlayerGatewayConfigurationProperty(
+                game_server_ip_protocol_supported="gameServerIpProtocolSupported"
+            ),
+            player_gateway_mode="playerGatewayMode",
             resource_creation_limit_policy=gamelift.CfnFleet.ResourceCreationLimitPolicyProperty(
                 new_game_sessions_per_creator=123,
                 policy_period_in_minutes=123
@@ -5226,6 +5282,8 @@ class CfnFleet(
         new_game_session_protection_policy: typing.Optional[builtins.str] = None,
         peer_vpc_aws_account_id: typing.Optional[builtins.str] = None,
         peer_vpc_id: typing.Optional[builtins.str] = None,
+        player_gateway_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFleet.PlayerGatewayConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        player_gateway_mode: typing.Optional[builtins.str] = None,
         resource_creation_limit_policy: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFleet.ResourceCreationLimitPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         runtime_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFleet.RuntimeConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         scaling_policies: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFleet.ScalingPolicyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -5259,6 +5317,8 @@ class CfnFleet(
         :param new_game_session_protection_policy: The status of termination protection for active game sessions on the fleet. By default, this property is set to ``NoProtection`` . - *NoProtection* - Game sessions can be terminated during active gameplay as a result of a scale-down event. - *FullProtection* - Game sessions in ``ACTIVE`` status cannot be terminated during a scale-down event.
         :param peer_vpc_aws_account_id: Used when peering your Amazon GameLift Servers fleet with a VPC, the unique identifier for the AWS account that owns the VPC. You can find your account ID in the AWS Management Console under account settings.
         :param peer_vpc_id: A unique identifier for a VPC with resources to be accessed by your Amazon GameLift Servers fleet. The VPC must be in the same Region as your fleet. To look up a VPC ID, use the `VPC Dashboard <https://docs.aws.amazon.com/vpc/>`_ in the AWS Management Console . Learn more about VPC peering in `VPC Peering with Amazon GameLift Servers Fleets <https://docs.aws.amazon.com/gamelift/latest/developerguide/vpc-peering.html>`_ .
+        :param player_gateway_configuration: Configuration for player gateway.
+        :param player_gateway_mode: The player gateway mode for the fleet.
         :param resource_creation_limit_policy: A policy that limits the number of game sessions that an individual player can create on instances in this fleet within a specified span of time.
         :param runtime_configuration: Instructions for how to launch and maintain server processes on instances in the fleet. The runtime configuration defines one or more server process configurations, each identifying a build executable or Realtime script file and the number of processes of that type to run concurrently. .. epigraph:: The ``RuntimeConfiguration`` parameter is required unless the fleet is being configured using the older parameters ``ServerLaunchPath`` and ``ServerLaunchParameters`` , which are still supported for backward compatibility.
         :param scaling_policies: Rule that controls how a fleet is scaled. Scaling policies are uniquely identified by the combination of name and fleet ID.
@@ -5293,6 +5353,8 @@ class CfnFleet(
             new_game_session_protection_policy=new_game_session_protection_policy,
             peer_vpc_aws_account_id=peer_vpc_aws_account_id,
             peer_vpc_id=peer_vpc_id,
+            player_gateway_configuration=player_gateway_configuration,
+            player_gateway_mode=player_gateway_mode,
             resource_creation_limit_policy=resource_creation_limit_policy,
             runtime_configuration=runtime_configuration,
             scaling_policies=scaling_policies,
@@ -5752,6 +5814,37 @@ class CfnFleet(
             type_hints = typing.get_type_hints(_typecheckingstub__3fd0ab83e874e8110a1f4093ff1e48395bf94729c8f475c6e23b4d22971f3428)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "peerVpcId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="playerGatewayConfiguration")
+    def player_gateway_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFleet.PlayerGatewayConfigurationProperty"]]:
+        '''Configuration for player gateway.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFleet.PlayerGatewayConfigurationProperty"]], jsii.get(self, "playerGatewayConfiguration"))
+
+    @player_gateway_configuration.setter
+    def player_gateway_configuration(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFleet.PlayerGatewayConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__952d925e20228f1264d6586f969afdecdea991c6160948d186f99e878e1da9c4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "playerGatewayConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="playerGatewayMode")
+    def player_gateway_mode(self) -> typing.Optional[builtins.str]:
+        '''The player gateway mode for the fleet.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "playerGatewayMode"))
+
+    @player_gateway_mode.setter
+    def player_gateway_mode(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ebff6ba667d0fd2b2c4b1db0bb882b92fe84720b9b2c430bdf3bddc4500042ce)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "playerGatewayMode", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="resourceCreationLimitPolicy")
@@ -6230,7 +6323,11 @@ class CfnFleet(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_gamelift.CfnFleet.LocationConfigurationProperty",
         jsii_struct_bases=[],
-        name_mapping={"location": "location", "location_capacity": "locationCapacity"},
+        name_mapping={
+            "location": "location",
+            "location_capacity": "locationCapacity",
+            "player_gateway_status": "playerGatewayStatus",
+        },
     )
     class LocationConfigurationProperty:
         def __init__(
@@ -6238,11 +6335,13 @@ class CfnFleet(
             *,
             location: builtins.str,
             location_capacity: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFleet.LocationCapacityProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            player_gateway_status: typing.Optional[builtins.str] = None,
         ) -> None:
             '''A remote location where a multi-location fleet can deploy game servers for game hosting.
 
             :param location: An AWS Region code, such as ``us-west-2`` . For a list of supported Regions and Local Zones, see `Amazon GameLift Servers service locations <https://docs.aws.amazon.com/gamelift/latest/developerguide/gamelift-regions.html>`_ for managed hosting.
             :param location_capacity: Current resource capacity settings for managed EC2 fleets and managed container fleets. For multi-location fleets, location values might refer to a fleet's remote location or its home Region. *Returned by:* `DescribeFleetCapacity <https://docs.aws.amazon.com/gamelift/latest/apireference/API_DescribeFleetCapacity.html>`_ , `DescribeFleetLocationCapacity <https://docs.aws.amazon.com/gamelift/latest/apireference/API_DescribeFleetLocationCapacity.html>`_ , `UpdateFleetCapacity <https://docs.aws.amazon.com/gamelift/latest/apireference/API_UpdateFleetCapacity.html>`_
+            :param player_gateway_status: The player gateway status for the location.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-gamelift-fleet-locationconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -6269,18 +6368,22 @@ class CfnFleet(
                             scale_in_after_inactivity_minutes=123
                         ),
                         min_size=123
-                    )
+                    ),
+                    player_gateway_status="playerGatewayStatus"
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__716ff23eda74da42620dc64832ed27ab5a267661bd90b16577ee48991436d14c)
                 check_type(argname="argument location", value=location, expected_type=type_hints["location"])
                 check_type(argname="argument location_capacity", value=location_capacity, expected_type=type_hints["location_capacity"])
+                check_type(argname="argument player_gateway_status", value=player_gateway_status, expected_type=type_hints["player_gateway_status"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "location": location,
             }
             if location_capacity is not None:
                 self._values["location_capacity"] = location_capacity
+            if player_gateway_status is not None:
+                self._values["player_gateway_status"] = player_gateway_status
 
         @builtins.property
         def location(self) -> builtins.str:
@@ -6308,6 +6411,15 @@ class CfnFleet(
             '''
             result = self._values.get("location_capacity")
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFleet.LocationCapacityProperty"]], result)
+
+        @builtins.property
+        def player_gateway_status(self) -> typing.Optional[builtins.str]:
+            '''The player gateway status for the location.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-gamelift-fleet-locationconfiguration.html#cfn-gamelift-fleet-locationconfiguration-playergatewaystatus
+            '''
+            result = self._values.get("player_gateway_status")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6395,6 +6507,63 @@ class CfnFleet(
 
         def __repr__(self) -> str:
             return "ManagedCapacityConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_gamelift.CfnFleet.PlayerGatewayConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "game_server_ip_protocol_supported": "gameServerIpProtocolSupported",
+        },
+    )
+    class PlayerGatewayConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            game_server_ip_protocol_supported: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Configuration for player gateway.
+
+            :param game_server_ip_protocol_supported: The IP protocol supported by the game server.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-gamelift-fleet-playergatewayconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_gamelift as gamelift
+                
+                player_gateway_configuration_property = gamelift.CfnFleet.PlayerGatewayConfigurationProperty(
+                    game_server_ip_protocol_supported="gameServerIpProtocolSupported"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__77fa49b9a2a8721444de39e409fbada39e7bd06aa07c1aeede49c2cde55047aa)
+                check_type(argname="argument game_server_ip_protocol_supported", value=game_server_ip_protocol_supported, expected_type=type_hints["game_server_ip_protocol_supported"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if game_server_ip_protocol_supported is not None:
+                self._values["game_server_ip_protocol_supported"] = game_server_ip_protocol_supported
+
+        @builtins.property
+        def game_server_ip_protocol_supported(self) -> typing.Optional[builtins.str]:
+            '''The IP protocol supported by the game server.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-gamelift-fleet-playergatewayconfiguration.html#cfn-gamelift-fleet-playergatewayconfiguration-gameserveripprotocolsupported
+            '''
+            result = self._values.get("game_server_ip_protocol_supported")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PlayerGatewayConfigurationProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -7053,6 +7222,8 @@ class CfnFleet(
         "new_game_session_protection_policy": "newGameSessionProtectionPolicy",
         "peer_vpc_aws_account_id": "peerVpcAwsAccountId",
         "peer_vpc_id": "peerVpcId",
+        "player_gateway_configuration": "playerGatewayConfiguration",
+        "player_gateway_mode": "playerGatewayMode",
         "resource_creation_limit_policy": "resourceCreationLimitPolicy",
         "runtime_configuration": "runtimeConfiguration",
         "scaling_policies": "scalingPolicies",
@@ -7087,6 +7258,8 @@ class CfnFleetProps:
         new_game_session_protection_policy: typing.Optional[builtins.str] = None,
         peer_vpc_aws_account_id: typing.Optional[builtins.str] = None,
         peer_vpc_id: typing.Optional[builtins.str] = None,
+        player_gateway_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFleet.PlayerGatewayConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        player_gateway_mode: typing.Optional[builtins.str] = None,
         resource_creation_limit_policy: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFleet.ResourceCreationLimitPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         runtime_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFleet.RuntimeConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         scaling_policies: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFleet.ScalingPolicyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -7118,6 +7291,8 @@ class CfnFleetProps:
         :param new_game_session_protection_policy: The status of termination protection for active game sessions on the fleet. By default, this property is set to ``NoProtection`` . - *NoProtection* - Game sessions can be terminated during active gameplay as a result of a scale-down event. - *FullProtection* - Game sessions in ``ACTIVE`` status cannot be terminated during a scale-down event.
         :param peer_vpc_aws_account_id: Used when peering your Amazon GameLift Servers fleet with a VPC, the unique identifier for the AWS account that owns the VPC. You can find your account ID in the AWS Management Console under account settings.
         :param peer_vpc_id: A unique identifier for a VPC with resources to be accessed by your Amazon GameLift Servers fleet. The VPC must be in the same Region as your fleet. To look up a VPC ID, use the `VPC Dashboard <https://docs.aws.amazon.com/vpc/>`_ in the AWS Management Console . Learn more about VPC peering in `VPC Peering with Amazon GameLift Servers Fleets <https://docs.aws.amazon.com/gamelift/latest/developerguide/vpc-peering.html>`_ .
+        :param player_gateway_configuration: Configuration for player gateway.
+        :param player_gateway_mode: The player gateway mode for the fleet.
         :param resource_creation_limit_policy: A policy that limits the number of game sessions that an individual player can create on instances in this fleet within a specified span of time.
         :param runtime_configuration: Instructions for how to launch and maintain server processes on instances in the fleet. The runtime configuration defines one or more server process configurations, each identifying a build executable or Realtime script file and the number of processes of that type to run concurrently. .. epigraph:: The ``RuntimeConfiguration`` parameter is required unless the fleet is being configured using the older parameters ``ServerLaunchPath`` and ``ServerLaunchParameters`` , which are still supported for backward compatibility.
         :param scaling_policies: Rule that controls how a fleet is scaled. Scaling policies are uniquely identified by the combination of name and fleet ID.
@@ -7177,7 +7352,8 @@ class CfnFleetProps:
                             scale_in_after_inactivity_minutes=123
                         ),
                         min_size=123
-                    )
+                    ),
+                    player_gateway_status="playerGatewayStatus"
                 )],
                 log_paths=["logPaths"],
                 max_size=123,
@@ -7186,6 +7362,10 @@ class CfnFleetProps:
                 new_game_session_protection_policy="newGameSessionProtectionPolicy",
                 peer_vpc_aws_account_id="peerVpcAwsAccountId",
                 peer_vpc_id="peerVpcId",
+                player_gateway_configuration=gamelift.CfnFleet.PlayerGatewayConfigurationProperty(
+                    game_server_ip_protocol_supported="gameServerIpProtocolSupported"
+                ),
+                player_gateway_mode="playerGatewayMode",
                 resource_creation_limit_policy=gamelift.CfnFleet.ResourceCreationLimitPolicyProperty(
                     new_game_sessions_per_creator=123,
                     policy_period_in_minutes=123
@@ -7251,6 +7431,8 @@ class CfnFleetProps:
             check_type(argname="argument new_game_session_protection_policy", value=new_game_session_protection_policy, expected_type=type_hints["new_game_session_protection_policy"])
             check_type(argname="argument peer_vpc_aws_account_id", value=peer_vpc_aws_account_id, expected_type=type_hints["peer_vpc_aws_account_id"])
             check_type(argname="argument peer_vpc_id", value=peer_vpc_id, expected_type=type_hints["peer_vpc_id"])
+            check_type(argname="argument player_gateway_configuration", value=player_gateway_configuration, expected_type=type_hints["player_gateway_configuration"])
+            check_type(argname="argument player_gateway_mode", value=player_gateway_mode, expected_type=type_hints["player_gateway_mode"])
             check_type(argname="argument resource_creation_limit_policy", value=resource_creation_limit_policy, expected_type=type_hints["resource_creation_limit_policy"])
             check_type(argname="argument runtime_configuration", value=runtime_configuration, expected_type=type_hints["runtime_configuration"])
             check_type(argname="argument scaling_policies", value=scaling_policies, expected_type=type_hints["scaling_policies"])
@@ -7301,6 +7483,10 @@ class CfnFleetProps:
             self._values["peer_vpc_aws_account_id"] = peer_vpc_aws_account_id
         if peer_vpc_id is not None:
             self._values["peer_vpc_id"] = peer_vpc_id
+        if player_gateway_configuration is not None:
+            self._values["player_gateway_configuration"] = player_gateway_configuration
+        if player_gateway_mode is not None:
+            self._values["player_gateway_mode"] = player_gateway_mode
         if resource_creation_limit_policy is not None:
             self._values["resource_creation_limit_policy"] = resource_creation_limit_policy
         if runtime_configuration is not None:
@@ -7573,6 +7759,26 @@ class CfnFleetProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-fleet.html#cfn-gamelift-fleet-peervpcid
         '''
         result = self._values.get("peer_vpc_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def player_gateway_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFleet.PlayerGatewayConfigurationProperty"]]:
+        '''Configuration for player gateway.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-fleet.html#cfn-gamelift-fleet-playergatewayconfiguration
+        '''
+        result = self._values.get("player_gateway_configuration")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFleet.PlayerGatewayConfigurationProperty"]], result)
+
+    @builtins.property
+    def player_gateway_mode(self) -> typing.Optional[builtins.str]:
+        '''The player gateway mode for the fleet.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-gamelift-fleet.html#cfn-gamelift-fleet-playergatewaymode
+        '''
+        result = self._values.get("player_gateway_mode")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -11934,6 +12140,7 @@ def _typecheckingstub__d30a780826320cc5d36af5934da7151d1abdd72973e8cb82c8f063951
     metric_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     new_game_session_protection_policy: typing.Optional[builtins.str] = None,
     per_instance_container_group_definition_name: typing.Optional[builtins.str] = None,
+    player_gateway_mode: typing.Optional[builtins.str] = None,
     scaling_policies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnContainerFleet.ScalingPolicyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -12070,6 +12277,12 @@ def _typecheckingstub__73062db2cea0b73eca7dbc19b367503a92d902e168720fb46aaaef0f6
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__d361ac295efb99b758f5878406e72e7692b15f54f617b28196e2fda3fa7ec5fa(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__0b8d26c0f526c6120c09026205884464ccfb9805906c0810312a9ac8dc69119a(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnContainerFleet.ScalingPolicyProperty]]]],
 ) -> None:
@@ -12138,6 +12351,7 @@ def _typecheckingstub__6f0d55ebb1c8fdd9364a92df8152f6c91294e481bedd64b3458f3dff3
     *,
     location: builtins.str,
     location_capacity: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnContainerFleet.LocationCapacityProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    player_gateway_status: typing.Optional[builtins.str] = None,
     stopped_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -12199,6 +12413,7 @@ def _typecheckingstub__4fbf4a66831e3b15f9023046fb41b590456b41ba1048fa4e59749ccd8
     metric_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     new_game_session_protection_policy: typing.Optional[builtins.str] = None,
     per_instance_container_group_definition_name: typing.Optional[builtins.str] = None,
+    player_gateway_mode: typing.Optional[builtins.str] = None,
     scaling_policies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnContainerFleet.ScalingPolicyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -12431,6 +12646,8 @@ def _typecheckingstub__21fe09a90444788b3c862f454214d4e160757c9b02d0598d282f68b7f
     new_game_session_protection_policy: typing.Optional[builtins.str] = None,
     peer_vpc_aws_account_id: typing.Optional[builtins.str] = None,
     peer_vpc_id: typing.Optional[builtins.str] = None,
+    player_gateway_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.PlayerGatewayConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    player_gateway_mode: typing.Optional[builtins.str] = None,
     resource_creation_limit_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.ResourceCreationLimitPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     runtime_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.RuntimeConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     scaling_policies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.ScalingPolicyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -12608,6 +12825,18 @@ def _typecheckingstub__3fd0ab83e874e8110a1f4093ff1e48395bf94729c8f475c6e23b4d229
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__952d925e20228f1264d6586f969afdecdea991c6160948d186f99e878e1da9c4(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFleet.PlayerGatewayConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ebff6ba667d0fd2b2c4b1db0bb882b92fe84720b9b2c430bdf3bddc4500042ce(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__21ee8415ef994fb87ac2edf852ffd98a21384f9eccc26d3a0537563c2b00fbed(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFleet.ResourceCreationLimitPolicyProperty]],
 ) -> None:
@@ -12688,6 +12917,7 @@ def _typecheckingstub__716ff23eda74da42620dc64832ed27ab5a267661bd90b16577ee48991
     *,
     location: builtins.str,
     location_capacity: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.LocationCapacityProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    player_gateway_status: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12696,6 +12926,13 @@ def _typecheckingstub__1df3c9befa1272c64766d7457b696cc00ada4353893f58bcab0802996
     *,
     zero_capacity_strategy: builtins.str,
     scale_in_after_inactivity_minutes: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__77fa49b9a2a8721444de39e409fbada39e7bd06aa07c1aeede49c2cde55047aa(
+    *,
+    game_server_ip_protocol_supported: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12774,6 +13011,8 @@ def _typecheckingstub__8a51a418ba5b606bdfc45dc50c3172e280a12e078a7392f3258d5d329
     new_game_session_protection_policy: typing.Optional[builtins.str] = None,
     peer_vpc_aws_account_id: typing.Optional[builtins.str] = None,
     peer_vpc_id: typing.Optional[builtins.str] = None,
+    player_gateway_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.PlayerGatewayConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    player_gateway_mode: typing.Optional[builtins.str] = None,
     resource_creation_limit_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.ResourceCreationLimitPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     runtime_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.RuntimeConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     scaling_policies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.ScalingPolicyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,

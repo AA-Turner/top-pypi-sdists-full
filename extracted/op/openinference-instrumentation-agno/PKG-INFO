@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openinference-instrumentation-agno
-Version: 0.1.28
+Version: 0.1.29
 Summary: OpenInference Agno Instrumentation
 Project-URL: Homepage, https://github.com/Arize-ai/openinference/tree/main/python/instrumentation/openinference-instrumentation-agno
 Author-email: OpenInference Authors <oss@arize.com>
@@ -28,6 +28,7 @@ Provides-Extra: instruments
 Requires-Dist: agno>=2.5.0; extra == 'instruments'
 Provides-Extra: test
 Requires-Dist: agno>=2.5.0; extra == 'test'
+Requires-Dist: brotli; extra == 'test'
 Requires-Dist: ddgs; extra == 'test'
 Requires-Dist: fastapi; extra == 'test'
 Requires-Dist: openai; extra == 'test'

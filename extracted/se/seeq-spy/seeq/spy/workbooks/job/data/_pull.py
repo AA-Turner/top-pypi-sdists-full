@@ -36,7 +36,7 @@ def pull(
 
     Parameters
     ----------
-    job_folder : {str}
+    job_folder : {str, pathlib.Path}
         A full or partial path to the job folder created by
         spy.workbooks.job.pull().
 
@@ -242,7 +242,7 @@ def manifest(job_folder, *, reset=False):
 
     Parameters
     ----------
-    job_folder : {str}
+    job_folder : {str, pathlib.Path}
         A full or partial path to the job folder created by
         spy.workbooks.job.pull().
 
@@ -305,7 +305,7 @@ def expand(job_folder: str, items: Union[str, list, dict] = None, *, by: Union[s
 
     Parameters
     ----------
-    job_folder : {str}
+    job_folder : {str, pathlib.Path}
         A full or partial path to the job folder created by
         spy.workbooks.job.pull().
 
@@ -388,7 +388,7 @@ def add(job_folder: str, items: Union[str, list, dict] = None, *,
 
     Parameters
     ----------
-    job_folder : {str}
+    job_folder : {str, pathlib.Path}
         A full or partial path to the job folder created by
         spy.workbooks.job.pull().
 
@@ -454,7 +454,7 @@ def remove(job_folder: str, items: Union[str, list, dict] = None, *,
 
     Parameters
     ----------
-    job_folder : {str}
+    job_folder : {str, pathlib.Path}
         A full or partial path to the job folder created by
         spy.workbooks.job.pull().
 
@@ -526,7 +526,7 @@ def calculation(job_folder: str, items: Union[str, list, dict] = None, *, formul
 
     Parameters
     ----------
-    job_folder : {str}
+    job_folder : {str, pathlib.Path}
         A full or partial path to the job folder created by
         spy.workbooks.job.pull().
 
@@ -585,7 +585,7 @@ def _reset_manifest(job_folder: str, items: Union[str, list, dict] = None):
 
     Parameters
     ----------
-    job_folder : {str}
+    job_folder : {str, pathlib.Path}
         A full or partial path to the job folder created by
         spy.workbooks.job.pull().
 

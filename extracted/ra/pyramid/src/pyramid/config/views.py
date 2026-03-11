@@ -2,7 +2,6 @@ import functools
 import inspect
 import operator
 import os
-import posixpath
 from urllib.parse import quote, urljoin, urlparse, urlunparse
 import warnings
 from webob.acceptparse import Accept
@@ -886,7 +885,7 @@ class ViewsConfiguratorMixin:
             pvals = {}
             dvals = {}
 
-            for (k, v) in ovals.items():
+            for k, v in ovals.items():
                 if k in valid_predicates:
                     pvals[k] = v
                 else:
@@ -904,7 +903,7 @@ class ViewsConfiguratorMixin:
         discriminator = Deferred(discrim_func)
 
         if inspect.isclass(view) and attr:
-            view_desc = 'method %r of %s' % (
+            view_desc = 'method {!r} of {}'.format(
                 attr,
                 self.object_description(view),
             )
@@ -1160,7 +1159,7 @@ class ViewsConfiguratorMixin:
             for opt in getattr(deriver, 'options', []):
                 kw.pop(opt, None)
         if kw:
-            raise ConfigurationError('Unknown view options: %s' % (kw,))
+            raise ConfigurationError(f'Unknown view options: {kw}')
 
     def _apply_view_derivers(self, info):
         # These derivers are not really derivers and so have fixed order
@@ -1206,7 +1205,7 @@ class ViewsConfiguratorMixin:
 
     def add_default_view_predicates(self):
         p = pyramid.predicates
-        for (name, factory) in (
+        for name, factory in (
             ('xhr', p.XHRPredicate),
             ('request_method', p.RequestMethodPredicate),
             ('path_info', p.PathInfoPredicate),
@@ -2163,7 +2162,7 @@ class StaticURLInfo:
         self.cache_busters = []
 
     def generate(self, path, request, **kw):
-        for (url, spec, route_name) in self.registrations:
+        for url, spec, route_name in self.registrations:
             if path.startswith(spec):
                 subpath = path[len(spec) :]
                 if WIN:  # pragma: no cover
@@ -2248,7 +2247,7 @@ class StaticURLInfo:
             # pattern, plus any extras passed to us via add_static_view
             pattern = "%s*subpath" % name  # name already ends with slash
             if config.route_prefix:
-                route_name = '__%s/%s' % (config.route_prefix, name)
+                route_name = f'__{config.route_prefix}/{name}'
             else:
                 route_name = '__%s' % name
             config.add_route(route_name, pattern, **extra)
@@ -2335,17 +2334,10 @@ class StaticURLInfo:
         rawspec = None
 
         if pkg_name is not None:
-            pathspec = '{}:{}{}'.format(pkg_name, pkg_subpath, subpath)
+            pathspec = f'{pkg_name}:{pkg_subpath}{subpath}'
             overrides = registry.queryUtility(IPackageOverrides, name=pkg_name)
             if overrides is not None:
-                resource_name = posixpath.join(pkg_subpath, subpath)
-                sources = overrides.filtered_sources(resource_name)
-                for source, filtered_path in sources:
-                    rawspec = source.get_path(filtered_path)
-                    if hasattr(source, 'pkg_name'):
-                        rawspec = '{}:{}'.format(source.pkg_name, rawspec)
-                    break
-
+                rawspec = overrides.get_spec(f'{pkg_subpath}{subpath}')
         else:
             pathspec = pkg_subpath + subpath
 

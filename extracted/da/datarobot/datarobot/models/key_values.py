@@ -358,7 +358,7 @@ class KeyValue(APIObject):
                 KeyValueType.NUMERIC: "numericValue",
                 KeyValueType.BOOLEAN: "booleanValue",
             }
-            value_key = value_keys.get(value_type if value_type else self.value_type, "value")
+            value_key = value_keys.get(value_type or self.value_type, "value")
             payload[value_key] = value  # type: ignore[assignment]
         if description is not None:
             payload["description"] = description

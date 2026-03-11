@@ -33,7 +33,15 @@ class ItemWithOwnerAndAcl(Item):
                 owner_id = current_owner_id
         elif owner == ORIGINAL_OWNER:
             if _common.get(self, 'Owner'):
-                owner_id = Identity.find_identity(context, self['Owner'], item_map=item_map)
+                try:
+                    owner_id = Identity.find_identity(context, self['Owner'], item_map=item_map)
+                except SPyDependencyNotFound:
+                    # If we can't map the original owner to an identity on the target server, we have to abort the
+                    # push and tell the user not to supply spy.workbooks.ORIGINAL_OWNER.
+                    raise SPyRuntimeError(
+                        f'Original owner "{self["Owner"]["Username"]}" does not exist on the target server and '
+                        'was not mapped via Datasource Maps. Cannot push with owner=spy.workbooks.ORIGINAL_OWNER'
+                    )
             else:
                 # There is no original owner so make it the current user as a placeholder
                 owner_id = session.user.id
@@ -248,21 +256,26 @@ class Identity(StoredItem):
         return pushed_identity.id
 
     def pull_datasource(self, session: Session, identity: Union[UserOutputV1, UserGroupOutputV1, IdentityPreviewV1]):
-        datasource_name = (identity.datasource.name if isinstance(identity, IdentityPreviewV1) else
-                           identity.datasource_name)
+        if isinstance(identity, IdentityPreviewV1):
+            datasource_preview: DatasourcePreviewV1 = identity.datasource
+            self['Datasource Class'] = datasource_preview.datasource_class
+            self['Datasource ID'] = datasource_preview.datasource_id
+            self['Datasource Name'] = datasource_preview.name
+        else:
+            datasource_name = identity.datasource_name
 
-        # noinspection PyBroadException
-        try:
-            for auth_provider in session.auth_providers:  # type: DatasourceOutputV1
-                if auth_provider.name == datasource_name:
-                    self['Datasource Class'] = auth_provider.datasource_class
-                    self['Datasource ID'] = auth_provider.datasource_id
-                    self['Datasource Name'] = auth_provider.name
-                    break
+            # noinspection PyBroadException
+            try:
+                for auth_provider in session.auth_providers:  # type: DatasourceOutputV1
+                    if auth_provider.name == datasource_name:
+                        self['Datasource Class'] = auth_provider.datasource_class
+                        self['Datasource ID'] = auth_provider.datasource_id
+                        self['Datasource Name'] = auth_provider.name
+                        break
 
-        except Exception:
-            # If we can't get extra data on the user, that's OK
-            pass
+            except Exception:
+                # If we can't get extra data on the user, that's OK
+                pass
 
     @staticmethod
     @lru_cache()

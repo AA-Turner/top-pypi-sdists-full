@@ -970,6 +970,26 @@ class SpecsTest(absltest.TestCase):
     ):
       spec.add_material().name = 'yellow'
 
+  def test_duplicate_name_error_when_adding_specs_with_kwargs(self):
+    spec = mujoco.MjSpec()
+    body = spec.worldbody.add_body(name='body')
+    body.add_geom(
+        type=mujoco.mjtGeom.mjGEOM_BOX, size=[0.1, 1, 1], name='dup'
+    )
+    with self.assertRaisesRegex(
+        ValueError, "Error: repeated name 'dup' in geom"
+    ):
+      body.add_geom(
+          type=mujoco.mjtGeom.mjGEOM_BOX, size=[1, 0.1, 1], name='dup'
+      )
+
+    spec2 = mujoco.MjSpec()
+    spec2.add_material(name='yellow')
+    with self.assertRaisesRegex(
+        ValueError, "Error: repeated name 'yellow' in material"
+    ):
+      spec2.add_material(name='yellow')
+
   def test_delete_unused_plugin(self):
     spec = mujoco.MjSpec.from_string("""
       <mujoco model="MuJoCo Model">
@@ -1167,6 +1187,36 @@ class SpecsTest(absltest.TestCase):
     frame.attach_body(body, prefix='child-')
     model = parent.compile()
     np.testing.assert_almost_equal(model.body_quat[1], [1, 0, 0, 0])
+
+  def test_compiler_from_element(self):
+    child = mujoco.MjSpec()
+    child.meshdir = '/child/meshes'
+    child.texturedir = '/child/textures'
+    child_body = child.worldbody.add_body()
+    child_geom = child_body.add_geom()
+    child_geom.size[0] = 1
+    child_site = child_body.add_site()
+
+    parent = mujoco.MjSpec()
+    parent.meshdir = '/parent/meshes'
+    parent.texturedir = '/parent/textures'
+    parent_geom = parent.worldbody.add_geom()
+    parent_geom.size[0] = 1
+    parent_site = parent.worldbody.add_site()
+
+    self.assertEqual(parent_geom.compiler.meshdir, '/parent/meshes')
+    self.assertEqual(parent_geom.compiler.texturedir, '/parent/textures')
+    self.assertEqual(child_geom.compiler.meshdir, '/child/meshes')
+    self.assertEqual(child_site.compiler.meshdir, '/child/meshes')
+
+    frame = parent.worldbody.add_frame()
+    frame.attach_body(child_body, prefix='child-')
+
+    self.assertEqual(parent_geom.compiler.meshdir, '/parent/meshes')
+    self.assertEqual(parent_site.compiler.meshdir, '/parent/meshes')
+    self.assertEqual(child_geom.compiler.meshdir, '/child/meshes')
+    self.assertEqual(child_geom.compiler.texturedir, '/child/textures')
+    self.assertEqual(child_site.compiler.meshdir, '/child/meshes')
 
   def test_attach_to_site(self):
     parent = mujoco.MjSpec()

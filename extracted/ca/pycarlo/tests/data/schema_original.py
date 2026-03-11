@@ -1488,12 +1488,12 @@ class ConversationStatus(sgqlc.types.Enum):
 
     Enumeration Choices:
 
-    * `COMPLETE`None
     * `ERROR`None
+    * `OK`None
     """
 
     __schema__ = schema
-    __choices__ = ("COMPLETE", "ERROR")
+    __choices__ = ("ERROR", "OK")
 
 
 class CustomDashboardWidgetDataSourceType(sgqlc.types.Enum):
@@ -7436,7 +7436,7 @@ class ConversationFiltersInput(sgqlc.types.Input):
     statuses = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.non_null(ConversationStatus)), graphql_name="statuses"
     )
-    """Filter by status (ERROR, COMPLETE). Empty or omitted returns all."""
+    """Filter by status (ERROR, OK). Empty or omitted returns all."""
 
     min_turns = sgqlc.types.Field(Int, graphql_name="minTurns")
     """Minimum number of turns (inclusive)"""
@@ -11483,6 +11483,7 @@ class TraceFiltersInput(sgqlc.types.Input):
         "max_completion_tokens",
         "min_total_tokens",
         "max_total_tokens",
+        "conversation_id",
     )
     models = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="models"
@@ -11522,6 +11523,9 @@ class TraceFiltersInput(sgqlc.types.Input):
 
     max_total_tokens = sgqlc.types.Field(Int, graphql_name="maxTotalTokens")
     """Maximum total tokens"""
+
+    conversation_id = sgqlc.types.Field(String, graphql_name="conversationId")
+    """Filter by exact conversation ID"""
 
 
 class TraceSegmentFilterInput(sgqlc.types.Input):
@@ -18457,7 +18461,7 @@ class Conversation(sgqlc.types.Type):
     """Total conversation duration in seconds (end_time - start_time)"""
 
     status = sgqlc.types.Field(sgqlc.types.non_null(ConversationStatus), graphql_name="status")
-    """ERROR if any trace had a root span error, otherwise COMPLETE"""
+    """ERROR if any trace had a root span error, otherwise OK"""
 
 
 class ConversationFilter(sgqlc.types.Type):
@@ -18514,7 +18518,7 @@ class ConversationFilterValue(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("value", "display_name")
     value = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="value")
-    """Raw value (e.g. 'complete', 'error')"""
+    """Raw value (e.g. 'OK', 'ERROR')"""
 
     display_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="displayName")
     """Human-readable label"""

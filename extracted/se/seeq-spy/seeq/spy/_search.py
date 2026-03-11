@@ -809,9 +809,11 @@ def _do_search(context: SearchContext, kwargs: dict, offset):
     kwargs2 = {
         'offset': kwargs['offset'],
         'limit': kwargs['limit'],
-        'scope': _common.get(kwargs, 'scope'),
         'exclude_globally_scoped': ('@excludeGloballyScoped' in kwargs['filters'])
     }
+
+    if _common.present(kwargs, 'scope'):
+        kwargs2['scope'] = kwargs['scope']
 
     if 'asset' in kwargs:
         kwargs2['id'] = kwargs['asset']

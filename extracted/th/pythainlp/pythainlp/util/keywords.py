@@ -1,18 +1,20 @@
-# -*- coding: utf-8 -*-
-# SPDX-FileCopyrightText: 2016-2025 PyThaiNLP Project
+# SPDX-FileCopyrightText: 2016-2026 PyThaiNLP Project
 # SPDX-FileType: SOURCE
 # SPDX-License-Identifier: Apache-2.0
+from __future__ import annotations
+
 from collections import Counter
-from typing import Dict, List
+from typing import Optional
 
 from pythainlp.corpus import thai_stopwords
 
-_STOPWORDS = thai_stopwords()
+_STOPWORDS: frozenset[str] = thai_stopwords()
 
 
-def rank(words: List[str], exclude_stopwords: bool = False) -> Counter:
-    """
-    Count word frequencies given a list of Thai words with an option
+def rank(
+    words: list[str], exclude_stopwords: bool = False
+) -> Optional[Counter]:
+    """Count word frequencies given a list of Thai words with an option
     to exclude stopwords.
 
     :param list words: a list of words
@@ -72,10 +74,9 @@ def rank(words: List[str], exclude_stopwords: bool = False) -> Counter:
     return Counter(words)
 
 
-def find_keyword(word_list: List[str], min_len: int = 3) -> Dict[str, int]:
-    """
-    This function counts the frequencies of words in the list
-    where stopword is excluded and returns a frequency dictionary.
+def find_keyword(word_list: list[str], min_len: int = 3) -> dict[str, int]:
+    """Counts the frequencies of words in the list
+    where stopwords are excluded and returns a frequency dictionary.
 
     :param list word_list: a list of words
     :param int min_len: the minimum frequency for words to be retained
@@ -99,6 +100,9 @@ def find_keyword(word_list: List[str], min_len: int = 3) -> Dict[str, int]:
         # output: {' ': 2, 'บันทึก': 4, 'ลายลักษณ์อักษรและ': 1,
          'เสียง': 1, 'เหตุการณ์': 3}
     """
-    word_list = rank(word_list, exclude_stopwords=True)
+    word_counter = rank(word_list, exclude_stopwords=True)
 
-    return {k: v for k, v in word_list.items() if v >= min_len}
+    if word_counter is None:
+        return {}
+
+    return {k: v for k, v in word_counter.items() if v >= min_len}

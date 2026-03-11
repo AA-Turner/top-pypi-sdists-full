@@ -476,6 +476,106 @@ class ListAlertChannelsResponse(_message.Message):
     channels: _containers.RepeatedCompositeFieldContainer[AlertChannel]
     def __init__(self, channels: _Optional[_Iterable[_Union[AlertChannel, _Mapping]]] = ...) -> None: ...
 
+class EditNamedAlertChannelsRequest(_message.Message):
+    __slots__ = ("original_ids", "added", "after_edits")
+    ORIGINAL_IDS_FIELD_NUMBER: _ClassVar[int]
+    ADDED_FIELD_NUMBER: _ClassVar[int]
+    AFTER_EDITS_FIELD_NUMBER: _ClassVar[int]
+    original_ids: _containers.RepeatedScalarFieldContainer[str]
+    added: _containers.RepeatedCompositeFieldContainer[AddAlertChannelEntry]
+    after_edits: _containers.RepeatedCompositeFieldContainer[EditAlertChannelEntry]
+    def __init__(
+        self,
+        original_ids: _Optional[_Iterable[str]] = ...,
+        added: _Optional[_Iterable[_Union[AddAlertChannelEntry, _Mapping]]] = ...,
+        after_edits: _Optional[_Iterable[_Union[EditAlertChannelEntry, _Mapping]]] = ...,
+    ) -> None: ...
+
+class AddAlertChannelEntry(_message.Message):
+    __slots__ = ("entity_kind", "entity_id", "channel_name", "default")
+    ENTITY_KIND_FIELD_NUMBER: _ClassVar[int]
+    ENTITY_ID_FIELD_NUMBER: _ClassVar[int]
+    CHANNEL_NAME_FIELD_NUMBER: _ClassVar[int]
+    DEFAULT_FIELD_NUMBER: _ClassVar[int]
+    entity_kind: AlertChannelKind
+    entity_id: str
+    channel_name: str
+    default: bool
+    def __init__(
+        self,
+        entity_kind: _Optional[_Union[AlertChannelKind, str]] = ...,
+        entity_id: _Optional[str] = ...,
+        channel_name: _Optional[str] = ...,
+        default: bool = ...,
+    ) -> None: ...
+
+class EditAlertChannelEntry(_message.Message):
+    __slots__ = ("id", "entity_kind", "entity_id", "channel_name", "default")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    ENTITY_KIND_FIELD_NUMBER: _ClassVar[int]
+    ENTITY_ID_FIELD_NUMBER: _ClassVar[int]
+    CHANNEL_NAME_FIELD_NUMBER: _ClassVar[int]
+    DEFAULT_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    entity_kind: AlertChannelKind
+    entity_id: str
+    channel_name: str
+    default: bool
+    def __init__(
+        self,
+        id: _Optional[str] = ...,
+        entity_kind: _Optional[_Union[AlertChannelKind, str]] = ...,
+        entity_id: _Optional[str] = ...,
+        channel_name: _Optional[str] = ...,
+        default: bool = ...,
+    ) -> None: ...
+
+class EditNamedAlertChannelsResponse(_message.Message):
+    __slots__ = ("added_ids", "deleted_ids")
+    ADDED_IDS_FIELD_NUMBER: _ClassVar[int]
+    DELETED_IDS_FIELD_NUMBER: _ClassVar[int]
+    added_ids: _containers.RepeatedScalarFieldContainer[str]
+    deleted_ids: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(
+        self, added_ids: _Optional[_Iterable[str]] = ..., deleted_ids: _Optional[_Iterable[str]] = ...
+    ) -> None: ...
+
+class DeleteNamedAlertChannelsRequest(_message.Message):
+    __slots__ = ("channel_name",)
+    CHANNEL_NAME_FIELD_NUMBER: _ClassVar[int]
+    channel_name: str
+    def __init__(self, channel_name: _Optional[str] = ...) -> None: ...
+
+class DeleteNamedAlertChannelsResponse(_message.Message):
+    __slots__ = ("ids",)
+    IDS_FIELD_NUMBER: _ClassVar[int]
+    ids: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, ids: _Optional[_Iterable[str]] = ...) -> None: ...
+
+class TestNamedAlertChannelsRequest(_message.Message):
+    __slots__ = ("channel_name",)
+    CHANNEL_NAME_FIELD_NUMBER: _ClassVar[int]
+    channel_name: str
+    def __init__(self, channel_name: _Optional[str] = ...) -> None: ...
+
+class TestNamedAlertChannelsResponse(_message.Message):
+    __slots__ = ("messages_sent",)
+    MESSAGES_SENT_FIELD_NUMBER: _ClassVar[int]
+    messages_sent: int
+    def __init__(self, messages_sent: _Optional[int] = ...) -> None: ...
+
+class SetDefaultAlertChannelsRequest(_message.Message):
+    __slots__ = ("channel_name", "default")
+    CHANNEL_NAME_FIELD_NUMBER: _ClassVar[int]
+    DEFAULT_FIELD_NUMBER: _ClassVar[int]
+    channel_name: str
+    default: bool
+    def __init__(self, channel_name: _Optional[str] = ..., default: bool = ...) -> None: ...
+
+class SetDefaultAlertChannelsResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
 class GetSlackIntegrationRequest(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
@@ -485,3 +585,75 @@ class GetSlackIntegrationResponse(_message.Message):
     INTEGRATION_FIELD_NUMBER: _ClassVar[int]
     integration: SlackIntegration
     def __init__(self, integration: _Optional[_Union[SlackIntegration, _Mapping]] = ...) -> None: ...
+
+class SimpleSlackConversation(_message.Message):
+    __slots__ = ("id", "name")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    name: str
+    def __init__(self, id: _Optional[str] = ..., name: _Optional[str] = ...) -> None: ...
+
+class GetSlackChannelsRequest(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class GetSlackChannelsResponse(_message.Message):
+    __slots__ = ("channels",)
+    CHANNELS_FIELD_NUMBER: _ClassVar[int]
+    channels: _containers.RepeatedCompositeFieldContainer[SimpleSlackConversation]
+    def __init__(self, channels: _Optional[_Iterable[_Union[SimpleSlackConversation, _Mapping]]] = ...) -> None: ...
+
+class UpsertSlackIntegrationRequest(_message.Message):
+    __slots__ = ("redirect_uri", "code")
+    REDIRECT_URI_FIELD_NUMBER: _ClassVar[int]
+    CODE_FIELD_NUMBER: _ClassVar[int]
+    redirect_uri: str
+    code: str
+    def __init__(self, redirect_uri: _Optional[str] = ..., code: _Optional[str] = ...) -> None: ...
+
+class UpsertSlackIntegrationResponse(_message.Message):
+    __slots__ = ("integration",)
+    INTEGRATION_FIELD_NUMBER: _ClassVar[int]
+    integration: SlackIntegration
+    def __init__(self, integration: _Optional[_Union[SlackIntegration, _Mapping]] = ...) -> None: ...
+
+class DeleteSlackIntegrationRequest(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class DeleteSlackIntegrationResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class TestSlackIntegrationRequest(_message.Message):
+    __slots__ = ("channel",)
+    CHANNEL_FIELD_NUMBER: _ClassVar[int]
+    channel: str
+    def __init__(self, channel: _Optional[str] = ...) -> None: ...
+
+class TestSlackIntegrationResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class UpdateSlackChannelsRequest(_message.Message):
+    __slots__ = ("channels",)
+    CHANNELS_FIELD_NUMBER: _ClassVar[int]
+    channels: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, channels: _Optional[_Iterable[str]] = ...) -> None: ...
+
+class UpdateSlackChannelsResponse(_message.Message):
+    __slots__ = ("channels",)
+    CHANNELS_FIELD_NUMBER: _ClassVar[int]
+    channels: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, channels: _Optional[_Iterable[str]] = ...) -> None: ...
+
+class UpsertDefaultSlackChannelRequest(_message.Message):
+    __slots__ = ("channel",)
+    CHANNEL_FIELD_NUMBER: _ClassVar[int]
+    channel: str
+    def __init__(self, channel: _Optional[str] = ...) -> None: ...
+
+class UpsertDefaultSlackChannelResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...

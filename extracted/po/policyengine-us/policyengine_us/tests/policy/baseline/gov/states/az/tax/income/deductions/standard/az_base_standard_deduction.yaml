@@ -1,0 +1,85 @@
+- name: Single filer 2022
+  period: 2022
+  input:
+    state_code: AZ
+    az_filing_status: SINGLE
+  output:
+    az_base_standard_deduction: 12_950
+
+- name: Joint filer 2022
+  period: 2022
+  input:
+    state_code: AZ
+    az_filing_status: JOINT
+  output:
+    az_base_standard_deduction: 25_900
+
+- name: Joint filer 2021
+  period: 2021
+  input:
+    state_code: AZ
+    az_filing_status: JOINT
+  output:
+    az_base_standard_deduction: 25_100
+
+- name: Surviving spouse (Head of household) filer 2021
+  period: 2021
+  input:
+    state_code: AZ
+    az_filing_status: HEAD_OF_HOUSEHOLD
+  output:
+    az_base_standard_deduction: 18_800
+
+- name: Separate filer 2021
+  period: 2021
+  input:
+    state_code: AZ
+    az_filing_status: SEPARATE
+  output:
+    az_base_standard_deduction: 12_550
+
+# 2025 tax year tests
+# Per 2025 Arizona Form 140 Instructions, Page 12, Line 18
+# A.R.S. 43-1041
+#
+# Standard Deduction Amounts for 2025:
+# - Single: $15,750
+# - Joint: $31,500
+# - Separate: $15,750
+# - Head of Household: $23,625
+
+- name: Single filer 2025
+  period: 2025
+  input:
+    state_code: AZ
+    az_filing_status: SINGLE
+  output:
+    # Per 2025 Form 140 Instructions: Single standard deduction is $15,750
+    az_base_standard_deduction: 15_750
+
+- name: Joint filer 2025
+  period: 2025
+  input:
+    state_code: AZ
+    az_filing_status: JOINT
+  output:
+    # Per 2025 Form 140 Instructions: Joint standard deduction is $31,500
+    az_base_standard_deduction: 31_500
+
+- name: Separate filer 2025
+  period: 2025
+  input:
+    state_code: AZ
+    az_filing_status: SEPARATE
+  output:
+    # Per 2025 Form 140 Instructions: Separate standard deduction is $15,750
+    az_base_standard_deduction: 15_750
+
+- name: Head of household filer 2025
+  period: 2025
+  input:
+    state_code: AZ
+    az_filing_status: HEAD_OF_HOUSEHOLD
+  output:
+    # Per 2025 Form 140 Instructions: HOH standard deduction is $23,625
+    az_base_standard_deduction: 23_625

@@ -63,6 +63,7 @@ from plato.worlds.config import (
     LLMConfig,
     RunConfig,
     SessionConfig,
+    SlackNotificationConfig,
     StateConfig,
 )
 from plato.worlds.durable import (
@@ -115,6 +116,7 @@ __all__ = [
     "CheckpointConfig",
     "DevConfig",
     "SessionConfig",
+    "SlackNotificationConfig",
     "StateConfig",
     "AgentConfig",
     "Agent",

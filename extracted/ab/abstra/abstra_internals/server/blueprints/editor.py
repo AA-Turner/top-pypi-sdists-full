@@ -27,6 +27,7 @@ from abstra_internals.server.routes import pysa as pysa_router
 from abstra_internals.server.routes import requirements as requirements_router
 from abstra_internals.server.routes import roles as roles_router
 from abstra_internals.server.routes import scripts as scripts_router
+from abstra_internals.server.routes import stages as stages_router
 from abstra_internals.server.routes import stdio as stdio_router
 from abstra_internals.server.routes import tables as tables_router
 from abstra_internals.server.routes import tasks as tasks_router
@@ -61,6 +62,9 @@ def _get_api_bp(controller: MainController):
 
     scripts_bp = scripts_router.get_editor_bp(controller)
     bp.register_blueprint(scripts_bp, url_prefix="/scripts")
+
+    stages_bp = stages_router.get_editor_bp(controller)
+    bp.register_blueprint(stages_bp, url_prefix="/stages")
 
     agents_bp = agents_router.get_editor_bp(controller)
     bp.register_blueprint(agents_bp, url_prefix="/agents")

@@ -1,8 +1,18 @@
-use super::config::ClientConfig;
-use super::create_query_client;
-use super::create_write_client;
-use super::retry::call_with_retry;
+use std::collections::HashMap;
+use std::pin::Pin;
+
+use futures::{Stream, TryStreamExt};
+use futures_util::{StreamExt, TryFutureExt};
+use prost::Message;
+use std::sync::Arc;
+
+use tokio::sync::OnceCell;
+use tonic::transport::Channel;
+
+use crate::create_client;
 use crate::error::Error;
+use crate::proto::v1::data::query_service_client::QueryServiceClient;
+use crate::proto::v1::data::write_service_client::WriteServiceClient;
 use crate::proto::v1::data::Query;
 use crate::proto::v1::data::Stage;
 use crate::proto::v1::data::UpdateDocumentsRequest;
@@ -10,36 +20,32 @@ use crate::proto::v1::data::{ConsistencyLevel, GetRequest};
 use crate::proto::v1::data::{
     DeleteDocumentsRequest, Document, QueryRequest, UpsertDocumentsRequest, Value,
 };
-use futures_util::future::TryFutureExt;
-use futures_util::StreamExt;
-use prost::Message;
-use std::collections::HashMap;
-use std::sync::Arc;
-use tokio::sync::OnceCell;
-use tonic::transport::Channel;
+
+use super::config::ClientConfig;
+use super::retry::call_with_retry;
 
 #[derive(Clone)]
 pub struct CollectionClient {
     // Client config
-    config: Arc<ClientConfig>,
+    config: ClientConfig,
 
-    // Collection name
-    collection_name: String,
+    // Read channel
+    read: Arc<OnceCell<Channel>>,
 
-    // Channels
-    channel: Arc<OnceCell<Channel>>,
+    // Write channel
+    write: Arc<OnceCell<Channel>>,
 }
 
 impl CollectionClient {
     pub fn new(
-        config: Arc<ClientConfig>,
-        channel: Arc<OnceCell<Channel>>,
-        collection_name: String,
+        config: ClientConfig,
+        read: Arc<OnceCell<Channel>>,
+        write: Arc<OnceCell<Channel>>,
     ) -> Self {
         Self {
             config,
-            channel,
-            collection_name,
+            read,
+            write,
         }
     }
 
@@ -50,8 +56,7 @@ impl CollectionClient {
         lsn: Option<String>,
         consistency: Option<ConsistencyLevel>,
     ) -> Result<HashMap<String, HashMap<String, Value>>, Error> {
-        let client =
-            create_query_client(&self.config, &self.collection_name, &self.channel).await?;
+        let client = create_client!(QueryServiceClient, self.read, self.config).await?;
         let ids: Vec<String> = ids.into_iter().map(|id| id.into()).collect();
 
         let response = call_with_retry(&self.config.retry_config(), || {
@@ -143,10 +148,20 @@ impl CollectionClient {
         lsn: Option<String>,
         consistency: Option<ConsistencyLevel>,
     ) -> Result<Vec<Document>, Error> {
-        let client =
-            create_query_client(&self.config, &self.collection_name, &self.channel).await?;
+        let stream = self.query_stream(query, lsn, consistency).await?;
+        let results = stream.try_collect::<Vec<_>>().await?;
+        Ok(results)
+    }
 
-        let response = call_with_retry(&self.config.retry_config(), || {
+    pub async fn query_stream(
+        &self,
+        query: Query,
+        lsn: Option<String>,
+        consistency: Option<ConsistencyLevel>,
+    ) -> Result<Pin<Box<dyn Stream<Item = Result<Document, Error>> + Send>>, Error> {
+        let client = create_client!(QueryServiceClient, self.read, self.config).await?;
+
+        let stream = call_with_retry(&self.config.retry_config(), || {
             let mut client = client.clone();
             let query = query.clone();
             let lsn = lsn.clone();
@@ -154,10 +169,11 @@ impl CollectionClient {
             async move {
                 client
                     .query_stream(QueryRequest {
-                        collection: self.collection_name.clone(),
                         query: Some(query.into()),
                         required_lsn: lsn.clone(),
                         consistency_level: consistency.map(|c| c.into()),
+                        // DEPRECATED: This field is no longer used, kept for backwards compatibility.
+                        collection: String::new(),
                     })
                     .map_err(|e| match e.code() {
                         // Explicitly map `NotFound` to `CollectionNotFound` error
@@ -168,25 +184,22 @@ impl CollectionClient {
                     .await
             }
         })
-        .await?;
+        .await?
+        .into_inner();
 
-        // Collect results from stream
-        let mut stream = response.into_inner();
-        let mut results = Vec::new();
-        while let Some(result) = stream.next().await {
-            let doc = Document::decode(result?.data)
-                .map_err(|e| Error::MalformedResponse(e.to_string()))?;
-            results.push(doc);
-        }
-        Ok(results)
+        let stream = stream.map(|result| match Document::decode(result?.data) {
+            Ok(doc) => Ok(doc),
+            Err(e) => Err(Error::MalformedResponse(e.to_string())),
+        });
+
+        Ok(Box::pin(stream))
     }
 
     /// Upsert documents into the collection.
     ///
     /// Existing documents will be replaced, new documents will be created.
     pub async fn upsert(&self, docs: Vec<Document>) -> Result<String, Error> {
-        let client =
-            create_write_client(&self.config, &self.collection_name, &self.channel).await?;
+        let client = create_client!(WriteServiceClient, self.write, self.config).await?;
 
         let response = call_with_retry(&self.config.retry_config(), || {
             let mut client = client.clone();
@@ -218,8 +231,7 @@ impl CollectionClient {
         docs: Vec<Document>,
         fail_on_missing: bool,
     ) -> Result<String, Error> {
-        let client =
-            create_write_client(&self.config, &self.collection_name, &self.channel).await?;
+        let client = create_client!(WriteServiceClient, self.write, self.config).await?;
 
         let response = call_with_retry(&self.config.retry_config(), || {
             let mut client = client.clone();
@@ -247,8 +259,7 @@ impl CollectionClient {
 
     /// Delete documents from the collection.
     pub async fn delete(&self, req: impl Into<DeleteDocumentsRequest>) -> Result<String, Error> {
-        let client =
-            create_write_client(&self.config, &self.collection_name, &self.channel).await?;
+        let client = create_client!(WriteServiceClient, self.write, self.config).await?;
 
         let req = req.into();
 

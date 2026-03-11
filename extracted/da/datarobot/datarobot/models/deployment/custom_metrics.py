@@ -303,7 +303,7 @@ class CustomMetric(APIObject):
             "type": aggregation_type,
             "directionality": directionality,
             "timeStep": time_step,
-            "description": description if description else "",
+            "description": description or "",
         }
         if value_column_name is not None:
             payload["value"] = {"columnName": value_column_name}
@@ -1860,7 +1860,7 @@ class HostedCustomMetricTemplate(APIObject):
             params["offset"] = offset
         if limit:
             params["limit"] = limit
-        response = cls._client.get(cls._path, params=params if params else None)
+        response = cls._client.get(cls._path, params=params or None)
         return [cls.from_server_data(d) for d in response.json()["data"]]
 
     @classmethod

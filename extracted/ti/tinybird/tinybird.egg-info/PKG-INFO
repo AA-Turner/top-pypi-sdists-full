@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: tinybird
-Version: 4.1.0
+Version: 4.1.1
 Summary: Tinybird Command Line Tool
 Home-page: https://www.tinybird.co/docs/forward/commands
 Author: Tinybird
@@ -51,6 +51,12 @@ The Tinybird command-line tool allows you to use all the Tinybird functionality 
 
 Changelog
 ----------
+
+4.1.1
+*******
+
+- `Changed` `tb init` now installs `tinybird-python-sdk-guidelines` when selecting the Python SDK project type.
+- `Changed` `tb init` now defaults `dev_mode` to `branch` and persists that value in `tinybird.config.json`.
 
 4.1.0
 *******

@@ -538,7 +538,6 @@ class ModelCPP(PyTreeNode):
   # we combine the two values into a single pointer value.
   pointer_lo: jax.Array
   pointer_hi: jax.Array
-  _model: mujoco.MjModel
 
 
 class DataCPP(PyTreeNode):
@@ -548,7 +547,6 @@ class DataCPP(PyTreeNode):
   # we combine the two values into a single pointer value.
   pointer_lo: jax.Array
   pointer_hi: jax.Array
-  _data: list[Any] = dataclasses.field(default_factory=list, repr=False)
 
 
 class ModelC(PyTreeNode):
@@ -722,6 +720,7 @@ class Model(PyTreeNode):
     nC: number of non-zeros in C matrix
     nD: number of non-zeros in D matrix
     nJmom: number of non-zeros in Jacobian momentum matrix
+    nJten: number of non-zeros in sparse tendon Jacobian
     ngravcomp: number of bodies with nonzero gravcomp
     nuserdata: number of elements in userdata
     nsensordata: number of elements in sensor data vector
@@ -772,6 +771,7 @@ class Model(PyTreeNode):
   nC: int  # pylint:disable=invalid-name
   nD: int  # pylint:disable=invalid-name
   nJmom: int  # pylint:disable=invalid-name
+  nJten: int  # pylint:disable=invalid-name
   ngravcomp: int
   nuserdata: int
   nsensordata: int
@@ -915,7 +915,7 @@ class Model(PyTreeNode):
   tex_adr: np.ndarray
   tex_data: np.ndarray
   mat_rgba: jax.Array
-  mat_texid: np.ndarray
+  mat_texid: jax.Array
   pair_dim: np.ndarray
   pair_geom1: np.ndarray
   pair_geom2: np.ndarray

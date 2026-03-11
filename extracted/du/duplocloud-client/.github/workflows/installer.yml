@@ -66,6 +66,7 @@ jobs:
         if [ -z "${GIT_TAG}" ]; then
           GIT_TAG=${GITHUB_REF#refs/*/}
         fi
+        GIT_TAG="${GIT_TAG//\//-}"
         VERSION="${GIT_TAG#v*}"
         NAME="duploctl-${VERSION}-${OS}"
         echo "GIT_TAG=${GIT_TAG}" >> $GITHUB_OUTPUT
@@ -105,21 +106,21 @@ jobs:
       run: ls dist
 
     - name: Single Artifact
-      uses: actions/upload-artifact@v6
+      uses: actions/upload-artifact@v7
       if: matrix.os.multiarch == false && inputs.push
       with:
         name: ${{ steps.info.outputs.NAME }}-${{ matrix.os.arch }}
         path: dist
 
     - name: Amd Artifact
-      uses: actions/upload-artifact@v6
+      uses: actions/upload-artifact@v7
       if: matrix.os.multiarch && inputs.push
       with:
         name: ${{ steps.info.outputs.NAME }}-amd64
         path: dist/${{ matrix.os.name }}_amd64
 
     - name: Arm Artifact
-      uses: actions/upload-artifact@v6
+      uses: actions/upload-artifact@v7
       if: matrix.os.multiarch && inputs.push
       with:
         name: ${{ steps.info.outputs.NAME }}-arm64

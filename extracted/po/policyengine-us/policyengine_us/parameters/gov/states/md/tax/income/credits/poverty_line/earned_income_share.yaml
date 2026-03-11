@@ -1,0 +1,16 @@
+description: Maryland provides up to this share of earned income in its Poverty Line Credit.
+values:
+  2018-01-01: 0.05
+metadata:
+  unit: /1
+  period: year
+  label: Maryland Poverty Line Credit rate
+  reference:
+    - title: Maryland 2025 Resident Tax Forms and Instructions - Line 23 - Poverty Level Credit
+      href: https://www.marylandcomptroller.gov/content/dam/mdcomp/tax/instructions/2025/resident-booklet.pdf#page=23
+    - title: Maryland 2024 State & Local Tax Forms & Instructions - Line 23 - Poverty Level Credit
+      href: https://www.marylandtaxes.gov/forms/24-forms/Resident-Booklet.pdf#page=14
+    - title: 2023 State & Local Tax Forms & Instructions Maryland  
+      href: https://www.marylandtaxes.gov/forms/23_forms/Resident-Booklet.pdf#page=21 
+    - title: MD. Tax - General Code Ann. § 10-709 (2021)
+      href: https://law.justia.com/codes/maryland/2021/tax-general/title-10/subtitle-7/section-10-709/

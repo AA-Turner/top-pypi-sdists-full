@@ -37,6 +37,16 @@ class StreamingDebugServiceStub(object):
             request_serializer=chalk_dot_streaming_dot_v1_dot_debug__service__pb2.GetDebugMessagesRequest.SerializeToString,
             response_deserializer=chalk_dot_streaming_dot_v1_dot_debug__service__pb2.GetDebugMessagesResponse.FromString,
         )
+        self.WatchDebugStream = channel.unary_stream(
+            "/chalk.streaming.v1.StreamingDebugService/WatchDebugStream",
+            request_serializer=chalk_dot_streaming_dot_v1_dot_debug__service__pb2.WatchDebugStreamRequest.SerializeToString,
+            response_deserializer=chalk_dot_streaming_dot_v1_dot_debug__service__pb2.WatchDebugStreamResponse.FromString,
+        )
+        self.PushTopic = channel.unary_unary(
+            "/chalk.streaming.v1.StreamingDebugService/PushTopic",
+            request_serializer=chalk_dot_streaming_dot_v1_dot_debug__service__pb2.PushTopicRequest.SerializeToString,
+            response_deserializer=chalk_dot_streaming_dot_v1_dot_debug__service__pb2.PushTopicResponse.FromString,
+        )
 
 
 class StreamingDebugServiceServicer(object):
@@ -68,6 +78,18 @@ class StreamingDebugServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def WatchDebugStream(self, request, context):
+        """Watch for new debug files in cloud storage and stream them back"""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def PushTopic(self, request, context):
+        """Push a message to a streaming topic"""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_StreamingDebugServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -90,6 +112,16 @@ def add_StreamingDebugServiceServicer_to_server(servicer, server):
             servicer.GetDebugMessages,
             request_deserializer=chalk_dot_streaming_dot_v1_dot_debug__service__pb2.GetDebugMessagesRequest.FromString,
             response_serializer=chalk_dot_streaming_dot_v1_dot_debug__service__pb2.GetDebugMessagesResponse.SerializeToString,
+        ),
+        "WatchDebugStream": grpc.unary_stream_rpc_method_handler(
+            servicer.WatchDebugStream,
+            request_deserializer=chalk_dot_streaming_dot_v1_dot_debug__service__pb2.WatchDebugStreamRequest.FromString,
+            response_serializer=chalk_dot_streaming_dot_v1_dot_debug__service__pb2.WatchDebugStreamResponse.SerializeToString,
+        ),
+        "PushTopic": grpc.unary_unary_rpc_method_handler(
+            servicer.PushTopic,
+            request_deserializer=chalk_dot_streaming_dot_v1_dot_debug__service__pb2.PushTopicRequest.FromString,
+            response_serializer=chalk_dot_streaming_dot_v1_dot_debug__service__pb2.PushTopicResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -210,6 +242,64 @@ class StreamingDebugService(object):
             "/chalk.streaming.v1.StreamingDebugService/GetDebugMessages",
             chalk_dot_streaming_dot_v1_dot_debug__service__pb2.GetDebugMessagesRequest.SerializeToString,
             chalk_dot_streaming_dot_v1_dot_debug__service__pb2.GetDebugMessagesResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def WatchDebugStream(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            "/chalk.streaming.v1.StreamingDebugService/WatchDebugStream",
+            chalk_dot_streaming_dot_v1_dot_debug__service__pb2.WatchDebugStreamRequest.SerializeToString,
+            chalk_dot_streaming_dot_v1_dot_debug__service__pb2.WatchDebugStreamResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def PushTopic(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.streaming.v1.StreamingDebugService/PushTopic",
+            chalk_dot_streaming_dot_v1_dot_debug__service__pb2.PushTopicRequest.SerializeToString,
+            chalk_dot_streaming_dot_v1_dot_debug__service__pb2.PushTopicResponse.FromString,
             options,
             channel_credentials,
             insecure,

@@ -1,6 +1,6 @@
 [project]
 name = "wandelbots_api_client"
-version = "26.1.0"
+version = "26.2.0"
 description = "Wandelbots Python Client: Interact with robots in an easy and intuitive way. "
 authors = [{ name="Copyright (c) 2025 Wandelbots GmbH", email="contact@wandelbots.com" }]
 license = "Apache-2.0"

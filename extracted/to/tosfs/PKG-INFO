@@ -1,8 +1,9 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: tosfs
-Version: 2025.6.0
+Version: 2026.3.0
 Summary: TOSFS is a Pythonic file-system interface for TOS（Tinder Object Storage）.
 License: Apache-2.0
+License-File: LICENSE
 Keywords: fsspec,tos,volcengine
 Author: Vino Yang
 Author-email: yanghua@bytedance.com
@@ -17,6 +18,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Dist: fsspec (>=2023.5.0)
 Requires-Dist: tos (>=2.8.0)
 Requires-Dist: volcengine (>=1.0.154,<2.0.0)

@@ -12,7 +12,8 @@ from wisent.core.control.generation.prompts.core.atom import ChatMessage
 from wisent.core.primitives.contrastive_pairs.diagnostics import run_control_steering_diagnostics
 from wisent.core.utils.infra_tools.errors import ControlVectorDiagnosticsError
 from wisent.core.primitives.models.config import get_generate_kwargs
-from wisent.core.utils.config_tools.constants import STEERING_DEFAULT_INTENSITY
+from wisent.core.primitives.models.extended._helpers.generation_stopping import build_repetition_stopping_criteria
+from wisent.core.utils.config_tools.constants import AXIS_COLS, INDEX_LAST, STEERING_DEFAULT_INTENSITY
 
 logger = logging.getLogger(__name__)
 
@@ -112,7 +113,32 @@ def _generate(
         if logits_processors:
             generation_kwargs['logits_processor'] = logits_processors
 
-    gen_out = self.hf_model.generate(**generation_kwargs)
+    # Add degeneration detection — stops sequences with repetitive n-grams
+    prompt_length = batch["input_ids"].shape[AXIS_COLS]
+    generation_kwargs["stopping_criteria"] = build_repetition_stopping_criteria(prompt_length)
+
+    # KV cache steering: prefill -> modify cache -> generate from cache
+    if steering_object is not None and hasattr(steering_object, 'steer_cache'):
+        prefill_out = self.hf_model(**batch, use_cache=True)
+        past_kv = prefill_out.past_key_values
+        steering_object.steer_cache(past_kv)
+        # Generate from modified cache (last token as seed, no hooks)
+        cache_gen_kwargs = dict(
+            input_ids=batch["input_ids"][:, INDEX_LAST:],
+            attention_mask=batch["attention_mask"],
+            past_key_values=past_kv,
+            use_cache=True,
+            **resolved,
+            num_return_sequences=num_return_sequences,
+            return_dict_in_generate=True,
+            output_scores=False,
+        )
+        cache_gen_kwargs["stopping_criteria"] = generation_kwargs["stopping_criteria"]
+        if "logits_processor" in generation_kwargs:
+            cache_gen_kwargs["logits_processor"] = generation_kwargs["logits_processor"]
+        gen_out = self.hf_model.generate(**cache_gen_kwargs)
+    else:
+        gen_out = self.hf_model.generate(**generation_kwargs)
 
     if use_steering or steering_object is not None:
         self.detach()

@@ -1,3 +1,8 @@
+from chalk._gen.chalk.auth.v1 import audit_pb2 as _audit_pb2
+from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
+from chalk._gen.chalk.utils.v1 import field_change_pb2 as _field_change_pb2
+from google.api import field_behavior_pb2 as _field_behavior_pb2
+from google.protobuf import field_mask_pb2 as _field_mask_pb2
 from google.protobuf import struct_pb2 as _struct_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
@@ -640,3 +645,59 @@ class Environment(_message.Message):
         internal_metadata: _Optional[_Mapping[str, _struct_pb2.Value]] = ...,
         customer_metadata: _Optional[_Mapping[str, _struct_pb2.Value]] = ...,
     ) -> None: ...
+
+class CreateEnvironmentV2Request(_message.Message):
+    __slots__ = ("environment",)
+    ENVIRONMENT_FIELD_NUMBER: _ClassVar[int]
+    environment: Environment
+    def __init__(self, environment: _Optional[_Union[Environment, _Mapping]] = ...) -> None: ...
+
+class CreateEnvironmentV2Response(_message.Message):
+    __slots__ = ("environment",)
+    ENVIRONMENT_FIELD_NUMBER: _ClassVar[int]
+    environment: Environment
+    def __init__(self, environment: _Optional[_Union[Environment, _Mapping]] = ...) -> None: ...
+
+class UpdateEnvironmentV2Request(_message.Message):
+    __slots__ = ("environment", "update_mask")
+    ENVIRONMENT_FIELD_NUMBER: _ClassVar[int]
+    UPDATE_MASK_FIELD_NUMBER: _ClassVar[int]
+    environment: Environment
+    update_mask: _field_mask_pb2.FieldMask
+    def __init__(
+        self,
+        environment: _Optional[_Union[Environment, _Mapping]] = ...,
+        update_mask: _Optional[_Union[_field_mask_pb2.FieldMask, _Mapping]] = ...,
+    ) -> None: ...
+
+class UpdateEnvironmentV2Response(_message.Message):
+    __slots__ = ("environment", "field_changes")
+    ENVIRONMENT_FIELD_NUMBER: _ClassVar[int]
+    FIELD_CHANGES_FIELD_NUMBER: _ClassVar[int]
+    environment: Environment
+    field_changes: _containers.RepeatedCompositeFieldContainer[_field_change_pb2.FieldChange]
+    def __init__(
+        self,
+        environment: _Optional[_Union[Environment, _Mapping]] = ...,
+        field_changes: _Optional[_Iterable[_Union[_field_change_pb2.FieldChange, _Mapping]]] = ...,
+    ) -> None: ...
+
+class DeleteEnvironmentRequest(_message.Message):
+    __slots__ = ("id",)
+    ID_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    def __init__(self, id: _Optional[str] = ...) -> None: ...
+
+class DeleteEnvironmentResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class SetDefaultEnvironmentRequest(_message.Message):
+    __slots__ = ("id",)
+    ID_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    def __init__(self, id: _Optional[str] = ...) -> None: ...
+
+class SetDefaultEnvironmentResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...

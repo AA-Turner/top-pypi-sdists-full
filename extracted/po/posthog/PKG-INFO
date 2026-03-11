@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: posthog
-Version: 7.9.8
+Version: 7.9.10
 Summary: Integrate PostHog into any python application.
 Home-page: https://github.com/posthog/posthog-python
 Author: Posthog
@@ -96,6 +96,8 @@ Please see the [Python integration docs](https://posthog.com/docs/integrations/p
 | 4.0.1 - 6.x   | 3.9, 3.10, 3.11, 3.12, 3.13  | Python 3.9+ required       |
 
 ## Development
+
+This repo requires all commits to be signed. To configure commit signing, see the [PostHog handbook](https://posthog.com/handbook/engineering/security#commit-signing).
 
 ### Testing Locally
 

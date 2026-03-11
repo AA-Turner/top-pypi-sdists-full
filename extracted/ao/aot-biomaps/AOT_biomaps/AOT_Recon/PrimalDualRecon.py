@@ -44,7 +44,7 @@ class PrimalDualRecon(AlgebraicRecon):
         raise NotImplementedError("CASToR convex reconstruction is not implemented yet.")
 
 
-    def checkExistingFile(self, date = None):
+    def checkExistingFile(self, date=None, withTumor=True):
         """
         Check if the file already exists, based on current instance parameters.
         Returns:
@@ -58,9 +58,14 @@ class PrimalDualRecon(AlgebraicRecon):
         )
         os.makedirs(results_dir, exist_ok=True)
 
-        if os.path.exists(os.path.join(results_dir,"indices.npy")):
+        # Détermine le nom du fichier en fonction de withTumor
+        indices_file = os.path.join(results_dir, f"indices_{'withTumor' if withTumor else 'withoutTumor'}.npy")
+
+        # Si le fichier existe  retourne True
+        if os.path.exists(indices_file):
             return (True, results_dir)
 
+        # Sinon, retourne False
         return (False, results_dir)
 
     def load(self, withTumor=True, results_date=None, optimizer=None, filePath=None, show_logs=True):

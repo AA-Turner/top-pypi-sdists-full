@@ -89,7 +89,7 @@ class BaseTransport(metaclass=abc.ABCMeta):
         self.policy_lock: threading.Lock = threading.Lock()
 
         self.logger = logging.getLogger("pyxcp.transport")
-        self._debug: bool = self.logger.level == 10
+        self._debug: bool = self.logger.getEffectiveLevel() <= logging.DEBUG
         if transport_layer_interface:
             self.logger.info(f"Transport - User Supplied Transport-Layer Interface: '{transport_layer_interface!s}'")
         self.counter_received: int = -1
@@ -128,6 +128,11 @@ class BaseTransport(metaclass=abc.ABCMeta):
             self._last_pdus = _dq(maxlen=200)
         except Exception:
             self._last_pdus = []
+
+        # XCP 1.5 Event Handler Chain (Chain-of-Responsibility)
+        from pyxcp.events import create_default_event_chain
+
+        self.event_handler = create_default_event_chain(self)
 
     def __del__(self) -> None:
         self.finish_listener()
@@ -233,7 +238,7 @@ class BaseTransport(metaclass=abc.ABCMeta):
                     MSG = self._build_timeout_message(cmd)
                     with self.policy_lock:
                         self.policy.feed(
-                            FrameCategory.METADATA, self.framing.counter_send, self.timestamp.value, bytes(MSG, "ascii")
+                            FrameCategory.METADATA, self.framing.counter_send, self.timestamp.value, bytes(MSG, "utf8")
                         ) if self._diagnostics_enabled() else ""
                     self.logger.debug("XCP request timeout", extra={"event": "timeout", "command": cmd.name})
                     raise types.XcpTimeoutError(MSG) from None
@@ -361,11 +366,25 @@ class BaseTransport(metaclass=abc.ABCMeta):
         pass
 
     def process_event_packet(self, packet):
-        packet = packet[1:]
-        ev_type = packet[0]
-        self.logger.debug(f"EVENT-PACKET: {hexDump(packet)}")
-        if ev_type == types.Event.EV_CMD_PENDING:
-            self.timer_restart_event.set()
+        """
+        Process XCP event packet using Chain-of-Responsibility pattern.
+
+        XCP 1.5: Events are dispatched through a handler chain that can be
+        customized per transport or application needs.
+        """
+        # Extract event code (packet[0] = 0xFD, packet[1] = event code)
+        if len(packet) < 2:
+            self.logger.warning(f"Event packet too short: {hexDump(packet)}")
+            return
+
+        event_code = packet[1]
+        self.logger.debug(f"EVENT-PACKET: Code={event_code:#x} {hexDump(packet)}")
+
+        # Dispatch through handler chain
+        handled = self.event_handler.process(event_code, packet)
+
+        if not handled:
+            self.logger.warning(f"Unhandled event code {event_code:#x}: {hexDump(packet)}")
 
     def process_response(self, response: bytes, length: int, counter: int, recv_timestamp: int) -> None:
         # Important: determine PID first so duplicate counter handling can be applied selectively.

@@ -1,0 +1,30 @@
+description: Louisiana reduces taxable income by this amount for each aged head or spouse.
+
+brackets:
+  - threshold: 
+      2014-01-01: 0
+    amount: 
+      2014-01-01: 0
+  - threshold:
+      2014-01-01: 65
+    amount:
+      2014-01-01: 1_000
+
+metadata:
+  reference:
+    - title: Louisiana Revised Statutes, RS 47:79 - Credits of individuals against net income (A)(2)
+      href: https://www.legis.la.gov/legis/Law.aspx?d=102518
+    # Aged exemption repealed for 2025+ by Act 11.
+    - title: 2025 Louisiana Resident Income Tax Return Instructions, What's New - Exemptions
+      href: https://dam.ldr.la.gov/taxforms/IT540i%20WEB(2025)D11.pdf#page=1
+    - title: 2024 Louisiana Resident Income Tax Return, Tax Table
+      href: https://dam.ldr.la.gov/taxforms/IT540i%20WEB%20(2024)D18%20INSTRUCTIONS.pdf#page=18
+    - title: 2023 Louisiana Individual Income Tax Return IT-540
+      href: https://revenue.louisiana.gov/TaxForms/IT540WEB(2023)%20F.pdf#page=2
+    - title: 2022 Louisiana Individual Income Tax Return IT-540
+      href: https://revenue.louisiana.gov/TaxForms/IT540WEB(2022)%20F%20D2.pdf#page=2
+  threshold_unit: year
+  amount_unit: currency-USD  
+  type: single_amount
+  period: year
+  label: Louisiana aged exemption amount

@@ -29,7 +29,7 @@ def load(
 
     Parameters
     ----------
-    folder_or_zipfile : str
+    folder_or_zipfile : {str, pathlib.Path}
         A folder or zip file on disk containing workbooks to be loaded. Note
         that any subfolder structure will work -- this function will scan for
         any subfolders that contain a Workbook.json file and assume they should

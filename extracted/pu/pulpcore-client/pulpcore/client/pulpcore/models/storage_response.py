@@ -18,8 +18,9 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field, StrictInt
+from pydantic import BaseModel, ConfigDict, Field
 from typing import Any, ClassVar, Dict, List, Optional
+from typing_extensions import Annotated
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -27,9 +28,9 @@ class StorageResponse(BaseModel):
     """
     Serializer for information about the storage system
     """ # noqa: E501
-    total: Optional[StrictInt] = Field(description="Total number of bytes")
-    used: Optional[StrictInt] = Field(description="Number of bytes in use")
-    free: Optional[StrictInt] = Field(description="Number of free bytes")
+    total: Optional[Annotated[int, Field(strict=True, ge=0)]] = Field(description="Total number of bytes")
+    used: Optional[Annotated[int, Field(strict=True, ge=0)]] = Field(description="Number of bytes in use")
+    free: Optional[Annotated[int, Field(strict=True, ge=0)]] = Field(description="Number of free bytes")
     __properties: ClassVar[List[str]] = ["total", "used", "free"]
 
     model_config = ConfigDict(

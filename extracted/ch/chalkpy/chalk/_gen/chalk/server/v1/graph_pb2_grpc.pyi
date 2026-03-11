@@ -12,12 +12,16 @@ from chalk._gen.chalk.server.v1.graph_pb2 import (
     ApplyGraphUpdatesResponse,
     GetCodegenFeaturesFromGraphRequest,
     GetCodegenFeaturesFromGraphResponse,
+    GetDataLineageIndexRequest,
+    GetDataLineageIndexResponse,
     GetFeatureSQLRequest,
     GetFeatureSQLResponse,
     GetFeaturesMetadataRequest,
     GetFeaturesMetadataResponse,
     GetGraphRequest,
     GetGraphResponse,
+    GetOfflineStoreTableRequest,
+    GetOfflineStoreTableResponse,
     TestGraphMutationsRequest,
     TestGraphMutationsResponse,
     UpdateGraphRequest,
@@ -67,6 +71,16 @@ class GraphServiceStub:
     """TestGraphMutations applies a series of mutations to a deployment's graph without persisting state
     This allows testing graph updates before actually applying them
     """
+    GetDataLineageIndex: UnaryUnaryMultiCallable[
+        GetDataLineageIndexRequest,
+        GetDataLineageIndexResponse,
+    ]
+    """GetDataLineageIndex returns a mapping of resolver names to their data lineage information"""
+    GetOfflineStoreTable: UnaryUnaryMultiCallable[
+        GetOfflineStoreTableRequest,
+        GetOfflineStoreTableResponse,
+    ]
+    """GetOfflineStoreTable returns the offline store table names for a feature"""
 
 class GraphServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -118,5 +132,19 @@ class GraphServiceServicer(metaclass=ABCMeta):
         """TestGraphMutations applies a series of mutations to a deployment's graph without persisting state
         This allows testing graph updates before actually applying them
         """
+    @abstractmethod
+    def GetDataLineageIndex(
+        self,
+        request: GetDataLineageIndexRequest,
+        context: ServicerContext,
+    ) -> GetDataLineageIndexResponse:
+        """GetDataLineageIndex returns a mapping of resolver names to their data lineage information"""
+    @abstractmethod
+    def GetOfflineStoreTable(
+        self,
+        request: GetOfflineStoreTableRequest,
+        context: ServicerContext,
+    ) -> GetOfflineStoreTableResponse:
+        """GetOfflineStoreTable returns the offline store table names for a feature"""
 
 def add_GraphServiceServicer_to_server(servicer: GraphServiceServicer, server: Server) -> None: ...

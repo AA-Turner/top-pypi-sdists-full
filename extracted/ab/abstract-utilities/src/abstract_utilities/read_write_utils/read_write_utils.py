@@ -15,10 +15,6 @@ Usage:
 from .imports import *
 _FILE_PATH_KEYS = ['file', 'filepath', 'file_path', 'path', 'directory', 'f', 'dst', 'dest']
 _CONTENTS_KEYS = ['cont', 'content', 'contents', 'data', 'datas', 'dat', 'src', 'source']
-from pathlib import Path
-import uuid
-import shlex
-
 _STAGE_ROOT = Path("/var/tmp/abstract_stage")
 
 

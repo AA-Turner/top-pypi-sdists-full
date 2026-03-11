@@ -96,15 +96,65 @@ class MonitoringServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_incident__pb2.GetIncidentAlertsChartRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_incident__pb2.GetIncidentAlertsChartResponse.FromString,
         )
+        self.TestNamedAlertChannels = channel.unary_unary(
+            "/chalk.server.v1.MonitoringService/TestNamedAlertChannels",
+            request_serializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.TestNamedAlertChannelsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.TestNamedAlertChannelsResponse.FromString,
+        )
+        self.EditNamedAlertChannels = channel.unary_unary(
+            "/chalk.server.v1.MonitoringService/EditNamedAlertChannels",
+            request_serializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.EditNamedAlertChannelsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.EditNamedAlertChannelsResponse.FromString,
+        )
+        self.DeleteNamedAlertChannels = channel.unary_unary(
+            "/chalk.server.v1.MonitoringService/DeleteNamedAlertChannels",
+            request_serializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.DeleteNamedAlertChannelsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.DeleteNamedAlertChannelsResponse.FromString,
+        )
+        self.SetDefaultAlertChannels = channel.unary_unary(
+            "/chalk.server.v1.MonitoringService/SetDefaultAlertChannels",
+            request_serializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.SetDefaultAlertChannelsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.SetDefaultAlertChannelsResponse.FromString,
+        )
         self.ListAlertChannels = channel.unary_unary(
             "/chalk.server.v1.MonitoringService/ListAlertChannels",
             request_serializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.ListAlertChannelsRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.ListAlertChannelsResponse.FromString,
         )
+        self.TestSlackIntegration = channel.unary_unary(
+            "/chalk.server.v1.MonitoringService/TestSlackIntegration",
+            request_serializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.TestSlackIntegrationRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.TestSlackIntegrationResponse.FromString,
+        )
         self.GetSlackIntegration = channel.unary_unary(
             "/chalk.server.v1.MonitoringService/GetSlackIntegration",
             request_serializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.GetSlackIntegrationRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.GetSlackIntegrationResponse.FromString,
+        )
+        self.UpsertSlackIntegration = channel.unary_unary(
+            "/chalk.server.v1.MonitoringService/UpsertSlackIntegration",
+            request_serializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.UpsertSlackIntegrationRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.UpsertSlackIntegrationResponse.FromString,
+        )
+        self.DeleteSlackIntegration = channel.unary_unary(
+            "/chalk.server.v1.MonitoringService/DeleteSlackIntegration",
+            request_serializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.DeleteSlackIntegrationRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.DeleteSlackIntegrationResponse.FromString,
+        )
+        self.GetSlackChannels = channel.unary_unary(
+            "/chalk.server.v1.MonitoringService/GetSlackChannels",
+            request_serializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.GetSlackChannelsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.GetSlackChannelsResponse.FromString,
+        )
+        self.UpdateSlackChannels = channel.unary_unary(
+            "/chalk.server.v1.MonitoringService/UpdateSlackChannels",
+            request_serializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.UpdateSlackChannelsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.UpdateSlackChannelsResponse.FromString,
+        )
+        self.UpsertDefaultSlackChannel = channel.unary_unary(
+            "/chalk.server.v1.MonitoringService/UpsertDefaultSlackChannel",
+            request_serializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.UpsertDefaultSlackChannelRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.UpsertDefaultSlackChannelResponse.FromString,
         )
 
 
@@ -207,13 +257,73 @@ class MonitoringServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def TestNamedAlertChannels(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def EditNamedAlertChannels(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def DeleteNamedAlertChannels(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def SetDefaultAlertChannels(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def ListAlertChannels(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def TestSlackIntegration(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def GetSlackIntegration(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def UpsertSlackIntegration(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def DeleteSlackIntegration(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetSlackChannels(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def UpdateSlackChannels(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def UpsertDefaultSlackChannel(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -302,15 +412,65 @@ def add_MonitoringServiceServicer_to_server(servicer, server):
             request_deserializer=chalk_dot_server_dot_v1_dot_incident__pb2.GetIncidentAlertsChartRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_incident__pb2.GetIncidentAlertsChartResponse.SerializeToString,
         ),
+        "TestNamedAlertChannels": grpc.unary_unary_rpc_method_handler(
+            servicer.TestNamedAlertChannels,
+            request_deserializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.TestNamedAlertChannelsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.TestNamedAlertChannelsResponse.SerializeToString,
+        ),
+        "EditNamedAlertChannels": grpc.unary_unary_rpc_method_handler(
+            servicer.EditNamedAlertChannels,
+            request_deserializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.EditNamedAlertChannelsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.EditNamedAlertChannelsResponse.SerializeToString,
+        ),
+        "DeleteNamedAlertChannels": grpc.unary_unary_rpc_method_handler(
+            servicer.DeleteNamedAlertChannels,
+            request_deserializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.DeleteNamedAlertChannelsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.DeleteNamedAlertChannelsResponse.SerializeToString,
+        ),
+        "SetDefaultAlertChannels": grpc.unary_unary_rpc_method_handler(
+            servicer.SetDefaultAlertChannels,
+            request_deserializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.SetDefaultAlertChannelsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.SetDefaultAlertChannelsResponse.SerializeToString,
+        ),
         "ListAlertChannels": grpc.unary_unary_rpc_method_handler(
             servicer.ListAlertChannels,
             request_deserializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.ListAlertChannelsRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.ListAlertChannelsResponse.SerializeToString,
         ),
+        "TestSlackIntegration": grpc.unary_unary_rpc_method_handler(
+            servicer.TestSlackIntegration,
+            request_deserializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.TestSlackIntegrationRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.TestSlackIntegrationResponse.SerializeToString,
+        ),
         "GetSlackIntegration": grpc.unary_unary_rpc_method_handler(
             servicer.GetSlackIntegration,
             request_deserializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.GetSlackIntegrationRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.GetSlackIntegrationResponse.SerializeToString,
+        ),
+        "UpsertSlackIntegration": grpc.unary_unary_rpc_method_handler(
+            servicer.UpsertSlackIntegration,
+            request_deserializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.UpsertSlackIntegrationRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.UpsertSlackIntegrationResponse.SerializeToString,
+        ),
+        "DeleteSlackIntegration": grpc.unary_unary_rpc_method_handler(
+            servicer.DeleteSlackIntegration,
+            request_deserializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.DeleteSlackIntegrationRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.DeleteSlackIntegrationResponse.SerializeToString,
+        ),
+        "GetSlackChannels": grpc.unary_unary_rpc_method_handler(
+            servicer.GetSlackChannels,
+            request_deserializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.GetSlackChannelsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.GetSlackChannelsResponse.SerializeToString,
+        ),
+        "UpdateSlackChannels": grpc.unary_unary_rpc_method_handler(
+            servicer.UpdateSlackChannels,
+            request_deserializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.UpdateSlackChannelsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.UpdateSlackChannelsResponse.SerializeToString,
+        ),
+        "UpsertDefaultSlackChannel": grpc.unary_unary_rpc_method_handler(
+            servicer.UpsertDefaultSlackChannel,
+            request_deserializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.UpsertDefaultSlackChannelRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_monitoring__pb2.UpsertDefaultSlackChannelResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.server.v1.MonitoringService", rpc_method_handlers)
@@ -786,6 +946,122 @@ class MonitoringService(object):
         )
 
     @staticmethod
+    def TestNamedAlertChannels(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.MonitoringService/TestNamedAlertChannels",
+            chalk_dot_server_dot_v1_dot_monitoring__pb2.TestNamedAlertChannelsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_monitoring__pb2.TestNamedAlertChannelsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def EditNamedAlertChannels(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.MonitoringService/EditNamedAlertChannels",
+            chalk_dot_server_dot_v1_dot_monitoring__pb2.EditNamedAlertChannelsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_monitoring__pb2.EditNamedAlertChannelsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def DeleteNamedAlertChannels(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.MonitoringService/DeleteNamedAlertChannels",
+            chalk_dot_server_dot_v1_dot_monitoring__pb2.DeleteNamedAlertChannelsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_monitoring__pb2.DeleteNamedAlertChannelsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def SetDefaultAlertChannels(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.MonitoringService/SetDefaultAlertChannels",
+            chalk_dot_server_dot_v1_dot_monitoring__pb2.SetDefaultAlertChannelsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_monitoring__pb2.SetDefaultAlertChannelsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
     def ListAlertChannels(
         request,
         target,
@@ -815,6 +1091,35 @@ class MonitoringService(object):
         )
 
     @staticmethod
+    def TestSlackIntegration(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.MonitoringService/TestSlackIntegration",
+            chalk_dot_server_dot_v1_dot_monitoring__pb2.TestSlackIntegrationRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_monitoring__pb2.TestSlackIntegrationResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
     def GetSlackIntegration(
         request,
         target,
@@ -833,6 +1138,151 @@ class MonitoringService(object):
             "/chalk.server.v1.MonitoringService/GetSlackIntegration",
             chalk_dot_server_dot_v1_dot_monitoring__pb2.GetSlackIntegrationRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_monitoring__pb2.GetSlackIntegrationResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def UpsertSlackIntegration(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.MonitoringService/UpsertSlackIntegration",
+            chalk_dot_server_dot_v1_dot_monitoring__pb2.UpsertSlackIntegrationRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_monitoring__pb2.UpsertSlackIntegrationResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def DeleteSlackIntegration(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.MonitoringService/DeleteSlackIntegration",
+            chalk_dot_server_dot_v1_dot_monitoring__pb2.DeleteSlackIntegrationRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_monitoring__pb2.DeleteSlackIntegrationResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetSlackChannels(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.MonitoringService/GetSlackChannels",
+            chalk_dot_server_dot_v1_dot_monitoring__pb2.GetSlackChannelsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_monitoring__pb2.GetSlackChannelsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def UpdateSlackChannels(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.MonitoringService/UpdateSlackChannels",
+            chalk_dot_server_dot_v1_dot_monitoring__pb2.UpdateSlackChannelsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_monitoring__pb2.UpdateSlackChannelsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def UpsertDefaultSlackChannel(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.MonitoringService/UpsertDefaultSlackChannel",
+            chalk_dot_server_dot_v1_dot_monitoring__pb2.UpsertDefaultSlackChannelRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_monitoring__pb2.UpsertDefaultSlackChannelResponse.FromString,
             options,
             channel_credentials,
             insecure,

@@ -1,6 +1,4 @@
-# -*- coding: utf-8 -*-
-"""
-TransformersUD
+"""TransformersUD
 
 Author: Prof. Koichi Yasuoka
 
@@ -10,30 +8,39 @@ The source: https://huggingface.co/KoichiYasuoka/deberta-base-thai-ud-head
 
 GitHub: https://github.com/KoichiYasuoka
 """
-import os
-from typing import List, Union
 
-import numpy
-import torch
-import ufal.chu_liu_edmonds
-from transformers import (
-    AutoConfig,
-    AutoModelForQuestionAnswering,
-    AutoModelForTokenClassification,
-    AutoTokenizer,
-    TokenClassificationPipeline,
-)
-from transformers.utils import cached_file
+from __future__ import annotations
+
+import os
+from typing import TYPE_CHECKING, Optional, Union
+
+if TYPE_CHECKING:
+    from transformers import (  # noqa: F401
+        AutoModelForQuestionAnswering,
+        AutoTokenizer,
+        TokenClassificationPipeline,
+    )
 
 
 class Parse:
     def __init__(
-        self, model: str = "KoichiYasuoka/deberta-base-thai-ud-head"
+        self, model: Optional[str] = "KoichiYasuoka/deberta-base-thai-ud-head"
     ) -> None:
+        from transformers import (
+            AutoConfig,
+            AutoModelForQuestionAnswering,
+            AutoModelForTokenClassification,
+            AutoTokenizer,
+            TokenClassificationPipeline,
+        )
+        from transformers.utils import cached_file
+
         if model is None:
             model = "KoichiYasuoka/deberta-base-thai-ud-head"
-        self.tokenizer = AutoTokenizer.from_pretrained(model)
-        self.model = AutoModelForQuestionAnswering.from_pretrained(model)
+        self.tokenizer: AutoTokenizer = AutoTokenizer.from_pretrained(model)
+        self.model: AutoModelForQuestionAnswering = (
+            AutoModelForQuestionAnswering.from_pretrained(model)
+        )
         x = AutoModelForTokenClassification.from_pretrained
         if os.path.isdir(model):
             d, t = (
@@ -49,16 +56,20 @@ class Parse:
                 cached_file(model, "tagger/config.json")
             )
             t = x(cached_file(model, "tagger/pytorch_model.bin"), config=s)
-        self.deprel = TokenClassificationPipeline(
+        self.deprel: TokenClassificationPipeline = TokenClassificationPipeline(
             model=d, tokenizer=self.tokenizer, aggregation_strategy="simple"
         )
-        self.tagger = TokenClassificationPipeline(
+        self.tagger: TokenClassificationPipeline = TokenClassificationPipeline(
             model=t, tokenizer=self.tokenizer
         )
 
     def __call__(
         self, text: str, tag: str = "str"
-    ) -> Union[List[List[str]], str]:
+    ) -> Union[list[list[str]], str]:
+        import numpy
+        import torch
+        import ufal.chu_liu_edmonds
+
         w = [
             (t["start"], t["end"], t["entity_group"])
             for t in self.deprel(text)
@@ -102,7 +113,7 @@ class Parse:
         h = ufal.chu_liu_edmonds.chu_liu_edmonds(m)[0]
         if [0 for i in h if i == 0] != [0]:
             i = ([p for s, e, p in w] + ["root"]).index("root")
-            j = i + 1 if i < n else numpy.nanargmax(m[:, 0])
+            j = i + 1 if i < n else int(numpy.nanargmax(m[:, 0]))
             m[0:j, 0] = m[j + 1 :, 0] = numpy.nan
             h = ufal.chu_liu_edmonds.chu_liu_edmonds(m)[0]
         u = ""

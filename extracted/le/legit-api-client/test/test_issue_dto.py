@@ -104,7 +104,8 @@ class TestIssueDto(unittest.TestCase):
                 dast_confidence_level = 'Unknown',
                 validity_status = 'NotApplicable',
                 verified_validation_url = '',
-                dependency_fix_type = 'NotApplicable'
+                dependency_fix_type = 'NotApplicable',
+                reachability = 'Unknown'
             )
         else:
             return IssueDto(

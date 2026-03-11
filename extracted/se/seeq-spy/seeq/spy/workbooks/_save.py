@@ -36,13 +36,13 @@ def save(
     workbooks : {Workbook, list[Workbook], WorkbookList}
         A Workbook object, list of Workbook objects, or WorkbookList to save.
 
-    folder_or_zipfile : str, default os.getcwd()
+    folder_or_zipfile : {str, pathlib.Path}, default os.getcwd()
         A folder or zip file on disk to which to save the workbooks. It will
         be saved as a "flat" set of subfolders, no other hierarchy will be
         created. The string must end in ".zip" to cause a zip file to be
         created instead of a folder.
 
-    datasource_map_folder : str, default None
+    datasource_map_folder : {str, pathlib.Path}, default None
         Specifies a curated set of datasource maps that should accompany the
         workbooks (as opposed to the default maps that were created during the
         spy.workbooks.pull call).

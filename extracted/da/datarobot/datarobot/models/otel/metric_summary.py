@@ -100,5 +100,5 @@ class OtelMetricSummary(APIObject):
         if metric_type:
             params["metricType"] = metric_type
 
-        data = cls._client.get(path, params=params if params else None).json()["data"]
+        data = cls._client.get(path, params=params or None).json()["data"]
         return [cls.from_server_data(d) for d in data]

@@ -1,9 +1,7 @@
-# -*- coding: utf-8 -*-
-# SPDX-FileCopyrightText: 2016-2025 PyThaiNLP Project
+# SPDX-FileCopyrightText: 2016-2026 PyThaiNLP Project
 # SPDX-FileType: SOURCE
 # SPDX-License-Identifier: Apache-2.0
-"""
-Minimal re-implementation of KeyBERT.
+"""Minimal re-implementation of KeyBERT.
 
 KeyBERT is a minimal and easy-to-use keyword extraction technique
 that leverages BERT embeddings to create keywords and keyphrases
@@ -11,21 +9,31 @@ that are most similar to a document.
 
 https://github.com/MaartenGr/KeyBERT
 """
-from collections import Counter
-from typing import Iterable, List, Optional, Tuple, Union
 
-import numpy as np
-from transformers import pipeline
+from __future__ import annotations
+
+from collections import Counter
+from typing import TYPE_CHECKING, Optional, Union
 
 from pythainlp.corpus import thai_stopwords
 from pythainlp.tokenize import word_tokenize
 
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+
+    import numpy as np
+    from transformers.pipelines.base import Pipeline
+
 
 class KeyBERT:
+    ft_pipeline: "Pipeline"
+
     def __init__(
         self, model_name: str = "airesearch/wangchanberta-base-att-spm-uncased"
-    ):
-        self.ft_pipeline = pipeline(
+    ) -> None:
+        from transformers import pipeline
+
+        self.ft_pipeline: "Pipeline" = pipeline(
             "feature-extraction",
             tokenizer=model_name,
             model=model_name,
@@ -35,15 +43,14 @@ class KeyBERT:
     def extract_keywords(
         self,
         text: str,
-        keyphrase_ngram_range: Tuple[int, int] = (1, 2),
+        keyphrase_ngram_range: tuple[int, int] = (1, 2),
         max_keywords: int = 5,
         min_df: int = 1,
         tokenizer: str = "newmm",
-        return_similarity=False,
+        return_similarity: bool = False,
         stop_words: Optional[Iterable[str]] = None,
-    ) -> Union[List[str], List[Tuple[str, float]]]:
-        """
-        Extract Thai keywords and/or keyphrases with KeyBERT algorithm.
+    ) -> Union[list[str], list[tuple[str, float]]]:
+        """Extract Thai keywords and/or keyphrases with KeyBERT algorithm.
         See https://github.com/MaartenGr/KeyBERT.
 
         :param str text: text to be summarized
@@ -87,7 +94,9 @@ class KeyBERT:
             # 'ควบคุมการเปลี่ยนแปลง',
             # 'มีพิษ']
 
-            keywords = kb.extract_keyword(text, max_keywords=10, return_similarity=True)
+            keywords = kb.extract_keyword(
+                text, max_keywords=10, return_similarity=True
+            )
 
             # output: [('อวัยวะต่างๆ', 0.3228477063109462),
             # ('ซ่อมแซมส่วน', 0.31320597838000375),
@@ -132,10 +141,10 @@ class KeyBERT:
         else:
             return [kw for kw, _ in keywords]
 
-    def embed(self, docs: Union[str, List[str]]) -> np.ndarray:
-        """
-        Create an embedding of each input in `docs` by averaging vectors from the last hidden layer.
-        """
+    def embed(self, docs: Union[str, list[str]]) -> np.ndarray:
+        """Create an embedding of each input in `docs` by averaging vectors from the last hidden layer."""
+        import numpy as np
+
         embs = self.ft_pipeline(docs)
         if isinstance(docs, str) or len(docs) == 1:
             # embed doc. return shape = [1, hidden_size]
@@ -152,22 +161,24 @@ class KeyBERT:
 
 def _generate_ngrams(
     doc: str,
-    keyphrase_ngram_range: Tuple[int, int],
+    keyphrase_ngram_range: tuple[int, int],
     min_df: int,
     tokenizer_engine: str,
     stop_words: Iterable[str],
-) -> List[str]:
-    assert keyphrase_ngram_range[0] >= 1, (
-        f"`keyphrase_ngram_range` must start from 1. "
-        f"current value={keyphrase_ngram_range}."
-    )
+) -> list[str]:
+    if keyphrase_ngram_range[0] < 1:
+        raise ValueError(
+            f"`keyphrase_ngram_range` must start from 1. "
+            f"current value={keyphrase_ngram_range}."
+        )
 
-    assert keyphrase_ngram_range[0] <= keyphrase_ngram_range[1], (
-        f"The value first argument of `keyphrase_ngram_range` must not exceed the second. "
-        f"current value={keyphrase_ngram_range}."
-    )
+    if keyphrase_ngram_range[0] > keyphrase_ngram_range[1]:
+        raise ValueError(
+            f"The value first argument of `keyphrase_ngram_range` must not exceed the second. "
+            f"current value={keyphrase_ngram_range}."
+        )
 
-    def _join_ngram(ngrams: List[Tuple[str, str]]) -> List[str]:
+    def _join_ngram(ngrams: list[tuple[str, ...]]) -> list[str]:
         ngrams_joined = []
         for ng in ngrams:
             joined = "".join(ng)
@@ -185,7 +196,7 @@ def _generate_ngrams(
             ngrams = [word for word in words if word.strip()]
         else:
             ngrams_tuple = zip(*[words[i:] for i in range(n)])
-            ngrams = _join_ngram(ngrams_tuple)
+            ngrams = _join_ngram(list(ngrams_tuple))
 
         ngrams_cnt = Counter(ngrams)
         ngrams = [
@@ -201,18 +212,19 @@ def _generate_ngrams(
 def _rank_keywords(
     doc_vector: np.ndarray,
     word_vectors: np.ndarray,
-    keywords: List[str],
+    keywords: list[str],
     max_keywords: int,
-) -> List[Tuple[str, float]]:
+) -> list[tuple[str, float]]:
+    import numpy as np
+
     def l2_norm(v: np.ndarray) -> np.ndarray:
         vec_size = v.shape[1]
         result = np.divide(
             v,
             np.linalg.norm(v, axis=1).reshape(-1, 1).repeat(vec_size, axis=1),
         )
-        assert np.isclose(
-            np.linalg.norm(result, axis=1), 1
-        ).all(), "Cannot normalize a vector to unit vector."
+        if not np.isclose(np.linalg.norm(result, axis=1), 1).all():
+            raise ValueError("Cannot normalize a vector to unit vector.")
         return result
 
     def cosine_sim(a: np.ndarray, b: np.ndarray) -> np.ndarray:

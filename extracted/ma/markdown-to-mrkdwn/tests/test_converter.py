@@ -38,6 +38,8 @@ class TestSlackMarkdownConverter(unittest.TestCase):
 
     def test_convert_unordered_list(self):
         self.assertEqual(self.converter.convert("- item"), "• item")
+        self.assertEqual(self.converter.convert("* item"), "• item")
+
         
     def test_convert_ordered_list(self):
         self.assertEqual(self.converter.convert("1. item"), "1. item")
@@ -735,6 +737,12 @@ Code block with table:
 | a    | b    |
 ```"""
         self.assertEqual(self.converter.convert(markdown), expected)
+
+    def test_convert_line_with_table_placeholder(self):
+        """Test that _convert_line preserves table placeholders"""
+        placeholder = "%%TABLE_PLACEHOLDER_123456789%%"
+        result = self.converter._convert_line(placeholder)
+        self.assertEqual(result, placeholder)
 
 
 if __name__ == "__main__":

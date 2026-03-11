@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: edx-enterprise
-Version: 6.6.8
+Version: 6.6.9
 Summary: Your project description goes here
 Home-page: https://github.com/openedx/edx-enterprise
 Author: edX
@@ -164,6 +164,10 @@ Change Log
 Unreleased
 ----------
 * nothing unreleased
+
+[6.6.9] - 2026-03-10
+---------------------
+* fix: handle duplicate enterprise group name validation error (ENT-11506)
 
 [6.6.8] - 2026-03-05
 ---------------------

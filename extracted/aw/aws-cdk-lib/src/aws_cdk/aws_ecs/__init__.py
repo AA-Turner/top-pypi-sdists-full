@@ -2504,6 +2504,18 @@ ecs.ExternalService(self, "ExternalService",
     daemon=True
 )
 ```
+
+## Mixins
+
+ECS provides [mixins](https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib-readme.html#mixins) that can be applied to L1 and L2 constructs.
+
+### ClusterSettings
+
+Applies one or more cluster settings to an ECS cluster. If a setting with the same name already exists, its value is replaced:
+
+```python
+ecs.CfnCluster(self, "Cluster").with(ecs.mixins.ClusterSettings([name="containerInsights", value="enhanced"]))
+```
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -9982,15 +9994,7 @@ class CfnCluster(
 
     Example::
 
-        import aws_cdk.aws_ecs as ecs
-        from aws_cdk.mixins_preview.aws_ecs.mixins import ClusterSettings
-        
-        
-        cluster = ecs.CfnCluster(scope, "Cluster")
-        Mixins.of(cluster).apply(ClusterSettings([
-            name="containerInsights",
-            value="enhanced"
-        ]))
+        ecs.CfnCluster(self, "Cluster").with(ecs.mixins.ClusterSettings([name="containerInsights", value="enhanced"]))
     '''
 
     def __init__(
@@ -52039,9 +52043,13 @@ __all__ = [
     "Volume",
     "VolumeFrom",
     "WindowsOptimizedVersion",
+    "mixins",
 ]
 
 publication.publish()
+
+# Loading modules to ensure their types are registered with the jsii runtime library
+from . import mixins
 
 def _typecheckingstub__3bb1c2028b85a0ebcdd5cb2aa74890cddceee7c79afaa8e5e920a35f05c1dd6a(
     *,

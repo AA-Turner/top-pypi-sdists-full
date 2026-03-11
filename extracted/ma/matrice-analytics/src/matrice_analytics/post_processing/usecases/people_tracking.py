@@ -1,14 +1,13 @@
 """
-People tracking use case implementation.
+People counting use case implementation.
 
-This module provides people tracking with polygon/abline counting,
-zone-based analysis, tracking, and alerting capabilities.
+This module provides a clean implementation of people counting functionality
+with zone-based analysis, tracking, and alerting capabilities.
 """
 
 from typing import Any, Dict, List, Optional, Set
 from dataclasses import asdict
 import time
-import numpy as np
 from datetime import datetime, timezone
 
 from ..core.base import BaseProcessor, ProcessingContext, ProcessingResult, ConfigProtocol, ResultFormat
@@ -27,219 +26,17 @@ from ..utils import (
     calculate_iou
 )
 from ..utils.geometry_utils import get_bbox_center, point_in_polygon, get_bbox_bottom25_center
-from ..utils.counting_utils import (
-    ABLineCounter,
-    PolygonCounter,
-    polygon_offset_inward,
-    parse_line_config,
-)
-
-
-# ====================================================================== #
-# ByteTrack wrapper – bridges ultralytics BYTETracker ↔ pipeline dicts   #
-# ====================================================================== #
-
-class _MockResults:
-    """Lightweight results container compatible with ultralytics BYTETracker.
-
-    Provides the `.conf`, `.cls`, `.xywh`, `.xyxy` attributes and boolean
-    indexing that ``BYTETracker.update`` requires.
-    """
-
-    def __init__(self, xyxy: np.ndarray, conf: np.ndarray, cls: np.ndarray):
-        self._xyxy = np.asarray(xyxy, dtype=np.float32).reshape(-1, 4)
-        self.conf = np.asarray(conf, dtype=np.float32).ravel()
-        self.cls = np.asarray(cls, dtype=np.float32).ravel()
-
-    # --- required attributes -------------------------------------------
-    @property
-    def xyxy(self) -> np.ndarray:
-        return self._xyxy
-
-    @property
-    def xywh(self) -> np.ndarray:
-        """Convert xyxy → (center-x, center-y, width, height)."""
-        x1, y1, x2, y2 = (
-            self._xyxy[:, 0], self._xyxy[:, 1],
-            self._xyxy[:, 2], self._xyxy[:, 3],
-        )
-        return np.stack([(x1 + x2) / 2, (y1 + y2) / 2, x2 - x1, y2 - y1], axis=1)
-
-    # --- container protocol --------------------------------------------
-    def __len__(self) -> int:
-        return len(self.conf)
-
-    def __getitem__(self, idx):
-        return _MockResults(self._xyxy[idx], self.conf[idx], self.cls[idx])
-
-
-class _EmptyResults:
-    """Sentinel used when there are zero detections in a frame."""
-    conf = np.array([], dtype=np.float32)
-    cls = np.array([], dtype=np.float32)
-    xywh = np.empty((0, 4), dtype=np.float32)
-    xyxy = np.empty((0, 4), dtype=np.float32)
-
-    def __len__(self) -> int:
-        return 0
-
-    def __getitem__(self, idx):
-        return self
-
-
-class ByteTrackWrapper:
-    """Wraps ultralytics ``BYTETracker`` so it accepts / returns pipeline
-    detection dicts (``List[Dict]``) instead of raw numpy / Boxes objects.
-
-    Follows the same tracking flow as the reference ``people_counter.py``:
-
-    1. Convert detection dicts → ``_MockResults`` (mimics ultralytics Boxes).
-    2. Call ``BYTETracker.update(det, img, feats)`` exactly like the reference.
-    3. Build **new** detection dicts from the tracker output – tracked
-       (Kalman-filtered) bounding boxes replace the raw detections, and every
-       dict carries a ``track_id`` assigned by ByteTrack.
-
-    Only *confirmed* tracks are returned; untracked / low-confidence detections
-    that ByteTrack has not yet promoted to active tracks are dropped (standard
-    ByteTrack behaviour).
-    """
-
-    def __init__(
-        self,
-        track_high_thresh: float = 0.3,
-        track_low_thresh: float = 0.1,
-        new_track_thresh: float = 0.4,
-        track_buffer: int = 60,
-        match_thresh: float = 0.8,
-        fuse_score: bool = True,
-        frame_rate: int = 30,
-    ):
-        from ultralytics.trackers.byte_tracker import BYTETracker
-        from ultralytics.utils import IterableSimpleNamespace
-
-        cfg = IterableSimpleNamespace(
-            tracker_type="bytetrack",
-            track_high_thresh=track_high_thresh,
-            track_low_thresh=track_low_thresh,
-            new_track_thresh=new_track_thresh,
-            track_buffer=track_buffer,
-            match_thresh=match_thresh,
-            fuse_score=fuse_score,
-        )
-        self._tracker = BYTETracker(args=cfg, frame_rate=frame_rate)
-
-    # ------------------------------------------------------------------ #
-    #  Public API                                                         #
-    # ------------------------------------------------------------------ #
-
-    def update(self, detections: List[Dict]) -> List[Dict]:
-        """Run one tracking step.
-
-        Parameters
-        ----------
-        detections : list[dict]
-            Pipeline detection dicts.  Each must contain ``bounding_box``
-            (``{xmin, ymin, xmax, ymax}`` **or** ``{x1, y1, x2, y2}``)
-            and ``confidence``.
-
-        Returns
-        -------
-        list[dict]
-            One dict per **confirmed track** with Kalman-filtered bounding
-            boxes, ``track_id``, ``confidence``, ``category`` and
-            ``category_id``.
-        """
-        if not detections:
-            # Advance the internal frame counter even on empty frames
-            self._tracker.update(_EmptyResults(), img=None)
-            return detections
-
-        # -- 1. Convert dicts → numpy arrays -----------------------------
-        xyxy_list: List[List[float]] = []
-        valid_dets: List[Dict] = []          # originals that parsed OK
-        for det in detections:
-            bbox = det.get("bounding_box", det.get("bbox", {}))
-            coords = self._bbox_to_xyxy(bbox)
-            if coords is None:
-                continue
-            xyxy_list.append(coords)
-            valid_dets.append(det)
-
-        if not xyxy_list:
-            self._tracker.update(_EmptyResults(), img=None)
-            return detections
-
-        xyxy = np.array(xyxy_list, dtype=np.float32)
-        confs = np.array(
-            [d.get("confidence", 0.5) for d in valid_dets], dtype=np.float32,
-        )
-        cls_ids = np.array(
-            [d.get("category_id", 0) for d in valid_dets], dtype=np.float32,
-        )
-
-        # -- 2. Feed _MockResults to BYTETracker (same as reference) -----
-        det_mock = _MockResults(xyxy, confs, cls_ids)
-        tracks = self._tracker.update(det_mock, img=None)
-
-        if len(tracks) == 0:
-            return []
-
-        # tracks shape: (N, 8) → [x1, y1, x2, y2, track_id, score, cls, idx]
-
-        # -- 3. Build category_id → category_name map from originals -----
-        cat_map: Dict[int, str] = {}
-        for d in valid_dets:
-            cid = d.get("category_id", 0)
-            if cid not in cat_map and "category" in d:
-                cat_map[cid] = d["category"]
-
-        # -- 4. Build new detection dicts from tracked output -------------
-        tracked_dets: List[Dict] = []
-        for row in tracks:
-            x1, y1, x2, y2, track_id, score, cls_id, _idx = row
-            tracked_dets.append({
-                "bounding_box": {
-                    "xmin": float(x1), "ymin": float(y1),
-                    "xmax": float(x2), "ymax": float(y2),
-                },
-                "confidence": float(score),
-                "track_id": int(track_id),
-                "category_id": int(cls_id),
-                "category": cat_map.get(int(cls_id), "person"),
-            })
-
-        return tracked_dets
-
-    # ------------------------------------------------------------------ #
-    #  Private helpers                                                    #
-    # ------------------------------------------------------------------ #
-
-    @staticmethod
-    def _bbox_to_xyxy(bbox) -> Optional[List[float]]:
-        """Convert a bounding-box (dict or list) to ``[x1, y1, x2, y2]``."""
-        if isinstance(bbox, (list, tuple)):
-            return [float(v) for v in bbox[:4]] if len(bbox) >= 4 else None
-        if isinstance(bbox, dict):
-            if "x1" in bbox:
-                return [float(bbox["x1"]), float(bbox["y1"]),
-                        float(bbox["x2"]), float(bbox["y2"])]
-            if "xmin" in bbox:
-                return [float(bbox["xmin"]), float(bbox["ymin"]),
-                        float(bbox["xmax"]), float(bbox["ymax"])]
-            vals = [float(v) for v in bbox.values()]
-            return vals[:4] if len(vals) >= 4 else None
-        return None
 
 
 class PeopleTrackingUseCase(BaseProcessor):
-    """People tracking use case with polygon/abline counting, zone analysis and alerting."""
+    """People counting use case with zone analysis and alerting."""
     
     def __init__(self):
-        """Initialize people tracking use case."""
+        """Initialize people counting use case."""
         super().__init__("people_tracking")
         self.category = "general"
         self.CASE_TYPE: Optional[str] = 'People_Tracking'
-        self.CASE_VERSION: Optional[str] = '2.0'
+        self.CASE_VERSION: Optional[str] = '1.3'
         
         # Track ID storage for total count calculation
         self._total_track_ids = set()  # Store all unique track IDs seen across calls
@@ -299,21 +96,12 @@ class PeopleTrackingUseCase(BaseProcessor):
         self._side1_label: str = "Side A"
         self._side2_label: str = "Side B"
 
-        # ByteTrackWrapper instance (lazy-init)
-        self.tracker = None
 
-        # Counter instance (lazy-init based on config.method)
-        self._counter = None
-        self._counter_method: Optional[str] = None
-
-    # ------------------------------------------------------------------ #
-    # Public entry point (flat, people_counting.py style)                 #
-    # ------------------------------------------------------------------ #
-
-    def process(self, data: Any, config: ConfigProtocol,
-                context: Optional[ProcessingContext] = None,
-                stream_info: Optional[Dict[str, Any]] = None) -> ProcessingResult:
-        """Process a single frame of detections and return agg_summary with in/out counts.
+    def process(self, data: Any, config: ConfigProtocol, 
+                context: Optional[ProcessingContext] = None, stream_info: Optional[Any] = None) -> ProcessingResult:
+        """
+        Process people counting use case - automatically detects single or multi-frame structure.
+        
         Args:
             data: Raw model output (detection or tracking format)
             config: People counting configuration
@@ -323,232 +111,220 @@ class PeopleTrackingUseCase(BaseProcessor):
         Returns:
             ProcessingResult: Processing result with standardized agg_summary structure
         """
-        processing_start = time.time()
-
+        start_time = time.time()
+        
         try:
+            # Ensure we have the right config type
             if not isinstance(config, PeopleTrackingConfig):
                 return self.create_error_result(
-                    "Invalid configuration type for people tracking",
-                    usecase=self.name, category=self.category, context=context
+                    "Invalid configuration type for people counting",
+                    usecase=self.name,
+                    category=self.category,
+                    context=context
                 )
-
+            
+            # Initialize processing context if not provided
             if context is None:
                 context = ProcessingContext()
-
+            
+            # Detect input format and frame structure
             input_format = match_results_structure(data)
             context.input_format = input_format
             context.confidence_threshold = config.confidence_threshold
-
-            # --- 1. Normalize to list (single frame) ---
-            if isinstance(data, list):
-                processed_data = data
-            elif isinstance(data, dict):
-                # Frame-keyed dict – take the first frame's detections
-                processed_data = []
-                for _key, value in data.items():
-                    if isinstance(value, list):
-                        processed_data = value
-                        break
+            
+            is_multi_frame = self.detect_frame_structure(data)
+            print("--------------------------------------")
+            print("config.alert_config",config.alert_config)
+            print(config)
+            print("is_multi?",is_multi_frame)
+            print("--------------------------------------")
+            
+            #self.logger.info(f"Processing people counting - Format: {input_format.value}, Multi-frame: {is_multi_frame}")
+            
+            # Apply smoothing if enabled
+            if config.enable_smoothing and input_format == ResultFormat.OBJECT_TRACKING:
+                data = self._apply_smoothing(data, config)
+            
+            # Process based on frame structure
+            if is_multi_frame:
+                
+                return self._process_multi_frame(data, config, context, stream_info)
             else:
-                processed_data = []
-
-            # --- 2. Confidence filter ---
-            if config.confidence_threshold is not None:
-                processed_data = [d for d in processed_data if d.get("confidence", 0) >= config.confidence_threshold]
-
-            # --- 3. Category mapping ---
-            if config.index_to_category:
-                processed_data = apply_category_mapping(processed_data, config.index_to_category)
-
-            # --- 4. Person category filter ---
-            if config.person_categories:
-                processed_data = [d for d in processed_data if d.get("category") in config.person_categories]
-
-            # --- 5. Normalize track_id field ---
-            for det in processed_data:
-                if not isinstance(det, dict):
-                    continue
-                if det.get("track_id") is not None:
-                    continue
-                for key in ("tracker_id", "tracking_id", "trackId", "trackID", "id", "object_id"):
-                    candidate = det.get(key)
-                    if candidate is not None:
-                        det["track_id"] = candidate
-                        break
-
-            # --- 6. ByteTrack tracker (ultralytics) ---
-            if getattr(config, "enable_advanced_tracker", True):
-                if self.tracker is None:
-                    self.tracker = ByteTrackWrapper(
-                        track_high_thresh=0.3,
-                        track_low_thresh=0.1,
-                        new_track_thresh=0.4,
-                        track_buffer=60,
-                        match_thresh=0.8,
-                        frame_rate=30,
-                    )
-
-                processed_data = self.tracker.update(processed_data)
-
-            # --- 7. Update tracking state ---
-            counting_summary = {
-                "total_objects": len(processed_data),
-                "detections": processed_data,
-                "categories": {}
-            }
-            for detection in processed_data:
-                category = detection.get("category", "unknown")
-                counting_summary["categories"][category] = counting_summary["categories"].get(category, 0) + 1
-
-            # self._update_tracking_state(counting_summary)
-            self._total_frame_counter += 1
-
-            # --- 8. Determine frame number ---
-            frame_number = None
-            if stream_info:
-                input_settings = stream_info.get("input_settings", {})
-                start_frame = input_settings.get("start_frame")
-                end_frame = input_settings.get("end_frame")
-                if start_frame is not None and end_frame is not None and start_frame == end_frame:
-                    frame_number = start_frame
-            if frame_number is None:
-                frame_number = self._total_frame_counter
-
-            # --- 9. Init or reuse counter, run counter.update() ---
-            counter = self._get_or_create_counter(config)
-            boxes, track_ids = self._extract_boxes_and_ids(processed_data)
-            counter.update(boxes, track_ids)
-
-            # --- 10. Generate alerts, incidents, tracking_stats, business_analytics, summary ---
-            zone_analysis = {}
-            alerts = self._check_alerts(counting_summary, zone_analysis, config, str(frame_number))
-            incidents = self._generate_incidents(counting_summary, zone_analysis, alerts, config, str(frame_number), stream_info)
-            incidents = []  # Keep empty as in original
-
-            tracking_stats_list = self._generate_tracking_stats(
-                counting_summary, zone_analysis, config,
-                frame_id=str(frame_number), alerts=alerts, stream_info=stream_info,
-                counter=counter
-            )
-            business_analytics = self._generate_business_analytics(counting_summary, zone_analysis, config, str(frame_number), stream_info, is_empty=True)
-            summary_list = self._generate_summary(counting_summary, incidents, tracking_stats_list, business_analytics, alerts)
-
-            incidents_out = incidents[0] if incidents else {}
-            tracking_stats = tracking_stats_list[0] if tracking_stats_list else {}
-            business_analytics_out = business_analytics[0] if business_analytics else {}
-            summary = summary_list[0] if summary_list else {}
-
-            agg_summary = {str(frame_number): {
-                "incidents": incidents_out,
-                "tracking_stats": tracking_stats,
-                "business_analytics": business_analytics_out,
-                "alerts": alerts,
-                "human_text": summary}
-            }
-
-            context.mark_completed()
-            result = self.create_result(
-                data={"agg_summary": agg_summary},
+                return self._process_single_frame(data, config, context, stream_info)
+                
+        except Exception as e:
+            self.logger.error(f"People counting failed: {str(e)}", exc_info=True)
+            
+            if context:
+                context.mark_completed()
+            
+            return self.create_error_result(
+                str(e), 
+                type(e).__name__,
                 usecase=self.name,
                 category=self.category,
                 context=context
             )
-
-            proc_time = time.time() - processing_start
-            processing_latency_ms = proc_time * 1000.0
-            processing_fps = (1.0 / proc_time) if proc_time > 0 else None
-            print(f"[PERF] F{self._total_frame_counter} | latency={processing_latency_ms:.1f}ms fps={processing_fps:.1f}" if processing_fps else f"[PERF] F{self._total_frame_counter} | latency={processing_latency_ms:.1f}ms")
-            return result
-
-        except Exception as e:
-            self.logger.error(f"People tracking failed: {str(e)}", exc_info=True)
-            if context:
-                context.mark_completed()
-            return self.create_error_result(
-                str(e), type(e).__name__,
-                usecase=self.name, category=self.category, context=context
+        
+    def _process_multi_frame(self, data: Dict, config: PeopleTrackingConfig, context: ProcessingContext, stream_info: Optional[Dict[str, Any]] = None) -> ProcessingResult:
+        """Process multi-frame data to generate frame-wise agg_summary."""
+        
+        frame_incidents = {}
+        frame_tracking_stats = {}
+        frame_business_analytics = {}
+        frame_human_text = {}
+        frame_alerts = {}
+        
+        # Increment total frame counter
+        frames_in_this_call = len(data)
+        self._total_frame_counter += frames_in_this_call
+        
+        # Process each frame individually
+        for frame_key, frame_detections in data.items():
+            # Extract frame ID from tracking data
+            frame_id = self._extract_frame_id_from_tracking(frame_detections, frame_key)
+            global_frame_id = self.get_global_frame_id(frame_id)
+            
+            # Process this single frame's detections
+            alerts, incidents_list, tracking_stats_list, business_analytics_list, summary_list  = self._process_frame_detections(
+                frame_detections, config, global_frame_id, stream_info
             )
+            incidents = incidents_list[0] if incidents_list else {}
+            tracking_stats = tracking_stats_list[0] if tracking_stats_list else {}
+            business_analytics = business_analytics_list[0] if business_analytics_list else {}
+            summary = summary_list[0] if summary_list else {}
+            
+            # Store frame-wise results
+            if incidents:
+                frame_incidents[global_frame_id] = incidents
+            if tracking_stats:
+                frame_tracking_stats[global_frame_id] = tracking_stats
+            if business_analytics:
+                frame_business_analytics[global_frame_id] = business_analytics
+            if summary:
+                frame_human_text[global_frame_id] = summary
+            if alerts:
+                frame_alerts[global_frame_id] = alerts
+        
+        # Update global frame offset after processing this chunk
+        self.update_global_frame_offset(frames_in_this_call)
+        
+        # Create frame-wise agg_summary
+        agg_summary = self.create_frame_wise_agg_summary(
+            frame_incidents, frame_tracking_stats, frame_business_analytics, frame_alerts,
+            frame_human_text=frame_human_text
+        )
+        
+        # Mark processing as completed
+        context.mark_completed()
+        
+        # Create result with standardized agg_summary
+        return self.create_result(
+            data={"agg_summary": agg_summary},
+            usecase=self.name,
+            category=self.category,
+            context=context
+        )
 
-    # ------------------------------------------------------------------ #
-    # Counter management (NEW)                                            #
-    # ------------------------------------------------------------------ #
-
-    def _get_or_create_counter(self, config: PeopleTrackingConfig):
-        """Return existing counter or create one from config."""
-        if self._counter is not None and self._counter_method == config.method:
-            return self._counter
-
-        if config.method == "polygon":
-            outer = np.array(config.outer_polygon, dtype=np.float64)
-            if config.inner_polygon is not None:
-                inner = np.array(config.inner_polygon, dtype=np.int32)
-            else:
-                inner = polygon_offset_inward(outer, config.inner_polygon_offset)
-            self._counter = PolygonCounter(
-                inner_polygon=inner,
-                outer_polygon=np.array(config.outer_polygon, dtype=np.int32),
-                initial_warmup_frames=5,
-                use_foot_center=config.use_foot_center,
-            )
-        elif config.method == "abline":
-            line_a = parse_line_config(config.line_a)
-            line_b = parse_line_config(config.line_b)
-            self._counter = ABLineCounter(
-                line_a=line_a,
-                line_b=line_b,
-                in_direction=config.in_direction,
-                use_foot_center=config.use_foot_center,
-            )
+    def _process_single_frame(self, data: Any, config: PeopleTrackingConfig, context: ProcessingContext, stream_info: Optional[Dict[str, Any]] = None) -> ProcessingResult:
+        """Process single frame data and return standardized agg_summary."""
+        
+        current_frame = stream_info.get("input_settings", {}).get("start_frame", "current_frame")
+        # Process frame data
+        alerts, incidents_list, tracking_stats_list, business_analytics_list, summary_list  = self._process_frame_detections(
+            data, config, current_frame, stream_info
+        )
+        incidents = incidents_list[0] if incidents_list else {}
+        tracking_stats = tracking_stats_list[0] if tracking_stats_list else {}
+        business_analytics = business_analytics_list[0] if business_analytics_list else {}
+        summary = summary_list[0] if summary_list else {}
+        
+        # Create single-frame agg_summary
+        agg_summary = self.create_agg_summary(
+            current_frame, incidents, tracking_stats, business_analytics, alerts, human_text=summary
+        )
+        
+        # Mark processing as completed
+        context.mark_completed()
+        
+        # Create result with standardized agg_summary
+        return self.create_result(
+            data={"agg_summary": agg_summary},
+            usecase=self.name,
+            category=self.category,
+            context=context
+        )
+    
+        
+    def _process_frame_detections(self, frame_data: Any, config: PeopleTrackingConfig, frame_id: str, stream_info: Optional[Dict[str, Any]] = None) -> tuple:
+        """Process detections from a single frame and return standardized components."""
+        
+        # Convert frame_data to list if it's not already
+        if isinstance(frame_data, list):
+            frame_detections = frame_data
         else:
-            raise ValueError(f"Unknown counting method: {config.method}")
+            # Handle other formats as needed
+            frame_detections = []
+        
+        # Step 1: Apply confidence filtering to this frame
+        if config.confidence_threshold is not None:
+            frame_detections = [d for d in frame_detections if d.get("confidence", 0) >= config.confidence_threshold]
+        
+        # Step 2: Apply category mapping if provided
+        if config.index_to_category:
+            frame_detections = apply_category_mapping(frame_detections, config.index_to_category)
+        
+        # Step 3: Filter to person categories
+        if config.person_categories:
+            frame_detections = [d for d in frame_detections if d.get("category") in config.person_categories]
+        
+        # Step 4: Create counting summary for this frame
+        counting_summary = {
+            "total_objects": len(frame_detections),
+            "detections": frame_detections,
+            "categories": {}
+        }
+        
+        # Count by category
+        for detection in frame_detections:
+            category = detection.get("category", "unknown")
+            counting_summary["categories"][category] = counting_summary["categories"].get(category, 0) + 1
+        
+        # Step 4.5: Always update tracking state BEFORE zone enhancements so detections have track_ids
+        self._update_tracking_state(counting_summary)
 
-        self._counter_method = config.method
-        self.logger.info(f"Created {config.method} counter (use_foot_center={config.use_foot_center})")
-        return self._counter
+        # Step 5: Zone analysis for this frame
+        zone_analysis = {}
+        if config.zone_config and config.zone_config.zones:
+            # Convert single frame to format expected by count_objects_in_zones
+            frame_data = frame_detections #[frame_detections]
+            zone_analysis = count_objects_in_zones(frame_data, config.zone_config.zones)
+            
+            # Update zone tracking with current frame data (now detections have canonical track_ids)
+            if zone_analysis and config.enable_tracking:
+                enhanced_zone_analysis = self._update_zone_tracking(zone_analysis, frame_detections, config)
+                # Merge enhanced zone analysis with original zone analysis
+                for zone_name, enhanced_data in enhanced_zone_analysis.items():
+                    zone_analysis[zone_name] = enhanced_data
 
-    @staticmethod
-    def _bbox_to_xyxy(bbox: Any) -> Optional[List[float]]:
-        """Convert a bounding-box (dict or list) to [x1, y1, x2, y2]."""
-        if isinstance(bbox, list):
-            return bbox[:4] if len(bbox) >= 4 else None
-        if isinstance(bbox, dict):
-            if "x1" in bbox:
-                return [bbox["x1"], bbox["y1"], bbox["x2"], bbox["y2"]]
-            if "xmin" in bbox:
-                return [bbox["xmin"], bbox["ymin"], bbox["xmax"], bbox["ymax"]]
-            vals = list(bbox.values())
-            return vals[:4] if len(vals) >= 4 else None
-        return None
-
-    def _extract_boxes_and_ids(self, detections: List[Dict]):
-        """Return (boxes, track_ids) as numpy arrays from detection dicts."""
-        boxes_list: List[List[float]] = []
-        ids_list: List[int] = []
-
-        for idx, det in enumerate(detections):
-            raw_bbox = det.get("bounding_box", det.get("bbox"))
-            xyxy = self._bbox_to_xyxy(raw_bbox)
-            if xyxy is None:
-                continue
-            track_id = det.get("track_id")
-            if track_id is None:
-                track_id = idx
-            else:
-                try:
-                    track_id = int(track_id)
-                except (ValueError, TypeError):
-                    track_id = hash(track_id) % (10**9)
-            boxes_list.append([float(v) for v in xyxy])
-            ids_list.append(track_id)
-
-        if not boxes_list:
-            return np.empty((0, 4)), np.array([], dtype=np.int64)
-        return np.array(boxes_list, dtype=np.float64), np.array(ids_list, dtype=np.int64)
-
-    # ------------------------------------------------------------------ #
-    # Existing helper methods (preserved from original)                   #
-    # ------------------------------------------------------------------ #
-
+        # Step 5.5: Line crossing analysis for this frame
+        line_analysis = {}
+        if config.line_config:
+            line_analysis = self._update_line_crossings(frame_detections, config.line_config)
+        
+        # Step 6: Generate insights and alerts for this frame
+        alerts = self._check_alerts(counting_summary, zone_analysis, config, frame_id, line_analysis=line_analysis)
+        
+        # Step 7: Generate summary and standardized agg_summary components for this frame
+        incidents = self._generate_incidents(counting_summary, zone_analysis, alerts, config, frame_id, stream_info, line_analysis=line_analysis)
+        incidents = []
+        tracking_stats = self._generate_tracking_stats(counting_summary, zone_analysis, config, frame_id=frame_id, alerts=alerts, stream_info=stream_info, line_analysis=line_analysis)
+        business_analytics = self._generate_business_analytics(counting_summary, zone_analysis, config, frame_id, stream_info, is_empty=True)
+        summary = self._generate_summary(counting_summary, incidents, tracking_stats, business_analytics, alerts)
+        
+        # Return standardized components as tuple
+        return alerts, incidents, tracking_stats, business_analytics, summary
+    
     def _generate_incidents(self, counting_summary: Dict, zone_analysis: Dict, alerts: List, config: PeopleTrackingConfig, frame_id: str, stream_info: Optional[Dict[str, Any]] = None, line_analysis: Optional[Dict] = None) -> List[Dict]:
         """Generate standardized incidents for the agg_summary structure."""
         
@@ -606,7 +382,9 @@ class PeopleTrackingUseCase(BaseProcessor):
                     intensity = 10.0
                     self._ascending_alert_list.append(3)
                 elif total_people > 25:
-                    level = "significant"; intensity = 9.0; self._ascending_alert_list.append(2)
+                    level = "significant"
+                    intensity = 9.0
+                    self._ascending_alert_list.append(2)
                 elif total_people > 15:
                     level = "medium"
                     intensity = 7.0
@@ -631,56 +409,153 @@ class PeopleTrackingUseCase(BaseProcessor):
             self._ascending_alert_list.append(0)
             incidents.append({})
         
+        # Add zone-specific events if applicable
+        if zone_analysis:
+            human_text_lines.append(f"\t- ZONE EVENTS:")
+            for zone_name, zone_count in zone_analysis.items():
+                zone_total = self._robust_zone_total(zone_count)
+                if zone_total > 0:
+                    zone_intensity = min(10.0, zone_total / 5.0)
+                    zone_level = "info"
+                    if intensity >= 9:
+                        level = "critical"
+                        self._ascending_alert_list.append(3)
+                    elif intensity >= 7:
+                        level = "significant"
+                        self._ascending_alert_list.append(2)
+                    elif intensity >= 5:
+                        level = "medium"
+                        self._ascending_alert_list.append(1)
+                    else:
+                        level = "low"
+                        self._ascending_alert_list.append(0)
+                    
+                    if zone_total > 0:
+                        human_text_lines.append(f"\t\t- Zone name: {zone_name}")
+                        human_text_lines.append(f"\t\t\t- Total people in zone: {zone_total}")
+                    # Main people counting incident
+                    event= self.create_incident(incident_id=self.CASE_TYPE+'_'+'zone_'+zone_name+str(frame_id), incident_type=self.CASE_TYPE,
+                            severity_level=zone_level, human_text=human_text, camera_info=camera_info, alerts=alerts, alert_settings=alert_settings,
+                            start_time=start_timestamp, end_time=self.current_incident_end_timestamp,
+                            level_settings= {"low": 1, "medium": 3, "significant":4, "critical": 7})
+                    incidents.append(event)
+
+        # Add line crossing-specific events if applicable
+        if line_analysis and line_analysis.get("total_crossings"):
+            human_text_lines.append(f"\t- LINE CROSSING EVENTS:")
+            for direction, count in line_analysis["total_crossings"].items():
+                if count > 0:
+                    from_label, to_label = direction.split("_to_")
+                    from_label = self._side1_label if from_label == "side1" else self._side2_label
+                    to_label = self._side1_label if to_label == "side1" else self._side2_label
+                    human_text_lines.append(f"\t\t- Crossings from {from_label} to {to_label}: {count}")
+                    # Create incident for line crossing
+                    line_level = "info"  # Can compute based on intensity similar to above
+                    event = self.create_incident(
+                        incident_id=self.CASE_TYPE + '_' + 'line_cross_' + direction + str(frame_id),
+                        incident_type=self.CASE_TYPE + '_Line_Crossing',
+                        severity_level=line_level,
+                        human_text=human_text,
+                        camera_info=camera_info,
+                        alerts=alerts,
+                        alert_settings=alert_settings,
+                        start_time=start_timestamp,
+                        end_time=self.current_incident_end_timestamp,
+                        level_settings={"low": 1, "medium": 3, "significant": 4, "critical": 7}
+                    )
+                    incidents.append(event)
+
         return incidents
 
-    def _generate_tracking_stats(self, counting_summary: Dict, zone_analysis: Dict, config: PeopleTrackingConfig, frame_id: str, alerts: Any=[], stream_info: Optional[Dict[str, Any]] = None, line_analysis: Optional[Dict] = None, counter=None) -> List[Dict]:
-        """Generate tracking stats using standardized methods, with in/out from counter."""
+    def _generate_tracking_stats(self, counting_summary: Dict, zone_analysis: Dict, config: PeopleTrackingConfig, frame_id: str, alerts: Any=[], stream_info: Optional[Dict[str, Any]] = None, line_analysis: Optional[Dict] = None) -> List[Dict]:
+        """Generate tracking stats using standardized methods."""
         
         total_people = counting_summary.get("total_objects", 0)
+        
+        # Get total count from cached tracking state
         total_unique_count = self.get_total_count()
         current_frame_count = self.get_current_frame_count()
+        
+        # Get camera info using standardized method
         camera_info = self.get_camera_info_from_stream(stream_info)
         
-        # Build total_counts with in/out from counter
+        # Build total_counts using standardized method
         total_counts = []
-        if counter is not None:
-            total_counts.append(self.create_count_object("in", counter.total_in))
-            total_counts.append(self.create_count_object("out", counter.total_out))
+        per_category_total = {}
         
-        # Also add per-category totals from tracking state
-        # for category in config.person_categories or ["person"]:
-        #     category_total_count = total_unique_count
-        #     if category_total_count > 0:
-        #         total_counts.append(self.create_count_object(category, category_total_count))
+        for category in config.person_categories or ["person"]:
+            # Get count for this category from zone analysis or counting summary
+            category_total_count = 0
+            if zone_analysis:
+                for zone_data in zone_analysis.values():
+                    if isinstance(zone_data, dict) and "total_count" in zone_data:
+                        category_total_count += zone_data.get("total_count", 0)
+                    elif isinstance(zone_data, dict):
+                        # Sum up zone counts
+                        for v in zone_data.values():
+                            if isinstance(v, int):
+                                category_total_count += v
+                            elif isinstance(v, list):
+                                category_total_count += len(v)
+                    elif isinstance(zone_data, (int, list)):
+                        category_total_count += len(zone_data) if isinstance(zone_data, list) else zone_data
+            else:
+                # Use total unique count from tracking state
+                category_total_count = total_unique_count
+            
+            if category_total_count > 0:
+                total_counts.append(self.create_count_object(category, category_total_count))
+                per_category_total[category] = category_total_count
         
-        # Build current_counts with new_in/new_out from counter
+        # Build current_counts using standardized method
         current_counts = []
-        if counter is not None:
-            current_counts.append(self.create_count_object("in", getattr(counter, "total_in", 0)))
-            current_counts.append(self.create_count_object("out", getattr(counter, "total_out", 0)))
-
-        # for category in config.person_categories or ["person"]:
-        #     detections = counting_summary.get("detections", [])
-        #     category_current_count = sum(1 for d in detections if d.get("category") == category)
-        #     if category_current_count > 0 or total_people > 0:
-        #         current_counts.append(self.create_count_object(category, category_current_count))
+        per_category_current = {}
         
-        # Prepare detections
+        for category in config.person_categories or ["person"]:
+            # Get current count for this category
+            category_current_count = 0
+            if zone_analysis:
+                for zone_data in zone_analysis.values():
+                    if isinstance(zone_data, dict) and "current_count" in zone_data:
+                        category_current_count += zone_data.get("current_count", 0)
+                    elif isinstance(zone_data, dict):
+                        # For current frame, look at detections count
+                        for v in zone_data.values():
+                            if isinstance(v, int):
+                                category_current_count += v
+                            elif isinstance(v, list):
+                                category_current_count += len(v)
+                    elif isinstance(zone_data, (int, list)):
+                        category_current_count += len(zone_data) if isinstance(zone_data, list) else zone_data
+            else:
+                # Count detections in current frame for this category
+                detections = counting_summary.get("detections", [])
+                category_current_count = sum(1 for d in detections if d.get("category") == category)
+        
+            if category_current_count > 0 or total_people > 0:  # Include even if 0 when there are people
+                current_counts.append(self.create_count_object(category, category_current_count))
+                per_category_current[category] = category_current_count
+        
+        # Prepare detections using standardized method (without confidence and track_id)
         detections = []
         for detection in counting_summary.get("detections", []):
             bbox = detection.get("bounding_box", {})
             category = detection.get("category", "person")
+            # Include segmentation if available (like in eg.json)
             if detection.get("masks"):
-                detection_obj = self.create_detection_object(category, bbox, segmentation=detection.get("masks", []))
+                segmentation= detection.get("masks", [])
+                detection_obj = self.create_detection_object(category, bbox, segmentation=segmentation)
             elif detection.get("segmentation"):
-                detection_obj = self.create_detection_object(category, bbox, segmentation=detection.get("segmentation"))
+                segmentation= detection.get("segmentation")
+                detection_obj = self.create_detection_object(category, bbox, segmentation=segmentation)
             elif detection.get("mask"):
-                detection_obj = self.create_detection_object(category, bbox, segmentation=detection.get("mask"))
+                segmentation= detection.get("mask")
+                detection_obj = self.create_detection_object(category, bbox, segmentation=segmentation)
             else:
                 detection_obj = self.create_detection_object(category, bbox)
             detections.append(detection_obj)
         
-        # Alert settings
+        # Build alerts and alert_settings arrays
         alert_settings = []
         if config.alert_config and hasattr(config.alert_config, 'alert_type'):
             alert_settings.append({
@@ -692,40 +567,81 @@ class PeopleTrackingUseCase(BaseProcessor):
                                     getattr(config.alert_config, 'alert_value', ['JSON']) if hasattr(config.alert_config, 'alert_value') else ['JSON'])
                             }
             })
+        if zone_analysis:
+                human_text_lines=[]
+                current_timestamp = self._get_current_timestamp_str(stream_info, frame_id=frame_id)
+                start_timestamp = self._get_start_timestamp_str(stream_info)
+                human_text_lines.append(f"CURRENT FRAME @ {current_timestamp}:")
+                def robust_zone_total(zone_count):
+                    if isinstance(zone_count, dict):
+                        total = 0
+                        for v in zone_count.values():
+                            if isinstance(v, int):
+                                total += v
+                            elif isinstance(v, list) and total==0:
+                                total += len(v)
+                        return total
+                    elif isinstance(zone_count, list):
+                        return len(zone_count)
+                    elif isinstance(zone_count, int):
+                        return zone_count
+                    else:
+                        return 0
+                human_text_lines.append(f"\t- People Detected: {total_people}")
+                human_text_lines.append("")
+                human_text_lines.append(f"TOTAL SINCE @ {start_timestamp}:")
+                
+                for zone_name, zone_count in zone_analysis.items():
+                        zone_total = robust_zone_total(zone_count)
+                        human_text_lines.append(f"\t- Zone name: {zone_name}")
+                        human_text_lines.append(f"\t\t- Total count in zone: {zone_total-1}")
 
-        # Human text with counter info
-        human_text = self._generate_human_text_for_tracking(total_people, total_unique_count, config, frame_id, alerts, stream_info, counter=counter)
+                if total_unique_count > 0:
+                    human_text_lines.append(f"\t- Total unique people in the scene: {total_unique_count}")
+                if alerts:
+                    for alert in alerts:
+                        human_text_lines.append(f"Alerts: {alert.get('settings', {})} sent @ {current_timestamp}")
+                else:
+                    human_text_lines.append("Alerts: None")
+
+                # Add line crossing to human_text if available
+                if line_analysis and line_analysis.get("total_crossings"):
+                    human_text_lines.append("")
+                    human_text_lines.append("\t- Line Crossings:")
+                    for direction, count in line_analysis["total_crossings"].items():
+                        from_side, to_side = direction.split("_to_")
+                        from_label = self._side1_label if from_side == "side1" else self._side2_label
+                        to_label = self._side1_label if to_side == "side1" else self._side2_label
+                        human_text_lines.append(f"\t\t- From {from_label} to {to_label}: {count}")
+
+                human_text = "\n".join(human_text_lines)  
+        else:      
+            human_text = self._generate_human_text_for_tracking(total_people, total_unique_count, config, frame_id, alerts, stream_info)
         
-        # Timestamps
+         # Create high precision timestamps for input_timestamp and reset_timestamp
         high_precision_start_timestamp = self._get_current_timestamp_str(stream_info, precision=True, frame_id=frame_id)
         high_precision_reset_timestamp = self._get_start_timestamp_str(stream_info, precision=True)
-
+        # Create tracking_stat using standardized method
         tracking_stat = self.create_tracking_stats(
-            total_counts, current_counts, detections, human_text, camera_info, alerts, alert_settings,
-            start_time=high_precision_start_timestamp, reset_time=high_precision_reset_timestamp
+            total_counts, current_counts, detections, human_text, camera_info, alerts, alert_settings, start_time=high_precision_start_timestamp, reset_time=high_precision_reset_timestamp
         )
         
         return [tracking_stat]
     
-    def _generate_human_text_for_tracking(self, total_people: int, total_unique_count: int, config: PeopleTrackingConfig, frame_id: str, alerts: Any=[], stream_info: Optional[Dict[str, Any]] = None, counter=None) -> str:
-        """Generate human-readable text for tracking stats."""
-        human_text_lines = []
+    def _generate_human_text_for_tracking(self, total_people: int, total_unique_count: int, config: PeopleTrackingConfig, frame_id: str, alerts:Any=[], stream_info: Optional[Dict[str, Any]] = None) -> str:
+        """Generate human-readable text for tracking stats in old format."""
+        from datetime import datetime, timezone
+        
+        human_text_lines=[]
         current_timestamp = self._get_current_timestamp_str(stream_info, precision=True, frame_id=frame_id)
         start_timestamp = self._get_start_timestamp_str(stream_info, precision=True)
 
         human_text_lines.append(f"CURRENT FRAME @ {current_timestamp}:")
         human_text_lines.append(f"\t- People Detected: {total_people}")
-        if counter is not None:
-            human_text_lines.append(f"\t- Present count: {counter.present_count}")
-            human_text_lines.append(f"\t- New in: {getattr(counter, 'new_in', 0)}")
-            human_text_lines.append(f"\t- New out: {getattr(counter, 'new_out', 0)}")
 
         human_text_lines.append("")
-        human_text_lines.append(f"TOTAL SINCE @ {start_timestamp}:")
-        if counter is not None:
-            human_text_lines.append(f"\t- Total In: {counter.total_in}")
-            human_text_lines.append(f"\t- Total Out: {counter.total_out}")
         if total_unique_count > 0:
+            human_text_lines.append(f"TOTAL SINCE @ {start_timestamp}:")
             human_text_lines.append(f"\t- Total unique people count: {total_unique_count}")
 
         if alerts:
@@ -783,15 +699,55 @@ class PeopleTrackingUseCase(BaseProcessor):
                     })
                 elif category in counting_summary.get("by_category", {}):
                     count = counting_summary["by_category"][category]
+
                     if count >= threshold:
                         alerts.append({
+                        "alert_type": getattr(config.alert_config, 'alert_type', ['Default']) if hasattr(config.alert_config, 'alert_type') else ['Default'],
+                        "alert_id": "alert_"+category+'_'+frame_id,
+                        "incident_category": self.CASE_TYPE,
+                        "threshold_level": threshold,
+                        "ascending": get_trend(self._ascending_alert_list, lookback=900, threshold=0.8),
+                        "settings": {t: v for t, v in zip(getattr(config.alert_config, 'alert_type', ['Default']) if hasattr(config.alert_config, 'alert_type') else ['Default'],
+                                     getattr(config.alert_config, 'alert_value', ['JSON']) if hasattr(config.alert_config, 'alert_value') else ['JSON'])
+                                    }                    
+                    })
+        else: 
+            pass
+        
+        # Zone occupancy threshold alerts
+        if hasattr(config.alert_config, 'occupancy_thresholds') and config.alert_config.occupancy_thresholds:
+            for zone_name, threshold in config.alert_config.occupancy_thresholds.items():
+                if zone_name in zone_analysis:
+                    # Calculate zone_count robustly (supports int, list, dict values)
+                    print('ZONEEE',zone_name, zone_analysis[zone_name])
+                    zone_count = self._robust_zone_total(zone_analysis[zone_name])
+                    if zone_count >= threshold:
+                        alerts.append({
+                        "alert_type": getattr(config.alert_config, 'alert_type', ['Default']) if hasattr(config.alert_config, 'alert_type') else ['Default'],
+                        "alert_id": f"alert_zone_{zone_name}_{frame_id}",
+                        "incident_category": f"{self.CASE_TYPE}_{zone_name}",
+                        "threshold_level": threshold,
+                        "ascending": get_trend(self._ascending_alert_list, lookback=900, threshold=0.8),
+                        "settings": {t: v for t, v in zip(getattr(config.alert_config, 'alert_type', ['Default']) if hasattr(config.alert_config, 'alert_type') else ['Default'],
+                                     getattr(config.alert_config, 'alert_value', ['JSON']) if hasattr(config.alert_config, 'alert_value') else ['JSON'])
+                                    }                    
+                    })
+
+        # Line crossing threshold alerts
+        if hasattr(config.alert_config, 'crossing_thresholds') and config.alert_config.crossing_thresholds and line_analysis:
+            for direction_key, threshold in config.alert_config.crossing_thresholds.items():
+                if direction_key in line_analysis.get("total_crossings", {}):
+                    crossing_count = line_analysis["total_crossings"][direction_key]
+                    if crossing_count >= threshold:
+                        alerts.append({
                             "alert_type": getattr(config.alert_config, 'alert_type', ['Default']) if hasattr(config.alert_config, 'alert_type') else ['Default'],
-                            "alert_id": "alert_"+category+'_'+frame_id,
-                            "incident_category": self.CASE_TYPE,
+                            "alert_id": f"alert_crossing_{direction_key}_{frame_id}",
+                            "incident_category": f"{self.CASE_TYPE}_Crossing_{direction_key}",
                             "threshold_level": threshold,
                             "ascending": get_trend(self._ascending_alert_list, lookback=900, threshold=0.8),
                             "settings": {t: v for t, v in zip(getattr(config.alert_config, 'alert_type', ['Default']) if hasattr(config.alert_config, 'alert_type') else ['Default'],
-                                         getattr(config.alert_config, 'alert_value', ['JSON']) if hasattr(config.alert_config, 'alert_value') else ['JSON'])}                    
+                                         getattr(config.alert_config, 'alert_value', ['JSON']) if hasattr(config.alert_config, 'alert_value') else ['JSON'])
+                                        }
                         })
         
         return alerts
@@ -801,12 +757,14 @@ class PeopleTrackingUseCase(BaseProcessor):
         if is_empty:
             return []
         business_analytics = []
+
         total_people = counting_summary.get("total_objects", 0)
         
         # Get camera info using standardized method
         camera_info = self.get_camera_info_from_stream(stream_info)
         
         if total_people > 0 or config.enable_analytics:
+            # Calculate analytics statistics
             analytics_stats = {
                 "people_count": total_people,
                 "unique_people_count": self.get_total_count(),
@@ -856,9 +814,78 @@ class PeopleTrackingUseCase(BaseProcessor):
 
         return ["\n".join(lines)]
                 
+    def _calculate_metrics(self, counting_summary: Dict, zone_analysis: Dict, 
+                          config: PeopleTrackingConfig, context: ProcessingContext) -> Dict[str, Any]:
+        """Calculate detailed metrics for analytics."""
+        total_people = counting_summary.get("total_objects", 0)
+        
+        metrics = {
+            "total_people": total_people,
+            "processing_time": context.processing_time or 0.0,
+            "input_format": context.input_format.value,
+            "confidence_threshold": config.confidence_threshold,
+            "zones_analyzed": len(zone_analysis),
+            "detection_rate": 0.0,
+            "coverage_percentage": 0.0
+        }
+        
+        # Calculate detection rate
+        if config.time_window_minutes and config.time_window_minutes > 0:
+            metrics["detection_rate"] = (total_people / config.time_window_minutes) * 60
+        
+        # Calculate zone coverage
+        if zone_analysis and total_people > 0:
+            people_in_zones = 0
+            for zone_counts in zone_analysis.values():
+                if isinstance(zone_counts, dict):
+                    for v in zone_counts.values():
+                        if isinstance(v, int):
+                            people_in_zones += v
+                        elif isinstance(v, list):
+                            people_in_zones += len(v)
+                elif isinstance(zone_counts, list):
+                    people_in_zones += len(zone_counts)
+                elif isinstance(zone_counts, int):
+                    people_in_zones += zone_counts
+            metrics["coverage_percentage"] = (people_in_zones / total_people) * 100
+        
+        # Unique tracking metrics
+        if config.enable_unique_counting:
+            unique_count = self._count_unique_tracks(counting_summary, config)
+            if unique_count is not None:
+                metrics["unique_people"] = unique_count
+                metrics["tracking_efficiency"] = (unique_count / total_people) * 100 if total_people > 0 else 0
+        
+        # Per-zone metrics
+        if zone_analysis:
+            zone_metrics = {}
+            for zone_name, zone_counts in zone_analysis.items():
+                # Robustly sum counts, handling dicts with int or list values
+                if isinstance(zone_counts, dict):
+                    zone_total = 0
+                    for v in zone_counts.values():
+                        if isinstance(v, int):
+                            zone_total += v
+                        elif isinstance(v, list):
+                            zone_total += len(v)
+                elif isinstance(zone_counts, list):
+                    zone_total = len(zone_counts)
+                elif isinstance(zone_counts, int):
+                    zone_total = zone_counts
+                else:
+                    zone_total = 0
+                zone_metrics[zone_name] = {
+                    "count": zone_total,
+                    "percentage": (zone_total / total_people) * 100 if total_people > 0 else 0
+                }
+            metrics["zone_metrics"] = zone_metrics
+        
+        return metrics
+    
     def _extract_predictions(self, data: Any) -> List[Dict[str, Any]]:
         """Extract predictions from processed data for API compatibility."""
         predictions = []
+        
         try:
             if isinstance(data, list):
                 # Detection format
@@ -1146,55 +1173,119 @@ class PeopleTrackingUseCase(BaseProcessor):
         return old_current_count
     
     def reset_frame_counter(self) -> None:
+        """Reset only the frame counter."""
+        old_count = self._total_frame_counter
         self._total_frame_counter = 0
+        self.logger.info(f"Frame counter reset from {old_count} to 0")
     
     def clear_expired_tracks(self, max_age_seconds: float = 300.0) -> int:
+        """
+        MANUAL USE ONLY: Clear current frame tracking data if no updates for a while.
+        
+          This method is NOT called automatically anywhere in the code.
+        It's provided as a utility function for manual cleanup if needed.
+        
+        In streaming scenarios, you typically don't need to call this at all.
+        The cumulative total should keep growing as new unique people are detected.
+        
+        This method only clears current frame tracking data while preserving
+        the cumulative total count. The cumulative total should never decrease.
+        
+        Args:
+            max_age_seconds: Maximum age in seconds before clearing current frame tracks
+            
+        Returns:
+            Number of current frame tracks cleared
+        """
         current_time = time.time()
         if current_time - self._last_update_time > max_age_seconds:
-            return self.clear_current_frame_tracking()
+            # Use the safe method that preserves cumulative totals
+            cleared_count = self.clear_current_frame_tracking()
+            self.logger.info(f"Manual cleanup: cleared {cleared_count} expired current frame tracks (age > {max_age_seconds}s)")
+            return cleared_count
         return 0
-
+    
     def _update_zone_tracking(self, zone_analysis: Dict[str, Dict[str, int]], detections: List[Dict], config: PeopleTrackingConfig) -> Dict[str, Dict[str, Any]]:
-        """Update zone tracking with current frame data."""
+        """
+        Update zone tracking with current frame data.
+        
+        Args:
+            zone_analysis: Current zone analysis results
+            detections: List of detections with track IDs
+            config: People counting configuration with zone polygons
+            
+        Returns:
+            Enhanced zone analysis with tracking information
+        """
         if not zone_analysis or not config.zone_config or not config.zone_config.zones:
             return {}
+        
         enhanced_zone_analysis = {}
         zones = config.zone_config.zones
+        
+        # Get current frame track IDs in each zone
         current_frame_zone_tracks = {}
+        
+        # Initialize zone tracking for all zones
         for zone_name in zones.keys():
             current_frame_zone_tracks[zone_name] = set()
             if zone_name not in self._zone_current_track_ids:
                 self._zone_current_track_ids[zone_name] = set()
             if zone_name not in self._zone_total_track_ids:
                 self._zone_total_track_ids[zone_name] = set()
+        
+        # Check each detection against each zone
         for detection in detections:
             track_id = detection.get("track_id")
             if track_id is None:
                 continue
+            
+            # Get detection bbox
             bbox = detection.get("bounding_box", detection.get("bbox"))
             if not bbox:
                 continue
-            center_point = get_bbox_bottom25_center(bbox)
+            
+            # Get detection center point
+            center_point = get_bbox_bottom25_center(bbox) #get_bbox_center(bbox)
+            
+            # Check which zone this detection is in using actual zone polygons
             for zone_name, zone_polygon in zones.items():
+                # Convert polygon points to tuples for point_in_polygon function
+                # zone_polygon format: [[x1, y1], [x2, y2], [x3, y3], ...]
                 polygon_points = [(point[0], point[1]) for point in zone_polygon]
+                
+                # Check if detection center is inside the zone polygon using ray casting algorithm
                 if point_in_polygon(center_point, polygon_points):
                     current_frame_zone_tracks[zone_name].add(track_id)
+        
+        # Update zone tracking for each zone
         for zone_name, zone_counts in zone_analysis.items():
+            # Get current frame tracks for this zone
             current_tracks = current_frame_zone_tracks.get(zone_name, set())
+            
+            # Update current zone tracks
             self._zone_current_track_ids[zone_name] = current_tracks
+            
+            # Update total zone tracks (accumulate all track IDs that have been in this zone)
             self._zone_total_track_ids[zone_name].update(current_tracks)
+            
+            # Update counts
             self._zone_current_counts[zone_name] = len(current_tracks)
             self._zone_total_counts[zone_name] = len(self._zone_total_track_ids[zone_name])
+            
+            # Create enhanced zone analysis
             enhanced_zone_analysis[zone_name] = {
                 "current_count": self._zone_current_counts[zone_name],
                 "total_count": self._zone_total_counts[zone_name],
                 "current_track_ids": list(current_tracks),
                 "total_track_ids": list(self._zone_total_track_ids[zone_name]),
-                "original_counts": zone_counts
+                "original_counts": zone_counts  # Preserve original zone counts
             }
+        
         return enhanced_zone_analysis
-
+    
     def get_zone_tracking_info(self) -> Dict[str, Dict[str, Any]]:
+        """Get detailed zone tracking information."""
         return {
             zone_name: {
                 "current_count": self._zone_current_counts.get(zone_name, 0),
@@ -1206,12 +1297,15 @@ class PeopleTrackingUseCase(BaseProcessor):
         }
     
     def get_zone_current_count(self, zone_name: str) -> int:
+        """Get current count of people in a specific zone."""
         return self._zone_current_counts.get(zone_name, 0)
     
     def get_zone_total_count(self, zone_name: str) -> int:
+        """Get total count of people who have been in a specific zone."""
         return self._zone_total_counts.get(zone_name, 0)
     
     def get_all_zone_counts(self) -> Dict[str, Dict[str, int]]:
+        """Get current and total counts for all zones."""
         return {
             zone_name: {
                 "current": self._zone_current_counts.get(zone_name, 0),
@@ -1224,149 +1318,116 @@ class PeopleTrackingUseCase(BaseProcessor):
         """Update line crossing tracking with current frame data and detect crossings."""
         if not line_config or not line_config.points or len(line_config.points) != 2:
             return {}
+
+        # Initialize if not set
         self._side1_label = line_config.side1_label
         self._side2_label = line_config.side2_label
-        direction1 = "side1_to_side2"
-        direction2 = "side2_to_side1"
+        direction1 = f"side1_to_side2"
+        direction2 = f"side2_to_side1"
         if direction1 not in self._line_crossed_tracks:
             self._line_crossed_tracks[direction1] = set()
         if direction2 not in self._line_crossed_tracks:
             self._line_crossed_tracks[direction2] = set()
+
         crossings_this_frame = {direction1: 0, direction2: 0}
+
         for detection in detections:
             canonical_id = detection.get("track_id")
             if canonical_id not in self._canonical_tracks:
                 continue
+
             info = self._canonical_tracks[canonical_id]
             if "last_side" not in info:
                 info["last_side"] = None
+
             bbox = detection.get("bounding_box", detection.get("bbox"))
             if not bbox:
                 continue
+
             center = get_bbox_bottom25_center(bbox)
             side = self._compute_side(center, line_config.points)
+
             if info["last_side"] is None:
                 if side != "on_line":
                     info["last_side"] = side
                 continue
+
             if side != info["last_side"] and side != "on_line":
                 direction = f"{info['last_side']}_to_{side}"
                 if canonical_id not in self._line_crossed_tracks.get(direction, set()):
                     self._line_crossed_tracks[direction].add(canonical_id)
                     crossings_this_frame[direction] += 1
                 info["last_side"] = side
-            elif side != "on_line":
+            elif side == "on_line":
+                # Keep previous side if on the line
+                pass
+            else:
                 info["last_side"] = side
+
         total_crossings = {dir: len(tracks) for dir, tracks in self._line_crossed_tracks.items()}
-        return {"crossings_this_frame": crossings_this_frame, "total_crossings": total_crossings}
+
+        return {
+            "crossings_this_frame": crossings_this_frame,
+            "total_crossings": total_crossings
+        }
 
     def _compute_side(self, point: tuple, line_points: List[List[float]]) -> str:
+        """Compute which side of the line the point is on."""
         if not line_points or len(line_points) != 2:
             return "on_line"
+
         (x1, y1), (x2, y2) = line_points
-        dx = x2 - x1; dy = y2 - y1
+        dx = x2 - x1
+        dy = y2 - y1
         px, py = point
         cross = (px - x1) * dy - (py - y1) * dx
-        if cross > 0: return "side1"
-        elif cross < 0: return "side2"
-        else: return "on_line"
 
-    def _robust_zone_total(self, zone_count):
-        if isinstance(zone_count, dict):
-            total = 0
-            for v in zone_count.values():
-                if isinstance(v, int): total += v
-                elif isinstance(v, list): total += len(v)
-            return total
-        elif isinstance(zone_count, list): return len(zone_count)
-        elif isinstance(zone_count, int): return zone_count
-        else: return 0
-
-    # --------------------------------------------------------------------- #
-    # Private helpers for canonical track aliasing                          #
-    # --------------------------------------------------------------------- #
-
-    def _compute_iou(self, box1: Any, box2: Any) -> float:
-        if isinstance(box1, dict) and isinstance(box2, dict):
-            return calculate_iou(box1, box2)
-        def _bbox_to_list(bbox):
-            if bbox is None: return []
-            if isinstance(bbox, list): return bbox[:4] if len(bbox) >= 4 else []
-            if isinstance(bbox, dict):
-                if "xmin" in bbox: return [bbox["xmin"], bbox["ymin"], bbox["xmax"], bbox["ymax"]]
-                if "x1" in bbox: return [bbox["x1"], bbox["y1"], bbox["x2"], bbox["y2"]]
-                values = list(bbox.values())
-                return values[:4] if len(values) >= 4 else []
-            return []
-        list1 = _bbox_to_list(box1); list2 = _bbox_to_list(box2)
-        if len(list1) < 4 or len(list2) < 4: return 0.0
-        x1_min, y1_min, x1_max, y1_max = list1
-        x2_min, y2_min, x2_max, y2_max = list2
-        x1_min, x1_max = min(x1_min, x1_max), max(x1_min, x1_max)
-        y1_min, y1_max = min(y1_min, y1_max), max(y1_min, y1_max)
-        x2_min, x2_max = min(x2_min, x2_max), max(x2_min, x2_max)
-        y2_min, y2_max = min(y2_min, y2_max), max(y2_min, y2_max)
-        inter_x_min = max(x1_min, x2_min); inter_y_min = max(y1_min, y2_min)
-        inter_x_max = min(x1_max, x2_max); inter_y_max = min(y1_max, y2_max)
-        inter_w = max(0.0, inter_x_max - inter_x_min)
-        inter_h = max(0.0, inter_y_max - inter_y_min)
-        inter_area = inter_w * inter_h
-        area1 = (x1_max - x1_min) * (y1_max - y1_min)
-        area2 = (x2_max - x2_min) * (y2_max - y2_min)
-        union_area = area1 + area2 - inter_area
-        return (inter_area / union_area) if union_area > 0 else 0.0
-
-    def _get_canonical_id(self, raw_id: Any) -> Any:
-        return self._track_aliases.get(raw_id, raw_id)
-
-    def _merge_or_register_track(self, raw_id: Any, bbox: List[float]) -> Any:
-        now = time.time()
-        if raw_id in self._track_aliases:
-            canonical_id = self._track_aliases[raw_id]
-            track_info = self._canonical_tracks.get(canonical_id)
-            if track_info is not None:
-                track_info["last_bbox"] = bbox
-                track_info["last_update"] = now
-                track_info["raw_ids"].add(raw_id)
-            return canonical_id
-        for canonical_id, info in self._canonical_tracks.items():
-            if now - info["last_update"] > self._track_merge_time_window:
-                continue
-            iou = self._compute_iou(bbox, info["last_bbox"])
-            if iou >= self._track_merge_iou_threshold:
-                self._track_aliases[raw_id] = canonical_id
-                info["last_bbox"] = bbox; info["last_update"] = now; info["raw_ids"].add(raw_id)
-                return canonical_id
-        canonical_id = raw_id
-        self._track_aliases[raw_id] = canonical_id
-        self._canonical_tracks[canonical_id] = {
-            "last_bbox": bbox, "last_update": now, "raw_ids": {raw_id}, "last_side": None
-        }
-        return canonical_id
-
-    # --------------------------------------------------------------------- #
-    # Timestamp helpers                                                     #
-    # --------------------------------------------------------------------- #
+        if cross > 0:
+            return "side1"
+        elif cross < 0:
+            return "side2"
+        else:
+            return "on_line"
 
     def _format_timestamp_for_stream(self, timestamp: float) -> str:
+        """Format timestamp for streams (YYYY:MM:DD HH:MM:SS format)."""
         dt = datetime.fromtimestamp(float(timestamp), tz=timezone.utc)
         return dt.strftime('%Y:%m:%d %H:%M:%S')
 
     def _format_timestamp_for_video(self, timestamp: float) -> str:
+        """Format timestamp for video chunks (HH:MM:SS.ms format)."""
         hours = int(timestamp // 3600)
         minutes = int((timestamp % 3600) // 60)
-        seconds = round(float(timestamp % 60), 2)
+        seconds = round(float(timestamp % 60),2)
         return f"{hours:02d}:{minutes:02d}:{seconds:.1f}"
 
     def _get_current_timestamp_str(self, stream_info: Optional[Dict[str, Any]], precision=False, frame_id: Optional[str]=None) -> str:
+        """Get formatted current timestamp based on stream type."""
+        print('STREAM INFO-------------------------------')
+        print(stream_info)
         if not stream_info:
             return "00:00:00.00"
         if precision:
             if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
+                if frame_id:
+                    start_time = int(frame_id)/stream_info.get("input_settings", {}).get("original_fps", 30)
+                else:
+                    start_time = stream_info.get("input_settings", {}).get("start_frame", 30)/stream_info.get("input_settings", {}).get("original_fps", 30)
+                stream_time_str = self._format_timestamp_for_video(start_time)
+                
+
                 return self._format_timestamp(stream_info.get("input_settings", {}).get("stream_time", "NA"))
             else:
                 return datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
+
         if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
+            if frame_id:
+                start_time = int(frame_id)/stream_info.get("input_settings", {}).get("original_fps", 30)
+            else:
+                start_time = stream_info.get("input_settings", {}).get("start_frame", 30)/stream_info.get("input_settings", {}).get("original_fps", 30)
+
+            stream_time_str = self._format_timestamp_for_video(start_time)
+            
             return self._format_timestamp(stream_info.get("input_settings", {}).get("stream_time", "NA"))
         else:
             stream_time_str = stream_info.get("input_settings", {}).get("stream_info", {}).get("stream_time", "")
@@ -1382,8 +1443,12 @@ class PeopleTrackingUseCase(BaseProcessor):
                 return self._format_timestamp_for_stream(time.time())
 
     def _get_start_timestamp_str(self, stream_info: Optional[Dict[str, Any]], precision=False) -> str:
+        """Get formatted start timestamp for 'TOTAL SINCE' based on stream type."""
         if not stream_info:
             return "00:00:00"
+        print('STARTTT STREAM INFO-------------------------------')
+        print(stream_info)
+        
         if precision:
             if self.start_timer is None:
                 self.start_timer = stream_info.get("input_settings", {}).get("stream_time", "NA")
@@ -1393,15 +1458,18 @@ class PeopleTrackingUseCase(BaseProcessor):
                 return self._format_timestamp(self.start_timer)
             else:
                 return self._format_timestamp(self.start_timer)
+
         if self.start_timer is None:
             self.start_timer = stream_info.get("input_settings", {}).get("stream_time", "NA")
             return self._format_timestamp(self.start_timer)
         elif stream_info.get("input_settings", {}).get("start_frame", "na") == 1:
             self.start_timer = stream_info.get("input_settings", {}).get("stream_time", "NA")
             return self._format_timestamp(self.start_timer)
+        
         else:
             if self.start_timer is not None:
                 return self._format_timestamp(self.start_timer)
+
             if self._tracking_start_time is None:
                 stream_time_str = stream_info.get("input_settings", {}).get("stream_info", {}).get("stream_time", "")
                 if stream_time_str:
@@ -1413,75 +1481,340 @@ class PeopleTrackingUseCase(BaseProcessor):
                         self._tracking_start_time = time.time()
                 else:
                     self._tracking_start_time = time.time()
+
             dt = datetime.fromtimestamp(self._tracking_start_time, tz=timezone.utc)
             dt = dt.replace(minute=0, second=0, microsecond=0)
             return dt.strftime('%Y:%m:%d %H:%M:%S')
-
+    
     def _extract_frame_id_from_tracking(self, frame_detections: List[Dict], frame_key: str) -> str:
+        """Extract frame ID from tracking data."""
+        # Priority 1: Check if detections have frame information
         if frame_detections and len(frame_detections) > 0:
             first_detection = frame_detections[0]
             if "frame" in first_detection:
                 return str(first_detection["frame"])
             elif "frame_id" in first_detection:
                 return str(first_detection["frame_id"])
+        # Priority 2: Use frame_key from input data
         return str(frame_key)
+    
+    def _robust_zone_total(self, zone_count):
+        """Helper method to robustly calculate zone total."""
+        if isinstance(zone_count, dict):
+            total = 0
+            for v in zone_count.values():
+                if isinstance(v, int):
+                    total += v
+                elif isinstance(v, list):
+                    total += len(v)
+            return total
+        elif isinstance(zone_count, list):
+            return len(zone_count)
+        elif isinstance(zone_count, int):
+            return zone_count
+        else:
+            return 0
+    
+    # --------------------------------------------------------------------- #
+    # Private helpers for canonical track aliasing                          #
+    # --------------------------------------------------------------------- #
+
+    def _compute_iou(self, box1: Any, box2: Any) -> float:
+        """Compute IoU between two bounding boxes that may be either list or dict.
+        Falls back to geometry_utils.calculate_iou when both boxes are dicts.
+        """
+        # Handle dict format directly with calculate_iou (supports many keys)
+        if isinstance(box1, dict) and isinstance(box2, dict):
+            return calculate_iou(box1, box2)
+
+        # Helper to convert bbox (dict or list) to a list [x1,y1,x2,y2]
+        def _bbox_to_list(bbox):
+            if bbox is None:
+                return []
+            if isinstance(bbox, list):
+                return bbox[:4] if len(bbox) >= 4 else []
+            if isinstance(bbox, dict):
+                if "xmin" in bbox:
+                    return [bbox["xmin"], bbox["ymin"], bbox["xmax"], bbox["ymax"]]
+                if "x1" in bbox:
+                    return [bbox["x1"], bbox["y1"], bbox["x2"], bbox["y2"]]
+                # Fallback: take first four values in insertion order
+                values = list(bbox.values())
+                return values[:4] if len(values) >= 4 else []
+            # Unsupported type
+            return []
+
+        list1 = _bbox_to_list(box1)
+        list2 = _bbox_to_list(box2)
+
+        if len(list1) < 4 or len(list2) < 4:
+            return 0.0
+
+        x1_min, y1_min, x1_max, y1_max = list1
+        x2_min, y2_min, x2_max, y2_max = list2
+
+        # Ensure correct ordering of coordinates
+        x1_min, x1_max = min(x1_min, x1_max), max(x1_min, x1_max)
+        y1_min, y1_max = min(y1_min, y1_max), max(y1_min, y1_max)
+        x2_min, x2_max = min(x2_min, x2_max), max(x2_min, x2_max)
+        y2_min, y2_max = min(y2_min, y2_max), max(y2_min, y2_max)
+
+        inter_x_min = max(x1_min, x2_min)
+        inter_y_min = max(y1_min, y2_min)
+        inter_x_max = min(x1_max, x2_max)
+        inter_y_max = min(y1_max, y2_max)
+
+        inter_w = max(0.0, inter_x_max - inter_x_min)
+        inter_h = max(0.0, inter_y_max - inter_y_min)
+        inter_area = inter_w * inter_h
+
+        area1 = (x1_max - x1_min) * (y1_max - y1_min)
+        area2 = (x2_max - x2_min) * (y2_max - y2_min)
+        union_area = area1 + area2 - inter_area
+
+        return (inter_area / union_area) if union_area > 0 else 0.0
+
+    def _get_canonical_id(self, raw_id: Any) -> Any:
+        """Return the canonical ID for a raw tracker-generated ID."""
+        return self._track_aliases.get(raw_id, raw_id)
+
+    def _merge_or_register_track(self, raw_id: Any, bbox: List[float]) -> Any:
+        """Merge the raw track into an existing canonical track if possible,
+        otherwise register it as a new canonical track. Returns the canonical
+        ID to use for counting.
+        """
+        now = time.time()
+
+        # Fast path: raw_id already mapped
+        if raw_id in self._track_aliases:
+            canonical_id = self._track_aliases[raw_id]
+            track_info = self._canonical_tracks.get(canonical_id)
+            if track_info is not None:
+                track_info["last_bbox"] = bbox
+                track_info["last_update"] = now
+                track_info["raw_ids"].add(raw_id)
+            return canonical_id
+
+        # Attempt to merge with an existing canonical track
+        for canonical_id, info in self._canonical_tracks.items():
+            # Only consider recently updated tracks to avoid stale matches
+            if now - info["last_update"] > self._track_merge_time_window:
+                continue
+
+            iou = self._compute_iou(bbox, info["last_bbox"])
+            if iou >= self._track_merge_iou_threshold:
+                # Merge raw_id into canonical track
+                self._track_aliases[raw_id] = canonical_id
+                info["last_bbox"] = bbox
+                info["last_update"] = now
+                info["raw_ids"].add(raw_id)
+                self.logger.debug(
+                    f"Merged raw track {raw_id} into canonical track {canonical_id} (IoU={iou:.2f})")
+                return canonical_id
+
+        # No match found – create a new canonical track
+        canonical_id = raw_id
+        self._track_aliases[raw_id] = canonical_id
+        self._canonical_tracks[canonical_id] = {
+            "last_bbox": bbox,
+            "last_update": now,
+            "raw_ids": {raw_id},
+            "last_side": None  # Initialize last_side for line crossing
+        }
+        self.logger.debug(f"Registered new canonical track {canonical_id}")
+        return canonical_id 
 
     def _format_timestamp(self, timestamp: Any) -> str:
-        """Format a timestamp so that exactly two digits follow the decimal point."""
+        """Format a timestamp so that exactly two digits follow the decimal point (milliseconds).
+
+        The input can be either:
+        1. A numeric Unix timestamp (``float`` / ``int``) – it will first be converted to a
+           string in the format ``YYYY-MM-DD-HH:MM:SS.ffffff UTC``.
+        2. A string already following the same layout.
+
+        The returned value preserves the overall format of the input but truncates or pads
+        the fractional seconds portion to **exactly two digits**.
+
+        Example
+        -------
+        >>> self._format_timestamp("2025-08-19-04:22:47.187574 UTC")
+        '2025-08-19-04:22:47.18 UTC'
+        """
+
+        # Convert numeric timestamps to the expected string representation first
         if isinstance(timestamp, (int, float)):
-            timestamp = datetime.fromtimestamp(timestamp, timezone.utc).strftime('%Y-%m-%d-%H:%M:%S.%f UTC')
+            timestamp = datetime.fromtimestamp(timestamp, timezone.utc).strftime(
+                '%Y-%m-%d-%H:%M:%S.%f UTC'
+            )
+
+        # Ensure we are working with a string from here on
         if not isinstance(timestamp, str):
             return str(timestamp)
+
+        # If there is no fractional component, simply return the original string
         if '.' not in timestamp:
             return timestamp
+
+        # Split out the main portion (up to the decimal point)
         main_part, fractional_and_suffix = timestamp.split('.', 1)
+
+        # Separate fractional digits from the suffix (typically ' UTC')
         if ' ' in fractional_and_suffix:
             fractional_part, suffix = fractional_and_suffix.split(' ', 1)
-            suffix = ' ' + suffix
+            suffix = ' ' + suffix  # Re-attach the space removed by split
         else:
             fractional_part, suffix = fractional_and_suffix, ''
+
+        # Guarantee exactly two digits for the fractional part
         fractional_part = (fractional_part + '00')[:2]
+
         return f"{main_part}.{fractional_part}{suffix}"
 
     def _get_tracking_start_time(self) -> str:
+        """Get the tracking start time, formatted as a string."""
         if self._tracking_start_time is None:
             return "N/A"
         return self._format_timestamp(self._tracking_start_time)
 
     def _set_tracking_start_time(self) -> None:
+        """Set the tracking start time to the current time."""
         self._tracking_start_time = time.time()
 
-    # --------------------------------------------------------------------- #
-    # Config helpers                                                        #
-    # --------------------------------------------------------------------- #
-
     def get_config_schema(self) -> Dict[str, Any]:
+        """Get configuration schema for people counting."""
         return {
             "type": "object",
             "properties": {
-                "method": {"type": "string", "enum": ["polygon", "abline"], "default": "polygon"},
-                "use_foot_center": {"type": "boolean", "default": True},
-                "confidence_threshold": {"type": "number", "minimum": 0.0, "maximum": 1.0, "default": 0.5},
-                "outer_polygon": {"type": "array", "description": "Outer polygon vertices [[x,y], ...]"},
-                "inner_polygon": {"type": ["array", "null"]},
-                "inner_polygon_offset": {"type": "integer", "default": 20},
-                "line_a": {"type": ["array", "null"]},
-                "line_b": {"type": ["array", "null"]},
-                "in_direction": {"type": "string", "enum": ["A_to_B", "B_to_A"], "default": "A_to_B"},
-                "person_categories": {"type": "array", "items": {"type": "string"}, "default": ["person", "people"]},
-                "enable_advanced_tracker": {"type": "boolean", "default": True},
+                "confidence_threshold": {
+                    "type": "number",
+                    "minimum": 0.0,
+                    "maximum": 1.0,
+                    "default": 0.5,
+                    "description": "Minimum confidence threshold for detections"
+                },
+                "enable_tracking": {
+                    "type": "boolean",
+                    "default": False,
+                    "description": "Enable tracking for unique counting"
+                },
+                "zone_config": {
+                    "type": "object",
+                    "properties": {
+                        "zones": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "array",
+                                "items": {
+                                    "type": "array",
+                                    "items": {"type": "number"},
+                                    "minItems": 2,
+                                    "maxItems": 2
+                                },
+                                "minItems": 3
+                            },
+                            "description": "Zone definitions as polygons"
+                        },
+                        "zone_confidence_thresholds": {
+                            "type": "object",
+                            "additionalProperties": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+                            "description": "Per-zone confidence thresholds"
+                        }
+                    }
+                },
+                "line_config": {
+                    "type": "object",
+                    "properties": {
+                        "points": {
+                            "type": "array",
+                            "items": {
+                                "type": "array",
+                                "items": {"type": "number"},
+                                "minItems": 2,
+                                "maxItems": 2
+                            },
+                            "minItems": 2,
+                            "maxItems": 2,
+                            "description": "Line defined by two points [[x1,y1],[x2,y2]]"
+                        },
+                        "side1_label": {
+                            "type": "string",
+                            "default": "Side A",
+                            "description": "Label for one side of the line"
+                        },
+                        "side2_label": {
+                            "type": "string",
+                            "default": "Side B",
+                            "description": "Label for the other side of the line"
+                        }
+                    },
+                    "description": "Configuration for line crossing detection"
+                },
+                "person_categories": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "default": ["person", "people"],
+                    "description": "Category names that represent people"
+                },
+                "enable_unique_counting": {
+                    "type": "boolean",
+                    "default": True,
+                    "description": "Enable unique people counting using tracking"
+                },
+                "time_window_minutes": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "default": 60,
+                    "description": "Time window for counting analysis in minutes"
+                },
+                "alert_config": {
+                    "type": "object",
+                    "properties": {
+                        "count_thresholds": {
+                            "type": "object",
+                            "additionalProperties": {"type": "integer", "minimum": 1},
+                            "description": "Count thresholds for alerts"
+                        },
+                        "occupancy_thresholds": {
+                            "type": "object", 
+                            "additionalProperties": {"type": "integer", "minimum": 1},
+                            "description": "Zone occupancy thresholds for alerts"
+                        },
+                        "crossing_thresholds": {
+                            "type": "object",
+                            "additionalProperties": {"type": "integer", "minimum": 1},
+                            "description": "Line crossing thresholds for alerts, keys like 'Side A_to_Side B'"
+                        },
+                        "alert_type": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "default": ["Default"],
+                            "description": "To pass the type of alert. EG: email, sms, etc."
+                        },
+                        "alert_value": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "default": ["JSON"],
+                            "description": "Alert value to pass the value based on type. EG: email id if type is email."
+                        },
+                        "alert_incident_category": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "default": ["Incident Detection Alert"],
+                            "description": "Group and name the Alert category Type"
+                        },
+                    }
+                }
             },
-            "required": ["method"],
-            "additionalProperties": False,
+            "required": ["confidence_threshold"],
+            "additionalProperties": False
         }
     
     def create_default_config(self, **overrides) -> PeopleTrackingConfig:
+        """Create default configuration with optional overrides."""
         defaults = {
             "category": self.category,
             "usecase": self.name,
             "confidence_threshold": 0.5,
-            "method": "polygon",
-            "use_foot_center": True,
             "enable_tracking": False,
             "enable_analytics": True,
             "enable_unique_counting": True,
@@ -1503,6 +1836,7 @@ class PeopleTrackingUseCase(BaseProcessor):
                 enable_smoothing=True
             )
             self.smoothing_tracker = BBoxSmoothingTracker(smoothing_config)
+        
         smoothed_data = bbox_smoothing(data, self.smoothing_tracker.config, self.smoothing_tracker)
         self.logger.debug(f"Applied bbox smoothing to tracking results")
         return smoothed_data

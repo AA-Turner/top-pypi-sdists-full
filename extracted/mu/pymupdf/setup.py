@@ -159,11 +159,6 @@ Environmental variables:
     
     PYMUPDF_SETUP_PY_LIMITED_API
         If not '0', we build for current Python's stable ABI.
-        
-        However if unset and we are on Python-3.13 or later, we do
-        not build for the stable ABI because as of 2025-03-04 SWIG
-        generates incorrect stable ABI code with Python-3.13 - see:
-        https://github.com/swig/swig/issues/3059
     
     PYMUPDF_SETUP_URL_WHEEL
         If set, we use an existing wheel instead of building a new wheel.
@@ -236,11 +231,7 @@ python_version_tuple = tuple(int(x) for x in platform.python_version_tuple()[:2]
 PYMUPDF_SETUP_PY_LIMITED_API = os.environ.get('PYMUPDF_SETUP_PY_LIMITED_API')
 assert PYMUPDF_SETUP_PY_LIMITED_API in (None, '', '0', '1'), \
         f'Should be "", "0", "1" or undefined: {PYMUPDF_SETUP_PY_LIMITED_API=}.'
-if PYMUPDF_SETUP_PY_LIMITED_API is None and python_version_tuple >= (3, 13):
-    log(f'Not defaulting to Python limited api because {platform.python_version_tuple()=}.')
-    g_py_limited_api = False
-else:
-    g_py_limited_api = (PYMUPDF_SETUP_PY_LIMITED_API != '0')
+g_py_limited_api = (PYMUPDF_SETUP_PY_LIMITED_API != '0')
 
 PYMUPDF_SETUP_URL_WHEEL =  os.environ.get('PYMUPDF_SETUP_URL_WHEEL')
 log(f'{PYMUPDF_SETUP_URL_WHEEL=}')
@@ -1227,14 +1218,19 @@ def clean(all_):
     ret.append(f'{g_root}/src/build')
     
     path_mupdf, _ = get_mupdf()
-    ret.append(f'{path_mupdf}/platform/c++')
-    ret.append(f'{path_mupdf}/platform/python')
+    
+    # We remove mupdf directories directly with shutil.rmtree() instead of
+    # returning them to pipcl, because pipcl will deliberately fail if asked to
+    # remove things that are outside our checkout.
+    shutil.rmtree(f'{path_mupdf}/platform/c++', ignore_errors=True)
+    shutil.rmtree(f'{path_mupdf}/platform/python', ignore_errors=True)
+    
     if all_:
         # Clean mupdf C library.
-        ret.append(f'{path_mupdf}/build')
-        ret.append(f'{path_mupdf}/platform/win32')
-        ret.append(f'{path_mupdf}/platform/win32/Release')
-        ret.append(f'{path_mupdf}/platform/win32/x64')
+        shutil.rmtree(f'{path_mupdf}/build', ignore_errors=True)
+        shutil.rmtree(f'{path_mupdf}/platform/win32', ignore_errors=True)
+        shutil.rmtree(f'{path_mupdf}/platform/win32/Release', ignore_errors=True)
+        shutil.rmtree(f'{path_mupdf}/platform/win32/x64', ignore_errors=True)
     
     pipcl.log(f'Returning: {ret=}')
     return ret
@@ -1302,9 +1298,9 @@ classifier = [
 #
 
 # PyMuPDF version.
-version_p = '1.27.1'
+version_p = '1.27.2'
 
-version_mupdf = '1.27.1'
+version_mupdf = '1.27.2'
 
 # PyMuPDFb version. This is the PyMuPDF version whose PyMuPDFb wheels we will
 # (re)use if generating separate PyMuPDFb wheels. Though as of PyMuPDF-1.24.11
@@ -1447,9 +1443,8 @@ else:
             print(f'OpenBSD: pip install of swig does not build; assuming `pkg_add swig`.')
         elif PYMUPDF_SETUP_SWIG:
             pass
-        elif darwin or os.environ.get('PYODIDE_ROOT'):
-            # 2025-10-27: new swig-4.4.0 fails badly at runtime on macos.
-            # 2025-11-06: similar for pyodide.
+        elif darwin and python_version_tuple < (3, 13):
+            # Latest swig-4.4.1 gives director errors on macos with python<3.13.
             ret.append('swig==4.3.1')
         else:
             ret.append('swig')

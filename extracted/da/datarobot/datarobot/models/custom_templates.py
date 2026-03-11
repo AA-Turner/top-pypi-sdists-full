@@ -370,7 +370,7 @@ class CustomTemplate(APIObject):
         if offset is None:
             data = unpaginate(cls._path, params, cls._client)
         else:
-            data = cls._client.get(cls._path, params=params if params else None).json()["data"]
+            data = cls._client.get(cls._path, params=params or None).json()["data"]
         return [cls.from_server_data(d) for d in data]
 
     @classmethod

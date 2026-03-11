@@ -1,0 +1,12 @@
+description: Colorado TANF counts these income sources as earned income.
+values:
+  2010-01-01:
+    - employment_income
+    - self_employment_income
+metadata:
+  unit: list
+  period: month
+  label: Colorado TANF earned income sources
+  reference:
+    - title: 9 CCR 2503-6, Section 3.605.2 — Earned Income Definition
+      href: https://www.sos.state.co.us/CCR/GenerateRulePdf.do?ruleVersionId=10321#page=42

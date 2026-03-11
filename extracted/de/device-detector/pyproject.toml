@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "device_detector"
-version = "6.1.0"
+version = "6.2.0"
 description="Python3 port of matomo's Device Detector"
 readme = "README.md"
 license = {file = "device_detector/LICENSE.md"}
@@ -51,6 +51,7 @@ Homepage = "https://github.com/thinkwelltwd/"
 Repository = "https://github.com/thinkwelltwd/device_detector.git"
 
 [tool.mypy]
+strict = true
 check_untyped_defs = true
 ignore_missing_imports = true
 warn_unused_ignores = true
@@ -59,7 +60,10 @@ warn_unused_configs = true
 disallow_incomplete_defs = true
 show_error_context = true
 follow_imports = 'silent'
-
+disable_error_code = [
+    "no-any-return",
+    "comparison-overlap",
+]
 exclude = [
     "tests/",
 ]

@@ -1,28 +1,31 @@
-# -*- coding: utf-8 -*-
-# SPDX-FileCopyrightText: 2016-2025 PyThaiNLP Project
+# SPDX-FileCopyrightText: 2016-2026 PyThaiNLP Project
 # SPDX-FileType: SOURCE
 # SPDX-License-Identifier: Apache-2.0
-"""
-Named-entity recognizer
-"""
+"""Named-entity recognizer"""
 
-__all__ = ["ThaiNameTagger"]
+from __future__ import annotations
 
-from typing import Dict, List, Tuple, Union
+__all__: list[str] = ["ThaiNameTagger"]
+
+
+from typing import TYPE_CHECKING, Union
 
 from pythainlp.corpus import get_corpus_path, thai_stopwords
-from pythainlp.tag import pos_tag
+from pythainlp.tag.pos_tag import pos_tag
 from pythainlp.tokenize import word_tokenize
 from pythainlp.util import isthai
 
-_TOKENIZER_ENGINE = "mm"
+if TYPE_CHECKING:
+    from pycrfsuite import Tagger as CRFTagger
+
+_TOKENIZER_ENGINE: str = "mm"
 
 
 def _is_stopword(word: str) -> bool:  # เช็คว่าเป็นคำฟุ่มเฟือย
     return word in thai_stopwords()
 
 
-def _doc2features(doc, i) -> Dict:
+def _doc2features(doc: list, i: int) -> dict:
     word = doc[i][0]
     postag = doc[i][1]
 
@@ -74,8 +77,7 @@ def _doc2features(doc, i) -> Dict:
 
 
 class ThaiNameTagger:
-    """
-    Thai named-entity recognizer or Thai NER.
+    """Thai named-entity recognizer or Thai NER.
     This function supports Thai NER 1.4 and 1.5 only.
     :param str version: Thai NER version.
         It supports Thai NER 1.4 & 1.5.
@@ -90,9 +92,11 @@ class ThaiNameTagger:
         thainer14.get_ner("วันที่ 15 ก.ย. 61 ทดสอบระบบเวลา 14:49 น.")
     """
 
+    crf: CRFTagger
+    pos_tag_name: str
+
     def __init__(self, version: str = "1.4") -> None:
-        """
-        Thai named-entity recognizer.
+        """Thai named-entity recognizer.
 
         :param str version: Thai NER version.
                             It's support Thai NER 1.4 & 1.5.
@@ -100,20 +104,35 @@ class ThaiNameTagger:
         """
         from pycrfsuite import Tagger as CRFTagger
 
-        self.crf = CRFTagger()
+        self.crf: "CRFTagger" = CRFTagger()
 
         if version == "1.4":
-            self.crf.open(get_corpus_path("thainer-1.4", version="1.4"))
-            self.pos_tag_name = "orchid_ud"
+            model_path = get_corpus_path("thainer-1.4", version="1.4")
+            if not model_path:
+                raise FileNotFoundError(
+                    "corpus-not-found name='thainer-1.4'\n"
+                    "  Corpus 'thainer-1.4' not found.\n"
+                    "    Python: pythainlp.corpus.download('thainer-1.4')\n"
+                    "    CLI:    thainlp data get thainer-1.4"
+                )
+            self.crf.open(model_path)
+            self.pos_tag_name: str = "orchid_ud"
         elif version == "1.5":
-            self.crf.open(get_corpus_path("thainer", version="1.5"))
+            model_path = get_corpus_path("thainer", version="1.5")
+            if not model_path:
+                raise FileNotFoundError(
+                    "corpus-not-found name='thainer'\n"
+                    "  Corpus 'thainer' not found.\n"
+                    "    Python: pythainlp.corpus.download('thainer')\n"
+                    "    CLI:    thainlp data get thainer"
+                )
+            self.crf.open(model_path)
             self.pos_tag_name = "blackboard"
 
     def get_ner(
         self, text: str, pos: bool = True, tag: bool = False
-    ) -> Union[List[Tuple[str, str]], List[Tuple[str, str, str]]]:
-        """
-        This function tags named-entities in text in IOB format.
+    ) -> Union[list[tuple[str, str]], list[tuple[str, str, str]], str]:
+        """This function tags named-entities in text in IOB format.
 
         :param str text: text in Thai to be tagged
         :param bool pos: To include POS tags in the results (`True`) or
@@ -125,7 +144,7 @@ class ThaiNameTagger:
                  specified as `True`).
                  Otherwise, return a list of tuples associated with tokenized
                  words and NER tags
-        :rtype: Union[list[tuple[str, str]], list[tuple[str, str, str]]], str
+        :rtype: Union[list[tuple[str, str]], list[tuple[str, str, str]], str]
 
         :Note:
             * For the POS tags to be included in the results, this function
@@ -161,8 +180,7 @@ class ThaiNameTagger:
             ('น.', 'I-TIME')]
             >>> ner.get_ner("วันที่ 15 ก.ย. 61 ทดสอบระบบเวลา 14:49 น.",
                             tag=True)
-            'วันที่ <DATE>15 ก.ย. 61</DATE> ทดสอบระบบเวลา <TIME>
-            14:49 น.</TIME>'
+            'วันที่ <DATE>15 ก.ย. 61</DATE> ทดสอบระบบเวลา <TIME>14:49 น.</TIME>'
         """
         tokens = word_tokenize(text, engine=_TOKENIZER_ENGINE)
         pos_tags = pos_tag(
@@ -203,5 +221,7 @@ class ThaiNameTagger:
         return sent_ner
 
     @staticmethod
-    def __extract_features(doc):
+    def __extract_features(
+        doc: list[tuple[str, str]],
+    ) -> list[dict[str, Union[str, bool]]]:
         return [_doc2features(doc, i) for i in range(len(doc))]

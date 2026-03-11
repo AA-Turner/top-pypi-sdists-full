@@ -124,6 +124,9 @@ class CfnOrganizationCentralizationRule(
                             # the properties below are optional
                             kms_key_arn="kmsKeyArn"
                         ),
+                        log_group_name_configuration=observabilityadmin.CfnOrganizationCentralizationRule.LogGroupNameConfigurationProperty(
+                            log_group_name_pattern="logGroupNamePattern"
+                        ),
                         logs_encryption_configuration=observabilityadmin.CfnOrganizationCentralizationRule.LogsEncryptionConfigurationProperty(
                             encryption_strategy="encryptionStrategy",
         
@@ -338,6 +341,9 @@ class CfnOrganizationCentralizationRule(
                             # the properties below are optional
                             kms_key_arn="kmsKeyArn"
                         ),
+                        log_group_name_configuration=observabilityadmin.CfnOrganizationCentralizationRule.LogGroupNameConfigurationProperty(
+                            log_group_name_pattern="logGroupNamePattern"
+                        ),
                         logs_encryption_configuration=observabilityadmin.CfnOrganizationCentralizationRule.LogsEncryptionConfigurationProperty(
                             encryption_strategy="encryptionStrategy",
                 
@@ -440,6 +446,9 @@ class CfnOrganizationCentralizationRule(
                 
                                 # the properties below are optional
                                 kms_key_arn="kmsKeyArn"
+                            ),
+                            log_group_name_configuration=observabilityadmin.CfnOrganizationCentralizationRule.LogGroupNameConfigurationProperty(
+                                log_group_name_pattern="logGroupNamePattern"
                             ),
                             logs_encryption_configuration=observabilityadmin.CfnOrganizationCentralizationRule.LogsEncryptionConfigurationProperty(
                                 encryption_strategy="encryptionStrategy",
@@ -608,6 +617,7 @@ class CfnOrganizationCentralizationRule(
         jsii_struct_bases=[],
         name_mapping={
             "backup_configuration": "backupConfiguration",
+            "log_group_name_configuration": "logGroupNameConfiguration",
             "logs_encryption_configuration": "logsEncryptionConfiguration",
         },
     )
@@ -616,11 +626,13 @@ class CfnOrganizationCentralizationRule(
             self,
             *,
             backup_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOrganizationCentralizationRule.LogsBackupConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            log_group_name_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOrganizationCentralizationRule.LogGroupNameConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             logs_encryption_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOrganizationCentralizationRule.LogsEncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Configuration for centralization destination log groups, including encryption and backup settings.
 
             :param backup_configuration: Configuration defining the backup region and an optional KMS key for the backup destination.
+            :param log_group_name_configuration: 
             :param logs_encryption_configuration: The encryption configuration for centralization destination log groups.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationcentralizationrule-destinationlogsconfiguration.html
@@ -639,6 +651,9 @@ class CfnOrganizationCentralizationRule(
                         # the properties below are optional
                         kms_key_arn="kmsKeyArn"
                     ),
+                    log_group_name_configuration=observabilityadmin.CfnOrganizationCentralizationRule.LogGroupNameConfigurationProperty(
+                        log_group_name_pattern="logGroupNamePattern"
+                    ),
                     logs_encryption_configuration=observabilityadmin.CfnOrganizationCentralizationRule.LogsEncryptionConfigurationProperty(
                         encryption_strategy="encryptionStrategy",
                 
@@ -651,10 +666,13 @@ class CfnOrganizationCentralizationRule(
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__5dd7a39f2c94fa5f25cdcfc83cd888a8c3b22c09afa009f3ed5de76fd5befe41)
                 check_type(argname="argument backup_configuration", value=backup_configuration, expected_type=type_hints["backup_configuration"])
+                check_type(argname="argument log_group_name_configuration", value=log_group_name_configuration, expected_type=type_hints["log_group_name_configuration"])
                 check_type(argname="argument logs_encryption_configuration", value=logs_encryption_configuration, expected_type=type_hints["logs_encryption_configuration"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if backup_configuration is not None:
                 self._values["backup_configuration"] = backup_configuration
+            if log_group_name_configuration is not None:
+                self._values["log_group_name_configuration"] = log_group_name_configuration
             if logs_encryption_configuration is not None:
                 self._values["logs_encryption_configuration"] = logs_encryption_configuration
 
@@ -668,6 +686,16 @@ class CfnOrganizationCentralizationRule(
             '''
             result = self._values.get("backup_configuration")
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOrganizationCentralizationRule.LogsBackupConfigurationProperty"]], result)
+
+        @builtins.property
+        def log_group_name_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOrganizationCentralizationRule.LogGroupNameConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationcentralizationrule-destinationlogsconfiguration.html#cfn-observabilityadmin-organizationcentralizationrule-destinationlogsconfiguration-loggroupnameconfiguration
+            '''
+            result = self._values.get("log_group_name_configuration")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOrganizationCentralizationRule.LogGroupNameConfigurationProperty"]], result)
 
         @builtins.property
         def logs_encryption_configuration(
@@ -688,6 +716,56 @@ class CfnOrganizationCentralizationRule(
 
         def __repr__(self) -> str:
             return "DestinationLogsConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_observabilityadmin.CfnOrganizationCentralizationRule.LogGroupNameConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"log_group_name_pattern": "logGroupNamePattern"},
+    )
+    class LogGroupNameConfigurationProperty:
+        def __init__(self, *, log_group_name_pattern: builtins.str) -> None:
+            '''
+            :param log_group_name_pattern: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationcentralizationrule-loggroupnameconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_observabilityadmin as observabilityadmin
+                
+                log_group_name_configuration_property = observabilityadmin.CfnOrganizationCentralizationRule.LogGroupNameConfigurationProperty(
+                    log_group_name_pattern="logGroupNamePattern"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__fc628f661292ed8b216472c835d47a09fd581394061ab648aa685a81bcef75c8)
+                check_type(argname="argument log_group_name_pattern", value=log_group_name_pattern, expected_type=type_hints["log_group_name_pattern"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "log_group_name_pattern": log_group_name_pattern,
+            }
+
+        @builtins.property
+        def log_group_name_pattern(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationcentralizationrule-loggroupnameconfiguration.html#cfn-observabilityadmin-organizationcentralizationrule-loggroupnameconfiguration-loggroupnamepattern
+            '''
+            result = self._values.get("log_group_name_pattern")
+            assert result is not None, "Required property 'log_group_name_pattern' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "LogGroupNameConfigurationProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -985,6 +1063,9 @@ class CfnOrganizationCentralizationRuleProps:
             
                                 # the properties below are optional
                                 kms_key_arn="kmsKeyArn"
+                            ),
+                            log_group_name_configuration=observabilityadmin.CfnOrganizationCentralizationRule.LogGroupNameConfigurationProperty(
+                                log_group_name_pattern="logGroupNamePattern"
                             ),
                             logs_encryption_configuration=observabilityadmin.CfnOrganizationCentralizationRule.LogsEncryptionConfigurationProperty(
                                 encryption_strategy="encryptionStrategy",
@@ -6196,7 +6277,15 @@ def _typecheckingstub__8c4d1dff0252b97263e138c77bea2f698277762eeffd4fcf3911e496a
 def _typecheckingstub__5dd7a39f2c94fa5f25cdcfc83cd888a8c3b22c09afa009f3ed5de76fd5befe41(
     *,
     backup_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOrganizationCentralizationRule.LogsBackupConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    log_group_name_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOrganizationCentralizationRule.LogGroupNameConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     logs_encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOrganizationCentralizationRule.LogsEncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fc628f661292ed8b216472c835d47a09fd581394061ab648aa685a81bcef75c8(
+    *,
+    log_group_name_pattern: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -39,7 +39,7 @@ class TestOrphansCleanup(unittest.TestCase):
                 content_hrefs = [
                     null
                     ],
-                orphan_protection_time = 56
+                orphan_protection_time = 0
             )
         else:
             return OrphansCleanup(

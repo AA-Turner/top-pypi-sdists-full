@@ -24,6 +24,7 @@ from starlette.requests import HTTPConnection, Request
 from starlette.responses import Response
 
 from langgraph_api import timing
+from langgraph_api.auth.errors import AuthError
 from langgraph_api.auth.langsmith.backend import LangsmithAuthBackend
 from langgraph_api.auth.studio_user import StudioUser
 from langgraph_api.config import LANGGRAPH_AUTH, LANGGRAPH_AUTH_TYPE
@@ -186,7 +187,7 @@ class CustomAuthBackend(AuthenticationBackend):
             raise
         except Auth.exceptions.HTTPException as e:
             if e.status_code == 401 or e.status_code == 403:
-                raise AuthenticationError(e.detail) from None
+                raise AuthError(str(e.detail), status_code=e.status_code) from None
             else:
                 await logger.aerror("Error authenticating request", exc_info=e)
                 raise

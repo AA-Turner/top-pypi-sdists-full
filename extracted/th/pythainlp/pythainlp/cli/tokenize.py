@@ -1,12 +1,12 @@
-# -*- coding: utf-8 -*-
-# SPDX-FileCopyrightText: 2016-2025 PyThaiNLP Project
+# SPDX-FileCopyrightText: 2016-2026 PyThaiNLP Project
 # SPDX-FileType: SOURCE
 # SPDX-License-Identifier: Apache-2.0
-"""
-Command line for PyThaiNLP's tokenizers.
-"""
+"""Command line for PyThaiNLP's tokenizers."""
+
+from __future__ import annotations
 
 import argparse
+from typing import TYPE_CHECKING, Any
 
 from pythainlp import cli
 from pythainlp.tokenize import (
@@ -19,15 +19,24 @@ from pythainlp.tokenize import (
 )
 from pythainlp.tools import safe_print
 
-DEFAULT_SENT_TOKEN_SEPARATOR = "@@"
-DEFAULT_SUBWORD_TOKEN_SEPARATOR = "/"
-DEFAULT_SYLLABLE_TOKEN_SEPARATOR = "~"
-DEFAULT_WORD_TOKEN_SEPARATOR = "|"
+if TYPE_CHECKING:
+    from collections.abc import Callable, Sequence
+
+DEFAULT_SENT_TOKEN_SEPARATOR: str = "@@"  # noqa: S105
+DEFAULT_SUBWORD_TOKEN_SEPARATOR: str = "/"  # noqa: S105
+DEFAULT_SYLLABLE_TOKEN_SEPARATOR: str = "~"  # noqa: S105
+DEFAULT_WORD_TOKEN_SEPARATOR: str = "|"  # noqa: S105
 
 
 class SubAppBase:
-    def __init__(self, name, argv):
-        parser = argparse.ArgumentParser(**cli.make_usage("tokenize " + name))
+    separator: str
+    algorithm: str
+    run: Callable[..., Any]
+    keep_whitespace: bool
+    args: argparse.Namespace
+
+    def __init__(self, name: str, argv: Sequence[str]) -> None:
+        parser = argparse.ArgumentParser(**cli.make_usage("tokenize " + name))  # type: ignore[arg-type]
         parser.add_argument(
             "text",
             type=str,
@@ -65,7 +74,7 @@ class SubAppBase:
         parser.set_defaults(keep_whitespace=True)
 
         args = parser.parse_args(argv)
-        self.args = args
+        self.args: argparse.Namespace = args
 
         cli.exit_if_empty(args.text, parser)
         result = self.run(
@@ -77,34 +86,34 @@ class SubAppBase:
 
 
 class WordTokenizationApp(SubAppBase):
-    def __init__(self, *args, **kwargs):
-        self.keep_whitespace = True
-        self.algorithm = DEFAULT_WORD_TOKENIZE_ENGINE
-        self.separator = DEFAULT_WORD_TOKEN_SEPARATOR
-        self.run = word_tokenize
+    def __init__(self, *args: str, **kwargs: str) -> None:
+        self.keep_whitespace: bool = True
+        self.algorithm: str = DEFAULT_WORD_TOKENIZE_ENGINE
+        self.separator: str = DEFAULT_WORD_TOKEN_SEPARATOR
+        self.run: Callable[..., Any] = word_tokenize
         super().__init__(*args, **kwargs)
 
 
 class SentenceTokenizationApp(SubAppBase):
-    def __init__(self, *args, **kwargs):
-        self.keep_whitespace = True
-        self.algorithm = DEFAULT_SENT_TOKENIZE_ENGINE
-        self.separator = DEFAULT_SENT_TOKEN_SEPARATOR
-        self.run = sent_tokenize
+    def __init__(self, *args: str, **kwargs: str) -> None:
+        self.keep_whitespace: bool = True
+        self.algorithm: str = DEFAULT_SENT_TOKENIZE_ENGINE
+        self.separator: str = DEFAULT_SENT_TOKEN_SEPARATOR
+        self.run: Callable[..., Any] = sent_tokenize
         super().__init__(*args, **kwargs)
 
 
 class SubwordTokenizationApp(SubAppBase):
-    def __init__(self, *args, **kwargs):
-        self.keep_whitespace = True
-        self.algorithm = DEFAULT_SUBWORD_TOKENIZE_ENGINE
-        self.separator = DEFAULT_SUBWORD_TOKEN_SEPARATOR
-        self.run = subword_tokenize
+    def __init__(self, *args: str, **kwargs: str) -> None:
+        self.keep_whitespace: bool = True
+        self.algorithm: str = DEFAULT_SUBWORD_TOKENIZE_ENGINE
+        self.separator: str = DEFAULT_SUBWORD_TOKEN_SEPARATOR
+        self.run: Callable[..., Any] = subword_tokenize
         super().__init__(*args, **kwargs)
 
 
 class App:
-    def __init__(self, argv):
+    def __init__(self, argv: Sequence[str]) -> None:
         parser = argparse.ArgumentParser(
             prog="tokenize",
             description="Break a text into small units (tokens).",
@@ -140,10 +149,10 @@ class App:
 
         argv = argv[3:]
         if token_type.startswith("w"):
-            WordTokenizationApp("word", argv)
+            WordTokenizationApp("word", argv)  # type: ignore[arg-type]
         elif token_type.startswith("su"):
-            SubwordTokenizationApp("subword", argv)
+            SubwordTokenizationApp("subword", argv)  # type: ignore[arg-type]
         elif token_type.startswith("se"):
-            SentenceTokenizationApp("sent", argv)
+            SentenceTokenizationApp("sent", argv)  # type: ignore[arg-type]
         else:
             safe_print(f"Token type not available: {token_type}")

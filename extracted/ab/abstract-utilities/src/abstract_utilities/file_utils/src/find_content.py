@@ -177,7 +177,6 @@ def get_line_content(obj):
 def get_edit(file_path):
     if file_path and os.path.isfile(file_path):
         os.system(f"code {file_path}")
-        input()
 def editLines(file_paths):
     for file_path in file_paths:
         file_path,lines = getLineNums(file_path)

@@ -1205,6 +1205,14 @@ class CloudArtifact(
         '''The set of messages extracted from the artifact's metadata.'''
         return typing.cast(typing.List["SynthesisMessage"], jsii.get(self, "messages"))
 
+    @builtins.property
+    @jsii.member(jsii_name="metadata")
+    def metadata(
+        self,
+    ) -> typing.Mapping[builtins.str, typing.List["_MetadataEntry_13e1bf79"]]:
+        '''Returns the metadata associated with this Cloud Artifact.'''
+        return typing.cast(typing.Mapping[builtins.str, typing.List["_MetadataEntry_13e1bf79"]], jsii.get(self, "metadata"))
+
 
 @jsii.implements(_ICloudAssembly_3b620685)
 class CloudAssembly(

@@ -228,6 +228,7 @@ __all__ = [
     "aws_bcmdataexports",
     "aws_bedrock",
     "aws_bedrockagentcore",
+    "aws_bedrockmantle",
     "aws_billing",
     "aws_billingconductor",
     "aws_budgets",
@@ -506,6 +507,7 @@ from . import aws_batch
 from . import aws_bcmdataexports
 from . import aws_bedrock
 from . import aws_bedrockagentcore
+from . import aws_bedrockmantle
 from . import aws_billing
 from . import aws_billingconductor
 from . import aws_budgets

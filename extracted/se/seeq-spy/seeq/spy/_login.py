@@ -318,7 +318,11 @@ def _client_login(
     auth_api = AuthApi(_client)
     directories = dict()
     try:
-        auth_providers_output = auth_api.get_auth_providers()  # type: AuthProvidersOutputV1
+        try:
+            auth_providers_output = auth_api.get_auth_providers(include_auth_provider_ids=['Seeq Saas Admin'])
+        except TypeError:
+            # Older versions of Seeq SDK don't have the "include_auth_provider_ids" parameter
+            auth_providers_output = auth_api.get_auth_providers()
     except MaxRetryError as e:
         if isinstance(e.reason, SSLError):
             raise SPyRuntimeError(f'SSL certificate error. If you trust your network, you can add '

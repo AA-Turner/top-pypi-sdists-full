@@ -71,7 +71,8 @@ def get_editor_bp(controller: MainController):
             flask.abort(400)
 
         task_id = flask.request.json["task_id"]
+        user_jwt = flask.request.cookies.get("editor_auth")
 
-        return controller.run_tasklet(id, task_id)
+        return controller.run_tasklet(id, task_id, user_jwt=user_jwt)
 
     return bp

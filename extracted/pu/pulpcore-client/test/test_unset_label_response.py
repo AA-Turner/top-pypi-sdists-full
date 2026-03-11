@@ -36,12 +36,12 @@ class TestUnsetLabelResponse(unittest.TestCase):
         model = UnsetLabelResponse()
         if include_optional:
             return UnsetLabelResponse(
-                key = 'z',
+                key = '',
                 value = ''
             )
         else:
             return UnsetLabelResponse(
-                key = 'z',
+                key = '',
         )
         """
 

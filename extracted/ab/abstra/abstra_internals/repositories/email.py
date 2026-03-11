@@ -1,7 +1,8 @@
 from dataclasses import dataclass
-from typing import List, Literal, Union
+from typing import List, Literal, Optional, Union
 
 from abstra_internals.cloud_api.http_client import HTTPClient
+from abstra_internals.credentials import resolve_headers
 
 Kind = Literal["passwordless", "task-waiting", "message"]
 
@@ -72,8 +73,12 @@ class EmailRepository:
     def __init__(self, client: "HTTPClient"):
         self.client = client
 
-    def send(self, param: EmailParams):
+    def send(self, param: EmailParams, user_jwt: Optional[str] = None):
+        headers = resolve_headers() or {}
+        if user_jwt:
+            headers["Web-Editor-Authorization"] = f"Bearer {user_jwt}"
         self.client.post(
             endpoint="/email",
             json=param.to_dict(),
+            headers=headers,
         ).raise_for_status()

@@ -1,5 +1,4 @@
-# -*- coding: utf-8 -*-
-# SPDX-FileCopyrightText: 2016-2025 PyThaiNLP Project
+# SPDX-FileCopyrightText: 2016-2026 PyThaiNLP Project
 # SPDX-FileType: SOURCE
 # SPDX-License-Identifier: Apache-2.0
 
@@ -24,9 +23,10 @@ from ..core.test_tokenize import (
     SENT_4,
     TEXT_1,
 )
+from ..test_helpers import assert_segment_handles_none_and_empty
 
 
-class SentTokenizeCRFCutTestCase(unittest.TestCase):
+class SentTokenizeCRFCutTestCaseC(unittest.TestCase):
     def test_sent_tokenize(self):
         # Use default engine (crfcut)
         self.assertEqual(sent_tokenize(None), [])
@@ -62,7 +62,7 @@ class SentTokenizeCRFCutTestCase(unittest.TestCase):
         )
 
 
-class SubwordTokenizeHanSoloTestCase(unittest.TestCase):
+class SubwordTokenizeHanSoloTestCaseC(unittest.TestCase):
     def test_subword_tokenize(self):
         self.assertEqual(subword_tokenize(None, engine="han_solo"), [])
         self.assertEqual(
@@ -78,10 +78,9 @@ class SubwordTokenizeHanSoloTestCase(unittest.TestCase):
         )
 
 
-class WordTokenizeICUTestCase(unittest.TestCase):
+class WordTokenizeICUTestCaseC(unittest.TestCase):
     def test_icu(self):
-        self.assertEqual(pyicu.segment(None), [])
-        self.assertEqual(pyicu.segment(""), [])
+        assert_segment_handles_none_and_empty(self, pyicu.segment)
         self.assertEqual(
             word_tokenize("ฉันรักภาษาไทยเพราะฉันเป็นคนไทย", engine="icu"),
             ["ฉัน", "รัก", "ภาษา", "ไทย", "เพราะ", "ฉัน", "เป็น", "คน", "ไทย"],
@@ -91,7 +90,7 @@ class WordTokenizeICUTestCase(unittest.TestCase):
         self.assertIsNotNone(word_tokenize(TEXT_1, engine="icu"))
 
 
-class WordTokenizeNlpO3TestCase(unittest.TestCase):
+class WordTokenizeNlpO3TestCaseC(unittest.TestCase):
     def test_word_tokenize_nlpo3(self):
         self.assertIsNotNone(word_tokenize(TEXT_1, engine="nlpo3"))
         self.assertEqual(word_tokenize("การ์", engine="nlpo3"), ["การ์"])

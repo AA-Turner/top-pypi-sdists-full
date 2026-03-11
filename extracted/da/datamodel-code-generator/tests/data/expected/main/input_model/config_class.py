@@ -33,7 +33,6 @@ CollapseRootModelsNameStrategy: TypeAlias = Literal['child', 'parent']
 
 
 DataModelType: TypeAlias = Literal[
-    'pydantic.BaseModel',
     'pydantic_v2.BaseModel',
     'pydantic_v2.dataclass',
     'dataclasses.dataclass',
@@ -225,6 +224,7 @@ class GenerateConfig(TypedDict, closed=True):
     http_query_parameters: NotRequired[Sequence[tuple[str, str]] | None]
     treat_dot_as_module: NotRequired[bool | None]
     use_exact_imports: NotRequired[bool]
+    use_type_checking_imports: NotRequired[bool | None]
     union_mode: NotRequired[UnionMode | None]
     output_datetime_class: NotRequired[DatetimeClassType | None]
     output_date_class: NotRequired[DateClassType | None]

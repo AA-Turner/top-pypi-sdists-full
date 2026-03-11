@@ -22,11 +22,7 @@ Author: putkoff
 Date: 05/31/2023
 Version: 0.1.2
 """
-from functools import lru_cache
-from pathlib import Path
 from .imports import *
-
-
 def get_files(directory):
     file_list = []
     for root,dirs,files in os.walk(directory):

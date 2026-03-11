@@ -221,7 +221,7 @@ class Connector(APIObject):
             will_remove_version="v3.7",
             message="Java-based connectors are deprecated.",
         )
-        base_name = file_path.split(os.sep)[-1]
+        base_name = file_path.rsplit(os.sep, maxsplit=1)[-1]
         resp = self._client.build_request_with_file(
             "POST", self._file_upload_path, base_name, file_path=file_path
         ).json()

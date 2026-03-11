@@ -320,7 +320,7 @@ class TestPRoutesCommand(unittest.TestCase):
         compare_to = L[-1].split()[:3]
         view_module = 'tests.test_scripts.dummy'
         view_str = '<tests.test_scripts.dummy.DummyMultiView'
-        final = '%s.%s' % (view_module, view_str)
+        final = f'{view_module}.{view_str}'
 
         self.assertEqual(compare_to, ['a', '/a', final])
 
@@ -450,7 +450,7 @@ class TestPRoutesCommand(unittest.TestCase):
     def test_route_static_views(self):
         config = self._makeConfig(autocommit=True)
         config.add_static_view('static', 'static', cache_max_age=3600)
-        path2 = os.path.normpath('/var/www/static')
+        path2 = os.path.abspath('/var/www/static')
         config.add_static_view(name='static2', path=path2)
         config.add_static_view(
             name='pyramid_scaffold',

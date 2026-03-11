@@ -77,7 +77,8 @@ class LiftChart(APIObject):
     """
 
     _converter = (
-        t.Dict({
+        t
+        .Dict({
             t.Key("source"): String,
             t.Key("source_model_id"): String,
             t.Key("target_class", optional=True, default=None): t.Or(String, t.Null),

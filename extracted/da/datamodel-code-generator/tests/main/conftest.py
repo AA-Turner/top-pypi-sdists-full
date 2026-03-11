@@ -10,16 +10,15 @@ import time
 from argparse import Namespace
 from collections.abc import Callable, Generator, Sequence
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 import black
 import pytest
 from packaging import version
 
-from datamodel_code_generator import DataModelType
+from datamodel_code_generator import InputFileType, generate
 from datamodel_code_generator.__main__ import Exit, main
 from datamodel_code_generator.arguments import arg_parser
-from datamodel_code_generator.util import is_pydantic_v2
 from tests.conftest import (
     AssertFileContent,
     _validation_stats,
@@ -242,6 +241,53 @@ def run_main_with_args(
     return return_code
 
 
+def run_generate_file_and_assert(
+    *,
+    input_path: Path,
+    output_path: Path,
+    input_file_type: InputFileType | None = None,
+    assert_func: AssertFileContent,
+    expected_file: str | Path | None = None,
+    transform: Callable[[str], str] | None = None,
+    **generate_kwargs: Any,
+) -> None:
+    """Execute generate() for a file input and assert the generated output."""
+    __tracebackhide__ = True
+
+    input_: Path = input_path
+    if input_path.is_absolute():
+        try:
+            input_ = input_path.relative_to(Path.cwd())
+        except ValueError:
+            input_ = input_path
+        else:
+            assert not input_.is_absolute()
+
+    generate_options: dict[str, Any] = {
+        "output": output_path,
+        **generate_kwargs,
+    }
+    if input_file_type is not None:
+        generate_options["input_file_type"] = input_file_type
+
+    generate(
+        input_=input_,
+        **generate_options,
+    )
+
+    if expected_file is None:
+        frame = inspect.currentframe()
+        assert frame is not None
+        assert frame.f_back is not None
+        func_name = frame.f_back.f_code.co_name
+        del frame
+        for prefix in ("test_main_", "test_"):
+            func_name = func_name.removeprefix(prefix)
+        expected_file = f"{func_name}.py"
+
+    assert_func(output_path, expected_file, transform=transform)
+
+
 def run_main_and_assert(  # noqa: PLR0912
     *,
     input_path: Path | None = None,
@@ -438,7 +484,7 @@ def _should_skip_compile(extra_arguments: Sequence[str] | None) -> bool:
 
 
 def _should_skip_exec(extra_arguments: Sequence[str] | None, *, force_exec: bool = False) -> bool:
-    """Check if exec should be skipped based on model type, pydantic version, and Python version.
+    """Check if exec should be skipped based on model type and Python version.
 
     Args:
         extra_arguments: CLI arguments passed to the test.
@@ -446,13 +492,6 @@ def _should_skip_exec(extra_arguments: Sequence[str] | None, *, force_exec: bool
             This only works when target version <= runtime version (older target on newer runtime).
             When target > runtime, compile will be skipped entirely regardless of this flag.
     """
-    output_model_type = _get_argument_value(extra_arguments, "--output-model-type")
-    is_pydantic_v1 = output_model_type is None or output_model_type == DataModelType.PydanticBaseModel.value
-    if (is_pydantic_v1 and is_pydantic_v2()) or (
-        output_model_type in {DataModelType.PydanticV2BaseModel.value, DataModelType.PydanticV2Dataclass.value}
-        and not is_pydantic_v2()
-    ):
-        return True
     if (target_version := _parse_target_version(extra_arguments)) is None:
         return True
     if not force_exec and target_version != sys.version_info[:2]:

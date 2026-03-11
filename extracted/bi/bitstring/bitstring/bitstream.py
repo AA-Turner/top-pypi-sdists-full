@@ -7,6 +7,8 @@ from typing import Union, List, Any, Optional, overload, TypeVar, Tuple
 import copy
 import numbers
 
+common_helpers = bitstring.bitstore_common_helpers
+
 TConstBitStream = TypeVar("TConstBitStream", bound='ConstBitStream')
 
 
@@ -100,12 +102,17 @@ class ConstBitStream(Bits):
         pos -- Initial bit position, defaults to 0.
 
         """
+        pass
+
+    def __new__(cls, auto: Optional[Union[BitsType, int]] = None, /, length: Optional[int] = None,
+                offset: Optional[int] = None, pos: int = 0, **kwargs) -> TConstBitStream:
+        x = super().__new__(cls, auto, length, offset, **kwargs)
         if pos < 0:
-            pos += len(self._bitstore)
-        if pos < 0 or pos > len(self._bitstore):
-            raise bitstring.CreationError(f"Cannot set pos to {pos} when length is {len(self._bitstore)}.")
-        self._pos = pos
-        self._bitstore.immutable = True
+            pos += len(x._bitstore)
+        if pos < 0 or pos > len(x._bitstore):
+            raise bitstring.CreationError(f"Cannot set pos to {pos} when length is {len(x._bitstore)}.")
+        x._pos = pos
+        return x
 
     def _setbytepos(self, bytepos: int) -> None:
         """Move to absolute byte-aligned position in stream."""
@@ -465,9 +472,9 @@ class ConstBitStream(Bits):
 
     @classmethod
     def fromstring(cls: TBits, s: str, /) -> TBits:
-        x = super().fromstring(s)
+        x = super().__new__(cls)
+        x._bitstore = common_helpers.str_to_bitstore(s)
         x._pos = 0
-        x._bitstore.immutable = True
         return x
 
     @overload
@@ -600,9 +607,14 @@ class BitStream(ConstBitStream, bitstring.BitArray):
 
         """
         ConstBitStream.__init__(self, auto, length, offset, pos, **kwargs)
-        if self._bitstore.immutable:
-            self._bitstore = self._bitstore._copy()
-            self._bitstore.immutable = False
+
+    @classmethod
+    def fromstring(cls: TBits, s: str, /) -> TBits:
+        x = super().__new__(cls)
+        b = common_helpers.str_to_bitstore(s)
+        x._bitstore = b._mutable_copy()
+        x._pos = 0
+        return x
 
     def __copy__(self) -> BitStream:
         """Return a new copy of the BitStream."""

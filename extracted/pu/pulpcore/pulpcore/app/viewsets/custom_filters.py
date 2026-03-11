@@ -9,6 +9,7 @@ from itertools import chain
 from gettext import gettext as _
 
 from django.conf import settings
+from pulpcore.constants import LABEL_KEY_CHARS
 from django.db.models import ObjectDoesNotExist
 from django_filters import BaseInFilter, CharFilter, Filter
 from drf_spectacular.types import OpenApiTypes
@@ -16,7 +17,7 @@ from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from rest_framework.serializers import ValidationError as DRFValidationError
 
-from pulpcore.app.models import Content, ContentArtifact, RepositoryVersion, Publication
+from pulpcore.app.models import Content, ContentArtifact, Repository, RepositoryVersion, Publication
 from pulpcore.app.viewsets import NamedModelViewSet
 from pulpcore.app.util import get_prn, get_domain_pk, extract_pk, raise_for_unknown_content_units
 
@@ -123,7 +124,13 @@ class RepoVersionHrefPrnFilter(Filter):
     """
 
     def __init__(self, *args, **kwargs):
-        kwargs.setdefault("help_text", _("Repository Version referenced by HREF/PRN"))
+        kwargs.setdefault(
+            "help_text",
+            _(
+                "Repository Version referenced by HREF/PRN or Repository HREF/PRN"
+                " (choose latest version)"
+            ),
+        )
         super().__init__(*args, **kwargs)
 
     @staticmethod
@@ -139,7 +146,14 @@ class RepoVersionHrefPrnFilter(Filter):
                 detail=_("No value supplied for repository version filter")
             )
 
-        return NamedModelViewSet.get_resource(value, RepositoryVersion)
+        object = NamedModelViewSet.get_resource(value)
+        if isinstance(object, Repository):
+            object = object.latest_version()
+        if not isinstance(object, RepositoryVersion):
+            raise serializers.ValidationError(
+                detail=_("URI {u} not found for {m}.").format(u=value, m="repositoryversion")
+            )
+        return object
 
     def filter(self, qs, value):
         """
@@ -300,7 +314,7 @@ class LabelFilter(Filter):
             return qs
 
         for term in value.split(","):
-            match = re.match(r"(!?[\w\s]+)(=|!=|~)?(.*)?", term)
+            match = re.match(rf"(!?{LABEL_KEY_CHARS}+)(=|!=|~)?(.*)?", term)
             if not match:
                 raise DRFValidationError(_("Invalid search term: '{}'.").format(term))
             key, op, val = match.groups()

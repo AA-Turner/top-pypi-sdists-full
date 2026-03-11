@@ -202,6 +202,9 @@ class WebSocketGateway:
         self._channel_bots: Dict[str, Any] = {}  # channel_name -> bot instance
         self._routing_rules: Dict[str, Dict[str, str]] = {}  # channel_name -> {context -> agent_id}
         self._channel_tasks: List[asyncio.Task] = []
+        
+        # Scheduler tick background task
+        self._scheduler_task: Optional[asyncio.Task] = None
     
     @property
     def is_running(self) -> bool:
@@ -722,6 +725,91 @@ class WebSocketGateway:
             "channels": channel_status,
         }
 
+    # ── Scheduled delivery ────────────────────────────────────────────
+
+    async def _deliver_scheduled_result(
+        self, delivery: Any, text: str,
+    ) -> None:
+        """Route a scheduled job result to the correct channel bot.
+
+        Args:
+            delivery: A ``DeliveryTarget`` with ``channel`` and ``channel_id``.
+            text: The agent response to deliver.
+        """
+        channel = getattr(delivery, "channel", "") or ""
+        channel_id = getattr(delivery, "channel_id", "") or ""
+        thread_id = getattr(delivery, "thread_id", None)
+
+        if not channel or not channel_id:
+            logger.warning("Delivery target missing channel or channel_id, skipping")
+            return
+
+        bot = self.get_channel_bot(channel)
+        if bot is None:
+            # Try case-insensitive lookup
+            for name, b in self._channel_bots.items():
+                if name.lower() == channel.lower():
+                    bot = b
+                    break
+
+        if bot is None:
+            logger.warning(
+                "No channel bot '%s' found for scheduled delivery", channel,
+            )
+            return
+
+        try:
+            await bot.send_message(
+                channel_id, text, thread_id=thread_id,
+            )
+            logger.info(
+                "Delivered scheduled result to %s:%s", channel, channel_id,
+            )
+        except Exception as e:
+            logger.error(
+                "Failed to deliver to %s:%s: %s", channel, channel_id, e,
+            )
+
+    def _start_scheduler_tick(self, interval: float = 15.0) -> None:
+        """Start a background task that polls the scheduler for due jobs.
+
+        Creates a ``ScheduledAgentExecutor`` wired to:
+        - a ``ScheduleRunner`` with a ``FileScheduleStore``
+        - this gateway's agent registry for resolution
+        - ``_deliver_scheduled_result`` for outbound delivery
+        """
+        async def _run():
+            try:
+                from praisonaiagents.scheduler import (
+                    ScheduleRunner,
+                    FileScheduleStore,
+                )
+                from praisonai.scheduler.executor import ScheduledAgentExecutor
+            except ImportError as e:
+                logger.warning(
+                    "Scheduler dependencies not available, skipping tick: %s", e,
+                )
+                return
+
+            store = FileScheduleStore()
+            runner = ScheduleRunner(store)
+
+            def _resolve_agent(agent_id):
+                if agent_id:
+                    return self._agents.get(agent_id)
+                # Fallback: first registered agent
+                return next(iter(self._agents.values()), None) if self._agents else None
+
+            executor = ScheduledAgentExecutor(
+                runner=runner,
+                agent_resolver=_resolve_agent,
+                delivery_handler=self._deliver_scheduled_result,
+            )
+            await executor.run_loop(interval=interval)
+
+        self._scheduler_task = asyncio.create_task(_run())
+        logger.info("Scheduler tick started (interval=15s)")
+
     # ── Multi-bot lifecycle ───────────────────────────────────────────
 
     @staticmethod
@@ -782,13 +870,15 @@ class WebSocketGateway:
                 if not isinstance(cdef, dict):
                     errors.append(f"Channel '{cname}' must be a dictionary")
                     continue
-                if cname.lower() not in valid_platforms:
+                # Resolve platform: explicit field takes priority over key
+                platform = cdef.get("platform", cname).lower()
+                if platform not in valid_platforms:
                     logger.warning(
-                        f"Channel '{cname}' is not a known platform "
-                        f"({', '.join(valid_platforms)})"
+                        f"Channel '{cname}' platform '{platform}' is not "
+                        f"a known platform ({', '.join(sorted(valid_platforms))})"
                     )
                 # WhatsApp web mode doesn't require a token
-                is_wa_web = (cname.lower() == "whatsapp" and
+                is_wa_web = (platform == "whatsapp" and
                              cdef.get("mode", "cloud").lower().strip() == "web")
                 if not cdef.get("token") and not is_wa_web:
                     errors.append(
@@ -814,9 +904,15 @@ class WebSocketGateway:
 
         return _resolve(raw)
 
-    def _create_agents_from_config(self, agents_cfg: Dict[str, Dict[str, Any]]) -> None:
-        """Create and register Agent instances from the agents section of gateway.yaml.
-        
+    def _create_agents_from_config(
+        self,
+        agents_cfg: Dict[str, Dict[str, Any]],
+        *,
+        default_model: Optional[str] = None,
+        guardrails_cfg: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """Create and register Agent instances from the agents section of config.
+
         Supports all agent configuration options including:
         - tools: List of tool names to resolve via ToolResolver
         - tool_choice: Tool selection mode ('auto', 'required', 'none')
@@ -825,10 +921,19 @@ class WebSocketGateway:
         - role: Agent role (CrewAI-style)
         - goal: Agent goal (CrewAI-style)
         - backstory: Agent backstory (CrewAI-style)
+        - temperature: LLM temperature (optional, uses SDK default)
+        - base_url: Custom LLM endpoint URL (optional)
+        - api_key: API key for LLM provider (optional)
+
+        Args:
+            agents_cfg: The ``agents`` section of the config.
+            default_model: Fallback model when an agent has no ``model`` key
+                           (e.g. from the ``provider.model`` section of UI config).
+            guardrails_cfg: Optional ``guardrails.registry`` dict to wire per-agent.
         """
         from praisonaiagents import Agent
 
-        # G1: Resolve tool names to callables (same pattern as agents_generator)
+        # Resolve tool names to callables (same pattern as agents_generator)
         tool_resolver = None
         try:
             from praisonai.tool_resolver import ToolResolver
@@ -838,15 +943,26 @@ class WebSocketGateway:
 
         for agent_id, agent_def in agents_cfg.items():
             instructions = agent_def.get("instructions", "")
-            model = agent_def.get("model", None)
+            # G7: Apply provider.model as fallback when agent has no model
+            model = agent_def.get("model", None) or default_model
             memory = agent_def.get("memory", False)
-            
-            # G4: Support role/goal/backstory for CrewAI-style agents
+
+            # G2: Pass temperature through (optional, SDK uses its own default)
+            temperature = agent_def.get("temperature", None)
+            # G3/G4: Pass base_url and api_key for multi-provider support
+            base_url = agent_def.get("base_url", None)
+            api_key = agent_def.get("api_key", None)
+
+            # Support role/goal/backstory for CrewAI-style agents
             role = agent_def.get("role", None)
             goal = agent_def.get("goal", None)
             backstory = agent_def.get("backstory", None)
-            
-            # G1: Resolve tools from YAML config
+
+            # G6: Fall back to system_prompt if instructions is empty
+            if not instructions:
+                instructions = agent_def.get("system_prompt", "") or ""
+
+            # Resolve tools from YAML config
             agent_tools = []
             yaml_tool_names = agent_def.get("tools", [])
             if yaml_tool_names and tool_resolver:
@@ -860,16 +976,32 @@ class WebSocketGateway:
                         logger.debug(f"Resolved tool '{tool_name}' for agent '{agent_id}'")
                     else:
                         logger.warning(f"Tool '{tool_name}' not found for agent '{agent_id}'")
-            
+
             # Additional agent options from YAML
             tool_choice = agent_def.get("tool_choice", None)
-            reflection = agent_def.get("reflection", True)  # Default: enable reflection/interactive mode
+            reflection = agent_def.get("reflection", True)
             allow_delegation = agent_def.get("allow_delegation", False)
 
+            # G5: Wire guardrails if config has a matching agent_name or global rule
+            guardrail_prompt = None
+            if guardrails_cfg:
+                for _gr_id, gr_def in guardrails_cfg.items():
+                    gr_agent = gr_def.get("agent_name", "")
+                    if not gr_agent or gr_agent == agent_id:
+                        guardrail_prompt = gr_def.get("description", None)
+                        break  # first match wins
+
+            # Compose model as dict when temperature is specified
+            # (Agent accepts temperature via dict model config)
+            model_cfg = model
+            if temperature is not None and model and isinstance(model, str):
+                model_cfg = {"model": model, "temperature": temperature}
+
+            # Use model= (preferred) instead of deprecated llm=
             agent = Agent(
                 name=agent_id,
                 instructions=instructions,
-                llm=model,
+                model=model_cfg,
                 memory=memory,
                 tools=agent_tools if agent_tools else None,
                 reflection=reflection,
@@ -877,14 +1009,21 @@ class WebSocketGateway:
                 role=role,
                 goal=goal,
                 backstory=backstory,
+                base_url=base_url,
+                api_key=api_key,
+                guardrails=guardrail_prompt,
             )
-            
+
             # Store tool_choice for later use in chat()
             if tool_choice:
                 agent._yaml_tool_choice = tool_choice
-            
+
             self.register_agent(agent, agent_id=agent_id)
-            logger.info(f"Created agent '{agent_id}' (model={model}, tools={len(agent_tools)}, reflection={reflection})")
+            logger.info(
+                f"Created agent '{agent_id}' "
+                f"(model={model}, tools={len(agent_tools)}, "
+                f"reflection={reflection})"
+            )
 
     def _determine_routing_context(
         self, channel_type: str, message_metadata: Dict[str, Any]
@@ -934,7 +1073,7 @@ class WebSocketGateway:
         from praisonaiagents.bots import BotConfig
 
         for channel_name, ch_cfg in channels_cfg.items():
-            channel_type = channel_name.lower()
+            channel_type = ch_cfg.get("platform", channel_name).lower()
             token = ch_cfg.get("token", "")
             # WhatsApp web mode doesn't require a token
             wa_web_mode = (channel_type == "whatsapp" and
@@ -1222,9 +1361,16 @@ class WebSocketGateway:
 
         # Recreate agents
         agents_cfg = cfg.get("agents", {})
+        provider_cfg = cfg.get("provider", {})
+        default_model = provider_cfg.get("model") if provider_cfg else None
+        guardrails_cfg = (cfg.get("guardrails") or {}).get("registry")
         if agents_cfg:
             self._agents.clear()
-            self._create_agents_from_config(agents_cfg)
+            self._create_agents_from_config(
+                agents_cfg,
+                default_model=default_model,
+                guardrails_cfg=guardrails_cfg,
+            )
 
         # Restart channels
         channels_cfg = cfg.get("channels", {})
@@ -1273,8 +1419,15 @@ class WebSocketGateway:
 
         # Create agents
         agents_cfg = cfg.get("agents", {})
+        provider_cfg = cfg.get("provider", {})
+        default_model = provider_cfg.get("model") if provider_cfg else None
+        guardrails_cfg = (cfg.get("guardrails") or {}).get("registry")
         if agents_cfg:
-            self._create_agents_from_config(agents_cfg)
+            self._create_agents_from_config(
+                agents_cfg,
+                default_model=default_model,
+                guardrails_cfg=guardrails_cfg,
+            )
 
         # Start channels + WebSocket server concurrently
         channels_cfg = cfg.get("channels", {})
@@ -1289,6 +1442,8 @@ class WebSocketGateway:
             self._config_watch_task = asyncio.create_task(
                 self._watch_config(config_path)
             )
+            # Launch scheduler tick to poll for due jobs
+            self._start_scheduler_tick()
             await self.start()
 
         # Register signal handlers for graceful shutdown using
@@ -1316,4 +1471,6 @@ class WebSocketGateway:
         finally:
             if self._config_watch_task:
                 self._config_watch_task.cancel()
+            if self._scheduler_task:
+                self._scheduler_task.cancel()
             await self.stop_channels()

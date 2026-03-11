@@ -133,10 +133,42 @@ class Folder(ItemWithOwnerAndAcl):
             owner_id = self.decide_owner(context, item_map, owner=owner)
             home_folder = session.get_user_folder(owner_id)
             if home_folder is None:
-                raise SPyRuntimeError(f'Could not find user folder for {self["Owner"]}')
-            item_map[self.id] = home_folder.id
-            status.log(f'Mapped unmodifiable folder {self["Name"]} to user\'s home folder '
-                       f'({home_folder.id})')
+                # User hasn't logged in yet, so their home folder doesn't exist
+                # Create a dummy folder to trigger home folder creation, then archive it
+                if not context.dry_run:
+                    temp_folder_name = f'__temp_folder_for_home_creation__'
+                    status.log(f'User folder does not exist for {owner_id}, creating it')
+                    dummy_folder_input = FolderInputV1()
+                    dummy_folder_input.name = temp_folder_name
+                    dummy_folder_input.owner_id = owner_id
+                    dummy_folder_input.parent_folder_id = None
+
+                    dummy_folder = safely(lambda: folders_api.create_folder(body=dummy_folder_input),
+                                          action_description=f'create temporary folder for home folder creation',
+                                          status=status)
+
+                    if dummy_folder is not None:
+                        try:
+                            safely(lambda: items_api.archive_item(id=dummy_folder.id, delete=False),
+                                   action_description=f'archive temporary folder {dummy_folder.id}',
+                                   status=status)
+                        finally:
+                            safely(lambda: items_api.archive_item(id=dummy_folder.id, delete=True),
+                                   action_description=f'delete temporary folder {dummy_folder.id}',
+                                   status=status)
+
+                    # Clear cache and try again
+                    session.clear_user_folder_cache()
+                    home_folder = session.get_user_folder(owner_id)
+                    if home_folder is None:
+                        raise SPyRuntimeError(f'Could not find or create user folder for {owner}')
+                else:
+                    status.log(f'[Dry Run] Would create user folder for {owner_id}')
+
+            if home_folder is not None:
+                item_map[self.id] = home_folder.id
+                status.log(f'Mapped unmodifiable folder {self["Name"]} to user\'s home folder '
+                           f'({home_folder.id})')
             return home_folder
 
         folder_item = self.find_me(session, label, datasource_output, status=status)

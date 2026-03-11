@@ -81,7 +81,7 @@ class OAuthProviderConfig(BaseModel):
     """The unique identifier for the OAuth2 provider."""
     client_id: str
     """The OAuth2 client ID."""
-    client_secret: str
+    client_secret: str | None = None
     """The OAuth2 client secret."""
     scope: str | None = None
     """The OAuth2 scope to request during authorization (a space-separated string)."""
@@ -99,6 +99,8 @@ class OAuthProviderConfig(BaseModel):
     """Additional parameters to include in the access token request."""
     userinfo_endpoint: str | None = None
     """The URL to fetch user information after authorization."""
+    code_challenge_method: str | None = None
+    """The code challenge to use for PKCE authorization code flow, e.g. 'S256'."""
 
     userinfo_mapper: UserInfoMapper | None = None
     """A custom function to map user information from the userinfo endpoint in case it's not in the OIDC format."""
@@ -119,6 +121,7 @@ class OAuthProviderConfig(BaseModel):
             "access_token_params": self.access_token_params or {},
             "server_metadata_url": self.server_metadata_url,
             "userinfo_endpoint": self.userinfo_endpoint,
+            "code_challenge_method": self.code_challenge_method,
             # this is a custom function, authlib doesn't know about it, but it would carry it around for us
             "userinfo_mapper": self.userinfo_mapper,
         }

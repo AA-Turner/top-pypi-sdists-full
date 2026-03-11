@@ -20,6 +20,7 @@ from galileo_core.helpers.logger import logger
 from galileo_core.helpers.scorers import SCORER_TO_ALL_METRICS
 from galileo_core.schemas.logging.llm import Message
 from galileo_core.schemas.shared.document import Document
+from galileo_core.schemas.shared.root_type import RootType
 from galileo_core.schemas.shared.scorers.scorer_name import ScorerName
 from galileo_core.utils.json import PydanticJsonEncoder
 
@@ -35,6 +36,17 @@ class StepType(str, Enum):
     agent = "agent"
     trace = "trace"
     session = "session"
+
+    @property
+    def root_type(self) -> RootType:
+        if self == StepType.session:
+            return RootType.session
+        elif self == StepType.trace:
+            return RootType.trace
+        elif self in SPAN_TYPES:
+            return RootType.span
+        else:
+            raise ValueError(f"Unsupported step type for root type determination: {self}")
 
 
 SPAN_TYPES = [StepType.llm, StepType.retriever, StepType.tool, StepType.workflow, StepType.agent]

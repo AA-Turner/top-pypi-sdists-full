@@ -16,6 +16,7 @@ from urllib.parse import urlencode
 
 import pandas as pd
 import trafaret as t
+from typing_extensions import TypedDict
 
 from datarobot.enums import (
     DEFAULT_MAX_WAIT,
@@ -1582,11 +1583,11 @@ class Recipe(APIObject, HumanReadable):
             )
 
         input_data = None
-        if sampling is not None and inputs is not None:
+        if sampling is not None and inputs:
             raise ValueError("You can only provide one of `sampling` or `inputs` parameters, not both.")
         elif sampling is not None:
             input_data = [{"sampling": sampling}]
-        elif inputs is not None:
+        elif inputs:
             input_data = [to_api(input) for input in inputs]  # type: ignore[misc]
 
         payload = {
@@ -1605,6 +1606,22 @@ class Recipe(APIObject, HumanReadable):
         return Recipe.from_server_data(response.json())
 
 
+class JDBCColumnResultSchema(TypedDict, total=False):
+    """
+    Schema information for a JDBC result column.
+    All fields except 'name' and 'data_type' may not be present.
+    """
+
+    name: str
+    data_type: str
+    precision: Optional[int]
+    scale: Optional[int]
+    is_nullable: Optional[str]
+    column_default_value: Optional[str]
+    data_type_int: Optional[int]
+    is_in_primary_key: Optional[bool]
+
+
 class RecipePreview(APIObject, HumanReadable):
     """A preview of data output from the application of a recipe.
 
@@ -1620,7 +1637,7 @@ class RecipePreview(APIObject, HumanReadable):
         Total number of rows in the dataset.
     byte_size: int
         Data memory usage in bytes.
-    result_schema: List[Dict[Any]]
+    result_schema: List[JDBCColumnResultSchema]
         JDBC result schema for the preview data.
     stored_count: int
         Number of rows available for preview.
@@ -1642,7 +1659,18 @@ class RecipePreview(APIObject, HumanReadable):
         t.Key("byte_size"): t.Int,
         t.Key("next", optional=True): t.String,
         t.Key("previous", optional=True): t.String,
-        t.Key("result_schema"): t.List(t.Dict().allow_extra("*")),
+        t.Key("result_schema"): t.List(
+            t.Dict({
+                t.Key("name"): t.String,
+                t.Key("data_type"): t.String,
+                t.Key("precision", optional=True): t.Int,
+                t.Key("scale", optional=True): t.Int,
+                t.Key("is_nullable", optional=True): t.Or(t.String, t.Null),
+                t.Key("column_default_value", optional=True): t.Or(t.String, t.Null),
+                t.Key("data_type_int", optional=True): t.Int,
+                t.Key("is_in_primary_key", optional=True): t.Bool,
+            }).allow_extra("*")
+        ),
         t.Key("stored_count"): t.Int,
         t.Key("estimated_size_exceeds_limit"): t.Bool,
     }).allow_extra("*")
@@ -1654,7 +1682,7 @@ class RecipePreview(APIObject, HumanReadable):
         data: List[List[Any]],
         total_count: int,
         byte_size: int,
-        result_schema: List[Dict[str, Any]],
+        result_schema: List[JDBCColumnResultSchema],
         stored_count: int,
         estimated_size_exceeds_limit: bool,
         next: Optional[str] = None,

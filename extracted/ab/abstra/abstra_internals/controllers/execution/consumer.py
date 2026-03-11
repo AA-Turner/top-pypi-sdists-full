@@ -228,6 +228,7 @@ class ConsumerController:
                 request=msg.preexecution.context,
                 connection=connection,
                 rabbitmq_params=rabbitmq_params,
+                user_jwt=msg.preexecution.user_jwt,
             )
 
             if not response.success:

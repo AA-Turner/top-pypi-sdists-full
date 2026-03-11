@@ -26,6 +26,7 @@ dependencies = [
     "scikit-image>=0.19.0",
     "toolz",
     "rangehttpserver",
+    "Deprecated",
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -44,7 +45,7 @@ authors = [
 [project.entry-points."console_scripts"]
 ome_zarr = "ome_zarr.cli:main"
 
-[project.optional-dependencies]
+[dependency-groups]
 tests = [
     "pytest",
 ]

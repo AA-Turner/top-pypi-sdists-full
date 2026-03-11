@@ -1,26 +1,32 @@
 use std::collections::HashMap;
-use std::fs;
+use std::fs::File;
+use std::io::BufReader;
 use std::path::{Path, PathBuf};
 use std::str::FromStr as _;
 
 use anyhow::{Context as _, Result};
 use clap::{Arg, ArgMatches, Command};
 use console::style;
+use itertools::Itertools as _;
 use log::{debug, info, warn};
 use objectstore_client::{ClientBuilder, ExpirationPolicy, Usecase};
 use secrecy::ExposeSecret as _;
+use serde_json::Value;
 use sha2::{Digest as _, Sha256};
 use walkdir::WalkDir;
 
 use crate::api::{Api, CreateSnapshotResponse, ImageMetadata, SnapshotsManifest};
 use crate::config::{Auth, Config};
 use crate::utils::args::ArgExt as _;
+use crate::utils::build_vcs::collect_git_metadata;
+use crate::utils::ci::is_ci;
 
 const EXPERIMENTAL_WARNING: &str =
     "[EXPERIMENTAL] The \"build snapshots\" command is experimental. \
     The command is subject to breaking changes, including removal, in any Sentry CLI release.";
 
 const IMAGE_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg"];
+const MAX_PIXELS_PER_IMAGE: u64 = 40_000_000;
 
 pub fn make_command(command: Command) -> Command {
     command
@@ -43,6 +49,7 @@ pub fn make_command(command: Command) -> Command {
                 .help("The application identifier.")
                 .required(true),
         )
+        .git_metadata_args()
 }
 
 struct ImageInfo {
@@ -50,6 +57,12 @@ struct ImageInfo {
     relative_path: PathBuf,
     width: u32,
     height: u32,
+}
+
+impl ImageInfo {
+    fn pixels(&self) -> u64 {
+        u64::from(self.width) * u64::from(self.height)
+    }
 }
 
 pub fn execute(matches: &ArgMatches) -> Result<()> {
@@ -70,6 +83,13 @@ pub fn execute(matches: &ArgMatches) -> Result<()> {
         anyhow::bail!("Path is not a directory: {}", dir_path.display());
     }
 
+    // Collect git metadata if running in CI, unless explicitly enabled or disabled.
+    let should_collect_git_metadata =
+        matches.get_flag("force_git_metadata") || (!matches.get_flag("no_git_metadata") && is_ci());
+
+    // Always collect git metadata, but only perform automatic inference when enabled
+    let vcs_info = collect_git_metadata(matches, &config, should_collect_git_metadata);
+
     debug!("Scanning for images in: {}", dir_path.display());
     debug!("Organization: {org}");
     debug!("Project: {project}");
@@ -88,6 +108,8 @@ pub fn execute(matches: &ArgMatches) -> Result<()> {
         if images.len() == 1 { "file" } else { "files" }
     );
 
+    validate_image_sizes(&images)?;
+
     // Upload image files to objectstore
     println!(
         "{} Uploading {} image {}",
@@ -95,12 +117,14 @@ pub fn execute(matches: &ArgMatches) -> Result<()> {
         style(images.len()).yellow(),
         if images.len() == 1 { "file" } else { "files" }
     );
+
     let manifest_entries = upload_images(images, &org, &project)?;
 
     // Build manifest from discovered images
     let manifest = SnapshotsManifest {
         app_id: app_id.clone(),
         images: manifest_entries,
+        vcs_info,
     };
 
     // POST manifest to API
@@ -174,11 +198,49 @@ fn collect_image_info(dir: &Path, path: &Path) -> Option<ImageInfo> {
     })
 }
 
-fn compute_sha256_hash(data: &[u8]) -> String {
+fn validate_image_sizes(images: &[ImageInfo]) -> Result<()> {
+    let mut violations = images
+        .iter()
+        .filter(|img| img.pixels() > MAX_PIXELS_PER_IMAGE)
+        .map(|img| {
+            let path = img.relative_path.display();
+            let width = img.width;
+            let height = img.height;
+            let pixels = img.pixels();
+
+            format!("  {path} ({width}x{height} = {pixels} pixels)")
+        })
+        .peekable();
+
+    if violations.peek().is_some() {
+        let violation_messages = violations.join("\n");
+
+        anyhow::bail!(
+            "The following images exceed the maximum pixel limit of {MAX_PIXELS_PER_IMAGE}:\n{violation_messages}",
+        );
+    }
+
+    Ok(())
+}
+
+fn compute_sha256_hash(path: &Path) -> Result<String> {
+    use std::io::Read as _;
+
+    let mut file = std::fs::File::open(path)
+        .with_context(|| format!("Failed to open image for hashing: {}", path.display()))?;
     let mut hasher = Sha256::new();
-    hasher.update(data);
+    let mut buffer = [0u8; 8192];
+    loop {
+        let bytes_read = file
+            .read(&mut buffer)
+            .with_context(|| format!("Failed to read image for hashing: {}", path.display()))?;
+        if bytes_read == 0 {
+            break;
+        }
+        hasher.update(&buffer[..bytes_read]);
+    }
     let result = hasher.finalize();
-    format!("{result:x}")
+    Ok(format!("{result:x}"))
 }
 
 fn is_hidden(root: &Path, path: &Path) -> bool {
@@ -194,6 +256,29 @@ fn is_image_file(path: &Path) -> bool {
         .and_then(|ext| ext.to_str())
         .map(|ext| IMAGE_EXTENSIONS.iter().any(|e| ext.eq_ignore_ascii_case(e)))
         .unwrap_or(false)
+}
+
+/// Reads the companion JSON sidecar for an image, if it exists.
+///
+/// For an image at `path/to/button.png`, looks for `path/to/button.json`.
+/// Returns a map of all key-value pairs from the JSON file.
+fn read_sidecar_metadata(image_path: &Path) -> Result<HashMap<String, Value>> {
+    let sidecar_path = image_path.with_extension("json");
+    if !sidecar_path.is_file() {
+        return Ok(HashMap::new());
+    }
+
+    debug!("Reading sidecar metadata: {}", sidecar_path.display());
+
+    let sidecar_file = File::open(&sidecar_path)
+        .with_context(|| format!("Failed to open sidecar file {}", sidecar_path.display()))?;
+
+    serde_json::from_reader(BufReader::new(sidecar_file)).with_context(|| {
+        format!(
+            "Failed to read sidecar file {} as JSON",
+            sidecar_path.display()
+        )
+    })
 }
 
 fn upload_images(
@@ -219,9 +304,22 @@ fn upload_images(
         .build()?;
 
     let mut scope = Usecase::new("preprod").scope();
-    for (key, value) in &options.objectstore.scopes {
-        scope = scope.push(key, value);
+    let (mut org_id, mut project_id): (Option<String>, Option<String>) = (None, None);
+    for (key, value) in options.objectstore.scopes.into_iter() {
+        scope = scope.push(&key, value.clone());
+        if key == "org" {
+            org_id = Some(value);
+        } else if key == "project" {
+            project_id = Some(value);
+        }
     }
+    let Some(org_id) = org_id else {
+        anyhow::bail!("Missing org in UploadOptions scope");
+    };
+    let Some(project_id) = project_id else {
+        anyhow::bail!("Missing project in UploadOptions scope");
+    };
+
     let session = scope.session(&client)?;
 
     let runtime = tokio::runtime::Builder::new_current_thread()
@@ -236,16 +334,20 @@ fn upload_images(
     for image in images {
         debug!("Processing image: {}", image.path.display());
 
-        let contents = fs::read(&image.path)
-            .with_context(|| format!("Failed to read image: {}", image.path.display()))?;
-        let hash = compute_sha256_hash(&contents);
+        let hash = compute_sha256_hash(&image.path)?;
+        let file = runtime
+            .block_on(tokio::fs::File::open(&image.path))
+            .with_context(|| {
+                format!("Failed to open image for upload: {}", image.path.display())
+            })?;
 
-        info!("Queueing {} as {hash}", image.relative_path.display());
+        let key = format!("{org_id}/{project_id}/{hash}");
+        info!("Queueing {} as {key}", image.relative_path.display());
 
         many_builder = many_builder.push(
             session
-                .put(contents)
-                .key(&hash)
+                .put_file(file)
+                .key(&key)
                 .expiration_policy(expiration),
         );
 
@@ -255,13 +357,15 @@ fn upload_images(
             .unwrap_or_default()
             .to_string_lossy()
             .into_owned();
+
+        let extra = read_sidecar_metadata(&image.path).unwrap_or_else(|err| {
+            warn!("Error reading sidecar metadata, ignoring it instead: {err:#}");
+            HashMap::new()
+        });
+
         manifest_entries.insert(
             hash,
-            ImageMetadata {
-                image_file_name,
-                width: image.width,
-                height: image.height,
-            },
+            ImageMetadata::new(image_file_name, image.width, image.height, extra),
         );
     }
 
@@ -286,5 +390,30 @@ fn upload_images(
             }
             anyhow::bail!("Failed to upload {error_count} out of {image_count} images")
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn make_image(width: u32, height: u32) -> ImageInfo {
+        ImageInfo {
+            path: PathBuf::from("img.png"),
+            relative_path: PathBuf::from("img.png"),
+            width,
+            height,
+        }
+    }
+
+    #[test]
+    fn test_validate_image_sizes_at_limit_passes() {
+        assert!(validate_image_sizes(&[make_image(8000, 5000)]).is_ok());
+    }
+
+    #[test]
+    fn test_validate_image_sizes_over_limit_fails() {
+        let err = validate_image_sizes(&[make_image(8001, 5000)]).unwrap_err();
+        assert!(err.to_string().contains("exceed the maximum pixel limit"));
     }
 }

@@ -1,9 +1,11 @@
-# -*- coding: utf-8 -*-
-# SPDX-FileCopyrightText: 2016-2025 PyThaiNLP Project
+# SPDX-FileCopyrightText: 2016-2026 PyThaiNLP Project
 # SPDX-FileType: SOURCE
 # SPDX-License-Identifier: Apache-2.0
+from __future__ import annotations
+
 import re
-from typing import List
+from functools import lru_cache
+from typing import Optional
 
 from pythainlp import (
     thai_above_vowels,
@@ -16,25 +18,30 @@ from pythainlp import (
 )
 from pythainlp.tokenize import Tokenizer, subword_tokenize
 
-_r1 = ["เ-ย", "เ-ะ", "แ-ะ", "โ-ะ", "เ-าะ", "เ-อะ", "เ-อ", "เ-า"]
-_r2 = ["–ั:วะ", "เ–ี:ยะ", "เ–ือะ", "–ั:ว", "เ–ี:ย", "เ–ื:อ", "–ื:อ"]
-tonemarks = {
+_r1: list[str] = ["เ-ย", "เ-ะ", "แ-ะ", "โ-ะ", "เ-าะ", "เ-อะ", "เ-อ", "เ-า"]
+_r2: list[str] = ["–ั:วะ", "เ–ี:ยะ", "เ–ือะ", "–ั:ว", "เ–ี:ย", "เ–ื:อ", "–ื:อ"]
+tonemarks: dict[str, str] = {
     i: "ไม้" + j
     for i, j in zip(list(thai_tonemarks), ["เอก", "โท", "ตรี", "จัตวา"])
 }
 
-rule1 = [i.replace("-", f"([{thai_letters}](thai_tonemarks)?)") for i in _r1]
-rule2 = [i.replace("–", f"([{thai_letters}])").replace(":", "") for i in _r2]
-rule3 = [
+rule1: list[str] = [
+    i.replace("-", f"([{thai_letters}](thai_tonemarks)?)") for i in _r1
+]
+rule2: list[str] = [
+    i.replace("–", f"([{thai_letters}])").replace(":", "") for i in _r2
+]
+rule3: list[str] = [
     i.replace("–", f"([{thai_letters}])").replace(":", f"([{thai_tonemarks}])")
     for i in _r2
 ]
-dict_vowel_ex = {}
+dict_vowel_ex: dict[str, str] = {}
+i: str
 for i in _r1 + _r2:
     dict_vowel_ex[i.replace("-", "อ").replace("–", "อ").replace(":", "")] = (
         i.replace("-", "อ").replace(":", "").replace("–", "อ")
     )
-dict_vowel = {}
+dict_vowel: dict[str, str] = {}
 for i in _r1 + _r2:
     dict_vowel[i.replace("-", "อ").replace("–", "อ").replace(":", "")] = (
         i.replace("-", "อ").replace(":", "").replace("–", "อ")
@@ -48,10 +55,16 @@ for i in thai_above_vowels:
 for i in thai_below_vowels:
     dict_vowel[i] = "อ" + i
 
-_cut = Tokenizer(list(dict_vowel.keys()) + list(thai_consonants), engine="mm")
+
+@lru_cache
+def _cut() -> Tokenizer:
+    """Lazy load vowel tokenizer with cache"""
+    return Tokenizer(
+        list(dict_vowel.keys()) + list(thai_consonants), engine="mm"
+    )
 
 
-def _clean(w):
+def _clean(w: str) -> str:
     if bool(re.match("|".join(rule3), w)):
         for r in rule3:
             if bool(re.match(r, w)):
@@ -77,9 +90,8 @@ def _clean(w):
     return w
 
 
-def spell_syllable(text: str) -> List[str]:
-    """
-    Spell out syllables in Thai word distribution form.
+def spell_syllable(text: str) -> list[str]:
+    """Spell out syllables in Thai word distribution form.
 
     :param str s: Thai syllables only
     :return: List of spelled out syllables
@@ -93,7 +105,7 @@ def spell_syllable(text: str) -> List[str]:
         print(spell_syllable("แมว"))
         # output: ['มอ', 'วอ', 'แอ', 'แมว']
     """
-    tokens = _cut.word_tokenize(_clean(text))
+    tokens = _cut().word_tokenize(_clean(text))
 
     c_only = [tok + "อ" for tok in tokens if tok in set(thai_consonants)]
     v_only = [dict_vowel[tok] for tok in tokens if tok in set(dict_vowel)]
@@ -102,13 +114,12 @@ def spell_syllable(text: str) -> List[str]:
     return c_only + v_only + t_only + [text]
 
 
-def spell_word(text: str) -> List[str]:
-    """
-    Spell out words in Thai word distribution form.
+def spell_word(text: Optional[str]) -> list[str]:
+    """Spell out words in Thai word distribution form.
 
-    :param str w: Thai words only
-    :return: List of spelled out words
-    :rtype: List[str]
+    :param Optional[str] text: Thai words only, or None
+    :return: List of spelled out words, empty list if text is None or empty
+    :rtype: list[str]
 
     :Example:
     ::
@@ -117,7 +128,13 @@ def spell_word(text: str) -> List[str]:
 
         print(spell_word("คนดี"))
         # output: ['คอ', 'นอ', 'คน', 'ดอ', 'อี', 'ดี', 'คนดี']
+
+        print(spell_word(None))
+        # output: []
     """
+    if not text:
+        return []
+
     spellouts = []
     tokens = subword_tokenize(text, engine="han_solo")
 

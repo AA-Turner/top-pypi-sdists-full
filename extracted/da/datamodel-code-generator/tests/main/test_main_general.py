@@ -7,7 +7,6 @@ from argparse import ArgumentTypeError, Namespace
 from typing import TYPE_CHECKING
 
 import black
-import pydantic
 import pytest
 from inline_snapshot import snapshot
 
@@ -26,11 +25,10 @@ from datamodel_code_generator import (
 from datamodel_code_generator.__main__ import Config, Exit
 from datamodel_code_generator.arguments import _dataclass_arguments
 from datamodel_code_generator.config import GenerateConfig
-from datamodel_code_generator.format import CodeFormatter, PythonVersion
+from datamodel_code_generator.format import CodeFormatter, Formatter, PythonVersion
 from datamodel_code_generator.model.pydantic_v2 import UnionMode
 from datamodel_code_generator.parser.openapi import OpenAPIParser
-from datamodel_code_generator.util import is_pydantic_v2
-from tests.conftest import assert_output, create_assert_file_content, freeze_time
+from tests.conftest import assert_output, assert_runtime_import_package, create_assert_file_content, freeze_time
 from tests.main.conftest import (
     DATA_PATH,
     DEFAULT_VALUES_DATA_PATH,
@@ -39,6 +37,7 @@ from tests.main.conftest import (
     OPEN_API_DATA_PATH,
     PYTHON_DATA_PATH,
     TIMESTAMP,
+    run_generate_file_and_assert,
     run_main_and_assert,
     run_main_with_args,
 )
@@ -139,23 +138,23 @@ def test_direct_input_dict(tmp_path: Path) -> None:
     ],
 )
 def test_frozen_dataclasses(
-    tmp_path: Path,
+    output_file: Path,
     keyword_only: bool,
     target_python_version: PythonVersion,
     expected_file: str,
 ) -> None:
     """Test --frozen-dataclasses flag functionality."""
-    output_file = tmp_path / "output.py"
-    generate(
-        DATA_PATH / "jsonschema" / "simple_frozen_test.json",
+    run_generate_file_and_assert(
+        input_path=DATA_PATH / "jsonschema" / "simple_frozen_test.json",
+        output_path=output_file,
         input_file_type=InputFileType.JsonSchema,
-        output=output_file,
+        assert_func=assert_file_content,
+        expected_file=expected_file,
         output_model_type=DataModelType.DataclassesDataclass,
         frozen_dataclasses=True,
         keyword_only=keyword_only,
         target_python_version=target_python_version,
     )
-    assert_file_content(output_file, expected_file)
 
 
 @pytest.mark.cli_doc(
@@ -206,18 +205,18 @@ def test_frozen_dataclasses_command_line(output_file: Path, extra_args: list[str
 
 
 @freeze_time(TIMESTAMP)
-def test_class_decorators(tmp_path: Path) -> None:
+def test_class_decorators(output_file: Path) -> None:
     """Test --class-decorators flag functionality."""
-    output_file = tmp_path / "output.py"
-    generate(
-        DATA_PATH / "jsonschema" / "simple_frozen_test.json",
+    run_generate_file_and_assert(
+        input_path=DATA_PATH / "jsonschema" / "simple_frozen_test.json",
+        output_path=output_file,
         input_file_type=InputFileType.JsonSchema,
-        output=output_file,
+        assert_func=assert_file_content,
+        expected_file="class_decorators_dataclass.py",
         output_model_type=DataModelType.DataclassesDataclass,
         class_decorators=["@dataclass_json"],
         additional_imports=["dataclasses_json.dataclass_json"],
     )
-    assert_file_content(output_file, "class_decorators_dataclass.py")
 
 
 @pytest.mark.cli_doc(
@@ -312,7 +311,6 @@ def test_class_decorators_with_empty_entries(output_file: Path) -> None:
 @pytest.mark.parametrize(
     ("output_model_type", "expected_file"),
     [
-        ("pydantic.BaseModel", "class_decorators_pydantic_BaseModel.py"),
         ("pydantic_v2.BaseModel", "class_decorators_pydantic_v2_BaseModel.py"),
         ("pydantic_v2.dataclass", "class_decorators_pydantic_v2_dataclass.py"),
         ("dataclasses.dataclass", "class_decorators_dataclasses_dataclass.py"),
@@ -320,7 +318,6 @@ def test_class_decorators_with_empty_entries(output_file: Path) -> None:
         # Note: TypedDict is excluded because its template doesn't support decorators
     ],
     ids=[
-        "pydantic_v1",
         "pydantic_v2",
         "pydantic_v2_dataclass",
         "dataclasses",
@@ -1292,6 +1289,21 @@ def test_all_exports_scope_children_with_local_models(output_dir: Path) -> None:
     )
 
 
+def test_all_exports_scope_children_jsonschema_hyphenated_package(output_dir: Path) -> None:
+    """Test --all-exports-scope=children with hyphenated JSON Schema directories."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "all_exports_hyphenated_directory",
+        output_path=output_dir,
+        input_file_type="jsonschema",
+        extra_args=[
+            "--disable-timestamp",
+            "--all-exports-scope",
+            "children",
+        ],
+        expected_directory=EXPECTED_MAIN_PATH / "jsonschema" / "all_exports_hyphenated_directory",
+    )
+
+
 def test_check_respects_pyproject_toml_settings(tmp_path: Path) -> None:
     """Test --check uses pyproject.toml formatter settings from output path.
 
@@ -1340,7 +1352,7 @@ class Person(BaseModel):
         Field(
             max_length=100,
             min_length=1,
-            regex='^[A-Za-z]+$',
+            pattern='^[A-Za-z]+$',
         ),
     ]
 """
@@ -1674,6 +1686,133 @@ def test_ruff_batch_formatting_directory(output_dir: Path) -> None:
     assert "class Order" in content
 
 
+def test_type_checking_imports_default_to_runtime_imports_for_modular_pydantic_ruff(output_dir: Path) -> None:
+    """Test modular Pydantic output keeps runtime imports by default when Ruff formats a directory."""
+    run_main_and_assert(
+        input_path=OPEN_API_DATA_PATH / "modular.yaml",
+        output_path=output_dir,
+        input_file_type="openapi",
+        extra_args=[
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--formatters",
+            "ruff-check",
+            "ruff-format",
+            "--disable-timestamp",
+        ],
+    )
+    assert_runtime_import_package(output_dir, EXPECTED_MAIN_PATH / "openapi" / "no_use_type_checking_imports")
+
+
+@pytest.mark.cli_doc(
+    options=["--no-use-type-checking-imports"],
+    option_description="""Keep generated model imports available at runtime when using Ruff fixes.
+
+The `--no-use-type-checking-imports` flag prevents Ruff from moving generated model imports
+into `TYPE_CHECKING` blocks. This is useful for modular Pydantic output where referenced
+models need to be importable at runtime without calling `model_rebuild()` manually.
+In the multi-module Pydantic + `ruff-check` case, runtime imports are preserved by default.
+`--use-type-checking-imports` opts back into the old TYPE_CHECKING-only behavior, which can
+require manual `model_rebuild()` calls for cross-module runtime references.""",
+    input_schema="openapi/modular.yaml",
+    cli_args=[
+        "--output-model-type",
+        "pydantic_v2.BaseModel",
+        "--formatters",
+        "ruff-check",
+        "ruff-format",
+        "--no-use-type-checking-imports",
+        "--disable-timestamp",
+    ],
+    golden_output="openapi/no_use_type_checking_imports_internal.py",
+    related_options=["--use-type-checking-imports", "--formatters", "--use-exact-imports"],
+)
+def test_no_use_type_checking_imports(output_dir: Path) -> None:
+    """Keep generated model imports available at runtime when using Ruff fixes.
+
+    The `--no-use-type-checking-imports` flag prevents Ruff from moving generated model imports
+    into `TYPE_CHECKING` blocks. This is useful for modular Pydantic output where referenced
+    models need to be importable at runtime without calling `model_rebuild()` manually.
+    In the multi-module Pydantic + `ruff-check` case, runtime imports are preserved by default.
+    `--use-type-checking-imports` opts back into the old TYPE_CHECKING-only behavior, which can
+    require manual `model_rebuild()` calls for cross-module runtime references.
+    """
+    run_main_and_assert(
+        input_path=OPEN_API_DATA_PATH / "modular.yaml",
+        output_path=output_dir,
+        input_file_type="openapi",
+        extra_args=[
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--formatters",
+            "ruff-check",
+            "ruff-format",
+            "--no-use-type-checking-imports",
+            "--disable-timestamp",
+        ],
+    )
+    assert_runtime_import_package(output_dir, EXPECTED_MAIN_PATH / "openapi" / "no_use_type_checking_imports")
+
+
+def test_generate_multi_module_pydantic_ruff_defaults_to_runtime_imports() -> None:
+    """Test generate() keeps runtime imports for multi-module Pydantic Ruff output."""
+    result = generate(
+        OPEN_API_DATA_PATH / "modular.yaml",
+        input_file_type=InputFileType.OpenAPI,
+        output=None,
+        output_model_type=DataModelType.PydanticV2BaseModel,
+        formatters=[Formatter.RUFF_CHECK, Formatter.RUFF_FORMAT],
+        disable_timestamp=True,
+    )
+
+    assert isinstance(result, dict)
+    internal = result["_internal.py",]
+    assert "TYPE_CHECKING" not in internal
+    assert "from . import models" in internal
+    assert "Tea_1.model_rebuild()" in internal
+
+
+@pytest.mark.cli_doc(
+    options=["--use-type-checking-imports"],
+    option_description="""Allow Ruff to move typing-only imports into TYPE_CHECKING blocks.
+
+The `--use-type-checking-imports` flag explicitly re-enables Ruff's TYPE_CHECKING import moves
+for multi-module Pydantic output where runtime imports might otherwise be preserved by default.""",
+    input_schema="openapi/modular.yaml",
+    cli_args=[
+        "--output-model-type",
+        "pydantic_v2.BaseModel",
+        "--formatters",
+        "ruff-check",
+        "ruff-format",
+        "--use-type-checking-imports",
+        "--disable-timestamp",
+    ],
+    golden_output="openapi/use_type_checking_imports_internal.py",
+    related_options=["--no-use-type-checking-imports", "--formatters", "--use-exact-imports"],
+)
+def test_use_type_checking_imports_for_multi_module_pydantic_ruff() -> None:
+    """Allow Ruff to move typing-only imports into TYPE_CHECKING blocks.
+
+    The `--use-type-checking-imports` flag explicitly re-enables Ruff's TYPE_CHECKING import moves
+    for multi-module Pydantic output where runtime imports might otherwise be preserved by default.
+    """
+    result = generate(
+        OPEN_API_DATA_PATH / "modular.yaml",
+        input_file_type=InputFileType.OpenAPI,
+        output=None,
+        output_model_type=DataModelType.PydanticV2BaseModel,
+        formatters=[Formatter.RUFF_CHECK, Formatter.RUFF_FORMAT],
+        use_type_checking_imports=True,
+        disable_timestamp=True,
+    )
+
+    assert isinstance(result, dict)
+    internal = result["_internal.py",]
+    assert "TYPE_CHECKING" in internal
+    assert internal == (EXPECTED_MAIN_PATH / "openapi" / "use_type_checking_imports_internal.py").read_text().rstrip()
+
+
 def test_generate_returns_string_when_output_none() -> None:
     """Test that generate() returns str when output=None for single file."""
     json_schema = '{"type": "object", "properties": {"name": {"type": "string"}}}'
@@ -1842,11 +1981,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, RootModel
 
 
-class Model(BaseModel):
-    __root__: Any
+class Model(RootModel[Any]):
+    root: Any
 
 
 class Address(BaseModel):
@@ -1861,13 +2000,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, RootModel
 
 from . import address as address_1
 
 
-class Model(BaseModel):
-    __root__: Any
+class Model(RootModel[Any]):
+    root: Any
 
 
 class User(BaseModel):
@@ -2028,19 +2167,6 @@ def test_generate_with_dict_raw_data_types_raises_error(input_file_type: InputFi
         generate(auto_error_dict, input_file_type=input_file_type)
 
 
-def test_pydantic_v1_deprecation_warning(output_file: Path, mocker: MockerFixture) -> None:
-    """Test that deprecation warning is emitted when running with Pydantic v1."""
-    mocker.patch("datamodel_code_generator.__main__.is_pydantic_v2", return_value=False)
-
-    with pytest.warns(DeprecationWarning, match=r"Pydantic v1 runtime support is deprecated"):
-        run_main_and_assert(
-            input_path=JSON_SCHEMA_DATA_PATH / "simple_string.json",
-            output_path=output_file,
-            input_file_type="jsonschema",
-        )
-
-
-@pytest.mark.skipif(pydantic.VERSION < "2.0.0", reason="GenerateConfig requires Pydantic v2")
 def test_generate_with_config_object(output_file: Path) -> None:
     """Test generate() with GenerateConfig object."""
     from datamodel_code_generator.model.pydantic_v2 import UnionMode
@@ -2065,7 +2191,6 @@ def test_generate_with_config_object(output_file: Path) -> None:
     assert "user_name" in content
 
 
-@pytest.mark.skipif(pydantic.VERSION < "2.0.0", reason="GenerateConfig requires Pydantic v2")
 def test_generate_config_with_union_mode() -> None:
     """Test GenerateConfig with union_mode field."""
     config = GenerateConfig(
@@ -2080,7 +2205,6 @@ def test_generate_config_with_union_mode() -> None:
     assert_output(result, EXPECTED_MAIN_PATH / "generate_config_union_mode.py")
 
 
-@pytest.mark.skipif(pydantic.VERSION < "2.0.0", reason="GenerateConfig requires Pydantic v2")
 def test_generate_with_config_and_kwargs_raises_error(output_file: Path) -> None:
     """Test generate() raises error when both config and kwargs are provided."""
     from datamodel_code_generator.model.pydantic_v2 import UnionMode
@@ -2101,7 +2225,6 @@ def test_generate_with_config_and_kwargs_raises_error(output_file: Path) -> None
         )
 
 
-@pytest.mark.skipif(pydantic.VERSION < "2.0.0", reason="ParserConfig requires Pydantic v2")
 def test_parser_with_config_and_options_raises_error() -> None:
     """Test Parser raises error when both config and options are provided."""
     from datamodel_code_generator.config import ParserConfig
@@ -2151,7 +2274,6 @@ def test_graphql_parser_with_explicit_target_datetime_class() -> None:
     assert parser.data_type_manager.target_datetime_class == DatetimeClassType.Awaredatetime
 
 
-@pytest.mark.skipif(pydantic.VERSION < "2.0.0", reason="ParserConfig requires Pydantic v2")
 def test_jsonschema_parser_with_config_object() -> None:
     """Test JsonSchemaParser with ParserConfig object to cover config is not None branch."""
     from datamodel_code_generator.config import ParserConfig
@@ -2173,7 +2295,6 @@ def test_jsonschema_parser_with_config_object() -> None:
     assert parser.data_type_manager.target_datetime_class == DatetimeClassType.Datetime
 
 
-@pytest.mark.skipif(pydantic.VERSION < "2.0.0", reason="ParserConfig requires Pydantic v2")
 def test_openapi_parser_with_config_object() -> None:
     """Test OpenAPIParser with OpenAPIParserConfig object to cover config is not None branch."""
     from datamodel_code_generator.config import OpenAPIParserConfig
@@ -2197,7 +2318,6 @@ def test_openapi_parser_with_config_object() -> None:
     assert parser.wrap_string_literal is True
 
 
-@pytest.mark.skipif(pydantic.VERSION < "2.0.0", reason="ParserConfig requires Pydantic v2")
 def test_graphql_parser_with_config_object() -> None:
     """Test GraphQLParser with GraphQLParserConfig object to cover config is not None branch."""
     from datamodel_code_generator.config import GraphQLParserConfig
@@ -2298,20 +2418,6 @@ def test_use_annotated_no_warning_with_no_flag(output_file: Path) -> None:
     assert not any("--use-annotated will be enabled" in str(warning.message) for warning in w)
 
 
-def test_use_annotated_no_warning_pydantic_v1(output_file: Path) -> None:
-    """Test that use_annotated warning is not emitted for Pydantic v1."""
-    with warnings.catch_warnings(record=True) as w:
-        warnings.simplefilter("always")
-        run_main_and_assert(
-            input_path=JSON_SCHEMA_DATA_PATH / "simple_string.json",
-            output_path=output_file,
-            input_file_type="jsonschema",
-            extra_args=["--output-model-type", "pydantic.BaseModel"],
-        )
-    assert not any("--use-annotated will be enabled" in str(warning.message) for warning in w)
-
-
-@pytest.mark.skipif(not is_pydantic_v2(), reason="GenerateConfig requires Pydantic v2")
 def test_import_generate_config_from_top_level() -> None:
     """Test that GenerateConfig can be imported from top-level module."""
     from datamodel_code_generator import GenerateConfig as TopLevelGenerateConfig
@@ -2320,7 +2426,6 @@ def test_import_generate_config_from_top_level() -> None:
     assert TopLevelGenerateConfig is GenerateConfig
 
 
-@pytest.mark.skipif(not is_pydantic_v2(), reason="GenerateConfig requires Pydantic v2")
 def test_generate_with_imported_config_from_top_level() -> None:
     """Test generate() with GenerateConfig imported from top-level."""
     config = datamodel_code_generator.GenerateConfig(class_name="TestModel")
@@ -2329,14 +2434,6 @@ def test_generate_with_imported_config_from_top_level() -> None:
     assert "class TestModel" in result
 
 
-@pytest.mark.skipif(not is_pydantic_v2(), reason="GenerateConfig requires Pydantic v2")
 def test_all_exports_includes_generate_config() -> None:
-    """Test that __all__ includes GenerateConfig in Pydantic v2."""
+    """Test that __all__ includes GenerateConfig."""
     assert "GenerateConfig" in datamodel_code_generator.__all__
-
-
-@pytest.mark.skipif(is_pydantic_v2(), reason="Test for Pydantic v1 only")
-def test_import_generate_config_fails_on_v1() -> None:
-    """GenerateConfig should not be importable from top-level in Pydantic v1."""
-    with pytest.raises(ImportError, match="only available in Pydantic v2"):
-        _ = datamodel_code_generator.GenerateConfig

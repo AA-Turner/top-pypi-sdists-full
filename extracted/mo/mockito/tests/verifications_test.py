@@ -23,8 +23,8 @@ import pytest
 from .test_base import TestBase
 from mockito import (
     mock, when, verify, forget_invocations, inorder, VerificationError,
-    ArgumentError, verifyNoMoreInteractions, verifyZeroInteractions,
-    verifyNoUnwantedInteractions, verifyStubbedInvocationsAreUsed,
+    ArgumentError, ensureNoUnverifiedInteractions, verifyZeroInteractions,
+    verifyExpectedInteractions, verifyStubbedInvocationsAreUsed,
     any)
 from mockito.verification import never
 
@@ -186,6 +186,14 @@ class VerificationTestBase(TestBase):
         self.verification_function(self.mock, between=[1, 5]).foo()
         self.verification_function(self.mock, between=[2, 2]).foo()
 
+        self.verification_function(self.mock, between=[0, ]).foo()
+        self.verification_function(self.mock, between=[1, ]).foo()
+        self.verification_function(self.mock, between=[2, ]).foo()
+
+        self.verification_function(self.mock, between=[0, float('inf')]).foo()
+        self.verification_function(self.mock, between=[1, float('inf')]).foo()
+        self.verification_function(self.mock, between=[2, float('inf')]).foo()
+
     def testFailsVerificationWithBetween(self):
         self.mock.foo()
         self.mock.foo()
@@ -216,6 +224,8 @@ class VerificationTestBase(TestBase):
         self.assertRaises(ArgumentError, self.verification_function,
                           self.mock, between=0)
         self.assertRaises(ArgumentError, self.verification_function,
+                          self.mock, between=(-1,))
+        self.assertRaises(ArgumentError, self.verification_function,
                           self.mock, atleast=5, atmost=5)
         self.assertRaises(ArgumentError, self.verification_function,
                           self.mock, atleast=5, between=[1, 2])
@@ -240,6 +250,9 @@ class VerifyTest(VerificationTestBase):
         self.assertRaises(VerificationError, verify(self.mock, never).foo)
 
 
+@pytest.mark.filterwarnings(
+    r"ignore:'inorder.verify' is deprecated\..*:DeprecationWarning"
+)
 class InorderVerifyTest(VerificationTestBase):
     def __init__(self, *args, **kwargs):
         VerificationTestBase.__init__(self, inorder.verify, *args, **kwargs)
@@ -307,12 +320,13 @@ class VerifyNoMoreInteractionsTest(TestBase):
 
         verify(mockOne).foo()
         verify(mockTwo).bar()
-        verifyNoMoreInteractions(mockOne, mockTwo)
+        ensureNoUnverifiedInteractions(mockOne, mockTwo)
 
     def testFails(self):
         theMock = mock()
         theMock.foo()
-        self.assertRaises(VerificationError, verifyNoMoreInteractions, theMock)
+        self.assertRaises(
+            VerificationError, ensureNoUnverifiedInteractions, theMock)
 
 
 class VerifyZeroInteractionsTest(TestBase):
@@ -321,7 +335,7 @@ class VerifyZeroInteractionsTest(TestBase):
         verifyZeroInteractions(theMock)
         theMock.foo()
         self.assertRaises(
-            VerificationError, verifyNoMoreInteractions, theMock)
+            VerificationError, ensureNoUnverifiedInteractions, theMock)
 
 
 class ClearInvocationsTest(TestBase):
@@ -352,9 +366,9 @@ class ClearInvocationsTest(TestBase):
 class TestRaiseOnUnknownObjects:
     @pytest.mark.parametrize('verification_fn', [
         verify,
-        verifyNoMoreInteractions,
+        ensureNoUnverifiedInteractions,
         verifyZeroInteractions,
-        verifyNoUnwantedInteractions,
+        verifyExpectedInteractions,
         verifyStubbedInvocationsAreUsed
     ])
     def testVerifyShouldRaise(self, verification_fn):

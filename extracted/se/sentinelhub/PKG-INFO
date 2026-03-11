@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sentinelhub
-Version: 3.11.4
+Version: 3.11.5
 Summary: Python API for Sentinel Hub
 Project-URL: Homepage, https://github.com/sentinel-hub/sentinelhub-py
 Project-URL: Documentation, https://sentinelhub-py.readthedocs.io
@@ -71,7 +71,6 @@ Provides-Extra: dev
 Requires-Dist: boto3-stubs>=1.20.0; extra == 'dev'
 Requires-Dist: build; extra == 'dev'
 Requires-Dist: click>=8.0.0; extra == 'dev'
-Requires-Dist: fs; extra == 'dev'
 Requires-Dist: moto[s3]>=5.0.0; extra == 'dev'
 Requires-Dist: mypy>=0.990; extra == 'dev'
 Requires-Dist: pandas; extra == 'dev'

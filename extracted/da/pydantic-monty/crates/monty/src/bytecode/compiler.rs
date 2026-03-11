@@ -16,13 +16,13 @@ use super::{
     op::Opcode,
 };
 use crate::{
-    args::{ArgExprs, Kwarg},
+    args::{ArgExprs, CallArg, CallKwarg, Kwarg},
     builtins::Builtins,
     exception_private::ExcType,
     exception_public::{MontyException, StackFrame},
     expressions::{
-        Callable, CmpOperator, Comprehension, Expr, ExprLoc, Identifier, Literal, NameScope, Node, Operator,
-        PreparedFunctionDef, PreparedNode, UnpackTarget,
+        Callable, CmpOperator, Comprehension, DictItem, Expr, ExprLoc, Identifier, Literal, NameScope, Node, Operator,
+        PreparedFunctionDef, PreparedNode, SequenceItem, UnpackTarget,
     },
     fstring::{ConversionFlag, FStringPart, FormatSpec, ParsedFormatSpec, encode_format_spec},
     function::Function,
@@ -67,13 +67,6 @@ pub struct Compiler<'a> {
     /// Each entry tracks the loop start offset and pending break jumps.
     loop_stack: Vec<LoopInfo>,
 
-    /// Base namespace slot for cell variables.
-    ///
-    /// For functions, this is the parameter count. Cell/free variable namespace slots
-    /// start at `cell_base`, so we subtract this when emitting LoadCell/StoreCell
-    /// to convert to the cells array index.
-    cell_base: u16,
-
     /// Stack of finally targets for handling returns inside try-finally.
     ///
     /// When a return statement is compiled inside a try-finally block, instead
@@ -87,6 +80,14 @@ pub struct Compiler<'a> {
     /// clear the current exception (`ClearException`) and pop the exception
     /// value from the stack before jumping to the finally path or loop target.
     except_handler_depth: usize,
+
+    /// Whether the compiler is currently compiling module-level code.
+    ///
+    /// At module level, `Local` and `LocalUnassigned` scopes map to global opcodes
+    /// (`LoadGlobal`/`StoreGlobal`/`DeleteGlobal`) because module locals live in the
+    /// globals array. In function bodies this is `false` and these scopes use local
+    /// opcodes that index into the stack.
+    is_module_scope: bool,
 }
 
 /// Information about a loop for break/continue handling.
@@ -152,22 +153,9 @@ impl<'a> Compiler<'a> {
             interns,
             functions,
             loop_stack: Vec::new(),
-            cell_base: 0,
             finally_targets: Vec::new(),
             except_handler_depth: 0,
-        }
-    }
-
-    /// Creates a new compiler with a specific cell base offset.
-    fn new_with_cell_base(interns: &'a Interns, functions: Vec<Function>, cell_base: u16) -> Self {
-        Self {
-            code: CodeBuilder::new(),
-            interns,
-            functions,
-            loop_stack: Vec::new(),
-            cell_base,
-            finally_targets: Vec::new(),
-            except_handler_depth: 0,
+            is_module_scope: false,
         }
     }
 
@@ -197,6 +185,7 @@ impl<'a> Compiler<'a> {
     ) -> Result<CompileResult, CompileError> {
         let mut compiler = Compiler::new(interns, Vec::new());
         compiler.functions = existing_functions;
+        compiler.is_module_scope = true;
         compiler.compile_block(nodes)?;
 
         // Module returns None if no explicit return
@@ -215,9 +204,6 @@ impl<'a> Compiler<'a> {
     /// compiled to bytecode with an implicit `return None` at the end if there's
     /// no explicit return statement.
     ///
-    /// The `cell_base` parameter is the number of parameter slots, used to convert
-    /// cell variable namespace slots to cells array indices.
-    ///
     /// The `functions` parameter receives any previously compiled functions, and
     /// any nested functions found in the body will be added to it.
     fn compile_function_body(
@@ -225,9 +211,8 @@ impl<'a> Compiler<'a> {
         interns: &Interns,
         functions: Vec<Function>,
         num_locals: u16,
-        cell_base: u16,
     ) -> Result<(Code, Vec<Function>), CompileError> {
-        let mut compiler = Compiler::new_with_cell_base(interns, functions, cell_base);
+        let mut compiler = Compiler::new(interns, functions);
         compiler.compile_block(body)?;
 
         // Implicit return None if no explicit return
@@ -310,6 +295,30 @@ impl<'a> Compiler<'a> {
                 self.compile_expr(object)?;
                 self.code.emit(opcode);
                 self.compile_store(target);
+            }
+            Node::SubscriptOpAssign {
+                target,
+                index,
+                op,
+                object,
+                target_position,
+            } => {
+                let Some(opcode) = operator_to_inplace_opcode(op) else {
+                    return Err(CompileError::new(
+                        "matrix multiplication augmented assignment (@=) is not yet supported",
+                        *target_position,
+                    ));
+                };
+                self.compile_name(target);
+                self.compile_expr(index)?;
+                self.code.emit(Opcode::Dup2);
+                self.code.set_location(*target_position, None);
+                self.code.emit(Opcode::BinarySubscr);
+                self.compile_expr(object)?;
+                self.code.emit(opcode);
+                self.code.emit(Opcode::Rot3);
+                self.code.set_location(*target_position, None);
+                self.code.emit(Opcode::StoreSubscr);
             }
             Node::SubscriptAssign {
                 target,
@@ -402,10 +411,9 @@ impl<'a> Compiler<'a> {
         // 1. Compile the function body recursively
         // Take ownership of functions for the recursive compile, then restore
         let functions = std::mem::take(&mut self.functions);
-        let cell_base = u16::try_from(func_def.signature.param_count()).expect("function parameter count exceeds u16");
         let namespace_size = u16::try_from(func_def.namespace_size).expect("function namespace size exceeds u16");
         let (body_code, mut functions) =
-            Self::compile_function_body(&func_def.body, self.interns, functions, namespace_size, cell_base)?;
+            Self::compile_function_body(&func_def.body, self.interns, functions, namespace_size)?;
 
         // 2. Create the compiled Function and add to the vector
         let func_id = functions.len();
@@ -482,10 +490,9 @@ impl<'a> Compiler<'a> {
 
         // 1. Compile the function body recursively
         let functions = std::mem::take(&mut self.functions);
-        let cell_base = u16::try_from(func_def.signature.param_count()).expect("function parameter count exceeds u16");
         let namespace_size = u16::try_from(func_def.namespace_size).expect("function namespace size exceeds u16");
         let (body_code, mut functions) =
-            Self::compile_function_body(&func_def.body, self.interns, functions, namespace_size, cell_base)?;
+            Self::compile_function_body(&func_def.body, self.interns, functions, namespace_size)?;
 
         // 2. Create the compiled Function and add to the vector
         let func_id = functions.len();
@@ -665,44 +672,136 @@ impl<'a> Compiler<'a> {
             }
 
             Expr::List(elements) => {
-                for elem in elements {
-                    self.compile_expr(elem)?;
+                if has_unpack_seq(elements) {
+                    // Generalized path: build incrementally for PEP 448 *unpacks
+                    self.code.emit_u16(Opcode::BuildList, 0);
+                    for item in elements {
+                        match item {
+                            SequenceItem::Value(e) => {
+                                self.compile_expr(e)?;
+                                self.code.emit_u8(Opcode::ListAppend, 0);
+                            }
+                            SequenceItem::Unpack(e) => {
+                                self.compile_expr(e)?;
+                                self.code.emit(Opcode::ListExtend);
+                            }
+                        }
+                    }
+                } else {
+                    // Fast path: all values, single BuildList.
+                    // SAFETY: has_unpack_seq(elements) is false, so every item is Value.
+                    for item in elements {
+                        let SequenceItem::Value(e) = item else {
+                            unreachable!("list fast path: only Value items")
+                        };
+                        self.compile_expr(e)?;
+                    }
+                    self.code.emit_u16(
+                        Opcode::BuildList,
+                        u16::try_from(elements.len()).expect("elements count exceeds u16"),
+                    );
                 }
-                self.code.emit_u16(
-                    Opcode::BuildList,
-                    u16::try_from(elements.len()).expect("elements count exceeds u16"),
-                );
             }
 
             Expr::Tuple(elements) => {
-                for elem in elements {
-                    self.compile_expr(elem)?;
+                if has_unpack_seq(elements) {
+                    // Generalized path: build via list then convert for PEP 448 *unpacks
+                    self.code.emit_u16(Opcode::BuildList, 0);
+                    for item in elements {
+                        match item {
+                            SequenceItem::Value(e) => {
+                                self.compile_expr(e)?;
+                                self.code.emit_u8(Opcode::ListAppend, 0);
+                            }
+                            SequenceItem::Unpack(e) => {
+                                self.compile_expr(e)?;
+                                self.code.emit(Opcode::ListExtend);
+                            }
+                        }
+                    }
+                    self.code.emit(Opcode::ListToTuple);
+                } else {
+                    // Fast path: all values, single BuildTuple.
+                    // SAFETY: has_unpack_seq(elements) is false, so every item is Value.
+                    for item in elements {
+                        let SequenceItem::Value(e) = item else {
+                            unreachable!("tuple fast path: only Value items")
+                        };
+                        self.compile_expr(e)?;
+                    }
+                    self.code.emit_u16(
+                        Opcode::BuildTuple,
+                        u16::try_from(elements.len()).expect("elements count exceeds u16"),
+                    );
                 }
-                self.code.emit_u16(
-                    Opcode::BuildTuple,
-                    u16::try_from(elements.len()).expect("elements count exceeds u16"),
-                );
             }
 
-            Expr::Dict(pairs) => {
-                for (key, value) in pairs {
-                    self.compile_expr(key)?;
-                    self.compile_expr(value)?;
+            Expr::Dict(dict_items) => {
+                if has_unpack_dict(dict_items) {
+                    // Generalized path: build incrementally for PEP 448 **unpacks
+                    self.code.emit_u16(Opcode::BuildDict, 0);
+                    for item in dict_items {
+                        match item {
+                            DictItem::Pair(key, value) => {
+                                self.compile_expr(key)?;
+                                self.compile_expr(value)?;
+                                // depth=0: dict is at TOS after key/value are popped
+                                self.code.emit_u8(Opcode::DictSetItem, 0);
+                            }
+                            DictItem::Unpack(e) => {
+                                self.compile_expr(e)?;
+                                // depth=0: dict is directly below mapping on stack
+                                self.code.emit_u8(Opcode::DictUpdate, 0);
+                            }
+                        }
+                    }
+                } else {
+                    // Fast path: all pairs, single BuildDict.
+                    // SAFETY: has_unpack_dict(dict_items) is false, so every item is Pair.
+                    for item in dict_items {
+                        let DictItem::Pair(key, value) = item else {
+                            unreachable!("dict fast path: only Pair items")
+                        };
+                        self.compile_expr(key)?;
+                        self.compile_expr(value)?;
+                    }
+                    self.code.emit_u16(
+                        Opcode::BuildDict,
+                        u16::try_from(dict_items.len()).expect("pairs count exceeds u16"),
+                    );
                 }
-                self.code.emit_u16(
-                    Opcode::BuildDict,
-                    u16::try_from(pairs.len()).expect("pairs count exceeds u16"),
-                );
             }
 
             Expr::Set(elements) => {
-                for elem in elements {
-                    self.compile_expr(elem)?;
+                if has_unpack_seq(elements) {
+                    // Generalized path: build incrementally for PEP 448 *unpacks
+                    self.code.emit_u16(Opcode::BuildSet, 0);
+                    for item in elements {
+                        match item {
+                            SequenceItem::Value(e) => {
+                                self.compile_expr(e)?;
+                                self.code.emit_u8(Opcode::SetAdd, 0);
+                            }
+                            SequenceItem::Unpack(e) => {
+                                self.compile_expr(e)?;
+                                self.code.emit_u8(Opcode::SetExtend, 0);
+                            }
+                        }
+                    }
+                } else {
+                    // Fast path: all values, single BuildSet.
+                    // SAFETY: has_unpack_seq(elements) is false, so every item is Value.
+                    for item in elements {
+                        let SequenceItem::Value(e) = item else {
+                            unreachable!("set fast path: only Value items")
+                        };
+                        self.compile_expr(e)?;
+                    }
+                    self.code.emit_u16(
+                        Opcode::BuildSet,
+                        u16::try_from(elements.len()).expect("elements count exceeds u16"),
+                    );
                 }
-                self.code.emit_u16(
-                    Opcode::BuildSet,
-                    u16::try_from(elements.len()).expect("elements count exceeds u16"),
-                );
             }
 
             Expr::Subscript { object, index } => {
@@ -858,6 +957,9 @@ impl<'a> Compiler<'a> {
     // ========================================================================
 
     /// Compiles loading a variable onto the stack.
+    ///
+    /// At module level, `Local` and `LocalUnassigned` scopes emit global opcodes
+    /// because module-level locals live in the globals array.
     fn compile_name(&mut self, ident: &Identifier) {
         let slot = u16::try_from(ident.namespace_id().index()).expect("local slot exceeds u16");
         match ident.scope {
@@ -865,51 +967,89 @@ impl<'a> Compiler<'a> {
                 // True local - register name and mark as assigned for UnboundLocalError
                 self.code.register_local_name(slot, ident.name_id);
                 self.code.register_assigned_local(slot);
-                self.code.emit_load_local(slot);
+                if self.is_module_scope {
+                    self.code.emit_u16(Opcode::LoadGlobal, slot);
+                } else {
+                    self.code.emit_load_local(slot);
+                }
             }
             NameScope::LocalUnassigned => {
                 // Undefined reference - register name but NOT as assigned for NameError
                 self.code.register_local_name(slot, ident.name_id);
-                self.code.emit_load_local(slot);
+                if self.is_module_scope {
+                    self.code.emit_u16(Opcode::LoadGlobal, slot);
+                } else {
+                    self.code.emit_load_local(slot);
+                }
             }
             NameScope::Global => {
+                // Register the name for NameError/NameLookup messages
+                self.code.register_local_name(slot, ident.name_id);
                 self.code.emit_u16(Opcode::LoadGlobal, slot);
             }
             NameScope::Cell => {
-                // Convert namespace slot to cells array index
-                let cell_index = slot.saturating_sub(self.cell_base);
                 // Register the name for NameError messages (unbound free variable)
-                self.code.register_local_name(cell_index, ident.name_id);
-                self.code.emit_u16(Opcode::LoadCell, cell_index);
+                self.code.register_local_name(slot, ident.name_id);
+                // Emit local slot index — the VM reads the cell HeapId from the stack
+                self.code.emit_u16(Opcode::LoadCell, slot);
             }
         }
     }
 
-    /// Compiles loading a variable with position tracking for proper traceback ranges.
+    /// Compiles loading a variable in call context (e.g., `foo()` loads `foo`).
     ///
-    /// Sets the identifier's position before loading, so NameErrors show the correct caret.
-    fn compile_name_with_position(&mut self, ident: &Identifier) {
-        // Set the identifier's position for proper traceback caret range
-        self.code.set_location(ident.position, None);
-        self.compile_name(ident);
+    /// For `LocalUnassigned` and `Global` scopes, emits callable-aware load opcodes
+    /// that push `ExtFunction(name_id)` for undefined names instead of yielding
+    /// `NameLookup`. This allows execution to reach `CallFunction`, which naturally
+    /// yields `FunctionCall` — giving the host a chance to handle external function calls.
+    ///
+    /// For `Local` and `Cell` scopes, delegates to `compile_name` since those can't
+    /// be external functions (they're always defined locally or captured).
+    fn compile_name_callable(&mut self, ident: &Identifier) {
+        let slot = u16::try_from(ident.namespace_id().index()).expect("local slot exceeds u16");
+        match ident.scope {
+            NameScope::LocalUnassigned => {
+                // Undefined reference in call context - use callable-aware load.
+                // At module level, use global callable since locals are in the globals array.
+                self.code.register_local_name(slot, ident.name_id);
+                if self.is_module_scope {
+                    self.code.emit_load_global_callable(slot, ident.name_id);
+                } else {
+                    self.code.emit_load_local_callable(slot, ident.name_id);
+                }
+            }
+            NameScope::Global => {
+                // Global scope - name_id is encoded in the operand because global slot
+                // indices are in a different namespace from local slots, so looking up
+                // the name from the current frame's local_names would be incorrect
+                self.code.emit_load_global_callable(slot, ident.name_id);
+            }
+            // Local and Cell can't be external functions - use regular load
+            NameScope::Local | NameScope::Cell => self.compile_name(ident),
+        }
     }
 
     /// Compiles storing the top of stack to a variable.
+    ///
+    /// At module level, `Local` and `LocalUnassigned` scopes emit `StoreGlobal`
+    /// because module-level locals live in the globals array.
     fn compile_store(&mut self, target: &Identifier) {
         let slot = u16::try_from(target.namespace_id().index()).expect("local slot exceeds u16");
         match target.scope {
             NameScope::Local | NameScope::LocalUnassigned => {
-                // Both true locals and initially-unassigned slots use local storage
                 self.code.register_local_name(slot, target.name_id);
-                self.code.emit_store_local(slot);
+                if self.is_module_scope {
+                    self.code.emit_u16(Opcode::StoreGlobal, slot);
+                } else {
+                    self.code.emit_store_local(slot);
+                }
             }
             NameScope::Global => {
                 self.code.emit_u16(Opcode::StoreGlobal, slot);
             }
             NameScope::Cell => {
-                // Convert namespace slot to cells array index
-                let cell_index = slot.saturating_sub(self.cell_base);
-                self.code.emit_u16(Opcode::StoreCell, cell_index);
+                // Emit local slot index — the VM reads the cell HeapId from the stack
+                self.code.emit_u16(Opcode::StoreCell, slot);
             }
         }
     }
@@ -1132,8 +1272,10 @@ impl<'a> Compiler<'a> {
                 self.code.emit_u16(Opcode::LoadConst, idx);
             }
             Callable::Name(ident) => {
-                // Use identifier position so NameError shows caret under just the name
-                self.compile_name_with_position(ident);
+                // Use callable-aware load opcodes so undefined names produce ExtFunction
+                // instead of yielding NameLookup, allowing CallFunction to yield FunctionCall
+                self.code.set_location(ident.position, None);
+                self.compile_name_callable(ident);
             }
         }
 
@@ -1247,6 +1389,15 @@ impl<'a> Compiler<'a> {
                     );
                 }
             }
+            ArgExprs::GeneralizedCall { args, kwargs } => {
+                // PEP 448: generalized unpacking — multiple *args or **kwargs.
+                // Callable was already pushed above this match; delegate to the helper.
+                let func_name_id = match callable {
+                    Callable::Name(ident) => u16::try_from(ident.name_id.index()).expect("name index exceeds u16"),
+                    Callable::Builtin(_) => 0xFFFF,
+                };
+                self.compile_generalized_call_body(args, kwargs, func_name_id, call_pos)?;
+            }
         }
         Ok(())
     }
@@ -1359,6 +1510,11 @@ impl<'a> Compiler<'a> {
                     );
                 }
             }
+            ArgExprs::GeneralizedCall { args, kwargs } => {
+                // PEP 448: generalized unpacking — callable is already on the stack.
+                // Use 0xFFFF as func_name_id since we don't know the callee name here.
+                self.compile_generalized_call_body(args, kwargs, 0xFFFF, call_pos)?;
+            }
         }
         Ok(())
     }
@@ -1464,7 +1620,7 @@ impl<'a> Compiler<'a> {
                 Ok(Some(u8::try_from(args.len()).expect("argument count exceeds u8")))
             }
             // Kwargs or unpacking - fall back to standard path
-            ArgExprs::Kwargs(_) | ArgExprs::ArgsKargs { .. } => Ok(None),
+            ArgExprs::Kwargs(_) | ArgExprs::ArgsKargs { .. } | ArgExprs::GeneralizedCall { .. } => Ok(None),
         }
     }
 
@@ -1687,6 +1843,54 @@ impl<'a> Compiler<'a> {
                     &kwname_ids,
                 );
             }
+            ArgExprs::GeneralizedCall { args, kwargs } => {
+                // PEP 448: generalized unpacking on a method call.
+                // Receiver is already on the stack; build args tuple and kwargs dict,
+                // then emit CallAttrExtended.
+                let func_name_id = u16::try_from(name_id.index()).expect("name index exceeds u16");
+                let has_kwargs = !kwargs.is_empty();
+
+                // 1. Build args tuple
+                self.code.emit_u16(Opcode::BuildList, 0);
+                for arg in args {
+                    match arg {
+                        CallArg::Value(e) => {
+                            self.compile_expr(e)?;
+                            self.code.emit_u8(Opcode::ListAppend, 0);
+                        }
+                        CallArg::Unpack(e) => {
+                            self.compile_expr(e)?;
+                            self.code.emit(Opcode::ListExtend);
+                        }
+                    }
+                }
+                self.code.emit(Opcode::ListToTuple);
+
+                // 2. Build kwargs dict (if any)
+                if has_kwargs {
+                    self.code.emit_u16(Opcode::BuildDict, 0);
+                    for kwarg in kwargs {
+                        match kwarg {
+                            CallKwarg::Named(kw) => {
+                                let key_const = self.code.add_const(Value::InternString(kw.key.name_id));
+                                self.code.emit_u16(Opcode::LoadConst, key_const);
+                                self.compile_expr(&kw.value)?;
+                                self.code.emit_u16(Opcode::BuildDict, 1);
+                                self.code.emit_u16(Opcode::DictMerge, func_name_id);
+                            }
+                            CallKwarg::Unpack(e) => {
+                                self.compile_expr(e)?;
+                                self.code.emit_u16(Opcode::DictMerge, func_name_id);
+                            }
+                        }
+                    }
+                }
+
+                // 3. Emit CallAttrExtended
+                self.code.set_location(call_pos, None);
+                let flags = u8::from(has_kwargs);
+                self.code.emit_u16_u8(Opcode::CallAttrExtended, func_name_id, flags);
+            }
         }
         Ok(())
     }
@@ -1764,6 +1968,73 @@ impl<'a> Compiler<'a> {
         Ok(())
     }
 
+    /// Shared body for PEP 448 generalized calls with multiple `*args` and/or `**kwargs`.
+    ///
+    /// Assumes the callable is already on the stack (pushed by the caller).
+    /// Emits:
+    ///   1. `BuildList(0)` + per-item `ListAppend`/`ListExtend` + `ListToTuple` for args.
+    ///   2. `BuildDict(0)` + per-item `BuildDict(1)+DictMerge`/`DictMerge` for kwargs (if any).
+    ///   3. `CallFunctionExtended(flags)`.
+    ///
+    /// `func_name_id` is used in `DictMerge` error messages; pass `0xFFFF` when unknown.
+    ///
+    /// Stack transition (callable already on stack):
+    ///   `[callable]` → `[callable, args_tuple]` → `[callable, args_tuple, kwargs_dict?]`
+    ///   → `[result]`
+    fn compile_generalized_call_body(
+        &mut self,
+        args: &[CallArg],
+        kwargs: &[CallKwarg],
+        func_name_id: u16,
+        call_pos: CodeRange,
+    ) -> Result<(), CompileError> {
+        // 1. Build args tuple
+        self.code.emit_u16(Opcode::BuildList, 0);
+        for arg in args {
+            match arg {
+                CallArg::Value(e) => {
+                    self.compile_expr(e)?;
+                    self.code.emit_u8(Opcode::ListAppend, 0);
+                }
+                CallArg::Unpack(e) => {
+                    self.compile_expr(e)?;
+                    self.code.emit(Opcode::ListExtend);
+                }
+            }
+        }
+        self.code.emit(Opcode::ListToTuple);
+
+        // 2. Build kwargs dict (if any)
+        let has_kwargs = !kwargs.is_empty();
+        if has_kwargs {
+            // Start with an empty dict, then merge each kwarg one at a time via DictMerge
+            // so that duplicates (including Named+Unpack ordering) raise TypeError correctly.
+            self.code.emit_u16(Opcode::BuildDict, 0);
+            for kwarg in kwargs {
+                match kwarg {
+                    CallKwarg::Named(kw) => {
+                        // Wrap key+value in a single-item dict, then merge into kwargs dict.
+                        let key_const = self.code.add_const(Value::InternString(kw.key.name_id));
+                        self.code.emit_u16(Opcode::LoadConst, key_const);
+                        self.compile_expr(&kw.value)?;
+                        self.code.emit_u16(Opcode::BuildDict, 1);
+                        self.code.emit_u16(Opcode::DictMerge, func_name_id);
+                    }
+                    CallKwarg::Unpack(e) => {
+                        self.compile_expr(e)?;
+                        self.code.emit_u16(Opcode::DictMerge, func_name_id);
+                    }
+                }
+            }
+        }
+
+        // 3. Emit the extended call
+        self.code.set_location(call_pos, None);
+        let flags = u8::from(has_kwargs);
+        self.code.emit_u8(Opcode::CallFunctionExtended, flags);
+        Ok(())
+    }
+
     /// Compiles a for loop.
     fn compile_for(
         &mut self,
@@ -1772,6 +2043,10 @@ impl<'a> Compiler<'a> {
         body: &[PreparedNode],
         or_else: &[PreparedNode],
     ) -> Result<(), CompileError> {
+        // Record stack depth at loop start (before iterator is pushed)
+        // This is the depth we return to when the loop finishes (iterator popped)
+        let loop_exit_depth = self.code.stack_depth();
+
         // Compile iterator expression
         self.compile_expr(iter)?;
         // Convert to iterator
@@ -1801,6 +2076,8 @@ impl<'a> Compiler<'a> {
 
         // End of loop - ForIter jumps here when iterator is exhausted
         self.code.patch_jump(end_jump);
+        // Iterator is popped when loop ends normally, so restore depth to before loop
+        self.code.set_stack_depth(loop_exit_depth);
 
         // Pop loop info before compiling else block
         let loop_info = self.loop_stack.pop().expect("loop stack underflow");
@@ -2141,6 +2418,10 @@ impl<'a> Compiler<'a> {
     ) -> Result<(), CompileError> {
         let generator = &generators[index];
 
+        // Record stack depth before iterator expression
+        // This is the depth we return to when the loop finishes (iterator popped)
+        let loop_exit_depth = self.code.stack_depth();
+
         // Compile iterator expression
         self.compile_expr(&generator.iter)?;
         self.code.emit(Opcode::GetIter);
@@ -2175,6 +2456,8 @@ impl<'a> Compiler<'a> {
 
         // End of loop
         self.code.patch_jump(end_jump);
+        // Iterator is popped when loop ends normally, so restore depth to before loop
+        self.code.set_stack_depth(loop_exit_depth);
 
         Ok(())
     }
@@ -2753,20 +3036,28 @@ impl<'a> Compiler<'a> {
     }
 
     /// Compiles deletion of a variable.
+    ///
+    /// At module level, `Local` and `LocalUnassigned` scopes emit `DeleteGlobal`
+    /// because module-level locals live in the globals array.
     fn compile_delete(&mut self, target: &Identifier) {
         let slot = u16::try_from(target.namespace_id().index()).expect("local slot exceeds u16");
         match target.scope {
             NameScope::Local | NameScope::LocalUnassigned => {
-                if let Ok(s) = u8::try_from(slot) {
+                if self.is_module_scope {
+                    self.code.emit_u16(Opcode::DeleteGlobal, slot);
+                } else if let Ok(s) = u8::try_from(slot) {
                     self.code.emit_u8(Opcode::DeleteLocal, s);
                 } else {
                     // Wide variant not implemented yet
                     todo!("DeleteLocalW for slot > 255");
                 }
             }
-            NameScope::Global | NameScope::Cell => {
-                // Delete global/cell not commonly needed
-                // For now, just store Undefined
+            NameScope::Global => {
+                self.code.emit_u16(Opcode::DeleteGlobal, slot);
+            }
+            NameScope::Cell => {
+                // Delete cell not commonly needed
+                // For now, just store None
                 self.code.emit(Opcode::LoadNone);
                 self.compile_store(target);
             }
@@ -2895,4 +3186,21 @@ fn cmp_operator_to_opcode(op: &CmpOperator) -> Opcode {
         // ModEq is handled specially at the call site (needs constant operand)
         CmpOperator::ModEq(_) => unreachable!("ModEq handled at call site"),
     }
+}
+
+/// Returns `true` if any item in the sequence is a PEP 448 unpack (`*expr`).
+///
+/// Used to choose between the fast single-`Build*(N)` path and the generalized
+/// incremental `Build*(0)` + `ListAppend`/`ListExtend` (or `SetAdd`/`SetExtend`) path.
+/// Only the generalized path is needed when at least one `Unpack` variant is present.
+fn has_unpack_seq(items: &[SequenceItem]) -> bool {
+    items.iter().any(|i| matches!(i, SequenceItem::Unpack(_)))
+}
+
+/// Returns `true` if any item in the dict literal is a PEP 448 `**expr` unpack.
+///
+/// Used to choose between the fast single-`BuildDict(N)` path and the generalized
+/// incremental `BuildDict(0)` + `DictSetItem`/`DictUpdate` path.
+fn has_unpack_dict(items: &[DictItem]) -> bool {
+    items.iter().any(|i| matches!(i, DictItem::Unpack(_)))
 }

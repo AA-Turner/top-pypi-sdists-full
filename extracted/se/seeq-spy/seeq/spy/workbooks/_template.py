@@ -112,7 +112,7 @@ class ItemTemplate:
     def type(self):
         return self['Type']
 
-    def refresh_from(self, new_item, item_map: ItemMap, status: Status):
+    def refresh_from(self, context: WorkbookPushContext, new_item, item_map: ItemMap, status: Status):
         # We don't allow refreshing of Template items because it's just too confusing... users would not expect to
         # have a Template object trying to directly represent something on the server
         pass
@@ -624,11 +624,11 @@ class AnalysisWorkstepTemplate(ItemTemplate, AnalysisWorkstep):
     def code_dict(self):
         return ItemTemplate._code_dict_for_analysis(self.template.worksheet.workbook, [self.template])
 
-    def push_to_specific_worksheet(self, context: WorkbookPushContext, pushed_workbook_id, pushed_worksheet_output,
+    def push_to_specific_worksheet(self, context: WorkbookPushContext, pushed_workbook_id, pushed_worksheet_id,
                                    item_map: OverrideItemMap, include_inventory, *,
                                    no_workstep_message=None):
         output = super().push_to_specific_worksheet(
-            context, pushed_workbook_id, pushed_worksheet_output,
+            context, pushed_workbook_id, pushed_worksheet_id,
             OverrideItemMap(item_map, template_parameters=self.parameters), include_inventory,
             no_workstep_message=no_workstep_message)
 
@@ -847,7 +847,7 @@ class ReportTemplate(AnnotationTemplate, Report):
         html = super()._push_specific(context, item_map, datasource_output, label, new_annotation, existing_annotation,
                                       access_control, new_content_dict)
 
-        item_map[f'Content for {self.id}'] = new_content_dict
+        item_map.content_mappings[self.id] = new_content_dict
 
         def _content_to_id(_key, _val):
             if not isinstance(_val, ContentTemplate):
@@ -902,8 +902,9 @@ class DateRangeTemplate(ItemTemplate, DateRange):
         # Clear definition for clarity, since it's not used in a template
         self._definition = dict()
 
-    def push(self, session: Session, item_map: OverrideItemMap, existing_date_ranges: dict, status: Status):
-        output = super().push(session, item_map, existing_date_ranges, status)
+    def push(self, context: WorkbookPushContext, session: Session, item_map: OverrideItemMap,
+             existing_date_ranges: dict, status: Status):
+        output = super().push(context, session, item_map, existing_date_ranges, status)
 
         item_map.override(self.template.id, item_map[self.id])
 
@@ -924,8 +925,9 @@ class AssetSelectionTemplate(ItemTemplate, AssetSelection):
         # Clear definition for clarity, since it's not used in a template
         self._definition = dict()
 
-    def push(self, session: Session, item_map: OverrideItemMap, existing_asset_selections: dict, status: Status):
-        output = super().push(session, item_map, existing_asset_selections, status)
+    def push(self, context: WorkbookPushContext, session: Session, item_map: OverrideItemMap,
+             existing_asset_selections: dict, status: Status):
+        output = super().push(context, session, item_map, existing_asset_selections, status)
 
         item_map.override(self.template.id, item_map[self.id])
 
@@ -948,8 +950,9 @@ class ContentTemplate(ItemTemplate, Content):
     def copy(self, label):
         return ContentTemplate(label, self.template, self.report, package=self.package, is_copy=True)
 
-    def push(self, session: Session, item_map: OverrideItemMap, existing_contents: dict, status: Status):
-        output = super().push(session, item_map, existing_contents, status)
+    def push(self, context: WorkbookPushContext, session: Session, item_map: OverrideItemMap, existing_contents: dict,
+             status: Status):
+        output = super().push(context, session, item_map, existing_contents, status)
 
         item_map.override(self.template.id, item_map[self.id])
 

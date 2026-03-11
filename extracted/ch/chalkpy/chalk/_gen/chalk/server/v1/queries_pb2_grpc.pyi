@@ -10,6 +10,8 @@ from abc import (
 from chalk._gen.chalk.server.v1.queries_pb2 import (
     AggregateQueryErrorsRequest,
     AggregateQueryErrorsResponse,
+    ArchiveMetaQueryRequest,
+    ArchiveMetaQueryResponse,
     GetMetaQueryByNameRequest,
     GetMetaQueryByNameResponse,
     GetMetaQueryRequest,
@@ -48,6 +50,10 @@ from chalk._gen.chalk.server.v1.queries_pb2 import (
     ListMetaQueryVersionsResponse,
     ListQueryErrorsRequest,
     ListQueryErrorsResponse,
+    ListQueryPlansRequest,
+    ListQueryPlansResponse,
+    UnarchiveMetaQueryRequest,
+    UnarchiveMetaQueryResponse,
 )
 from grpc import (
     Channel,
@@ -73,6 +79,10 @@ class QueriesServiceStub:
     GetQueryPlan: UnaryUnaryMultiCallable[
         GetQueryPlanRequest,
         GetQueryPlanResponse,
+    ]
+    ListQueryPlans: UnaryUnaryMultiCallable[
+        ListQueryPlansRequest,
+        ListQueryPlansResponse,
     ]
     AggregateQueryErrors: UnaryUnaryMultiCallable[
         AggregateQueryErrorsRequest,
@@ -138,6 +148,14 @@ class QueriesServiceStub:
         GetPlanRunMetadataRequest,
         GetPlanRunMetadataResponse,
     ]
+    ArchiveMetaQuery: UnaryUnaryMultiCallable[
+        ArchiveMetaQueryRequest,
+        ArchiveMetaQueryResponse,
+    ]
+    UnarchiveMetaQuery: UnaryUnaryMultiCallable[
+        UnarchiveMetaQueryRequest,
+        UnarchiveMetaQueryResponse,
+    ]
 
 class QueriesServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -164,6 +182,12 @@ class QueriesServiceServicer(metaclass=ABCMeta):
         request: GetQueryPlanRequest,
         context: ServicerContext,
     ) -> GetQueryPlanResponse: ...
+    @abstractmethod
+    def ListQueryPlans(
+        self,
+        request: ListQueryPlansRequest,
+        context: ServicerContext,
+    ) -> ListQueryPlansResponse: ...
     @abstractmethod
     def AggregateQueryErrors(
         self,
@@ -260,5 +284,17 @@ class QueriesServiceServicer(metaclass=ABCMeta):
         request: GetPlanRunMetadataRequest,
         context: ServicerContext,
     ) -> GetPlanRunMetadataResponse: ...
+    @abstractmethod
+    def ArchiveMetaQuery(
+        self,
+        request: ArchiveMetaQueryRequest,
+        context: ServicerContext,
+    ) -> ArchiveMetaQueryResponse: ...
+    @abstractmethod
+    def UnarchiveMetaQuery(
+        self,
+        request: UnarchiveMetaQueryRequest,
+        context: ServicerContext,
+    ) -> UnarchiveMetaQueryResponse: ...
 
 def add_QueriesServiceServicer_to_server(servicer: QueriesServiceServicer, server: Server) -> None: ...

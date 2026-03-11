@@ -31,7 +31,6 @@ def main(argv=sys.argv, quiet=False, original_ignore_files=None):
 
 
 class PServeCommand:
-
     description = """\
     This command serves a web application that uses a PasteDeploy
     configuration file for the server and application.
@@ -39,6 +38,7 @@ class PServeCommand:
     You can also include variable assignments like 'http_port=8080'
     and then use %(http_port)s in your config files.
     """
+    script_name = 'pserve'
     default_verbosity = 1
 
     parser = argparse.ArgumentParser(
@@ -183,6 +183,7 @@ class PServeCommand:
             return 2
         config_uri = self.args.config_uri
         config_vars = parse_vars(self.args.config_vars)
+        config_vars.setdefault('__script__', self.script_name)
         app_spec = self.args.config_uri
         app_name = self.args.app_name
 
@@ -296,9 +297,7 @@ def wsgiref_server_runner(wsgi_app, global_conf, **kw):  # pragma: no cover
     host = kw.get('host', '0.0.0.0')
     port = int(kw.get('port', 8080))
     server = make_server(host, port, wsgi_app)
-    print(
-        'Starting HTTP server on http://%s:%s' % (host, port), file=sys.stderr
-    )
+    print(f'Starting HTTP server on http://{host}:{port}', file=sys.stderr)
     server.serve_forever()
 
 
@@ -423,7 +422,7 @@ def cherrypy_server_runner(
             )
         else:
             print(
-                'serving on %s://%s:%s' % (protocol, host, port),
+                f'serving on {protocol}://{host}:{port}',
                 file=sys.stderr,
             )
         server.start()

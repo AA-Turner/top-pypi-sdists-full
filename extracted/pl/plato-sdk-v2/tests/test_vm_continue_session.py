@@ -141,6 +141,45 @@ class TestVMContinueSession:
         assert len(alias.split("-")[-1]) == 8
 
     @pytest.mark.asyncio
+    async def test_prepare_retries_with_retry_suffix_after_duplicate_alias(self, runtime):
+        ctx = _make_ctx(display_name="shared-components-batch-5")
+        agent_env = MagicMock()
+        agent_env.get_mesh_ip = AsyncMock(return_value="10.0.0.1")
+
+        runtime._create_vm = AsyncMock(
+            side_effect=[
+                RuntimeError("Duplicate alias 'shared-components-batch-5-old'"),
+                agent_env,
+            ]
+        )
+        runtime._setup_network = AsyncMock()
+        runtime._sync_code = AsyncMock()
+        runtime._run_ssh_streaming = AsyncMock(return_value=0)
+        runtime.cleanup = AsyncMock()
+
+        with patch(
+            "plato.agents.runtime.vm._make_agent_alias",
+            return_value="shared-components-batch-5-base",
+        ):
+            prepared = await runtime.prepare(ctx)
+
+        assert prepared.agent_id == "shared-components-batch-5-base-retry-1"
+        assert prepared.hostname == "10.0.0.1"
+        assert runtime._create_vm.await_count == 2
+        assert runtime._create_vm.await_args_list[0].args == (
+            "test:latest",
+            "shared-components-batch-5-base",
+        )
+        assert runtime._create_vm.await_args_list[1].args == (
+            "test:latest",
+            "shared-components-batch-5-base-retry-1",
+        )
+        runtime.cleanup.assert_awaited_once_with(
+            "shared-components-batch-5-base",
+            error=True,
+        )
+
+    @pytest.mark.asyncio
     async def test_agent_name_propagated_to_span_and_env(self, runtime):
         ctx = _make_ctx(display_name="backend-builder")
         agent_env = MagicMock()

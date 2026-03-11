@@ -276,6 +276,18 @@ class SessionRecordWithChildren(SessionRecord, RecordWithChildTraces):
 SpanRecordWithChildrenAdapter: TypeAdapter[SpanRecordWithChildren] = TypeAdapter(SpanRecordWithChildren)
 
 
+RecordWithChildren = Annotated[
+    Union[
+        SessionRecordWithChildren,
+        TraceRecordWithChildren,
+        SpanRecordWithChildren,
+    ],
+    Field(discriminator="type"),
+]
+
+RecordWithChildrenAdapter: TypeAdapter[RecordWithChildren] = TypeAdapter(RecordWithChildren)
+
+
 PartialAgentSpanRecord: TypeAlias = AgentSpanRecord.model_as_partial()  # type: ignore[valid-type]
 PartialWorkflowSpanRecord: TypeAlias = WorkflowSpanRecord.model_as_partial()  # type: ignore[valid-type]
 PartialLlmSpanRecord: TypeAlias = LlmSpanRecord.model_as_partial()  # type: ignore[valid-type]

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: howso-engine
-Version: 56.1.0
+Version: 56.1.2
 Summary: The Howso Engine™ is a natively and fully explainable ML engine, serving as an alternative to black box AI neural networks.
 Author: Howso Incorporated
 Author-email: support@howso.com
@@ -690,15 +690,14 @@ Description-Content-Type: text/markdown
 License-File: LICENSE-3RD-PARTY.txt
 License-File: LICENSE.txt
 Requires-Dist: certifi
-Requires-Dist: cryptography>=2.9.2
-Requires-Dist: deprecation~=2.0
 Requires-Dist: Faker>=4.1.1
 Requires-Dist: humanize>=4.0.0
 Requires-Dist: mmh3
 Requires-Dist: numpy
+Requires-Dist: packaging
 Requires-Dist: pandas<3.0
 Requires-Dist: psutil
-Requires-Dist: pyjwt~=2.0
+Requires-Dist: python-dateutil
 Requires-Dist: pyyaml~=6.0
 Requires-Dist: requests<3.0,>=2.32.4
 Requires-Dist: rich>=12.5.1
@@ -706,7 +705,7 @@ Requires-Dist: sacremoses
 Requires-Dist: semantic-version~=2.0
 Requires-Dist: typing-extensions~=4.9
 Requires-Dist: urllib3>=2.6.3
-Requires-Dist: amalgam-lang==27.0.3
+Requires-Dist: amalgam-lang==27.2.0
 Provides-Extra: dev
 Requires-Dist: dill~=0.0; extra == "dev"
 Requires-Dist: flake8-docstrings; extra == "dev"

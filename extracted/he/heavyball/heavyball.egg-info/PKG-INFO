@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: heavyball
-Version: 2.2.3
+Version: 2.3.0
 Summary: Efficient Optimizers
 Author-email: HeavyBall Authors <github.heavyball@nestler.sh>
 Project-URL: source, https://github.com/HomebrewML/HeavyBall
@@ -29,7 +29,8 @@ Requires-Dist: pandas; extra == "dev"
 Requires-Dist: typer; extra == "dev"
 Requires-Dist: optuna; extra == "dev"
 Requires-Dist: optunahub; extra == "dev"
-Requires-Dist: hebo; extra == "dev"
+Requires-Dist: gpytorch; extra == "dev"
+Requires-Dist: scikit-learn; extra == "dev"
 Requires-Dist: lightbench; extra == "dev"
 Dynamic: license-file
 
@@ -37,6 +38,7 @@ Dynamic: license-file
 
 [![PyPI version](https://img.shields.io/pypi/v/heavyball?color=blue)][pypi]
 [![License](https://img.shields.io/badge/license-BSD--3--Clause-blue.svg)][license]
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/HomebrewML/HeavyBall)
 
 _High-performance, extensible, chainable optimizers for PyTorch._
 

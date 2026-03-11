@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from plato.llm import (
+    LLMClient,
     LLMResponse,
     TokenUsage,
     ToolCall,
@@ -276,6 +277,24 @@ class TestEmitLLMSpan:
         span_names = [call.args[0] for call in mock_tracer.start_as_current_span.call_args_list]
         assert span_names == ["atif.step.1", "atif.step.2", "atif.step.3"]
 
+    def test_emits_world_source_when_requested(self):
+        """World-owned clients should emit world ATIF step attribution."""
+        mock_span = MagicMock()
+        mock_context = MagicMock()
+        mock_context.__enter__ = MagicMock(return_value=mock_span)
+        mock_context.__exit__ = MagicMock(return_value=False)
+
+        mock_tracer = MagicMock()
+        mock_tracer.start_as_current_span.return_value = mock_context
+
+        response = LLMResponse(text="a", model="m")
+
+        with patch("plato.llm.get_tracer", return_value=mock_tracer):
+            _emit_llm_span("m", [], response, 0, atif_source="world")
+
+        calls = {call.args[0]: call.args[1] for call in mock_span.set_attribute.call_args_list}
+        assert calls["atif.step.source"] == "world"
+
     def test_tool_calls_in_span(self):
         """Tool calls are serialized into the span."""
         mock_span = MagicMock()
@@ -487,3 +506,24 @@ class TestLLMResponse:
         assert r.model == ""
         assert r.stop_reason == ""
         assert r.raw is None
+
+
+class TestLLMClient:
+    @pytest.mark.asyncio
+    @patch("plato.llm.acompletion")
+    async def test_client_forwards_tracing_metadata(self, mock_acompletion):
+        mock_acompletion.return_value = LLMResponse(text="hello")
+
+        config = MagicMock()
+        config.model = "openai/gpt-4o"
+        config.api_key = None
+        config.max_tokens = 100
+        config.temperature = 0.2
+        config.concurrency = 0
+
+        client = LLMClient(config, tracer_name="plato.worlds.demo.llm", atif_source="world")
+        await client(messages=[{"role": "user", "content": "hi"}])
+
+        mock_acompletion.assert_awaited_once()
+        assert mock_acompletion.call_args.kwargs["tracer_name"] == "plato.worlds.demo.llm"
+        assert mock_acompletion.call_args.kwargs["atif_source"] == "world"

@@ -68,8 +68,8 @@ class RemotesApi:
         pulp_last_updated__lt: Annotated[Optional[datetime], Field(description="Filter results where pulp_last_updated is less than value")] = None,
         pulp_last_updated__lte: Annotated[Optional[datetime], Field(description="Filter results where pulp_last_updated is less than or equal to value")] = None,
         pulp_last_updated__range: Annotated[Optional[List[datetime]], Field(description="Filter results where pulp_last_updated is between two comma separated values")] = None,
-        pulp_type: Annotated[Optional[StrictStr], Field(description="Pulp type  * `file.file` - file.file")] = None,
-        pulp_type__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.  * `file.file` - file.file")] = None,
+        pulp_type: Annotated[Optional[StrictStr], Field(description="Pulp type  * `file.file` - file.file * `file.git` - file.git")] = None,
+        pulp_type__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.  * `file.file` - file.file * `file.git` - file.git")] = None,
         q: Annotated[Optional[StrictStr], Field(description="Filter results by using NOT, AND and OR operations on other filters")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
@@ -138,9 +138,9 @@ class RemotesApi:
         :type pulp_last_updated__lte: datetime
         :param pulp_last_updated__range: Filter results where pulp_last_updated is between two comma separated values
         :type pulp_last_updated__range: List[datetime]
-        :param pulp_type: Pulp type  * `file.file` - file.file
+        :param pulp_type: Pulp type  * `file.file` - file.file * `file.git` - file.git
         :type pulp_type: str
-        :param pulp_type__in: Multiple values may be separated by commas.  * `file.file` - file.file
+        :param pulp_type__in: Multiple values may be separated by commas.  * `file.file` - file.file * `file.git` - file.git
         :type pulp_type__in: List[str]
         :param q: Filter results by using NOT, AND and OR operations on other filters
         :type q: str
@@ -247,8 +247,8 @@ class RemotesApi:
         pulp_last_updated__lt: Annotated[Optional[datetime], Field(description="Filter results where pulp_last_updated is less than value")] = None,
         pulp_last_updated__lte: Annotated[Optional[datetime], Field(description="Filter results where pulp_last_updated is less than or equal to value")] = None,
         pulp_last_updated__range: Annotated[Optional[List[datetime]], Field(description="Filter results where pulp_last_updated is between two comma separated values")] = None,
-        pulp_type: Annotated[Optional[StrictStr], Field(description="Pulp type  * `file.file` - file.file")] = None,
-        pulp_type__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.  * `file.file` - file.file")] = None,
+        pulp_type: Annotated[Optional[StrictStr], Field(description="Pulp type  * `file.file` - file.file * `file.git` - file.git")] = None,
+        pulp_type__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.  * `file.file` - file.file * `file.git` - file.git")] = None,
         q: Annotated[Optional[StrictStr], Field(description="Filter results by using NOT, AND and OR operations on other filters")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
@@ -317,9 +317,9 @@ class RemotesApi:
         :type pulp_last_updated__lte: datetime
         :param pulp_last_updated__range: Filter results where pulp_last_updated is between two comma separated values
         :type pulp_last_updated__range: List[datetime]
-        :param pulp_type: Pulp type  * `file.file` - file.file
+        :param pulp_type: Pulp type  * `file.file` - file.file * `file.git` - file.git
         :type pulp_type: str
-        :param pulp_type__in: Multiple values may be separated by commas.  * `file.file` - file.file
+        :param pulp_type__in: Multiple values may be separated by commas.  * `file.file` - file.file * `file.git` - file.git
         :type pulp_type__in: List[str]
         :param q: Filter results by using NOT, AND and OR operations on other filters
         :type q: str
@@ -426,8 +426,8 @@ class RemotesApi:
         pulp_last_updated__lt: Annotated[Optional[datetime], Field(description="Filter results where pulp_last_updated is less than value")] = None,
         pulp_last_updated__lte: Annotated[Optional[datetime], Field(description="Filter results where pulp_last_updated is less than or equal to value")] = None,
         pulp_last_updated__range: Annotated[Optional[List[datetime]], Field(description="Filter results where pulp_last_updated is between two comma separated values")] = None,
-        pulp_type: Annotated[Optional[StrictStr], Field(description="Pulp type  * `file.file` - file.file")] = None,
-        pulp_type__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.  * `file.file` - file.file")] = None,
+        pulp_type: Annotated[Optional[StrictStr], Field(description="Pulp type  * `file.file` - file.file * `file.git` - file.git")] = None,
+        pulp_type__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.  * `file.file` - file.file * `file.git` - file.git")] = None,
         q: Annotated[Optional[StrictStr], Field(description="Filter results by using NOT, AND and OR operations on other filters")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
@@ -496,9 +496,9 @@ class RemotesApi:
         :type pulp_last_updated__lte: datetime
         :param pulp_last_updated__range: Filter results where pulp_last_updated is between two comma separated values
         :type pulp_last_updated__range: List[datetime]
-        :param pulp_type: Pulp type  * `file.file` - file.file
+        :param pulp_type: Pulp type  * `file.file` - file.file * `file.git` - file.git
         :type pulp_type: str
-        :param pulp_type__in: Multiple values may be separated by commas.  * `file.file` - file.file
+        :param pulp_type__in: Multiple values may be separated by commas.  * `file.file` - file.file * `file.git` - file.git
         :type pulp_type__in: List[str]
         :param q: Filter results by using NOT, AND and OR operations on other filters
         :type q: str

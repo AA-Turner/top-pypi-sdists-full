@@ -1,0 +1,201 @@
+name: Pull request
+on:
+  pull_request:
+    branches: [main]
+# Concurrency: auto-cancels previous runs when new commits are pushed
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  Lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+      - name: Install dependencies
+        run: uv sync --extra dev
+      - name: Check formatting
+        run: uv run ruff format --check .
+  check-changelog:
+    name: Check changelog fragment
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check for changelog fragment
+        run: |
+          FRAGMENTS=$(find changelog.d -type f ! -name '.gitkeep' | wc -l)
+          if [ "$FRAGMENTS" -eq 0 ]; then
+            echo "::error::No changelog fragment found in changelog.d/"
+            echo "Add one with: echo 'Description.' > changelog.d/\$(git branch --show-current).<type>.md"
+            echo "Types: added, changed, fixed, removed, breaking"
+            exit 1
+          fi
+  Quick-Feedback:
+    name: Quick Feedback (Selective Tests + Coverage)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 10
+      - name: Fetch base branch
+        run: git fetch origin ${{ github.base_ref }} --depth=1
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.14
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+      - name: Install dependencies
+        run: uv sync --extra dev
+      - name: Turn off default branching
+        shell: bash
+        run: ./update_itemization.sh
+      - name: Run selective tests based on changed files
+        env:
+          PYTHONUNBUFFERED: 1
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_BASE_REF: ${{ github.base_ref }}
+        run: |
+          echo "Running selective tests based on changed files..."
+          uv run python policyengine_us/tests/run_selective_tests.py --base-branch ${{ github.base_ref }} --coverage
+      - name: Generate coverage report
+        id: coverage
+        if: always()
+        run: |
+          echo "📊 Coverage Report"
+          echo "=================="
+          # Show files below 100% coverage (won't fail CI)
+          uv run coverage report --fail-under=0 --skip-covered --skip-empty || echo "No coverage data available."
+
+          # Count files below 100%
+          TOTAL_FILES=$(uv run coverage report --skip-covered --skip-empty 2>/dev/null | grep -E "^[a-zA-Z].*\.py " | wc -l || echo "0")
+
+          if [ "$TOTAL_FILES" -gt "0" ]; then
+            echo ""
+            echo "⚠️  $TOTAL_FILES file(s) have less than 100% coverage"
+            echo "Consider adding tests to improve coverage."
+          else
+            echo ""
+            echo "✅ All files have 100% coverage!"
+          fi
+
+          # Generate XML for Codecov
+          uv run coverage xml || echo "No coverage data to generate XML report."
+          # Expose whether we have coverage for later steps
+          if [ -f coverage.xml ]; then
+            echo "has_coverage=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_coverage=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Upload coverage to Codecov
+        if: ${{ always() && steps.coverage.outputs.has_coverage == 'true' }}
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage.xml
+          fail_ci_if_error: false
+          flags: unittests
+          name: codecov-umbrella
+          token: ${{ secrets.CODECOV_TOKEN }}
+          verbose: true
+      - name: Build package
+        run: uv build
+  NonStructural-States:
+    name: Full Suite - Baseline States
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.14
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+      - name: Install dependencies
+        run: uv sync --extra dev
+      - name: Turn off default branching
+        shell: bash
+        run: bash ./update_itemization.sh
+      - name: Run non-structural YAML tests (states in 3 batches)
+        env:
+          PYTHONUNBUFFERED: 1
+        run: |
+          echo "Running non-structural YAML tests (states, 3 batches)..."
+          uv run make test-yaml-no-structural-states
+  NonStructural-Other:
+    name: Full Suite - Baseline (excl States) & Reform & Python
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.14
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+      - name: Install dependencies
+        run: uv sync --extra dev
+      - name: Turn off default branching
+        shell: bash
+        run: bash ./update_itemization.sh
+      - name: Run non-structural YAML tests (other)
+        env:
+          PYTHONUNBUFFERED: 1
+        run: |
+          echo "Running non-structural YAML tests (other)..."
+          uv run make test-yaml-no-structural-other
+      - name: Run Python-based tests
+        env:
+          PYTHONUNBUFFERED: 1
+        run: |
+          echo "Running Python-based tests..."
+          uv run make test-other
+  Structural-Heavy:
+    name: Full Suite - Structural (States)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.14
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+      - name: Install dependencies
+        run: uv sync --extra dev
+      - name: Turn off default branching
+        shell: bash
+        run: bash ./update_itemization.sh
+      - name: Run structural YAML tests (states)
+        env:
+          PYTHONUNBUFFERED: 1
+        run: |
+          echo "Running structural YAML tests (contrib/states)..."
+          uv run make test-yaml-structural-heavy
+  Structural:
+    name: Full Suite - Structural (Other)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.14
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+      - name: Install dependencies
+        run: uv sync --extra dev
+      - name: Turn off default branching
+        shell: bash
+        run: bash ./update_itemization.sh
+      - name: Run structural YAML tests (other)
+        env:
+          PYTHONUNBUFFERED: 1
+        run: |
+          echo "Running structural YAML tests (contrib excl states)..."
+          uv run make test-yaml-structural

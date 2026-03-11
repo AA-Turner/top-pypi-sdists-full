@@ -271,8 +271,8 @@ class PeopleCountingUseCase(BaseProcessor):
             elif self.current_incident_end_timestamp != 'Incident still active' and self.current_incident_end_timestamp != 'N/A':
                 self.current_incident_end_timestamp = 'N/A'
 
-            if config.alert_config and config.alert_config.count_thresholds:
-                threshold = config.alert_config.count_thresholds.get("all", 15)
+            if config.alert_config and config.alert_config.get('count_thresholds', None):
+                threshold = config.alert_config.get('count_thresholds', {}) .get("all", 15)
                 intensity = min(10.0, (total_detections / threshold) * 10)
                 if intensity >= 9:
                     level = "critical"

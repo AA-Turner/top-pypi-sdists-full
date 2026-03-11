@@ -1,4 +1,4 @@
-from .imports import *
+
 def get_num_list() -> list:
     """
     Generates a list of numbers as strings.

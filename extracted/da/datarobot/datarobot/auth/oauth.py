@@ -179,6 +179,7 @@ class OAuthToken(BaseModel):
             expires_at=expires_at,
             scope=raw_data.get("scope"),
             refresh_token=raw_data.get("refresh_token"),
+            id_token=raw_data.get("id_token"),
         )
 
 

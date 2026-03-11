@@ -11,6 +11,7 @@ import random
 import re
 import string
 import subprocess
+import sys
 import time
 import traceback
 import uuid
@@ -1892,7 +1893,12 @@ https://docs.chalk.ai/cli/apply
 
         # access the calling frame so that globals can be loaded into the notebook
 
-        features_raw = {}
+        import types as _types
+
+        _chalk_notebook_module_name = "__chalk_notebook_features__"
+        _chalk_mod = _types.ModuleType(_chalk_notebook_module_name)
+        sys.modules[_chalk_notebook_module_name] = _chalk_mod
+        features_raw = _chalk_mod.__dict__
 
         exec(result.codegen, features_raw)
 
@@ -2345,7 +2351,7 @@ https://docs.chalk.ai/cli/apply
             bool
         ] = None,  # unused, undocumented. provided to make switching online_query -> offline_query easier.
         use_multiple_computers: bool = False,
-        upload_input_as_table: bool = False,
+        upload_input_as_table: bool = True,
         env_overrides: dict[str, str] | None = None,
         enable_profiling: bool = False,
         override_target_image_tag: Optional[str] = None,
@@ -2741,7 +2747,7 @@ https://docs.chalk.ai/cli/apply
             bool
         ] = None,  # unused, undocumented. provided to make switching online_query -> offline_query easier.
         use_multiple_computers: bool = False,
-        upload_input_as_table: bool = False,
+        upload_input_as_table: bool = True,
         env_overrides: dict[str, str] | None = None,
         enable_profiling: bool = False,
         override_target_image_tag: Optional[str] = None,

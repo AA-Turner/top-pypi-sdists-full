@@ -1,15 +1,16 @@
-# -*- coding: utf-8 -*-
-# SPDX-FileCopyrightText: 2016-2025 PyThaiNLP Project
+# SPDX-FileCopyrightText: 2016-2026 PyThaiNLP Project
 # SPDX-FileType: SOURCE
 # SPDX-License-Identifier: Apache-2.0
-"""
-Transliterating Thai text using ISO 11940
+"""Transliterating Thai text using ISO 11940
 
 :See Also:
     * `Wikipedia \
         <https://en.wikipedia.org/wiki/ISO_11940>`_
 """
-_consonants = {
+
+from __future__ import annotations
+
+_consonants: dict[str, str] = {
     "ก": "k",
     "ข": "k̄h",
     "ฃ": "ḳ̄h",
@@ -58,7 +59,7 @@ _consonants = {
     "ฮ": "ḥ",
 }
 
-_vowels = {
+_vowels: dict[str, str] = {
     "ะ": "a",
     "ั": "ạ",
     "า": "ā",
@@ -83,7 +84,7 @@ _vowels = {
     "อ": "x",
 }
 
-_tone_marks = {
+_tone_marks: dict[str, str] = {
     "่": "–̀".replace("–", ""),
     "้": "–̂".replace("–", ""),
     "๊": "–́".replace("–", ""),
@@ -95,14 +96,11 @@ _tone_marks = {
     "–ฺ".replace("–", ""): "–̥".replace("–", ""),
 }
 
-_punctuation_and_digits = {
-    # ฯ can has two meanings in ISO 11940.
-    # If it is for abbrevation, it is paiyan noi.
-    # If it is for sentence termination, it is angkhan diao.
-    # Without semantic analysis, they cannot be distinguished from each other.
-    # In this simple implementation, we decided to always treat ฯ as paiyan noi.
-    # We commented out angkhan diao line to remove it from the dictionary
-    # and avoid having duplicate keys.
+_punctuation_and_digits: dict[str, str] = {
+    # ฯ can mean abbreviation (paiyan noi) or sentence termination (angkhan diao).
+    # Without semantic analysis, they cannot be distinguished.
+    # Treat ฯ as paiyan noi here; angkhan diao entry is excluded to avoid
+    # duplicate keys.
     "ๆ": "«",
     "ฯ": "ǂ",  # paiyan noi: U+01C2 ǂ Alveolar Click; ICU uses ‡ (double dagger)
     "๏": "§",
@@ -121,18 +119,17 @@ _punctuation_and_digits = {
     "๙": "9",
 }
 
-_all_dict = {
+_all_dict: dict[str, str] = {
     **_consonants,
     **_vowels,
     **_tone_marks,
     **_punctuation_and_digits,
 }
-_keys_set = _all_dict.keys()
+_keys_set: set[str] = set(_all_dict.keys())
 
 
 def transliterate(word: str) -> str:
-    """
-    Use ISO 11940 for transliteration
+    """Use ISO 11940 for transliteration
     :param str text: Thai text to be transliterated.
     :return: A string indicating how the text should be pronounced, according to ISO 11940.
     """

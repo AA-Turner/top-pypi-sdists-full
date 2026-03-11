@@ -1,18 +1,21 @@
-# -*- coding: utf-8 -*-
-# SPDX-FileCopyrightText: 2016-2025 PyThaiNLP Project
+# SPDX-FileCopyrightText: 2016-2026 PyThaiNLP Project
 # SPDX-FileType: SOURCE
 # SPDX-License-Identifier: Apache-2.0
-"""
-Where's the Point? Self-Supervised Multilingual Punctuation-Agnostic Sentence Segmentation
+"""Where's the Point? Self-Supervised Multilingual Punctuation-Agnostic Sentence Segmentation
 
 GitHub: https://github.com/bminixhofer/wtpsplit
 """
-from typing import List
+
+from __future__ import annotations
+
+import threading
+from typing import Optional, cast
 
 from wtpsplit import WtP
 
-_MODEL = None
-_MODEL_NAME = None
+_MODEL: Optional[WtP] = None
+_MODEL_NAME: Optional[str] = None
+_model_lock: threading.Lock = threading.Lock()
 
 
 def _tokenize(
@@ -22,30 +25,51 @@ def _tokenize(
     tokenize: str = "sentence",
     paragraph_threshold: float = 0.5,
     style: str = "newline",
-) -> List[str]:
-    global _MODEL_NAME, _MODEL
+) -> list[str]:
+    """Internal tokenization function with model loading protection.
 
-    if _MODEL_NAME != model:
-        _MODEL = WtP(model_name_or_model=model)
-        _MODEL_NAME = model
+    The wrapper uses a lock to protect model loading when switching models.
+    However, thread-safety of the underlying WtP library itself is not
+    guaranteed. Please refer to the WtP library documentation for its
+    thread-safety guarantees.
+    """
+    # Thread-safe model loading
+    global _MODEL, _MODEL_NAME
+    with _model_lock:
+        if _MODEL_NAME != model:
+            _MODEL = WtP(model_name_or_model=model)
+            _MODEL_NAME = model
+        model_instance = _MODEL
+
+    # Ensure model is loaded
+    if model_instance is None:
+        raise RuntimeError("Model failed to load")
 
     if tokenize == "sentence":
-        return _MODEL.split(text, lang_code=lang_code)
+        return cast(
+            "list[str]", model_instance.split(text, lang_code=lang_code)
+        )
     else:  # Paragraph
         if style == "newline":
-            return _MODEL.split(
-                text,
-                lang_code=lang_code,
-                do_paragraph_segmentation=True,
-                paragraph_threshold=paragraph_threshold,
+            return cast(
+                "list[str]",
+                model_instance.split(
+                    text,
+                    lang_code=lang_code,
+                    do_paragraph_segmentation=True,
+                    paragraph_threshold=paragraph_threshold,
+                ),
             )
         elif style == "opus100":
-            return _MODEL.split(
-                text,
-                lang_code=lang_code,
-                do_paragraph_segmentation=True,
-                threshold=paragraph_threshold,
-                style=style,
+            return cast(
+                "list[str]",
+                model_instance.split(
+                    text,
+                    lang_code=lang_code,
+                    do_paragraph_segmentation=True,
+                    threshold=paragraph_threshold,
+                    style=style,
+                ),
             )
         else:
             raise ValueError(
@@ -60,7 +84,7 @@ def tokenize(
     tokenize: str = "sentence",
     paragraph_threshold: float = 0.5,
     style: str = "newline",
-) -> List[str]:
+) -> list[str]:
     _model_load = ""
     if size == "tiny":
         _model_load = "wtp-bert-tiny"

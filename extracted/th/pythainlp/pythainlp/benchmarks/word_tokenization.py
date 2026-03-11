@@ -1,35 +1,35 @@
-# -*- coding: utf-8 -*-
-# SPDX-FileCopyrightText: 2016-2025 PyThaiNLP Project
+# SPDX-FileCopyrightText: 2016-2026 PyThaiNLP Project
 # SPDX-FileType: SOURCE
 # SPDX-License-Identifier: Apache-2.0
+from __future__ import annotations
 
 import re
 import sys
-from typing import List, Tuple
+from typing import TYPE_CHECKING, Union
 
-import numpy as np
-import pandas as pd
+if TYPE_CHECKING:
+    import numpy as np
+    import pandas as pd
 
-SEPARATOR = "|"
+SEPARATOR: str = "|"
 
 # regex for removing one space surrounded by separators, i.e. | |
-SURROUNDING_SEPS_RX = re.compile(
+SURROUNDING_SEPS_RX: re.Pattern[str] = re.compile(
     "{sep}? ?{sep}$".format(sep=re.escape(SEPARATOR))
 )
 
 # regex for removing repeated separators, i.e. ||||
-MULTIPLE_SEPS_RX = re.compile("{sep}+".format(sep=re.escape(SEPARATOR)))
+MULTIPLE_SEPS_RX: re.Pattern[str] = re.compile(f"{re.escape(SEPARATOR)}+")
 
 # regex for removing tags, i.e. <NE>, </NE>
-TAG_RX = re.compile(r"<\/?[A-Z]+>")
+TAG_RX: re.Pattern[str] = re.compile(r"<\/?[A-Z]+>")
 
 # regex for removing trailing separators, i.e.  a|dog| -> a|dog
-TAILING_SEP_RX = re.compile("{sep}$".format(sep=re.escape(SEPARATOR)))
+TAILING_SEP_RX: re.Pattern[str] = re.compile(f"{re.escape(SEPARATOR)}$")
 
 
 def _f1(precision: float, recall: float) -> float:
-    """
-    Compute f1.
+    """Compute f1.
 
     :param float precision
     :param float recall
@@ -42,9 +42,10 @@ def _f1(precision: float, recall: float) -> float:
     return 2 * precision * recall / (precision + recall)
 
 
-def _flatten_result(my_dict: dict, sep: str = ":") -> dict:
-    """
-    Flatten two-dimension dictionary.
+def _flatten_result(
+    my_dict: dict, sep: str = ":"
+) -> dict[str, Union[int, str]]:
+    """Flatten two-dimension dictionary.
 
     Use keys in the first dimension as a prefix for keys in the second dimension.
     For example,
@@ -57,20 +58,17 @@ def _flatten_result(my_dict: dict, sep: str = ":") -> dict:
     :param str sep: separator between the two keys (default: ":")
 
     :return: a one-dimension dictionary with keys combined
-    :rtype: dict[str, float | str]
+    :rtype: dict[str, Union[int, str]]
     """
-    items = []
-    for k1, kv2 in my_dict.items():
-        for k2, v in kv2.items():
-            new_key = f"{k1}{sep}{k2}"
-            items.append((new_key, v))
-
-    return dict(items)
+    return {
+        f"{k1}{sep}{k2}": v
+        for k1, kv2 in my_dict.items()
+        for k2, v in kv2.items()
+    }
 
 
-def benchmark(ref_samples: List[str], samples: List[str]) -> pd.DataFrame:
-    """
-    Performance benchmarking for samples.
+def benchmark(ref_samples: list[str], samples: list[str]) -> "pd.DataFrame":
+    """Performance benchmarking for samples.
 
     Please see :meth:`pythainlp.benchmarks.word_tokenization.compute_stats` for
     the computed metrics.
@@ -81,17 +79,19 @@ def benchmark(ref_samples: List[str], samples: List[str]) -> pd.DataFrame:
     :return: dataframe with row x col = len(samples) x len(metrics)
     :rtype: pandas.DataFrame
     """
+    import pandas as pd
+
     results = []
     for i, (r, s) in enumerate(zip(ref_samples, samples)):
         try:
             r, s = preprocessing(r), preprocessing(s)
             if r and s:
                 stats = compute_stats(r, s)
-                stats = _flatten_result(stats)
-                stats["expected"] = r
-                stats["actual"] = s
-                results.append(stats)
-        except:
+                flat_stats: dict[str, Union[int, str]] = _flatten_result(stats)
+                flat_stats["expected"] = r
+                flat_stats["actual"] = s
+                results.append(flat_stats)
+        except Exception:
             reason = """
 [Error]
 Reason: %s
@@ -113,8 +113,7 @@ Pair (i=%d)
 
 
 def preprocessing(txt: str, remove_space: bool = True) -> str:
-    """
-    Clean up text before performing evaluation.
+    """Clean up text before performing evaluation.
 
     :param str text: text to be preprocessed
     :param bool remove_space: whether to remove white space
@@ -136,9 +135,10 @@ def preprocessing(txt: str, remove_space: bool = True) -> str:
     return txt
 
 
-def compute_stats(ref_sample: str, raw_sample: str) -> dict:
-    """
-    Compute statistics for tokenization quality
+def compute_stats(
+    ref_sample: str, raw_sample: str
+) -> dict[str, dict[str, Union[int, str]]]:
+    """Compute statistics for tokenization quality
 
     These statistics include:
 
@@ -154,39 +154,42 @@ def compute_stats(ref_sample: str, raw_sample: str) -> dict:
     :param str samples: samples that we want to evaluate
 
     :return: metrics at character- and word-level and indicators of correctly tokenized words
-    :rtype: dict[str, float | str]
+    :rtype: dict[str, dict[str, Union[int, str]]]
     """
-    ref_sample = _binary_representation(ref_sample)
-    sample = _binary_representation(raw_sample)
+    import numpy as np
+
+    ref_sample_arr = _binary_representation(ref_sample)
+    sample_arr = _binary_representation(raw_sample)
 
     # Compute character-level statistics
-    c_pos_pred, c_neg_pred = np.argwhere(sample == 1), np.argwhere(sample == 0)
+    c_pos_pred, c_neg_pred = (
+        np.argwhere(sample_arr == 1),
+        np.argwhere(sample_arr == 0),
+    )
 
-    c_pos_pred = c_pos_pred[c_pos_pred < ref_sample.shape[0]]
-    c_neg_pred = c_neg_pred[c_neg_pred < ref_sample.shape[0]]
+    c_pos_pred = c_pos_pred[c_pos_pred < ref_sample_arr.shape[0]]
+    c_neg_pred = c_neg_pred[c_neg_pred < ref_sample_arr.shape[0]]
 
-    c_tp = np.sum(ref_sample[c_pos_pred] == 1)
-    c_fp = np.sum(ref_sample[c_pos_pred] == 0)
+    c_tp: int = int(np.sum(ref_sample_arr[c_pos_pred] == 1))
+    c_fp: int = int(np.sum(ref_sample_arr[c_pos_pred] == 0))
 
-    c_tn = np.sum(ref_sample[c_neg_pred] == 0)
-    c_fn = np.sum(ref_sample[c_neg_pred] == 1)
+    c_tn: int = int(np.sum(ref_sample_arr[c_neg_pred] == 0))
+    c_fn: int = int(np.sum(ref_sample_arr[c_neg_pred] == 1))
 
     # Compute word-level statistics
 
     # Find correctly tokenized words in the reference sample
-    word_boundaries = _find_word_boundaries(ref_sample)
+    word_boundaries = _find_word_boundaries(ref_sample_arr)
 
     # Find correctly tokenized words in the sample
-    ss_boundaries = _find_word_boundaries(sample)
+    ss_boundaries = _find_word_boundaries(sample_arr)
     tokenization_indicators = _find_words_correctly_tokenised(
         word_boundaries, ss_boundaries
     )
 
-    correctly_tokenised_words = np.sum(tokenization_indicators)
+    correctly_tokenised_words: int = int(np.sum(tokenization_indicators))
 
-    tokenization_indicators = list(
-        map(str, tokenization_indicators)
-    )
+    tokenization_indicators_str = list(map(str, tokenization_indicators))
 
     return {
         "char_level": {
@@ -197,18 +200,17 @@ def compute_stats(ref_sample: str, raw_sample: str) -> dict:
         },
         "word_level": {
             "correctly_tokenised_words": correctly_tokenised_words,
-            "total_words_in_sample": np.sum(sample),
-            "total_words_in_ref_sample": np.sum(ref_sample),
+            "total_words_in_sample": int(np.sum(sample_arr)),
+            "total_words_in_ref_sample": int(np.sum(ref_sample_arr)),
         },
         "global": {
-            "tokenisation_indicators": "".join(tokenization_indicators)
+            "tokenisation_indicators": "".join(tokenization_indicators_str)
         },
     }
 
 
-def _binary_representation(txt: str, verbose: bool = False):
-    """
-    Transform text into {0, 1} sequence.
+def _binary_representation(txt: str, verbose: bool = False) -> "np.ndarray":
+    """Transform text into {0, 1} sequence.
 
     where (1) indicates that the corresponding character is the beginning of
     a word. For example, ผม|ไม่|ชอบ|กิน|ผัก -> 10100...
@@ -217,20 +219,26 @@ def _binary_representation(txt: str, verbose: bool = False):
     :param bool verbose: for debugging purposes
 
     :return: {0, 1} sequence
-    :rtype: str
+    :rtype: np.ndarray
     """
+    import numpy as np
+
     chars = np.array(list(txt))
 
     boundary = np.argwhere(chars == SEPARATOR).reshape(-1)
     boundary = boundary - np.array(range(boundary.shape[0]))
 
-    bin_rept = np.zeros(len(txt) - boundary.shape[0])
+    bin_rept: np.ndarray = np.zeros(len(txt) - boundary.shape[0])
     bin_rept[list(boundary) + [0]] = 1
 
     sample_wo_seps = list(txt.replace(SEPARATOR, ""))
 
     # sanity check
-    assert len(sample_wo_seps) == len(bin_rept)
+    if len(sample_wo_seps) != len(bin_rept):
+        raise ValueError(
+            f"Length mismatch: sample_wo_seps={len(sample_wo_seps)}, "
+            f"bin_rept={len(bin_rept)}"
+        )
 
     if verbose:
         for c, m in zip(sample_wo_seps, bin_rept):
@@ -239,15 +247,16 @@ def _binary_representation(txt: str, verbose: bool = False):
     return bin_rept
 
 
-def _find_word_boundaries(bin_reps) -> list:
-    """
-    Find the starting and ending location of each word.
+def _find_word_boundaries(bin_reps: "np.ndarray") -> list[tuple[int, int]]:
+    """Find the starting and ending location of each word.
 
-    :param str bin_reps: binary representation of a text
+    :param numpy.ndarray bin_reps: binary representation of a text
 
     :return: list of tuples (start, end)
-    :rtype: list[tuple(int, int)]
+    :rtype: list[tuple[int, int]]
     """
+    import numpy as np
+
     boundary = np.argwhere(bin_reps == 1).reshape(-1)
     start_idx = boundary
     end_idx = boundary[1:].tolist() + [bin_reps.shape[0]]
@@ -256,19 +265,18 @@ def _find_word_boundaries(bin_reps) -> list:
 
 
 def _find_words_correctly_tokenised(
-    ref_boundaries: List[Tuple[int, int]],
-    predicted_boundaries: List[Tuple[int, int]],
-) -> Tuple[int]:
-    """
-    Find whether each word is correctly tokenized.
+    ref_boundaries: list[tuple[int, int]],
+    predicted_boundaries: list[tuple[int, int]],
+) -> tuple[int, ...]:
+    """Find whether each word is correctly tokenized.
 
-    :param list[tuple(int, int)] ref_boundaries: word boundaries of reference tokenization
-    :param list[tuple(int, int)] predicted_boundaries: word boundareies of predicted tokenization
+    :param list[tuple[int, int]] ref_boundaries: word boundaries of reference tokenization
+    :param list[tuple[int, int]] predicted_boundaries: word boundaries of predicted tokenization
 
     :return: binary sequence where 1 indicates the corresponding word is tokenized correctly
-    :rtype: tuple[int]
+    :rtype: tuple[int, ...]
     """
     ref_b = dict(zip(ref_boundaries, [1] * len(ref_boundaries)))
 
-    labels = tuple(map(lambda x: ref_b.get(x, 0), predicted_boundaries))
+    labels = tuple(ref_b.get(x, 0) for x in predicted_boundaries)
     return labels

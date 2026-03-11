@@ -20,6 +20,7 @@ import trafaret as t
 
 from datarobot import enums, errors
 from datarobot._compat import Int, String
+from datarobot.enums import DEFAULT_TIMEOUT
 
 from ..utils import from_api
 from .api_object import APIObject
@@ -84,7 +85,11 @@ class RowsIterator:
 
     def _load_more(self):
         """Fetch more items from API, validate response, save next url"""
-        response = self.client.get(self.path, params=self.query_params)
+        response = self.client.get(
+            self.path,
+            params=self.query_params,
+            timeout=(DEFAULT_TIMEOUT.CONNECT, DEFAULT_TIMEOUT.UPLOAD),
+        )
         if response.status_code != 200:
             e_msg = "Server returned unexpected status code"
             raise errors.ServerError(
@@ -699,7 +704,12 @@ class TrainingPredictions(APIObject):
         return columns
 
     def _get_all_as_dataframe_csv(self, class_prefix):  # pylint: disable=unused-argument
-        resp = self._client.get(self.path, headers={"Accept": "text/csv"}, stream=True)
+        resp = self._client.get(
+            self.path,
+            headers={"Accept": "text/csv"},
+            stream=True,
+            timeout=(DEFAULT_TIMEOUT.CONNECT, DEFAULT_TIMEOUT.UPLOAD),
+        )
         if resp.status_code == 200:
             return pd.read_csv(resp.raw)
 

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: horizon
-Version: 25.5.1
+Version: 25.6.0
 Summary: OpenStack Dashboard
 Home-page: https://docs.openstack.org/horizon/latest/
 Author: OpenStack
@@ -65,7 +65,7 @@ Requires-Dist: XStatic-Bootstrap-SCSS>=3.3.7.1
 Requires-Dist: XStatic-bootswatch>=3.3.7.0
 Requires-Dist: XStatic-D3>=3.5.17.0
 Requires-Dist: XStatic-Hogan>=2.0.0.2
-Requires-Dist: XStatic-Font-Awesome>=4.7.0.0
+Requires-Dist: XStatic-Font-Awesome>=6.2.1.2
 Requires-Dist: XStatic-Jasmine>=2.4.1.1
 Requires-Dist: XStatic-jQuery>=3.5.1.1
 Requires-Dist: XStatic-JQuery-Migrate>=3
@@ -82,6 +82,15 @@ Requires-Dist: XStatic-Spin>=1.2.5.2
 Requires-Dist: XStatic-term.js>=0.0.7.0
 Requires-Dist: XStatic-tv4>=1.2.7.0
 Requires-Dist: enmerkar>=0.7.1
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 =============================
 Horizon (OpenStack Dashboard)

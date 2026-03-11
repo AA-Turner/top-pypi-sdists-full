@@ -5,7 +5,6 @@ import logging
 from joinem._dataframe_cli import _add_parser_base, _run_dataframe_cli
 
 from .._version import __version__ as downstream_version
-
 from ._explode_lookup_packed import explode_lookup_packed
 
 
@@ -26,16 +25,17 @@ def _create_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--mp-context",
-        default="spawn",
+        default="thread",
         type=str,
-        help="Multiprocessing start method. " 'Default "spawn".',
+        help="Deprecated. Previously selected the multiprocessing "
+        'start method; now ignored. Default "thread".',
     )
     parser.add_argument(
         "--mp-pool-size",
         default=1,
         type=int,
-        help="Number of worker processes for parity computation. "
-        "Default 1 (sequential, no multiprocessing overhead).",
+        help="Number of worker threads for parity computation. "
+        "Default 1 (sequential, no threading overhead).",
     )
     return parser
 

@@ -12,10 +12,20 @@ from chalk._gen.chalk.server.v1.datasets_pb2 import (
     ArchiveDatasetRevisionResponse,
     ArchiveDatasetRevisionsRequest,
     ArchiveDatasetRevisionsResponse,
+    DeleteDatasetRequest,
+    DeleteDatasetResponse,
+    GenerateDatasetEdfsRequest,
+    GenerateDatasetEdfsResponse,
+    GenerateDatasetStatsRequest,
+    GenerateDatasetStatsResponse,
+    GetDatasetEdfsRequest,
+    GetDatasetEdfsResponse,
     GetDatasetRequest,
     GetDatasetResponse,
     GetDatasetRevisionDownloadLinksRequest,
     GetDatasetRevisionDownloadLinksResponse,
+    GetDatasetRevisionPreviewRequest,
+    GetDatasetRevisionPreviewResponse,
     GetDatasetRevisionRequest,
     GetDatasetRevisionResponse,
     ListDatasetRevisionsRequest,
@@ -65,6 +75,26 @@ class DatasetMetadataServiceStub:
     ArchiveDatasetRevisions: UnaryUnaryMultiCallable[
         ArchiveDatasetRevisionsRequest,
         ArchiveDatasetRevisionsResponse,
+    ]
+    DeleteDataset: UnaryUnaryMultiCallable[
+        DeleteDatasetRequest,
+        DeleteDatasetResponse,
+    ]
+    GetDatasetRevisionPreview: UnaryUnaryMultiCallable[
+        GetDatasetRevisionPreviewRequest,
+        GetDatasetRevisionPreviewResponse,
+    ]
+    GenerateDatasetStats: UnaryUnaryMultiCallable[
+        GenerateDatasetStatsRequest,
+        GenerateDatasetStatsResponse,
+    ]
+    GetDatasetEdfs: UnaryUnaryMultiCallable[
+        GetDatasetEdfsRequest,
+        GetDatasetEdfsResponse,
+    ]
+    GenerateDatasetEdfs: UnaryUnaryMultiCallable[
+        GenerateDatasetEdfsRequest,
+        GenerateDatasetEdfsResponse,
     ]
 
 class DatasetMetadataServiceServicer(metaclass=ABCMeta):
@@ -116,5 +146,35 @@ class DatasetMetadataServiceServicer(metaclass=ABCMeta):
         request: ArchiveDatasetRevisionsRequest,
         context: ServicerContext,
     ) -> ArchiveDatasetRevisionsResponse: ...
+    @abstractmethod
+    def DeleteDataset(
+        self,
+        request: DeleteDatasetRequest,
+        context: ServicerContext,
+    ) -> DeleteDatasetResponse: ...
+    @abstractmethod
+    def GetDatasetRevisionPreview(
+        self,
+        request: GetDatasetRevisionPreviewRequest,
+        context: ServicerContext,
+    ) -> GetDatasetRevisionPreviewResponse: ...
+    @abstractmethod
+    def GenerateDatasetStats(
+        self,
+        request: GenerateDatasetStatsRequest,
+        context: ServicerContext,
+    ) -> GenerateDatasetStatsResponse: ...
+    @abstractmethod
+    def GetDatasetEdfs(
+        self,
+        request: GetDatasetEdfsRequest,
+        context: ServicerContext,
+    ) -> GetDatasetEdfsResponse: ...
+    @abstractmethod
+    def GenerateDatasetEdfs(
+        self,
+        request: GenerateDatasetEdfsRequest,
+        context: ServicerContext,
+    ) -> GenerateDatasetEdfsResponse: ...
 
 def add_DatasetMetadataServiceServicer_to_server(servicer: DatasetMetadataServiceServicer, server: Server) -> None: ...

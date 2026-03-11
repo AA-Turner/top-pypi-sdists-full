@@ -4979,7 +4979,7 @@ class CfnEvaluationForm(
         :param auto_evaluation_configuration: The automatic evaluation configuration of an evaluation form.
         :param description: The description of the evaluation form. *Length Constraints* : Minimum length of 0. Maximum length of 1024.
         :param language_configuration: Configuration for language settings of this evaluation form.
-        :param review_configuration: 
+        :param review_configuration: Configuration settings for evaluation reviews.
         :param scoring_strategy: A scoring strategy of the evaluation form.
         :param tags: The tags used to organize, track, or control access for this resource. For example, { "tags": {"key1":"value1", "key2":"value2"} }.
         :param target_configuration: Configuration that specifies the target for this evaluation form.
@@ -5197,6 +5197,7 @@ class CfnEvaluationForm(
     def review_configuration(
         self,
     ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEvaluationForm.EvaluationReviewConfigurationProperty"]]:
+        '''Configuration settings for evaluation reviews.'''
         return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEvaluationForm.EvaluationReviewConfigurationProperty"]], jsii.get(self, "reviewConfiguration"))
 
     @review_configuration.setter
@@ -8487,7 +8488,8 @@ class CfnEvaluationForm(
             review_notification_recipients: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEvaluationForm.EvaluationReviewNotificationRecipientProperty", typing.Dict[builtins.str, typing.Any]]]]],
             eligibility_days: typing.Optional[jsii.Number] = None,
         ) -> None:
-            '''
+            '''Configuration settings for evaluation reviews.
+
             :param review_notification_recipients: List of recipients who should be notified when a review is requested.
             :param eligibility_days: Number of days during which a request for review can be submitted for evaluations created from this form.
 
@@ -8566,9 +8568,10 @@ class CfnEvaluationForm(
             type: builtins.str,
             value: typing.Union["_IResolvable_da3f097b", typing.Union["CfnEvaluationForm.EvaluationReviewNotificationRecipientValueProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
-            '''
+            '''Information about a recipient who should be notified when an evaluation review is requested.
+
             :param type: The type of notification recipient.
-            :param value: 
+            :param value: The value information for an evaluation review notification recipient.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-evaluationform-evaluationreviewnotificationrecipient.html
             :exampleMetadata: fixture=_generated
@@ -8609,7 +8612,8 @@ class CfnEvaluationForm(
         def value(
             self,
         ) -> typing.Union["_IResolvable_da3f097b", "CfnEvaluationForm.EvaluationReviewNotificationRecipientValueProperty"]:
-            '''
+            '''The value information for an evaluation review notification recipient.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-evaluationform-evaluationreviewnotificationrecipient.html#cfn-connect-evaluationform-evaluationreviewnotificationrecipient-value
             '''
             result = self._values.get("value")
@@ -8634,7 +8638,8 @@ class CfnEvaluationForm(
     )
     class EvaluationReviewNotificationRecipientValueProperty:
         def __init__(self, *, user_id: typing.Optional[builtins.str] = None) -> None:
-            '''
+            '''The value information for an evaluation review notification recipient.
+
             :param user_id: The user identifier for the notification recipient.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-evaluationform-evaluationreviewnotificationrecipientvalue.html
@@ -9036,7 +9041,7 @@ class CfnEvaluationFormProps:
         :param auto_evaluation_configuration: The automatic evaluation configuration of an evaluation form.
         :param description: The description of the evaluation form. *Length Constraints* : Minimum length of 0. Maximum length of 1024.
         :param language_configuration: Configuration for language settings of this evaluation form.
-        :param review_configuration: 
+        :param review_configuration: Configuration settings for evaluation reviews.
         :param scoring_strategy: A scoring strategy of the evaluation form.
         :param tags: The tags used to organize, track, or control access for this resource. For example, { "tags": {"key1":"value1", "key2":"value2"} }.
         :param target_configuration: Configuration that specifies the target for this evaluation form.
@@ -9351,7 +9356,8 @@ class CfnEvaluationFormProps:
     def review_configuration(
         self,
     ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEvaluationForm.EvaluationReviewConfigurationProperty"]]:
-        '''
+        '''Configuration settings for evaluation reviews.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-evaluationform.html#cfn-connect-evaluationform-reviewconfiguration
         '''
         result = self._values.get("review_configuration")
@@ -18808,9 +18814,16 @@ class CfnSecurityProfile(
                 key="key",
                 value="value"
             )],
+            allowed_flow_modules=[connect.CfnSecurityProfile.FlowModuleProperty(
+                flow_module_id="flowModuleId",
+                type="type"
+            )],
             applications=[connect.CfnSecurityProfile.ApplicationProperty(
                 application_permissions=["applicationPermissions"],
-                namespace="namespace"
+                namespace="namespace",
+        
+                # the properties below are optional
+                type="type"
             )],
             description="description",
             granular_access_control_configuration=connect.CfnSecurityProfile.GranularAccessControlConfigurationProperty(
@@ -18843,6 +18856,7 @@ class CfnSecurityProfile(
         security_profile_name: builtins.str,
         allowed_access_control_hierarchy_group_id: typing.Optional[builtins.str] = None,
         allowed_access_control_tags: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        allowed_flow_modules: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSecurityProfile.FlowModuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         applications: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSecurityProfile.ApplicationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         description: typing.Optional[builtins.str] = None,
         granular_access_control_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSecurityProfile.GranularAccessControlConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -18859,6 +18873,7 @@ class CfnSecurityProfile(
         :param security_profile_name: The name for the security profile.
         :param allowed_access_control_hierarchy_group_id: The identifier of the hierarchy group that a security profile uses to restrict access to resources in Amazon Connect.
         :param allowed_access_control_tags: The list of tags that a security profile uses to restrict access to resources in Amazon Connect.
+        :param allowed_flow_modules: The list of flow-module resources to be linked to a security profile in Amazon Connect.
         :param applications: A list of third-party applications that the security profile will give access to.
         :param description: The description of the security profile.
         :param granular_access_control_configuration: The granular access control configuration for the security profile, including data table permissions.
@@ -18876,6 +18891,7 @@ class CfnSecurityProfile(
             security_profile_name=security_profile_name,
             allowed_access_control_hierarchy_group_id=allowed_access_control_hierarchy_group_id,
             allowed_access_control_tags=allowed_access_control_tags,
+            allowed_flow_modules=allowed_flow_modules,
             applications=applications,
             description=description,
             granular_access_control_configuration=granular_access_control_configuration,
@@ -19050,6 +19066,24 @@ class CfnSecurityProfile(
         jsii.set(self, "allowedAccessControlTags", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="allowedFlowModules")
+    def allowed_flow_modules(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSecurityProfile.FlowModuleProperty"]]]]:
+        '''The list of flow-module resources to be linked to a security profile in Amazon Connect.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSecurityProfile.FlowModuleProperty"]]]], jsii.get(self, "allowedFlowModules"))
+
+    @allowed_flow_modules.setter
+    def allowed_flow_modules(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSecurityProfile.FlowModuleProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__947228461fd064026c7e86360a0c871f8f79aeb031e2432b02b98b95575d9f34)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "allowedFlowModules", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="applications")
     def applications(
         self,
@@ -19164,6 +19198,7 @@ class CfnSecurityProfile(
         name_mapping={
             "application_permissions": "applicationPermissions",
             "namespace": "namespace",
+            "type": "type",
         },
     )
     class ApplicationProperty:
@@ -19172,6 +19207,7 @@ class CfnSecurityProfile(
             *,
             application_permissions: typing.Sequence[builtins.str],
             namespace: builtins.str,
+            type: typing.Optional[builtins.str] = None,
         ) -> None:
             '''This API is in preview release for Amazon Connect and is subject to change.
 
@@ -19179,6 +19215,7 @@ class CfnSecurityProfile(
 
             :param application_permissions: The permissions that the agent is granted on the application. For third-party applications, only the ``ACCESS`` permission is supported. For MCP Servers, the permissions are tool Identifiers accepted by MCP Server.
             :param namespace: Namespace of the application that you want to give access to.
+            :param type: The type of the application.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-securityprofile-application.html
             :exampleMetadata: fixture=_generated
@@ -19191,17 +19228,23 @@ class CfnSecurityProfile(
                 
                 application_property = connect.CfnSecurityProfile.ApplicationProperty(
                     application_permissions=["applicationPermissions"],
-                    namespace="namespace"
+                    namespace="namespace",
+                
+                    # the properties below are optional
+                    type="type"
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__b880e1a466e4d120081a7c103809b59a07385a4cee88474da2f4f00bae13c71a)
                 check_type(argname="argument application_permissions", value=application_permissions, expected_type=type_hints["application_permissions"])
                 check_type(argname="argument namespace", value=namespace, expected_type=type_hints["namespace"])
+                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "application_permissions": application_permissions,
                 "namespace": namespace,
             }
+            if type is not None:
+                self._values["type"] = type
 
         @builtins.property
         def application_permissions(self) -> typing.List[builtins.str]:
@@ -19224,6 +19267,15 @@ class CfnSecurityProfile(
             result = self._values.get("namespace")
             assert result is not None, "Required property 'namespace' is missing"
             return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def type(self) -> typing.Optional[builtins.str]:
+            '''The type of the application.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-securityprofile-application.html#cfn-connect-securityprofile-application-type
+            '''
+            result = self._values.get("type")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -19298,6 +19350,72 @@ class CfnSecurityProfile(
 
         def __repr__(self) -> str:
             return "DataTableAccessControlConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_connect.CfnSecurityProfile.FlowModuleProperty",
+        jsii_struct_bases=[],
+        name_mapping={"flow_module_id": "flowModuleId", "type": "type"},
+    )
+    class FlowModuleProperty:
+        def __init__(self, *, flow_module_id: builtins.str, type: builtins.str) -> None:
+            '''A first-party application's metadata.
+
+            :param flow_module_id: The identifier of the application that you want to give access to.
+            :param type: The type of the first-party application.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-securityprofile-flowmodule.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_connect as connect
+                
+                flow_module_property = connect.CfnSecurityProfile.FlowModuleProperty(
+                    flow_module_id="flowModuleId",
+                    type="type"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__064f7fecfcc25645f64c186c564f32dd6ca483ececd1d61b385ed47e66d21158)
+                check_type(argname="argument flow_module_id", value=flow_module_id, expected_type=type_hints["flow_module_id"])
+                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "flow_module_id": flow_module_id,
+                "type": type,
+            }
+
+        @builtins.property
+        def flow_module_id(self) -> builtins.str:
+            '''The identifier of the application that you want to give access to.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-securityprofile-flowmodule.html#cfn-connect-securityprofile-flowmodule-flowmoduleid
+            '''
+            result = self._values.get("flow_module_id")
+            assert result is not None, "Required property 'flow_module_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def type(self) -> builtins.str:
+            '''The type of the first-party application.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-securityprofile-flowmodule.html#cfn-connect-securityprofile-flowmodule-type
+            '''
+            result = self._values.get("type")
+            assert result is not None, "Required property 'type' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "FlowModuleProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -19529,6 +19647,7 @@ class CfnSecurityProfile(
         "security_profile_name": "securityProfileName",
         "allowed_access_control_hierarchy_group_id": "allowedAccessControlHierarchyGroupId",
         "allowed_access_control_tags": "allowedAccessControlTags",
+        "allowed_flow_modules": "allowedFlowModules",
         "applications": "applications",
         "description": "description",
         "granular_access_control_configuration": "granularAccessControlConfiguration",
@@ -19546,6 +19665,7 @@ class CfnSecurityProfileProps:
         security_profile_name: builtins.str,
         allowed_access_control_hierarchy_group_id: typing.Optional[builtins.str] = None,
         allowed_access_control_tags: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        allowed_flow_modules: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSecurityProfile.FlowModuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         applications: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSecurityProfile.ApplicationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         description: typing.Optional[builtins.str] = None,
         granular_access_control_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSecurityProfile.GranularAccessControlConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -19560,6 +19680,7 @@ class CfnSecurityProfileProps:
         :param security_profile_name: The name for the security profile.
         :param allowed_access_control_hierarchy_group_id: The identifier of the hierarchy group that a security profile uses to restrict access to resources in Amazon Connect.
         :param allowed_access_control_tags: The list of tags that a security profile uses to restrict access to resources in Amazon Connect.
+        :param allowed_flow_modules: The list of flow-module resources to be linked to a security profile in Amazon Connect.
         :param applications: A list of third-party applications that the security profile will give access to.
         :param description: The description of the security profile.
         :param granular_access_control_configuration: The granular access control configuration for the security profile, including data table permissions.
@@ -19588,9 +19709,16 @@ class CfnSecurityProfileProps:
                     key="key",
                     value="value"
                 )],
+                allowed_flow_modules=[connect.CfnSecurityProfile.FlowModuleProperty(
+                    flow_module_id="flowModuleId",
+                    type="type"
+                )],
                 applications=[connect.CfnSecurityProfile.ApplicationProperty(
                     application_permissions=["applicationPermissions"],
-                    namespace="namespace"
+                    namespace="namespace",
+            
+                    # the properties below are optional
+                    type="type"
                 )],
                 description="description",
                 granular_access_control_configuration=connect.CfnSecurityProfile.GranularAccessControlConfigurationProperty(
@@ -19619,6 +19747,7 @@ class CfnSecurityProfileProps:
             check_type(argname="argument security_profile_name", value=security_profile_name, expected_type=type_hints["security_profile_name"])
             check_type(argname="argument allowed_access_control_hierarchy_group_id", value=allowed_access_control_hierarchy_group_id, expected_type=type_hints["allowed_access_control_hierarchy_group_id"])
             check_type(argname="argument allowed_access_control_tags", value=allowed_access_control_tags, expected_type=type_hints["allowed_access_control_tags"])
+            check_type(argname="argument allowed_flow_modules", value=allowed_flow_modules, expected_type=type_hints["allowed_flow_modules"])
             check_type(argname="argument applications", value=applications, expected_type=type_hints["applications"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument granular_access_control_configuration", value=granular_access_control_configuration, expected_type=type_hints["granular_access_control_configuration"])
@@ -19634,6 +19763,8 @@ class CfnSecurityProfileProps:
             self._values["allowed_access_control_hierarchy_group_id"] = allowed_access_control_hierarchy_group_id
         if allowed_access_control_tags is not None:
             self._values["allowed_access_control_tags"] = allowed_access_control_tags
+        if allowed_flow_modules is not None:
+            self._values["allowed_flow_modules"] = allowed_flow_modules
         if applications is not None:
             self._values["applications"] = applications
         if description is not None:
@@ -19690,6 +19821,17 @@ class CfnSecurityProfileProps:
         '''
         result = self._values.get("allowed_access_control_tags")
         return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "_CfnTag_f6864754"]]]], result)
+
+    @builtins.property
+    def allowed_flow_modules(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSecurityProfile.FlowModuleProperty"]]]]:
+        '''The list of flow-module resources to be linked to a security profile in Amazon Connect.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-securityprofile.html#cfn-connect-securityprofile-allowedflowmodules
+        '''
+        result = self._values.get("allowed_flow_modules")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSecurityProfile.FlowModuleProperty"]]]], result)
 
     @builtins.property
     def applications(
@@ -29579,6 +29721,7 @@ def _typecheckingstub__3e088a4b4379aab0e18ddc67fbe352d07789383efb957a27db08764dc
     security_profile_name: builtins.str,
     allowed_access_control_hierarchy_group_id: typing.Optional[builtins.str] = None,
     allowed_access_control_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    allowed_flow_modules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSecurityProfile.FlowModuleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     applications: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSecurityProfile.ApplicationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     description: typing.Optional[builtins.str] = None,
     granular_access_control_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSecurityProfile.GranularAccessControlConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -29638,6 +29781,12 @@ def _typecheckingstub__077ab92a2b57c565722ae2a0fff7719378cf0f3194b2c2b620c433936
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__947228461fd064026c7e86360a0c871f8f79aeb031e2432b02b98b95575d9f34(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnSecurityProfile.FlowModuleProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__e31297c3c201035cd5629befaf1f09da3be8968c605549607b25f17835315261(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnSecurityProfile.ApplicationProperty]]]],
 ) -> None:
@@ -29684,6 +29833,7 @@ def _typecheckingstub__b880e1a466e4d120081a7c103809b59a07385a4cee88474da2f4f00ba
     *,
     application_permissions: typing.Sequence[builtins.str],
     namespace: builtins.str,
+    type: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -29691,6 +29841,14 @@ def _typecheckingstub__b880e1a466e4d120081a7c103809b59a07385a4cee88474da2f4f00ba
 def _typecheckingstub__2227766620710765cf5b471172dcaf731cfbe45c532ee3e1bf553d32e5cbea6f(
     *,
     primary_attribute_access_control_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSecurityProfile.PrimaryAttributeAccessControlConfigurationItemProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__064f7fecfcc25645f64c186c564f32dd6ca483ececd1d61b385ed47e66d21158(
+    *,
+    flow_module_id: builtins.str,
+    type: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -29724,6 +29882,7 @@ def _typecheckingstub__8a8ad9faa5e934c4966c739f0b5e3756a03460ba17b7caf0aca4e2611
     security_profile_name: builtins.str,
     allowed_access_control_hierarchy_group_id: typing.Optional[builtins.str] = None,
     allowed_access_control_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    allowed_flow_modules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSecurityProfile.FlowModuleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     applications: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSecurityProfile.ApplicationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     description: typing.Optional[builtins.str] = None,
     granular_access_control_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSecurityProfile.GranularAccessControlConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,

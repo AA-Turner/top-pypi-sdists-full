@@ -174,7 +174,7 @@ class FlavorExtraSpec(object):
 
 class QuotaSet(base.QuotaSet):
 
-    # We don't support nova-network, so we exclude nova-network relatd
+    # We don't support nova-network, so we exclude nova-network related
     # quota fields from the response.
     ignore_quotas = {
         "floating_ips",
@@ -257,7 +257,7 @@ def flavor_get(request, flavor_id, get_extras=False):
 
 @profiler.trace
 @memoized.memoized
-def flavor_list(request, is_public=True, get_extras=False):
+def flavor_list(request, is_public=None, get_extras=False):
     """Get the list of available instance sizes (flavors)."""
     flavors = _nova.novaclient(request).flavors.list(is_public=is_public)
     if get_extras:
@@ -290,9 +290,9 @@ def update_pagination(entities, page_size, marker, reversed_order=False):
 
 @profiler.trace
 @memoized.memoized
-def flavor_list_paged(request, is_public=True, get_extras=False, marker=None,
-                      paginate=False, sort_key="name", sort_dir="desc",
-                      reversed_order=False):
+def flavor_list_paged(request, is_public=None, min_disk=None, min_ram=None,
+                      get_extras=False, marker=None, paginate=False,
+                      sort_key="name", sort_dir="desc", reversed_order=False):
     """Get the list of available instance sizes (flavors)."""
     has_more_data = False
     has_prev_data = False
@@ -302,6 +302,8 @@ def flavor_list_paged(request, is_public=True, get_extras=False, marker=None,
             sort_dir = 'desc' if sort_dir == 'asc' else 'asc'
         page_size = utils.get_page_size(request)
         flavors = _nova.novaclient(request).flavors.list(is_public=is_public,
+                                                         min_disk=min_disk,
+                                                         min_ram=min_ram,
                                                          marker=marker,
                                                          limit=page_size + 1,
                                                          sort_key=sort_key,
@@ -609,9 +611,11 @@ def server_migrate(request, instance_id):
 @profiler.trace
 def server_live_migrate(request, instance_id, host, block_migration=False,
                         disk_over_commit=False):
-    _nova.novaclient(request).servers.live_migrate(instance_id, host,
-                                                   block_migration,
-                                                   disk_over_commit)
+    microversion = get_microversion(request, "live_migrate")
+    _nova.novaclient(request, version=microversion).servers.live_migrate(
+        instance_id, host,
+        block_migration,
+        disk_over_commit)
 
 
 @profiler.trace

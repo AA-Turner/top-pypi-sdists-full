@@ -66,6 +66,11 @@ class BillingServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_billing__pb2.GetNodeTimeRangesRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_billing__pb2.GetNodeTimeRangesResponse.FromString,
         )
+        self.GetNodeDetail = channel.unary_unary(
+            "/chalk.server.v1.BillingService/GetNodeDetail",
+            request_serializer=chalk_dot_server_dot_v1_dot_billing__pb2.GetNodeDetailRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_billing__pb2.GetNodeDetailResponse.FromString,
+        )
 
 
 class BillingServiceServicer(object):
@@ -148,6 +153,14 @@ class BillingServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def GetNodeDetail(self, request, context):
+        """GetNodeDetail returns detailed information about a specific node and all
+        pods that were scheduled on it, from the BigQuery usage data.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_BillingServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -200,6 +213,11 @@ def add_BillingServiceServicer_to_server(servicer, server):
             servicer.GetNodeTimeRanges,
             request_deserializer=chalk_dot_server_dot_v1_dot_billing__pb2.GetNodeTimeRangesRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_billing__pb2.GetNodeTimeRangesResponse.SerializeToString,
+        ),
+        "GetNodeDetail": grpc.unary_unary_rpc_method_handler(
+            servicer.GetNodeDetail,
+            request_deserializer=chalk_dot_server_dot_v1_dot_billing__pb2.GetNodeDetailRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_billing__pb2.GetNodeDetailResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.server.v1.BillingService", rpc_method_handlers)
@@ -490,6 +508,35 @@ class BillingService(object):
             "/chalk.server.v1.BillingService/GetNodeTimeRanges",
             chalk_dot_server_dot_v1_dot_billing__pb2.GetNodeTimeRangesRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_billing__pb2.GetNodeTimeRangesResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetNodeDetail(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BillingService/GetNodeDetail",
+            chalk_dot_server_dot_v1_dot_billing__pb2.GetNodeDetailRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_billing__pb2.GetNodeDetailResponse.FromString,
             options,
             channel_credentials,
             insecure,

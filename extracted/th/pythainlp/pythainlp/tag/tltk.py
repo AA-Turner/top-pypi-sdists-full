@@ -1,23 +1,26 @@
-# -*- coding: utf-8 -*-
-# SPDX-FileCopyrightText: 2016-2025 PyThaiNLP Project
+# SPDX-FileCopyrightText: 2016-2026 PyThaiNLP Project
 # SPDX-FileType: SOURCE
 # SPDX-License-Identifier: Apache-2.0
-from typing import List, Tuple, Union
+from __future__ import annotations
+
+from typing import Union
 
 try:
     from tltk import nlp
 except ImportError:
-    raise ImportError("Not found tltk! Please install tltk by pip install tltk")
+    raise ImportError(
+        "Not found tltk! Please install tltk by pip install tltk"
+    )
 from pythainlp.tokenize import word_tokenize
 
 nlp.pos_load()
 nlp.ner_load()
 
 
-def pos_tag(words: List[str], corpus: str = "tnc") -> List[Tuple[str, str]]:
+def pos_tag(words: list[str], corpus: str = "tnc") -> list[tuple[str, str]]:
     if corpus != "tnc":
-        raise ValueError("tltk not support {0} corpus.".format(0))
-    return nlp.pos_tag_wordlist(words)
+        raise ValueError(f"tltk not support {0} corpus.")
+    return nlp.pos_tag_wordlist(words)  # type: ignore[no-any-return]
 
 
 def _post_process(text: str) -> str:
@@ -26,9 +29,8 @@ def _post_process(text: str) -> str:
 
 def get_ner(
     text: str, pos: bool = True, tag: bool = False
-) -> Union[List[Tuple[str, str]], List[Tuple[str, str, str]], str]:
-    """
-    Named-entity recognizer from **TLTK**
+) -> Union[list[tuple[str, str]], list[tuple[str, str, str]], str]:
+    """Named-entity recognizer from **TLTK**
 
     This function tags named-entities in text in IOB format.
 
@@ -42,7 +44,7 @@ def get_ner(
         specified as `True`).
         Otherwise, return a list of tuples associated with tokenized
         words and NER tags
-    :rtype: Union[list[tuple[str, str]], list[tuple[str, str, str]]], str
+    :rtype: Union[list[tuple[str, str]], list[tuple[str, str, str]], str]
 
     :Example:
 

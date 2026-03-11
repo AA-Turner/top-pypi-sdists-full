@@ -13,6 +13,10 @@ from abstra_internals.utils import is_it_true
 from abstra_internals.utils.websockets import bind_ws_with_connection
 
 
+def _get_user_jwt():
+    return flask.request.cookies.get("editor_auth")
+
+
 def get_editor_bp(controller: MainController):
     bp = flask.Blueprint("editor_forms", __name__)
     sock = flask_sock.Sock(bp)
@@ -33,7 +37,10 @@ def get_editor_bp(controller: MainController):
             if not form:
                 return
 
-            connection = controller.repositories.producer.enqueue(id, context)
+            user_jwt = _get_user_jwt()
+            connection = controller.repositories.producer.enqueue(
+                id, context, user_jwt=user_jwt
+            )
 
             bind_ws_with_connection(ws, connection, block=True)
         except Exception as e:

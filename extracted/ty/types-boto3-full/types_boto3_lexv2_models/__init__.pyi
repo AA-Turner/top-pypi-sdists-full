@@ -19,7 +19,9 @@ Usage::
         BotLocaleExpressTestingAvailableWaiter,
         BotVersionAvailableWaiter,
         Client,
+        DescribeBotAnalyzerRecommendationPaginator,
         LexModelsV2Client,
+        ListBotAnalyzerHistoryPaginator,
     )
 
     session = Session()
@@ -33,10 +35,14 @@ Usage::
     bot_locale_created_waiter: BotLocaleCreatedWaiter = client.get_waiter("bot_locale_created")
     bot_locale_express_testing_available_waiter: BotLocaleExpressTestingAvailableWaiter = client.get_waiter("bot_locale_express_testing_available")
     bot_version_available_waiter: BotVersionAvailableWaiter = client.get_waiter("bot_version_available")
+
+    describe_bot_analyzer_recommendation_paginator: DescribeBotAnalyzerRecommendationPaginator = client.get_paginator("describe_bot_analyzer_recommendation")
+    list_bot_analyzer_history_paginator: ListBotAnalyzerHistoryPaginator = client.get_paginator("list_bot_analyzer_history")
     ```
 """
 
 from .client import LexModelsV2Client
+from .paginator import DescribeBotAnalyzerRecommendationPaginator, ListBotAnalyzerHistoryPaginator
 from .waiter import (
     BotAliasAvailableWaiter,
     BotAvailableWaiter,
@@ -60,5 +66,7 @@ __all__ = (
     "BotLocaleExpressTestingAvailableWaiter",
     "BotVersionAvailableWaiter",
     "Client",
+    "DescribeBotAnalyzerRecommendationPaginator",
     "LexModelsV2Client",
+    "ListBotAnalyzerHistoryPaginator",
 )

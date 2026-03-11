@@ -1,0 +1,21 @@
+- name: Default is contiguous US, with $0.35 NSLP and $0.33 SBP in paid tier.
+  period: 2022
+  input:
+    school_meal_tier: PAID
+  output:
+    school_meal_daily_subsidy: 0.35 + 0.33
+
+- name: Default is contiguous US, with $3.66 NSLP and $1.97 SBP.
+  period: 2022
+  input:
+    school_meal_tier: FREE
+  output:
+    school_meal_daily_subsidy: 3.66 + 1.97
+
+# Test 2025 values (effective January 1, 2025)
+- name: Contiguous US - 2025 FREE tier
+  period: 2025
+  input:
+    school_meal_tier: FREE
+  output:
+    school_meal_daily_subsidy: 7.06  # NSLP 4.60 + SBP 2.46

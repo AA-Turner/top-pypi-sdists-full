@@ -1,10 +1,65 @@
-Metadata-Version: 1.0
+Metadata-Version: 2.4
 Name: torchprofile
-Version: 0.0.4
-Summary: UNKNOWN
-Home-page: https://github.com/zhijian-liu/torchprofile/
-Author: UNKNOWN
-Author-email: UNKNOWN
+Version: 0.1.0
+Summary: Count the MACs / FLOPs of PyTorch models
+Author: Zhijian Liu
 License: MIT
-Description: UNKNOWN
-Platform: UNKNOWN
+Project-URL: Homepage, https://github.com/zhijian-liu/torchprofile
+Project-URL: Repository, https://github.com/zhijian-liu/torchprofile
+Project-URL: Issues, https://github.com/zhijian-liu/torchprofile/issues
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: torch>=2.0
+Provides-Extra: test
+Requires-Dist: pytest; extra == "test"
+Requires-Dist: torchvision>=0.15; extra == "test"
+Requires-Dist: transformers; extra == "test"
+Dynamic: license-file
+
+# TorchProfile
+
+[![PyPI](https://img.shields.io/pypi/v/torchprofile)](https://pypi.org/project/torchprofile/)
+[![License](https://img.shields.io/github/license/zhijian-liu/torchprofile)](LICENSE)
+[![PyTorch](https://img.shields.io/badge/PyTorch-%3E%3D2.0-ee4c2c)](https://pytorch.org/)
+
+TorchProfile counts the number of MACs (multiply-accumulate operations) in a PyTorch model. It works by tracing the computation graph with `torch.jit.trace`, making it more accurate than hook-based profilers and more general than ONNX-based ones.
+
+## Installation
+
+```bash
+pip install torchprofile
+```
+
+## Quick Start
+
+```python
+import torch
+from transformers import AutoModel
+from torchprofile import profile_macs
+
+model = AutoModel.from_pretrained("meta-llama/Llama-3.2-1B").eval()
+inputs = torch.randint(0, model.config.vocab_size, (1, 128))
+
+macs = profile_macs(model, inputs)
+print(f"{macs / 1e9:.2f} GMACs")
+```
+
+To get a per-operator breakdown, pass `reduction=None`:
+
+```python
+results = profile_macs(model, inputs, reduction=None)
+for node, macs in results.items():
+    if macs > 0:
+        print(f"{node.scope:40s} {node.operator:30s} {macs / 1e6:>8.2f} MMACs")
+```
+
+## License
+
+This repository is released under the MIT license. See [LICENSE](LICENSE) for additional details.

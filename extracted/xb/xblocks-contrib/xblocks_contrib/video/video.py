@@ -61,6 +61,7 @@ from xblocks_contrib.video.video_transcripts_utils import (
 from xblocks_contrib.video.video_utils import (
     create_youtube_string,
     format_xml_exception_message,
+    get_edxval_api,
     get_poster,
     get_resource_url,
     rewrite_video_url,
@@ -93,10 +94,6 @@ from xblocks_contrib.video.video_xfields import VideoFields
 # (4) is one of the next items on the backlog for edxval, and should get rid
 # of this particular import silliness. It's just that I haven't made one before,
 # and I was worried about trying it with my deadline constraints.
-try:
-    import edxval.api as edxval_api
-except ImportError:
-    edxval_api = None
 
 log = logging.getLogger(__name__)
 loader = ResourceLoader(__name__)
@@ -356,6 +353,7 @@ class VideoBlock(
         # If we have an edx_video_id, we prefer its values over what we store
         # internally for download links (source, html5_sources) and the youtube
         # stream.
+        edxval_api = get_edxval_api()
         if self.edx_video_id and edxval_api:  # lint-amnesty, pylint: disable=too-many-nested-blocks
             try:
                 val_profiles = ["youtube", "desktop_webm", "desktop_mp4"]
@@ -752,6 +750,7 @@ class VideoBlock(
             transcripts.update(self.transcripts)
 
         edx_video_id = clean_video_id(self.edx_video_id)
+        edxval_api = get_edxval_api()
         if edxval_api and edx_video_id:
             try:
                 # Create static dir if not created earlier.
@@ -819,6 +818,7 @@ class VideoBlock(
         """
         Extend context by data for transcript basic tab.
         """
+        edxval_api = get_edxval_api()
         _context = {
             'editable_metadata_fields': self.editable_metadata_fields
         }
@@ -1043,6 +1043,7 @@ class VideoBlock(
         for language_code, transcript in self.transcripts.items():
             external_transcripts[language_code].append(transcript)
 
+        edxval_api = get_edxval_api()
         if edxval_api:
             edx_video_id = edxval_api.import_from_xml(
                 video_asset_elem,
@@ -1105,6 +1106,7 @@ class VideoBlock(
         """
         Returns the VAL data for the requested video profiles for the given course.
         """
+        edxval_api = get_edxval_api()
         return edxval_api.get_video_info_for_course_and_profiles(str(course_id), video_profile_names)
 
     def student_view_data(self, context=None):
@@ -1112,6 +1114,7 @@ class VideoBlock(
         Returns a JSON representation of the student_view of this XModule.
         The contract of the JSON content is between the caller and the particular XModule.
         """
+        edxval_api = get_edxval_api()
         context = context or {}
 
         # If the "only_on_web" field is set on this video, do not return the rest of the video's data
@@ -1198,6 +1201,7 @@ class VideoBlock(
         """
         Helper to get poster info from edxval
         """
+        edxval_api = get_edxval_api()
         if edxval_api and self.edx_video_id:
             return edxval_api.get_course_video_image_url(
                 course_id=self.scope_ids.usage_id.context_key.for_branch(None),

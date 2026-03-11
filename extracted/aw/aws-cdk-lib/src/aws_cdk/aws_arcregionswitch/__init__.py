@@ -240,6 +240,26 @@ class CfnPlan(
                         parallel_config=arcregionswitch.CfnPlan.ParallelExecutionBlockConfigurationProperty(
                             steps=[step_property_]
                         ),
+                        rds_create_cross_region_read_replica_config=arcregionswitch.CfnPlan.RdsCreateCrossRegionReplicaConfigurationProperty(
+                            db_instance_arn_map={
+                                "db_instance_arn_map_key": "dbInstanceArnMap"
+                            },
+        
+                            # the properties below are optional
+                            cross_account_role="crossAccountRole",
+                            external_id="externalId",
+                            timeout_minutes=123
+                        ),
+                        rds_promote_read_replica_config=arcregionswitch.CfnPlan.RdsPromoteReadReplicaConfigurationProperty(
+                            db_instance_arn_map={
+                                "db_instance_arn_map_key": "dbInstanceArnMap"
+                            },
+        
+                            # the properties below are optional
+                            cross_account_role="crossAccountRole",
+                            external_id="externalId",
+                            timeout_minutes=123
+                        ),
                         region_switch_plan_config=arcregionswitch.CfnPlan.RegionSwitchPlanConfigurationProperty(
                             arn="arn",
         
@@ -2213,6 +2233,8 @@ class CfnPlan(
             "execution_approval_config": "executionApprovalConfig",
             "global_aurora_config": "globalAuroraConfig",
             "parallel_config": "parallelConfig",
+            "rds_create_cross_region_read_replica_config": "rdsCreateCrossRegionReadReplicaConfig",
+            "rds_promote_read_replica_config": "rdsPromoteReadReplicaConfig",
             "region_switch_plan_config": "regionSwitchPlanConfig",
             "route53_health_check_config": "route53HealthCheckConfig",
         },
@@ -2230,6 +2252,8 @@ class CfnPlan(
             execution_approval_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.ExecutionApprovalConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             global_aurora_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.GlobalAuroraConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             parallel_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.ParallelExecutionBlockConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            rds_create_cross_region_read_replica_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.RdsCreateCrossRegionReplicaConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            rds_promote_read_replica_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.RdsPromoteReadReplicaConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             region_switch_plan_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.RegionSwitchPlanConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             route53_health_check_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.Route53HealthCheckConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
@@ -2246,6 +2270,8 @@ class CfnPlan(
             :param execution_approval_config: A manual approval execution block.
             :param global_aurora_config: An Aurora Global Database execution block.
             :param parallel_config: A parallel configuration execution block.
+            :param rds_create_cross_region_read_replica_config: 
+            :param rds_promote_read_replica_config: 
             :param region_switch_plan_config: A Region switch plan execution block.
             :param route53_health_check_config: The Amazon Route 53 health check configuration.
 
@@ -2394,6 +2420,26 @@ class CfnPlan(
                             description="description"
                         )]
                     ),
+                    rds_create_cross_region_read_replica_config=arcregionswitch.CfnPlan.RdsCreateCrossRegionReplicaConfigurationProperty(
+                        db_instance_arn_map={
+                            "db_instance_arn_map_key": "dbInstanceArnMap"
+                        },
+                
+                        # the properties below are optional
+                        cross_account_role="crossAccountRole",
+                        external_id="externalId",
+                        timeout_minutes=123
+                    ),
+                    rds_promote_read_replica_config=arcregionswitch.CfnPlan.RdsPromoteReadReplicaConfigurationProperty(
+                        db_instance_arn_map={
+                            "db_instance_arn_map_key": "dbInstanceArnMap"
+                        },
+                
+                        # the properties below are optional
+                        cross_account_role="crossAccountRole",
+                        external_id="externalId",
+                        timeout_minutes=123
+                    ),
                     region_switch_plan_config=arcregionswitch.CfnPlan.RegionSwitchPlanConfigurationProperty(
                         arn="arn",
                 
@@ -2427,6 +2473,8 @@ class CfnPlan(
                 check_type(argname="argument execution_approval_config", value=execution_approval_config, expected_type=type_hints["execution_approval_config"])
                 check_type(argname="argument global_aurora_config", value=global_aurora_config, expected_type=type_hints["global_aurora_config"])
                 check_type(argname="argument parallel_config", value=parallel_config, expected_type=type_hints["parallel_config"])
+                check_type(argname="argument rds_create_cross_region_read_replica_config", value=rds_create_cross_region_read_replica_config, expected_type=type_hints["rds_create_cross_region_read_replica_config"])
+                check_type(argname="argument rds_promote_read_replica_config", value=rds_promote_read_replica_config, expected_type=type_hints["rds_promote_read_replica_config"])
                 check_type(argname="argument region_switch_plan_config", value=region_switch_plan_config, expected_type=type_hints["region_switch_plan_config"])
                 check_type(argname="argument route53_health_check_config", value=route53_health_check_config, expected_type=type_hints["route53_health_check_config"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -2448,6 +2496,10 @@ class CfnPlan(
                 self._values["global_aurora_config"] = global_aurora_config
             if parallel_config is not None:
                 self._values["parallel_config"] = parallel_config
+            if rds_create_cross_region_read_replica_config is not None:
+                self._values["rds_create_cross_region_read_replica_config"] = rds_create_cross_region_read_replica_config
+            if rds_promote_read_replica_config is not None:
+                self._values["rds_promote_read_replica_config"] = rds_promote_read_replica_config
             if region_switch_plan_config is not None:
                 self._values["region_switch_plan_config"] = region_switch_plan_config
             if route53_health_check_config is not None:
@@ -2550,6 +2602,26 @@ class CfnPlan(
             '''
             result = self._values.get("parallel_config")
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlan.ParallelExecutionBlockConfigurationProperty"]], result)
+
+        @builtins.property
+        def rds_create_cross_region_read_replica_config(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlan.RdsCreateCrossRegionReplicaConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-executionblockconfiguration.html#cfn-arcregionswitch-plan-executionblockconfiguration-rdscreatecrossregionreadreplicaconfig
+            '''
+            result = self._values.get("rds_create_cross_region_read_replica_config")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlan.RdsCreateCrossRegionReplicaConfigurationProperty"]], result)
+
+        @builtins.property
+        def rds_promote_read_replica_config(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlan.RdsPromoteReadReplicaConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-executionblockconfiguration.html#cfn-arcregionswitch-plan-executionblockconfiguration-rdspromotereadreplicaconfig
+            '''
+            result = self._values.get("rds_promote_read_replica_config")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlan.RdsPromoteReadReplicaConfigurationProperty"]], result)
 
         @builtins.property
         def region_switch_plan_config(
@@ -3311,6 +3383,26 @@ class CfnPlan(
                                 )
                             ),
                             parallel_config=parallel_execution_block_configuration_property_,
+                            rds_create_cross_region_read_replica_config=arcregionswitch.CfnPlan.RdsCreateCrossRegionReplicaConfigurationProperty(
+                                db_instance_arn_map={
+                                    "db_instance_arn_map_key": "dbInstanceArnMap"
+                                },
+                
+                                # the properties below are optional
+                                cross_account_role="crossAccountRole",
+                                external_id="externalId",
+                                timeout_minutes=123
+                            ),
+                            rds_promote_read_replica_config=arcregionswitch.CfnPlan.RdsPromoteReadReplicaConfigurationProperty(
+                                db_instance_arn_map={
+                                    "db_instance_arn_map_key": "dbInstanceArnMap"
+                                },
+                
+                                # the properties below are optional
+                                cross_account_role="crossAccountRole",
+                                external_id="externalId",
+                                timeout_minutes=123
+                            ),
                             region_switch_plan_config=arcregionswitch.CfnPlan.RegionSwitchPlanConfigurationProperty(
                                 arn="arn",
                 
@@ -3367,6 +3459,224 @@ class CfnPlan(
 
         def __repr__(self) -> str:
             return "ParallelExecutionBlockConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_arcregionswitch.CfnPlan.RdsCreateCrossRegionReplicaConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "db_instance_arn_map": "dbInstanceArnMap",
+            "cross_account_role": "crossAccountRole",
+            "external_id": "externalId",
+            "timeout_minutes": "timeoutMinutes",
+        },
+    )
+    class RdsCreateCrossRegionReplicaConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            db_instance_arn_map: typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"],
+            cross_account_role: typing.Optional[builtins.str] = None,
+            external_id: typing.Optional[builtins.str] = None,
+            timeout_minutes: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''
+            :param db_instance_arn_map: 
+            :param cross_account_role: 
+            :param external_id: 
+            :param timeout_minutes: Default: - 60
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-rdscreatecrossregionreplicaconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_arcregionswitch as arcregionswitch
+                
+                rds_create_cross_region_replica_configuration_property = arcregionswitch.CfnPlan.RdsCreateCrossRegionReplicaConfigurationProperty(
+                    db_instance_arn_map={
+                        "db_instance_arn_map_key": "dbInstanceArnMap"
+                    },
+                
+                    # the properties below are optional
+                    cross_account_role="crossAccountRole",
+                    external_id="externalId",
+                    timeout_minutes=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__69e151ebf07c42c1ebe26cc5ea409aa1aeb69967851714e77f304f28756f73a5)
+                check_type(argname="argument db_instance_arn_map", value=db_instance_arn_map, expected_type=type_hints["db_instance_arn_map"])
+                check_type(argname="argument cross_account_role", value=cross_account_role, expected_type=type_hints["cross_account_role"])
+                check_type(argname="argument external_id", value=external_id, expected_type=type_hints["external_id"])
+                check_type(argname="argument timeout_minutes", value=timeout_minutes, expected_type=type_hints["timeout_minutes"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "db_instance_arn_map": db_instance_arn_map,
+            }
+            if cross_account_role is not None:
+                self._values["cross_account_role"] = cross_account_role
+            if external_id is not None:
+                self._values["external_id"] = external_id
+            if timeout_minutes is not None:
+                self._values["timeout_minutes"] = timeout_minutes
+
+        @builtins.property
+        def db_instance_arn_map(
+            self,
+        ) -> typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-rdscreatecrossregionreplicaconfiguration.html#cfn-arcregionswitch-plan-rdscreatecrossregionreplicaconfiguration-dbinstancearnmap
+            '''
+            result = self._values.get("db_instance_arn_map")
+            assert result is not None, "Required property 'db_instance_arn_map' is missing"
+            return typing.cast(typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"], result)
+
+        @builtins.property
+        def cross_account_role(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-rdscreatecrossregionreplicaconfiguration.html#cfn-arcregionswitch-plan-rdscreatecrossregionreplicaconfiguration-crossaccountrole
+            '''
+            result = self._values.get("cross_account_role")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def external_id(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-rdscreatecrossregionreplicaconfiguration.html#cfn-arcregionswitch-plan-rdscreatecrossregionreplicaconfiguration-externalid
+            '''
+            result = self._values.get("external_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def timeout_minutes(self) -> typing.Optional[jsii.Number]:
+            '''
+            :default: - 60
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-rdscreatecrossregionreplicaconfiguration.html#cfn-arcregionswitch-plan-rdscreatecrossregionreplicaconfiguration-timeoutminutes
+            '''
+            result = self._values.get("timeout_minutes")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RdsCreateCrossRegionReplicaConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_arcregionswitch.CfnPlan.RdsPromoteReadReplicaConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "db_instance_arn_map": "dbInstanceArnMap",
+            "cross_account_role": "crossAccountRole",
+            "external_id": "externalId",
+            "timeout_minutes": "timeoutMinutes",
+        },
+    )
+    class RdsPromoteReadReplicaConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            db_instance_arn_map: typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"],
+            cross_account_role: typing.Optional[builtins.str] = None,
+            external_id: typing.Optional[builtins.str] = None,
+            timeout_minutes: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''
+            :param db_instance_arn_map: 
+            :param cross_account_role: 
+            :param external_id: 
+            :param timeout_minutes: Default: - 60
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-rdspromotereadreplicaconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_arcregionswitch as arcregionswitch
+                
+                rds_promote_read_replica_configuration_property = arcregionswitch.CfnPlan.RdsPromoteReadReplicaConfigurationProperty(
+                    db_instance_arn_map={
+                        "db_instance_arn_map_key": "dbInstanceArnMap"
+                    },
+                
+                    # the properties below are optional
+                    cross_account_role="crossAccountRole",
+                    external_id="externalId",
+                    timeout_minutes=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__34d6fb45c06539179fc1c696a36f1b14b11a2c153a1519a41e8993ee45aba9aa)
+                check_type(argname="argument db_instance_arn_map", value=db_instance_arn_map, expected_type=type_hints["db_instance_arn_map"])
+                check_type(argname="argument cross_account_role", value=cross_account_role, expected_type=type_hints["cross_account_role"])
+                check_type(argname="argument external_id", value=external_id, expected_type=type_hints["external_id"])
+                check_type(argname="argument timeout_minutes", value=timeout_minutes, expected_type=type_hints["timeout_minutes"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "db_instance_arn_map": db_instance_arn_map,
+            }
+            if cross_account_role is not None:
+                self._values["cross_account_role"] = cross_account_role
+            if external_id is not None:
+                self._values["external_id"] = external_id
+            if timeout_minutes is not None:
+                self._values["timeout_minutes"] = timeout_minutes
+
+        @builtins.property
+        def db_instance_arn_map(
+            self,
+        ) -> typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-rdspromotereadreplicaconfiguration.html#cfn-arcregionswitch-plan-rdspromotereadreplicaconfiguration-dbinstancearnmap
+            '''
+            result = self._values.get("db_instance_arn_map")
+            assert result is not None, "Required property 'db_instance_arn_map' is missing"
+            return typing.cast(typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"], result)
+
+        @builtins.property
+        def cross_account_role(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-rdspromotereadreplicaconfiguration.html#cfn-arcregionswitch-plan-rdspromotereadreplicaconfiguration-crossaccountrole
+            '''
+            result = self._values.get("cross_account_role")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def external_id(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-rdspromotereadreplicaconfiguration.html#cfn-arcregionswitch-plan-rdspromotereadreplicaconfiguration-externalid
+            '''
+            result = self._values.get("external_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def timeout_minutes(self) -> typing.Optional[jsii.Number]:
+            '''
+            :default: - 60
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-rdspromotereadreplicaconfiguration.html#cfn-arcregionswitch-plan-rdspromotereadreplicaconfiguration-timeoutminutes
+            '''
+            result = self._values.get("timeout_minutes")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RdsPromoteReadReplicaConfigurationProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -4255,6 +4565,26 @@ class CfnPlan(
                         parallel_config=arcregionswitch.CfnPlan.ParallelExecutionBlockConfigurationProperty(
                             steps=[step_property_]
                         ),
+                        rds_create_cross_region_read_replica_config=arcregionswitch.CfnPlan.RdsCreateCrossRegionReplicaConfigurationProperty(
+                            db_instance_arn_map={
+                                "db_instance_arn_map_key": "dbInstanceArnMap"
+                            },
+                
+                            # the properties below are optional
+                            cross_account_role="crossAccountRole",
+                            external_id="externalId",
+                            timeout_minutes=123
+                        ),
+                        rds_promote_read_replica_config=arcregionswitch.CfnPlan.RdsPromoteReadReplicaConfigurationProperty(
+                            db_instance_arn_map={
+                                "db_instance_arn_map_key": "dbInstanceArnMap"
+                            },
+                
+                            # the properties below are optional
+                            cross_account_role="crossAccountRole",
+                            external_id="externalId",
+                            timeout_minutes=123
+                        ),
                         region_switch_plan_config=arcregionswitch.CfnPlan.RegionSwitchPlanConfigurationProperty(
                             arn="arn",
                 
@@ -4727,6 +5057,26 @@ class CfnPlan(
                             parallel_config=arcregionswitch.CfnPlan.ParallelExecutionBlockConfigurationProperty(
                                 steps=[step_property_]
                             ),
+                            rds_create_cross_region_read_replica_config=arcregionswitch.CfnPlan.RdsCreateCrossRegionReplicaConfigurationProperty(
+                                db_instance_arn_map={
+                                    "db_instance_arn_map_key": "dbInstanceArnMap"
+                                },
+                
+                                # the properties below are optional
+                                cross_account_role="crossAccountRole",
+                                external_id="externalId",
+                                timeout_minutes=123
+                            ),
+                            rds_promote_read_replica_config=arcregionswitch.CfnPlan.RdsPromoteReadReplicaConfigurationProperty(
+                                db_instance_arn_map={
+                                    "db_instance_arn_map_key": "dbInstanceArnMap"
+                                },
+                
+                                # the properties below are optional
+                                cross_account_role="crossAccountRole",
+                                external_id="externalId",
+                                timeout_minutes=123
+                            ),
                             region_switch_plan_config=arcregionswitch.CfnPlan.RegionSwitchPlanConfigurationProperty(
                                 arn="arn",
                 
@@ -5024,6 +5374,26 @@ class CfnPlanProps:
                             ),
                             parallel_config=arcregionswitch.CfnPlan.ParallelExecutionBlockConfigurationProperty(
                                 steps=[step_property_]
+                            ),
+                            rds_create_cross_region_read_replica_config=arcregionswitch.CfnPlan.RdsCreateCrossRegionReplicaConfigurationProperty(
+                                db_instance_arn_map={
+                                    "db_instance_arn_map_key": "dbInstanceArnMap"
+                                },
+            
+                                # the properties below are optional
+                                cross_account_role="crossAccountRole",
+                                external_id="externalId",
+                                timeout_minutes=123
+                            ),
+                            rds_promote_read_replica_config=arcregionswitch.CfnPlan.RdsPromoteReadReplicaConfigurationProperty(
+                                db_instance_arn_map={
+                                    "db_instance_arn_map_key": "dbInstanceArnMap"
+                                },
+            
+                                # the properties below are optional
+                                cross_account_role="crossAccountRole",
+                                external_id="externalId",
+                                timeout_minutes=123
                             ),
                             region_switch_plan_config=arcregionswitch.CfnPlan.RegionSwitchPlanConfigurationProperty(
                                 arn="arn",
@@ -5538,6 +5908,8 @@ def _typecheckingstub__bf03412277ce24dfa861d02429118a5e512a97579dd1c299024e646c9
     execution_approval_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlan.ExecutionApprovalConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     global_aurora_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlan.GlobalAuroraConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     parallel_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlan.ParallelExecutionBlockConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    rds_create_cross_region_read_replica_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlan.RdsCreateCrossRegionReplicaConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    rds_promote_read_replica_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlan.RdsPromoteReadReplicaConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     region_switch_plan_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlan.RegionSwitchPlanConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     route53_health_check_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlan.Route53HealthCheckConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -5608,6 +5980,26 @@ def _typecheckingstub__382b21febb492930836b8663cd8745c59e5e805caa04c745c3509c5be
 def _typecheckingstub__15563430da8134fdc062f2fae765097f644a784a2fe1b26fc67f62716996ef69(
     *,
     steps: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlan.StepProperty, typing.Dict[builtins.str, typing.Any]]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__69e151ebf07c42c1ebe26cc5ea409aa1aeb69967851714e77f304f28756f73a5(
+    *,
+    db_instance_arn_map: typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b],
+    cross_account_role: typing.Optional[builtins.str] = None,
+    external_id: typing.Optional[builtins.str] = None,
+    timeout_minutes: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__34d6fb45c06539179fc1c696a36f1b14b11a2c153a1519a41e8993ee45aba9aa(
+    *,
+    db_instance_arn_map: typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b],
+    cross_account_role: typing.Optional[builtins.str] = None,
+    external_id: typing.Optional[builtins.str] = None,
+    timeout_minutes: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
     pass

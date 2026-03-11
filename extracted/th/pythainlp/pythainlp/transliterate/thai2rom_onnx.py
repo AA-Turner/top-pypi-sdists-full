@@ -1,33 +1,61 @@
-# -*- coding: utf-8 -*-
-# SPDX-FileCopyrightText: 2016-2025 PyThaiNLP Project
+# SPDX-FileCopyrightText: 2016-2026 PyThaiNLP Project
 # SPDX-FileType: SOURCE
 # SPDX-License-Identifier: Apache-2.0
-"""
-Romanization of Thai words based on machine-learnt engine in ONNX runtime ("thai2rom")
-"""
-import json
+"""Romanization of Thai words based on machine-learnt engine in ONNX runtime ("thai2rom")"""
 
-import numpy as np
+from __future__ import annotations
+
+import json
+from typing import TYPE_CHECKING
+
 from onnxruntime import InferenceSession
 
 from pythainlp.corpus import get_corpus_path
 
-_MODEL_ENCODER_NAME = "thai2rom_encoder_onnx"
-_MODEL_DECODER_NAME = "thai2rom_decoder_onnx"
-_MODEL_CONFIG_NAME = "thai2rom_config_onnx"
+if TYPE_CHECKING:
+    from typing import Dict, List
+
+    import numpy as np
+
+_MODEL_ENCODER_NAME: str = "thai2rom_encoder_onnx"
+_MODEL_DECODER_NAME: str = "thai2rom_decoder_onnx"
+_MODEL_CONFIG_NAME: str = "thai2rom_config_onnx"
 
 
 class ThaiTransliterator_ONNX:
-    def __init__(self):
-        """
-        Transliteration of Thai words.
+    def __init__(self) -> None:
+        """Transliteration of Thai words.
 
         Now supports Thai to Latin (romanization)
         """
         # get the model, download it if it's not available locally
-        self.__encoder_filename = get_corpus_path(_MODEL_ENCODER_NAME)
-        self.__decoder_filename = get_corpus_path(_MODEL_DECODER_NAME)
-        self.__config_filename = get_corpus_path(_MODEL_CONFIG_NAME)
+        self.__encoder_filename: str = get_corpus_path(_MODEL_ENCODER_NAME)  # type: ignore[assignment]
+        self.__decoder_filename: str = get_corpus_path(_MODEL_DECODER_NAME)  # type: ignore[assignment]
+        self.__config_filename: str = get_corpus_path(_MODEL_CONFIG_NAME)  # type: ignore[assignment]
+        if (
+            not self.__encoder_filename
+            or not self.__decoder_filename
+            or not self.__config_filename
+        ):
+            missing = [
+                n
+                for n, v in (
+                    (_MODEL_ENCODER_NAME, self.__encoder_filename),
+                    (_MODEL_DECODER_NAME, self.__decoder_filename),
+                    (_MODEL_CONFIG_NAME, self.__config_filename),
+                )
+                if not v
+            ]
+            raise FileNotFoundError(
+                f"corpus-not-found names={missing!r}\n"
+                f"  Corpus file(s) not found: {', '.join(missing)}.\n"
+                f"  Download each missing corpus:\n"
+                + "\n".join(
+                    f"    Python: pythainlp.corpus.download('{n}')\n"
+                    f"    CLI:    thainlp data get {n}"
+                    for n in missing
+                )
+            )
 
         # loader = torch.load(self.__model_filename, map_location=device)
         with open(str(self.__config_filename)) as f:
@@ -35,20 +63,24 @@ class ThaiTransliterator_ONNX:
 
         OUTPUT_DIM = loader["output_dim"]
 
-        self._maxlength = 100
+        self._maxlength: int = 100
 
-        self._char_to_ix = loader["char_to_ix"]
-        self._ix_to_char = loader["ix_to_char"]
-        self._target_char_to_ix = loader["target_char_to_ix"]
-        self._ix_to_target_char = loader["ix_to_target_char"]
+        self._char_to_ix: Dict[str, int] = loader["char_to_ix"]
+        self._ix_to_char: Dict[int, str] = loader["ix_to_char"]
+        self._target_char_to_ix: Dict[str, int] = loader["target_char_to_ix"]
+        self._ix_to_target_char: Dict[int, str] = loader["ix_to_target_char"]
 
         # encoder/ decoder
         # Load encoder decoder onnx models.
-        self._encoder = InferenceSession(self.__encoder_filename)
+        self._encoder: InferenceSession = InferenceSession(
+            self.__encoder_filename
+        )
 
-        self._decoder = InferenceSession(self.__decoder_filename)
+        self._decoder: InferenceSession = InferenceSession(
+            self.__decoder_filename
+        )
 
-        self._network = Seq2Seq_ONNX(
+        self._network: Seq2Seq_ONNX = Seq2Seq_ONNX(
             self._encoder,
             self._decoder,
             self._target_char_to_ix["<start>"],
@@ -57,10 +89,10 @@ class ThaiTransliterator_ONNX:
             target_vocab_size=OUTPUT_DIM,
         )
 
-    def _prepare_sequence_in(self, text: str):
-        """
-        Prepare input sequence for ONNX
-        """
+    def _prepare_sequence_in(self, text: str) -> "np.ndarray":
+        """Prepare input sequence for ONNX"""
+        import numpy as np
+
         idxs = []
         for ch in text:
             if ch in self._char_to_ix:
@@ -71,11 +103,12 @@ class ThaiTransliterator_ONNX:
         return np.array(idxs)
 
     def romanize(self, text: str) -> str:
-        """
-        :param str text: Thai text to be romanized
+        """:param str text: Thai text to be romanized
         :return: English (more or less) text that spells out how the Thai text
                  should be pronounced.
         """
+        import numpy as np
+
         input_tensor = self._prepare_sequence_in(text).reshape(1, -1)
         input_length = [len(text) + 1]
         target_tensor_logits = self._network.run(input_tensor, input_length)
@@ -86,40 +119,51 @@ class ThaiTransliterator_ONNX:
             target = ["<PAD>"]
         else:
             target_tensor = np.argmax(target_tensor_logits.squeeze(1), 1)
-            target = [self._ix_to_target_char[str(t)] for t in target_tensor]
+            target = [self._ix_to_target_char[int(t)] for t in target_tensor]
 
         return "".join(target)
 
 
 class Seq2Seq_ONNX:
+    encoder: InferenceSession
+    decoder: InferenceSession
+    pad_idx: int
+    target_start_token: int
+    target_end_token: int
+    max_length: int
+    target_vocab_size: int
+
     def __init__(
         self,
-        encoder,
-        decoder,
-        target_start_token,
-        target_end_token,
-        max_length,
-        target_vocab_size,
-    ):
+        encoder: InferenceSession,
+        decoder: InferenceSession,
+        target_start_token: int,
+        target_end_token: int,
+        max_length: int,
+        target_vocab_size: int,
+    ) -> None:
         super().__init__()
 
-        self.encoder = encoder
-        self.decoder = decoder
-        self.pad_idx = 0
-        self.target_start_token = target_start_token
-        self.target_end_token = target_end_token
-        self.max_length = max_length
+        self.encoder: "InferenceSession" = encoder
+        self.decoder: "InferenceSession" = decoder
+        self.pad_idx: int = 0
+        self.target_start_token: int = target_start_token
+        self.target_end_token: int = target_end_token
+        self.max_length: int = max_length
 
-        self.target_vocab_size = target_vocab_size
+        self.target_vocab_size: int = target_vocab_size
 
-    def create_mask(self, source_seq):
+    def create_mask(self, source_seq: "np.ndarray") -> "np.ndarray":
         mask = source_seq != self.pad_idx
         return mask
 
-    def run(self, source_seq, source_seq_len):
+    def run(
+        self, source_seq: "np.ndarray", source_seq_len: List[int]
+    ) -> "np.ndarray":
         # source_seq: (batch_size, MAX_LENGTH)
         # source_seq_len: (batch_size, 1)
         # target_seq: (batch_size, MAX_LENGTH)
+        import numpy as np
 
         batch_size = source_seq.shape[0]
         start_token = self.target_start_token
@@ -129,9 +173,9 @@ class Seq2Seq_ONNX:
 
         outputs = np.zeros((max_len, batch_size, self.target_vocab_size))
 
-        expected_encoder_outputs = list(
-            map(lambda output: output.name, self.encoder.get_outputs())
-        )
+        expected_encoder_outputs = [
+            output.name for output in self.encoder.get_outputs()
+        ]
         encoder_outputs, encoder_hidden, _ = self.encoder.run(
             input_feed={
                 "input_tensor": source_seq,
@@ -181,7 +225,7 @@ class Seq2Seq_ONNX:
         return outputs
 
 
-_THAI_TO_ROM_ONNX = ThaiTransliterator_ONNX()
+_THAI_TO_ROM_ONNX: ThaiTransliterator_ONNX = ThaiTransliterator_ONNX()
 
 
 def romanize(text: str) -> str:

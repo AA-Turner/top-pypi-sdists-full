@@ -169,3 +169,29 @@ class MissingPackagesInRequirementsTest(BaseTest):
         ]
         self.assertEqual(len(pandas_lines), 1)
         self.assertEqual(pandas_lines[0], "pandas")
+
+    def test_does_not_suggest_relative_import_as_package(self):
+        """Should not suggest adding relative imports to requirements.txt"""
+        requirements_file = self.root / "requirements.txt"
+        requirements_file.touch()
+
+        # Create a package with relative imports
+        classes_dir = self.root / "src" / "classes"
+        classes_dir.mkdir(parents=True)
+        (classes_dir / "__init__.py").write_text("")
+        (classes_dir / "another_class.py").write_text("OTHER_VALUE = 42")
+        (classes_dir / "some_class.py").write_text(
+            "from .another_class import OTHER_VALUE\n"
+        )
+        (self.root / "src" / "__init__.py").write_text("")
+
+        # Create an entrypoint script that imports from the local package
+        # This ensures the linter traverses into src/classes/some_class.py
+        script = self.controller.create_tasklet("New script", "script.py")
+        script.file_path.write_text("from src.classes.some_class import OTHER_VALUE\n")
+
+        rule = MissingPackagesInRequirements()
+        issues = rule.find_issues()
+
+        # Relative imports should not be suggested as missing external packages
+        self.assertEqual(len(issues), 0)

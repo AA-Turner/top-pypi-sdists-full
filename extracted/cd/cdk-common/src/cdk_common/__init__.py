@@ -5900,6 +5900,14 @@ class AWSManagedPolicies(enum.Enum):
     '''
     :stability: experimental
     '''
+    AMAZON_ROUTE53_GLOBAL_RESOLVER_FULL_ACCESS = "AMAZON_ROUTE53_GLOBAL_RESOLVER_FULL_ACCESS"
+    '''
+    :stability: experimental
+    '''
+    AMAZON_ROUTE53_GLOBAL_RESOLVER_READ_ONLY_ACCESS = "AMAZON_ROUTE53_GLOBAL_RESOLVER_READ_ONLY_ACCESS"
+    '''
+    :stability: experimental
+    '''
 
 
 class LambdaArmFunction(

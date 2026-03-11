@@ -110,7 +110,8 @@ RocPointsTrafaret = t.Dict({
 })
 
 RocCurveTrafaret = (
-    t.Dict({
+    t
+    .Dict({
         t.Key("source"): String,
         t.Key("source_model_id"): String,
         t.Key("data_slice_id", optional=True): t.Or(String, t.Null),
@@ -290,7 +291,8 @@ class LabelwiseRocCurve(RocCurve):
     """
 
     _converter = (
-        t.Dict({
+        t
+        .Dict({
             t.Key("label"): String,
             t.Key("kolmogorov_smirnov_metric"): t.Float,
             t.Key("auc"): t.Float,

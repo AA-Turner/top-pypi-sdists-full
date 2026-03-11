@@ -7,7 +7,7 @@ from multiprocessing import Pipe
 from pathlib import Path
 from shutil import move
 from tempfile import mkdtemp, mktemp
-from typing import Any, Literal
+from typing import Any, Literal, Optional
 from uuid import uuid4
 
 import flask
@@ -2144,7 +2144,7 @@ class MainController:
         except Exception:
             pass
 
-    def run_job(self, id: str):
+    def run_job(self, id: str, user_jwt: Optional[str] = None):
         """
         Run a job stage immediately by its ID.
 
@@ -2154,6 +2154,7 @@ class MainController:
 
         Args:
             id (str): Unique identifier of the job stage to run.
+            user_jwt (Optional[str]): JWT token for web-editor user identification.
         Returns:
             None: The job will be executed, and logs will be generated.
 
@@ -2168,7 +2169,9 @@ class MainController:
         if status == "disabled":
             return {"status": "disabled"}
 
-        conn = self.repositories.producer.enqueue(id, context=JobContext())
+        conn = self.repositories.producer.enqueue(
+            id, context=JobContext(), user_jwt=user_jwt
+        )
 
         hand_off = False
         try:
@@ -2192,7 +2195,7 @@ class MainController:
             if not hand_off:
                 conn.close()
 
-    def run_hook(self, id: str, request: Request):
+    def run_hook(self, id: str, request: Request, user_jwt: Optional[str] = None):
         """
         Run a hook stage immediately by its ID.
 
@@ -2202,6 +2205,7 @@ class MainController:
         Args:
             id (str): Unique identifier of the hook stage to run.
             request (Request): The HTTP request object containing data to process.
+            user_jwt (Optional[str]): JWT token for web-editor user identification.
         Returns:
             dict: Response containing the body, status, and headers from the hook execution.
 
@@ -2219,7 +2223,9 @@ class MainController:
             response=Response(headers={}, status=200, body=""),
         )
 
-        connection = self.repositories.producer.enqueue(hook.id, context)
+        connection = self.repositories.producer.enqueue(
+            hook.id, context, user_jwt=user_jwt
+        )
         start_msg = connection.recv()
 
         if isinstance(start_msg, str):
@@ -2252,7 +2258,7 @@ class MainController:
             "execution_id": start_msg.execution_id,
         }
 
-    def run_tasklet(self, id: str, task_id: str):
+    def run_tasklet(self, id: str, task_id: str, user_jwt: Optional[str] = None):
         """
         Run a tasklet stage immediately by its ID.
 
@@ -2262,6 +2268,7 @@ class MainController:
 
         Args:
             id (str): Unique identifier of the tasklet stage to run.
+            user_jwt (Optional[str]): JWT token for web-editor user identification.
 
         Returns:
             None: The tasklet will be executed, and logs will be generated.
@@ -2276,7 +2283,7 @@ class MainController:
             raise Exception(f"Tasklet with id {id} not found")
 
         conn = self.repositories.producer.enqueue(
-            id, context=ScriptContext(task_id=task_id)
+            id, context=ScriptContext(task_id=task_id), user_jwt=user_jwt
         )
 
         hand_off = False

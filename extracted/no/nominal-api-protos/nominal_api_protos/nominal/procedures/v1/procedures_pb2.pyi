@@ -419,6 +419,24 @@ class CreateRunConfig(_message.Message):
     properties: _containers.RepeatedCompositeFieldContainer[CreateRunConfig.Property]
     def __init__(self, run_output_field_id: _Optional[str] = ..., assets: _Optional[_Union[MultiAssetReference, _Mapping]] = ..., name: _Optional[_Union[StringReference, _Mapping]] = ..., description: _Optional[_Union[StringReference, _Mapping]] = ..., time_range: _Optional[_Union[TimeRangeReference, _Mapping]] = ..., labels: _Optional[_Union[MultiStringReference, _Mapping]] = ..., properties: _Optional[_Iterable[_Union[CreateRunConfig.Property, _Mapping]]] = ...) -> None: ...
 
+class UpdateRunConfig(_message.Message):
+    __slots__ = ("runs", "name", "description", "time_range", "labels", "properties", "strict_overwrite")
+    RUNS_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
+    TIME_RANGE_FIELD_NUMBER: _ClassVar[int]
+    LABELS_FIELD_NUMBER: _ClassVar[int]
+    PROPERTIES_FIELD_NUMBER: _ClassVar[int]
+    STRICT_OVERWRITE_FIELD_NUMBER: _ClassVar[int]
+    runs: MultiRunReference
+    name: StringReference
+    description: StringReference
+    time_range: TimeRangeReference
+    labels: MultiStringReference
+    properties: _containers.RepeatedCompositeFieldContainer[PropertyReference]
+    strict_overwrite: bool
+    def __init__(self, runs: _Optional[_Union[MultiRunReference, _Mapping]] = ..., name: _Optional[_Union[StringReference, _Mapping]] = ..., description: _Optional[_Union[StringReference, _Mapping]] = ..., time_range: _Optional[_Union[TimeRangeReference, _Mapping]] = ..., labels: _Optional[_Union[MultiStringReference, _Mapping]] = ..., properties: _Optional[_Iterable[_Union[PropertyReference, _Mapping]]] = ..., strict_overwrite: bool = ...) -> None: ...
+
 class PropertyReference(_message.Message):
     __slots__ = ("key", "value")
     KEY_FIELD_NUMBER: _ClassVar[int]
@@ -748,9 +766,24 @@ class TimeRangeReference(_message.Message):
         FIELD_IDS_FIELD_NUMBER: _ClassVar[int]
         field_ids: _containers.RepeatedScalarFieldContainer[str]
         def __init__(self, field_ids: _Optional[_Iterable[str]] = ...) -> None: ...
+    class RangeLiteral(_message.Message):
+        __slots__ = ("start", "end")
+        START_FIELD_NUMBER: _ClassVar[int]
+        END_FIELD_NUMBER: _ClassVar[int]
+        start: TimestampReference
+        end: TimestampReference
+        def __init__(self, start: _Optional[_Union[TimestampReference, _Mapping]] = ..., end: _Optional[_Union[TimestampReference, _Mapping]] = ...) -> None: ...
     FROM_INGEST_JOBS_FIELD_NUMBER: _ClassVar[int]
     from_ingest_jobs: TimeRangeReference.IngestJobList
     def __init__(self, from_ingest_jobs: _Optional[_Union[TimeRangeReference.IngestJobList, _Mapping]] = ...) -> None: ...
+
+class TimestampReference(_message.Message):
+    __slots__ = ("field_id", "constant")
+    FIELD_ID_FIELD_NUMBER: _ClassVar[int]
+    CONSTANT_FIELD_NUMBER: _ClassVar[int]
+    field_id: str
+    constant: _timestamp_pb2.Timestamp
+    def __init__(self, field_id: _Optional[str] = ..., constant: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
 
 class MultiRunReference(_message.Message):
     __slots__ = ("list",)

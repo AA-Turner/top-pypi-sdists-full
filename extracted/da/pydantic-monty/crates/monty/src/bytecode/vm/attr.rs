@@ -7,6 +7,7 @@ use crate::{
     exception_private::{ExcType, RunError},
     intern::StringId,
     resource::ResourceTracker,
+    value::EitherStr,
 };
 
 impl<T: ResourceTracker> VM<'_, '_, T> {
@@ -19,8 +20,8 @@ impl<T: ResourceTracker> VM<'_, '_, T> {
         let obj = this.pop();
         defer_drop!(obj, this);
 
-        let result = obj.py_getattr(name_id, this.heap, this.interns)?;
-        Ok(result.into())
+        let attr = EitherStr::Interned(name_id);
+        obj.py_getattr(&attr, this.heap, this.interns)
     }
 
     /// Loads an attribute from a module for `from ... import` and pushes it onto the stack.
@@ -33,8 +34,9 @@ impl<T: ResourceTracker> VM<'_, '_, T> {
         let obj = this.pop();
         defer_drop!(obj, this);
 
-        match obj.py_getattr(name_id, this.heap, this.interns) {
-            Ok(result) => Ok(result.into()),
+        let attr = EitherStr::Interned(name_id);
+        match obj.py_getattr(&attr, this.heap, this.interns) {
+            Ok(result) => Ok(result),
             Err(RunError::Exc(exc)) if exc.exc.exc_type() == ExcType::AttributeError => {
                 // Only compute module_name when we need it for the error message
                 let module_name = obj.module_name(this.heap, this.interns);

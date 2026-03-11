@@ -181,6 +181,7 @@ class ExecutorPool:
         request,
         connection,
         rabbitmq_params: Optional[RabbitMQParams],
+        user_jwt: Optional[str] = None,
     ) -> ExecutorResponse:
         max_wait = self.config.acquire_timeout_seconds
         start_time = time.time()
@@ -241,6 +242,7 @@ class ExecutorPool:
                 request=request,
                 connection=connection,
                 rabbitmq_params=rabbitmq_params,
+                user_jwt=user_jwt,
             )
 
             try:

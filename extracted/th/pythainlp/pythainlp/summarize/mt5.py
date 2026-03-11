@@ -1,13 +1,9 @@
-# -*- coding: utf-8 -*-
-# SPDX-FileCopyrightText: 2016-2025 PyThaiNLP Project
+# SPDX-FileCopyrightText: 2016-2026 PyThaiNLP Project
 # SPDX-FileType: SOURCE
 # SPDX-License-Identifier: Apache-2.0
-"""
-Summarization by mT5 model
-"""
-from typing import List
+"""Summarization by mT5 model"""
 
-from transformers import MT5ForConditionalGeneration, T5Tokenizer
+from __future__ import annotations
 
 from pythainlp.summarize import CPE_KMUTT_THAI_SENTENCE_SUM
 
@@ -21,10 +17,28 @@ class mT5Summarizer:
         min_length: int = 30,
         max_length: int = 100,
         skip_special_tokens: bool = True,
-        pretrained_mt5_model_name: str = None,
-    ):
+        pretrained_mt5_model_name: str = "",
+    ) -> None:
+        """Initialize mT5 Summarizer.
+
+        :param str model_size: Size of the model ("small", "base", "large",
+            "xl", "xxl"). Default is "small".
+        :param int num_beams: Number of beams for beam search. Default is 4.
+        :param int no_repeat_ngram_size: Size of n-grams to avoid repeating.
+            Default is 2.
+        :param int min_length: Minimum length of generated summary.
+            Default is 30.
+        :param int max_length: Maximum length of generated summary.
+            Default is 100.
+        :param bool skip_special_tokens: Whether to skip special tokens in
+            output. Default is True.
+        :param str pretrained_mt5_model_name: Name of pretrained model.
+            If empty (default), uses google/mt5-{model_size}.
+        """
+        from transformers import MT5ForConditionalGeneration, T5Tokenizer
+
         model_name = ""
-        if pretrained_mt5_model_name is None:
+        if not pretrained_mt5_model_name:
             if model_size not in ["small", "base", "large", "xl", "xxl"]:
                 raise ValueError(
                     f"""model_size \"{model_size}\" not found.
@@ -36,16 +50,18 @@ class mT5Summarizer:
                 model_name = f"thanathorn/{CPE_KMUTT_THAI_SENTENCE_SUM}"
             else:
                 model_name = pretrained_mt5_model_name
-        self.model_name = model_name
-        self.model = MT5ForConditionalGeneration.from_pretrained(model_name)
-        self.tokenizer = T5Tokenizer.from_pretrained(model_name)
-        self.num_beams = num_beams
-        self.no_repeat_ngram_size = no_repeat_ngram_size
-        self.min_length = min_length
-        self.max_length = max_length
-        self.skip_special_tokens = skip_special_tokens
+        self.model_name: str = model_name
+        self.model: MT5ForConditionalGeneration = (
+            MT5ForConditionalGeneration.from_pretrained(model_name)
+        )
+        self.tokenizer: T5Tokenizer = T5Tokenizer.from_pretrained(model_name)
+        self.num_beams: int = num_beams
+        self.no_repeat_ngram_size: int = no_repeat_ngram_size
+        self.min_length: int = min_length
+        self.max_length: int = max_length
+        self.skip_special_tokens: bool = skip_special_tokens
 
-    def summarize(self, text: str) -> List[str]:
+    def summarize(self, text: str) -> list[str]:
         preprocess_text = text.strip().replace("\n", "")
         if self.model_name == f"thanathorn/{CPE_KMUTT_THAI_SENTENCE_SUM}":
             t5_prepared_Text = "simplify: " + preprocess_text

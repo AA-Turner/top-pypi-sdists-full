@@ -1841,20 +1841,18 @@ class CfnAlarm(
         from aws_cdk import aws_cloudwatch as cloudwatch
         
         cfn_alarm = cloudwatch.CfnAlarm(self, "MyCfnAlarm",
-            comparison_operator="comparisonOperator",
-            evaluation_periods=123,
-        
-            # the properties below are optional
             actions_enabled=False,
             alarm_actions=["alarmActions"],
             alarm_description="alarmDescription",
             alarm_name="alarmName",
+            comparison_operator="comparisonOperator",
             datapoints_to_alarm=123,
             dimensions=[cloudwatch.CfnAlarm.DimensionProperty(
                 name="name",
                 value="value"
             )],
             evaluate_low_sample_count_percentile="evaluateLowSampleCountPercentile",
+            evaluation_periods=123,
             extended_statistic="extendedStatistic",
             insufficient_data_actions=["insufficientDataActions"],
             metric_name="metricName",
@@ -1903,15 +1901,15 @@ class CfnAlarm(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        comparison_operator: builtins.str,
-        evaluation_periods: jsii.Number,
         actions_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         alarm_actions: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_IScalingPolicyRef_fcca0de5", "_ITopicRef_29aa9a88"]]] = None,
         alarm_description: typing.Optional[builtins.str] = None,
         alarm_name: typing.Optional[builtins.str] = None,
+        comparison_operator: typing.Optional[builtins.str] = None,
         datapoints_to_alarm: typing.Optional[jsii.Number] = None,
         dimensions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAlarm.DimensionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         evaluate_low_sample_count_percentile: typing.Optional[builtins.str] = None,
+        evaluation_periods: typing.Optional[jsii.Number] = None,
         extended_statistic: typing.Optional[builtins.str] = None,
         insufficient_data_actions: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_ITopicRef_29aa9a88"]]] = None,
         metric_name: typing.Optional[builtins.str] = None,
@@ -1930,15 +1928,15 @@ class CfnAlarm(
 
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
-        :param comparison_operator: The arithmetic operation to use when comparing the specified statistic and threshold. The specified statistic value is used as the first operand.
-        :param evaluation_periods: The number of periods over which data is compared to the specified threshold. If you are setting an alarm that requires that a number of consecutive data points be breaching to trigger the alarm, this value specifies that number. If you are setting an "M out of N" alarm, this value is the N, and ``DatapointsToAlarm`` is the M. For more information, see `Evaluating an Alarm <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/AlarmThatSendsEmail.html#alarm-evaluation>`_ in the *Amazon CloudWatch User Guide* .
         :param actions_enabled: Indicates whether actions should be executed during any changes to the alarm state. The default is TRUE. Default: - true
         :param alarm_actions: The list of actions to execute when this alarm transitions into an ALARM state from any other state. Specify each action as an Amazon Resource Name (ARN). For more information about creating alarms and the actions that you can specify, see `PutMetricAlarm <https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_PutMetricAlarm.html>`_ in the *Amazon CloudWatch API Reference* .
         :param alarm_description: The description of the alarm.
         :param alarm_name: The name of the alarm. If you don't specify a name, CloudFormation generates a unique physical ID and uses that ID for the alarm name. .. epigraph:: If you specify a name, you cannot perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you must replace the resource, specify a new name.
+        :param comparison_operator: The arithmetic operation to use when comparing the specified statistic and threshold. The specified statistic value is used as the first operand.
         :param datapoints_to_alarm: The number of datapoints that must be breaching to trigger the alarm. This is used only if you are setting an "M out of N" alarm. In that case, this value is the M, and the value that you set for ``EvaluationPeriods`` is the N value. For more information, see `Evaluating an Alarm <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/AlarmThatSendsEmail.html#alarm-evaluation>`_ in the *Amazon CloudWatch User Guide* . If you omit this parameter, CloudWatch uses the same value here that you set for ``EvaluationPeriods`` , and the alarm goes to alarm state if that many consecutive periods are breaching.
         :param dimensions: The dimensions for the metric associated with the alarm. For an alarm based on a math expression, you can't specify ``Dimensions`` . Instead, you use ``Metrics`` .
         :param evaluate_low_sample_count_percentile: Used only for alarms based on percentiles. If ``ignore`` , the alarm state does not change during periods with too few data points to be statistically significant. If ``evaluate`` or this parameter is not used, the alarm is always evaluated and possibly changes state no matter how many data points are available.
+        :param evaluation_periods: The number of periods over which data is compared to the specified threshold. If you are setting an alarm that requires that a number of consecutive data points be breaching to trigger the alarm, this value specifies that number. If you are setting an "M out of N" alarm, this value is the N, and ``DatapointsToAlarm`` is the M. For more information, see `Evaluating an Alarm <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/AlarmThatSendsEmail.html#alarm-evaluation>`_ in the *Amazon CloudWatch User Guide* .
         :param extended_statistic: The percentile statistic for the metric associated with the alarm. Specify a value between p0.0 and p100. For an alarm based on a metric, you must specify either ``Statistic`` or ``ExtendedStatistic`` but not both. For an alarm based on a math expression, you can't specify ``ExtendedStatistic`` . Instead, you use ``Metrics`` .
         :param insufficient_data_actions: The actions to execute when this alarm transitions to the ``INSUFFICIENT_DATA`` state from any other state. Each action is specified as an Amazon Resource Name (ARN).
         :param metric_name: The name of the metric associated with the alarm. This is required for an alarm based on a metric. For an alarm based on a math expression, you use ``Metrics`` instead and you can't specify ``MetricName`` .
@@ -1958,15 +1956,15 @@ class CfnAlarm(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnAlarmProps(
-            comparison_operator=comparison_operator,
-            evaluation_periods=evaluation_periods,
             actions_enabled=actions_enabled,
             alarm_actions=alarm_actions,
             alarm_description=alarm_description,
             alarm_name=alarm_name,
+            comparison_operator=comparison_operator,
             datapoints_to_alarm=datapoints_to_alarm,
             dimensions=dimensions,
             evaluate_low_sample_count_percentile=evaluate_low_sample_count_percentile,
+            evaluation_periods=evaluation_periods,
             extended_statistic=extended_statistic,
             insufficient_data_actions=insufficient_data_actions,
             metric_name=metric_name,
@@ -2106,32 +2104,6 @@ class CfnAlarm(
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
-    @jsii.member(jsii_name="comparisonOperator")
-    def comparison_operator(self) -> builtins.str:
-        '''The arithmetic operation to use when comparing the specified statistic and threshold.'''
-        return typing.cast(builtins.str, jsii.get(self, "comparisonOperator"))
-
-    @comparison_operator.setter
-    def comparison_operator(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3b70639e8f0bfbbc34ad2338567df4a5d70d17215776eb7aa3581fbe2e40cd29)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "comparisonOperator", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="evaluationPeriods")
-    def evaluation_periods(self) -> jsii.Number:
-        '''The number of periods over which data is compared to the specified threshold.'''
-        return typing.cast(jsii.Number, jsii.get(self, "evaluationPeriods"))
-
-    @evaluation_periods.setter
-    def evaluation_periods(self, value: jsii.Number) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c080be98f630293bbc63f05942376d4ca0d4a15c82eb9cee4cb1c32b2740abc4)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "evaluationPeriods", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="actionsEnabled")
     def actions_enabled(
         self,
@@ -2189,6 +2161,19 @@ class CfnAlarm(
         jsii.set(self, "alarmName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="comparisonOperator")
+    def comparison_operator(self) -> typing.Optional[builtins.str]:
+        '''The arithmetic operation to use when comparing the specified statistic and threshold.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "comparisonOperator"))
+
+    @comparison_operator.setter
+    def comparison_operator(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3b70639e8f0bfbbc34ad2338567df4a5d70d17215776eb7aa3581fbe2e40cd29)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "comparisonOperator", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="datapointsToAlarm")
     def datapoints_to_alarm(self) -> typing.Optional[jsii.Number]:
         '''The number of datapoints that must be breaching to trigger the alarm.'''
@@ -2234,6 +2219,19 @@ class CfnAlarm(
             type_hints = typing.get_type_hints(_typecheckingstub__aec0314071d83d4872fc9ec8f90d1938e3aa18c267eaf43f637379b01d86c684)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "evaluateLowSampleCountPercentile", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="evaluationPeriods")
+    def evaluation_periods(self) -> typing.Optional[jsii.Number]:
+        '''The number of periods over which data is compared to the specified threshold.'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "evaluationPeriods"))
+
+    @evaluation_periods.setter
+    def evaluation_periods(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c080be98f630293bbc63f05942376d4ca0d4a15c82eb9cee4cb1c32b2740abc4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "evaluationPeriods", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="extendedStatistic")
@@ -3596,15 +3594,15 @@ class CfnAlarmMuteRuleProps:
     jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAlarmProps",
     jsii_struct_bases=[],
     name_mapping={
-        "comparison_operator": "comparisonOperator",
-        "evaluation_periods": "evaluationPeriods",
         "actions_enabled": "actionsEnabled",
         "alarm_actions": "alarmActions",
         "alarm_description": "alarmDescription",
         "alarm_name": "alarmName",
+        "comparison_operator": "comparisonOperator",
         "datapoints_to_alarm": "datapointsToAlarm",
         "dimensions": "dimensions",
         "evaluate_low_sample_count_percentile": "evaluateLowSampleCountPercentile",
+        "evaluation_periods": "evaluationPeriods",
         "extended_statistic": "extendedStatistic",
         "insufficient_data_actions": "insufficientDataActions",
         "metric_name": "metricName",
@@ -3624,15 +3622,15 @@ class CfnAlarmProps:
     def __init__(
         self,
         *,
-        comparison_operator: builtins.str,
-        evaluation_periods: jsii.Number,
         actions_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         alarm_actions: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_IScalingPolicyRef_fcca0de5", "_ITopicRef_29aa9a88"]]] = None,
         alarm_description: typing.Optional[builtins.str] = None,
         alarm_name: typing.Optional[builtins.str] = None,
+        comparison_operator: typing.Optional[builtins.str] = None,
         datapoints_to_alarm: typing.Optional[jsii.Number] = None,
         dimensions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAlarm.DimensionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         evaluate_low_sample_count_percentile: typing.Optional[builtins.str] = None,
+        evaluation_periods: typing.Optional[jsii.Number] = None,
         extended_statistic: typing.Optional[builtins.str] = None,
         insufficient_data_actions: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_ITopicRef_29aa9a88"]]] = None,
         metric_name: typing.Optional[builtins.str] = None,
@@ -3649,15 +3647,15 @@ class CfnAlarmProps:
     ) -> None:
         '''Properties for defining a ``CfnAlarm``.
 
-        :param comparison_operator: The arithmetic operation to use when comparing the specified statistic and threshold. The specified statistic value is used as the first operand.
-        :param evaluation_periods: The number of periods over which data is compared to the specified threshold. If you are setting an alarm that requires that a number of consecutive data points be breaching to trigger the alarm, this value specifies that number. If you are setting an "M out of N" alarm, this value is the N, and ``DatapointsToAlarm`` is the M. For more information, see `Evaluating an Alarm <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/AlarmThatSendsEmail.html#alarm-evaluation>`_ in the *Amazon CloudWatch User Guide* .
         :param actions_enabled: Indicates whether actions should be executed during any changes to the alarm state. The default is TRUE. Default: - true
         :param alarm_actions: The list of actions to execute when this alarm transitions into an ALARM state from any other state. Specify each action as an Amazon Resource Name (ARN). For more information about creating alarms and the actions that you can specify, see `PutMetricAlarm <https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_PutMetricAlarm.html>`_ in the *Amazon CloudWatch API Reference* .
         :param alarm_description: The description of the alarm.
         :param alarm_name: The name of the alarm. If you don't specify a name, CloudFormation generates a unique physical ID and uses that ID for the alarm name. .. epigraph:: If you specify a name, you cannot perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you must replace the resource, specify a new name.
+        :param comparison_operator: The arithmetic operation to use when comparing the specified statistic and threshold. The specified statistic value is used as the first operand.
         :param datapoints_to_alarm: The number of datapoints that must be breaching to trigger the alarm. This is used only if you are setting an "M out of N" alarm. In that case, this value is the M, and the value that you set for ``EvaluationPeriods`` is the N value. For more information, see `Evaluating an Alarm <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/AlarmThatSendsEmail.html#alarm-evaluation>`_ in the *Amazon CloudWatch User Guide* . If you omit this parameter, CloudWatch uses the same value here that you set for ``EvaluationPeriods`` , and the alarm goes to alarm state if that many consecutive periods are breaching.
         :param dimensions: The dimensions for the metric associated with the alarm. For an alarm based on a math expression, you can't specify ``Dimensions`` . Instead, you use ``Metrics`` .
         :param evaluate_low_sample_count_percentile: Used only for alarms based on percentiles. If ``ignore`` , the alarm state does not change during periods with too few data points to be statistically significant. If ``evaluate`` or this parameter is not used, the alarm is always evaluated and possibly changes state no matter how many data points are available.
+        :param evaluation_periods: The number of periods over which data is compared to the specified threshold. If you are setting an alarm that requires that a number of consecutive data points be breaching to trigger the alarm, this value specifies that number. If you are setting an "M out of N" alarm, this value is the N, and ``DatapointsToAlarm`` is the M. For more information, see `Evaluating an Alarm <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/AlarmThatSendsEmail.html#alarm-evaluation>`_ in the *Amazon CloudWatch User Guide* .
         :param extended_statistic: The percentile statistic for the metric associated with the alarm. Specify a value between p0.0 and p100. For an alarm based on a metric, you must specify either ``Statistic`` or ``ExtendedStatistic`` but not both. For an alarm based on a math expression, you can't specify ``ExtendedStatistic`` . Instead, you use ``Metrics`` .
         :param insufficient_data_actions: The actions to execute when this alarm transitions to the ``INSUFFICIENT_DATA`` state from any other state. Each action is specified as an Amazon Resource Name (ARN).
         :param metric_name: The name of the metric associated with the alarm. This is required for an alarm based on a metric. For an alarm based on a math expression, you use ``Metrics`` instead and you can't specify ``MetricName`` .
@@ -3683,20 +3681,18 @@ class CfnAlarmProps:
             from aws_cdk import aws_cloudwatch as cloudwatch
             
             cfn_alarm_props = cloudwatch.CfnAlarmProps(
-                comparison_operator="comparisonOperator",
-                evaluation_periods=123,
-            
-                # the properties below are optional
                 actions_enabled=False,
                 alarm_actions=["alarmActions"],
                 alarm_description="alarmDescription",
                 alarm_name="alarmName",
+                comparison_operator="comparisonOperator",
                 datapoints_to_alarm=123,
                 dimensions=[cloudwatch.CfnAlarm.DimensionProperty(
                     name="name",
                     value="value"
                 )],
                 evaluate_low_sample_count_percentile="evaluateLowSampleCountPercentile",
+                evaluation_periods=123,
                 extended_statistic="extendedStatistic",
                 insufficient_data_actions=["insufficientDataActions"],
                 metric_name="metricName",
@@ -3741,15 +3737,15 @@ class CfnAlarmProps:
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bc643fb1b5f1f1f0e0d9896a5988171163c1f79adc28d1e921bdf85f14782517)
-            check_type(argname="argument comparison_operator", value=comparison_operator, expected_type=type_hints["comparison_operator"])
-            check_type(argname="argument evaluation_periods", value=evaluation_periods, expected_type=type_hints["evaluation_periods"])
             check_type(argname="argument actions_enabled", value=actions_enabled, expected_type=type_hints["actions_enabled"])
             check_type(argname="argument alarm_actions", value=alarm_actions, expected_type=type_hints["alarm_actions"])
             check_type(argname="argument alarm_description", value=alarm_description, expected_type=type_hints["alarm_description"])
             check_type(argname="argument alarm_name", value=alarm_name, expected_type=type_hints["alarm_name"])
+            check_type(argname="argument comparison_operator", value=comparison_operator, expected_type=type_hints["comparison_operator"])
             check_type(argname="argument datapoints_to_alarm", value=datapoints_to_alarm, expected_type=type_hints["datapoints_to_alarm"])
             check_type(argname="argument dimensions", value=dimensions, expected_type=type_hints["dimensions"])
             check_type(argname="argument evaluate_low_sample_count_percentile", value=evaluate_low_sample_count_percentile, expected_type=type_hints["evaluate_low_sample_count_percentile"])
+            check_type(argname="argument evaluation_periods", value=evaluation_periods, expected_type=type_hints["evaluation_periods"])
             check_type(argname="argument extended_statistic", value=extended_statistic, expected_type=type_hints["extended_statistic"])
             check_type(argname="argument insufficient_data_actions", value=insufficient_data_actions, expected_type=type_hints["insufficient_data_actions"])
             check_type(argname="argument metric_name", value=metric_name, expected_type=type_hints["metric_name"])
@@ -3763,10 +3759,7 @@ class CfnAlarmProps:
             check_type(argname="argument threshold_metric_id", value=threshold_metric_id, expected_type=type_hints["threshold_metric_id"])
             check_type(argname="argument treat_missing_data", value=treat_missing_data, expected_type=type_hints["treat_missing_data"])
             check_type(argname="argument unit", value=unit, expected_type=type_hints["unit"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "comparison_operator": comparison_operator,
-            "evaluation_periods": evaluation_periods,
-        }
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
         if actions_enabled is not None:
             self._values["actions_enabled"] = actions_enabled
         if alarm_actions is not None:
@@ -3775,12 +3768,16 @@ class CfnAlarmProps:
             self._values["alarm_description"] = alarm_description
         if alarm_name is not None:
             self._values["alarm_name"] = alarm_name
+        if comparison_operator is not None:
+            self._values["comparison_operator"] = comparison_operator
         if datapoints_to_alarm is not None:
             self._values["datapoints_to_alarm"] = datapoints_to_alarm
         if dimensions is not None:
             self._values["dimensions"] = dimensions
         if evaluate_low_sample_count_percentile is not None:
             self._values["evaluate_low_sample_count_percentile"] = evaluate_low_sample_count_percentile
+        if evaluation_periods is not None:
+            self._values["evaluation_periods"] = evaluation_periods
         if extended_statistic is not None:
             self._values["extended_statistic"] = extended_statistic
         if insufficient_data_actions is not None:
@@ -3807,32 +3804,6 @@ class CfnAlarmProps:
             self._values["treat_missing_data"] = treat_missing_data
         if unit is not None:
             self._values["unit"] = unit
-
-    @builtins.property
-    def comparison_operator(self) -> builtins.str:
-        '''The arithmetic operation to use when comparing the specified statistic and threshold.
-
-        The specified statistic value is used as the first operand.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-alarm.html#cfn-cloudwatch-alarm-comparisonoperator
-        '''
-        result = self._values.get("comparison_operator")
-        assert result is not None, "Required property 'comparison_operator' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def evaluation_periods(self) -> jsii.Number:
-        '''The number of periods over which data is compared to the specified threshold.
-
-        If you are setting an alarm that requires that a number of consecutive data points be breaching to trigger the alarm, this value specifies that number. If you are setting an "M out of N" alarm, this value is the N, and ``DatapointsToAlarm`` is the M.
-
-        For more information, see `Evaluating an Alarm <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/AlarmThatSendsEmail.html#alarm-evaluation>`_ in the *Amazon CloudWatch User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-alarm.html#cfn-cloudwatch-alarm-evaluationperiods
-        '''
-        result = self._values.get("evaluation_periods")
-        assert result is not None, "Required property 'evaluation_periods' is missing"
-        return typing.cast(jsii.Number, result)
 
     @builtins.property
     def actions_enabled(
@@ -3886,6 +3857,17 @@ class CfnAlarmProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def comparison_operator(self) -> typing.Optional[builtins.str]:
+        '''The arithmetic operation to use when comparing the specified statistic and threshold.
+
+        The specified statistic value is used as the first operand.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-alarm.html#cfn-cloudwatch-alarm-comparisonoperator
+        '''
+        result = self._values.get("comparison_operator")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def datapoints_to_alarm(self) -> typing.Optional[jsii.Number]:
         '''The number of datapoints that must be breaching to trigger the alarm.
 
@@ -3921,6 +3903,19 @@ class CfnAlarmProps:
         '''
         result = self._values.get("evaluate_low_sample_count_percentile")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def evaluation_periods(self) -> typing.Optional[jsii.Number]:
+        '''The number of periods over which data is compared to the specified threshold.
+
+        If you are setting an alarm that requires that a number of consecutive data points be breaching to trigger the alarm, this value specifies that number. If you are setting an "M out of N" alarm, this value is the N, and ``DatapointsToAlarm`` is the M.
+
+        For more information, see `Evaluating an Alarm <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/AlarmThatSendsEmail.html#alarm-evaluation>`_ in the *Amazon CloudWatch User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-alarm.html#cfn-cloudwatch-alarm-evaluationperiods
+        '''
+        result = self._values.get("evaluation_periods")
+        return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def extended_statistic(self) -> typing.Optional[builtins.str]:
@@ -14259,7 +14254,7 @@ class TreatMissingData(enum.Enum):
         
         
         fn = lambda_.Function(self, "MyFunction",
-            runtime=lambda_.Runtime.NODEJS_18_X,
+            runtime=lambda_.Runtime.NODEJS_LATEST,
             handler="index.handler",
             code=lambda_.Code.from_asset(path.join(__dirname, "lambda-handler")),
             timeout=Duration.minutes(5)
@@ -17994,15 +17989,15 @@ def _typecheckingstub__5adc477b9cef758736625389f1a51dec08eb7b348be35f42b0e37d6d4
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    comparison_operator: builtins.str,
-    evaluation_periods: jsii.Number,
     actions_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     alarm_actions: typing.Optional[typing.Sequence[typing.Union[builtins.str, _IScalingPolicyRef_fcca0de5, _ITopicRef_29aa9a88]]] = None,
     alarm_description: typing.Optional[builtins.str] = None,
     alarm_name: typing.Optional[builtins.str] = None,
+    comparison_operator: typing.Optional[builtins.str] = None,
     datapoints_to_alarm: typing.Optional[jsii.Number] = None,
     dimensions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarm.DimensionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     evaluate_low_sample_count_percentile: typing.Optional[builtins.str] = None,
+    evaluation_periods: typing.Optional[jsii.Number] = None,
     extended_statistic: typing.Optional[builtins.str] = None,
     insufficient_data_actions: typing.Optional[typing.Sequence[typing.Union[builtins.str, _ITopicRef_29aa9a88]]] = None,
     metric_name: typing.Optional[builtins.str] = None,
@@ -18060,18 +18055,6 @@ def _typecheckingstub__a8443d72766166ac6ee22ecc2f730f3a6b9fd8414ecf17bbd95ef7e5b
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__3b70639e8f0bfbbc34ad2338567df4a5d70d17215776eb7aa3581fbe2e40cd29(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c080be98f630293bbc63f05942376d4ca0d4a15c82eb9cee4cb1c32b2740abc4(
-    value: jsii.Number,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__605b7067b394998a8071adbf9755ea958792836f86023d0ef23df99b8ee52bcb(
     value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
 ) -> None:
@@ -18096,6 +18079,12 @@ def _typecheckingstub__23c8c04504dd76a6623e461e9b6448e0dbf5a2092e2c1aed4d8ecbff1
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__3b70639e8f0bfbbc34ad2338567df4a5d70d17215776eb7aa3581fbe2e40cd29(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__a8ecc192776c2ee14846f714a390af6c702ed6e634dd57dd26288202304a0796(
     value: typing.Optional[jsii.Number],
 ) -> None:
@@ -18110,6 +18099,12 @@ def _typecheckingstub__6076cadb3051943abe05b65350e48c7b75b471794dd9cdc8472d1758a
 
 def _typecheckingstub__aec0314071d83d4872fc9ec8f90d1938e3aa18c267eaf43f637379b01d86c684(
     value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c080be98f630293bbc63f05942376d4ca0d4a15c82eb9cee4cb1c32b2740abc4(
+    value: typing.Optional[jsii.Number],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18351,15 +18346,15 @@ def _typecheckingstub__590f6431c7c9e27a95df0905aa68866874ddf2ae7968ce073c525a84d
 
 def _typecheckingstub__bc643fb1b5f1f1f0e0d9896a5988171163c1f79adc28d1e921bdf85f14782517(
     *,
-    comparison_operator: builtins.str,
-    evaluation_periods: jsii.Number,
     actions_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     alarm_actions: typing.Optional[typing.Sequence[typing.Union[builtins.str, _IScalingPolicyRef_fcca0de5, _ITopicRef_29aa9a88]]] = None,
     alarm_description: typing.Optional[builtins.str] = None,
     alarm_name: typing.Optional[builtins.str] = None,
+    comparison_operator: typing.Optional[builtins.str] = None,
     datapoints_to_alarm: typing.Optional[jsii.Number] = None,
     dimensions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAlarm.DimensionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     evaluate_low_sample_count_percentile: typing.Optional[builtins.str] = None,
+    evaluation_periods: typing.Optional[jsii.Number] = None,
     extended_statistic: typing.Optional[builtins.str] = None,
     insufficient_data_actions: typing.Optional[typing.Sequence[typing.Union[builtins.str, _ITopicRef_29aa9a88]]] = None,
     metric_name: typing.Optional[builtins.str] = None,

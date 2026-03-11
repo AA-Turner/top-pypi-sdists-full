@@ -402,6 +402,227 @@ class LicensePlateMonitorLogger:
             self.logger.warning(f"Failed to parse timestamp '{timestamp}': {e}. Using current time.")
             return datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
 
+    def _extract_camera_info_from_stream(self, stream_info: Optional[Dict[str, Any]]) -> Dict[str, str]:
+        """
+        Extract camera_name, camera_id, and location_id from stream_info.
+        
+        Handles multiple sources and shapes for camera_id/camera_name/location_id to ensure
+        correct extraction even when a single container is connected to multiple camera streams.
+        
+        Supported stream_info shapes (seen across pipeline/components):
+        - stream_info["camera_info"]
+        - stream_info["input_settings"]["camera_info"]
+        - stream_info["input_settings"]["input_stream"]["camera_info"]
+        - stream_info["input_streams"][i]["input_stream"]["camera_info"]
+        - camera_id derived from stream_info["topic"] suffix markers ("_input_topic" or "_input-topic")
+        
+        Args:
+            stream_info: Stream information dictionary
+            
+        Returns:
+            Dict with camera_name, camera_id, location_id
+        """
+        camera_name = ""
+        camera_id = ""
+        location_id = ""
+        
+        if not stream_info or not isinstance(stream_info, dict):
+            self.logger.debug("stream_info is None/invalid, returning empty camera info")
+            return {"camera_name": camera_name, "camera_id": camera_id, "location_id": location_id}
+
+        def _to_str(value: Any) -> str:
+            """Convert common stream-info values to a safe string."""
+            if value is None:
+                return ""
+            if isinstance(value, str):
+                return value.strip()
+            if isinstance(value, (int, float)):
+                return str(value)
+            if isinstance(value, dict):
+                return ""
+            if isinstance(value, (list, tuple, set)):
+                for item in value:
+                    s = _to_str(item)
+                    if s:
+                        return s
+                return ""
+            try:
+                return str(value).strip()
+            except Exception:
+                return ""
+
+        def _dict_get_str(d: Any, *keys: str) -> str:
+            """Get first non-empty key from dict as string."""
+            if not isinstance(d, dict):
+                return ""
+            for k in keys:
+                val = _to_str(d.get(k))
+                if val:
+                    return val
+            return ""
+
+        def _extract_camera_id_from_topic(topic_val: Any) -> str:
+            """Extract camera_id from topic formats like '{camera_id}_input_topic' or '{camera_id}_input-topic'."""
+            topic = _to_str(topic_val)
+            if not topic:
+                return ""
+            for suffix in ("_input_topic", "_input-topic"):
+                if topic.endswith(suffix):
+                    return topic[: -len(suffix)].strip()
+            for marker in ("_input_topic", "_input-topic"):
+                if marker in topic:
+                    return topic.split(marker)[0].strip()
+            return ""
+
+        def _extract_camera_id_from_frame_id(frame_id_val: Any) -> str:
+            """
+            Best-effort fallback: extract a stable camera/stream identifier from frame_id.
+
+            Observed upstream format (py_inference legacy mode):
+              - 'legacy_{hexId}_{suffix}'
+            Example:
+              - 'legacy_694e7603a086e13d9c95dd3d_51b30e93'
+
+            We ONLY accept the middle segment if it looks like a hex identifier (>= 8 chars)
+            to avoid mis-parsing arbitrary frame_id formats.
+            """
+            fid = _to_str(frame_id_val)
+            if not fid:
+                return ""
+            if fid.startswith("legacy_"):
+                parts = fid.split("_")
+                if len(parts) >= 3:
+                    candidate = parts[1].strip()
+                    if candidate and re.fullmatch(r"[0-9a-f]{8,}", candidate, re.IGNORECASE):
+                        return candidate
+            return ""
+
+        input_settings = stream_info.get("input_settings") or {}
+        if not isinstance(input_settings, dict):
+            input_settings = {}
+
+        camera_info_root = stream_info.get("camera_info") or {}
+        if not isinstance(camera_info_root, dict):
+            camera_info_root = {}
+
+        camera_info_input_settings = input_settings.get("camera_info") or {}
+        if not isinstance(camera_info_input_settings, dict):
+            camera_info_input_settings = {}
+
+        input_stream = input_settings.get("input_stream") or {}
+        if not isinstance(input_stream, dict):
+            input_stream = {}
+
+        camera_info_input_stream = input_stream.get("camera_info") or {}
+        if not isinstance(camera_info_input_stream, dict):
+            camera_info_input_stream = {}
+
+        input_streams = stream_info.get("input_streams") or []
+        input_stream_candidates: List[Dict[str, Any]] = []
+        camera_info_input_streams: List[Dict[str, Any]] = []
+        if isinstance(input_streams, list):
+            for item in input_streams:
+                if not isinstance(item, dict):
+                    continue
+                inner = item.get("input_stream", item)
+                if not isinstance(inner, dict):
+                    continue
+                input_stream_candidates.append(inner)
+                ci = inner.get("camera_info") or {}
+                if isinstance(ci, dict) and ci:
+                    camera_info_input_streams.append(ci)
+
+        topic_camera_id = (
+            _extract_camera_id_from_topic(stream_info.get("topic"))
+            or _extract_camera_id_from_topic(input_settings.get("topic"))
+        )
+        if not topic_camera_id:
+            topics_val = stream_info.get("topics")
+            if isinstance(topics_val, (list, tuple, set)):
+                for t in topics_val:
+                    topic_camera_id = _extract_camera_id_from_topic(t)
+                    if topic_camera_id:
+                        break
+
+        camera_info_sources: List[Dict[str, Any]] = [
+            camera_info_root,
+            camera_info_input_settings,
+            camera_info_input_stream,
+        ] + camera_info_input_streams
+
+        def _camera_id_from_camera_info(ci: Dict[str, Any]) -> str:
+            return _dict_get_str(ci, "camera_id", "cameraId", "_id", "id")
+
+        matched_ci: Dict[str, Any] = {}
+        if topic_camera_id:
+            camera_id = topic_camera_id
+            for ci in camera_info_sources:
+                if _camera_id_from_camera_info(ci) == camera_id:
+                    matched_ci = ci
+                    break
+
+        if not camera_id:
+            camera_id = (
+                _dict_get_str(stream_info, "camera_id", "cameraId")
+                or _dict_get_str(input_settings, "camera_id", "cameraId")
+                or _camera_id_from_camera_info(camera_info_root)
+                or _camera_id_from_camera_info(camera_info_input_settings)
+                or _camera_id_from_camera_info(camera_info_input_stream)
+            )
+            if not camera_id:
+                for candidate in input_stream_candidates:
+                    camera_id = _dict_get_str(candidate, "camera_id", "cameraId", "_id", "id")
+                    if camera_id:
+                        break
+            if not camera_id:
+                camera_id = topic_camera_id
+
+        # Final fallback: derive camera_id from frame_id if stream_info doesn't include camera_info/topic
+        if not camera_id:
+            camera_id = _extract_camera_id_from_frame_id(stream_info.get("frame_id"))
+
+        # Use matched camera_info (if found) to set camera_name/location_id
+        if matched_ci:
+            camera_name = _dict_get_str(matched_ci, "camera_name", "cameraName", "name")
+            location_id = _dict_get_str(matched_ci, "location", "location_id", "locationId")
+
+        if not camera_name:
+            camera_name = (
+                _dict_get_str(camera_info_root, "camera_name", "cameraName", "name")
+                or _dict_get_str(camera_info_input_settings, "camera_name", "cameraName", "name")
+                or _dict_get_str(camera_info_input_stream, "camera_name", "cameraName", "name")
+                or _dict_get_str(stream_info, "camera_name", "cameraName")
+                or _dict_get_str(input_settings, "camera_name", "cameraName")
+            )
+            if not camera_name:
+                for ci in camera_info_input_streams:
+                    camera_name = _dict_get_str(ci, "camera_name", "cameraName", "name")
+                    if camera_name:
+                        break
+
+        if not location_id:
+            location_id = (
+                _dict_get_str(camera_info_root, "location", "location_id", "locationId")
+                or _dict_get_str(camera_info_input_settings, "location", "location_id", "locationId")
+                or _dict_get_str(camera_info_input_stream, "location", "location_id", "locationId")
+                or _dict_get_str(stream_info, "location_id", "location", "locationId")
+                or _dict_get_str(input_settings, "location_id", "location", "locationId")
+            )
+            if not location_id:
+                for ci in camera_info_input_streams:
+                    location_id = _dict_get_str(ci, "location", "location_id", "locationId")
+                    if location_id:
+                        break
+
+        self.logger.debug(
+            "Extracted camera info - camera_name: '%s', camera_id: '%s', location_id: '%s'",
+            camera_name,
+            camera_id,
+            location_id,
+        )
+
+        return {"camera_name": camera_name, "camera_id": camera_id, "location_id": location_id}
+
     async def log_plate(self, plate_text: str, timestamp: str, stream_info: Dict[str, Any], 
                        image_data: Optional[str] = None, cooldown: float = 30.0) -> bool:
         """Log plate to RPC server with cooldown period.
@@ -430,7 +651,8 @@ class LicensePlateMonitorLogger:
             stream_info = {}
         
         try:
-            camera_info = stream_info.get("camera_info", {})
+            camera_info = self._extract_camera_info_from_stream(stream_info)
+            camera_id = camera_info.get("camera_id", "")
             camera_name = camera_info.get("camera_name", "default_camera")
             location = camera_info.get("location", "default_location")
             input_settings = stream_info.get("input_settings", {}) if isinstance(stream_info.get("input_settings", {}), dict) else {}
@@ -467,6 +689,7 @@ class LicensePlateMonitorLogger:
                 'rtpNumber': rtp_number,
                 'location': location,
                 'camera': camera_name,
+                'camera_id': camera_id,
                 'captureTimestamp': rfc3339_timestamp,
                 'projectId': project_id,
                 'imageData': image_data if image_data else ""

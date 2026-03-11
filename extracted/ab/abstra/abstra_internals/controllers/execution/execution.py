@@ -32,11 +32,13 @@ class ExecutionController:
         stage: StageWithFile,
         client: ExecutionClient,
         context: ClientContext,
+        user_jwt: Optional[str] = None,
     ) -> None:
         self.repositories = repositories
         self.stage = stage
         self.client = client
         self.context = context
+        self.user_jwt = user_jwt
 
     def run(self, execution_id: str, worker_id: str):
         execution = Execution.create(
@@ -46,7 +48,7 @@ class ExecutionController:
             worker_id=worker_id,
         )
 
-        with SDKContext(execution, self.client, self.repositories):
+        with SDKContext(execution, self.client, self.repositories, self.user_jwt):
             status = DEFAULT_STATUS
             try:
                 self.repositories.execution.create(execution)

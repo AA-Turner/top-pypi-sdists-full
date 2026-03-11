@@ -35,6 +35,7 @@ class UsageChartGrouping(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     USAGE_CHART_GROUPING_INSTANCE_TYPE: _ClassVar[UsageChartGrouping]
     USAGE_CHART_GROUPING_CLUSTER: _ClassVar[UsageChartGrouping]
     USAGE_CHART_GROUPING_NODEPOOL: _ClassVar[UsageChartGrouping]
+    USAGE_CHART_GROUPING_WORKLOAD_TYPE: _ClassVar[UsageChartGrouping]
 
 class UsageChartTimeRange(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -50,6 +51,7 @@ USAGE_CHART_GROUPING_UNSPECIFIED: UsageChartGrouping
 USAGE_CHART_GROUPING_INSTANCE_TYPE: UsageChartGrouping
 USAGE_CHART_GROUPING_CLUSTER: UsageChartGrouping
 USAGE_CHART_GROUPING_NODEPOOL: UsageChartGrouping
+USAGE_CHART_GROUPING_WORKLOAD_TYPE: UsageChartGrouping
 USAGE_CHART_TIME_RANGE_UNSPECIFIED: UsageChartTimeRange
 USAGE_CHART_TIME_RANGE_1D: UsageChartTimeRange
 USAGE_CHART_TIME_RANGE_7D: UsageChartTimeRange
@@ -311,18 +313,21 @@ class GetNodeTimeRangesRequest(_message.Message):
     ) -> None: ...
 
 class NodeTimeRange(_message.Message):
-    __slots__ = ("node_name", "start_time", "end_time")
+    __slots__ = ("node_name", "start_time", "end_time", "node_uid")
     NODE_NAME_FIELD_NUMBER: _ClassVar[int]
     START_TIME_FIELD_NUMBER: _ClassVar[int]
     END_TIME_FIELD_NUMBER: _ClassVar[int]
+    NODE_UID_FIELD_NUMBER: _ClassVar[int]
     node_name: str
     start_time: _timestamp_pb2.Timestamp
     end_time: _timestamp_pb2.Timestamp
+    node_uid: str
     def __init__(
         self,
         node_name: _Optional[str] = ...,
         start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        node_uid: _Optional[str] = ...,
     ) -> None: ...
 
 class GetNodeTimeRangesResponse(_message.Message):
@@ -330,3 +335,97 @@ class GetNodeTimeRangesResponse(_message.Message):
     TIME_RANGES_FIELD_NUMBER: _ClassVar[int]
     time_ranges: _containers.RepeatedCompositeFieldContainer[NodeTimeRange]
     def __init__(self, time_ranges: _Optional[_Iterable[_Union[NodeTimeRange, _Mapping]]] = ...) -> None: ...
+
+class GetNodeDetailRequest(_message.Message):
+    __slots__ = ("cluster_name", "node_name", "node_uid")
+    CLUSTER_NAME_FIELD_NUMBER: _ClassVar[int]
+    NODE_NAME_FIELD_NUMBER: _ClassVar[int]
+    NODE_UID_FIELD_NUMBER: _ClassVar[int]
+    cluster_name: str
+    node_name: str
+    node_uid: str
+    def __init__(
+        self, cluster_name: _Optional[str] = ..., node_name: _Optional[str] = ..., node_uid: _Optional[str] = ...
+    ) -> None: ...
+
+class NodeDetailInfo(_message.Message):
+    __slots__ = ("node_name", "cluster_name", "nodepool", "instance_type", "start_time", "end_time", "node_uid")
+    NODE_NAME_FIELD_NUMBER: _ClassVar[int]
+    CLUSTER_NAME_FIELD_NUMBER: _ClassVar[int]
+    NODEPOOL_FIELD_NUMBER: _ClassVar[int]
+    INSTANCE_TYPE_FIELD_NUMBER: _ClassVar[int]
+    START_TIME_FIELD_NUMBER: _ClassVar[int]
+    END_TIME_FIELD_NUMBER: _ClassVar[int]
+    NODE_UID_FIELD_NUMBER: _ClassVar[int]
+    node_name: str
+    cluster_name: str
+    nodepool: str
+    instance_type: str
+    start_time: _timestamp_pb2.Timestamp
+    end_time: _timestamp_pb2.Timestamp
+    node_uid: str
+    def __init__(
+        self,
+        node_name: _Optional[str] = ...,
+        cluster_name: _Optional[str] = ...,
+        nodepool: _Optional[str] = ...,
+        instance_type: _Optional[str] = ...,
+        start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        node_uid: _Optional[str] = ...,
+    ) -> None: ...
+
+class NodeDetailPod(_message.Message):
+    __slots__ = (
+        "pod_name",
+        "start_time",
+        "end_time",
+        "workload_type",
+        "resource_group",
+        "cpu_request",
+        "cpu_limit",
+        "memory_request",
+        "memory_limit",
+    )
+    POD_NAME_FIELD_NUMBER: _ClassVar[int]
+    START_TIME_FIELD_NUMBER: _ClassVar[int]
+    END_TIME_FIELD_NUMBER: _ClassVar[int]
+    WORKLOAD_TYPE_FIELD_NUMBER: _ClassVar[int]
+    RESOURCE_GROUP_FIELD_NUMBER: _ClassVar[int]
+    CPU_REQUEST_FIELD_NUMBER: _ClassVar[int]
+    CPU_LIMIT_FIELD_NUMBER: _ClassVar[int]
+    MEMORY_REQUEST_FIELD_NUMBER: _ClassVar[int]
+    MEMORY_LIMIT_FIELD_NUMBER: _ClassVar[int]
+    pod_name: str
+    start_time: _timestamp_pb2.Timestamp
+    end_time: _timestamp_pb2.Timestamp
+    workload_type: str
+    resource_group: str
+    cpu_request: str
+    cpu_limit: str
+    memory_request: str
+    memory_limit: str
+    def __init__(
+        self,
+        pod_name: _Optional[str] = ...,
+        start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        workload_type: _Optional[str] = ...,
+        resource_group: _Optional[str] = ...,
+        cpu_request: _Optional[str] = ...,
+        cpu_limit: _Optional[str] = ...,
+        memory_request: _Optional[str] = ...,
+        memory_limit: _Optional[str] = ...,
+    ) -> None: ...
+
+class GetNodeDetailResponse(_message.Message):
+    __slots__ = ("node", "pods")
+    NODE_FIELD_NUMBER: _ClassVar[int]
+    PODS_FIELD_NUMBER: _ClassVar[int]
+    node: NodeDetailInfo
+    pods: _containers.RepeatedCompositeFieldContainer[NodeDetailPod]
+    def __init__(
+        self,
+        node: _Optional[_Union[NodeDetailInfo, _Mapping]] = ...,
+        pods: _Optional[_Iterable[_Union[NodeDetailPod, _Mapping]]] = ...,
+    ) -> None: ...

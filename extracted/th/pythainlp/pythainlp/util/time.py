@@ -1,22 +1,24 @@
-# -*- coding: utf-8 -*-
-# SPDX-FileCopyrightText: 2016-2025 PyThaiNLP Project
+# SPDX-FileCopyrightText: 2016-2026 PyThaiNLP Project
 # SPDX-FileType: SOURCE
 # SPDX-License-Identifier: Apache-2.0
-"""
-Spell out time as Thai words.
+"""Spell out time as Thai words.
 
 Convert time string or time object to Thai words.
 """
+
+from __future__ import annotations
+
 from datetime import datetime, time
-from typing import Union
+from functools import lru_cache
+from typing import Optional, Union
 
 from pythainlp.tokenize import Tokenizer
 from pythainlp.util.numtoword import num_to_thaiword
 from pythainlp.util.wordtonum import thaiword_to_num
 
-_TIME_FORMAT_WITH_SEC = "%H:%M:%S"
-_TIME_FORMAT_WITHOUT_SEC = "%H:%M"
-_DICT_THAI_TIME = {
+_TIME_FORMAT_WITH_SEC: str = "%H:%M:%S"
+_TIME_FORMAT_WITHOUT_SEC: str = "%H:%M"
+_DICT_THAI_TIME: dict[str, int] = {
     "ศูนย์": 0,
     "หนึ่ง": 1,
     "สอง": 2,
@@ -43,10 +45,15 @@ _DICT_THAI_TIME = {
     "นาฬิกา": 0,
     "ครึ่ง": 30,
 }
-_THAI_TIME_CUT = Tokenizer(
-    custom_dict=list(_DICT_THAI_TIME.keys()), engine="newmm"
-)
-_THAI_TIME_AFFIX = [
+
+
+@lru_cache
+def _thai_time_cut() -> Tokenizer:
+    """Lazy load Thai time tokenizer with cache"""
+    return Tokenizer(custom_dict=list(_DICT_THAI_TIME.keys()), engine="newmm")
+
+
+_THAI_TIME_AFFIX: list[str] = [
     "โมงเช้า",
     "บ่ายโมง",
     "โมงเย็น",
@@ -116,7 +123,7 @@ def _format(
     m: int,
     s: int,
     fmt: str = "24h",
-    precision: Union[str, None] = None,
+    precision: Optional[str] = None,
 ) -> str:
     text = ""
     if fmt == "6h":
@@ -150,10 +157,9 @@ def _format(
 def time_to_thaiword(
     time_data: Union[time, datetime, str],
     fmt: str = "24h",
-    precision: Union[str, None] = None,
+    precision: Optional[str] = None,
 ) -> str:
-    """
-    Spell out time as Thai words.
+    """Spell out time as Thai words.
 
     :param str time_data: time input, can be a datetime.time object \
         or a datetime.datetime object \
@@ -229,8 +235,7 @@ def time_to_thaiword(
 
 
 def thaiword_to_time(text: str, padding: bool = True) -> str:
-    """
-    Convert Thai time in words into time (H:M).
+    """Convert Thai time in words into time (H:M).
 
     :param str text: Thai time in words
     :param bool padding: Zero pad the hour if True
@@ -266,10 +271,11 @@ def thaiword_to_time(text: str, padding: bool = True) -> str:
     _LIST_THAI_TIME = _time.split("|")
     del _time
 
-    hour = _THAI_TIME_CUT.word_tokenize(_LIST_THAI_TIME[0])
-    minute = _LIST_THAI_TIME[1]
-    if len(minute) > 1:
-        minute = _THAI_TIME_CUT.word_tokenize(minute)
+    hour = _thai_time_cut().word_tokenize(_LIST_THAI_TIME[0])
+    minute_raw = _LIST_THAI_TIME[1]
+    minute: Union[list[str], int]
+    if len(minute_raw) > 1:
+        minute = _thai_time_cut().word_tokenize(minute_raw)
     else:
         minute = 0
     text = ""
@@ -308,7 +314,7 @@ def thaiword_to_time(text: str, padding: bool = True) -> str:
     text += ":"
 
     # determine minute
-    if minute:
+    if minute and isinstance(minute, list):
         n = 0
         for affix in minute:
             if affix in keys_dict:

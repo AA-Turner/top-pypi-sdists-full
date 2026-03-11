@@ -435,15 +435,20 @@ class TestDevboxNetworking:
             devbox.shutdown()
 
     @pytest.mark.timeout(TWO_MINUTE_TIMEOUT)
-    def test_create_and_remove_tunnel(self, sdk_client: RunloopSDK) -> None:
-        """Test creating and removing a tunnel."""
+    def test_create_tunnel_deprecated(self, sdk_client: RunloopSDK) -> None:
+        """Test creating a tunnel (deprecated - now creates v2 tunnel).
+
+        Note: The deprecated create_tunnel endpoint now creates v2 Portal tunnels
+        which cannot be removed. They remain active until the devbox is stopped.
+        Use enable_tunnel for creating v2 tunnels instead.
+        """
         devbox = sdk_client.devbox.create(
             name=unique_name("sdk-devbox-tunnel"),
             launch_parameters={"resource_size_request": "SMALL", "keep_alive_time_seconds": 60 * 5},
         )
 
         try:
-            # Create tunnel
+            # Create tunnel (now creates v2 Portal tunnel)
             with pytest.warns(DeprecationWarning, match="create_tunnel is deprecated"):
                 tunnel = devbox.net.create_tunnel(port=8080)
             assert tunnel is not None
@@ -451,9 +456,10 @@ class TestDevboxNetworking:
             assert tunnel.port == 8080
             assert tunnel.devbox_id == devbox.id
 
-            # Remove tunnel
-            with pytest.warns(DeprecationWarning, match="remove_tunnel is deprecated"):
-                devbox.net.remove_tunnel(port=8080)
+            # Verify tunnel persists in devbox info (v2 tunnels cannot be removed)
+            info = devbox.get_info()
+            assert info.tunnel is not None
+            assert info.tunnel.tunnel_key is not None
         finally:
             devbox.shutdown()
 
@@ -1044,3 +1050,55 @@ class TestDevboxNamedShell:
         # Verify streaming captured same data as result
         assert stdout_combined == result.stdout()
         assert stderr_combined == result.stderr()
+
+
+class TestDevboxLogs:
+    """Test devbox logs retrieval functionality."""
+
+    @pytest.mark.timeout(THIRTY_SECOND_TIMEOUT)
+    def test_logs_basic(self, shared_devbox: Devbox) -> None:
+        """Test retrieving devbox logs returns valid response structure."""
+        test_message = "basic log test message"
+        result = shared_devbox.cmd.exec(f'echo "{test_message}"')
+        assert result.exit_code == 0
+
+        logs = shared_devbox.logs()
+
+        assert logs is not None
+        assert hasattr(logs, "logs")
+        assert isinstance(logs.logs, list)
+        log_content = " ".join(str(log) for log in logs.logs)
+        assert test_message in log_content
+
+    @pytest.mark.timeout(THIRTY_SECOND_TIMEOUT)
+    def test_logs_with_execution_filter(self, shared_devbox: Devbox) -> None:
+        """Test retrieving devbox logs filtered by execution ID."""
+        test_message = "filtered log test"
+        result = shared_devbox.cmd.exec(f'echo "{test_message}"')
+        assert result.exit_code == 0
+
+        logs = shared_devbox.logs(execution_id=result.execution_id)
+
+        assert logs is not None
+        assert hasattr(logs, "logs")
+        assert isinstance(logs.logs, list)
+        log_content = " ".join(str(log) for log in logs.logs)
+        assert test_message in log_content
+
+    @pytest.mark.timeout(THIRTY_SECOND_TIMEOUT)
+    def test_logs_with_shell_name_filter(self, shared_devbox: Devbox) -> None:
+        """Test retrieving devbox logs filtered by shell name."""
+        shell_name = "test-logs-shell"
+        shell = shared_devbox.shell(shell_name)
+
+        test_message = "shell log test"
+        result = shell.exec(f'echo "{test_message}"')
+        assert result.exit_code == 0
+
+        logs = shared_devbox.logs(shell_name=shell_name)
+
+        assert logs is not None
+        assert hasattr(logs, "logs")
+        assert isinstance(logs.logs, list)
+        log_content = " ".join(str(log) for log in logs.logs)
+        assert test_message in log_content

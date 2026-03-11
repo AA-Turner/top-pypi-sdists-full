@@ -34,7 +34,7 @@ def pull(
 
     Parameters
     ----------
-    job_folder : {str}
+    job_folder : {str, pathlib.Path}
         A full or partial path to a folder on disk where the workbooks
         definitions will be saved. If the folder does not exist, it will be
         created. If the folder exists, the job will continue where it left off.
@@ -157,7 +157,7 @@ def pull(
 
     spy.workbooks.job.data._pull.save_data_usage(job_folder, data_usages)
 
-    copy_datasource_maps_to_root(job_folder)
+    copy_datasource_maps_to_root(session, job_folder)
 
     results_df = status.df.copy()
 
@@ -196,10 +196,18 @@ def flatten_timestamps(timestamps):
     return flattened
 
 
-def copy_datasource_maps_to_root(job_folder):
-    job_datasource_maps_folder = get_datasource_maps_folder(job_folder)
+def copy_datasource_maps_to_root(session: Session, job_folder):
     job_workbooks_folder = get_workbooks_folder(job_folder)
+
+    if session.options.wants_compatibility_with(199):
+        # We used to copy datasource maps to Datasource Maps and always use them as overrides, which causes
+        # subtle, confusing behavior differences between spy.workbooks.job.push() and spy.workbooks.push().
+        job_datasource_maps_folder = os.path.join(job_folder, 'Datasource Maps')
+    else:
+        job_datasource_maps_folder = os.path.join(job_folder, 'Datasource Map Overrides', 'Possibilities')
+
     util.safe_makedirs(job_datasource_maps_folder, exist_ok=True)
+
     for workbook_folder, _, in walk_workbook_folders(job_workbooks_folder):
         workbook_folder = os.path.join(job_workbooks_folder, workbook_folder)
         for datasource_map_file in os.listdir(workbook_folder):  # type: str
@@ -210,11 +218,6 @@ def copy_datasource_maps_to_root(job_folder):
             dest = os.path.join(job_datasource_maps_folder, datasource_map_file)
             if not util.safe_exists(dest):
                 util.safe_copy(src, dest)
-
-
-def get_datasource_maps_folder(job_folder):
-    job_datasource_maps_folder = os.path.join(job_folder, 'Datasource Maps')
-    return job_datasource_maps_folder
 
 
 def get_workbooks_folder(job_folder):

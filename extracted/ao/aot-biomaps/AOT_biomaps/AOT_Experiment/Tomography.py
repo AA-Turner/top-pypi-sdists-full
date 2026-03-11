@@ -355,6 +355,48 @@ class Tomography(Experiment):
         self.DelayLaw = [self.DelayLaw[i] for i in index]
         self.ActiveList = [self.ActiveList[i] for i in index]
 
+    def selectShifts(self, shifts):
+        """
+        Selects patterns based on their shift parameters.
+        Possible values for shifts: "0", "pi/2", "pi", "3pi/2" or "0", "90", "180", "270" (in degrees).
+
+        Args:
+            shifts (list): List of shift values to select.
+        """
+        if self.AOsignal_withTumor is None and self.AOsignal_withoutTumor is None:
+            raise ValueError("AO signals are not initialized. Please load or generate the AO signals first.")
+        if self.AcousticFields is None or len(self.AcousticFields) == 0:
+            raise ValueError("AcousticFields is not initialized. Please generate the system matrix first.")
+
+        # Conversion des shifts en radians si nécessaire
+        shift_rads = []
+        for shift in shifts:
+            if shift in ["0", "90", "180", "270"]:
+                shift_rads.append(np.deg2rad(int(shift)))
+            elif shift in ["0", "pi/2", "pi", "3pi/2"]:
+                shift_rads.append(float(shift.split('/')[0])/2 if '/' in shift else float(shift))
+            else:
+                raise ValueError(f"Invalid shift value: {shift}")
+
+        newAcousticFields = []
+        index = []
+        for i, field in enumerate(self.AcousticFields):
+            phase = get_phase_deterministic(hex_to_binary_profile(field.getName_field()[6:-4], self.params.acoustic['probe']['num_elements']))
+            if phase in shift_rads:
+                newAcousticFields.append(field)
+                index.append(i)
+
+        if self.AOsignal_withTumor is not None:
+            self.AOsignal_withTumor = self.AOsignal_withTumor[:, index]
+        if self.AOsignal_withoutTumor is not None:
+            self.AOsignal_withoutTumor = self.AOsignal_withoutTumor[:, index]
+
+        self.AcousticFields = newAcousticFields
+        self.theta = [field.angle for field in newAcousticFields]
+        self.decimations = [field.f_s for field in newAcousticFields]
+        self.DelayLaw = [self.DelayLaw[i] for i in index]
+        self.ActiveList = [self.ActiveList[i] for i in index]
+    
     def selectDecimations(self, decimations):
         if self.AOsignal_withTumor is None and self.AOsignal_withoutTumor is None:
             raise ValueError("AO signals are not initialized. Please load or generate the AO signals first.")

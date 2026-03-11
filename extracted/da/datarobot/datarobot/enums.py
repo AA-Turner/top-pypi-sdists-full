@@ -1605,6 +1605,7 @@ class DataWranglingDialect(StrEnum):
 
     BIGQUERY = "bigquery"
     DATABRICKS = "databricks"
+    MYSQL = "mysql"
     POSTGRES = "postgres"
     SNOWFLAKE = "snowflake"
     SPARK = "spark"

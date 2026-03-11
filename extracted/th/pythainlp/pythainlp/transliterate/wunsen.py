@@ -1,9 +1,7 @@
-# -*- coding: utf-8 -*-
-# SPDX-FileCopyrightText: 2016-2025 PyThaiNLP Project
+# SPDX-FileCopyrightText: 2016-2026 PyThaiNLP Project
 # SPDX-FileType: SOURCE
 # SPDX-License-Identifier: Apache-2.0
-"""
-Transliterating Japanese/Korean/Mandarin/Vietnamese romanization text
+"""Transliterating Japanese/Korean/Mandarin/Vietnamese romanization text
 to Thai text
 By Wunsen
 
@@ -11,12 +9,16 @@ By Wunsen
     * `GitHub \
         <https://github.com/cakimpei/wunsen>`_
 """
+
+from __future__ import annotations
+
+from typing import Optional, Union
+
 from wunsen import ThapSap
 
 
 class WunsenTransliterate:
-    """
-    Transliterating Japanese/Korean/Mandarin/Vietnamese romanization text
+    """Transliterating Japanese/Korean/Mandarin/Vietnamese romanization text
     to Thai text
     by Wunsen
 
@@ -25,31 +27,36 @@ class WunsenTransliterate:
             <https://github.com/cakimpei/wunsen>`_
     """
 
+    thap_value: Optional["ThapSap"]
+    lang: Optional[str]
+    jp_input: Optional[str]
+    zh_sandhi: Optional[bool]
+    system: Optional[str]
+
     def __init__(self) -> None:
-        self.thap_value = None
-        self.lang = None
-        self.jp_input = None
-        self.zh_sandhi = None
-        self.system = None
+        self.thap_value: Optional[ThapSap] = None
+        self.lang: Optional[str] = None
+        self.jp_input: Optional[str] = None
+        self.zh_sandhi: Optional[bool] = None
+        self.system: Optional[str] = None
 
     def transliterate(
         self,
         text: str,
         lang: str,
-        jp_input: str = None,
-        zh_sandhi: bool = None,
-        system: str = None,
-    ):
-        """
-        Use Wunsen for transliteration
+        jp_input: Optional[str] = None,
+        zh_sandhi: Optional[bool] = None,
+        system: Optional[str] = None,
+    ) -> str:
+        """Use Wunsen for transliteration
 
         :param str text: text to be transliterated to Thai text.
         :param str lang: source language
-        :param str jp_input: Japanese input method (for Japanese only)
-        :param bool zh_sandhi: Mandarin third tone sandhi option
-            (for Mandarin only)
-        :param str system: transliteration system (for Japanese and
-            Mandarin only)
+        :param Optional[str] jp_input: Japanese input method (for Japanese only). Default is None.
+        :param Optional[bool] zh_sandhi: Mandarin third tone sandhi option
+            (for Mandarin only). Default is None.
+        :param Optional[str] system: transliteration system (for Japanese and
+            Mandarin only). Default is None.
 
         :return: Thai text
         :rtype: str
@@ -86,9 +93,7 @@ class WunsenTransliterate:
             # output: 'โอฮาโย'
 
             wt.transliterate(
-                "ohayou",
-                lang="jp",
-                jp_input="Hepburn-no diacritic"
+                "ohayou", lang="jp", jp_input="Hepburn-no diacritic"
             )
             # output: 'โอฮาโย'
 
@@ -136,7 +141,7 @@ class WunsenTransliterate:
             input_lang = lang
             if input_lang == "jp":
                 input_lang = "ja"
-            setting = {}
+            setting: dict[str, Union[str, dict[str, bool]]] = {}
             if self.jp_input is not None:
                 setting.update({"input": self.jp_input})
             if self.zh_sandhi is not None:
@@ -144,4 +149,8 @@ class WunsenTransliterate:
             if self.system is not None:
                 setting.update({"system": self.system})
             self.thap_value = ThapSap(input_lang, **setting)
-        return self.thap_value.thap(text)
+
+        if self.thap_value is None:
+            raise RuntimeError("ThapSap model not initialized")
+
+        return self.thap_value.thap(text)  # type: ignore[no-any-return]

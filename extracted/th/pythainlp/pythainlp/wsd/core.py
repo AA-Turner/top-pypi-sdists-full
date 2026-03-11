@@ -1,24 +1,32 @@
-# -*- coding: utf-8 -*-
-# SPDX-FileCopyrightText: 2016-2025 PyThaiNLP Project
+# SPDX-FileCopyrightText: 2016-2026 PyThaiNLP Project
 # SPDX-FileType: SOURCE
 # SPDX-License-Identifier: Apache-2.0
-from typing import List, Tuple, Union
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Optional, Union, cast
 
 from pythainlp.corpus import thai_wsd_dict
 from pythainlp.tokenize import Tokenizer
 from pythainlp.util.trie import Trie
 
-_wsd_dict = thai_wsd_dict()
-_mean_all = {}
+if TYPE_CHECKING:
+    from typing import Any
 
-for i, j in zip(_wsd_dict["word"], _wsd_dict["meaning"]):
+_wsd_dict: dict[str, Union[list[str], list[list[str]]]] = thai_wsd_dict()
+_mean_all: dict[str, Any] = {}
+
+_all_word: set[str] = cast("set[str]", set(_mean_all.keys()))
+_TRIE: Trie = Trie(_all_word)
+_word_cut: Tokenizer = Tokenizer(custom_dict=_TRIE)
+
+words: list[str] = cast("list[str]", _wsd_dict["word"])
+meanings: list[list[str]] = cast("list[list[str]]", _wsd_dict["meaning"])
+i: str
+j: list[str]
+for i, j in zip(words, meanings):
     _mean_all[i] = j
 
-_all_word = set(list(_mean_all.keys()))
-_TRIE = Trie(list(_all_word))
-_word_cut = Tokenizer(custom_dict=_TRIE)
-
-_MODEL = None
+_MODEL: Optional[Any] = None
 
 
 class _SentenceTransformersModel:
@@ -26,14 +34,16 @@ class _SentenceTransformersModel:
         self,
         model: str = "sentence-transformers/paraphrase-multilingual-mpnet-base-v2",
         device: str = "cpu",
-    ):
+    ) -> None:
         from sentence_transformers import SentenceTransformer
 
-        self.device = device
-        self.model_name = model
-        self.model = SentenceTransformer(self.model_name, device=self.device)
+        self.device: str = device
+        self.model_name: str = model
+        self.model: "SentenceTransformer" = SentenceTransformer(
+            self.model_name, device=self.device
+        )
 
-    def change_device(self, device: str):
+    def change_device(self, device: str) -> None:
         from sentence_transformers import SentenceTransformer
 
         self.device = device
@@ -44,20 +54,19 @@ class _SentenceTransformersModel:
 
         embedding_1 = self.model.encode(sentences1, convert_to_tensor=True)
         embedding_2 = self.model.encode(sentences2, convert_to_tensor=True)
-        return 1 - util.pytorch_cos_sim(embedding_1, embedding_2)[0][0].item()
+        return 1 - util.pytorch_cos_sim(embedding_1, embedding_2)[0][0].item()  # type: ignore[no-any-return]
 
 
 def get_sense(
     sentence: str,
     word: str,
     device: str = "cpu",
-    custom_dict: dict = dict(),
+    custom_dict: Optional[dict] = None,
     custom_tokenizer: Tokenizer = _word_cut,
-) -> List[Tuple[str, float]]:
-    """
-    Get word sense from the sentence.
-    This function will get definition and distance from context in sentence.
-    
+) -> list[tuple[str, float]]:
+    """Get word sense from the sentence.
+    Gets definition and distance from context in sentence.
+
     :param str sentence: Thai sentence
     :param str word: Thai word
     :param str device: device for running model on.
@@ -66,20 +75,20 @@ def get_sense(
         sentence.
     :return: a list of definitions and distances (1 - cos_sim) or \
         an empty list (if word is not in the dictionary)
-    :rtype: List[Tuple[str, float]]
-    
+    :rtype: list[tuple[str, float]]
+
     We get the ideas from `Context-Aware Semantic Similarity Measurement for \
         Unsupervised Word Sense Disambiguation \
         <https://arxiv.org/abs/2305.03520>`_ to build get_sense function.
 
     Use Thai dictionary from wiktionary.
     See `thai_dict <https://pythainlp.org/pythainlp-corpus/thai_dict.html>`_.
-    
+
     Use sentence transformers model from \
         `sentence-transformers/paraphrase-multilingual-mpnet-base-v2 \
         <https://huggingface.co/sentence-transformers/paraphrase-multilingual-mpnet-base-v2>`_ \
         for unsupervised word sense disambiguation.
-    
+
     :Example:
     ::
 

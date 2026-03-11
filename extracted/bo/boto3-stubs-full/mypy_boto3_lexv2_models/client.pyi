@@ -26,6 +26,7 @@ from botocore.client import BaseClient, ClientMeta
 from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
+from .paginator import DescribeBotAnalyzerRecommendationPaginator, ListBotAnalyzerHistoryPaginator
 from .type_defs import (
     BatchCreateCustomVocabularyItemRequestTypeDef,
     BatchCreateCustomVocabularyItemResponseTypeDef,
@@ -62,6 +63,7 @@ from .type_defs import (
     CreateUploadUrlResponseTypeDef,
     DeleteBotAliasRequestTypeDef,
     DeleteBotAliasResponseTypeDef,
+    DeleteBotAnalyzerRecommendationRequestTypeDef,
     DeleteBotLocaleRequestTypeDef,
     DeleteBotLocaleResponseTypeDef,
     DeleteBotReplicaRequestTypeDef,
@@ -87,6 +89,8 @@ from .type_defs import (
     DeleteUtterancesRequestTypeDef,
     DescribeBotAliasRequestTypeDef,
     DescribeBotAliasResponseTypeDef,
+    DescribeBotAnalyzerRecommendationRequestTypeDef,
+    DescribeBotAnalyzerRecommendationResponseTypeDef,
     DescribeBotLocaleRequestTypeDef,
     DescribeBotLocaleResponseTypeDef,
     DescribeBotRecommendationRequestTypeDef,
@@ -132,6 +136,8 @@ from .type_defs import (
     ListBotAliasesResponseTypeDef,
     ListBotAliasReplicasRequestTypeDef,
     ListBotAliasReplicasResponseTypeDef,
+    ListBotAnalyzerHistoryRequestTypeDef,
+    ListBotAnalyzerHistoryResponseTypeDef,
     ListBotLocalesRequestTypeDef,
     ListBotLocalesResponseTypeDef,
     ListBotRecommendationsRequestTypeDef,
@@ -190,6 +196,8 @@ from .type_defs import (
     ListUtteranceMetricsResponseTypeDef,
     SearchAssociatedTranscriptsRequestTypeDef,
     SearchAssociatedTranscriptsResponseTypeDef,
+    StartBotAnalyzerRequestTypeDef,
+    StartBotAnalyzerResponseTypeDef,
     StartBotRecommendationRequestTypeDef,
     StartBotRecommendationResponseTypeDef,
     StartBotResourceGenerationRequestTypeDef,
@@ -200,6 +208,8 @@ from .type_defs import (
     StartTestExecutionResponseTypeDef,
     StartTestSetGenerationRequestTypeDef,
     StartTestSetGenerationResponseTypeDef,
+    StopBotAnalyzerRequestTypeDef,
+    StopBotAnalyzerResponseTypeDef,
     StopBotRecommendationRequestTypeDef,
     StopBotRecommendationResponseTypeDef,
     TagResourceRequestTypeDef,
@@ -474,6 +484,17 @@ class LexModelsV2Client(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lexv2_models/client/#delete_bot_alias)
         """
 
+    def delete_bot_analyzer_recommendation(
+        self, **kwargs: Unpack[DeleteBotAnalyzerRecommendationRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Permanently deletes the recommendations and analysis results for a specific bot
+        analysis request.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lexv2-models/client/delete_bot_analyzer_recommendation.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lexv2_models/client/#delete_bot_analyzer_recommendation)
+        """
+
     def delete_bot_locale(
         self, **kwargs: Unpack[DeleteBotLocaleRequestTypeDef]
     ) -> DeleteBotLocaleResponseTypeDef:
@@ -620,6 +641,16 @@ class LexModelsV2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lexv2-models/client/describe_bot_alias.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lexv2_models/client/#describe_bot_alias)
+        """
+
+    def describe_bot_analyzer_recommendation(
+        self, **kwargs: Unpack[DescribeBotAnalyzerRecommendationRequestTypeDef]
+    ) -> DescribeBotAnalyzerRecommendationResponseTypeDef:
+        """
+        Retrieves the analysis results and recommendations for bot optimization.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lexv2-models/client/describe_bot_analyzer_recommendation.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lexv2_models/client/#describe_bot_analyzer_recommendation)
         """
 
     def describe_bot_locale(
@@ -831,6 +862,16 @@ class LexModelsV2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lexv2-models/client/list_bot_aliases.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lexv2_models/client/#list_bot_aliases)
+        """
+
+    def list_bot_analyzer_history(
+        self, **kwargs: Unpack[ListBotAnalyzerHistoryRequestTypeDef]
+    ) -> ListBotAnalyzerHistoryResponseTypeDef:
+        """
+        Retrieves a list of historical bot analysis executions for a specific bot.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lexv2-models/client/list_bot_analyzer_history.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lexv2_models/client/#list_bot_analyzer_history)
         """
 
     def list_bot_locales(
@@ -1130,6 +1171,18 @@ class LexModelsV2Client(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lexv2_models/client/#search_associated_transcripts)
         """
 
+    def start_bot_analyzer(
+        self, **kwargs: Unpack[StartBotAnalyzerRequestTypeDef]
+    ) -> StartBotAnalyzerResponseTypeDef:
+        """
+        Initiates an asynchronous analysis of your bot configuration using AI-powered
+        analysis to identify potential issues and recommend improvements based on AWS
+        best practices.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lexv2-models/client/start_bot_analyzer.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lexv2_models/client/#start_bot_analyzer)
+        """
+
     def start_bot_recommendation(
         self, **kwargs: Unpack[StartBotRecommendationRequestTypeDef]
     ) -> StartBotRecommendationResponseTypeDef:
@@ -1181,6 +1234,16 @@ class LexModelsV2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lexv2-models/client/start_test_set_generation.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lexv2_models/client/#start_test_set_generation)
+        """
+
+    def stop_bot_analyzer(
+        self, **kwargs: Unpack[StopBotAnalyzerRequestTypeDef]
+    ) -> StopBotAnalyzerResponseTypeDef:
+        """
+        Cancels an ongoing bot analysis execution.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lexv2-models/client/stop_bot_analyzer.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lexv2_models/client/#stop_bot_analyzer)
         """
 
     def stop_bot_recommendation(
@@ -1303,6 +1366,28 @@ class LexModelsV2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lexv2-models/client/update_test_set.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lexv2_models/client/#update_test_set)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["describe_bot_analyzer_recommendation"]
+    ) -> DescribeBotAnalyzerRecommendationPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lexv2-models/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lexv2_models/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_bot_analyzer_history"]
+    ) -> ListBotAnalyzerHistoryPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lexv2-models/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lexv2_models/client/#get_paginator)
         """
 
     @overload  # type: ignore[override]

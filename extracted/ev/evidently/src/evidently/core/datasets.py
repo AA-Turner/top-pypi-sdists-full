@@ -426,6 +426,8 @@ class DataDefinition(BaseModel):
     """List of ranking/recsys task configurations (`Recsys`)."""
     special_columns: List[SpecialColumnInfo] = []
     """Additional special column configurations."""
+    embeddings: Optional[Dict[str, List[str]]] = None
+    """Embeddings columns definitions: mapping of embedding name to list of columns"""
 
     def __init__(
         self,
@@ -446,6 +448,7 @@ class DataDefinition(BaseModel):
         ranking: Optional[List[Recsys]] = None,
         service_columns: Optional[ServiceColumns] = None,
         special_columns: Optional[List[SpecialColumnInfo]] = None,
+        embeddings: Optional[Dict[str, List[str]]] = None,
     ):
         """Initialize DataDefinition with column mappings.
 
@@ -475,6 +478,7 @@ class DataDefinition(BaseModel):
         self.regression = regression
         self.llm = llm
         self.ranking = ranking
+        self.embeddings = embeddings
 
     def get_numerical_columns(self):
         """Get all numerical columns including descriptors.
@@ -1242,8 +1246,8 @@ class Dataset:
         data_definition: Optional[DataDefinition] = None,
         descriptors: Optional[List[Descriptor]] = None,
         options: AnyOptions = None,
-        metadata: Dict[str, MetadataValueType] = None,
-        tags: List[str] = None,
+        metadata: Optional[Dict[str, MetadataValueType]] = None,
+        tags: Optional[List[str]] = None,
     ) -> "Dataset":
         """Create a `Dataset` from a `pandas.DataFrame`.
 
@@ -1430,7 +1434,7 @@ def infer_column_type(column_data: pd.Series) -> ColumnType:
             return ColumnType.Categorical
         else:
             return ColumnType.Numerical
-    if column_data.dtype.name in ["string"]:
+    if column_data.dtype.name in ["string", "str"]:
         if column_data.nunique() > (column_data.count() * 0.5):
             return ColumnType.Text
         else:
@@ -1535,8 +1539,8 @@ class PandasDataset(Dataset):
         self,
         data: pd.DataFrame,
         data_definition: Optional[DataDefinition] = None,
-        metadata: Dict[str, MetadataValueType] = None,
-        tags: List[str] = None,
+        metadata: Optional[Dict[str, MetadataValueType]] = None,
+        tags: Optional[List[str]] = None,
     ):
         self._data = data.copy()
         if (

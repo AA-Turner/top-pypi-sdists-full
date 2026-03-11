@@ -1,4 +1,6 @@
 from .module_imports import *
+from .utils import *
+
 MIME_TYPES = {
     'image': {
         '.jpg':   'image/jpeg',

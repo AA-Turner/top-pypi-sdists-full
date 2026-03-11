@@ -211,7 +211,7 @@ def push(
         specified, such data will be replaced with an INVALID sample, which
         will interrupt interpolation in calculations and displays.
 
-    metadata_state_file : str, optional
+    metadata_state_file : {str, pathlib.Path}, optional
         The file name (with full path, if desired) to a "metadata state file"
         to use for "incremental" pushing, which can dramatically speed up
         pushing of a large metadata DataFrame. If supplied, the metadata push

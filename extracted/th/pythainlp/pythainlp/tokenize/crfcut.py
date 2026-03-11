@@ -1,9 +1,7 @@
-# -*- coding: utf-8 -*-
-# SPDX-FileCopyrightText: 2016-2025 PyThaiNLP Project
+# SPDX-FileCopyrightText: 2016-2026 PyThaiNLP Project
 # SPDX-FileType: SOURCE
 # SPDX-License-Identifier: Apache-2.0
-"""
-CRFCut - Thai sentence segmenter.
+"""CRFCut - Thai sentence segmenter.
 
 Thai sentence segmentation using conditional random field,
 with default model trained on TED dataset
@@ -17,15 +15,16 @@ See development notebooks at https://github.com/vistec-AI/ted_crawler;
 POS features are not used due to unreliable POS tagging available
 """
 
+from __future__ import annotations
+
 import os
-from typing import List
 
 import pycrfsuite
 
 from pythainlp.corpus import corpus_path
 from pythainlp.tokenize import word_tokenize
 
-_ENDERS = {
+_ENDERS: set[str] = {
     # ending honorifics
     "ครับ",
     "ค่ะ",
@@ -78,7 +77,7 @@ _ENDERS = {
     "เมื่อไหร่",
     "เมื่อไร",
 }
-_STARTERS = {
+_STARTERS: set[str] = {
     # pronouns
     "ผม",
     "ฉัน",
@@ -128,10 +127,9 @@ _STARTERS = {
 
 
 def extract_features(
-    doc: List[str], window: int = 2, max_n_gram: int = 3
-) -> List[List[str]]:
-    """
-    Extract features for CRF by sliding `max_n_gram` of tokens
+    doc: list[str], window: int = 2, max_n_gram: int = 3
+) -> list[list[str]]:
+    """Extract features for CRF by sliding `max_n_gram` of tokens
     for +/- `window` from the current token
 
     :param List[str] doc: tokens from which features are to be extracted
@@ -140,26 +138,21 @@ def extract_features(
     within the `window`
     :return: list of lists of features to be fed to CRF
     """
+    if not doc:
+        return []
+
     doc_features = []
-    doc = (
-        ["xxpad" for i in range(window)]
-        + doc
-        + ["xxpad" for i in range(window)]
-    )
+    # Pad the document with "xxpad" tokens efficiently
+    padded_doc = ["xxpad"] * window
+    padded_doc.extend(doc)
+    padded_doc.extend(["xxpad"] * window)
+    doc = padded_doc
 
     # add enders and starters
-    doc_ender = []
-    doc_starter = []
-    for i in range(len(doc)):
-        if doc[i] in _ENDERS:
-            doc_ender.append("ender")
-        else:
-            doc_ender.append("normal")
-
-        if doc[i] in _STARTERS:
-            doc_starter.append("starter")
-        else:
-            doc_starter.append("normal")
+    doc_ender = ["ender" if token in _ENDERS else "normal" for token in doc]
+    doc_starter = [
+        "starter" if token in _STARTERS else "normal" for token in doc
+    ]
 
     # for each word
     for i in range(window, len(doc) - window):
@@ -168,12 +161,12 @@ def extract_features(
         # ngram features
         for n_gram in range(1, min(max_n_gram + 1, 2 + window * 2)):
             for j in range(i - window, i + window + 2 - n_gram):
-                feature_position = f"{n_gram}_{j-i}_{j-i+n_gram}"
-                word_ = f'{"|".join(doc[j:(j+n_gram)])}'
+                feature_position = f"{n_gram}_{j - i}_{j - i + n_gram}"
+                word_ = f"{'|'.join(doc[j : (j + n_gram)])}"
                 word_features += [f"word_{feature_position}={word_}"]
-                ender_ = f'{"|".join(doc_ender[j:(j+n_gram)])}'
+                ender_ = f"{'|'.join(doc_ender[j : (j + n_gram)])}"
                 word_features += [f"ender_{feature_position}={ender_}"]
-                starter_ = f'{"|".join(doc_starter[j:(j+n_gram)])}'
+                starter_ = f"{'|'.join(doc_starter[j : (j + n_gram)])}"
                 word_features += [f"starter_{feature_position}={starter_}"]
         # append to feature per word
         doc_features.append(word_features)
@@ -181,22 +174,18 @@ def extract_features(
     return doc_features
 
 
-_CRFCUT_DATA_FILENAME = "sentenceseg_crfcut.model"
-_tagger = pycrfsuite.Tagger()
+_CRFCUT_DATA_FILENAME: str = "sentenceseg_crfcut.model"
+_tagger: pycrfsuite.Tagger = pycrfsuite.Tagger()
 _tagger.open(os.path.join(corpus_path(), _CRFCUT_DATA_FILENAME))
 
 
-def segment(text: str) -> List[str]:
-    """
-    CRF-based sentence segmentation.
+def segment(text: str) -> list[str]:
+    """CRF-based sentence segmentation.
 
     :param str text: text to be tokenized into sentences
     :return: list of words, tokenized from the text
     """
-    if isinstance(text, str):
-        toks = word_tokenize(text)
-    else:
-        toks = text
+    toks = word_tokenize(text)
     feat = extract_features(toks)
     labs = _tagger.tag(feat)
     labs[-1] = "E"  # make sure it cuts the last sentence
@@ -206,7 +195,7 @@ def segment(text: str) -> List[str]:
         if toks[idx].strip().endswith(("!", ".", "?")):
             labs[idx] = "E"
         # Spaces or empty strings would no longer be treated as end of sentence.
-        elif (idx == 0 or labs[idx-1] == "E") and toks[idx].strip() == "":
+        elif (idx == 0 or labs[idx - 1] == "E") and toks[idx].strip() == "":
             labs[idx] = "I"
 
     sentences = []

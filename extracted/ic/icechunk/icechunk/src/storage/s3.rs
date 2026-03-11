@@ -5,7 +5,7 @@ use std::{
     future::ready,
     ops::Range,
     path::{Path, PathBuf},
-    sync::Arc,
+    sync::{Arc, LazyLock},
     time::Duration,
 };
 
@@ -53,6 +53,14 @@ use super::{
     StorageErrorKind, StorageResult, TRANSACTION_PREFIX, UpdateConfigResult, VersionInfo,
     WriteRefResult, split_in_multiple_equal_requests,
 };
+
+#[allow(clippy::unwrap_used)]
+static RETRYABLE_ERROR: LazyLock<regex::Regex> = LazyLock::new(|| {
+    regex::Regex::new(
+        "(?i)StreamingError|DispatchFailure|ConnectorError|IncompleteMessage|connection reset",
+    )
+    .unwrap()
+});
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct S3Storage {
@@ -199,9 +207,13 @@ pub async fn mk_client(
 
     s3_builder = s3_builder.identity_cache(id_cache);
 
-    // Add retry classifier for HTTP 408 (Request Timeout)
+    // Add retry classifier for HTTP 408 (Request Timeout) and 429 (Too Many Requests).
     // The default HttpStatusCodeClassifier only retries on 500, 502, 503, 504
-    static RETRY_CODES: &[u16] = &[408];
+    // Note R2 sends 429 for "slowdown" while S3 sends 503.
+    //   - R2: https://developers.cloudflare.com/r2/api/error-codes/
+    //   - S3: https://docs.aws.amazon.com/AmazonS3/latest/API/ErrorResponses.html
+    // Tigris can occasionally respond with 499: "Client Closed Request"
+    static RETRY_CODES: &[u16] = &[408, 429, 499];
     // This confusingly named `retry_classifier` method ends up calling
     // `push_retry_classifier` after wrapping our custom classifier in `SharedRetryClassifier`.
     // Ultimately, this is a push on to a `Vec<SharedRetryClassifier>`, and is thus additive
@@ -706,14 +718,9 @@ impl Storage for S3Storage {
                     settings.retries().max_backoff_ms().into(),
                 )),
         )
-        .when(|e: &ICError<StorageErrorKind>|
-              // Sadly ThroughputBelowMinimum is buried inside a boxed error,
-              // so check the debug output (yuck!)
-              // We actually check for StreamingError to catch more generic errors too
-              // For example, the integration test raises UnexpectedEof when toxics are removed.
-              format!("{e:?}").contains("StreamingError"))
+        .when(|e: &ICError<StorageErrorKind>| RETRYABLE_ERROR.is_match(&format!("{e:?}")))
         .notify(|_err, duration| {
-            debug!("retrying on stalled stream error after {:?}.", duration)
+            debug!("retrying on streaming/connection error after {:?}.", duration)
         })
         .await
     }
@@ -1043,6 +1050,31 @@ impl Storage for S3Storage {
         })?;
 
         Ok(res)
+    }
+
+    async fn has_object(&self, settings: &Settings, key: &str) -> StorageResult<bool> {
+        let key = self.get_path_str("", key)?;
+        let mut req = self
+            .get_client(settings)
+            .await
+            .head_object()
+            .bucket(self.bucket.clone())
+            .key(key);
+
+        if self.config.requester_pays {
+            req = req.request_payer(aws_sdk_s3::types::RequestPayer::Requester);
+        }
+
+        match req.send().await {
+            Ok(_) => Ok(true),
+            Err(err)
+                if err.as_service_error().is_some_and(|e| e.is_not_found())
+                    || err.raw_response().is_some_and(|r| r.status().as_u16() == 404) =>
+            {
+                Ok(false)
+            }
+            Err(err) => Err(Box::new(err).into()),
+        }
     }
 
     #[instrument(skip(self))]

@@ -65,18 +65,28 @@ from .. import (
 )
 from ..interfaces.aws_bedrockagentcore import (
     BrowserCustomReference as _BrowserCustomReference_ceb8fdba,
+    BrowserProfileReference as _BrowserProfileReference_7d69eac7,
     CodeInterpreterCustomReference as _CodeInterpreterCustomReference_0b253bc0,
+    EvaluatorReference as _EvaluatorReference_a3ac0235,
     GatewayReference as _GatewayReference_350c3a07,
     GatewayTargetReference as _GatewayTargetReference_8759ec47,
     IBrowserCustomRef as _IBrowserCustomRef_f12bfa35,
+    IBrowserProfileRef as _IBrowserProfileRef_87a4b1a8,
     ICodeInterpreterCustomRef as _ICodeInterpreterCustomRef_2d5c05fb,
+    IEvaluatorRef as _IEvaluatorRef_21d364d2,
     IGatewayRef as _IGatewayRef_a3ed30fe,
     IGatewayTargetRef as _IGatewayTargetRef_e3008479,
     IMemoryRef as _IMemoryRef_2d13cc89,
+    IOnlineEvaluationConfigRef as _IOnlineEvaluationConfigRef_cf19cabf,
+    IPolicyEngineRef as _IPolicyEngineRef_6d885cfc,
+    IPolicyRef as _IPolicyRef_ceb8b108,
     IRuntimeEndpointRef as _IRuntimeEndpointRef_7a1c67f8,
     IRuntimeRef as _IRuntimeRef_00302e12,
     IWorkloadIdentityRef as _IWorkloadIdentityRef_dc6077a7,
     MemoryReference as _MemoryReference_a1aef278,
+    OnlineEvaluationConfigReference as _OnlineEvaluationConfigReference_13c14f3c,
+    PolicyEngineReference as _PolicyEngineReference_471db68b,
+    PolicyReference as _PolicyReference_d2f6bd10,
     RuntimeEndpointReference as _RuntimeEndpointReference_dff8b038,
     RuntimeReference as _RuntimeReference_bdb3da48,
     WorkloadIdentityReference as _WorkloadIdentityReference_255b3126,
@@ -993,6 +1003,339 @@ class CfnBrowserCustomProps:
         )
 
 
+@jsii.implements(_IInspectable_c2943556, _IBrowserProfileRef_87a4b1a8, _ITaggableV2_4e6798f8)
+class CfnBrowserProfile(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnBrowserProfile",
+):
+    '''Resource definition for AWS::BedrockAgentCore::BrowserProfile.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-browserprofile.html
+    :cloudformationResource: AWS::BedrockAgentCore::BrowserProfile
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+        
+        cfn_browser_profile = bedrockagentcore.CfnBrowserProfile(self, "MyCfnBrowserProfile",
+            name="name",
+        
+            # the properties below are optional
+            description="description",
+            tags={
+                "tags_key": "tags"
+            }
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Create a new ``AWS::BedrockAgentCore::BrowserProfile``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param name: The name of the browser profile.
+        :param description: The description of the browser profile.
+        :param tags: A map of tag keys and values.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7473f1faa9bfc03705a3d4572354312e5dd4b5bb47ae1b3a9a2ca09618c09558)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnBrowserProfileProps(name=name, description=description, tags=tags)
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForBrowserProfile")
+    @builtins.classmethod
+    def arn_for_browser_profile(
+        cls,
+        resource: "_IBrowserProfileRef_87a4b1a8",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cdecc7ab99fa67b91a7bb897ed0d5da420e0fc98db0e44fb43c5e4573c36e7a2)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForBrowserProfile", [resource]))
+
+    @jsii.member(jsii_name="isCfnBrowserProfile")
+    @builtins.classmethod
+    def is_cfn_browser_profile(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnBrowserProfile.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ade26e9a57cff73b5718f778b22e6e84dde0ded65b13a8b5acef370b2ee67804)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnBrowserProfile", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5babb21bf2a8458092196b97ee681b85e69bab2ae47419298b051be21a395742)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__97ccc42c3721a989048610856613cdee96f1a401698e93e9abda9a99b25f14f3)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''Timestamp when the browser profile was created.
+
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastSavedAt")
+    def attr_last_saved_at(self) -> builtins.str:
+        '''Timestamp when the browser profile was last saved.
+
+        :cloudformationAttribute: LastSavedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastSavedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastSavedBrowserId")
+    def attr_last_saved_browser_id(self) -> builtins.str:
+        '''ID of the last saved browser.
+
+        :cloudformationAttribute: LastSavedBrowserId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastSavedBrowserId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastSavedBrowserSessionId")
+    def attr_last_saved_browser_session_id(self) -> builtins.str:
+        '''ID of the last saved browser session.
+
+        :cloudformationAttribute: LastSavedBrowserSessionId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastSavedBrowserSessionId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastUpdatedAt")
+    def attr_last_updated_at(self) -> builtins.str:
+        '''Timestamp when the browser profile was last updated.
+
+        :cloudformationAttribute: LastUpdatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastUpdatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrProfileArn")
+    def attr_profile_arn(self) -> builtins.str:
+        '''The ARN of a BrowserProfile resource.
+
+        :cloudformationAttribute: ProfileArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrProfileArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrProfileId")
+    def attr_profile_id(self) -> builtins.str:
+        '''The id of the browser profile.
+
+        :cloudformationAttribute: ProfileId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrProfileId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''Status of browser profile.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="browserProfileRef")
+    def browser_profile_ref(self) -> "_BrowserProfileReference_7d69eac7":
+        '''A reference to a BrowserProfile resource.'''
+        return typing.cast("_BrowserProfileReference_7d69eac7", jsii.get(self, "browserProfileRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The name of the browser profile.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ae6651c726fc48203e39af1e8661928e84a4323ff2a0d8a55574653b31bf76d0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the browser profile.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d1b17f49e9d7bf2a0d0045e14abceca289c01f8a4b4a4f70e5297e2aa8cef7d3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''A map of tag keys and values.'''
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6885ed668d838f82c9f283a9d7037bb9609ab538bb3bce79981a0e79df9f52b6)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnBrowserProfileProps",
+    jsii_struct_bases=[],
+    name_mapping={"name": "name", "description": "description", "tags": "tags"},
+)
+class CfnBrowserProfileProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnBrowserProfile``.
+
+        :param name: The name of the browser profile.
+        :param description: The description of the browser profile.
+        :param tags: A map of tag keys and values.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-browserprofile.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+            
+            cfn_browser_profile_props = bedrockagentcore.CfnBrowserProfileProps(
+                name="name",
+            
+                # the properties below are optional
+                description="description",
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__06ddbf18be8902484b8315b3f45a334e6e9cddb8b83448c8197da614062d18ee)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the browser profile.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-browserprofile.html#cfn-bedrockagentcore-browserprofile-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the browser profile.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-browserprofile.html#cfn-bedrockagentcore-browserprofile-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''A map of tag keys and values.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-browserprofile.html#cfn-bedrockagentcore-browserprofile-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnBrowserProfileProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_IInspectable_c2943556, _ICodeInterpreterCustomRef_2d5c05fb, _ITaggableV2_4e6798f8)
 class CfnCodeInterpreterCustom(
     _CfnResource_9df397a6,
@@ -1600,6 +1943,1144 @@ class CfnCodeInterpreterCustomProps:
 
     def __repr__(self) -> str:
         return "CfnCodeInterpreterCustomProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IEvaluatorRef_21d364d2, _ITaggableV2_4e6798f8)
+class CfnEvaluator(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnEvaluator",
+):
+    '''Resource Type definition for AWS::BedrockAgentCore::Evaluator - Creates a custom evaluator for agent quality assessment using LLM-as-a-Judge configurations.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-evaluator.html
+    :cloudformationResource: AWS::BedrockAgentCore::Evaluator
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+        
+        # additional_model_request_fields: Any
+        
+        cfn_evaluator = bedrockagentcore.CfnEvaluator(self, "MyCfnEvaluator",
+            evaluator_config=bedrockagentcore.CfnEvaluator.EvaluatorConfigProperty(
+                llm_as_aJudge=bedrockagentcore.CfnEvaluator.LlmAsAJudgeEvaluatorConfigProperty(
+                    instructions="instructions",
+                    model_config=bedrockagentcore.CfnEvaluator.EvaluatorModelConfigProperty(
+                        bedrock_evaluator_model_config=bedrockagentcore.CfnEvaluator.BedrockEvaluatorModelConfigProperty(
+                            model_id="modelId",
+        
+                            # the properties below are optional
+                            additional_model_request_fields=additional_model_request_fields,
+                            inference_config=bedrockagentcore.CfnEvaluator.InferenceConfigurationProperty(
+                                max_tokens=123,
+                                temperature=123,
+                                top_p=123
+                            )
+                        )
+                    ),
+                    rating_scale=bedrockagentcore.CfnEvaluator.RatingScaleProperty(
+                        categorical=[bedrockagentcore.CfnEvaluator.CategoricalScaleDefinitionProperty(
+                            definition="definition",
+                            label="label"
+                        )],
+                        numerical=[bedrockagentcore.CfnEvaluator.NumericalScaleDefinitionProperty(
+                            definition="definition",
+                            label="label",
+                            value=123
+                        )]
+                    )
+                )
+            ),
+            evaluator_name="evaluatorName",
+            level="level",
+        
+            # the properties below are optional
+            description="description",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        evaluator_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnEvaluator.EvaluatorConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        evaluator_name: builtins.str,
+        level: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::BedrockAgentCore::Evaluator``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param evaluator_config: The configuration that defines how an evaluator assesses agent performance.
+        :param evaluator_name: The name of the evaluator. Must be unique within your account.
+        :param level: 
+        :param description: The description of the evaluator.
+        :param tags: A list of tags to assign to the evaluator.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__141b6fd05e9e051e0fb07fbc9903cbc471c6f95bd2ce599524db7f08eb59d089)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnEvaluatorProps(
+            evaluator_config=evaluator_config,
+            evaluator_name=evaluator_name,
+            level=level,
+            description=description,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForEvaluator")
+    @builtins.classmethod
+    def arn_for_evaluator(cls, resource: "_IEvaluatorRef_21d364d2") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f2241f7871310f76bc950be554b9e50e0182d60385049f460dfd13459d3e0757)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForEvaluator", [resource]))
+
+    @jsii.member(jsii_name="isCfnEvaluator")
+    @builtins.classmethod
+    def is_cfn_evaluator(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnEvaluator.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__24f5b2764d1f145a52271003ddf7f12ab5fc8df06fcd5d57f8407543371dd7cc)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnEvaluator", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e88dc5c3acd247cf0c5817871be6840db2e01fa9976082dea7654fb298e73dd3)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a74e1010c78d5affb59aa69c26b246dc322ef02ba3fe68b5cafecce92faa0934)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''The timestamp when the evaluator was created.
+
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrEvaluatorArn")
+    def attr_evaluator_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the evaluator.
+
+        :cloudformationAttribute: EvaluatorArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrEvaluatorArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrEvaluatorId")
+    def attr_evaluator_id(self) -> builtins.str:
+        '''The unique identifier of the evaluator.
+
+        :cloudformationAttribute: EvaluatorId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrEvaluatorId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrUpdatedAt")
+    def attr_updated_at(self) -> builtins.str:
+        '''The timestamp when the evaluator was last updated.
+
+        :cloudformationAttribute: UpdatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrUpdatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="evaluatorRef")
+    def evaluator_ref(self) -> "_EvaluatorReference_a3ac0235":
+        '''A reference to a Evaluator resource.'''
+        return typing.cast("_EvaluatorReference_a3ac0235", jsii.get(self, "evaluatorRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="evaluatorConfig")
+    def evaluator_config(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnEvaluator.EvaluatorConfigProperty"]:
+        '''The configuration that defines how an evaluator assesses agent performance.'''
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnEvaluator.EvaluatorConfigProperty"], jsii.get(self, "evaluatorConfig"))
+
+    @evaluator_config.setter
+    def evaluator_config(
+        self,
+        value: typing.Union["_IResolvable_da3f097b", "CfnEvaluator.EvaluatorConfigProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d85156d59d54c7ee85e1018a2dbc04869c0befafd49c7f39bed6f8bdf1c0e7c0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "evaluatorConfig", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="evaluatorName")
+    def evaluator_name(self) -> builtins.str:
+        '''The name of the evaluator.'''
+        return typing.cast(builtins.str, jsii.get(self, "evaluatorName"))
+
+    @evaluator_name.setter
+    def evaluator_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0fb35f2e87b3efb7648fbd87d13f3e5ff4e7e4f353ccab015439c65775fa4f4e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "evaluatorName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="level")
+    def level(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "level"))
+
+    @level.setter
+    def level(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e5ba897fceb746066253f02e4acaa94a0805d38e5dd7eb06a70ada74a5171c7c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "level", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the evaluator.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e9476feb3976d508ab93e23993f8958690b378207ccac9c804c8644598ec4e9d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''A list of tags to assign to the evaluator.'''
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e9be07f5133cae95a44b8c1e5e5925d27341ddb21585adfa558cf87a9d4ed266)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnEvaluator.BedrockEvaluatorModelConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "model_id": "modelId",
+            "additional_model_request_fields": "additionalModelRequestFields",
+            "inference_config": "inferenceConfig",
+        },
+    )
+    class BedrockEvaluatorModelConfigProperty:
+        def __init__(
+            self,
+            *,
+            model_id: builtins.str,
+            additional_model_request_fields: typing.Any = None,
+            inference_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEvaluator.InferenceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''The configuration for using Amazon Bedrock models in evaluator assessments.
+
+            :param model_id: The identifier of the Amazon Bedrock model to use for evaluation.
+            :param additional_model_request_fields: Additional model-specific request fields.
+            :param inference_config: The inference configuration parameters that control model behavior during evaluation.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-evaluator-bedrockevaluatormodelconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                # additional_model_request_fields: Any
+                
+                bedrock_evaluator_model_config_property = bedrockagentcore.CfnEvaluator.BedrockEvaluatorModelConfigProperty(
+                    model_id="modelId",
+                
+                    # the properties below are optional
+                    additional_model_request_fields=additional_model_request_fields,
+                    inference_config=bedrockagentcore.CfnEvaluator.InferenceConfigurationProperty(
+                        max_tokens=123,
+                        temperature=123,
+                        top_p=123
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__e685cb926c5b55ad4c85e5270f7d5645516c749d48c98cdcd779d7548a53c95f)
+                check_type(argname="argument model_id", value=model_id, expected_type=type_hints["model_id"])
+                check_type(argname="argument additional_model_request_fields", value=additional_model_request_fields, expected_type=type_hints["additional_model_request_fields"])
+                check_type(argname="argument inference_config", value=inference_config, expected_type=type_hints["inference_config"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "model_id": model_id,
+            }
+            if additional_model_request_fields is not None:
+                self._values["additional_model_request_fields"] = additional_model_request_fields
+            if inference_config is not None:
+                self._values["inference_config"] = inference_config
+
+        @builtins.property
+        def model_id(self) -> builtins.str:
+            '''The identifier of the Amazon Bedrock model to use for evaluation.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-evaluator-bedrockevaluatormodelconfig.html#cfn-bedrockagentcore-evaluator-bedrockevaluatormodelconfig-modelid
+            '''
+            result = self._values.get("model_id")
+            assert result is not None, "Required property 'model_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def additional_model_request_fields(self) -> typing.Any:
+            '''Additional model-specific request fields.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-evaluator-bedrockevaluatormodelconfig.html#cfn-bedrockagentcore-evaluator-bedrockevaluatormodelconfig-additionalmodelrequestfields
+            '''
+            result = self._values.get("additional_model_request_fields")
+            return typing.cast(typing.Any, result)
+
+        @builtins.property
+        def inference_config(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEvaluator.InferenceConfigurationProperty"]]:
+            '''The inference configuration parameters that control model behavior during evaluation.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-evaluator-bedrockevaluatormodelconfig.html#cfn-bedrockagentcore-evaluator-bedrockevaluatormodelconfig-inferenceconfig
+            '''
+            result = self._values.get("inference_config")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEvaluator.InferenceConfigurationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "BedrockEvaluatorModelConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnEvaluator.CategoricalScaleDefinitionProperty",
+        jsii_struct_bases=[],
+        name_mapping={"definition": "definition", "label": "label"},
+    )
+    class CategoricalScaleDefinitionProperty:
+        def __init__(self, *, definition: builtins.str, label: builtins.str) -> None:
+            '''A categorical rating scale option.
+
+            :param definition: The description that explains what this categorical rating represents.
+            :param label: The label of this categorical rating option.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-evaluator-categoricalscaledefinition.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                categorical_scale_definition_property = bedrockagentcore.CfnEvaluator.CategoricalScaleDefinitionProperty(
+                    definition="definition",
+                    label="label"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__0138c4dab895be263ca856078c54d7f7dc17e4a1e5fa14530ef199b887cb5326)
+                check_type(argname="argument definition", value=definition, expected_type=type_hints["definition"])
+                check_type(argname="argument label", value=label, expected_type=type_hints["label"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "definition": definition,
+                "label": label,
+            }
+
+        @builtins.property
+        def definition(self) -> builtins.str:
+            '''The description that explains what this categorical rating represents.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-evaluator-categoricalscaledefinition.html#cfn-bedrockagentcore-evaluator-categoricalscaledefinition-definition
+            '''
+            result = self._values.get("definition")
+            assert result is not None, "Required property 'definition' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def label(self) -> builtins.str:
+            '''The label of this categorical rating option.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-evaluator-categoricalscaledefinition.html#cfn-bedrockagentcore-evaluator-categoricalscaledefinition-label
+            '''
+            result = self._values.get("label")
+            assert result is not None, "Required property 'label' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CategoricalScaleDefinitionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnEvaluator.EvaluatorConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"llm_as_a_judge": "llmAsAJudge"},
+    )
+    class EvaluatorConfigProperty:
+        def __init__(
+            self,
+            *,
+            llm_as_a_judge: typing.Union["_IResolvable_da3f097b", typing.Union["CfnEvaluator.LlmAsAJudgeEvaluatorConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''The configuration that defines how an evaluator assesses agent performance.
+
+            :param llm_as_a_judge: The configuration for LLM-as-a-Judge evaluation.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-evaluator-evaluatorconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                # additional_model_request_fields: Any
+                
+                evaluator_config_property = bedrockagentcore.CfnEvaluator.EvaluatorConfigProperty(
+                    llm_as_aJudge=bedrockagentcore.CfnEvaluator.LlmAsAJudgeEvaluatorConfigProperty(
+                        instructions="instructions",
+                        model_config=bedrockagentcore.CfnEvaluator.EvaluatorModelConfigProperty(
+                            bedrock_evaluator_model_config=bedrockagentcore.CfnEvaluator.BedrockEvaluatorModelConfigProperty(
+                                model_id="modelId",
+                
+                                # the properties below are optional
+                                additional_model_request_fields=additional_model_request_fields,
+                                inference_config=bedrockagentcore.CfnEvaluator.InferenceConfigurationProperty(
+                                    max_tokens=123,
+                                    temperature=123,
+                                    top_p=123
+                                )
+                            )
+                        ),
+                        rating_scale=bedrockagentcore.CfnEvaluator.RatingScaleProperty(
+                            categorical=[bedrockagentcore.CfnEvaluator.CategoricalScaleDefinitionProperty(
+                                definition="definition",
+                                label="label"
+                            )],
+                            numerical=[bedrockagentcore.CfnEvaluator.NumericalScaleDefinitionProperty(
+                                definition="definition",
+                                label="label",
+                                value=123
+                            )]
+                        )
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__68fedf7916817af17038fada535f709885d9e4602b0228fd6e545877cc7a08c4)
+                check_type(argname="argument llm_as_a_judge", value=llm_as_a_judge, expected_type=type_hints["llm_as_a_judge"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "llm_as_a_judge": llm_as_a_judge,
+            }
+
+        @builtins.property
+        def llm_as_a_judge(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnEvaluator.LlmAsAJudgeEvaluatorConfigProperty"]:
+            '''The configuration for LLM-as-a-Judge evaluation.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-evaluator-evaluatorconfig.html#cfn-bedrockagentcore-evaluator-evaluatorconfig-llmasajudge
+            '''
+            result = self._values.get("llm_as_a_judge")
+            assert result is not None, "Required property 'llm_as_a_judge' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnEvaluator.LlmAsAJudgeEvaluatorConfigProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "EvaluatorConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnEvaluator.EvaluatorModelConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"bedrock_evaluator_model_config": "bedrockEvaluatorModelConfig"},
+    )
+    class EvaluatorModelConfigProperty:
+        def __init__(
+            self,
+            *,
+            bedrock_evaluator_model_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnEvaluator.BedrockEvaluatorModelConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''The model configuration that specifies which foundation model to use for evaluation.
+
+            :param bedrock_evaluator_model_config: The configuration for using Amazon Bedrock models in evaluator assessments.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-evaluator-evaluatormodelconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                # additional_model_request_fields: Any
+                
+                evaluator_model_config_property = bedrockagentcore.CfnEvaluator.EvaluatorModelConfigProperty(
+                    bedrock_evaluator_model_config=bedrockagentcore.CfnEvaluator.BedrockEvaluatorModelConfigProperty(
+                        model_id="modelId",
+                
+                        # the properties below are optional
+                        additional_model_request_fields=additional_model_request_fields,
+                        inference_config=bedrockagentcore.CfnEvaluator.InferenceConfigurationProperty(
+                            max_tokens=123,
+                            temperature=123,
+                            top_p=123
+                        )
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__e199bbf333dd5891de717038547bcf88b9e5114ac6040f7d31e54c8cb0f17f02)
+                check_type(argname="argument bedrock_evaluator_model_config", value=bedrock_evaluator_model_config, expected_type=type_hints["bedrock_evaluator_model_config"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "bedrock_evaluator_model_config": bedrock_evaluator_model_config,
+            }
+
+        @builtins.property
+        def bedrock_evaluator_model_config(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnEvaluator.BedrockEvaluatorModelConfigProperty"]:
+            '''The configuration for using Amazon Bedrock models in evaluator assessments.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-evaluator-evaluatormodelconfig.html#cfn-bedrockagentcore-evaluator-evaluatormodelconfig-bedrockevaluatormodelconfig
+            '''
+            result = self._values.get("bedrock_evaluator_model_config")
+            assert result is not None, "Required property 'bedrock_evaluator_model_config' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnEvaluator.BedrockEvaluatorModelConfigProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "EvaluatorModelConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnEvaluator.InferenceConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "max_tokens": "maxTokens",
+            "temperature": "temperature",
+            "top_p": "topP",
+        },
+    )
+    class InferenceConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            max_tokens: typing.Optional[jsii.Number] = None,
+            temperature: typing.Optional[jsii.Number] = None,
+            top_p: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''The inference configuration parameters that control model behavior during evaluation.
+
+            :param max_tokens: The maximum number of tokens to generate in the model response.
+            :param temperature: The temperature value that controls randomness in the model's responses.
+            :param top_p: The top-p sampling parameter that controls the diversity of the model's responses.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-evaluator-inferenceconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                inference_configuration_property = bedrockagentcore.CfnEvaluator.InferenceConfigurationProperty(
+                    max_tokens=123,
+                    temperature=123,
+                    top_p=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__fe32f79956eba54fe76f4cfd3e9550d9001beda9560e6f4c55b2f8ab94aa98c2)
+                check_type(argname="argument max_tokens", value=max_tokens, expected_type=type_hints["max_tokens"])
+                check_type(argname="argument temperature", value=temperature, expected_type=type_hints["temperature"])
+                check_type(argname="argument top_p", value=top_p, expected_type=type_hints["top_p"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if max_tokens is not None:
+                self._values["max_tokens"] = max_tokens
+            if temperature is not None:
+                self._values["temperature"] = temperature
+            if top_p is not None:
+                self._values["top_p"] = top_p
+
+        @builtins.property
+        def max_tokens(self) -> typing.Optional[jsii.Number]:
+            '''The maximum number of tokens to generate in the model response.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-evaluator-inferenceconfiguration.html#cfn-bedrockagentcore-evaluator-inferenceconfiguration-maxtokens
+            '''
+            result = self._values.get("max_tokens")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def temperature(self) -> typing.Optional[jsii.Number]:
+            '''The temperature value that controls randomness in the model's responses.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-evaluator-inferenceconfiguration.html#cfn-bedrockagentcore-evaluator-inferenceconfiguration-temperature
+            '''
+            result = self._values.get("temperature")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def top_p(self) -> typing.Optional[jsii.Number]:
+            '''The top-p sampling parameter that controls the diversity of the model's responses.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-evaluator-inferenceconfiguration.html#cfn-bedrockagentcore-evaluator-inferenceconfiguration-topp
+            '''
+            result = self._values.get("top_p")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "InferenceConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnEvaluator.LlmAsAJudgeEvaluatorConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "instructions": "instructions",
+            "model_config": "modelConfig",
+            "rating_scale": "ratingScale",
+        },
+    )
+    class LlmAsAJudgeEvaluatorConfigProperty:
+        def __init__(
+            self,
+            *,
+            instructions: builtins.str,
+            model_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnEvaluator.EvaluatorModelConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+            rating_scale: typing.Union["_IResolvable_da3f097b", typing.Union["CfnEvaluator.RatingScaleProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''The configuration for LLM-as-a-Judge evaluation.
+
+            :param instructions: The evaluation instructions that guide the language model in assessing agent performance.
+            :param model_config: The model configuration that specifies which foundation model to use for evaluation.
+            :param rating_scale: The rating scale that defines how evaluators should score agent performance.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-evaluator-llmasajudgeevaluatorconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                # additional_model_request_fields: Any
+                
+                llm_as_aJudge_evaluator_config_property = bedrockagentcore.CfnEvaluator.LlmAsAJudgeEvaluatorConfigProperty(
+                    instructions="instructions",
+                    model_config=bedrockagentcore.CfnEvaluator.EvaluatorModelConfigProperty(
+                        bedrock_evaluator_model_config=bedrockagentcore.CfnEvaluator.BedrockEvaluatorModelConfigProperty(
+                            model_id="modelId",
+                
+                            # the properties below are optional
+                            additional_model_request_fields=additional_model_request_fields,
+                            inference_config=bedrockagentcore.CfnEvaluator.InferenceConfigurationProperty(
+                                max_tokens=123,
+                                temperature=123,
+                                top_p=123
+                            )
+                        )
+                    ),
+                    rating_scale=bedrockagentcore.CfnEvaluator.RatingScaleProperty(
+                        categorical=[bedrockagentcore.CfnEvaluator.CategoricalScaleDefinitionProperty(
+                            definition="definition",
+                            label="label"
+                        )],
+                        numerical=[bedrockagentcore.CfnEvaluator.NumericalScaleDefinitionProperty(
+                            definition="definition",
+                            label="label",
+                            value=123
+                        )]
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__f28079328036f363d453150c70a76fbc17cbd2c7dab0942689bd59b9411b642a)
+                check_type(argname="argument instructions", value=instructions, expected_type=type_hints["instructions"])
+                check_type(argname="argument model_config", value=model_config, expected_type=type_hints["model_config"])
+                check_type(argname="argument rating_scale", value=rating_scale, expected_type=type_hints["rating_scale"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "instructions": instructions,
+                "model_config": model_config,
+                "rating_scale": rating_scale,
+            }
+
+        @builtins.property
+        def instructions(self) -> builtins.str:
+            '''The evaluation instructions that guide the language model in assessing agent performance.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-evaluator-llmasajudgeevaluatorconfig.html#cfn-bedrockagentcore-evaluator-llmasajudgeevaluatorconfig-instructions
+            '''
+            result = self._values.get("instructions")
+            assert result is not None, "Required property 'instructions' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def model_config(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnEvaluator.EvaluatorModelConfigProperty"]:
+            '''The model configuration that specifies which foundation model to use for evaluation.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-evaluator-llmasajudgeevaluatorconfig.html#cfn-bedrockagentcore-evaluator-llmasajudgeevaluatorconfig-modelconfig
+            '''
+            result = self._values.get("model_config")
+            assert result is not None, "Required property 'model_config' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnEvaluator.EvaluatorModelConfigProperty"], result)
+
+        @builtins.property
+        def rating_scale(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnEvaluator.RatingScaleProperty"]:
+            '''The rating scale that defines how evaluators should score agent performance.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-evaluator-llmasajudgeevaluatorconfig.html#cfn-bedrockagentcore-evaluator-llmasajudgeevaluatorconfig-ratingscale
+            '''
+            result = self._values.get("rating_scale")
+            assert result is not None, "Required property 'rating_scale' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnEvaluator.RatingScaleProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "LlmAsAJudgeEvaluatorConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnEvaluator.NumericalScaleDefinitionProperty",
+        jsii_struct_bases=[],
+        name_mapping={"definition": "definition", "label": "label", "value": "value"},
+    )
+    class NumericalScaleDefinitionProperty:
+        def __init__(
+            self,
+            *,
+            definition: builtins.str,
+            label: builtins.str,
+            value: jsii.Number,
+        ) -> None:
+            '''A numerical rating scale option.
+
+            :param definition: The description that explains what this numerical rating represents.
+            :param label: The label that describes this numerical rating option.
+            :param value: The numerical value for this rating scale option.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-evaluator-numericalscaledefinition.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                numerical_scale_definition_property = bedrockagentcore.CfnEvaluator.NumericalScaleDefinitionProperty(
+                    definition="definition",
+                    label="label",
+                    value=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__6e284be9755c11642d2b6734206454332b1166d2726612dba743e01c1a4f1a83)
+                check_type(argname="argument definition", value=definition, expected_type=type_hints["definition"])
+                check_type(argname="argument label", value=label, expected_type=type_hints["label"])
+                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "definition": definition,
+                "label": label,
+                "value": value,
+            }
+
+        @builtins.property
+        def definition(self) -> builtins.str:
+            '''The description that explains what this numerical rating represents.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-evaluator-numericalscaledefinition.html#cfn-bedrockagentcore-evaluator-numericalscaledefinition-definition
+            '''
+            result = self._values.get("definition")
+            assert result is not None, "Required property 'definition' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def label(self) -> builtins.str:
+            '''The label that describes this numerical rating option.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-evaluator-numericalscaledefinition.html#cfn-bedrockagentcore-evaluator-numericalscaledefinition-label
+            '''
+            result = self._values.get("label")
+            assert result is not None, "Required property 'label' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def value(self) -> jsii.Number:
+            '''The numerical value for this rating scale option.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-evaluator-numericalscaledefinition.html#cfn-bedrockagentcore-evaluator-numericalscaledefinition-value
+            '''
+            result = self._values.get("value")
+            assert result is not None, "Required property 'value' is missing"
+            return typing.cast(jsii.Number, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "NumericalScaleDefinitionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnEvaluator.RatingScaleProperty",
+        jsii_struct_bases=[],
+        name_mapping={"categorical": "categorical", "numerical": "numerical"},
+    )
+    class RatingScaleProperty:
+        def __init__(
+            self,
+            *,
+            categorical: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEvaluator.CategoricalScaleDefinitionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            numerical: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEvaluator.NumericalScaleDefinitionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        ) -> None:
+            '''The rating scale that defines how evaluators should score agent performance.
+
+            :param categorical: 
+            :param numerical: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-evaluator-ratingscale.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                rating_scale_property = bedrockagentcore.CfnEvaluator.RatingScaleProperty(
+                    categorical=[bedrockagentcore.CfnEvaluator.CategoricalScaleDefinitionProperty(
+                        definition="definition",
+                        label="label"
+                    )],
+                    numerical=[bedrockagentcore.CfnEvaluator.NumericalScaleDefinitionProperty(
+                        definition="definition",
+                        label="label",
+                        value=123
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__4b52b8f960640a8f01b882a7550bb6dcc23bf2b1121733ac830f9f26c80b3027)
+                check_type(argname="argument categorical", value=categorical, expected_type=type_hints["categorical"])
+                check_type(argname="argument numerical", value=numerical, expected_type=type_hints["numerical"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if categorical is not None:
+                self._values["categorical"] = categorical
+            if numerical is not None:
+                self._values["numerical"] = numerical
+
+        @builtins.property
+        def categorical(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEvaluator.CategoricalScaleDefinitionProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-evaluator-ratingscale.html#cfn-bedrockagentcore-evaluator-ratingscale-categorical
+            '''
+            result = self._values.get("categorical")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEvaluator.CategoricalScaleDefinitionProperty"]]]], result)
+
+        @builtins.property
+        def numerical(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEvaluator.NumericalScaleDefinitionProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-evaluator-ratingscale.html#cfn-bedrockagentcore-evaluator-ratingscale-numerical
+            '''
+            result = self._values.get("numerical")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEvaluator.NumericalScaleDefinitionProperty"]]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RatingScaleProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnEvaluatorProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "evaluator_config": "evaluatorConfig",
+        "evaluator_name": "evaluatorName",
+        "level": "level",
+        "description": "description",
+        "tags": "tags",
+    },
+)
+class CfnEvaluatorProps:
+    def __init__(
+        self,
+        *,
+        evaluator_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnEvaluator.EvaluatorConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        evaluator_name: builtins.str,
+        level: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnEvaluator``.
+
+        :param evaluator_config: The configuration that defines how an evaluator assesses agent performance.
+        :param evaluator_name: The name of the evaluator. Must be unique within your account.
+        :param level: 
+        :param description: The description of the evaluator.
+        :param tags: A list of tags to assign to the evaluator.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-evaluator.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+            
+            # additional_model_request_fields: Any
+            
+            cfn_evaluator_props = bedrockagentcore.CfnEvaluatorProps(
+                evaluator_config=bedrockagentcore.CfnEvaluator.EvaluatorConfigProperty(
+                    llm_as_aJudge=bedrockagentcore.CfnEvaluator.LlmAsAJudgeEvaluatorConfigProperty(
+                        instructions="instructions",
+                        model_config=bedrockagentcore.CfnEvaluator.EvaluatorModelConfigProperty(
+                            bedrock_evaluator_model_config=bedrockagentcore.CfnEvaluator.BedrockEvaluatorModelConfigProperty(
+                                model_id="modelId",
+            
+                                # the properties below are optional
+                                additional_model_request_fields=additional_model_request_fields,
+                                inference_config=bedrockagentcore.CfnEvaluator.InferenceConfigurationProperty(
+                                    max_tokens=123,
+                                    temperature=123,
+                                    top_p=123
+                                )
+                            )
+                        ),
+                        rating_scale=bedrockagentcore.CfnEvaluator.RatingScaleProperty(
+                            categorical=[bedrockagentcore.CfnEvaluator.CategoricalScaleDefinitionProperty(
+                                definition="definition",
+                                label="label"
+                            )],
+                            numerical=[bedrockagentcore.CfnEvaluator.NumericalScaleDefinitionProperty(
+                                definition="definition",
+                                label="label",
+                                value=123
+                            )]
+                        )
+                    )
+                ),
+                evaluator_name="evaluatorName",
+                level="level",
+            
+                # the properties below are optional
+                description="description",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c769c32f0049d1195b80f5b76b8b678dcf5ad1c67ed7fa7571832bf6792ef2f3)
+            check_type(argname="argument evaluator_config", value=evaluator_config, expected_type=type_hints["evaluator_config"])
+            check_type(argname="argument evaluator_name", value=evaluator_name, expected_type=type_hints["evaluator_name"])
+            check_type(argname="argument level", value=level, expected_type=type_hints["level"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "evaluator_config": evaluator_config,
+            "evaluator_name": evaluator_name,
+            "level": level,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def evaluator_config(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnEvaluator.EvaluatorConfigProperty"]:
+        '''The configuration that defines how an evaluator assesses agent performance.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-evaluator.html#cfn-bedrockagentcore-evaluator-evaluatorconfig
+        '''
+        result = self._values.get("evaluator_config")
+        assert result is not None, "Required property 'evaluator_config' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnEvaluator.EvaluatorConfigProperty"], result)
+
+    @builtins.property
+    def evaluator_name(self) -> builtins.str:
+        '''The name of the evaluator.
+
+        Must be unique within your account.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-evaluator.html#cfn-bedrockagentcore-evaluator-evaluatorname
+        '''
+        result = self._values.get("evaluator_name")
+        assert result is not None, "Required property 'evaluator_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def level(self) -> builtins.str:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-evaluator.html#cfn-bedrockagentcore-evaluator-level
+        '''
+        result = self._values.get("level")
+        assert result is not None, "Required property 'level' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the evaluator.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-evaluator.html#cfn-bedrockagentcore-evaluator-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''A list of tags to assign to the evaluator.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-evaluator.html#cfn-bedrockagentcore-evaluator-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnEvaluatorProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -9250,6 +10731,2105 @@ class CfnMemoryProps:
         )
 
 
+@jsii.implements(_IInspectable_c2943556, _IOnlineEvaluationConfigRef_cf19cabf, _ITaggableV2_4e6798f8)
+class CfnOnlineEvaluationConfig(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnOnlineEvaluationConfig",
+):
+    '''Resource Type definition for AWS::BedrockAgentCore::OnlineEvaluationConfig - Creates an online evaluation configuration for continuous monitoring of agent performance.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-onlineevaluationconfig.html
+    :cloudformationResource: AWS::BedrockAgentCore::OnlineEvaluationConfig
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+        
+        cfn_online_evaluation_config = bedrockagentcore.CfnOnlineEvaluationConfig(self, "MyCfnOnlineEvaluationConfig",
+            data_source_config=bedrockagentcore.CfnOnlineEvaluationConfig.DataSourceConfigProperty(
+                cloud_watch_logs=bedrockagentcore.CfnOnlineEvaluationConfig.CloudWatchLogsInputConfigProperty(
+                    log_group_names=["logGroupNames"],
+                    service_names=["serviceNames"]
+                )
+            ),
+            evaluation_execution_role_arn="evaluationExecutionRoleArn",
+            evaluators=[bedrockagentcore.CfnOnlineEvaluationConfig.EvaluatorReferenceProperty(
+                evaluator_id="evaluatorId"
+            )],
+            online_evaluation_config_name="onlineEvaluationConfigName",
+            rule=bedrockagentcore.CfnOnlineEvaluationConfig.RuleProperty(
+                sampling_config=bedrockagentcore.CfnOnlineEvaluationConfig.SamplingConfigProperty(
+                    sampling_percentage=123
+                ),
+        
+                # the properties below are optional
+                filters=[bedrockagentcore.CfnOnlineEvaluationConfig.FilterProperty(
+                    key="key",
+                    operator="operator",
+                    value=bedrockagentcore.CfnOnlineEvaluationConfig.FilterValueProperty(
+                        boolean_value=False,
+                        double_value=123,
+                        string_value="stringValue"
+                    )
+                )],
+                session_config=bedrockagentcore.CfnOnlineEvaluationConfig.SessionConfigProperty(
+                    session_timeout_minutes=123
+                )
+            ),
+        
+            # the properties below are optional
+            description="description",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        data_source_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnOnlineEvaluationConfig.DataSourceConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        evaluation_execution_role_arn: builtins.str,
+        evaluators: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOnlineEvaluationConfig.EvaluatorReferenceProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        online_evaluation_config_name: builtins.str,
+        rule: typing.Union["_IResolvable_da3f097b", typing.Union["CfnOnlineEvaluationConfig.RuleProperty", typing.Dict[builtins.str, typing.Any]]],
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::BedrockAgentCore::OnlineEvaluationConfig``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param data_source_config: The configuration that specifies where to read agent traces for online evaluation.
+        :param evaluation_execution_role_arn: The Amazon Resource Name (ARN) of the IAM role that grants permissions for evaluation.
+        :param evaluators: The list of evaluators to apply during online evaluation.
+        :param online_evaluation_config_name: The name of the online evaluation configuration. Must be unique within your account.
+        :param rule: The evaluation rule that defines sampling configuration, filtering criteria, and session detection settings.
+        :param description: The description of the online evaluation configuration.
+        :param tags: A list of tags to assign to the online evaluation configuration.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3aa0e93d03096cdb556ed3eb9ee7b341e52b0d24c88655e4061d5de404c807ed)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnOnlineEvaluationConfigProps(
+            data_source_config=data_source_config,
+            evaluation_execution_role_arn=evaluation_execution_role_arn,
+            evaluators=evaluators,
+            online_evaluation_config_name=online_evaluation_config_name,
+            rule=rule,
+            description=description,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForOnlineEvaluationConfig")
+    @builtins.classmethod
+    def arn_for_online_evaluation_config(
+        cls,
+        resource: "_IOnlineEvaluationConfigRef_cf19cabf",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__90c4c9bc0bd65c4957d82632ee0e6857bd64fa695b00eff8e97cfe4bbb58212a)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForOnlineEvaluationConfig", [resource]))
+
+    @jsii.member(jsii_name="isCfnOnlineEvaluationConfig")
+    @builtins.classmethod
+    def is_cfn_online_evaluation_config(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnOnlineEvaluationConfig.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__197c10ea28d6b7fcd6d734a0f7527f987482843ef77aba73be70ab37f3274a87)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnOnlineEvaluationConfig", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__174e31db4a9e05f32574075e0d5d9ca13a10fd3d3f58880897c11aee769870b3)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2605ec5d933033d8b4e2a10590a11c2b518e3dc4ada8dd7f8cb9fb3b71bfaec1)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''The timestamp when the online evaluation configuration was created.
+
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrExecutionStatus")
+    def attr_execution_status(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: ExecutionStatus
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrExecutionStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrOnlineEvaluationConfigArn")
+    def attr_online_evaluation_config_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the online evaluation configuration.
+
+        :cloudformationAttribute: OnlineEvaluationConfigArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrOnlineEvaluationConfigArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrOnlineEvaluationConfigId")
+    def attr_online_evaluation_config_id(self) -> builtins.str:
+        '''The unique identifier of the online evaluation configuration.
+
+        :cloudformationAttribute: OnlineEvaluationConfigId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrOnlineEvaluationConfigId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrOutputConfig")
+    def attr_output_config(self) -> "_IResolvable_da3f097b":
+        '''The configuration that specifies where evaluation results should be written.
+
+        :cloudformationAttribute: OutputConfig
+        '''
+        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrOutputConfig"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrUpdatedAt")
+    def attr_updated_at(self) -> builtins.str:
+        '''The timestamp when the online evaluation configuration was last updated.
+
+        :cloudformationAttribute: UpdatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrUpdatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="onlineEvaluationConfigRef")
+    def online_evaluation_config_ref(
+        self,
+    ) -> "_OnlineEvaluationConfigReference_13c14f3c":
+        '''A reference to a OnlineEvaluationConfig resource.'''
+        return typing.cast("_OnlineEvaluationConfigReference_13c14f3c", jsii.get(self, "onlineEvaluationConfigRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="dataSourceConfig")
+    def data_source_config(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnOnlineEvaluationConfig.DataSourceConfigProperty"]:
+        '''The configuration that specifies where to read agent traces for online evaluation.'''
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnOnlineEvaluationConfig.DataSourceConfigProperty"], jsii.get(self, "dataSourceConfig"))
+
+    @data_source_config.setter
+    def data_source_config(
+        self,
+        value: typing.Union["_IResolvable_da3f097b", "CfnOnlineEvaluationConfig.DataSourceConfigProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bdec6581e7d868222d3bc0bf43dc993d50bc9f422198fc013c1856f442104865)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "dataSourceConfig", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="evaluationExecutionRoleArn")
+    def evaluation_execution_role_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the IAM role that grants permissions for evaluation.'''
+        return typing.cast(builtins.str, jsii.get(self, "evaluationExecutionRoleArn"))
+
+    @evaluation_execution_role_arn.setter
+    def evaluation_execution_role_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b8f1e9b72c99731112fc077560a4c69257c903d6826ca03adba993e9cafec8e7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "evaluationExecutionRoleArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="evaluators")
+    def evaluators(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnOnlineEvaluationConfig.EvaluatorReferenceProperty"]]]:
+        '''The list of evaluators to apply during online evaluation.'''
+        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnOnlineEvaluationConfig.EvaluatorReferenceProperty"]]], jsii.get(self, "evaluators"))
+
+    @evaluators.setter
+    def evaluators(
+        self,
+        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnOnlineEvaluationConfig.EvaluatorReferenceProperty"]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6203a39418b156df1e66640712fbe71f2ddf1f83ac789902b76160c12690a251)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "evaluators", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="onlineEvaluationConfigName")
+    def online_evaluation_config_name(self) -> builtins.str:
+        '''The name of the online evaluation configuration.'''
+        return typing.cast(builtins.str, jsii.get(self, "onlineEvaluationConfigName"))
+
+    @online_evaluation_config_name.setter
+    def online_evaluation_config_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d075f3152c3d233d71d9aad22ce139f2486815a5e44ccde4015d161724a5efda)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "onlineEvaluationConfigName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="rule")
+    def rule(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnOnlineEvaluationConfig.RuleProperty"]:
+        '''The evaluation rule that defines sampling configuration, filtering criteria, and session detection settings.'''
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnOnlineEvaluationConfig.RuleProperty"], jsii.get(self, "rule"))
+
+    @rule.setter
+    def rule(
+        self,
+        value: typing.Union["_IResolvable_da3f097b", "CfnOnlineEvaluationConfig.RuleProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6cf46c720a151dc4eed5fc818c0539ab15e6aced33ff2153a91d7d9a58b47cc2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "rule", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the online evaluation configuration.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9329e42c1ed6716c18f0ba3ed3c4061991e8232ee68b38584dd695b80a862ccb)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''A list of tags to assign to the online evaluation configuration.'''
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__64aa9583ff086b054a843cddaea1d6ba93b7d4aca2beac24d850e42c20b5bac3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnOnlineEvaluationConfig.CloudWatchLogsInputConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "log_group_names": "logGroupNames",
+            "service_names": "serviceNames",
+        },
+    )
+    class CloudWatchLogsInputConfigProperty:
+        def __init__(
+            self,
+            *,
+            log_group_names: typing.Sequence[builtins.str],
+            service_names: typing.Sequence[builtins.str],
+        ) -> None:
+            '''The configuration for reading agent traces from CloudWatch logs.
+
+            :param log_group_names: The list of CloudWatch log group names to monitor for agent traces.
+            :param service_names: The list of service names to filter traces within the specified log groups.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-onlineevaluationconfig-cloudwatchlogsinputconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                cloud_watch_logs_input_config_property = bedrockagentcore.CfnOnlineEvaluationConfig.CloudWatchLogsInputConfigProperty(
+                    log_group_names=["logGroupNames"],
+                    service_names=["serviceNames"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__06d804c8e6fc6685724ca2260796166f7384dcb1ccbf41dd1fa2700163b0ad02)
+                check_type(argname="argument log_group_names", value=log_group_names, expected_type=type_hints["log_group_names"])
+                check_type(argname="argument service_names", value=service_names, expected_type=type_hints["service_names"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "log_group_names": log_group_names,
+                "service_names": service_names,
+            }
+
+        @builtins.property
+        def log_group_names(self) -> typing.List[builtins.str]:
+            '''The list of CloudWatch log group names to monitor for agent traces.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-onlineevaluationconfig-cloudwatchlogsinputconfig.html#cfn-bedrockagentcore-onlineevaluationconfig-cloudwatchlogsinputconfig-loggroupnames
+            '''
+            result = self._values.get("log_group_names")
+            assert result is not None, "Required property 'log_group_names' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        @builtins.property
+        def service_names(self) -> typing.List[builtins.str]:
+            '''The list of service names to filter traces within the specified log groups.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-onlineevaluationconfig-cloudwatchlogsinputconfig.html#cfn-bedrockagentcore-onlineevaluationconfig-cloudwatchlogsinputconfig-servicenames
+            '''
+            result = self._values.get("service_names")
+            assert result is not None, "Required property 'service_names' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CloudWatchLogsInputConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnOnlineEvaluationConfig.CloudWatchOutputConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"log_group_name": "logGroupName"},
+    )
+    class CloudWatchOutputConfigProperty:
+        def __init__(
+            self,
+            *,
+            log_group_name: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The CloudWatch configuration for writing evaluation results.
+
+            :param log_group_name: The CloudWatch log group name for evaluation results.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-onlineevaluationconfig-cloudwatchoutputconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                cloud_watch_output_config_property = bedrockagentcore.CfnOnlineEvaluationConfig.CloudWatchOutputConfigProperty(
+                    log_group_name="logGroupName"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__9fba0fe46886c9e6934bd149cf7b10f76eeb83adfa2cc2a2020d0587e70423c9)
+                check_type(argname="argument log_group_name", value=log_group_name, expected_type=type_hints["log_group_name"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if log_group_name is not None:
+                self._values["log_group_name"] = log_group_name
+
+        @builtins.property
+        def log_group_name(self) -> typing.Optional[builtins.str]:
+            '''The CloudWatch log group name for evaluation results.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-onlineevaluationconfig-cloudwatchoutputconfig.html#cfn-bedrockagentcore-onlineevaluationconfig-cloudwatchoutputconfig-loggroupname
+            '''
+            result = self._values.get("log_group_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CloudWatchOutputConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnOnlineEvaluationConfig.DataSourceConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"cloud_watch_logs": "cloudWatchLogs"},
+    )
+    class DataSourceConfigProperty:
+        def __init__(
+            self,
+            *,
+            cloud_watch_logs: typing.Union["_IResolvable_da3f097b", typing.Union["CfnOnlineEvaluationConfig.CloudWatchLogsInputConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''The configuration that specifies where to read agent traces for online evaluation.
+
+            :param cloud_watch_logs: The configuration for reading agent traces from CloudWatch logs.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-onlineevaluationconfig-datasourceconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                data_source_config_property = bedrockagentcore.CfnOnlineEvaluationConfig.DataSourceConfigProperty(
+                    cloud_watch_logs=bedrockagentcore.CfnOnlineEvaluationConfig.CloudWatchLogsInputConfigProperty(
+                        log_group_names=["logGroupNames"],
+                        service_names=["serviceNames"]
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__e9e9c1632a43c17755ee22dab7b1cbedd703f1dd6049647d3cdfcc0b43a33016)
+                check_type(argname="argument cloud_watch_logs", value=cloud_watch_logs, expected_type=type_hints["cloud_watch_logs"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "cloud_watch_logs": cloud_watch_logs,
+            }
+
+        @builtins.property
+        def cloud_watch_logs(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnOnlineEvaluationConfig.CloudWatchLogsInputConfigProperty"]:
+            '''The configuration for reading agent traces from CloudWatch logs.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-onlineevaluationconfig-datasourceconfig.html#cfn-bedrockagentcore-onlineevaluationconfig-datasourceconfig-cloudwatchlogs
+            '''
+            result = self._values.get("cloud_watch_logs")
+            assert result is not None, "Required property 'cloud_watch_logs' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnOnlineEvaluationConfig.CloudWatchLogsInputConfigProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DataSourceConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnOnlineEvaluationConfig.EvaluatorReferenceProperty",
+        jsii_struct_bases=[],
+        name_mapping={"evaluator_id": "evaluatorId"},
+    )
+    class EvaluatorReferenceProperty:
+        def __init__(self, *, evaluator_id: builtins.str) -> None:
+            '''The reference to an evaluator used in online evaluation configurations.
+
+            :param evaluator_id: The unique identifier of the evaluator.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-onlineevaluationconfig-evaluatorreference.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                evaluator_reference_property = bedrockagentcore.CfnOnlineEvaluationConfig.EvaluatorReferenceProperty(
+                    evaluator_id="evaluatorId"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__a44db4de7a49610956caf53195620a14d4d68d5a98645ab3f5ff7cb927a9ac54)
+                check_type(argname="argument evaluator_id", value=evaluator_id, expected_type=type_hints["evaluator_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "evaluator_id": evaluator_id,
+            }
+
+        @builtins.property
+        def evaluator_id(self) -> builtins.str:
+            '''The unique identifier of the evaluator.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-onlineevaluationconfig-evaluatorreference.html#cfn-bedrockagentcore-onlineevaluationconfig-evaluatorreference-evaluatorid
+            '''
+            result = self._values.get("evaluator_id")
+            assert result is not None, "Required property 'evaluator_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "EvaluatorReferenceProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnOnlineEvaluationConfig.FilterProperty",
+        jsii_struct_bases=[],
+        name_mapping={"key": "key", "operator": "operator", "value": "value"},
+    )
+    class FilterProperty:
+        def __init__(
+            self,
+            *,
+            key: builtins.str,
+            operator: builtins.str,
+            value: typing.Union["_IResolvable_da3f097b", typing.Union["CfnOnlineEvaluationConfig.FilterValueProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''The filter that applies conditions to agent traces during online evaluation.
+
+            :param key: The key or field name to filter on within the agent trace data.
+            :param operator: The comparison operator to use for filtering.
+            :param value: The value used in filter comparisons.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-onlineevaluationconfig-filter.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                filter_property = bedrockagentcore.CfnOnlineEvaluationConfig.FilterProperty(
+                    key="key",
+                    operator="operator",
+                    value=bedrockagentcore.CfnOnlineEvaluationConfig.FilterValueProperty(
+                        boolean_value=False,
+                        double_value=123,
+                        string_value="stringValue"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__f3af31c16195143a16e0eb30f3c7e34f8a0807321ad86daeb9e4fc31e3f37d3d)
+                check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+                check_type(argname="argument operator", value=operator, expected_type=type_hints["operator"])
+                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "key": key,
+                "operator": operator,
+                "value": value,
+            }
+
+        @builtins.property
+        def key(self) -> builtins.str:
+            '''The key or field name to filter on within the agent trace data.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-onlineevaluationconfig-filter.html#cfn-bedrockagentcore-onlineevaluationconfig-filter-key
+            '''
+            result = self._values.get("key")
+            assert result is not None, "Required property 'key' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def operator(self) -> builtins.str:
+            '''The comparison operator to use for filtering.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-onlineevaluationconfig-filter.html#cfn-bedrockagentcore-onlineevaluationconfig-filter-operator
+            '''
+            result = self._values.get("operator")
+            assert result is not None, "Required property 'operator' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def value(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnOnlineEvaluationConfig.FilterValueProperty"]:
+            '''The value used in filter comparisons.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-onlineevaluationconfig-filter.html#cfn-bedrockagentcore-onlineevaluationconfig-filter-value
+            '''
+            result = self._values.get("value")
+            assert result is not None, "Required property 'value' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnOnlineEvaluationConfig.FilterValueProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "FilterProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnOnlineEvaluationConfig.FilterValueProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "boolean_value": "booleanValue",
+            "double_value": "doubleValue",
+            "string_value": "stringValue",
+        },
+    )
+    class FilterValueProperty:
+        def __init__(
+            self,
+            *,
+            boolean_value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            double_value: typing.Optional[jsii.Number] = None,
+            string_value: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The value used in filter comparisons.
+
+            :param boolean_value: The boolean value for true/false filtering conditions.
+            :param double_value: The numeric value for numerical filtering.
+            :param string_value: The string value for text-based filtering.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-onlineevaluationconfig-filtervalue.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                filter_value_property = bedrockagentcore.CfnOnlineEvaluationConfig.FilterValueProperty(
+                    boolean_value=False,
+                    double_value=123,
+                    string_value="stringValue"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__0b42f86596813ff2e3e66267d5100485bb51a02b655555985649c33361c96f19)
+                check_type(argname="argument boolean_value", value=boolean_value, expected_type=type_hints["boolean_value"])
+                check_type(argname="argument double_value", value=double_value, expected_type=type_hints["double_value"])
+                check_type(argname="argument string_value", value=string_value, expected_type=type_hints["string_value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if boolean_value is not None:
+                self._values["boolean_value"] = boolean_value
+            if double_value is not None:
+                self._values["double_value"] = double_value
+            if string_value is not None:
+                self._values["string_value"] = string_value
+
+        @builtins.property
+        def boolean_value(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+            '''The boolean value for true/false filtering conditions.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-onlineevaluationconfig-filtervalue.html#cfn-bedrockagentcore-onlineevaluationconfig-filtervalue-booleanvalue
+            '''
+            result = self._values.get("boolean_value")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+        @builtins.property
+        def double_value(self) -> typing.Optional[jsii.Number]:
+            '''The numeric value for numerical filtering.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-onlineevaluationconfig-filtervalue.html#cfn-bedrockagentcore-onlineevaluationconfig-filtervalue-doublevalue
+            '''
+            result = self._values.get("double_value")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def string_value(self) -> typing.Optional[builtins.str]:
+            '''The string value for text-based filtering.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-onlineevaluationconfig-filtervalue.html#cfn-bedrockagentcore-onlineevaluationconfig-filtervalue-stringvalue
+            '''
+            result = self._values.get("string_value")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "FilterValueProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnOnlineEvaluationConfig.OutputConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"cloud_watch_config": "cloudWatchConfig"},
+    )
+    class OutputConfigProperty:
+        def __init__(
+            self,
+            *,
+            cloud_watch_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOnlineEvaluationConfig.CloudWatchOutputConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''The configuration that specifies where evaluation results should be written.
+
+            :param cloud_watch_config: The CloudWatch configuration for writing evaluation results.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-onlineevaluationconfig-outputconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                output_config_property = bedrockagentcore.CfnOnlineEvaluationConfig.OutputConfigProperty(
+                    cloud_watch_config=bedrockagentcore.CfnOnlineEvaluationConfig.CloudWatchOutputConfigProperty(
+                        log_group_name="logGroupName"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__901f04239ac1d631f611bae7e5b46abe7106c2310714eeae85eb20759dad8182)
+                check_type(argname="argument cloud_watch_config", value=cloud_watch_config, expected_type=type_hints["cloud_watch_config"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if cloud_watch_config is not None:
+                self._values["cloud_watch_config"] = cloud_watch_config
+
+        @builtins.property
+        def cloud_watch_config(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOnlineEvaluationConfig.CloudWatchOutputConfigProperty"]]:
+            '''The CloudWatch configuration for writing evaluation results.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-onlineevaluationconfig-outputconfig.html#cfn-bedrockagentcore-onlineevaluationconfig-outputconfig-cloudwatchconfig
+            '''
+            result = self._values.get("cloud_watch_config")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOnlineEvaluationConfig.CloudWatchOutputConfigProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "OutputConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnOnlineEvaluationConfig.RuleProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "sampling_config": "samplingConfig",
+            "filters": "filters",
+            "session_config": "sessionConfig",
+        },
+    )
+    class RuleProperty:
+        def __init__(
+            self,
+            *,
+            sampling_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnOnlineEvaluationConfig.SamplingConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+            filters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOnlineEvaluationConfig.FilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            session_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOnlineEvaluationConfig.SessionConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''The evaluation rule that defines sampling configuration, filtering criteria, and session detection settings.
+
+            :param sampling_config: The configuration that controls what percentage of agent traces are sampled for evaluation.
+            :param filters: The list of filters that determine which agent traces should be included in the evaluation.
+            :param session_config: The configuration that defines how agent sessions are detected.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-onlineevaluationconfig-rule.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                rule_property = bedrockagentcore.CfnOnlineEvaluationConfig.RuleProperty(
+                    sampling_config=bedrockagentcore.CfnOnlineEvaluationConfig.SamplingConfigProperty(
+                        sampling_percentage=123
+                    ),
+                
+                    # the properties below are optional
+                    filters=[bedrockagentcore.CfnOnlineEvaluationConfig.FilterProperty(
+                        key="key",
+                        operator="operator",
+                        value=bedrockagentcore.CfnOnlineEvaluationConfig.FilterValueProperty(
+                            boolean_value=False,
+                            double_value=123,
+                            string_value="stringValue"
+                        )
+                    )],
+                    session_config=bedrockagentcore.CfnOnlineEvaluationConfig.SessionConfigProperty(
+                        session_timeout_minutes=123
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__4d26dc57868bb2276aa712667113ed9c9d243f98c5821e624a9c99a224d918c0)
+                check_type(argname="argument sampling_config", value=sampling_config, expected_type=type_hints["sampling_config"])
+                check_type(argname="argument filters", value=filters, expected_type=type_hints["filters"])
+                check_type(argname="argument session_config", value=session_config, expected_type=type_hints["session_config"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "sampling_config": sampling_config,
+            }
+            if filters is not None:
+                self._values["filters"] = filters
+            if session_config is not None:
+                self._values["session_config"] = session_config
+
+        @builtins.property
+        def sampling_config(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnOnlineEvaluationConfig.SamplingConfigProperty"]:
+            '''The configuration that controls what percentage of agent traces are sampled for evaluation.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-onlineevaluationconfig-rule.html#cfn-bedrockagentcore-onlineevaluationconfig-rule-samplingconfig
+            '''
+            result = self._values.get("sampling_config")
+            assert result is not None, "Required property 'sampling_config' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnOnlineEvaluationConfig.SamplingConfigProperty"], result)
+
+        @builtins.property
+        def filters(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnOnlineEvaluationConfig.FilterProperty"]]]]:
+            '''The list of filters that determine which agent traces should be included in the evaluation.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-onlineevaluationconfig-rule.html#cfn-bedrockagentcore-onlineevaluationconfig-rule-filters
+            '''
+            result = self._values.get("filters")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnOnlineEvaluationConfig.FilterProperty"]]]], result)
+
+        @builtins.property
+        def session_config(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOnlineEvaluationConfig.SessionConfigProperty"]]:
+            '''The configuration that defines how agent sessions are detected.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-onlineevaluationconfig-rule.html#cfn-bedrockagentcore-onlineevaluationconfig-rule-sessionconfig
+            '''
+            result = self._values.get("session_config")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOnlineEvaluationConfig.SessionConfigProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RuleProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnOnlineEvaluationConfig.SamplingConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"sampling_percentage": "samplingPercentage"},
+    )
+    class SamplingConfigProperty:
+        def __init__(self, *, sampling_percentage: jsii.Number) -> None:
+            '''The configuration that controls what percentage of agent traces are sampled for evaluation.
+
+            :param sampling_percentage: The percentage of agent traces to sample for evaluation.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-onlineevaluationconfig-samplingconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                sampling_config_property = bedrockagentcore.CfnOnlineEvaluationConfig.SamplingConfigProperty(
+                    sampling_percentage=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__1e4b82a47eb409b6be018392f32b388af0c03327656d5cdcf118e6dff7977b6f)
+                check_type(argname="argument sampling_percentage", value=sampling_percentage, expected_type=type_hints["sampling_percentage"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "sampling_percentage": sampling_percentage,
+            }
+
+        @builtins.property
+        def sampling_percentage(self) -> jsii.Number:
+            '''The percentage of agent traces to sample for evaluation.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-onlineevaluationconfig-samplingconfig.html#cfn-bedrockagentcore-onlineevaluationconfig-samplingconfig-samplingpercentage
+            '''
+            result = self._values.get("sampling_percentage")
+            assert result is not None, "Required property 'sampling_percentage' is missing"
+            return typing.cast(jsii.Number, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SamplingConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnOnlineEvaluationConfig.SessionConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"session_timeout_minutes": "sessionTimeoutMinutes"},
+    )
+    class SessionConfigProperty:
+        def __init__(self, *, session_timeout_minutes: jsii.Number) -> None:
+            '''The configuration that defines how agent sessions are detected.
+
+            :param session_timeout_minutes: The number of minutes of inactivity after which an agent session is considered complete.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-onlineevaluationconfig-sessionconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                session_config_property = bedrockagentcore.CfnOnlineEvaluationConfig.SessionConfigProperty(
+                    session_timeout_minutes=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__a2e489fef922673116efb3ad1b62ccdb82d7343318d520456ba5e2d6e89b2afb)
+                check_type(argname="argument session_timeout_minutes", value=session_timeout_minutes, expected_type=type_hints["session_timeout_minutes"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "session_timeout_minutes": session_timeout_minutes,
+            }
+
+        @builtins.property
+        def session_timeout_minutes(self) -> jsii.Number:
+            '''The number of minutes of inactivity after which an agent session is considered complete.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-onlineevaluationconfig-sessionconfig.html#cfn-bedrockagentcore-onlineevaluationconfig-sessionconfig-sessiontimeoutminutes
+            '''
+            result = self._values.get("session_timeout_minutes")
+            assert result is not None, "Required property 'session_timeout_minutes' is missing"
+            return typing.cast(jsii.Number, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SessionConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnOnlineEvaluationConfigProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "data_source_config": "dataSourceConfig",
+        "evaluation_execution_role_arn": "evaluationExecutionRoleArn",
+        "evaluators": "evaluators",
+        "online_evaluation_config_name": "onlineEvaluationConfigName",
+        "rule": "rule",
+        "description": "description",
+        "tags": "tags",
+    },
+)
+class CfnOnlineEvaluationConfigProps:
+    def __init__(
+        self,
+        *,
+        data_source_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnOnlineEvaluationConfig.DataSourceConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        evaluation_execution_role_arn: builtins.str,
+        evaluators: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOnlineEvaluationConfig.EvaluatorReferenceProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        online_evaluation_config_name: builtins.str,
+        rule: typing.Union["_IResolvable_da3f097b", typing.Union["CfnOnlineEvaluationConfig.RuleProperty", typing.Dict[builtins.str, typing.Any]]],
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnOnlineEvaluationConfig``.
+
+        :param data_source_config: The configuration that specifies where to read agent traces for online evaluation.
+        :param evaluation_execution_role_arn: The Amazon Resource Name (ARN) of the IAM role that grants permissions for evaluation.
+        :param evaluators: The list of evaluators to apply during online evaluation.
+        :param online_evaluation_config_name: The name of the online evaluation configuration. Must be unique within your account.
+        :param rule: The evaluation rule that defines sampling configuration, filtering criteria, and session detection settings.
+        :param description: The description of the online evaluation configuration.
+        :param tags: A list of tags to assign to the online evaluation configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-onlineevaluationconfig.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+            
+            cfn_online_evaluation_config_props = bedrockagentcore.CfnOnlineEvaluationConfigProps(
+                data_source_config=bedrockagentcore.CfnOnlineEvaluationConfig.DataSourceConfigProperty(
+                    cloud_watch_logs=bedrockagentcore.CfnOnlineEvaluationConfig.CloudWatchLogsInputConfigProperty(
+                        log_group_names=["logGroupNames"],
+                        service_names=["serviceNames"]
+                    )
+                ),
+                evaluation_execution_role_arn="evaluationExecutionRoleArn",
+                evaluators=[bedrockagentcore.CfnOnlineEvaluationConfig.EvaluatorReferenceProperty(
+                    evaluator_id="evaluatorId"
+                )],
+                online_evaluation_config_name="onlineEvaluationConfigName",
+                rule=bedrockagentcore.CfnOnlineEvaluationConfig.RuleProperty(
+                    sampling_config=bedrockagentcore.CfnOnlineEvaluationConfig.SamplingConfigProperty(
+                        sampling_percentage=123
+                    ),
+            
+                    # the properties below are optional
+                    filters=[bedrockagentcore.CfnOnlineEvaluationConfig.FilterProperty(
+                        key="key",
+                        operator="operator",
+                        value=bedrockagentcore.CfnOnlineEvaluationConfig.FilterValueProperty(
+                            boolean_value=False,
+                            double_value=123,
+                            string_value="stringValue"
+                        )
+                    )],
+                    session_config=bedrockagentcore.CfnOnlineEvaluationConfig.SessionConfigProperty(
+                        session_timeout_minutes=123
+                    )
+                ),
+            
+                # the properties below are optional
+                description="description",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0027d3063b3949a340eab6076bb9ce68daa108d23e44efbf30f9a1211d0261e5)
+            check_type(argname="argument data_source_config", value=data_source_config, expected_type=type_hints["data_source_config"])
+            check_type(argname="argument evaluation_execution_role_arn", value=evaluation_execution_role_arn, expected_type=type_hints["evaluation_execution_role_arn"])
+            check_type(argname="argument evaluators", value=evaluators, expected_type=type_hints["evaluators"])
+            check_type(argname="argument online_evaluation_config_name", value=online_evaluation_config_name, expected_type=type_hints["online_evaluation_config_name"])
+            check_type(argname="argument rule", value=rule, expected_type=type_hints["rule"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "data_source_config": data_source_config,
+            "evaluation_execution_role_arn": evaluation_execution_role_arn,
+            "evaluators": evaluators,
+            "online_evaluation_config_name": online_evaluation_config_name,
+            "rule": rule,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def data_source_config(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnOnlineEvaluationConfig.DataSourceConfigProperty"]:
+        '''The configuration that specifies where to read agent traces for online evaluation.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-onlineevaluationconfig.html#cfn-bedrockagentcore-onlineevaluationconfig-datasourceconfig
+        '''
+        result = self._values.get("data_source_config")
+        assert result is not None, "Required property 'data_source_config' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnOnlineEvaluationConfig.DataSourceConfigProperty"], result)
+
+    @builtins.property
+    def evaluation_execution_role_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the IAM role that grants permissions for evaluation.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-onlineevaluationconfig.html#cfn-bedrockagentcore-onlineevaluationconfig-evaluationexecutionrolearn
+        '''
+        result = self._values.get("evaluation_execution_role_arn")
+        assert result is not None, "Required property 'evaluation_execution_role_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def evaluators(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnOnlineEvaluationConfig.EvaluatorReferenceProperty"]]]:
+        '''The list of evaluators to apply during online evaluation.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-onlineevaluationconfig.html#cfn-bedrockagentcore-onlineevaluationconfig-evaluators
+        '''
+        result = self._values.get("evaluators")
+        assert result is not None, "Required property 'evaluators' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnOnlineEvaluationConfig.EvaluatorReferenceProperty"]]], result)
+
+    @builtins.property
+    def online_evaluation_config_name(self) -> builtins.str:
+        '''The name of the online evaluation configuration.
+
+        Must be unique within your account.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-onlineevaluationconfig.html#cfn-bedrockagentcore-onlineevaluationconfig-onlineevaluationconfigname
+        '''
+        result = self._values.get("online_evaluation_config_name")
+        assert result is not None, "Required property 'online_evaluation_config_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def rule(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnOnlineEvaluationConfig.RuleProperty"]:
+        '''The evaluation rule that defines sampling configuration, filtering criteria, and session detection settings.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-onlineevaluationconfig.html#cfn-bedrockagentcore-onlineevaluationconfig-rule
+        '''
+        result = self._values.get("rule")
+        assert result is not None, "Required property 'rule' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnOnlineEvaluationConfig.RuleProperty"], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the online evaluation configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-onlineevaluationconfig.html#cfn-bedrockagentcore-onlineevaluationconfig-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''A list of tags to assign to the online evaluation configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-onlineevaluationconfig.html#cfn-bedrockagentcore-onlineevaluationconfig-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnOnlineEvaluationConfigProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IPolicyRef_ceb8b108)
+class CfnPolicy(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnPolicy",
+):
+    '''Resource Type definition for AWS::BedrockAgentCore::Policy.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-policy.html
+    :cloudformationResource: AWS::BedrockAgentCore::Policy
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+        
+        cfn_policy = bedrockagentcore.CfnPolicy(self, "MyCfnPolicy",
+            definition=bedrockagentcore.CfnPolicy.PolicyDefinitionProperty(
+                cedar=bedrockagentcore.CfnPolicy.CedarPolicyProperty(
+                    statement="statement"
+                )
+            ),
+            name="name",
+            policy_engine_id="policyEngineId",
+        
+            # the properties below are optional
+            description="description",
+            validation_mode="validationMode"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        definition: typing.Union["_IResolvable_da3f097b", typing.Union["CfnPolicy.PolicyDefinitionProperty", typing.Dict[builtins.str, typing.Any]]],
+        name: builtins.str,
+        policy_engine_id: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        validation_mode: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Create a new ``AWS::BedrockAgentCore::Policy``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param definition: The definition structure for policies. Encapsulates different policy formats.
+        :param name: The customer-assigned immutable name for the policy. Must be unique within the policy engine.
+        :param policy_engine_id: The identifier of the policy engine which contains this policy.
+        :param description: A human-readable description of the policy's purpose and functionality.
+        :param validation_mode: The validation mode for the policy. Determines how Cedar analyzer validation results are handled.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a0df0ec34c1700a2fd80d71aa113459b1f257b8a6040e2dac1057827afc8f5d2)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnPolicyProps(
+            definition=definition,
+            name=name,
+            policy_engine_id=policy_engine_id,
+            description=description,
+            validation_mode=validation_mode,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForPolicy")
+    @builtins.classmethod
+    def arn_for_policy(cls, resource: "_IPolicyRef_ceb8b108") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1a816e5e2df5c6422bb1b1425f808d869fb6346315014ecb535bc6ef61807b51)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForPolicy", [resource]))
+
+    @jsii.member(jsii_name="isCfnPolicy")
+    @builtins.classmethod
+    def is_cfn_policy(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnPolicy.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8e91554c5d78a87cee0dcc173750b965564cc04c6f7914d1203eda44a959ddbe)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnPolicy", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__60ea8f973b55390f2cec1d7d6883b362c9bcebcabd3ad90203d8003b259cc15a)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__90aa01410268a0a9b8329f1730f233722091722e470d4250502fb81196d7aaa9)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''The timestamp when the policy was created.
+
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrPolicyArn")
+    def attr_policy_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the policy.
+
+        :cloudformationAttribute: PolicyArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrPolicyArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrPolicyId")
+    def attr_policy_id(self) -> builtins.str:
+        '''The unique identifier for the policy.
+
+        :cloudformationAttribute: PolicyId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrPolicyId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatusReasons")
+    def attr_status_reasons(self) -> typing.List[builtins.str]:
+        '''Additional information about the policy status.
+
+        :cloudformationAttribute: StatusReasons
+        '''
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "attrStatusReasons"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrUpdatedAt")
+    def attr_updated_at(self) -> builtins.str:
+        '''The timestamp when the policy was last updated.
+
+        :cloudformationAttribute: UpdatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrUpdatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="policyRef")
+    def policy_ref(self) -> "_PolicyReference_d2f6bd10":
+        '''A reference to a Policy resource.'''
+        return typing.cast("_PolicyReference_d2f6bd10", jsii.get(self, "policyRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="definition")
+    def definition(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnPolicy.PolicyDefinitionProperty"]:
+        '''The definition structure for policies.'''
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnPolicy.PolicyDefinitionProperty"], jsii.get(self, "definition"))
+
+    @definition.setter
+    def definition(
+        self,
+        value: typing.Union["_IResolvable_da3f097b", "CfnPolicy.PolicyDefinitionProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__50b7eef4611f94f2995d764a972bab6f09b1ad87de0e3c55ef05b5ef7a2ce77f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "definition", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The customer-assigned immutable name for the policy.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2fb243c83cba8b4cece81df4ce8b043bd043afc8a22739fa364e09cb5a0172a7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="policyEngineId")
+    def policy_engine_id(self) -> builtins.str:
+        '''The identifier of the policy engine which contains this policy.'''
+        return typing.cast(builtins.str, jsii.get(self, "policyEngineId"))
+
+    @policy_engine_id.setter
+    def policy_engine_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__60f6d37f81d7766e81b7e5afe51a2b3830f091c1efc676ca8f71909ca61dc2c9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "policyEngineId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A human-readable description of the policy's purpose and functionality.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__76a62df0bf0572336e2f28e5a6426bde1f261612e5e0c84a7839f62c6771062a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="validationMode")
+    def validation_mode(self) -> typing.Optional[builtins.str]:
+        '''The validation mode for the policy.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "validationMode"))
+
+    @validation_mode.setter
+    def validation_mode(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e182f5e6fcaeb9a8106b8902eb058d4494505efd524ef30250a9e7b351ecbca9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "validationMode", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnPolicy.CedarPolicyProperty",
+        jsii_struct_bases=[],
+        name_mapping={"statement": "statement"},
+    )
+    class CedarPolicyProperty:
+        def __init__(self, *, statement: builtins.str) -> None:
+            '''A Cedar policy statement within the AgentCore Policy system.
+
+            :param statement: The Cedar policy statement that defines the authorization logic.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-policy-cedarpolicy.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                cedar_policy_property = bedrockagentcore.CfnPolicy.CedarPolicyProperty(
+                    statement="statement"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__dd4c98edc5615559914b5f68ccb2078c51b044946e201c8db3860329b3824d87)
+                check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "statement": statement,
+            }
+
+        @builtins.property
+        def statement(self) -> builtins.str:
+            '''The Cedar policy statement that defines the authorization logic.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-policy-cedarpolicy.html#cfn-bedrockagentcore-policy-cedarpolicy-statement
+            '''
+            result = self._values.get("statement")
+            assert result is not None, "Required property 'statement' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CedarPolicyProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnPolicy.PolicyDefinitionProperty",
+        jsii_struct_bases=[],
+        name_mapping={"cedar": "cedar"},
+    )
+    class PolicyDefinitionProperty:
+        def __init__(
+            self,
+            *,
+            cedar: typing.Union["_IResolvable_da3f097b", typing.Union["CfnPolicy.CedarPolicyProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''The definition structure for policies.
+
+            Encapsulates different policy formats.
+
+            :param cedar: A Cedar policy statement within the AgentCore Policy system.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-policy-policydefinition.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                policy_definition_property = bedrockagentcore.CfnPolicy.PolicyDefinitionProperty(
+                    cedar=bedrockagentcore.CfnPolicy.CedarPolicyProperty(
+                        statement="statement"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__f6794e02be8a07b494523ce530bdb5da6ec840b4e6342043fc96304f1d964632)
+                check_type(argname="argument cedar", value=cedar, expected_type=type_hints["cedar"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "cedar": cedar,
+            }
+
+        @builtins.property
+        def cedar(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnPolicy.CedarPolicyProperty"]:
+            '''A Cedar policy statement within the AgentCore Policy system.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-policy-policydefinition.html#cfn-bedrockagentcore-policy-policydefinition-cedar
+            '''
+            result = self._values.get("cedar")
+            assert result is not None, "Required property 'cedar' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnPolicy.CedarPolicyProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PolicyDefinitionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.implements(_IInspectable_c2943556, _IPolicyEngineRef_6d885cfc, _ITaggableV2_4e6798f8)
+class CfnPolicyEngine(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnPolicyEngine",
+):
+    '''Resource Type definition for AWS::BedrockAgentCore::PolicyEngine.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-policyengine.html
+    :cloudformationResource: AWS::BedrockAgentCore::PolicyEngine
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+        
+        cfn_policy_engine = bedrockagentcore.CfnPolicyEngine(self, "MyCfnPolicyEngine",
+            name="name",
+        
+            # the properties below are optional
+            description="description",
+            encryption_key_arn="encryptionKeyArn",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        encryption_key_arn: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::BedrockAgentCore::PolicyEngine``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param name: The customer-assigned immutable name for the policy engine.
+        :param description: A human-readable description of the policy engine's purpose and scope.
+        :param encryption_key_arn: The ARN of the KMS key used to encrypt the policy engine data.
+        :param tags: A list of tags to assign to the policy engine.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c4684b4b63ba85bd5dc7e5f6733555e789f7d88f65ee00f5c487dfa126d7d66a)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnPolicyEngineProps(
+            name=name,
+            description=description,
+            encryption_key_arn=encryption_key_arn,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForPolicyEngine")
+    @builtins.classmethod
+    def arn_for_policy_engine(
+        cls,
+        resource: "_IPolicyEngineRef_6d885cfc",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8d723add61d7456bc287abcb7c2d34c95e4a9b40b0262b2e977f594db1e112a7)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForPolicyEngine", [resource]))
+
+    @jsii.member(jsii_name="isCfnPolicyEngine")
+    @builtins.classmethod
+    def is_cfn_policy_engine(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnPolicyEngine.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__59e6805c5178d527b1123a3cbf1f0ed0ac21a3f1c2183a86f13cf97df9dfd42d)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnPolicyEngine", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__99bc04a5a5e66cb6d659f81b4ca399b70db0cc9d00d7826dba5b19ac18eb3320)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a640866ee40ff74b9b0ee9128a48548073cba59e18f794d91bbf0866e5b9aa8a)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''The timestamp when the policy engine was created.
+
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrPolicyEngineArn")
+    def attr_policy_engine_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the policy engine.
+
+        :cloudformationAttribute: PolicyEngineArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrPolicyEngineArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrPolicyEngineId")
+    def attr_policy_engine_id(self) -> builtins.str:
+        '''The unique identifier for the policy engine.
+
+        :cloudformationAttribute: PolicyEngineId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrPolicyEngineId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatusReasons")
+    def attr_status_reasons(self) -> typing.List[builtins.str]:
+        '''Additional information about the policy engine status.
+
+        :cloudformationAttribute: StatusReasons
+        '''
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "attrStatusReasons"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrUpdatedAt")
+    def attr_updated_at(self) -> builtins.str:
+        '''The timestamp when the policy engine was last updated.
+
+        :cloudformationAttribute: UpdatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrUpdatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="policyEngineRef")
+    def policy_engine_ref(self) -> "_PolicyEngineReference_471db68b":
+        '''A reference to a PolicyEngine resource.'''
+        return typing.cast("_PolicyEngineReference_471db68b", jsii.get(self, "policyEngineRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The customer-assigned immutable name for the policy engine.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__35ac69c1793e7303c1dfe586ac140b18e9794de8ad51c5575ee3590b2e81efb5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A human-readable description of the policy engine's purpose and scope.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__21dd4fe5af219c86bdbd3e23a682d03cc71ff9b8174dae386145a37d5c2f867e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="encryptionKeyArn")
+    def encryption_key_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the KMS key used to encrypt the policy engine data.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "encryptionKeyArn"))
+
+    @encryption_key_arn.setter
+    def encryption_key_arn(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8d9709f935befd653e89210289122143b738739fbfeed30480fbdd76a67d0042)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "encryptionKeyArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''A list of tags to assign to the policy engine.'''
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2a9c73af7cca4aa195504171baebe7bcb53d06bd21f6e242c33bf4700692135d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnPolicyEngineProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "description": "description",
+        "encryption_key_arn": "encryptionKeyArn",
+        "tags": "tags",
+    },
+)
+class CfnPolicyEngineProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        encryption_key_arn: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnPolicyEngine``.
+
+        :param name: The customer-assigned immutable name for the policy engine.
+        :param description: A human-readable description of the policy engine's purpose and scope.
+        :param encryption_key_arn: The ARN of the KMS key used to encrypt the policy engine data.
+        :param tags: A list of tags to assign to the policy engine.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-policyengine.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+            
+            cfn_policy_engine_props = bedrockagentcore.CfnPolicyEngineProps(
+                name="name",
+            
+                # the properties below are optional
+                description="description",
+                encryption_key_arn="encryptionKeyArn",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__743592ad2798d644b313c682b278dfac01eb5a93d7b7fe59943eaddab0ca5a1f)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument encryption_key_arn", value=encryption_key_arn, expected_type=type_hints["encryption_key_arn"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if encryption_key_arn is not None:
+            self._values["encryption_key_arn"] = encryption_key_arn
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The customer-assigned immutable name for the policy engine.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-policyengine.html#cfn-bedrockagentcore-policyengine-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A human-readable description of the policy engine's purpose and scope.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-policyengine.html#cfn-bedrockagentcore-policyengine-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def encryption_key_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the KMS key used to encrypt the policy engine data.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-policyengine.html#cfn-bedrockagentcore-policyengine-encryptionkeyarn
+        '''
+        result = self._values.get("encryption_key_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''A list of tags to assign to the policy engine.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-policyengine.html#cfn-bedrockagentcore-policyengine-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnPolicyEngineProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnPolicyProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "definition": "definition",
+        "name": "name",
+        "policy_engine_id": "policyEngineId",
+        "description": "description",
+        "validation_mode": "validationMode",
+    },
+)
+class CfnPolicyProps:
+    def __init__(
+        self,
+        *,
+        definition: typing.Union["_IResolvable_da3f097b", typing.Union["CfnPolicy.PolicyDefinitionProperty", typing.Dict[builtins.str, typing.Any]]],
+        name: builtins.str,
+        policy_engine_id: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        validation_mode: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnPolicy``.
+
+        :param definition: The definition structure for policies. Encapsulates different policy formats.
+        :param name: The customer-assigned immutable name for the policy. Must be unique within the policy engine.
+        :param policy_engine_id: The identifier of the policy engine which contains this policy.
+        :param description: A human-readable description of the policy's purpose and functionality.
+        :param validation_mode: The validation mode for the policy. Determines how Cedar analyzer validation results are handled.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-policy.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+            
+            cfn_policy_props = bedrockagentcore.CfnPolicyProps(
+                definition=bedrockagentcore.CfnPolicy.PolicyDefinitionProperty(
+                    cedar=bedrockagentcore.CfnPolicy.CedarPolicyProperty(
+                        statement="statement"
+                    )
+                ),
+                name="name",
+                policy_engine_id="policyEngineId",
+            
+                # the properties below are optional
+                description="description",
+                validation_mode="validationMode"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__95094990d09b6f6bc15ab83744a973bf7541ebc86b713d23c0165d6234555308)
+            check_type(argname="argument definition", value=definition, expected_type=type_hints["definition"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument policy_engine_id", value=policy_engine_id, expected_type=type_hints["policy_engine_id"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument validation_mode", value=validation_mode, expected_type=type_hints["validation_mode"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "definition": definition,
+            "name": name,
+            "policy_engine_id": policy_engine_id,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if validation_mode is not None:
+            self._values["validation_mode"] = validation_mode
+
+    @builtins.property
+    def definition(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnPolicy.PolicyDefinitionProperty"]:
+        '''The definition structure for policies.
+
+        Encapsulates different policy formats.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-policy.html#cfn-bedrockagentcore-policy-definition
+        '''
+        result = self._values.get("definition")
+        assert result is not None, "Required property 'definition' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnPolicy.PolicyDefinitionProperty"], result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The customer-assigned immutable name for the policy.
+
+        Must be unique within the policy engine.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-policy.html#cfn-bedrockagentcore-policy-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def policy_engine_id(self) -> builtins.str:
+        '''The identifier of the policy engine which contains this policy.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-policy.html#cfn-bedrockagentcore-policy-policyengineid
+        '''
+        result = self._values.get("policy_engine_id")
+        assert result is not None, "Required property 'policy_engine_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A human-readable description of the policy's purpose and functionality.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-policy.html#cfn-bedrockagentcore-policy-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def validation_mode(self) -> typing.Optional[builtins.str]:
+        '''The validation mode for the policy.
+
+        Determines how Cedar analyzer validation results are handled.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-policy.html#cfn-bedrockagentcore-policy-validationmode
+        '''
+        result = self._values.get("validation_mode")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnPolicyProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_IInspectable_c2943556, _IRuntimeRef_00302e12, _ITaggableV2_4e6798f8)
 class CfnRuntime(
     _CfnResource_9df397a6,
@@ -11922,14 +15502,24 @@ class CfnWorkloadIdentityProps:
 __all__ = [
     "CfnBrowserCustom",
     "CfnBrowserCustomProps",
+    "CfnBrowserProfile",
+    "CfnBrowserProfileProps",
     "CfnCodeInterpreterCustom",
     "CfnCodeInterpreterCustomProps",
+    "CfnEvaluator",
+    "CfnEvaluatorProps",
     "CfnGateway",
     "CfnGatewayProps",
     "CfnGatewayTarget",
     "CfnGatewayTargetProps",
     "CfnMemory",
     "CfnMemoryProps",
+    "CfnOnlineEvaluationConfig",
+    "CfnOnlineEvaluationConfigProps",
+    "CfnPolicy",
+    "CfnPolicyEngine",
+    "CfnPolicyEngineProps",
+    "CfnPolicyProps",
     "CfnRuntime",
     "CfnRuntimeEndpoint",
     "CfnRuntimeEndpointProps",
@@ -12089,6 +15679,68 @@ def _typecheckingstub__08f9adb5e20b52bbdc47438decbd54e3ebb4b1976cbf46432a19597fc
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__7473f1faa9bfc03705a3d4572354312e5dd4b5bb47ae1b3a9a2ca09618c09558(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cdecc7ab99fa67b91a7bb897ed0d5da420e0fc98db0e44fb43c5e4573c36e7a2(
+    resource: _IBrowserProfileRef_87a4b1a8,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ade26e9a57cff73b5718f778b22e6e84dde0ded65b13a8b5acef370b2ee67804(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5babb21bf2a8458092196b97ee681b85e69bab2ae47419298b051be21a395742(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__97ccc42c3721a989048610856613cdee96f1a401698e93e9abda9a99b25f14f3(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ae6651c726fc48203e39af1e8661928e84a4323ff2a0d8a55574653b31bf76d0(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d1b17f49e9d7bf2a0d0045e14abceca289c01f8a4b4a4f70e5297e2aa8cef7d3(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6885ed668d838f82c9f283a9d7037bb9609ab538bb3bce79981a0e79df9f52b6(
+    value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__06ddbf18be8902484b8315b3f45a334e6e9cddb8b83448c8197da614062d18ee(
+    *,
+    name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__1aaa167a6af98d626969b5bd2de9377658de4e8d04df0b48dc5916f9e503a029(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -12195,6 +15847,150 @@ def _typecheckingstub__5b5217aa9ccd0ec964b92c3a48855bb1494914c435606fcee5b0faefd
     description: typing.Optional[builtins.str] = None,
     execution_role_arn: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__141b6fd05e9e051e0fb07fbc9903cbc471c6f95bd2ce599524db7f08eb59d089(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    evaluator_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnEvaluator.EvaluatorConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    evaluator_name: builtins.str,
+    level: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f2241f7871310f76bc950be554b9e50e0182d60385049f460dfd13459d3e0757(
+    resource: _IEvaluatorRef_21d364d2,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__24f5b2764d1f145a52271003ddf7f12ab5fc8df06fcd5d57f8407543371dd7cc(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e88dc5c3acd247cf0c5817871be6840db2e01fa9976082dea7654fb298e73dd3(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a74e1010c78d5affb59aa69c26b246dc322ef02ba3fe68b5cafecce92faa0934(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d85156d59d54c7ee85e1018a2dbc04869c0befafd49c7f39bed6f8bdf1c0e7c0(
+    value: typing.Union[_IResolvable_da3f097b, CfnEvaluator.EvaluatorConfigProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0fb35f2e87b3efb7648fbd87d13f3e5ff4e7e4f353ccab015439c65775fa4f4e(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e5ba897fceb746066253f02e4acaa94a0805d38e5dd7eb06a70ada74a5171c7c(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e9476feb3976d508ab93e23993f8958690b378207ccac9c804c8644598ec4e9d(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e9be07f5133cae95a44b8c1e5e5925d27341ddb21585adfa558cf87a9d4ed266(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e685cb926c5b55ad4c85e5270f7d5645516c749d48c98cdcd779d7548a53c95f(
+    *,
+    model_id: builtins.str,
+    additional_model_request_fields: typing.Any = None,
+    inference_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEvaluator.InferenceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0138c4dab895be263ca856078c54d7f7dc17e4a1e5fa14530ef199b887cb5326(
+    *,
+    definition: builtins.str,
+    label: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__68fedf7916817af17038fada535f709885d9e4602b0228fd6e545877cc7a08c4(
+    *,
+    llm_as_a_judge: typing.Union[_IResolvable_da3f097b, typing.Union[CfnEvaluator.LlmAsAJudgeEvaluatorConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e199bbf333dd5891de717038547bcf88b9e5114ac6040f7d31e54c8cb0f17f02(
+    *,
+    bedrock_evaluator_model_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnEvaluator.BedrockEvaluatorModelConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fe32f79956eba54fe76f4cfd3e9550d9001beda9560e6f4c55b2f8ab94aa98c2(
+    *,
+    max_tokens: typing.Optional[jsii.Number] = None,
+    temperature: typing.Optional[jsii.Number] = None,
+    top_p: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f28079328036f363d453150c70a76fbc17cbd2c7dab0942689bd59b9411b642a(
+    *,
+    instructions: builtins.str,
+    model_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnEvaluator.EvaluatorModelConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    rating_scale: typing.Union[_IResolvable_da3f097b, typing.Union[CfnEvaluator.RatingScaleProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6e284be9755c11642d2b6734206454332b1166d2726612dba743e01c1a4f1a83(
+    *,
+    definition: builtins.str,
+    label: builtins.str,
+    value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4b52b8f960640a8f01b882a7550bb6dcc23bf2b1121733ac830f9f26c80b3027(
+    *,
+    categorical: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEvaluator.CategoricalScaleDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    numerical: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEvaluator.NumericalScaleDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c769c32f0049d1195b80f5b76b8b678dcf5ad1c67ed7fa7571832bf6792ef2f3(
+    *,
+    evaluator_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnEvaluator.EvaluatorConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    evaluator_name: builtins.str,
+    level: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12995,6 +16791,339 @@ def _typecheckingstub__28dda218e5909d8e89c4ab4ee9bac6335e1f1cde1c399e1ac3c1c739e
     memory_execution_role_arn: typing.Optional[builtins.str] = None,
     memory_strategies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMemory.MemoryStrategyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3aa0e93d03096cdb556ed3eb9ee7b341e52b0d24c88655e4061d5de404c807ed(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    data_source_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnOnlineEvaluationConfig.DataSourceConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    evaluation_execution_role_arn: builtins.str,
+    evaluators: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOnlineEvaluationConfig.EvaluatorReferenceProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    online_evaluation_config_name: builtins.str,
+    rule: typing.Union[_IResolvable_da3f097b, typing.Union[CfnOnlineEvaluationConfig.RuleProperty, typing.Dict[builtins.str, typing.Any]]],
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__90c4c9bc0bd65c4957d82632ee0e6857bd64fa695b00eff8e97cfe4bbb58212a(
+    resource: _IOnlineEvaluationConfigRef_cf19cabf,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__197c10ea28d6b7fcd6d734a0f7527f987482843ef77aba73be70ab37f3274a87(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__174e31db4a9e05f32574075e0d5d9ca13a10fd3d3f58880897c11aee769870b3(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2605ec5d933033d8b4e2a10590a11c2b518e3dc4ada8dd7f8cb9fb3b71bfaec1(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bdec6581e7d868222d3bc0bf43dc993d50bc9f422198fc013c1856f442104865(
+    value: typing.Union[_IResolvable_da3f097b, CfnOnlineEvaluationConfig.DataSourceConfigProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b8f1e9b72c99731112fc077560a4c69257c903d6826ca03adba993e9cafec8e7(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6203a39418b156df1e66640712fbe71f2ddf1f83ac789902b76160c12690a251(
+    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnOnlineEvaluationConfig.EvaluatorReferenceProperty]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d075f3152c3d233d71d9aad22ce139f2486815a5e44ccde4015d161724a5efda(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6cf46c720a151dc4eed5fc818c0539ab15e6aced33ff2153a91d7d9a58b47cc2(
+    value: typing.Union[_IResolvable_da3f097b, CfnOnlineEvaluationConfig.RuleProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9329e42c1ed6716c18f0ba3ed3c4061991e8232ee68b38584dd695b80a862ccb(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__64aa9583ff086b054a843cddaea1d6ba93b7d4aca2beac24d850e42c20b5bac3(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__06d804c8e6fc6685724ca2260796166f7384dcb1ccbf41dd1fa2700163b0ad02(
+    *,
+    log_group_names: typing.Sequence[builtins.str],
+    service_names: typing.Sequence[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9fba0fe46886c9e6934bd149cf7b10f76eeb83adfa2cc2a2020d0587e70423c9(
+    *,
+    log_group_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e9e9c1632a43c17755ee22dab7b1cbedd703f1dd6049647d3cdfcc0b43a33016(
+    *,
+    cloud_watch_logs: typing.Union[_IResolvable_da3f097b, typing.Union[CfnOnlineEvaluationConfig.CloudWatchLogsInputConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a44db4de7a49610956caf53195620a14d4d68d5a98645ab3f5ff7cb927a9ac54(
+    *,
+    evaluator_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f3af31c16195143a16e0eb30f3c7e34f8a0807321ad86daeb9e4fc31e3f37d3d(
+    *,
+    key: builtins.str,
+    operator: builtins.str,
+    value: typing.Union[_IResolvable_da3f097b, typing.Union[CfnOnlineEvaluationConfig.FilterValueProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0b42f86596813ff2e3e66267d5100485bb51a02b655555985649c33361c96f19(
+    *,
+    boolean_value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    double_value: typing.Optional[jsii.Number] = None,
+    string_value: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__901f04239ac1d631f611bae7e5b46abe7106c2310714eeae85eb20759dad8182(
+    *,
+    cloud_watch_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOnlineEvaluationConfig.CloudWatchOutputConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4d26dc57868bb2276aa712667113ed9c9d243f98c5821e624a9c99a224d918c0(
+    *,
+    sampling_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnOnlineEvaluationConfig.SamplingConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOnlineEvaluationConfig.FilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    session_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOnlineEvaluationConfig.SessionConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1e4b82a47eb409b6be018392f32b388af0c03327656d5cdcf118e6dff7977b6f(
+    *,
+    sampling_percentage: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a2e489fef922673116efb3ad1b62ccdb82d7343318d520456ba5e2d6e89b2afb(
+    *,
+    session_timeout_minutes: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0027d3063b3949a340eab6076bb9ce68daa108d23e44efbf30f9a1211d0261e5(
+    *,
+    data_source_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnOnlineEvaluationConfig.DataSourceConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    evaluation_execution_role_arn: builtins.str,
+    evaluators: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOnlineEvaluationConfig.EvaluatorReferenceProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    online_evaluation_config_name: builtins.str,
+    rule: typing.Union[_IResolvable_da3f097b, typing.Union[CfnOnlineEvaluationConfig.RuleProperty, typing.Dict[builtins.str, typing.Any]]],
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a0df0ec34c1700a2fd80d71aa113459b1f257b8a6040e2dac1057827afc8f5d2(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    definition: typing.Union[_IResolvable_da3f097b, typing.Union[CfnPolicy.PolicyDefinitionProperty, typing.Dict[builtins.str, typing.Any]]],
+    name: builtins.str,
+    policy_engine_id: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    validation_mode: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1a816e5e2df5c6422bb1b1425f808d869fb6346315014ecb535bc6ef61807b51(
+    resource: _IPolicyRef_ceb8b108,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8e91554c5d78a87cee0dcc173750b965564cc04c6f7914d1203eda44a959ddbe(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__60ea8f973b55390f2cec1d7d6883b362c9bcebcabd3ad90203d8003b259cc15a(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__90aa01410268a0a9b8329f1730f233722091722e470d4250502fb81196d7aaa9(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__50b7eef4611f94f2995d764a972bab6f09b1ad87de0e3c55ef05b5ef7a2ce77f(
+    value: typing.Union[_IResolvable_da3f097b, CfnPolicy.PolicyDefinitionProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2fb243c83cba8b4cece81df4ce8b043bd043afc8a22739fa364e09cb5a0172a7(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__60f6d37f81d7766e81b7e5afe51a2b3830f091c1efc676ca8f71909ca61dc2c9(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__76a62df0bf0572336e2f28e5a6426bde1f261612e5e0c84a7839f62c6771062a(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e182f5e6fcaeb9a8106b8902eb058d4494505efd524ef30250a9e7b351ecbca9(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dd4c98edc5615559914b5f68ccb2078c51b044946e201c8db3860329b3824d87(
+    *,
+    statement: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f6794e02be8a07b494523ce530bdb5da6ec840b4e6342043fc96304f1d964632(
+    *,
+    cedar: typing.Union[_IResolvable_da3f097b, typing.Union[CfnPolicy.CedarPolicyProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c4684b4b63ba85bd5dc7e5f6733555e789f7d88f65ee00f5c487dfa126d7d66a(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    encryption_key_arn: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8d723add61d7456bc287abcb7c2d34c95e4a9b40b0262b2e977f594db1e112a7(
+    resource: _IPolicyEngineRef_6d885cfc,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__59e6805c5178d527b1123a3cbf1f0ed0ac21a3f1c2183a86f13cf97df9dfd42d(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__99bc04a5a5e66cb6d659f81b4ca399b70db0cc9d00d7826dba5b19ac18eb3320(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a640866ee40ff74b9b0ee9128a48548073cba59e18f794d91bbf0866e5b9aa8a(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__35ac69c1793e7303c1dfe586ac140b18e9794de8ad51c5575ee3590b2e81efb5(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__21dd4fe5af219c86bdbd3e23a682d03cc71ff9b8174dae386145a37d5c2f867e(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8d9709f935befd653e89210289122143b738739fbfeed30480fbdd76a67d0042(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2a9c73af7cca4aa195504171baebe7bcb53d06bd21f6e242c33bf4700692135d(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__743592ad2798d644b313c682b278dfac01eb5a93d7b7fe59943eaddab0ca5a1f(
+    *,
+    name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    encryption_key_arn: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__95094990d09b6f6bc15ab83744a973bf7541ebc86b713d23c0165d6234555308(
+    *,
+    definition: typing.Union[_IResolvable_da3f097b, typing.Union[CfnPolicy.PolicyDefinitionProperty, typing.Dict[builtins.str, typing.Any]]],
+    name: builtins.str,
+    policy_engine_id: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    validation_mode: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

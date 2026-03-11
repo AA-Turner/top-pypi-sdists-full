@@ -1,22 +1,30 @@
-# -*- coding: utf-8 -*-
-# SPDX-FileCopyrightText: 2016-2025 PyThaiNLP Project
+# SPDX-FileCopyrightText: 2016-2026 PyThaiNLP Project
 # SPDX-FileType: SOURCE
 # SPDX-License-Identifier: Apache-2.0
-"""
-Spell checking functions
-"""
+"""Spell checking functions"""
+
+from __future__ import annotations
 
 import itertools
-from typing import List
+from functools import lru_cache
+from typing import TYPE_CHECKING
 
 from pythainlp.spell import DEFAULT_SPELL_CHECKER
 
+if TYPE_CHECKING:
+    from pythainlp.spell.pn import NorvigSpellChecker
 
-def spell(word: str, engine: str = "pn") -> List[str]:
-    """
-    Provides a list of possible correct spellings of the given word.
-    The list of words are from the words in the dictionary
-    that incurs an edit distance value of 1 or 2.
+
+@lru_cache
+def default_spell_checker() -> "NorvigSpellChecker":
+    """Lazy load default spell checker with cache"""
+    return DEFAULT_SPELL_CHECKER()
+
+
+def spell(word: str, engine: str = "pn") -> list[str]:
+    """Provides a list of possible correct spellings of the given word.
+    The list of words is from words in the dictionary
+    that have an edit distance value of 1 or 2.
     The result is a list of words sorted by their occurrences
     in the spelling dictionary in descending order.
 
@@ -37,13 +45,13 @@ def spell(word: str, engine: str = "pn") -> List[str]:
 
         from pythainlp.spell import spell
 
-        spell("เส้นตรบ",  engine="pn")
+        spell("เส้นตรบ", engine="pn")
         # output: ['เส้นตรง']
 
         spell("เส้นตรบ")
         # output: ['เส้นตรง']
 
-        spell("เส้นตรบ",  engine="tltk")
+        spell("เส้นตรบ", engine="tltk")
         # output: ['เส้นตรง']
 
         spell("ครัช")
@@ -54,10 +62,10 @@ def spell(word: str, engine: str = "pn") -> List[str]:
         # output: ['กะปิ', 'กระบิ']
 
         spell("สังเกตุ")
-        # output:  ['สังเกต']
+        # output: ['สังเกต']
 
         spell("เหตการณ")
-        # output:  ['เหตุการณ์']
+        # output: ['เหตุการณ์']
     """
     if engine == "phunspell":
         from pythainlp.spell.phunspell import spell as SPELL_CHECKER
@@ -72,14 +80,13 @@ def spell(word: str, engine: str = "pn") -> List[str]:
 
         text_correct = SPELL_CHECKER(word)
     else:
-        text_correct = DEFAULT_SPELL_CHECKER.spell(word)
+        text_correct = default_spell_checker().spell(word)
 
     return text_correct
 
 
 def correct(word: str, engine: str = "pn") -> str:
-    """
-    Corrects the spelling of the given word by returning
+    """Corrects the spelling of the given word by returning
     the correctly spelled word.
 
     :param str word: word to correct spelling of
@@ -120,34 +127,35 @@ def correct(word: str, engine: str = "pn") -> str:
 
         text_correct = SPELL_CHECKER(word)
     elif engine == "wanchanberta_thai_grammarly":
-        from pythainlp.spell.wanchanberta_thai_grammarly import correct as SPELL_CHECKER
+        from pythainlp.spell.wanchanberta_thai_grammarly import (
+            correct as SPELL_CHECKER,
+        )
 
         text_correct = SPELL_CHECKER(word)
 
     else:
-        text_correct = DEFAULT_SPELL_CHECKER.correct(word)
+        text_correct = default_spell_checker().correct(word)
 
     return text_correct
 
 
-def spell_sent(list_words: List[str], engine: str = "pn") -> List[List[str]]:
-    """
-    Provides a list of possible correct spellings of sentence
+def spell_sent(list_words: list[str], engine: str = "pn") -> list[list[str]]:
+    """Provides a list of possible correct spellings of sentence
 
-    :param List[str] list_words: list of words in sentence
+    :param list[str] list_words: list of words in sentence
     :param str engine:
         * *pn* - Peter Norvig's algorithm [#norvig_spellchecker]_ (default)
         * *phunspell* - A spell checker utilizing spylls, a port of Hunspell.
         * *symspellpy* - symspellpy is a Python port of SymSpell v6.5.
     :return: list of possibly correct words
-    :rtype: List[List[str]]
+    :rtype: list[list[str]]
 
     :Example:
     ::
 
         from pythainlp.spell import spell_sent
 
-        spell_sent(["เด็","อินอร์เน็ต","แรง"],engine='symspellpy')
+        spell_sent(["เด็", "อินอร์เน็ต", "แรง"], engine="symspellpy")
         # output: [['เด็ก', 'อินเทอร์เน็ต', 'แรง']]
     """
     if engine == "symspellpy":
@@ -168,25 +176,24 @@ def spell_sent(list_words: List[str], engine: str = "pn") -> List[List[str]]:
     return list_new
 
 
-def correct_sent(list_words: List[str], engine: str = "pn") -> List[str]:
-    """
-    Corrects and returns the spelling of the given sentence
+def correct_sent(list_words: list[str], engine: str = "pn") -> list[str]:
+    """Corrects and returns the spelling of the given sentence
 
-    :param List[str] list_words: list of words in sentence
+    :param list[str] list_words: list of words in sentence
     :param str engine:
         * *pn* - Peter Norvig's algorithm [#norvig_spellchecker]_ (default)
         * *phunspell* - A spell checker utilizing spylls, a port of Hunspell.
         * *symspellpy* - symspellpy is a Python port of SymSpell v6.5.
         * *wanchanberta_thai_grammarly* - WanchanBERTa Thai Grammarly
     :return: the corrected list of words in sentence
-    :rtype: List[str]
+    :rtype: list[str]
 
     :Example:
     ::
 
         from pythainlp.spell import correct_sent
 
-        correct_sent(["เด็","อินอร์เน็ต","แรง"],engine='symspellpy')
+        correct_sent(["เด็", "อินอร์เน็ต", "แรง"], engine="symspellpy")
         # output: ['เด็ก', 'อินเทอร์เน็ต', 'แรง']
     """
     return spell_sent(list_words, engine=engine)[0]

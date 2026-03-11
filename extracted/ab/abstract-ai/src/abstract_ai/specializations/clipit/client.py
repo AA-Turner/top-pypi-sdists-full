@@ -1,6 +1,6 @@
 # cli.py
 import argparse,sys,os,subprocess
-from abstract_utilities.robust_reader import read_file_as_text
+from abstract_utilities import read_file_as_text
 
 def _run_gui():
     from gui_frontend import main as gui_main

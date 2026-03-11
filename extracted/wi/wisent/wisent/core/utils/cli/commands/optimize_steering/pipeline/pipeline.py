@@ -2,12 +2,14 @@
 import argparse
 import json
 import os
+import time
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Optional
 
 from wisent.core.utils.cli.optimize_steering.method_configs import (
     MethodConfig, CAAConfig, OstrzeConfig, MLPConfig, TECZAConfig,
-    TETNOConfig, GROMConfig, NurtConfig, SzlakConfig, WicherConfig,
+    TETNOConfig, GROMConfig, NurtConfig, SzlakConfig, WicherConfig, ZapisConfig,
 )
 from wisent.core.utils.cli.optimize_steering.transport.method_configs_transport import PrzelomConfig
 from wisent.core.utils.cli.optimize_steering.data.contrastive_pairs_data import execute_generate_pairs_from_task
@@ -62,6 +64,13 @@ def run_pipeline(
     steering_file = os.path.join(work_dir, "steering.pt")
     responses_file = os.path.join(work_dir, "responses.json")
     scores_file = os.path.join(work_dir, "scores.json")
+    _ts = lambda: datetime.now(timezone.utc).isoformat()
+    print(
+        f"[run_pipeline] {_ts()} start: model={model}, task={task}, "
+        f"method={config.method}, strength={strength}, limit={limit}",
+        flush=True,
+    )
+    pipeline_t0 = time.monotonic()
 
     if enriched_pairs_file:
         activations_file = enriched_pairs_file
@@ -110,13 +119,26 @@ def run_pipeline(
         eval_pairs_file = pairs_file
         eval_limit = limit
 
+    data_elapsed = time.monotonic() - pipeline_t0
+    print(f"[run_pipeline] {_ts()} data prep done in {data_elapsed:.1f}s", flush=True)
+
+    steer_t0 = time.monotonic()
     method_args = config.to_args()
     execute_create_steering_object(_make_args(
         enriched_pairs_file=activations_file, output=steering_file,
         verbose=False, timing=False, **method_args,
     ))
+    steer_elapsed = time.monotonic() - steer_t0
+    print(f"[run_pipeline] {_ts()} steering object created in {steer_elapsed:.1f}s", flush=True)
 
     steering_strategy = getattr(config, 'steering_strategy', get_optimal("steering_strategy"))
+    gen_t0 = time.monotonic()
+    print(
+        f"[run_pipeline] {_ts()} generate start: eval_limit={eval_limit}, "
+        f"strength={strength}, strategy={steering_strategy}, "
+        f"max_new_tokens={GENERATION_DEFAULT_MAX_NEW_TOKENS}",
+        flush=True,
+    )
     execute_generate_responses(_make_args(
         task=task, input_file=eval_pairs_file, model=model, output=responses_file,
         num_questions=eval_limit, min_load_limit_questions=eval_limit,
@@ -126,7 +148,10 @@ def run_pipeline(
         max_new_tokens=GENERATION_DEFAULT_MAX_NEW_TOKENS,
         temperature=GENERATION_DEFAULT_TEMPERATURE, top_p=GENERATION_DEFAULT_TOP_P,
     ))
+    gen_elapsed = time.monotonic() - gen_t0
+    print(f"[run_pipeline] {_ts()} generate done in {gen_elapsed:.1f}s", flush=True)
 
+    eval_t0 = time.monotonic()
     execute_evaluate_responses(_make_args(
         input=responses_file, output=scores_file, task=task, verbose=False,
         f1_threshold=EVAL_F1_THRESHOLD,
@@ -134,6 +159,8 @@ def run_pipeline(
         generation_nli_weight=EVAL_GENERATION_NLI_WEIGHT,
         train_ratio=SPLIT_RATIO_TRAIN_DEFAULT,
     ))
+    eval_elapsed = time.monotonic() - eval_t0
+    print(f"[run_pipeline] {_ts()} evaluate done in {eval_elapsed:.1f}s", flush=True)
 
     with open(scores_file) as f:
         scores_data = json.load(f)
@@ -145,6 +172,14 @@ def run_pipeline(
         or SCORE_RANGE_MIN
     )
 
+    total_elapsed = time.monotonic() - pipeline_t0
+    print(
+        f"[run_pipeline] {_ts()} complete: score={score}, "
+        f"total={total_elapsed:.1f}s (data={data_elapsed:.1f}s, "
+        f"steer={steer_elapsed:.1f}s, gen={gen_elapsed:.1f}s, "
+        f"eval={eval_elapsed:.1f}s)",
+        flush=True,
+    )
     return OptimizationResult(config=config, score=score, details=scores_data)
 
 
@@ -185,12 +220,12 @@ def _build_config(method: str, params: dict) -> tuple[MethodConfig, float]:
     m = method.upper()
     extra = _prefix_params(method, params)
     kw = dict(extraction_strategy=ext, steering_strategy=steer, _extra_args=extra)
-    if m in ("CAA", "OSTRZE", "MLP", "TECZA", "NURT", "SZLAK", "WICHER", "PRZELOM"):
+    if m in ("CAA", "OSTRZE", "MLP", "TECZA", "NURT", "SZLAK", "WICHER", "PRZELOM", "ZAPIS"):
         cls = {"CAA": CAAConfig, "OSTRZE": OstrzeConfig, "MLP": MLPConfig,
                "TECZA": TECZAConfig, "NURT": NurtConfig, "SZLAK": SzlakConfig,
-               "WICHER": WicherConfig, "PRZELOM": PrzelomConfig}[m]
+               "WICHER": WicherConfig, "PRZELOM": PrzelomConfig, "ZAPIS": ZapisConfig}[m]
         method_name = {"OSTRZE": "Ostrze", "NURT": "nurt", "SZLAK": "szlak",
-                       "WICHER": "wicher", "PRZELOM": "przelom"}.get(m, m)
+                       "WICHER": "wicher", "PRZELOM": "przelom", "ZAPIS": "zapis"}.get(m, m)
         cfg = cls(method=method_name, layer=int(params["layer"]), **kw)
     elif m in ("TETNO", "GROM"):
         start, end = int(params["steering_start"]), int(params["steering_end"])
@@ -218,7 +253,7 @@ def create_objective(
     test_pairs_file: Optional[str] = None,
     cached_model=None,
 ):
-    """Create an objective function for the UnifiedOptimizer.
+    """Create an objective function for the BaseOptimizer.
 
     Returns a callable that takes a flat params dict and returns a score.
     When train_pairs_file/test_pairs_file are set, trains on train and

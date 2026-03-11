@@ -13,10 +13,14 @@ from datamodel_code_generator.model import DataModel, DataModelFieldBase
 if TYPE_CHECKING:
     from datamodel_code_generator.parser.schema_version import JsonSchemaFeatures
 
-from datamodel_code_generator.model.pydantic import BaseModel, DataModelField
+from datamodel_code_generator.model.pydantic_v2 import BaseModel, DataModelField
 from datamodel_code_generator.model.type_alias import TypeAlias, TypeAliasTypeBackport, TypeStatement
 from datamodel_code_generator.parser.base import (
     Parser,
+    _contains_model_reference,
+    _get_validated_default_type_name,
+    _needs_validated_default,
+    _unwrap_type_alias,
     add_model_path_to_list,
     escape_characters,
     exact_import,
@@ -365,7 +369,7 @@ def test_postprocess_result_modules(input_data: Any, expected: Any) -> None:
 def test_find_member_with_integer_enum() -> None:
     """Test find_member method with integer enum values."""
     from datamodel_code_generator.model.enum import Enum
-    from datamodel_code_generator.model.pydantic.base_model import DataModelField
+    from datamodel_code_generator.model.pydantic_v2.base_model import DataModelField
     from datamodel_code_generator.reference import Reference
     from datamodel_code_generator.types import DataType
 
@@ -412,7 +416,7 @@ def test_find_member_with_integer_enum() -> None:
 def test_find_member_with_string_enum() -> None:
     """Test find_member method with string enum values."""
     from datamodel_code_generator.model.enum import Enum
-    from datamodel_code_generator.model.pydantic.base_model import DataModelField
+    from datamodel_code_generator.model.pydantic_v2.base_model import DataModelField
     from datamodel_code_generator.reference import Reference
     from datamodel_code_generator.types import DataType
 
@@ -450,7 +454,7 @@ def test_find_member_with_string_enum() -> None:
 def test_find_member_with_mixed_enum() -> None:
     """Test find_member method with mixed type enum values."""
     from datamodel_code_generator.model.enum import Enum
-    from datamodel_code_generator.model.pydantic.base_model import DataModelField
+    from datamodel_code_generator.model.pydantic_v2.base_model import DataModelField
     from datamodel_code_generator.reference import Reference
     from datamodel_code_generator.types import DataType
 
@@ -646,3 +650,78 @@ def test_build_module_dependency_graph_with_missing_ref(parser_fixture: C) -> No
     graph = parser_fixture._Parser__build_module_dependency_graph(module_models_list)
 
     assert graph == {("pkg",): set()}
+
+
+def test_unwrap_type_alias_stops_on_recursive_alias() -> None:
+    """Test _unwrap_type_alias stops when a type alias resolves back to itself."""
+    alias_reference = Reference(path="Alias", original_name="Alias", name="Alias")
+    alias_data_type = DataType(reference=alias_reference)
+    alias_model = TypeStatement(fields=[DataModelField(data_type=alias_data_type)], reference=alias_reference)
+
+    assert alias_reference.source is alias_model
+    assert _unwrap_type_alias(alias_data_type) is alias_data_type
+
+
+def test_contains_model_reference_traverses_nested_data_types() -> None:
+    """Test _contains_model_reference walks nested container data types."""
+    model_reference = Reference(path="Item", original_name="Item", name="Item")
+    BaseModel(fields=[], reference=model_reference)
+
+    list_of_models = DataType(
+        is_list=True,
+        data_types=[DataType(reference=model_reference)],
+        use_union_operator=True,
+    )
+
+    assert _contains_model_reference(list_of_models) is True
+
+
+def test_contains_model_reference_traverses_dict_key() -> None:
+    """Test _contains_model_reference walks dict_key data types."""
+    model_reference = Reference(path="KeyModel", original_name="KeyModel", name="KeyModel")
+    BaseModel(fields=[], reference=model_reference)
+
+    dict_with_model_key = DataType(
+        is_dict=True,
+        dict_key=DataType(reference=model_reference),
+        use_union_operator=True,
+    )
+
+    assert _contains_model_reference(dict_with_model_key) is True
+
+
+def test_get_validated_default_type_name_strips_optional_none() -> None:
+    """Test _get_validated_default_type_name removes None from optional types."""
+    optional_string = DataType(type="str", is_optional=True, use_union_operator=True)
+
+    assert _get_validated_default_type_name(optional_string) == "str"
+
+
+def test_needs_validated_default_for_union_type_alias() -> None:
+    """Test _needs_validated_default resolves type aliases before checking union branches."""
+    a_reference = Reference(path="A", original_name="A", name="A")
+    b_reference = Reference(path="B", original_name="B", name="B")
+    BaseModel(fields=[], reference=a_reference)
+    BaseModel(fields=[], reference=b_reference)
+
+    union_data_type = DataType(
+        data_types=[DataType(reference=a_reference), DataType(reference=b_reference)],
+        use_union_operator=True,
+    )
+    alias_reference = Reference(path="Alias", original_name="Alias", name="Alias")
+    TypeStatement(fields=[DataModelField(data_type=union_data_type)], reference=alias_reference)
+
+    assert _needs_validated_default({"type": "b"}, DataType(reference=alias_reference)) is True
+
+
+def test_needs_validated_default_skips_optional_single_model_union() -> None:
+    """Test _needs_validated_default keeps the existing factory path for A | None."""
+    model_reference = Reference(path="A", original_name="A", name="A")
+    BaseModel(fields=[], reference=model_reference)
+
+    optional_model_union = DataType(
+        data_types=[DataType(reference=model_reference), DataType(type="None")],
+        use_union_operator=True,
+    )
+
+    assert _needs_validated_default({"type": "a"}, optional_model_union) is False

@@ -44,7 +44,8 @@ class LegacySessionCSRFStoragePolicy:
         """Returns ``True`` if the ``supplied_token`` is valid."""
         expected_token = self.get_csrf_token(request)
         return not strings_differ(
-            bytes_(expected_token), bytes_(supplied_token)
+            bytes_(expected_token),
+            bytes_(supplied_token, errors='backslashreplace'),
         )
 
 
@@ -87,7 +88,8 @@ class SessionCSRFStoragePolicy:
         """Returns ``True`` if the ``supplied_token`` is valid."""
         expected_token = self.get_csrf_token(request)
         return not strings_differ(
-            bytes_(expected_token), bytes_(supplied_token)
+            bytes_(expected_token),
+            bytes_(supplied_token, errors='backslashreplace'),
         )
 
 
@@ -157,7 +159,8 @@ class CookieCSRFStoragePolicy:
         """Returns ``True`` if the ``supplied_token`` is valid."""
         expected_token = self.get_csrf_token(request)
         return not strings_differ(
-            bytes_(expected_token), bytes_(supplied_token)
+            bytes_(expected_token),
+            bytes_(supplied_token, errors='backslashreplace'),
         )
 
 
@@ -360,6 +363,6 @@ def check_csrf_origin(
     if not any(
         is_same_domain(originp.netloc, host) for host in trusted_origins
     ):
-        return _fail("{} does not match any trusted origins.".format(origin))
+        return _fail(f"{origin} does not match any trusted origins.")
 
     return True

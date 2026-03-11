@@ -1,22 +1,38 @@
-# -*- coding: utf-8 -*-
-# SPDX-FileCopyrightText: 2016-2025 PyThaiNLP Project
+# SPDX-FileCopyrightText: 2016-2026 PyThaiNLP Project
 # SPDX-FileType: SOURCE
 # SPDX-License-Identifier: Apache-2.0
-import json
-from typing import List
+from __future__ import annotations
 
-import numpy as np
+import json
+from typing import TYPE_CHECKING, Any, Union
+
+if TYPE_CHECKING:
+    import numpy as np
+    import sentencepiece as spm
+    from onnxruntime import InferenceSession, SessionOptions
 
 from pythainlp.corpus import get_path_folder_corpus
 
 
 class WngchanBerta_ONNX:
+    """WangchanBERTa NER engine with ONNX Runtime backend"""
+
+    model_name: str
+    model_version: str
+    options: "SessionOptions"
+    session: "InferenceSession"
+    outputs_name: str
+    sp: "spm.SentencePieceProcessor"
+    _json: dict[str, Any]
+    id2tag: dict[str, str]
+    _s: dict[str, "np.ndarray"]
+
     def __init__(
         self,
         model_name: str,
         model_version: str,
         file_onnx: str,
-        providers: List[str] = ["CPUExecutionProvider"],
+        providers: list[str] = ["CPUExecutionProvider"],
     ) -> None:
         import sentencepiece as spm
         from onnxruntime import (
@@ -54,7 +70,9 @@ class WngchanBerta_ONNX:
             self._json = json.load(fh)
             self.id2tag = self._json["id2label"]
 
-    def build_tokenizer(self, sent):
+    def build_tokenizer(self, sent: str) -> dict[str, "np.ndarray"]:
+        import numpy as np
+
         _t = [5] + [i + 4 for i in self.sp.encode(sent)] + [6]
         model_inputs = {}
         model_inputs["input_ids"] = np.array([_t], dtype=np.int64)
@@ -63,17 +81,21 @@ class WngchanBerta_ONNX:
         )
         return model_inputs
 
-    def postprocess(self, logits_data):
+    def postprocess(self, logits_data: "np.ndarray") -> "np.ndarray":
+        import numpy as np
+
         logits_t = logits_data[0]
         maxes = np.max(logits_t, axis=-1, keepdims=True)
         shifted_exp = np.exp(logits_t - maxes)
         scores = shifted_exp / shifted_exp.sum(axis=-1, keepdims=True)
         return scores
 
-    def clean_output(self, list_text):
+    def clean_output(
+        self, list_text: list[tuple[str, str]]
+    ) -> list[tuple[str, str]]:
         return list_text
 
-    def totag(self, post, sent):
+    def totag(self, post: np.ndarray, sent: str) -> list[tuple[str, str]]:
         tag = []
         _s = self.sp.EncodeAsPieces(sent)
         for i in range(len(_s)):
@@ -87,11 +109,15 @@ class WngchanBerta_ONNX:
             )
         return tag
 
-    def _config(self, list_ner):
+    def _config(
+        self, list_ner: list[tuple[str, str]]
+    ) -> list[tuple[str, str]]:
         return list_ner
 
-    def get_ner(self, text: str, tag: bool = False):
-        self._s = self.build_tokenizer(text)
+    def get_ner(
+        self, text: str, tag: bool = False
+    ) -> Union[str, list[tuple[str, str]]]:
+        self._s: dict[str, "np.ndarray"] = self.build_tokenizer(text)
         logits = self.session.run(
             output_names=[self.outputs_name], input_feed=self._s
         )[0]

@@ -36,11 +36,11 @@ class TestUnsetLabel(unittest.TestCase):
         model = UnsetLabel()
         if include_optional:
             return UnsetLabel(
-                key = 'z0'
+                key = '0'
             )
         else:
             return UnsetLabel(
-                key = 'z0',
+                key = '0',
         )
         """
 

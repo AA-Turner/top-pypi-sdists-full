@@ -18,7 +18,7 @@ from tinybird.tb.modules.project import Project
 
 DEFAULT_FOLDER = "tinybird"
 DEFAULT_SDK = "cli"
-DEFAULT_MODE = "manual"
+DEFAULT_MODE = "branch"
 DEFAULT_CICD = "skip"
 SDK_CHOICES = ("typescript", "python", "cli")
 MODE_CHOICES = ("branch", "local", "manual")
@@ -32,6 +32,7 @@ SKILLS_INSTALL_BASE_ARGS = [
 GLOBAL_AGENT_SKILL = "tinybird"
 PROJECT_TYPE_AGENT_SKILLS = {
     "cli": "tinybird-cli-guidelines",
+    "python": "tinybird-python-sdk-guidelines",
     "typescript": "tinybird-typescript-sdk-guidelines",
 }
 SKILLS_INSTALL_TIMEOUT_SECONDS = 120
@@ -315,7 +316,7 @@ def _prompt_mode(mode: Optional[str]) -> str:
     click.echo("  [1] branch - Cloud branches mapped to your git feature branch")
     click.echo("  [2] local - Run build/test against Tinybird Local")
     click.echo("  [3] manual - Choose environment manually with flags")
-    choice = click.prompt("\nSelect option", default=3, type=int)
+    choice = click.prompt("\nSelect option", default=1, type=int)
     if choice == 1:
         return "branch"
     if choice == 2:

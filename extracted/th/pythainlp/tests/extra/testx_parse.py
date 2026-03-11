@@ -1,5 +1,4 @@
-# -*- coding: utf-8 -*-
-# SPDX-FileCopyrightText: 2016-2025 PyThaiNLP Project
+# SPDX-FileCopyrightText: 2016-2026 PyThaiNLP Project
 # SPDX-FileType: SOURCE
 # SPDX-License-Identifier: Apache-2.0
 
@@ -20,3 +19,7 @@ class ParseTestCaseX(unittest.TestCase):
         # self.assertIsNotNone(dependency_parsing("ผมเป็นคนดี", engine="spacy_thai", tag="list"))
         # self.assertIsNotNone(dependency_parsing("ผมเป็นคนดี", engine="ud_goeswith"))
         # self.assertIsNotNone(dependency_parsing("ผมเป็นคนดี", engine="ud_goeswith", tag="list"))
+        self.assertIsNotNone(dependency_parsing("ผมเป็นคนดี", engine="attaparse"))
+        self.assertIsNotNone(
+            dependency_parsing("ผมเป็นคนดี", engine="attaparse", tag="list")
+        )

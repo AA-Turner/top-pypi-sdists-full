@@ -35,6 +35,11 @@ class QueriesServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_queries__pb2.GetQueryPlanRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_queries__pb2.GetQueryPlanResponse.FromString,
         )
+        self.ListQueryPlans = channel.unary_unary(
+            "/chalk.server.v1.QueriesService/ListQueryPlans",
+            request_serializer=chalk_dot_server_dot_v1_dot_queries__pb2.ListQueryPlansRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_queries__pb2.ListQueryPlansResponse.FromString,
+        )
         self.AggregateQueryErrors = channel.unary_unary(
             "/chalk.server.v1.QueriesService/AggregateQueryErrors",
             request_serializer=chalk_dot_server_dot_v1_dot_queries__pb2.AggregateQueryErrorsRequest.SerializeToString,
@@ -115,6 +120,16 @@ class QueriesServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_queries__pb2.GetPlanRunMetadataRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_queries__pb2.GetPlanRunMetadataResponse.FromString,
         )
+        self.ArchiveMetaQuery = channel.unary_unary(
+            "/chalk.server.v1.QueriesService/ArchiveMetaQuery",
+            request_serializer=chalk_dot_server_dot_v1_dot_queries__pb2.ArchiveMetaQueryRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_queries__pb2.ArchiveMetaQueryResponse.FromString,
+        )
+        self.UnarchiveMetaQuery = channel.unary_unary(
+            "/chalk.server.v1.QueriesService/UnarchiveMetaQuery",
+            request_serializer=chalk_dot_server_dot_v1_dot_queries__pb2.UnarchiveMetaQueryRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_queries__pb2.UnarchiveMetaQueryResponse.FromString,
+        )
 
 
 class QueriesServiceServicer(object):
@@ -139,6 +154,12 @@ class QueriesServiceServicer(object):
         raise NotImplementedError("Method not implemented!")
 
     def GetQueryPlan(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def ListQueryPlans(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -240,6 +261,18 @@ class QueriesServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def ArchiveMetaQuery(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def UnarchiveMetaQuery(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_QueriesServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -262,6 +295,11 @@ def add_QueriesServiceServicer_to_server(servicer, server):
             servicer.GetQueryPlan,
             request_deserializer=chalk_dot_server_dot_v1_dot_queries__pb2.GetQueryPlanRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_queries__pb2.GetQueryPlanResponse.SerializeToString,
+        ),
+        "ListQueryPlans": grpc.unary_unary_rpc_method_handler(
+            servicer.ListQueryPlans,
+            request_deserializer=chalk_dot_server_dot_v1_dot_queries__pb2.ListQueryPlansRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_queries__pb2.ListQueryPlansResponse.SerializeToString,
         ),
         "AggregateQueryErrors": grpc.unary_unary_rpc_method_handler(
             servicer.AggregateQueryErrors,
@@ -342,6 +380,16 @@ def add_QueriesServiceServicer_to_server(servicer, server):
             servicer.GetPlanRunMetadata,
             request_deserializer=chalk_dot_server_dot_v1_dot_queries__pb2.GetPlanRunMetadataRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_queries__pb2.GetPlanRunMetadataResponse.SerializeToString,
+        ),
+        "ArchiveMetaQuery": grpc.unary_unary_rpc_method_handler(
+            servicer.ArchiveMetaQuery,
+            request_deserializer=chalk_dot_server_dot_v1_dot_queries__pb2.ArchiveMetaQueryRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_queries__pb2.ArchiveMetaQueryResponse.SerializeToString,
+        ),
+        "UnarchiveMetaQuery": grpc.unary_unary_rpc_method_handler(
+            servicer.UnarchiveMetaQuery,
+            request_deserializer=chalk_dot_server_dot_v1_dot_queries__pb2.UnarchiveMetaQueryRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_queries__pb2.UnarchiveMetaQueryResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.server.v1.QueriesService", rpc_method_handlers)
@@ -458,6 +506,35 @@ class QueriesService(object):
             "/chalk.server.v1.QueriesService/GetQueryPlan",
             chalk_dot_server_dot_v1_dot_queries__pb2.GetQueryPlanRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_queries__pb2.GetQueryPlanResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ListQueryPlans(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.QueriesService/ListQueryPlans",
+            chalk_dot_server_dot_v1_dot_queries__pb2.ListQueryPlansRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_queries__pb2.ListQueryPlansResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -922,6 +999,64 @@ class QueriesService(object):
             "/chalk.server.v1.QueriesService/GetPlanRunMetadata",
             chalk_dot_server_dot_v1_dot_queries__pb2.GetPlanRunMetadataRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_queries__pb2.GetPlanRunMetadataResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ArchiveMetaQuery(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.QueriesService/ArchiveMetaQuery",
+            chalk_dot_server_dot_v1_dot_queries__pb2.ArchiveMetaQueryRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_queries__pb2.ArchiveMetaQueryResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def UnarchiveMetaQuery(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.QueriesService/UnarchiveMetaQuery",
+            chalk_dot_server_dot_v1_dot_queries__pb2.UnarchiveMetaQueryRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_queries__pb2.UnarchiveMetaQueryResponse.FromString,
             options,
             channel_credentials,
             insecure,

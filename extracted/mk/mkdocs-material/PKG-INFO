@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mkdocs-material
-Version: 9.7.4
+Version: 9.7.5
 Summary: Documentation that simply works
 Project-URL: Homepage, https://squidfunk.github.io/mkdocs-material/
 Project-URL: Bug Tracker, https://github.com/squidfunk/mkdocs-material/issues
@@ -25,7 +25,7 @@ Requires-Dist: colorama>=0.4
 Requires-Dist: jinja2>=3.1
 Requires-Dist: markdown>=3.2
 Requires-Dist: mkdocs-material-extensions>=1.3
-Requires-Dist: mkdocs>=1.6
+Requires-Dist: mkdocs<2,>=1.6
 Requires-Dist: paginate>=0.5
 Requires-Dist: pygments>=2.16
 Requires-Dist: pymdown-extensions>=10.2

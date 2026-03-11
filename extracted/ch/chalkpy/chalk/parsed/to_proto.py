@@ -1431,6 +1431,7 @@ class ToProtoConverter:
             update_aggregates=r.updates_materialized_aggregations,
             message_format=stream_message_format,
             header_filters=header_filters,
+            resource_group=r.resource_group,
         )
 
     @staticmethod

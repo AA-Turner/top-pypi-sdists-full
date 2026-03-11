@@ -1,57 +1,16 @@
-# -*- coding: utf-8 -*-
-# SPDX-FileCopyrightText: 2016-2025 PyThaiNLP Project
+# SPDX-FileCopyrightText: 2016-2026 PyThaiNLP Project
 # SPDX-FileType: SOURCE
 # SPDX-License-Identifier: Apache-2.0
 
+# Tests for tag functions that need extra dependencies
+
 import unittest
 
-from pythainlp.tag import (
-    NER,
-    NNER,
-    pos_tag,
-    pos_tag_transformers,
-    tltk,
-)
+from pythainlp.tag import pos_tag, tltk
 from pythainlp.tag.thainer import ThaiNameTagger
 
 
 class TagTestCaseX(unittest.TestCase):
-    # ### pythainlp.tag.pos_tag
-
-    def test_pos_tag(self):
-        tokens = ["ผม", "รัก", "คุณ"]
-        self.assertIsNotNone(pos_tag(tokens, engine="tltk"))
-        with self.assertRaises(ValueError):
-            tltk.pos_tag(tokens, corpus="blackboard")
-
-    # ### pythainlp.tag.named_entity
-
-    def test_tltk_ner(self):
-        self.assertEqual(tltk.get_ner(""), [])
-        self.assertIsNotNone(tltk.get_ner("แมวทำอะไรตอนห้าโมงเช้า"))
-        self.assertIsNotNone(tltk.get_ner("แมวทำอะไรตอนห้าโมงเช้า", pos=False))
-        self.assertIsNotNone(
-            tltk.get_ner("พลเอกประยุกธ์ จันทร์โอชา ประกาศในฐานะหัวหน้า")
-        )
-        self.assertIsNotNone(
-            tltk.get_ner(
-                "พลเอกประยุกธ์ จันทร์โอชา ประกาศในฐานะหัวหน้า",
-                tag=True,
-            )
-        )
-        self.assertIsNotNone(
-            tltk.get_ner(
-                """คณะวิทยาศาสตร์ประยุกต์และวิศวกรรมศาสตร์ มหาวิทยาลัยขอนแก่น
-                จังหวัดหนองคาย 43000"""
-            )
-        )
-        self.assertIsNotNone(
-            tltk.get_ner(
-                """คณะวิทยาศาสตร์ประยุกต์และวิศวกรรมศาสตร์ มหาวิทยาลัยขอนแก่น
-                จังหวัดหนองคาย 43000""",
-                tag=True,
-            )
-        )
 
     def test_thai_name_tagger_1_5(self):
         ner = ThaiNameTagger(version="1.5")
@@ -156,63 +115,39 @@ class TagTestCaseX(unittest.TestCase):
             )
         )
 
-    def test_NER_class(self):
+
+class TagTLTKTestCaseX(unittest.TestCase):
+    """Tests for tltk engine POS tagging and NER"""
+
+    def test_pos_tag_tltk(self):
+        tokens = ["ผม", "รัก", "คุณ"]
+        self.assertIsNotNone(pos_tag(tokens, engine="tltk"))
         with self.assertRaises(ValueError):
-            NER(engine="thainer", corpus="cat")
+            tltk.pos_tag(tokens, corpus="blackboard")
 
-        ner = NER(engine="thainer")
-        self.assertIsNotNone(ner.tag("แมวทำอะไรตอนห้าโมงเช้า"))
-        self.assertIsNotNone(ner.tag("แมวทำอะไรตอนห้าโมงเช้า", pos=False))
-        self.assertIsNotNone(ner.tag("แมวทำอะไรตอนห้าโมงเช้า", tag=True))
-
-        ner = NER(engine="thainer-v2")
-        self.assertIsNotNone(ner.tag("แมวทำอะไรตอนห้าโมงเช้า"))
-        self.assertIsNotNone(ner.tag("แมวทำอะไรตอนห้าโมงเช้า", pos=False))
-        self.assertIsNotNone(ner.tag("แมวทำอะไรตอนห้าโมงเช้า", tag=True))
-
-        ner = NER(engine="wangchanberta")
-        self.assertIsNotNone(ner.tag("แมวทำอะไรตอนห้าโมงเช้า"))
-        self.assertIsNotNone(ner.tag("แมวทำอะไรตอนห้าโมงเช้า", pos=False))
-        self.assertIsNotNone(ner.tag("แมวทำอะไรตอนห้าโมงเช้า", tag=True))
-
-        ner = NER(engine="tltk")
-        self.assertIsNotNone(ner.tag("แมวทำอะไรตอนห้าโมงเช้า"))
-        self.assertIsNotNone(ner.tag("แมวทำอะไรตอนห้าโมงเช้า", pos=False))
-        self.assertIsNotNone(ner.tag("แมวทำอะไรตอนห้าโมงเช้า", tag=True))
-
-    def test_NNER_class(self):
-        nner = NNER()
-        self.assertIsNotNone(nner.tag("แมวทำอะไรตอนห้าโมงเช้า"))
-
-    def test_pos_tag_transformers(self):
+    def test_tltk_ner(self):
+        self.assertEqual(tltk.get_ner(""), [])
+        self.assertIsNotNone(tltk.get_ner("แมวทำอะไรตอนห้าโมงเช้า"))
+        self.assertIsNotNone(tltk.get_ner("แมวทำอะไรตอนห้าโมงเช้า", pos=False))
         self.assertIsNotNone(
-            pos_tag_transformers(
-                sentence="แมวทำอะไรตอนห้าโมงเช้า",
-                engine="bert",
-                corpus="blackboard",
+            tltk.get_ner("พลเอกประยุกธ์ จันทร์โอชา ประกาศในฐานะหัวหน้า")
+        )
+        self.assertIsNotNone(
+            tltk.get_ner(
+                "พลเอกประยุกธ์ จันทร์โอชา ประกาศในฐานะหัวหน้า",
+                tag=True,
             )
         )
         self.assertIsNotNone(
-            pos_tag_transformers(
-                sentence="แมวทำอะไรตอนห้าโมงเช้า",
-                engine="mdeberta",
-                corpus="pud",
+            tltk.get_ner(
+                """คณะวิทยาศาสตร์ประยุกต์และวิศวกรรมศาสตร์ มหาวิทยาลัยขอนแก่น
+                จังหวัดหนองคาย 43000"""
             )
         )
         self.assertIsNotNone(
-            pos_tag_transformers(
-                sentence="แมวทำอะไรตอนห้าโมงเช้า",
-                engine="wangchanberta",
-                corpus="pud",
+            tltk.get_ner(
+                """คณะวิทยาศาสตร์ประยุกต์และวิศวกรรมศาสตร์ มหาวิทยาลัยขอนแก่น
+                จังหวัดหนองคาย 43000""",
+                tag=True,
             )
         )
-        with self.assertRaises(ValueError):
-            pos_tag_transformers(
-                sentence="แมวทำอะไรตอนห้าโมงเช้า", engine="non-existing-engine"
-            )
-        with self.assertRaises(ValueError):
-            pos_tag_transformers(
-                sentence="แมวทำอะไรตอนห้าโมงเช้า",
-                engine="bert",
-                corpus="non-existing corpus",
-            )

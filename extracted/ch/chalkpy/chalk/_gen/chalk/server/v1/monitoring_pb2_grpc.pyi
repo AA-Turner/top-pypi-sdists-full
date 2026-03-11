@@ -22,8 +22,14 @@ from chalk._gen.chalk.server.v1.monitoring_pb2 import (
     AddPagerDutyIntegrationResponse,
     DeleteIncidentIoIntegrationRequest,
     DeleteIncidentIoIntegrationResponse,
+    DeleteNamedAlertChannelsRequest,
+    DeleteNamedAlertChannelsResponse,
     DeletePagerDutyIntegrationRequest,
     DeletePagerDutyIntegrationResponse,
+    DeleteSlackIntegrationRequest,
+    DeleteSlackIntegrationResponse,
+    EditNamedAlertChannelsRequest,
+    EditNamedAlertChannelsResponse,
     GetAllIncidentIoIntegrationsRequest,
     GetAllIncidentIoIntegrationsResponse,
     GetAllPagerDutyIntegrationsRequest,
@@ -32,20 +38,34 @@ from chalk._gen.chalk.server.v1.monitoring_pb2 import (
     GetIncidentIoIntegrationResponse,
     GetPagerDutyIntegrationRequest,
     GetPagerDutyIntegrationResponse,
+    GetSlackChannelsRequest,
+    GetSlackChannelsResponse,
     GetSlackIntegrationRequest,
     GetSlackIntegrationResponse,
     ListAlertChannelsRequest,
     ListAlertChannelsResponse,
+    SetDefaultAlertChannelsRequest,
+    SetDefaultAlertChannelsResponse,
     SetDefaultPagerDutyIntegrationRequest,
     SetDefaultPagerDutyIntegrationResponse,
     TestIncidentIoIntegrationRequest,
     TestIncidentIoIntegrationResponse,
+    TestNamedAlertChannelsRequest,
+    TestNamedAlertChannelsResponse,
     TestPagerDutyIntegrationRequest,
     TestPagerDutyIntegrationResponse,
+    TestSlackIntegrationRequest,
+    TestSlackIntegrationResponse,
     UpdateIncidentIoIntegrationRequest,
     UpdateIncidentIoIntegrationResponse,
     UpdatePagerDutyIntegrationRequest,
     UpdatePagerDutyIntegrationResponse,
+    UpdateSlackChannelsRequest,
+    UpdateSlackChannelsResponse,
+    UpsertDefaultSlackChannelRequest,
+    UpsertDefaultSlackChannelResponse,
+    UpsertSlackIntegrationRequest,
+    UpsertSlackIntegrationResponse,
 )
 from grpc import (
     Channel,
@@ -120,13 +140,53 @@ class MonitoringServiceStub:
         GetIncidentAlertsChartRequest,
         GetIncidentAlertsChartResponse,
     ]
+    TestNamedAlertChannels: UnaryUnaryMultiCallable[
+        TestNamedAlertChannelsRequest,
+        TestNamedAlertChannelsResponse,
+    ]
+    EditNamedAlertChannels: UnaryUnaryMultiCallable[
+        EditNamedAlertChannelsRequest,
+        EditNamedAlertChannelsResponse,
+    ]
+    DeleteNamedAlertChannels: UnaryUnaryMultiCallable[
+        DeleteNamedAlertChannelsRequest,
+        DeleteNamedAlertChannelsResponse,
+    ]
+    SetDefaultAlertChannels: UnaryUnaryMultiCallable[
+        SetDefaultAlertChannelsRequest,
+        SetDefaultAlertChannelsResponse,
+    ]
     ListAlertChannels: UnaryUnaryMultiCallable[
         ListAlertChannelsRequest,
         ListAlertChannelsResponse,
     ]
+    TestSlackIntegration: UnaryUnaryMultiCallable[
+        TestSlackIntegrationRequest,
+        TestSlackIntegrationResponse,
+    ]
     GetSlackIntegration: UnaryUnaryMultiCallable[
         GetSlackIntegrationRequest,
         GetSlackIntegrationResponse,
+    ]
+    UpsertSlackIntegration: UnaryUnaryMultiCallable[
+        UpsertSlackIntegrationRequest,
+        UpsertSlackIntegrationResponse,
+    ]
+    DeleteSlackIntegration: UnaryUnaryMultiCallable[
+        DeleteSlackIntegrationRequest,
+        DeleteSlackIntegrationResponse,
+    ]
+    GetSlackChannels: UnaryUnaryMultiCallable[
+        GetSlackChannelsRequest,
+        GetSlackChannelsResponse,
+    ]
+    UpdateSlackChannels: UnaryUnaryMultiCallable[
+        UpdateSlackChannelsRequest,
+        UpdateSlackChannelsResponse,
+    ]
+    UpsertDefaultSlackChannel: UnaryUnaryMultiCallable[
+        UpsertDefaultSlackChannelRequest,
+        UpsertDefaultSlackChannelResponse,
     ]
 
 class MonitoringServiceServicer(metaclass=ABCMeta):
@@ -227,16 +287,76 @@ class MonitoringServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> GetIncidentAlertsChartResponse: ...
     @abstractmethod
+    def TestNamedAlertChannels(
+        self,
+        request: TestNamedAlertChannelsRequest,
+        context: ServicerContext,
+    ) -> TestNamedAlertChannelsResponse: ...
+    @abstractmethod
+    def EditNamedAlertChannels(
+        self,
+        request: EditNamedAlertChannelsRequest,
+        context: ServicerContext,
+    ) -> EditNamedAlertChannelsResponse: ...
+    @abstractmethod
+    def DeleteNamedAlertChannels(
+        self,
+        request: DeleteNamedAlertChannelsRequest,
+        context: ServicerContext,
+    ) -> DeleteNamedAlertChannelsResponse: ...
+    @abstractmethod
+    def SetDefaultAlertChannels(
+        self,
+        request: SetDefaultAlertChannelsRequest,
+        context: ServicerContext,
+    ) -> SetDefaultAlertChannelsResponse: ...
+    @abstractmethod
     def ListAlertChannels(
         self,
         request: ListAlertChannelsRequest,
         context: ServicerContext,
     ) -> ListAlertChannelsResponse: ...
     @abstractmethod
+    def TestSlackIntegration(
+        self,
+        request: TestSlackIntegrationRequest,
+        context: ServicerContext,
+    ) -> TestSlackIntegrationResponse: ...
+    @abstractmethod
     def GetSlackIntegration(
         self,
         request: GetSlackIntegrationRequest,
         context: ServicerContext,
     ) -> GetSlackIntegrationResponse: ...
+    @abstractmethod
+    def UpsertSlackIntegration(
+        self,
+        request: UpsertSlackIntegrationRequest,
+        context: ServicerContext,
+    ) -> UpsertSlackIntegrationResponse: ...
+    @abstractmethod
+    def DeleteSlackIntegration(
+        self,
+        request: DeleteSlackIntegrationRequest,
+        context: ServicerContext,
+    ) -> DeleteSlackIntegrationResponse: ...
+    @abstractmethod
+    def GetSlackChannels(
+        self,
+        request: GetSlackChannelsRequest,
+        context: ServicerContext,
+    ) -> GetSlackChannelsResponse: ...
+    @abstractmethod
+    def UpdateSlackChannels(
+        self,
+        request: UpdateSlackChannelsRequest,
+        context: ServicerContext,
+    ) -> UpdateSlackChannelsResponse: ...
+    @abstractmethod
+    def UpsertDefaultSlackChannel(
+        self,
+        request: UpsertDefaultSlackChannelRequest,
+        context: ServicerContext,
+    ) -> UpsertDefaultSlackChannelResponse: ...
 
 def add_MonitoringServiceServicer_to_server(servicer: MonitoringServiceServicer, server: Server) -> None: ...

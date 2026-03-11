@@ -1,43 +1,43 @@
 # coding: UTF-8
 import sys
-bstack1lllll_opy_ = sys.version_info [0] == 2
-bstack1l1ll1_opy_ = 2048
-bstack1lllll1l_opy_ = 7
-def bstack1111_opy_ (bstack1l11ll1_opy_):
-    global bstack1l_opy_
-    bstack11lll1l_opy_ = ord (bstack1l11ll1_opy_ [-1])
-    bstack1llll1_opy_ = bstack1l11ll1_opy_ [:-1]
-    bstack111ll11_opy_ = bstack11lll1l_opy_ % len (bstack1llll1_opy_)
-    bstack1111l_opy_ = bstack1llll1_opy_ [:bstack111ll11_opy_] + bstack1llll1_opy_ [bstack111ll11_opy_:]
-    if bstack1lllll_opy_:
-        bstack1llll11_opy_ = unicode () .join ([unichr (ord (char) - bstack1l1ll1_opy_ - (bstack1l11_opy_ + bstack11lll1l_opy_) % bstack1lllll1l_opy_) for bstack1l11_opy_, char in enumerate (bstack1111l_opy_)])
+bstack1l1ll11_opy_ = sys.version_info [0] == 2
+bstack11111l1_opy_ = 2048
+bstack1111lll_opy_ = 7
+def bstack1ll111_opy_ (bstack1111l1l_opy_):
+    global bstack11l111l_opy_
+    bstack11l1ll_opy_ = ord (bstack1111l1l_opy_ [-1])
+    bstack11lll1l_opy_ = bstack1111l1l_opy_ [:-1]
+    bstack111lll_opy_ = bstack11l1ll_opy_ % len (bstack11lll1l_opy_)
+    bstack11llll1_opy_ = bstack11lll1l_opy_ [:bstack111lll_opy_] + bstack11lll1l_opy_ [bstack111lll_opy_:]
+    if bstack1l1ll11_opy_:
+        bstack11l1111_opy_ = unicode () .join ([unichr (ord (char) - bstack11111l1_opy_ - (bstack111l11_opy_ + bstack11l1ll_opy_) % bstack1111lll_opy_) for bstack111l11_opy_, char in enumerate (bstack11llll1_opy_)])
     else:
-        bstack1llll11_opy_ = str () .join ([chr (ord (char) - bstack1l1ll1_opy_ - (bstack1l11_opy_ + bstack11lll1l_opy_) % bstack1lllll1l_opy_) for bstack1l11_opy_, char in enumerate (bstack1111l_opy_)])
-    return eval (bstack1llll11_opy_)
+        bstack11l1111_opy_ = str () .join ([chr (ord (char) - bstack11111l1_opy_ - (bstack111l11_opy_ + bstack11l1ll_opy_) % bstack1111lll_opy_) for bstack111l11_opy_, char in enumerate (bstack11llll1_opy_)])
+    return eval (bstack11l1111_opy_)
 conf = {
-    bstack1111_opy_ (u"ࠬࡧࡰࡱࡡࡤࡹࡹࡵ࡭ࡢࡶࡨ᫃ࠫ"): False,
-    bstack1111_opy_ (u"࠭ࡢࡴࡶࡤࡧࡰࡥࡳࡦࡵࡶ࡭ࡴࡴ᫄ࠧ"): True,
-    bstack1111_opy_ (u"ࠧࡴ࡭࡬ࡴࡤࡹࡥࡴࡵ࡬ࡳࡳࡥࡳࡵࡣࡷࡹࡸ࠭᫅"): False,
-    bstack1111_opy_ (u"ࠨࡵ࡮࡭ࡵࡥࡳࡦࡵࡶ࡭ࡴࡴ࡟࡯ࡣࡰࡩࠬ᫆"): False
+    bstack1ll111_opy_ (u"ࠫࡦࡶࡰࡠࡣࡸࡸࡴࡳࡡࡵࡧࠪ⊍"): False,
+    bstack1ll111_opy_ (u"ࠬࡨࡳࡵࡣࡦ࡯ࡤࡹࡥࡴࡵ࡬ࡳࡳ࠭⊎"): True,
+    bstack1ll111_opy_ (u"࠭ࡳ࡬࡫ࡳࡣࡸ࡫ࡳࡴ࡫ࡲࡲࡤࡹࡴࡢࡶࡸࡷࠬ⊏"): False,
+    bstack1ll111_opy_ (u"ࠧࡴ࡭࡬ࡴࡤࡹࡥࡴࡵ࡬ࡳࡳࡥ࡮ࡢ࡯ࡨࠫ⊐"): False
 }
 class Config(object):
     instance = None
     def __init__(self):
-        self._111ll1llll1_opy_ = conf
+        self._1ll1lll11l11_opy_ = conf
     @classmethod
     def get_instance(cls):
         if cls.instance:
             return cls.instance
         return Config()
-    def get_property(self, property_name, bstack111ll1lll11_opy_=None):
-        return self._111ll1llll1_opy_.get(property_name, bstack111ll1lll11_opy_)
-    def bstack11llll1l1_opy_(self, property_name, bstack111ll1lll1l_opy_):
-        self._111ll1llll1_opy_[property_name] = bstack111ll1lll1l_opy_
-    def bstack1l11l111_opy_(self, val):
-        self._111ll1llll1_opy_[bstack1111_opy_ (u"ࠩࡶ࡯࡮ࡶ࡟ࡴࡧࡶࡷ࡮ࡵ࡮ࡠࡰࡤࡱࡪ࠭᫇")] = bool(val)
+    def get_property(self, property_name, bstack1111l11lll1_opy_=None):
+        return self._1ll1lll11l11_opy_.get(property_name, bstack1111l11lll1_opy_)
+    def bstack1lll11l111_opy_(self, property_name, bstack1ll1lll11l1l_opy_):
+        self._1ll1lll11l11_opy_[property_name] = bstack1ll1lll11l1l_opy_
+    def bstack1llll1l1l1_opy_(self, val):
+        self._1ll1lll11l11_opy_[bstack1ll111_opy_ (u"ࠨࡵ࡮࡭ࡵࡥࡳࡦࡵࡶ࡭ࡴࡴ࡟࡯ࡣࡰࡩࠬ⊑")] = str(val).lower() == bstack1ll111_opy_ (u"ࠩࡷࡶࡺ࡫ࠧ⊒")
     def should_skip_session_name(self):
-        return self._111ll1llll1_opy_.get(bstack1111_opy_ (u"ࠪࡷࡰ࡯ࡰࡠࡵࡨࡷࡸ࡯࡯࡯ࡡࡱࡥࡲ࡫ࠧ᫈"), False)
-    def bstack1l11l11l_opy_(self, val):
-        self._111ll1llll1_opy_[bstack1111_opy_ (u"ࠫࡸࡱࡩࡱࡡࡶࡩࡸࡹࡩࡰࡰࡢࡷࡹࡧࡴࡶࡵࠪ᫉")] = bool(val)
+        return self._1ll1lll11l11_opy_.get(bstack1ll111_opy_ (u"ࠪࡷࡰ࡯ࡰࡠࡵࡨࡷࡸ࡯࡯࡯ࡡࡱࡥࡲ࡫ࠧ⊓"), False)
+    def bstack11l1111l1l_opy_(self, val):
+        self._1ll1lll11l11_opy_[bstack1ll111_opy_ (u"ࠫࡸࡱࡩࡱࡡࡶࡩࡸࡹࡩࡰࡰࡢࡷࡹࡧࡴࡶࡵࠪ⊔")] = str(val).lower() == bstack1ll111_opy_ (u"ࠬࡺࡲࡶࡧࠪ⊕")
     def should_skip_session_status(self):
-        return self._111ll1llll1_opy_.get(bstack1111_opy_ (u"ࠬࡹ࡫ࡪࡲࡢࡷࡪࡹࡳࡪࡱࡱࡣࡸࡺࡡࡵࡷࡶ᫊ࠫ"), False)
+        return self._1ll1lll11l11_opy_.get(bstack1ll111_opy_ (u"࠭ࡳ࡬࡫ࡳࡣࡸ࡫ࡳࡴ࡫ࡲࡲࡤࡹࡴࡢࡶࡸࡷࠬ⊖"), False)

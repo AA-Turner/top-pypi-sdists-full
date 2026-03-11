@@ -48,4 +48,5 @@ class NotificationTypeSettingModelViewSet(viewsets.ModelViewSet):
                 locked=F("notification_type__is_lock"),
                 locked_icon=Case(When(locked=True, then=Value(WBIcon.LOCK.icon)), default=Value(None)),
             )
+            .select_related("notification_type", "user")
         )

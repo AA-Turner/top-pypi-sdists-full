@@ -118,7 +118,7 @@ class GridSearchArguments(APIObject):
         random_state: Optional[int] = None,
         wall_clock_time_limit: Optional[int] = None,
     ) -> None:
-        self.search_type = search_type if search_type else GridSearchSearchType.SMART
+        self.search_type = search_type or GridSearchSearchType.SMART
         self.algorithm = algorithm
         self.batch_size = batch_size
         self.max_iterations = max_iterations

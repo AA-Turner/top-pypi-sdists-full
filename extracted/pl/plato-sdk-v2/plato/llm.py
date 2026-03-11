@@ -35,7 +35,7 @@ import asyncio
 import json
 import logging
 import time
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 import litellm
 from pydantic import BaseModel, Field
@@ -111,12 +111,21 @@ class LLMClient:
         # Identical calls return cached LLMResponse (text only, no raw)
     """
 
-    def __init__(self, config: LLMConfig, store: ResultStore | None = None) -> None:
+    def __init__(
+        self,
+        config: LLMConfig,
+        store: ResultStore | None = None,
+        *,
+        tracer_name: str = "plato.llm",
+        atif_source: Literal["agent", "world"] = "agent",
+    ) -> None:
         self._model = config.model
         self._api_key = config.api_key or None
         self._max_tokens = config.max_tokens
         self._temperature = config.temperature
         self._store = store
+        self._tracer_name = tracer_name
+        self._atif_source = atif_source
 
         # Register concurrency limit if configured
         if config.concurrency > 0:
@@ -152,6 +161,8 @@ class LLMClient:
             tools=tools,
             max_tokens=max_tokens or self._max_tokens,
             temperature=temperature if temperature is not None else self._temperature,
+            tracer_name=self._tracer_name,
+            atif_source=self._atif_source,
             timeout=timeout,
             num_retries=num_retries,
             **kwargs,
@@ -218,6 +229,8 @@ class LLMClient:
             tools=tools,
             max_tokens=max_tokens or self._max_tokens,
             temperature=temperature if temperature is not None else self._temperature,
+            tracer_name=self._tracer_name,
+            atif_source=self._atif_source,
             timeout=timeout,
             num_retries=num_retries,
             **kwargs,
@@ -246,6 +259,9 @@ class TokenUsage(BaseModel):
     prompt_tokens: int = 0
     completion_tokens: int = 0
     total_tokens: int = 0
+    reasoning_tokens: int = 0
+    prompt_tokens_details: dict[str, Any] = Field(default_factory=dict)
+    completion_tokens_details: dict[str, Any] = Field(default_factory=dict)
 
 
 class ToolCall(BaseModel):
@@ -332,6 +348,17 @@ def _convert_tools_to_openai_format(tools: list[dict]) -> list[dict]:
 def _parse_response(raw_response: Any, model: str) -> LLMResponse:
     """Parse a litellm ModelResponse into our LLMResponse."""
 
+    def _dump_usage_details(value: Any) -> dict[str, Any]:
+        if value is None:
+            return {}
+        if isinstance(value, dict):
+            return {k: v for k, v in value.items() if v is not None}
+        if hasattr(value, "model_dump"):
+            dumped = value.model_dump(exclude_none=True)
+            if isinstance(dumped, dict):
+                return {k: v for k, v in dumped.items() if v is not None}
+        return {}
+
     def _extract_text(content: Any) -> str:
         if content is None:
             return ""
@@ -382,6 +409,11 @@ def _parse_response(raw_response: Any, model: str) -> LLMResponse:
             prompt_tokens=raw_response.usage.prompt_tokens or 0,
             completion_tokens=raw_response.usage.completion_tokens or 0,
             total_tokens=raw_response.usage.total_tokens or 0,
+            reasoning_tokens=getattr(raw_response.usage, "reasoning_tokens", 0) or 0,
+            prompt_tokens_details=_dump_usage_details(getattr(raw_response.usage, "prompt_tokens_details", None)),
+            completion_tokens_details=_dump_usage_details(
+                getattr(raw_response.usage, "completion_tokens_details", None)
+            ),
         )
 
     # Extract cost
@@ -413,6 +445,7 @@ def _emit_llm_span(
     response: LLMResponse,
     duration_ms: float,
     tracer_name: str = "plato.llm",
+    atif_source: Literal["agent", "world"] = "agent",
 ) -> None:
     """Emit an ATIF-formatted span for an LLM call."""
     tracer = get_tracer(tracer_name)
@@ -447,7 +480,7 @@ def _emit_llm_span(
 
     with tracer.start_as_current_span(f"atif.step.{step_id}") as span:
         span.set_attribute("atif.step.id", step_id)
-        span.set_attribute("atif.step.source", "agent")
+        span.set_attribute("atif.step.source", atif_source)
         span.set_attribute("atif.step.message", response.text if response.text else last_user_msg)
         span.set_attribute("atif.step.model_name", model)
 
@@ -455,6 +488,18 @@ def _emit_llm_span(
             span.set_attribute("atif.step.prompt_tokens", response.usage.prompt_tokens)
         if response.usage.completion_tokens:
             span.set_attribute("atif.step.completion_tokens", response.usage.completion_tokens)
+        if response.usage.reasoning_tokens:
+            span.set_attribute("atif.step.reasoning_tokens", response.usage.reasoning_tokens)
+        if response.usage.prompt_tokens_details:
+            span.set_attribute(
+                "atif.step.prompt_tokens_details",
+                json.dumps(response.usage.prompt_tokens_details, default=str),
+            )
+        if response.usage.completion_tokens_details:
+            span.set_attribute(
+                "atif.step.completion_tokens_details",
+                json.dumps(response.usage.completion_tokens_details, default=str),
+            )
         if response.cost:
             span.set_attribute("atif.step.cost_usd", response.cost)
         if atif_tool_calls:
@@ -475,6 +520,7 @@ def completion(
     temperature: float | None = None,
     system: str | None = None,
     tracer_name: str = "plato.llm",
+    atif_source: Literal["agent", "world"] = "agent",
     timeout: int = 120,
     num_retries: int = 5,
     **kwargs: Any,
@@ -489,6 +535,7 @@ def completion(
         temperature: Sampling temperature
         system: System prompt (prepended as a system message)
         tracer_name: OTel tracer name for spans
+        atif_source: ATIF source label for emitted spans
         timeout: Request timeout in seconds
         num_retries: Number of retries on failure
         **kwargs: Additional arguments passed to litellm.completion()
@@ -521,7 +568,7 @@ def completion(
 
     response = _parse_response(raw_response, model)
 
-    _emit_llm_span(model, messages, response, duration_ms, tracer_name)
+    _emit_llm_span(model, messages, response, duration_ms, tracer_name, atif_source)
 
     logger.debug(
         "LLM call: model=%s, tokens=%d/%d, cost=$%.4f, duration=%.0fms",
@@ -544,6 +591,7 @@ async def acompletion(
     temperature: float | None = None,
     system: str | None = None,
     tracer_name: str = "plato.llm",
+    atif_source: Literal["agent", "world"] = "agent",
     timeout: int = 120,
     num_retries: int = 5,
     **kwargs: Any,
@@ -588,7 +636,7 @@ async def acompletion(
 
     response = _parse_response(raw_response, model)
 
-    _emit_llm_span(model, messages, response, duration_ms, tracer_name)
+    _emit_llm_span(model, messages, response, duration_ms, tracer_name, atif_source)
 
     logger.debug(
         "LLM call: model=%s, tokens=%d/%d, cost=$%.4f, duration=%.0fms",

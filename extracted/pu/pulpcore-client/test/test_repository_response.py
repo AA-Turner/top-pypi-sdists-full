@@ -47,7 +47,7 @@ class TestRepositoryResponse(unittest.TestCase):
                 latest_version_href = '',
                 name = '',
                 description = '',
-                retain_repo_versions = 56,
+                retain_repo_versions = 1,
                 remote = ''
             )
         else:

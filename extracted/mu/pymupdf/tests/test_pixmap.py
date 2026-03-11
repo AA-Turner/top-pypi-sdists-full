@@ -11,6 +11,7 @@ import gentle_compare
 import os
 import platform
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -284,6 +285,10 @@ def test_3493():
     import subprocess
     
     root = os.path.abspath(f'{__file__}/../..')
+    
+    venv = f'{root}/tests/resources/test_3493_venv'
+    shutil.rmtree(venv, ignore_errors=1)
+    
     in_path = f'{root}/tests/resources/test_3493.epub'
     
     def run(command, check=1, stdout=None):
@@ -319,7 +324,7 @@ def test_3493():
             ,
             f'{root}/tests/resources/test_3493_gi.py',
             check=0,
-            venv=f'{root}/tests/resources/test_3493_venv',
+            venv=venv,
             venv_args='--system-site-packages',
             stdout=subprocess.PIPE,
             )
@@ -509,7 +514,13 @@ def test_4435():
     with pymupdf.open(path) as document:
         page = document[2]
         print(f'Calling page.get_pixmap().', flush=1)
-        if pymupdf.mupdf_version_tuple >= (1, 27) and os.environ.get('PYODIDE_ROOT'):
+        if (
+                pymupdf.mupdf_version_tuple >= (1, 27)
+                and (
+                    os.environ.get('PYODIDE_ROOT')
+                    or (platform.system() == 'Windows' and sys.maxsize.bit_length()+1 == 32)
+                    )
+                ):
             # 2025-11-07: Expect alloc failure.
             try:
                 pixmap = page.get_pixmap(alpha=False, dpi=120)

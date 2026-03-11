@@ -1,12 +1,12 @@
-# -*- coding: utf-8 -*-
-# SPDX-FileCopyrightText: 2016-2025 PyThaiNLP Project
+# SPDX-FileCopyrightText: 2016-2026 PyThaiNLP Project
 # SPDX-FileType: SOURCE
 # SPDX-License-Identifier: Apache-2.0
-"""
-Romanization of Thai words based on machine-learnt engine ("thai2rom")
-"""
+"""Romanization of Thai words based on machine-learnt engine ("thai2rom")"""
+
+from __future__ import annotations
 
 import random
+from typing import TYPE_CHECKING, Optional, Tuple
 
 import torch
 import torch.nn.functional as F
@@ -14,20 +14,40 @@ from torch import nn
 
 from pythainlp.corpus import get_corpus_path
 
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+if TYPE_CHECKING:
+    from typing import Dict
 
-_MODEL_NAME = "thai2rom-pytorch-attn"
+device: torch.device = torch.device(
+    "cuda:0" if torch.cuda.is_available() else "cpu"
+)
+
+_MODEL_NAME: str = "thai2rom-pytorch-attn"
 
 
 class ThaiTransliterator:
-    def __init__(self):
-        """
-        Transliteration of Thai words.
+    __model_filename: str
+    _maxlength: int
+    _char_to_ix: Dict[str, int]
+    _ix_to_char: Dict[int, str]
+    _target_char_to_ix: Dict[str, int]
+    _ix_to_target_char: Dict[int, str]
+    _encoder: "Encoder"
+    _decoder: "AttentionDecoder"
+    _network: "Seq2Seq"
+
+    def __init__(self) -> None:
+        """Transliteration of Thai words.
 
         Now supports Thai to Latin (romanization)
         """
-        # get the model, download it if it's not available locally
-        self.__model_filename = get_corpus_path(_MODEL_NAME)
+        self.__model_filename = get_corpus_path(_MODEL_NAME)  # type: ignore[assignment]
+        if not self.__model_filename:
+            raise FileNotFoundError(
+                f"corpus-not-found name={_MODEL_NAME!r}\n"
+                f"  Corpus '{_MODEL_NAME}' not found.\n"
+                f"    Python: pythainlp.corpus.download('{_MODEL_NAME}')\n"
+                f"    CLI:    thainlp data get {_MODEL_NAME}"
+            )
 
         loader = torch.load(self.__model_filename, map_location=device)
 
@@ -60,10 +80,8 @@ class ThaiTransliterator:
         self._network.load_state_dict(loader["model_state_dict"])
         self._network.eval()
 
-    def _prepare_sequence_in(self, text: str):
-        """
-        Prepare input sequence for PyTorch
-        """
+    def _prepare_sequence_in(self, text: str) -> torch.Tensor:
+        """Prepare input sequence for PyTorch"""
         idxs = []
         for ch in text:
             if ch in self._char_to_ix:
@@ -75,8 +93,7 @@ class ThaiTransliterator:
         return tensor.to(device)
 
     def romanize(self, text: str) -> str:
-        """
-        :param str text: Thai text to be romanized
+        """:param str text: Thai text to be romanized
         :return: English (more or less) text that spells out how the Thai text
                  should be pronounced.
         """
@@ -103,9 +120,18 @@ class ThaiTransliterator:
 
 
 class Encoder(nn.Module):
+    hidden_size: int
+    character_embedding: nn.Embedding
+    rnn: nn.LSTM
+    dropout: nn.Dropout
+
     def __init__(
-        self, vocabulary_size, embedding_size, hidden_size, dropout=0.5
-    ):
+        self,
+        vocabulary_size: int,
+        embedding_size: int,
+        hidden_size: int,
+        dropout: float = 0.5,
+    ) -> None:
         """Constructor"""
         super().__init__()
         self.hidden_size = hidden_size
@@ -121,7 +147,9 @@ class Encoder(nn.Module):
 
         self.dropout = nn.Dropout(dropout)
 
-    def forward(self, sequences, sequences_lengths):
+    def forward(
+        self, sequences: torch.Tensor, sequences_lengths: torch.Tensor
+    ) -> Tuple[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
         # sequences: (batch_size, sequence_length=MAX_LENGTH)
         # sequences_lengths: (batch_size)
 
@@ -139,7 +167,9 @@ class Encoder(nn.Module):
         sequences = self.dropout(sequences)
 
         sequences_packed = nn.utils.rnn.pack_padded_sequence(
-            sequences, sequences_lengths.clone().to("cpu", torch.int64), batch_first=True
+            sequences,
+            sequences_lengths.clone().to("cpu", torch.int64),
+            batch_first=True,
         )
 
         sequences_output, hidden = self.rnn(sequences_packed, hidden)
@@ -153,7 +183,9 @@ class Encoder(nn.Module):
         )
         return sequences_output, hidden
 
-    def init_hidden(self, batch_size):
+    def init_hidden(
+        self, batch_size: int
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         h_0 = torch.zeros(
             [2, batch_size, self.hidden_size // 2], requires_grad=True
         ).to(device)
@@ -165,7 +197,12 @@ class Encoder(nn.Module):
 
 
 class Attn(nn.Module):
-    def __init__(self, method, hidden_size):
+    method: str
+    hidden_size: int
+    attn: nn.Linear
+    other: nn.Parameter
+
+    def __init__(self, method: str, hidden_size: int) -> None:
         super().__init__()
 
         self.method = method
@@ -178,7 +215,12 @@ class Attn(nn.Module):
             self.attn = nn.Linear(self.hidden_size * 2, hidden_size)
             self.other = nn.Parameter(torch.FloatTensor(1, hidden_size))
 
-    def forward(self, hidden, encoder_outputs, mask):
+    def forward(
+        self,
+        hidden: torch.Tensor,
+        encoder_outputs: torch.Tensor,
+        mask: torch.Tensor,
+    ) -> torch.Tensor:
         # Calculate energies for each encoder output
         if self.method == "dot":
             attn_energies = torch.bmm(
@@ -187,18 +229,18 @@ class Attn(nn.Module):
         elif self.method == "general":
             attn_energies = self.attn(
                 encoder_outputs.view(-1, encoder_outputs.size(-1))
-            )  # (batch_size * sequence_len,  hidden_size)
+            )  # (batch_size * sequence_len, hidden_size)
             attn_energies = torch.bmm(
                 attn_energies.view(*encoder_outputs.size()),
                 hidden.transpose(1, 2),
-            ).squeeze(2)  # (batch_size,  sequence_len)
+            ).squeeze(2)  # (batch_size, sequence_len)
         elif self.method == "concat":
             attn_energies = self.attn(
                 torch.cat(
                     (hidden.expand(*encoder_outputs.size()), encoder_outputs),
                     2,
                 )
-            )  # (batch_size, sequence_len,  hidden_size)
+            )  # (batch_size, sequence_len, hidden_size)
             attn_energies = torch.bmm(
                 attn_energies,
                 self.other.unsqueeze(0).expand(*hidden.size()).transpose(1, 2),
@@ -211,9 +253,21 @@ class Attn(nn.Module):
 
 
 class AttentionDecoder(nn.Module):
+    vocabulary_size: int
+    hidden_size: int
+    character_embedding: nn.Embedding
+    rnn: nn.LSTM
+    attn: Attn
+    linear: nn.Linear
+    dropout: nn.Dropout
+
     def __init__(
-        self, vocabulary_size, embedding_size, hidden_size, dropout=0.5
-    ):
+        self,
+        vocabulary_size: int,
+        embedding_size: int,
+        hidden_size: int,
+        dropout: float = 0.5,
+    ) -> None:
         """Constructor"""
         super().__init__()
         self.vocabulary_size = vocabulary_size
@@ -233,9 +287,14 @@ class AttentionDecoder(nn.Module):
 
         self.dropout = nn.Dropout(dropout)
 
-    def forward(self, input_character, last_hidden, encoder_outputs, mask):
+    def forward(
+        self,
+        input_character: torch.Tensor,
+        last_hidden: torch.Tensor,
+        encoder_outputs: torch.Tensor,
+        mask: torch.Tensor,
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Defines the forward computation of the decoder"""
-
         # input_character: (batch_size, 1)
         # last_hidden: (batch_size, hidden_dim)
         # encoder_outputs: (batch_size, sequence_len, hidden_dim)
@@ -262,32 +321,47 @@ class AttentionDecoder(nn.Module):
 
 
 class Seq2Seq(nn.Module):
+    encoder: Encoder
+    decoder: AttentionDecoder
+    pad_idx: int
+    target_start_token: int
+    target_end_token: int
+    max_length: int
+
     def __init__(
         self,
-        encoder,
-        decoder,
-        target_start_token,
-        target_end_token,
-        max_length,
-    ):
+        encoder: Encoder,
+        decoder: AttentionDecoder,
+        target_start_token: int,
+        target_end_token: int,
+        max_length: int,
+    ) -> None:
         super().__init__()
 
-        self.encoder = encoder
-        self.decoder = decoder
-        self.pad_idx = 0
-        self.target_start_token = target_start_token
-        self.target_end_token = target_end_token
-        self.max_length = max_length
+        self.encoder: Encoder = encoder
+        self.decoder: AttentionDecoder = decoder
+        self.pad_idx: int = 0
+        self.target_start_token: int = target_start_token
+        self.target_end_token: int = target_end_token
+        self.max_length: int = max_length
 
-        assert encoder.hidden_size == decoder.hidden_size
+        if encoder.hidden_size != decoder.hidden_size:
+            raise ValueError(
+                f"Encoder and decoder hidden sizes must match. "
+                f"Got encoder={encoder.hidden_size}, decoder={decoder.hidden_size}"
+            )
 
-    def create_mask(self, source_seq):
+    def create_mask(self, source_seq: torch.Tensor) -> torch.Tensor:
         mask = source_seq != self.pad_idx
         return mask
 
     def forward(
-        self, source_seq, source_seq_len, target_seq, teacher_forcing_ratio=0.5
-    ):
+        self,
+        source_seq: torch.Tensor,
+        source_seq_len: torch.Tensor,
+        target_seq: Optional[torch.Tensor],
+        teacher_forcing_ratio: float = 0.5,
+    ) -> torch.Tensor:
         # source_seq: (batch_size, MAX_LENGTH)
         # source_seq_len: (batch_size, 1)
         # target_seq: (batch_size, MAX_LENGTH)
@@ -303,7 +377,10 @@ class Seq2Seq(nn.Module):
         )
 
         if target_seq is None:
-            assert teacher_forcing_ratio == 0, "Must be zero during inference"
+            if teacher_forcing_ratio != 0:
+                raise ValueError(
+                    "teacher_forcing_ratio must be zero during inference"
+                )
             inference = True
         else:
             inference = False
@@ -334,13 +411,13 @@ class Seq2Seq(nn.Module):
             _, topi = decoder_output.topk(1)
             outputs[di] = decoder_output.to(device)
 
-            teacher_force = random.random() < teacher_forcing_ratio
+            # Non-cryptographic use, pseudo-random generator is acceptable here
+            teacher_force = random.random() < teacher_forcing_ratio  # noqa: S311
 
-            decoder_input = (
-                target_seq[:, di].reshape(batch_size, 1)
-                if teacher_force
-                else topi.detach()
-            )
+            if teacher_force and target_seq is not None:
+                decoder_input = target_seq[:, di].reshape(batch_size, 1)
+            else:
+                decoder_input = topi.detach()
 
             decoder_input = topi.detach()
 
@@ -350,7 +427,7 @@ class Seq2Seq(nn.Module):
         return outputs
 
 
-_THAI_TO_ROM = ThaiTransliterator()
+_THAI_TO_ROM: ThaiTransliterator = ThaiTransliterator()
 
 
 def romanize(text: str) -> str:

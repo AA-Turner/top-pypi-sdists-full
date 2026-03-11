@@ -12,6 +12,9 @@ class SeeqNames:
         my_folder = '__My_Folder__'
         externally_shared = '__Externally_Shared__'
     
+    class ModelNames:
+        principal_component_analysis = 'Principal Component Analysis'
+    
     class AnalysisViewType:
         trend = 'trend'
         statistics_summary = 'statisticsSummary'
@@ -70,6 +73,10 @@ class SeeqNames:
         condition_flag_context_lookup = 'ConditionFlagContextLookup'
         condition_suppression_context_lookup = 'ConditionSuppressionContextLookup'
         all_true = 'AllTrue'
+        string_concat_limited = 'StringConcatLimited'
+        none = 'None'
+        aggregated = 'Aggregated'
+        aggregated_multiple_marker = 'Multiple'
     
     class VantageColumns:
         start = 'Start'
@@ -90,6 +97,7 @@ class SeeqNames:
         reviewed = 'Reviewed'
         flagged = 'Flagged'
         labels = 'Labels'
+        capsule_count = 'Capsule Count'
     
     class GraphQL:
         class DataLoaderRegistry:
@@ -102,8 +110,31 @@ class SeeqNames:
         usage_restricted_label_namespace = '__Seeq.'
         vantage_label_category_namespace = '__Vantage'
         user_defined_context_namespace = 'UserDefinedContext'
+        suppression_label_category_name = '__Seeq.suppression'
+        flag_label_category_name = '__Vantage.flag'
+        reviewed_label_category_name = '__Vantage.reviewed'
+        vantage_suppression_label_category_name = '__Vantage.suppression'
+        labels_label_category_name = '__Vantage.labels'
         flagged_context_label_name = 'flag'
-        ongoing_suppression_context_label_name = 'ongoing'
+        class Operations:
+            created = 'CREATED'
+            updated = 'UPDATED'
+            deleted = 'DELETED'
+        
+        class DataTypes:
+            label = 'LABEL'
+            comment = 'COMMENT'
+            opaque = 'OPAQUE'
+            numeric = 'NUMERIC'
+        
+        class SuppressionLabels:
+            ongoing = 'ongoing'
+            expired = 'expired'
+            ended_by_user = 'ended-by-user'
+            ended_by_condition = 'ended-by-condition'
+            errored = 'errored'
+            ended_unmonitored = 'ended-unmonitored'
+        
     
     class MlService:
         class PrincipalComponentAnalysis:
@@ -501,6 +532,7 @@ class SeeqNames:
         item_finder = 'ItemFinder'
         signal_monitor = 'SignalMonitor'
         mention_email_notification = 'MentionEmailNotification'
+        seeq_models = 'SeeqModelsJobs'
     
     class Logging:
         migrations_complete_file = 'migrations_complete_'
@@ -966,6 +998,8 @@ class SeeqNames:
         has_folder = 'has folder'
         custom_agent_contains_version_history = 'custom agent contains version history'
         custom_agent_contains_workflow = 'custom agent contains workflow'
+        model_container_contains_version_history = 'model container contains version history'
+        model_container_contains_model = 'model container contains model'
     
     class Types:
         asset = 'Asset'
@@ -1026,6 +1060,7 @@ class SeeqNames:
         agent = 'Agent'
         custom_agent = 'CustomAgent'
         agent_workflow = 'AgentWorkflow'
+        model_container = 'ModelContainer'
         analysis = 'Analysis'
         topic = 'Topic'
         vantage = 'Vantage'

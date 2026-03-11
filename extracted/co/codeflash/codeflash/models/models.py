@@ -25,7 +25,6 @@ from pathlib import Path
 from re import Pattern
 from typing import Any, NamedTuple, Optional, cast
 
-from jedi.api.classes import Name
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, ValidationError, model_validator
 from pydantic.dataclasses import dataclass
 
@@ -116,6 +115,16 @@ class OptimizationReviewResult(NamedTuple):
     explanation: str
 
 
+class FunctionRepairInfo(NamedTuple):
+    function_name: str
+    reason: str
+
+
+class TestFileReview(NamedTuple):
+    test_index: int
+    functions_to_repair: list[FunctionRepairInfo]
+
+
 # If the method spam is in the class Ham, which is at the top level of the module eggs in the package foo, the fully
 # qualified name of the method is foo.eggs.Ham.spam, its qualified name is Ham.spam, and its name is spam. The full name
 # of the module is foo.eggs.
@@ -136,14 +145,14 @@ class CoverReturnCode(IntEnum):
     ERROR = 2
 
 
-@dataclass(frozen=True, config={"arbitrary_types_allowed": True})
+@dataclass(frozen=True)
 class FunctionSource:
     file_path: Path
     qualified_name: str
     fully_qualified_name: str
     only_function_name: str
     source_code: str
-    jedi_definition: Name | None = None  # None for non-Python languages
+    definition_type: str | None = None  # e.g. "function", "class"; None for non-Python languages
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, FunctionSource):
@@ -246,8 +255,7 @@ class CodeString(BaseModel):
         """Validate code syntax for the specified language."""
         if self.language == "python":
             validate_python_code(self.code)
-        elif self.language in ("javascript", "typescript"):
-            # Validate JavaScript/TypeScript syntax using language support
+        else:
             from codeflash.languages.registry import get_language_support
 
             lang_support = get_language_support(self.language)
@@ -380,6 +388,7 @@ class CodeOptimizationContext(BaseModel):
     hashing_code_context: str = ""
     hashing_code_context_hash: str = ""
     helper_functions: list[FunctionSource]
+    testgen_helper_fqns: list[str] = []
     preexisting_objects: set[tuple[str, tuple[FunctionParent, ...]]]
 
 
@@ -406,6 +415,7 @@ class GeneratedTests(BaseModel):
     generated_original_test_source: str
     instrumented_behavior_test_source: str
     instrumented_perf_test_source: str
+    raw_generated_test_source: str | None = None
     behavior_file_path: Path
     perf_file_path: Path
 
@@ -774,7 +784,13 @@ class InvocationId:
             test_src = test_path.read_text(encoding="utf-8")
             module_node = cst.parse_module(test_src)
         except Exception:
-            return None
+            # libcst can't parse non-Python files (JS/TS) — return a descriptive string
+            # so the code repair API receives a non-None test_src_code.
+            return (
+                f"// Test: {self.test_function_name}\n"
+                f"// File: {test_path.name}\n"
+                f"// Testing function: {self.function_getting_tested}"
+            )
 
         if self.test_class_name:
             for stmt in module_node.body:

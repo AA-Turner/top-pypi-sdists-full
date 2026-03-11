@@ -971,6 +971,13 @@ def smart_pd_astype(df: pd.DataFrame, spec: Dict[str, str]) -> pd.DataFrame:
     return out
 
 
+def smart_pd_to_datetime(value, **kwargs):
+    if isinstance(value, str) and value.isdigit():
+        value = int(value)
+
+    return pd.to_datetime(value, **kwargs)
+
+
 def ensure_upper_case_id(key, val):
     if key not in ['ID', 'Current Workstep ID', 'Asset ID', 'Report ID', 'Date Range ID', 'Asset Selection ID',
                    'Worksheet ID', 'Workstep ID', 'Condition ID', 'Item ID']:

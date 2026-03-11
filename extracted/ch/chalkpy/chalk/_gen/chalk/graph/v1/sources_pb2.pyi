@@ -96,6 +96,7 @@ class KinesisSource(_message.Message):
         "endpoint_url",
         "consumer_role_arn",
         "enhanced_fanout_consumer_name",
+        "dlq_format",
     )
     NAME_FIELD_NUMBER: _ClassVar[int]
     STREAM_NAME_FIELD_NUMBER: _ClassVar[int]
@@ -109,6 +110,7 @@ class KinesisSource(_message.Message):
     ENDPOINT_URL_FIELD_NUMBER: _ClassVar[int]
     CONSUMER_ROLE_ARN_FIELD_NUMBER: _ClassVar[int]
     ENHANCED_FANOUT_CONSUMER_NAME_FIELD_NUMBER: _ClassVar[int]
+    DLQ_FORMAT_FIELD_NUMBER: _ClassVar[int]
     name: str
     stream_name: str
     stream_arn: str
@@ -121,6 +123,7 @@ class KinesisSource(_message.Message):
     endpoint_url: str
     consumer_role_arn: str
     enhanced_fanout_consumer_name: str
+    dlq_format: str
     def __init__(
         self,
         name: _Optional[str] = ...,
@@ -135,6 +138,7 @@ class KinesisSource(_message.Message):
         endpoint_url: _Optional[str] = ...,
         consumer_role_arn: _Optional[str] = ...,
         enhanced_fanout_consumer_name: _Optional[str] = ...,
+        dlq_format: _Optional[str] = ...,
     ) -> None: ...
 
 class KafkaSource(_message.Message):
@@ -209,17 +213,26 @@ class KafkaSource(_message.Message):
     ) -> None: ...
 
 class PubSubSource(_message.Message):
-    __slots__ = ("name", "project_id", "subscription_id", "late_arrival_deadline", "dead_letter_queue_topic")
+    __slots__ = (
+        "name",
+        "project_id",
+        "subscription_id",
+        "late_arrival_deadline",
+        "dead_letter_queue_topic",
+        "service_account_credentials_base64",
+    )
     NAME_FIELD_NUMBER: _ClassVar[int]
     PROJECT_ID_FIELD_NUMBER: _ClassVar[int]
     SUBSCRIPTION_ID_FIELD_NUMBER: _ClassVar[int]
     LATE_ARRIVAL_DEADLINE_FIELD_NUMBER: _ClassVar[int]
     DEAD_LETTER_QUEUE_TOPIC_FIELD_NUMBER: _ClassVar[int]
+    SERVICE_ACCOUNT_CREDENTIALS_BASE64_FIELD_NUMBER: _ClassVar[int]
     name: str
     project_id: str
     subscription_id: str
     late_arrival_deadline: _duration_pb2.Duration
     dead_letter_queue_topic: str
+    service_account_credentials_base64: str
     def __init__(
         self,
         name: _Optional[str] = ...,
@@ -227,6 +240,7 @@ class PubSubSource(_message.Message):
         subscription_id: _Optional[str] = ...,
         late_arrival_deadline: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...,
         dead_letter_queue_topic: _Optional[str] = ...,
+        service_account_credentials_base64: _Optional[str] = ...,
     ) -> None: ...
 
 class DatabaseSourceReference(_message.Message):

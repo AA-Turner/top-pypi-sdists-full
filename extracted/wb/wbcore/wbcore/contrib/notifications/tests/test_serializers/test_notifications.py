@@ -1,4 +1,5 @@
 import pytest
+from django.utils import timezone
 
 from wbcore.contrib.notifications.serializers import (
     NotificationModelSerializer,
@@ -18,7 +19,10 @@ class TestNotificationModelSerializer:
             "body": notification.body,
             "user": notification.user.pk,
             "endpoint": notification.endpoint,
-            "sent": notification.sent,
+            "sent_web": notification.sent_web,
+            "sent_email": notification.sent_email,
+            "sent_mobile": notification.sent_mobile,
             "read": notification.read,
+            "created": timezone.localtime(notification.created).strftime("%Y-%m-%dT%H:%M:%S%z"),
             "_additional_resources": {},
         }

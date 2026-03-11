@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Dict, List, Optional, Union
 
 import pandas as pd
@@ -18,6 +19,11 @@ class ItemMap:
     _lookup_df: Optional[pd.DataFrame]
     _logs: Dict[str, List[str]]
     _dummy_items: pd.DataFrame
+    _replace_patterns: Optional[List[re.Pattern]]
+    _freeze_replace_patterns: bool
+    workstep_mappings: Dict[str, Dict[str, str]]
+    image_mappings: Dict[str, Dict[str, str]]
+    content_mappings: Dict[str, dict]
 
     only_override_maps: bool
     fall_through: bool
@@ -25,7 +31,7 @@ class ItemMap:
 
     def __getstate__(self):
         return (self._item_map, self._lookup_df, self._logs, self._dummy_items, self.only_override_maps,
-                self.fall_through)
+                self.fall_through, self.workstep_mappings, self.image_mappings, self.content_mappings)
 
     def __setstate__(self, state):
         def get(i, default=None):
@@ -39,12 +45,23 @@ class ItemMap:
         self._dummy_items = get(3, pd.DataFrame({'ID': pd.Series(dtype=str)}))
         self.only_override_maps = get(4, False)
         self.fall_through = get(5, False)
+        self.workstep_mappings = get(6, dict())
+        self.image_mappings = get(7, dict())
+        self.content_mappings = get(8, dict())
+
+        self._replace_patterns = None
+        self._freeze_replace_patterns = False
 
     def __init__(self, item_map=None, lookup_df: Optional[pd.DataFrame] = None):
         self._item_map = item_map if item_map is not None else dict()
         self._lookup_df = lookup_df
         self._logs = dict()
         self._dummy_items = pd.DataFrame({'ID': pd.Series(dtype=str)})
+        self._replace_patterns = None
+        self._freeze_replace_patterns = False
+        self.workstep_mappings = dict()
+        self.image_mappings = dict()
+        self.content_mappings = dict()
         self.only_override_maps = False
         self.fall_through = False
         self.data_item_cache = _common.LRUCache()
@@ -69,13 +86,18 @@ class ItemMap:
                            f"the inventory is not being pushed as part of this operation.")
 
     def __setitem__(self, key, val):
+        if key is None:
+            raise ValueError('ItemMap does not support None as a key')
+
         key = _common.ensure_upper_case_id('ID', key)
         val = _common.ensure_upper_case_id('ID', val)
         self._item_map.__setitem__(key, val)
+        self.invalidate_replace_patterns()
 
     def __delitem__(self, key):
         key = _common.ensure_upper_case_id('ID', key)
         self._item_map.__delitem__(key)
+        self.invalidate_replace_patterns()
 
     def get(self, key, default=None):
         key = _common.ensure_upper_case_id('ID', key)
@@ -97,6 +119,34 @@ class ItemMap:
     def look_up_id(self, value):
         row = _common.look_up_in_df(value, self._lookup_df)
         return row['ID']
+
+    def invalidate_replace_patterns(self):
+        if not self._freeze_replace_patterns:
+            self._replace_patterns = None
+
+    def freeze_replace_patterns(self):
+        self._freeze_replace_patterns = True
+
+    def unfreeze_replace_patterns(self):
+        self._freeze_replace_patterns = False
+        self._replace_patterns = None
+
+    def replace_items(self, document: str, chunk_size: int = 5000) -> Optional[str]:
+        keys = sorted(self.keys(), key=len, reverse=True)
+        lookup = {k.lower(): self[k] for k in keys}
+
+        if self._replace_patterns is None:
+            chunks = [keys[i:i + chunk_size] for i in range(0, len(keys), chunk_size)]
+            self._replace_patterns = [
+                re.compile("|".join(map(re.escape, chunk)), flags=re.IGNORECASE)
+                for chunk in chunks
+            ]
+
+        out = document
+        for pattern in self._replace_patterns:
+            out = pattern.sub(lambda m: lookup.get(m.group(0).lower(), m.group(0)), out)
+
+        return out
 
     def _should_fall_through(self, key):
         return self.fall_through and _common.is_guid(key)
@@ -191,6 +241,7 @@ class OverrideItemMap(ItemMap):
             self._override.__delitem__(key)
         else:
             self._item_map.__delitem__(key)
+        self.invalidate_replace_patterns()
 
     def get(self, key, default=None):
         key = _common.ensure_upper_case_id('ID', key)
@@ -223,6 +274,30 @@ class OverrideItemMap(ItemMap):
 
     def log(self, key, message, at_top=False):
         self._item_map.log(key, message, at_top=at_top)
+
+    @property
+    def workstep_mappings(self):
+        return self._item_map.workstep_mappings
+
+    @workstep_mappings.setter
+    def workstep_mappings(self, value):
+        self._item_map.workstep_mappings = value
+
+    @property
+    def image_mappings(self):
+        return self._item_map.image_mappings
+
+    @image_mappings.setter
+    def image_mappings(self, value):
+        self._item_map.image_mappings = value
+
+    @property
+    def content_mappings(self):
+        return self._item_map.content_mappings
+
+    @content_mappings.setter
+    def content_mappings(self, value):
+        self._item_map.content_mappings = value
 
     def _override_from_template_parameters(self, template_parameters: dict):
 

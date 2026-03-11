@@ -1,33 +1,37 @@
-# -*- coding: utf-8 -*-
-# SPDX-FileCopyrightText: 2016-2025 PyThaiNLP Project
+# SPDX-FileCopyrightText: 2016-2026 PyThaiNLP Project
 # SPDX-FileType: SOURCE
 # SPDX-License-Identifier: Apache-2.0
-"""
-Thai-English Cross-Language Transliterated Word Retrieval
+"""Thai-English Cross-Language Transliterated Word Retrieval
 using Soundex Technique
 
 References:
-Prayut Suwanvisat, Somchai Prasitjutrakul.Thai-English Cross-Language Transliterated Word Retrieval using Soundex Technique. In 1998 [cited 2022 Sep 8]. Available from: https://www.cp.eng.chula.ac.th/~somchai/spj/papers/ThaiText/ncsec98-clir.pdf
+Prayut Suwanvisat, Somchai Prasitjutrakul.
+Thai-English Cross-Language Transliterated Word Retrieval using Soundex
+Technique. In 1998 [cited 2022 Sep 8].
+Available from:
+https://www.cp.eng.chula.ac.th/~somchai/spj/papers/ThaiText/ncsec98-clir.pdf
 """
+
+from __future__ import annotations
+
 from pythainlp import thai_characters
 
-_C0 = "AEIOUHWYอ"
-_C1 = "BFPVบฝฟปผพภว"
-_C2 = "CGJKQSXZขฃคฅฆฉขฌกจซศษส"
-_C3 = "DTฎดฏตฐฑฒถทธ"
-_C4 = "Lลฬ"
-_C5 = "MNมณน"
-_C6 = "Rร"
-_C7 = "AEIOUอ"
-_C8 = "Hหฮ"
-_C1_1 = "Wว"
-_C9 = "Yยญ"
-_C52 = "ง"
+_C0: str = "AEIOUHWYอ"
+_C1: str = "BFPVบฝฟปผพภว"
+_C2: str = "CGJKQSXZขฃคฅฆฉขฌกจซศษส"
+_C3: str = "DTฎดฏตฐฑฒถทธ"
+_C4: str = "Lลฬ"
+_C5: str = "MNมณน"
+_C6: str = "Rร"
+_C7: str = "AEIOUอ"
+_C8: str = "Hหฮ"
+_C1_1: str = "Wว"
+_C9: str = "Yยญ"
+_C52: str = "ง"
 
 
 def prayut_and_somchaip(text: str, length: int = 4) -> str:
-    """
-    This function converts English-Thai Cross-Language Transliterated Word into
+    """Converts English-Thai Cross-Language Transliterated Words into
     phonetic code with the matching technique called **Soundex** [#prayut_and_somchaip]_.
 
     :param str text: English-Thai Cross-Language Transliterated Word
@@ -83,7 +87,7 @@ def prayut_and_somchaip(text: str, length: int = 4) -> str:
         elif chars[i] in _C9 and i != 0:
             chars[i] = "9"
         else:
-            chars[i] = None
+            chars[i] = None  # type: ignore[call-overload]
         i += 1
-    chars = list("".join([i for i in chars if i is not None]))
+    chars = list("".join(filter(None, chars)))
     return "".join(chars[-length:])

@@ -7,8 +7,8 @@ from tenacity import retry, retry_if_exception_type, stop_after_attempt
 from stigg.generated.client import Client
 from stigg.generated.async_client import AsyncClient
 from stigg.generated import FetchEntitlementsQuery, GetEntitlements, GetEntitlementsState, GraphQLClientHttpError, GetPaywallInput, \
-  GetPaywall, GraphQLClientInvalidResponseError, FetchEntitlementQuery, GetEntitlement, UsageMeasurementCreateInput, \
-  ReportUsage, ReportUsageInput, GetActiveSubscriptionsInput, GetActiveSubscriptionsList
+    GetPaywall, GraphQLClientInvalidResponseError, FetchEntitlementQuery, GetEntitlement, UsageMeasurementCreateInput, \
+    ReportUsage, ReportUsageInput, GetActiveSubscriptionsInput, GetActiveSubscriptionsList
 from stigg._edge_utils import build_get_entitlements_data, build_get_paywall_data, build_get_entitlement_data, build_get_subscriptions_data, build_get_entitlements_state_data
 
 PRODUCTION_API_URL = "https://api.stigg.io/graphql"
@@ -29,6 +29,7 @@ RETRY_KWARGS = {
 
 X_GRAPHQL_OPERATION_NAME = 'x-graphql-operation-name'
 
+
 class StiggClient(Client):
     def __init__(self, enable_edge: bool, edge_api_url: str, *args, **kwargs):
         self.enable_edge = enable_edge
@@ -43,14 +44,14 @@ class StiggClient(Client):
         variables: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> httpx.Response:
-      headers = kwargs.get("headers", {})
-      headers[X_GRAPHQL_OPERATION_NAME] = operation_name
-      kwargs['headers'] = headers
+        headers = kwargs.get("headers", {})
+        headers[X_GRAPHQL_OPERATION_NAME] = operation_name
+        kwargs['headers'] = headers
 
-      return super().execute(query, operation_name, variables, **kwargs)
+        return super().execute(query, operation_name, variables, **kwargs)
 
     @retry(**RETRY_KWARGS)
-    def get_data(self,  *args, **kwargs):
+    def get_data(self, *args, **kwargs):
         return super().get_data(*args, **kwargs)
 
     def get_entitlement(self, input: FetchEntitlementQuery, **kwargs: Any) -> GetEntitlement:
@@ -102,7 +103,7 @@ class StiggClient(Client):
         return GetPaywall.model_validate(data)
 
     def report_usage(self, input: Union[UsageMeasurementCreateInput, ReportUsageInput], **kwargs: Any) -> ReportUsage:
-      return super().report_usage(input, **kwargs)
+        return super().report_usage(input, **kwargs)
 
 
 class AsyncStiggClient(AsyncClient):
@@ -119,15 +120,14 @@ class AsyncStiggClient(AsyncClient):
         variables: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> httpx.Response:
-      headers = kwargs.get("headers", {})
-      headers[X_GRAPHQL_OPERATION_NAME] = operation_name
-      kwargs['headers'] = headers
+        headers = kwargs.get("headers", {})
+        headers[X_GRAPHQL_OPERATION_NAME] = operation_name
+        kwargs['headers'] = headers
 
-      return super().execute(query, operation_name, variables, **kwargs)
-
+        return super().execute(query, operation_name, variables, **kwargs)
 
     @retry(**RETRY_KWARGS)
-    def get_data(self,  *args, **kwargs):
+    def get_data(self, *args, **kwargs):
         return super().get_data(*args, **kwargs)
 
     async def get_entitlement(self, input: FetchEntitlementQuery, **kwargs: Any) -> GetEntitlement:

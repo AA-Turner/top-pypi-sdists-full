@@ -12,6 +12,8 @@ from chalk._gen.chalk.server.v1.billing_pb2 import (
     GetCreditBundlesResponse,
     GetInstanceUsageRequest,
     GetInstanceUsageResponse,
+    GetNodeDetailRequest,
+    GetNodeDetailResponse,
     GetNodeTimeRangesRequest,
     GetNodeTimeRangesResponse,
     GetNodesAndPodsRequest,
@@ -104,6 +106,13 @@ class BillingServiceStub:
     """GetNodeTimeRanges returns the earliest and latest observed timestamps
     for a list of nodes from the usage data.
     """
+    GetNodeDetail: UnaryUnaryMultiCallable[
+        GetNodeDetailRequest,
+        GetNodeDetailResponse,
+    ]
+    """GetNodeDetail returns detailed information about a specific node and all
+    pods that were scheduled on it, from the BigQuery usage data.
+    """
 
 class BillingServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -189,6 +198,15 @@ class BillingServiceServicer(metaclass=ABCMeta):
     ) -> GetNodeTimeRangesResponse:
         """GetNodeTimeRanges returns the earliest and latest observed timestamps
         for a list of nodes from the usage data.
+        """
+    @abstractmethod
+    def GetNodeDetail(
+        self,
+        request: GetNodeDetailRequest,
+        context: ServicerContext,
+    ) -> GetNodeDetailResponse:
+        """GetNodeDetail returns detailed information about a specific node and all
+        pods that were scheduled on it, from the BigQuery usage data.
         """
 
 def add_BillingServiceServicer_to_server(servicer: BillingServiceServicer, server: Server) -> None: ...

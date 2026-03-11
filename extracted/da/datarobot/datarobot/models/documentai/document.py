@@ -86,10 +86,8 @@ class DocumentPageFile(APIObject):
         self.document_page_id = document_page_id
         self.height = height
         self.width = width
-        self.download_link = (
-            download_link
-            if download_link
-            else self._bytes_path.format(project_id=project_id, document_page_id=document_page_id)
+        self.download_link = download_link or self._bytes_path.format(
+            project_id=project_id, document_page_id=document_page_id
         )
         self.__thumbnail_bytes: bytes
         self.__mime_type: str

@@ -130,6 +130,9 @@ from .common import AgentEngineSandboxOperationOrDict
 from .common import AgentEngineSessionOperation
 from .common import AgentEngineSessionOperationDict
 from .common import AgentEngineSessionOperationOrDict
+from .common import AgentRunConfig
+from .common import AgentRunConfigDict
+from .common import AgentRunConfigOrDict
 from .common import AgentServerMode
 from .common import AggregatedMetricResult
 from .common import AggregatedMetricResultDict
@@ -387,6 +390,9 @@ from .common import EvaluationRunMetric
 from .common import EvaluationRunMetricDict
 from .common import EvaluationRunMetricOrDict
 from .common import EvaluationRunOrDict
+from .common import EvaluationRunPromptTemplate
+from .common import EvaluationRunPromptTemplateDict
+from .common import EvaluationRunPromptTemplateOrDict
 from .common import EvaluationRunResults
 from .common import EvaluationRunResultsDict
 from .common import EvaluationRunResultsOrDict
@@ -1334,9 +1340,21 @@ __all__ = [
     "EvaluationRunMetric",
     "EvaluationRunMetricDict",
     "EvaluationRunMetricOrDict",
+    "EvaluationRunPromptTemplate",
+    "EvaluationRunPromptTemplateDict",
+    "EvaluationRunPromptTemplateOrDict",
     "EvaluationRunConfig",
     "EvaluationRunConfigDict",
     "EvaluationRunConfigOrDict",
+    "EvaluationRunAgentConfig",
+    "EvaluationRunAgentConfigDict",
+    "EvaluationRunAgentConfigOrDict",
+    "AgentRunConfig",
+    "AgentRunConfigDict",
+    "AgentRunConfigOrDict",
+    "EvaluationRunInferenceConfig",
+    "EvaluationRunInferenceConfigDict",
+    "EvaluationRunInferenceConfigOrDict",
     "CreateEvaluationRunConfig",
     "CreateEvaluationRunConfigDict",
     "CreateEvaluationRunConfigOrDict",
@@ -1382,12 +1400,6 @@ __all__ = [
     "EvaluationResult",
     "EvaluationResultDict",
     "EvaluationResultOrDict",
-    "EvaluationRunAgentConfig",
-    "EvaluationRunAgentConfigDict",
-    "EvaluationRunAgentConfigOrDict",
-    "EvaluationRunInferenceConfig",
-    "EvaluationRunInferenceConfigDict",
-    "EvaluationRunInferenceConfigOrDict",
     "EvaluationRun",
     "EvaluationRunDict",
     "EvaluationRunOrDict",

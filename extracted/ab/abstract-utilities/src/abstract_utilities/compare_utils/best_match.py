@@ -1,11 +1,4 @@
-from __future__ import annotations
-from typing import Any, Iterable, Iterator, Tuple, Union, Dict, List, Optional
-import re
-from difflib import SequenceMatcher
-
-JSONLike = Union[dict, list, tuple, set, str, int, float, bool, None]
-PathType = Tuple[Union[str, int], ...]
-
+from .imports import *
 def iter_values(obj: JSONLike, path: PathType = ()) -> Iterator[Tuple[PathType, Any]]:
     if isinstance(obj, dict):
         for k, v in obj.items():

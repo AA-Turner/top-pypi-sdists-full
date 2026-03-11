@@ -1,6 +1,7 @@
 """Tests for plato.worlds module - initialization, config, and schema."""
 
 from typing import Annotated
+from unittest.mock import patch
 
 
 class TestWorldImports:
@@ -222,10 +223,10 @@ class TestRunConfig:
         from plato.worlds import RunConfig
 
         config = RunConfig()
-        # RunConfig now only has checkpoint and state configs
         assert config.checkpoint.enabled is False
         assert config.state.enabled is True
         assert config.state.path == "/state"
+        assert config.slack_notifications.enabled is False
 
     def test_config_subclass(self):
         """Test creating a RunConfig subclass."""
@@ -259,6 +260,34 @@ class TestRunConfig:
         assert isinstance(annotations["api_key"], FieldMarker)
         assert annotations["api_key"].kind == "secret"
         assert annotations["prompt"] is None  # No marker
+
+
+class TestBaseWorldHelpers:
+    def test_world_llm_uses_world_atif_source(self):
+        from plato.worlds import BaseWorld, LLMConfig, Observation, RunConfig, StepResult
+
+        class TestWorld(BaseWorld[RunConfig]):
+            name = "demo"
+
+            async def reset(self) -> Observation:
+                return Observation()
+
+            async def step(self) -> StepResult:
+                return StepResult(observation=Observation())
+
+        world = TestWorld()
+        config = LLMConfig(model="openai/gpt-4o")
+
+        with patch("plato.worlds.base.LLMClient") as mock_client:
+            result = world.llm(config)
+
+        mock_client.assert_called_once_with(
+            config,
+            store=None,
+            tracer_name="plato.worlds.demo.llm",
+            atif_source="world",
+        )
+        assert result is mock_client.return_value
 
     def test_config_get_json_schema(self):
         """Test get_json_schema method."""

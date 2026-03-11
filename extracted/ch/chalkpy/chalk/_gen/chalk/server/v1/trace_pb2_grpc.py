@@ -35,6 +35,21 @@ class TraceServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_trace__pb2.ListSpanRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_trace__pb2.ListSpanResponse.FromString,
         )
+        self.GetSpanFacets = channel.unary_unary(
+            "/chalk.server.v1.TraceService/GetSpanFacets",
+            request_serializer=chalk_dot_server_dot_v1_dot_trace__pb2.GetSpanFacetsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_trace__pb2.GetSpanFacetsResponse.FromString,
+        )
+        self.GetSpanFacetValues = channel.unary_unary(
+            "/chalk.server.v1.TraceService/GetSpanFacetValues",
+            request_serializer=chalk_dot_server_dot_v1_dot_trace__pb2.GetSpanFacetValuesRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_trace__pb2.GetSpanFacetValuesResponse.FromString,
+        )
+        self.ListSpanAggregated = channel.unary_unary(
+            "/chalk.server.v1.TraceService/ListSpanAggregated",
+            request_serializer=chalk_dot_server_dot_v1_dot_trace__pb2.ListSpanAggregatedRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_trace__pb2.ListSpanAggregatedResponse.FromString,
+        )
 
 
 class TraceServiceServicer(object):
@@ -64,6 +79,24 @@ class TraceServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def GetSpanFacets(self, request, context):
+        """GetSpanFacets returns available facets for filtering spans"""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetSpanFacetValues(self, request, context):
+        """GetSpanFacetValues returns values for a specific span facet"""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def ListSpanAggregated(self, request, context):
+        """ListSpanAggregated returns aggregated span counts bucketed by time and status"""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_TraceServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -86,6 +119,21 @@ def add_TraceServiceServicer_to_server(servicer, server):
             servicer.ListSpan,
             request_deserializer=chalk_dot_server_dot_v1_dot_trace__pb2.ListSpanRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_trace__pb2.ListSpanResponse.SerializeToString,
+        ),
+        "GetSpanFacets": grpc.unary_unary_rpc_method_handler(
+            servicer.GetSpanFacets,
+            request_deserializer=chalk_dot_server_dot_v1_dot_trace__pb2.GetSpanFacetsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_trace__pb2.GetSpanFacetsResponse.SerializeToString,
+        ),
+        "GetSpanFacetValues": grpc.unary_unary_rpc_method_handler(
+            servicer.GetSpanFacetValues,
+            request_deserializer=chalk_dot_server_dot_v1_dot_trace__pb2.GetSpanFacetValuesRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_trace__pb2.GetSpanFacetValuesResponse.SerializeToString,
+        ),
+        "ListSpanAggregated": grpc.unary_unary_rpc_method_handler(
+            servicer.ListSpanAggregated,
+            request_deserializer=chalk_dot_server_dot_v1_dot_trace__pb2.ListSpanAggregatedRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_trace__pb2.ListSpanAggregatedResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.server.v1.TraceService", rpc_method_handlers)
@@ -202,6 +250,93 @@ class TraceService(object):
             "/chalk.server.v1.TraceService/ListSpan",
             chalk_dot_server_dot_v1_dot_trace__pb2.ListSpanRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_trace__pb2.ListSpanResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetSpanFacets(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.TraceService/GetSpanFacets",
+            chalk_dot_server_dot_v1_dot_trace__pb2.GetSpanFacetsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_trace__pb2.GetSpanFacetsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetSpanFacetValues(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.TraceService/GetSpanFacetValues",
+            chalk_dot_server_dot_v1_dot_trace__pb2.GetSpanFacetValuesRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_trace__pb2.GetSpanFacetValuesResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ListSpanAggregated(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.TraceService/ListSpanAggregated",
+            chalk_dot_server_dot_v1_dot_trace__pb2.ListSpanAggregatedRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_trace__pb2.ListSpanAggregatedResponse.FromString,
             options,
             channel_credentials,
             insecure,

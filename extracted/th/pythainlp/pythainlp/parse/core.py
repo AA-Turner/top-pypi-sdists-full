@@ -1,22 +1,21 @@
-# -*- coding: utf-8 -*-
-# SPDX-FileCopyrightText: 2016-2025 PyThaiNLP Project
+# SPDX-FileCopyrightText: 2016-2026 PyThaiNLP Project
 # SPDX-FileType: SOURCE
 # SPDX-License-Identifier: Apache-2.0
+from __future__ import annotations
 
-from typing import List, Union
+from typing import Any, List, Optional, Union
 
-_tagger = None
-_tagger_name = ""
+_tagger: Optional[Any] = None
+_tagger_name: str = ""
 
 
 def dependency_parsing(
     text: str,
-    model: Union[str, None] = None,
+    model: Optional[str] = None,
     tag: str = "str",
     engine: str = "esupar",
 ) -> Union[List[List[str]], str]:
-    """
-    Dependency Parsing
+    """Dependency Parsing
 
     :param str text: text to apply dependency parsing to
     :param str model: model for using with engine \
@@ -37,6 +36,8 @@ def dependency_parsing(
             `GitHub <https://github.com/KoichiYasuoka/>`_
         * *ud_goeswith* - POS tagging and dependency parsing \
             using `goeswith` for subwords
+        * *attaparse* - Thai dependency parser using Stanza and PhayaThaiBERT. \
+            `GitHub <https://github.com/nlp-chula/attaparse>`_
 
     **Options for model (esupar engine)**
         * *th* (default) - KoichiYasuoka/roberta-base-thai-spm-upos model \
@@ -101,22 +102,34 @@ def dependency_parsing(
         if engine == "esupar":
             from pythainlp.parse.esupar_engine import Parse
 
-            _tagger = Parse(model=model)
+            _tagger = Parse(model=model if model else "th")
         elif engine == "transformers_ud":
-            from pythainlp.parse.transformers_ud import Parse
+            from pythainlp.parse.transformers_ud import Parse  # type: ignore[assignment]  # noqa: I001
 
-            _tagger = Parse(model=model)
+            _tagger = Parse(
+                model=model
+                if model
+                else "KoichiYasuoka/deberta-base-thai-ud-head"
+            )
         elif engine == "spacy_thai":
-            from pythainlp.parse.spacy_thai_engine import Parse
+            from pythainlp.parse.spacy_thai_engine import Parse  # type: ignore[assignment]  # noqa: I001
 
             _tagger = Parse()
         elif engine == "ud_goeswith":
-            from pythainlp.parse.ud_goeswith import Parse
+            from pythainlp.parse.ud_goeswith import Parse  # type: ignore[assignment]  # noqa: I001
 
-            _tagger = Parse(model=model)
+            _tagger = Parse(
+                model=model
+                if model
+                else "KoichiYasuoka/deberta-base-thai-ud-goeswith"
+            )
+        elif engine == "attaparse":
+            from pythainlp.parse.attaparse_engine import Parse  # type: ignore[assignment]  # noqa: I001
+
+            _tagger = Parse()
         else:
             raise NotImplementedError("The engine doesn't support.")
 
     _tagger_name = engine
 
-    return _tagger(text, tag=tag)
+    return _tagger(text, tag=tag)  # type: ignore[misc,no-any-return]

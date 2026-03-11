@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='AOT_biomaps',
-    version='2.9.477',
+    version='2.9.486',
     packages=find_packages(),
     include_package_data=True,
     
@@ -26,6 +26,7 @@ setup(
         'torch==2.7.0',
         'scipy==1.13.1',
         'cupy-cuda12x==13.6.0',
+        'scikit-image== 0.26.0',
     ],
 
     author='Lucas Duclos',
@@ -33,6 +34,15 @@ setup(
     description='Acousto-Optic Tomography',
     url='https://github.com/LucasDuclos/AcoustoOpticTomography',
 )
+
+
+
+
+
+
+
+
+
 
 
 

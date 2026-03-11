@@ -152,6 +152,10 @@ class TestByteAligned:
         assert not bitstring.bytealigned
 
     def test_not_byte_aligned(self):
+        a = BitArray('0xff00ff')
+        s = a.split('0xff')
+        s = list(s)
+        assert s == ['', '0xff00', '0xff']
         a = BitArray('0x00 ff 0f f')
         li = list(a.findall('0xff'))
         assert li == [8, 20]
@@ -914,39 +918,63 @@ class TestBitarray:
 
     def test_to_bitarray(self):
         a = BitArray('0xff, 0b0')
-        b = a.tobitarray()
-        assert type(b) == bitarray.bitarray
-        assert b == bitarray.bitarray('111111110')
+        if a._bitstore.using_rust_core():
+            with pytest.raises(TypeError):
+                _ = a.tobitarray()
+        else:
+            b = a.tobitarray()
+            assert type(b) == bitarray.bitarray
+            assert b == bitarray.bitarray('111111110')
 
     def test_to_bitarray_lsb0(self):
         bitstring.lsb0 = True
         a = bitstring.Bits('0xff, 0b0')
-        b = a.tobitarray()
-        assert type(b) == bitarray.bitarray
-        assert b == bitarray.bitarray('111111110')
+        if a._bitstore.using_rust_core():
+            with pytest.raises(TypeError):
+                _ = a.tobitarray()
+        else:
+            b = a.tobitarray()
+            assert type(b) == bitarray.bitarray
+            assert b == bitarray.bitarray('111111110')
 
     def test_from_file(self):
         a = bitstring.ConstBitStream(filename=os.path.join(THIS_DIR, 'smalltestfile'))
-        b = a.tobitarray()
-        assert a.bin == b.to01()
+        if a._bitstore.using_rust_core():
+            with pytest.raises(TypeError):
+                _ = a.tobitarray()
+        else:
+            b = a.tobitarray()
+            assert a.bin == b.to01()
 
     def test_with_offset(self):
         a = bitstring.ConstBitStream(filename=os.path.join(THIS_DIR, 'smalltestfile'))
         b = bitstring.ConstBitStream(filename=os.path.join(THIS_DIR, 'smalltestfile'), offset=11)
         assert len(a) == len(b) + 11
-        assert a[11:].tobitarray() == b.tobitarray()
+        if a._bitstore.using_rust_core():
+            with pytest.raises(TypeError):
+                _ = a.tobitarray()
+        else:
+            assert a[11:].tobitarray() == b.tobitarray()
 
     def test_with_length(self):
         a = bitstring.ConstBitStream(filename=os.path.join(THIS_DIR, 'smalltestfile'))
         b = bitstring.ConstBitStream(filename=os.path.join(THIS_DIR, 'smalltestfile'), length=11)
         assert len(b) == 11
-        assert a[:11].tobitarray() == b.tobitarray()
+        if a._bitstore.using_rust_core():
+            with pytest.raises(TypeError):
+                _ = a.tobitarray()
+        else:
+            assert a[:11].tobitarray() == b.tobitarray()
 
     def test_with_offset_and_length(self):
         a = bitstring.ConstBitStream(filename=os.path.join(THIS_DIR, 'smalltestfile'))
         b = bitstring.ConstBitStream(filename=os.path.join(THIS_DIR, 'smalltestfile'), offset=17, length=7)
         assert len(b) == 7
-        assert a[17:24].tobitarray() == b.tobitarray()
+        if a._bitstore.using_rust_core():
+            with pytest.raises(TypeError):
+                _ = a.tobitarray()
+        else:
+            assert a[17:24].tobitarray() == b.tobitarray()
 
 
 try:
@@ -990,3 +1018,9 @@ def test_bytes_from_list():
     assert s == '0x0102'
     s.bytes = [10, 20]
     assert s == '0x0a14'
+
+
+def test_slice_bug():
+    a = BitArray('0xffff')
+    a[0:8] = '0x1234'
+    assert a == '0x1234ff'

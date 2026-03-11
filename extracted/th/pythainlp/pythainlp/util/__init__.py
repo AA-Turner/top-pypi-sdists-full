@@ -1,17 +1,17 @@
-# -*- coding: utf-8 -*-
-# SPDX-FileCopyrightText: 2016-2025 PyThaiNLP Project
+# SPDX-FileCopyrightText: 2016-2026 PyThaiNLP Project
 # SPDX-FileType: SOURCE
 # SPDX-License-Identifier: Apache-2.0
-"""
-Utility functions, like date conversion and digit conversion
-"""
+"""Utility functions, like date conversion and digit conversion"""
 
-__all__ = [
+__all__: list[str] = [
     "Trie",
     "abbreviation_to_full_text",
     "arabic_digit_to_thai_digit",
     "bahttext",
+    "censor_profanity",
+    "check_khuap_klam",
     "collate",
+    "contains_profanity",
     "convert_years",
     "count_thai_chars",
     "countthai",
@@ -22,8 +22,8 @@ __all__ = [
     "eng_to_thai",
     "expand_maiyamok",
     "find_keyword",
+    "find_profanity",
     "ipa_to_rtgs",
-    "is_native_thai",
     "isthai",
     "isthaichar",
     "longest_common_subsequence",
@@ -37,6 +37,7 @@ __all__ = [
     "remove_dangling",
     "remove_dup_spaces",
     "remove_repeat_vowels",
+    "remove_spaces_before_marks",
     "remove_tone_ipa",
     "remove_tonemark",
     "remove_trailing_repeat_consonants",
@@ -44,6 +45,8 @@ __all__ = [
     "reorder_vowels",
     "rhyme",
     "sound_syllable",
+    "spell_syllable",
+    "spell_word",
     "spelling",
     "spell_words",
     "syllable_length",
@@ -72,7 +75,7 @@ __all__ = [
     "analyze_thai_text",
 ]
 
-from pythainlp.util import spell_words
+from pythainlp.util import spell_words  # noqa: I001 - keep block order to avoid circular imports
 from pythainlp.util.abbreviation import abbreviation_to_full_text
 from pythainlp.util.collate import collate
 from pythainlp.util.date import (
@@ -97,51 +100,60 @@ from pythainlp.util.keyboard import (
     thai_to_eng,
 )
 from pythainlp.util.keywords import find_keyword, rank
+from pythainlp.util.khuap_klam import check_khuap_klam
 from pythainlp.util.lcs import longest_common_subsequence
 from pythainlp.util.normalize import (
+    expand_maiyamok,
     maiyamok,
     normalize,
     remove_dangling,
     remove_dup_spaces,
     remove_repeat_vowels,
+    remove_spaces_before_marks,
     remove_tonemark,
     remove_zw,
     reorder_vowels,
-    expand_maiyamok,
 )
 from pythainlp.util.numtoword import bahttext, num_to_thaiword
 from pythainlp.util.phoneme import ipa_to_rtgs, nectec_to_ipa, remove_tone_ipa
+from pythainlp.util.profanity import (
+    censor_profanity,
+    contains_profanity,
+    find_profanity,
+)
 from pythainlp.util.remove_trailing_repeat_consonants import (
     remove_trailing_repeat_consonants,
 )
+from pythainlp.util.spell_words import spell_syllable, spell_word
 from pythainlp.util.strftime import thai_strftime
+
 from pythainlp.util.thai import (
+    analyze_thai_text,
     count_thai_chars,
     countthai,
     display_thai_char,
     isthai,
     isthaichar,
     thai_word_tone_detector,
-    analyze_thai_text,
 )
 from pythainlp.util.thai_lunar_date import th_zodiac, to_lunar_date
-from pythainlp.util.thaiwordcheck import is_native_thai
 from pythainlp.util.time import thaiword_to_time, time_to_thaiword
 from pythainlp.util.trie import Trie, dict_trie
 from pythainlp.util.wordtonum import text_to_num, thaiword_to_num, words_to_num
 
+# DO NOT REORDER these imports.
 # sound_syllable and pronounce have to be imported last,
 # to prevent circular import issues.
 # Other imports should be above this line, sorted.
-from pythainlp.util.syllable import (
+from pythainlp.util.syllable import (  # noqa: I001
     sound_syllable,
     syllable_length,
     syllable_open_close_detector,
     tone_detector,
 )
-from pythainlp.util.pronounce import (
+from pythainlp.util.pronounce import (  # noqa: I001
     rhyme,
     spelling,
-    tone_to_spelling,
     thai_consonant_to_spelling,
+    tone_to_spelling,
 )

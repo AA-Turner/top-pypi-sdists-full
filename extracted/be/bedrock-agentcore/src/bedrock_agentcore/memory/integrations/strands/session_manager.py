@@ -20,10 +20,16 @@ from strands.types.session import Session, SessionAgent, SessionMessage
 from typing_extensions import override
 
 from bedrock_agentcore.memory.client import MemoryClient
-from bedrock_agentcore.memory.models.filters import EventMetadataFilter, LeftExpression, OperatorType, RightExpression
+from bedrock_agentcore.memory.models.filters import (
+    EventMetadataFilter,
+    LeftExpression,
+    OperatorType,
+    RightExpression,
+)
 
 from .bedrock_converter import AgentCoreMemoryConverter
 from .config import AgentCoreMemoryConfig, RetrievalConfig
+from .converters import MemoryConverter
 
 if TYPE_CHECKING:
     from strands.agent.agent import Agent
@@ -98,6 +104,7 @@ class AgentCoreMemorySessionManager(RepositorySessionManager, SessionRepository)
     def __init__(
         self,
         agentcore_memory_config: AgentCoreMemoryConfig,
+        converter: Optional[type[MemoryConverter]] = None,
         region_name: Optional[str] = None,
         boto_session: Optional[boto3.Session] = None,
         boto_client_config: Optional[BotocoreConfig] = None,
@@ -107,12 +114,15 @@ class AgentCoreMemorySessionManager(RepositorySessionManager, SessionRepository)
 
         Args:
             agentcore_memory_config (AgentCoreMemoryConfig): Configuration for AgentCore Memory integration.
+            converter (Optional[type[MemoryConverter]], optional): Optional custom converter.
+                If None, native Bedrock/Strands converter is used.
             region_name (Optional[str], optional): AWS region for Bedrock AgentCore Memory. Defaults to None.
             boto_session (Optional[boto3.Session], optional): Optional boto3 session. Defaults to None.
             boto_client_config (Optional[BotocoreConfig], optional): Optional boto3 client configuration.
                Defaults to None.
             **kwargs (Any): Additional keyword arguments.
         """
+        self.converter = converter or AgentCoreMemoryConverter
         self.config = agentcore_memory_config
         self.memory_client = MemoryClient(region_name=region_name)
         session = boto_session or boto3.Session(region_name=region_name)
@@ -283,30 +293,48 @@ class AgentCoreMemorySessionManager(RepositorySessionManager, SessionRepository)
         if session_id != self.config.session_id:
             raise SessionException(f"Session ID mismatch: expected {self.config.session_id}, got {session_id}")
 
-        event = self.memory_client.gmdp_client.create_event(
-            memoryId=self.config.memory_id,
-            actorId=self.config.actor_id,
-            sessionId=self.session_id,
-            payload=[
-                {"blob": json.dumps(session_agent.to_dict())},
-            ],
-            eventTimestamp=self._get_monotonic_timestamp(),
-            metadata={
-                STATE_TYPE_KEY: {"stringValue": StateType.AGENT.value},
-                AGENT_ID_KEY: {"stringValue": session_agent.agent_id},
-            },
-        )
-
         # Cache the created_at timestamp to avoid re-fetching on updates
         if session_agent.created_at:
             self._agent_created_at_cache[session_agent.agent_id] = session_agent.created_at
 
-        logger.info(
-            "Created agent: %s in session: %s with event %s",
-            session_agent.agent_id,
-            session_id,
-            event.get("event", {}).get("eventId"),
-        )
+        if self.config.batch_size > 1:
+            # Buffer the agent state events
+            should_flush = False
+            with self._agent_state_lock:
+                self._agent_state_buffer.append((session_id, session_agent))
+                should_flush = len(self._agent_state_buffer) >= self.config.batch_size
+
+            # Flush only agent states outside the lock to prevent deadlock
+            if should_flush:
+                self._flush_agent_states_only()
+
+            logger.info(
+                "Buffered agent creation: %s in session: %s",
+                session_agent.agent_id,
+                session_id,
+            )
+        else:
+            # Immediate send when batching is disabled
+            event = self.memory_client.gmdp_client.create_event(
+                memoryId=self.config.memory_id,
+                actorId=self.config.actor_id,
+                sessionId=self.session_id,
+                payload=[
+                    {"blob": json.dumps(session_agent.to_dict())},
+                ],
+                eventTimestamp=self._get_monotonic_timestamp(),
+                metadata={
+                    STATE_TYPE_KEY: {"stringValue": StateType.AGENT.value},
+                    AGENT_ID_KEY: {"stringValue": session_agent.agent_id},
+                },
+            )
+
+            logger.info(
+                "Created agent: %s in session: %s with event %s",
+                session_agent.agent_id,
+                session_id,
+                event.get("event", {}).get("eventId"),
+            )
 
     def read_agent(self, session_id: str, agent_id: str, **kwargs: Any) -> Optional[SessionAgent]:
         """Read agent data from AgentCore Memory events.
@@ -395,20 +423,18 @@ class AgentCoreMemorySessionManager(RepositorySessionManager, SessionRepository)
         """
         agent_id = session_agent.agent_id
 
+        # Verify agent exists and get created_at timestamp if not cached
         if agent_id not in self._agent_created_at_cache:
             previous_agent = self.read_agent(session_id=session_id, agent_id=agent_id)
             if previous_agent is None:
                 raise SessionException(f"Agent {agent_id} in session {session_id} does not exist")
+
+        # Set created_at from cache before creating the update event
         session_agent.created_at = self._agent_created_at_cache[agent_id]
 
-        if self.config.batch_size > 1:
-            # Buffer the agent state update
-            with self._agent_state_lock:
-                self._agent_state_buffer.append((session_id, session_agent))
-        else:
-            # Immediate send create_event without buffering
-            # Create a new agent as AgentCore Memory is immutable. We always get the latest one in `read_agent`
-            self.create_agent(session_id, session_agent)
+        # Create a new agent event (AgentCore Memory is immutable)
+        # create_agent will handle batching and caching appropriately
+        self.create_agent(session_id, session_agent)
 
     def create_message(
         self, session_id: str, agent_id: str, session_message: SessionMessage, **kwargs: Any
@@ -449,11 +475,11 @@ class AgentCoreMemorySessionManager(RepositorySessionManager, SessionRepository)
             raise SessionException(f"Session ID mismatch: expected {self.config.session_id}, got {session_id}")
 
         # Convert and check size ONCE (not again at flush)
-        messages = AgentCoreMemoryConverter.message_to_payload(session_message)
+        messages = self.converter.message_to_payload(session_message)
         if not messages:
             return None
 
-        is_blob = AgentCoreMemoryConverter.exceeds_conversational_limit(messages[0])
+        is_blob = self.converter.exceeds_conversational_limit(messages[0])
 
         # Parse the original timestamp and use it as desired timestamp
         original_timestamp = datetime.fromisoformat(session_message.created_at.replace("Z", "+00:00"))
@@ -466,9 +492,9 @@ class AgentCoreMemorySessionManager(RepositorySessionManager, SessionRepository)
                 self._message_buffer.append((session_id, messages, is_blob, monotonic_timestamp))
                 should_flush = len(self._message_buffer) >= self.config.batch_size
 
-            # Flush outside the lock to prevent deadlock
+            # Flush only messages outside the lock to prevent deadlock
             if should_flush:
-                self._flush_messages()
+                self._flush_messages_only()
 
             return {}  # No eventId yet
 
@@ -577,7 +603,9 @@ class AgentCoreMemorySessionManager(RepositorySessionManager, SessionRepository)
                 session_id=session_id,
                 max_results=max_results,
             )
-            messages = AgentCoreMemoryConverter.events_to_messages(events)
+            messages = self.converter.events_to_messages(events)
+            if self.config.filter_restored_tool_context:
+                messages = self._filter_restored_tool_context(messages)
             if limit is not None:
                 return messages[offset : offset + limit]
             else:
@@ -586,6 +614,33 @@ class AgentCoreMemorySessionManager(RepositorySessionManager, SessionRepository)
         except Exception as e:
             logger.error("Failed to list messages from AgentCore Memory: %s", e)
             return []
+
+    def _filter_restored_tool_context(self, messages: list[SessionMessage]) -> list[SessionMessage]:
+        """Strip historical toolUse/toolResult context from restored messages."""
+        filtered_messages: list[SessionMessage] = []
+        for session_message in messages:
+            message = session_message.to_message()
+            filtered_content = [
+                content
+                for content in message.get("content", [])
+                if "toolUse" not in content and "toolResult" not in content
+            ]
+
+            if not filtered_content:
+                continue
+
+            filtered_message: Message = {"role": message["role"], "content": filtered_content}
+            filtered_messages.append(
+                SessionMessage(
+                    message=filtered_message,
+                    message_id=session_message.message_id,
+                    redact_message=session_message.redact_message,
+                    created_at=session_message.created_at,
+                    updated_at=session_message.updated_at,
+                )
+            )
+
+        return filtered_messages
 
     # endregion SessionRepository interface implementation
 
@@ -711,116 +766,149 @@ class AgentCoreMemorySessionManager(RepositorySessionManager, SessionRepository)
 
     # region Batching support
 
-    def _flush_messages(self) -> list[dict[str, Any]]:
-        """Flush all buffered messages and agent state to AgentCore Memory.
+    def _flush_messages_only(self) -> list[dict[str, Any]]:
+        """Flush only buffered messages to AgentCore Memory.
 
-        Call this method to send any remaining buffered messages and agent state when batch_size > 1.
-        This is automatically called when the buffer reaches batch_size, but should
-        also be called explicitly when the session is complete (via close() or context manager).
-
+        Call this method to send any remaining buffered messages when batch_size > 1.
+        This is called when the message buffer reaches batch_size.
         Messages are batched by session_id - all conversational messages for the same
         session are combined into a single create_event() call to reduce API calls.
-        Blob messages (>9KB) are sent individually as they require a different API path.
-        Agent state updates are sent after messages.
+        Messages that exceed the conversational payload limit are sent as blob events individually
+        as they require a different API path.
 
         Returns:
             list[dict[str, Any]]: List of created event responses from AgentCore Memory.
 
         Raises:
-            SessionException: If any message or agent state creation fails. On failure, all messages
-                and agent state remain in the buffer to prevent data loss.
+            SessionException: If message creation fails. On failure, messages remain in the buffer.
         """
         with self._message_lock:
             messages_to_send = list(self._message_buffer)
 
-        with self._agent_state_lock:
-            agent_states_to_send = list(self._agent_state_buffer)
-
-        if not messages_to_send and not agent_states_to_send:
+        if not messages_to_send:
             return []
 
-        # Group conversational messages by session_id, preserve order
-        # Structure: {session_id: {"messages": [...], "timestamp": latest_timestamp}}
+        # Group all messages by session_id, combining conversational and blob messages
+        # Structure: {session_id: {"payload": [...], "timestamp": latest_timestamp}}
         session_groups: dict[str, dict[str, Any]] = {}
-        blob_messages: list[tuple[str, list[tuple[str, str]], datetime]] = []
 
         for session_id, messages, is_blob, monotonic_timestamp in messages_to_send:
+            if session_id not in session_groups:
+                session_groups[session_id] = {"payload": [], "timestamp": monotonic_timestamp}
+
             if is_blob:
-                # Blobs cannot be combined - collect them separately
-                blob_messages.append((session_id, messages, monotonic_timestamp))
+                # Add blob messages to payload
+                for msg in messages:
+                    session_groups[session_id]["payload"].append({"blob": json.dumps(msg)})
             else:
-                # Group conversational messages by session_id
-                if session_id not in session_groups:
-                    session_groups[session_id] = {"messages": [], "timestamp": monotonic_timestamp}
-                # Extend messages list to preserve order (earlier messages first)
-                session_groups[session_id]["messages"].extend(messages)
-                # Use the latest timestamp for the combined event
-                if monotonic_timestamp > session_groups[session_id]["timestamp"]:
-                    session_groups[session_id]["timestamp"] = monotonic_timestamp
+                # Add conversational messages to payload
+                for text, role in messages:
+                    session_groups[session_id]["payload"].append(
+                        {"conversational": {"content": {"text": text}, "role": role.upper()}}
+                    )
+
+            # Use the latest timestamp for the combined event
+            if monotonic_timestamp > session_groups[session_id]["timestamp"]:
+                session_groups[session_id]["timestamp"] = monotonic_timestamp
 
         results = []
         try:
-            # Send one create_event per session_id with combined messages
+            # Send one create_event per session_id with all messages (conversational + blob)
             for session_id, group in session_groups.items():
-                event = self.memory_client.create_event(
-                    memory_id=self.config.memory_id,
-                    actor_id=self.config.actor_id,
-                    session_id=session_id,
-                    messages=group["messages"],
-                    event_timestamp=group["timestamp"],
-                )
-                results.append(event)
-                logger.debug("Flushed batched event for session %s: %s", session_id, event.get("eventId"))
-
-            # Send blob messages individually (they use a different API path)
-            for session_id, messages, monotonic_timestamp in blob_messages:
                 event = self.memory_client.gmdp_client.create_event(
                     memoryId=self.config.memory_id,
                     actorId=self.config.actor_id,
                     sessionId=session_id,
-                    payload=[
-                        {"blob": json.dumps(messages[0])},
-                    ],
-                    eventTimestamp=monotonic_timestamp,
-                )
-                results.append(event)
-                logger.debug("Flushed blob event for session %s: %s", session_id, event.get("eventId"))
-
-            # Flush agent state updates after messages - batch all agent states into a single API call
-            if agent_states_to_send:
-                # Convert all agent states to payload format
-                agent_state_payloads = []
-                for _session_id, session_agent in agent_states_to_send:
-                    agent_state_payloads.append({"blob": json.dumps(session_agent.to_dict())})
-
-                # Send all agent states in a single batched create_event call
-                event = self.memory_client.gmdp_client.create_event(
-                    memoryId=self.config.memory_id,
-                    actorId=self.config.actor_id,
-                    sessionId=self.config.session_id,
-                    payload=agent_state_payloads,
-                    eventTimestamp=self._get_monotonic_timestamp(),
-                    metadata={
-                        STATE_TYPE_KEY: {"stringValue": StateType.AGENT.value},
-                    },
+                    payload=group["payload"],
+                    eventTimestamp=group["timestamp"],
                 )
                 results.append(event)
                 logger.debug(
-                    "Flushed %d agent states in batched event: %s", len(agent_states_to_send), event.get("eventId")
+                    "Flushed batched event for session %s with %d messages: %s",
+                    session_id,
+                    len(group["payload"]),
+                    event.get("eventId"),
                 )
 
-            # Clear buffers only after ALL messages and agent state succeed
+            # Clear message buffer only after ALL messages succeed
             with self._message_lock:
                 self._message_buffer.clear()
 
+        except Exception as e:
+            logger.error("Failed to flush messages to AgentCore Memory: %s", e)
+            raise SessionException(f"Failed to flush messages: {e}") from e
+
+        logger.info("Flushed %d message events to AgentCore Memory", len(results))
+        return results
+
+    def _flush_agent_states_only(self) -> list[dict[str, Any]]:
+        """Flush only buffered agent states to AgentCore Memory.
+
+        Call this method to send any remaining agent state when batch_size > 1.
+        This is called when the agent state buffer reaches batch_size.
+        All agent states are batched into a single create_event() call.
+
+        Returns:
+            list[dict[str, Any]]: List of created event responses from AgentCore Memory.
+
+        Raises:
+            SessionException: If agent state creation fails. On failure, agent states remain in the buffer.
+        """
+        with self._agent_state_lock:
+            agent_states_to_send = list(self._agent_state_buffer)
+
+        if not agent_states_to_send:
+            return []
+
+        results = []
+        try:
+            # Convert all agent states to payload format
+            agent_state_payloads = []
+            for _session_id, session_agent in agent_states_to_send:
+                agent_state_payloads.append({"blob": json.dumps(session_agent.to_dict())})
+
+            # Send all agent states in a single batched create_event call
+            event = self.memory_client.gmdp_client.create_event(
+                memoryId=self.config.memory_id,
+                actorId=self.config.actor_id,
+                sessionId=self.config.session_id,
+                payload=agent_state_payloads,
+                eventTimestamp=self._get_monotonic_timestamp(),
+                metadata={
+                    STATE_TYPE_KEY: {"stringValue": StateType.AGENT.value},
+                },
+            )
+            results.append(event)
+            logger.debug(
+                "Flushed %d agent states in batched event: %s", len(agent_states_to_send), event.get("eventId")
+            )
+
+            # Clear agent state buffer only after success
             with self._agent_state_lock:
                 self._agent_state_buffer.clear()
 
         except Exception as e:
-            logger.error("Failed to flush messages and agent state to AgentCore Memory: %s", e)
-            raise SessionException(f"Failed to flush messages and agent state: {e}") from e
+            logger.error("Failed to flush agent states to AgentCore Memory: %s", e)
+            raise SessionException(f"Failed to flush agent states: {e}") from e
 
-        logger.info("Flushed %d events to AgentCore Memory", len(results))
+        logger.info("Flushed %d agent state events to AgentCore Memory", len(results))
+        return results
+
+    def _flush_messages(self) -> list[dict[str, Any]]:
+        """Flush all buffered messages and agent state to AgentCore Memory.
+
+        Call this method to send any remaining buffered messages and agent state messages.
+        This is automatically called when the session is complete (via close() or context manager).
+
+        Returns:
+            list[dict[str, Any]]: List of created event responses from AgentCore Memory.
+
+        Raises:
+            SessionException: If any message or agent state creation fails.
+        """
+        results = []
+        results.extend(self._flush_messages_only())
+        results.extend(self._flush_agent_states_only())
         return results
 
     def pending_message_count(self) -> int:

@@ -17,13 +17,19 @@ from aiohomematic.client import CommandPriority
 from aiohomematic.const import DataPointCategory, DataPointUsage, DeviceProfile, Field, Parameter
 from aiohomematic.converter import convert_hm_level_to_cpv
 from aiohomematic.interfaces import GenericDataPointProtocolAny
+from aiohomematic.model.custom.capabilities.cover import (
+    BLIND_CAPABILITIES,
+    COVER_CAPABILITIES,
+    GARAGE_CAPABILITIES,
+    CoverCapabilities,
+)
 from aiohomematic.model.custom.data_point import CustomDataPoint
 from aiohomematic.model.custom.field import DataPointField
 from aiohomematic.model.custom.mixins import PositionMixin, StateChangeArgs
 from aiohomematic.model.custom.registry import DeviceProfileRegistry, ExtendedDeviceConfig
 from aiohomematic.model.data_point import CallParameterCollector, bind_collector
 from aiohomematic.model.generic import DpAction, DpActionSelect, DpActionString, DpFloat, DpSelect, DpSensor
-from aiohomematic.property_decorators import state_property
+from aiohomematic.property_decorators import info_property, state_property
 
 _LOGGER: Final = logging.getLogger(__name__)
 
@@ -105,6 +111,7 @@ class CustomDpCover(PositionMixin, CustomDataPoint):
     """Class for Homematic cover data point."""
 
     __slots__ = (
+        "_cached_capabilities",
         "_command_processing_lock",
         "_use_group_channel_for_cover_state",
     )
@@ -160,6 +167,11 @@ class CustomDpCover(PositionMixin, CustomDataPoint):
             return str(self._dp_direction.value) == _CoverActivity.OPENING
         return None
 
+    @info_property(cached=True)
+    def capabilities(self) -> CoverCapabilities:
+        """Return the cover capabilities."""
+        return self._compute_capabilities()
+
     @bind_collector
     async def close(self, *, collector: CallParameterCollector | None = None) -> None:
         """Close the cover."""
@@ -207,6 +219,10 @@ class CustomDpCover(PositionMixin, CustomDataPoint):
     async def stop(self, *, collector: CallParameterCollector | None = None) -> None:
         """Stop the device if in motion."""
         await self._dp_stop.send_value(value=True, collector=collector)
+
+    def _compute_capabilities(self) -> CoverCapabilities:
+        """Compute static capabilities. Base cover supports position and stop."""
+        return COVER_CAPABILITIES
 
     @override
     def _post_init(self) -> None:
@@ -440,6 +456,10 @@ class CustomDpBlind(CustomDpCover):
         """Stop the device if in motion. Use only when command_processing_lock is held."""
         await self.stop(collector=collector)
 
+    def _compute_capabilities(self) -> CoverCapabilities:
+        """Compute static capabilities. Blinds support position, tilt, and stop."""
+        return BLIND_CAPABILITIES
+
     def _get_combined_value(self, *, level: float | None = None, tilt_level: float | None = None) -> str | None:
         """Return the combined parameter."""
         if level is None and tilt_level is None:
@@ -541,7 +561,7 @@ class CustomDpIpBlind(CustomDpBlind):
     _dp_combined = DataPointField(field=Field.COMBINED_PARAMETER, dpt=DpActionString)
     _dp_operation_mode: Final = DataPointField(field=Field.OPERATION_MODE, dpt=DpSelect)
 
-    @property
+    @state_property
     def operation_mode(self) -> str | None:
         """Return operation mode of cover."""
         val = self._dp_operation_mode.value
@@ -565,7 +585,7 @@ class CustomDpIpBlind(CustomDpBlind):
 class CustomDpGarage(PositionMixin, CustomDataPoint):
     """Class for Homematic garage data point."""
 
-    __slots__ = ()  # Required to prevent __dict__ creation (descriptors are class-level)
+    __slots__ = ("_cached_capabilities",)
 
     _category = DataPointCategory.COVER
 
@@ -605,6 +625,11 @@ class CustomDpGarage(PositionMixin, CustomDataPoint):
         if self._dp_section.value is not None:
             return int(self._dp_section.value) == _GarageDoorActivity.OPENING
         return None
+
+    @info_property(cached=True)
+    def capabilities(self) -> CoverCapabilities:
+        """Return the cover capabilities."""
+        return self._compute_capabilities()
 
     @bind_collector
     async def close(self, *, collector: CallParameterCollector | None = None) -> None:
@@ -660,6 +685,10 @@ class CustomDpGarage(PositionMixin, CustomDataPoint):
         if not self.is_state_change(vent=True):
             return
         await self._dp_door_command.send_value(value=_GarageDoorCommand.PARTIAL_OPEN, collector=collector)
+
+    def _compute_capabilities(self) -> CoverCapabilities:
+        """Compute static capabilities. Garage doors support position, stop, and vent."""
+        return GARAGE_CAPABILITIES
 
 
 # =============================================================================

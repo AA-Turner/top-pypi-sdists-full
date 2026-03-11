@@ -14,15 +14,8 @@ from ..models.canvas_created_webhook_v2 import CanvasCreatedWebhookV2
 from ..models.canvas_created_webhook_v2_beta import CanvasCreatedWebhookV2Beta
 from ..models.canvas_initialize_webhook_v2 import CanvasInitializeWebhookV2
 from ..models.canvas_interaction_webhook_v2 import CanvasInteractionWebhookV2
-from ..models.custom_entity_created_webhook_v3 import CustomEntityCreatedWebhookV3
-from ..models.custom_entity_updated_webhook_v3 import CustomEntityUpdatedWebhookV3
-from ..models.dna_oligo_created_webhook_v3 import DnaOligoCreatedWebhookV3
-from ..models.dna_oligo_updated_webhook_v3 import DnaOligoUpdatedWebhookV3
-from ..models.dna_sequence_created_webhook_v3 import DnaSequenceCreatedWebhookV3
-from ..models.dna_sequence_updated_webhook_v3 import DnaSequenceUpdatedWebhookV3
 from ..models.entity_registered_webhook_v2 import EntityRegisteredWebhookV2
 from ..models.entry_created_webhook_v2 import EntryCreatedWebhookV2
-from ..models.entry_created_webhook_v3 import EntryCreatedWebhookV3
 from ..models.entry_updated_fields_webhook_v2 import EntryUpdatedFieldsWebhookV2
 from ..models.entry_updated_review_record_webhook_v2 import EntryUpdatedReviewRecordWebhookV2
 from ..models.lifecycle_activate_webhook_v0 import LifecycleActivateWebhookV0
@@ -31,16 +24,9 @@ from ..models.lifecycle_configuration_update_webhook_v0_beta import LifecycleCon
 from ..models.lifecycle_configuration_update_webhook_v2_beta import LifecycleConfigurationUpdateWebhookV2Beta
 from ..models.lifecycle_deactivate_webhook_v0 import LifecycleDeactivateWebhookV0
 from ..models.lifecycle_deactivate_webhook_v0_beta import LifecycleDeactivateWebhookV0Beta
-from ..models.project_created_webhook_v3 import ProjectCreatedWebhookV3
-from ..models.project_updated_webhook_v3 import ProjectUpdatedWebhookV3
 from ..models.request_created_webhook_v2 import RequestCreatedWebhookV2
 from ..models.request_updated_fields_webhook_v2 import RequestUpdatedFieldsWebhookV2
 from ..models.request_updated_status_webhook_v2 import RequestUpdatedStatusWebhookV2
-from ..models.rna_oligo_created_webhook_v3 import RnaOligoCreatedWebhookV3
-from ..models.rna_oligo_updated_webhook_v3 import RnaOligoUpdatedWebhookV3
-from ..models.rna_sequence_created_webhook_v3 import RnaSequenceCreatedWebhookV3
-from ..models.rna_sequence_updated_webhook_v3 import RnaSequenceUpdatedWebhookV3
-from ..models.run_created_webhook_v3 import RunCreatedWebhookV3
 from ..models.workflow_output_created_webhook_v2 import WorkflowOutputCreatedWebhookV2
 from ..models.workflow_output_updated_fields_webhook_v2 import WorkflowOutputUpdatedFieldsWebhookV2
 from ..models.workflow_task_created_webhook_v2 import WorkflowTaskCreatedWebhookV2
@@ -91,19 +77,5 @@ WebhookMessageV0 = Union[
     LifecycleActivateWebhookV0Beta,
     LifecycleDeactivateWebhookV0Beta,
     LifecycleConfigurationUpdateWebhookV0Beta,
-    EntryCreatedWebhookV3,
-    RunCreatedWebhookV3,
-    ProjectCreatedWebhookV3,
-    CustomEntityCreatedWebhookV3,
-    DnaOligoCreatedWebhookV3,
-    DnaSequenceCreatedWebhookV3,
-    RnaOligoCreatedWebhookV3,
-    RnaSequenceCreatedWebhookV3,
-    ProjectUpdatedWebhookV3,
-    CustomEntityUpdatedWebhookV3,
-    DnaOligoUpdatedWebhookV3,
-    DnaSequenceUpdatedWebhookV3,
-    RnaOligoUpdatedWebhookV3,
-    RnaSequenceUpdatedWebhookV3,
     UnknownType,
 ]

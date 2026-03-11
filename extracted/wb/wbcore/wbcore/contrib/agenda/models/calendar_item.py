@@ -238,7 +238,7 @@ def set_entity_list(calendar_item_id: int):
                 }
             )
         instance.entity_list = frontend_list
-        instance.save()
+        instance.save(update_fields=["entity_list"])
 
 
 @receiver(pre_merge, sender="directory.Entry")

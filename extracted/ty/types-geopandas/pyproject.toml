@@ -4,7 +4,7 @@ requires = ["setuptools>=77.0.3"]
 
 [project]
 name = "types-geopandas"
-version = "1.1.2.20260120"
+version = "1.1.3.20260311"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for geopandas"
@@ -15,7 +15,7 @@ This is a [type stub package](https://typing.python.org/en/latest/tutorials/exte
 for the [`geopandas`](https://github.com/geopandas/geopandas) package. It can be used by type checkers
 to check code that uses `geopandas`. This version of
 `types-geopandas` aims to provide accurate annotations for
-`geopandas==1.1.2`.
+`geopandas==1.1.3`.
 
 This package is part of the [typeshed project](https://github.com/python/typeshed).
 All fixes for types and metadata should be contributed there.
@@ -29,13 +29,13 @@ This package was tested with the following type checkers:
 * [pyright](https://github.com/microsoft/pyright) 1.1.408
 
 It was generated from typeshed commit
-[`4992a813c160e037712b0793cd0488275cb3d195`](https://github.com/python/typeshed/commit/4992a813c160e037712b0793cd0488275cb3d195).
+[`a9fbf47e676865bd5bcd94e121624d9e4b53c882`](https://github.com/python/typeshed/commit/a9fbf47e676865bd5bcd94e121624d9e4b53c882).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",
   "Typing :: Stubs Only",
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = ['types-shapely', 'numpy>=1.20', 'pandas-stubs', 'pyproj']
 
 [project.urls]
@@ -48,3 +48,6 @@ dependencies = ['types-shapely', 'numpy>=1.20', 'pandas-stubs', 'pyproj']
 [tool.setuptools]
 packages = ['geopandas-stubs']
 include-package-data = false
+
+[tool.setuptools.package-data]
+'geopandas-stubs' = ['__init__.pyi', '_config.pyi', '_decorator.pyi', '_exports.pyi', 'accessors.pyi', 'array.pyi', 'base.pyi', 'explore.pyi', 'geodataframe.pyi', 'geoseries.pyi', 'io/__init__.pyi', 'io/_geoarrow.pyi', 'io/arrow.pyi', 'io/file.pyi', 'io/sql.pyi', 'plotting.pyi', 'sindex.pyi', 'testing.pyi', 'tools/__init__.pyi', 'tools/_show_versions.pyi', 'tools/clip.pyi', 'tools/geocoding.pyi', 'tools/hilbert_curve.pyi', 'tools/overlay.pyi', 'tools/sjoin.pyi', 'tools/util.pyi', 'METADATA.toml', 'py.typed']

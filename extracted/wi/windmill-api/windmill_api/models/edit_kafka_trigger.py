@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Type, TypeVar, Union, cast
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
+from ..models.edit_kafka_trigger_auto_offset_reset import EditKafkaTriggerAutoOffsetReset
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
@@ -25,6 +26,8 @@ class EditKafkaTrigger:
         path (str): The unique path identifier for this trigger
         script_path (str): Path to the script or flow to execute when a message is received
         is_flow (bool): True if script_path points to a flow, false if it points to a script
+        auto_offset_reset (Union[Unset, EditKafkaTriggerAutoOffsetReset]): Initial offset behavior when consumer group
+            has no committed offset. Default: EditKafkaTriggerAutoOffsetReset.LATEST.
         error_handler_path (Union[Unset, str]): Path to a script or flow to run when the triggered job fails
         error_handler_args (Union[Unset, EditKafkaTriggerErrorHandlerArgs]): The arguments to pass to the script or flow
         retry (Union[Unset, EditKafkaTriggerRetry]): Retry configuration for failed module executions
@@ -41,6 +44,7 @@ class EditKafkaTrigger:
     path: str
     script_path: str
     is_flow: bool
+    auto_offset_reset: Union[Unset, EditKafkaTriggerAutoOffsetReset] = EditKafkaTriggerAutoOffsetReset.LATEST
     error_handler_path: Union[Unset, str] = UNSET
     error_handler_args: Union[Unset, "EditKafkaTriggerErrorHandlerArgs"] = UNSET
     retry: Union[Unset, "EditKafkaTriggerRetry"] = UNSET
@@ -62,6 +66,10 @@ class EditKafkaTrigger:
         path = self.path
         script_path = self.script_path
         is_flow = self.is_flow
+        auto_offset_reset: Union[Unset, str] = UNSET
+        if not isinstance(self.auto_offset_reset, Unset):
+            auto_offset_reset = self.auto_offset_reset.value
+
         error_handler_path = self.error_handler_path
         error_handler_args: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.error_handler_args, Unset):
@@ -87,6 +95,8 @@ class EditKafkaTrigger:
                 "is_flow": is_flow,
             }
         )
+        if auto_offset_reset is not UNSET:
+            field_dict["auto_offset_reset"] = auto_offset_reset
         if error_handler_path is not UNSET:
             field_dict["error_handler_path"] = error_handler_path
         if error_handler_args is not UNSET:
@@ -126,6 +136,13 @@ class EditKafkaTrigger:
 
         is_flow = d.pop("is_flow")
 
+        _auto_offset_reset = d.pop("auto_offset_reset", UNSET)
+        auto_offset_reset: Union[Unset, EditKafkaTriggerAutoOffsetReset]
+        if isinstance(_auto_offset_reset, Unset):
+            auto_offset_reset = UNSET
+        else:
+            auto_offset_reset = EditKafkaTriggerAutoOffsetReset(_auto_offset_reset)
+
         error_handler_path = d.pop("error_handler_path", UNSET)
 
         _error_handler_args = d.pop("error_handler_args", UNSET)
@@ -154,6 +171,7 @@ class EditKafkaTrigger:
             path=path,
             script_path=script_path,
             is_flow=is_flow,
+            auto_offset_reset=auto_offset_reset,
             error_handler_path=error_handler_path,
             error_handler_args=error_handler_args,
             retry=retry,

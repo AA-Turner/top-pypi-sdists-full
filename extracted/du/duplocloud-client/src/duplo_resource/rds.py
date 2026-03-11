@@ -1,5 +1,5 @@
-from duplocloud.client import DuploClient
-from duplocloud.errors import DuploStillWaiting
+from duplocloud.controller import DuploCtl
+from duplocloud.errors import DuploError, DuploStillWaiting
 from duplocloud.resource import DuploResourceV3
 from duplocloud.commander import Command, Resource
 import duplocloud.args as args
@@ -8,7 +8,7 @@ import duplocloud.args as args
 class DuploRDS(DuploResourceV3):
   """Resource for managing RDS instances."""
   
-  def __init__(self, duplo: DuploClient):
+  def __init__(self, duplo: DuploCtl):
     super().__init__(duplo, "aws/rds/instance")
     self.wait_timeout = 1200
 
@@ -24,11 +24,14 @@ class DuploRDS(DuploResourceV3):
     s = None
     def wait_check():
       nonlocal s
-      i = self.find(name)
+      try:
+        i = self.find(name)
+      except DuploError:
+        raise DuploStillWaiting(f"DB instance '{name}' not yet visible")
       status = i.get("InstanceStatus", "submitted")
       if s != status:
         s = status
-        self.duplo.logger.warn(f"DB instance {name} is {status}")
+        self.duplo.logger.warning(f"DB instance {name} is {status}")
       if status != "available":
         raise DuploStillWaiting(f"DB instance '{name}' is waiting for status 'available'")
     return super().create(body, wait_check)
@@ -45,7 +48,7 @@ class DuploRDS(DuploResourceV3):
     Raises:
       DuploError: If the DB instance could not be found.
     """
-    response = self.duplo.get(self.endpoint(name, "groupDetails"))
+    response = self.client.get(self.endpoint(name, "groupDetails"))
     return response.json()
   
   @Command()
@@ -54,9 +57,9 @@ class DuploRDS(DuploResourceV3):
     """Stop a DB instance."""
     def wait_check():
       i = self.find(name)
-      if i["InstanceStatus"] in ["stopping","available"]:
-        raise DuploStillWaiting(f"DB instance {name} is still stopping")
-    self.duplo.post(self.endpoint(name, "stop"))
+      if i["InstanceStatus"] != "stopped":
+        raise DuploStillWaiting(f"DB instance {name} is {i['InstanceStatus']}, waiting for 'stopped'")
+    self.client.post(self.endpoint(name, "stop"))
     if self.duplo.wait:
       self.wait(wait_check, 1800, 10)
     return {
@@ -69,9 +72,9 @@ class DuploRDS(DuploResourceV3):
     """Start a DB instance."""
     def wait_check():
       i = self.find(name)
-      if i["InstanceStatus"] in ["starting"]:
-        raise DuploStillWaiting(f"DB instance {name} is still starting")
-    self.duplo.post(self.endpoint(name, "start"))
+      if i["InstanceStatus"] != "available":
+        raise DuploStillWaiting(f"DB instance {name} is {i['InstanceStatus']}, waiting for 'available'")
+    self.client.post(self.endpoint(name, "start"))
     if self.duplo.wait:
       self.wait(wait_check, 1800, 10)
     return {
@@ -92,7 +95,7 @@ class DuploRDS(DuploResourceV3):
         return True # finally rebooting is a success
       raise DuploStillWaiting(f"DB instance {name} is still rebooting")
     # Reboot the instance
-    self.duplo.post(self.endpoint(name, "reboot"))
+    self.client.post(self.endpoint(name, "reboot"))
     if self.duplo.wait:
       self.wait(wait_check, 1800, 10)
     return {
@@ -109,7 +112,7 @@ class DuploRDS(DuploResourceV3):
       name (str): The name of the DB instance to update.
       size (str): The new size to use for the DB instance.
     """
-    self.duplo.put(self.endpoint(name, "updatePayload"), {"SizeEx": size})
+    self.client.put(self.endpoint(name, "updatePayload"), {"SizeEx": size})
     return {
       "message": f"DB instance {name} resized to {size}"
     }
@@ -130,7 +133,7 @@ class DuploRDS(DuploResourceV3):
       "MasterPassword": password,
       "StorePassword": store
     }
-    self.duplo.post(self.endpoint(name, "changePassword"), body)
+    self.client.post(self.endpoint(name, "changePassword"), body)
     return {
       "message": f"Password for DB instance {name} changed"
     }
@@ -152,7 +155,7 @@ class DuploRDS(DuploResourceV3):
       "ApplyImmediately": immediate, 
       "MonitoringInterval":interval
     }
-    self.duplo.post(f"subscriptions/{tenant_id}/ModifyRDSDBInstance", body)
+    self.client.post(f"subscriptions/{tenant_id}/ModifyRDSDBInstance", body)
     return {
       "message": f"Monitoring interval for DB instance {name} set to {interval}"
     }
@@ -162,7 +165,7 @@ class DuploRDS(DuploResourceV3):
               name: args.NAME,
               enable: args.ENABLE):
     """Enable or disable logging for a DB instance."""
-    self.duplo.put(self.endpoint(name, "updatePayload"), {"EnableLogging": enable})
+    self.client.put(self.endpoint(name, "updatePayload"), {"EnableLogging": enable})
     return {
       "message": f"DB instance {name} logging is {enable}"
     }
@@ -204,7 +207,7 @@ class DuploRDS(DuploResourceV3):
                name: args.NAME):
     """Take a snapshot of a DB instance."""
     body = { "DBInstanceIdentifier": name }
-    self.duplo.post(self.endpoint(name, "snapshot"), body)
+    self.client.post(self.endpoint(name, "snapshot"), body)
     return {
       "message": f"Snapshot of DB instance {name} taken"
     }
@@ -219,7 +222,7 @@ class DuploRDS(DuploResourceV3):
       "TargetName": target, 
       "RestoreTime": time
     }
-    response = self.duplo.post(self.endpoint(name, "restorePointInTime"), body)
+    response = self.client.post(self.endpoint(name, "restorePointInTime"), body)
     return {
       "message": f"DB instance {name} restored to {target} at {time}",
       "data": response.json()
@@ -240,6 +243,13 @@ class DuploRDS(DuploResourceV3):
     return {
       "message": f"DB instance {name} retention period set to {days} days"
     }
+
+  @Command()
+  def engine_versions(self) -> dict:
+    """List supported RDS engine versions and instance types."""
+    path = f"v3/subscriptions/{self.tenant_id}/aws/rds/engineVersions"
+    response = self.client.post(path, {})
+    return response.json()
 
   def name_from_body(self, body):
     other_name = body.get("DBInstanceIdentifier", None)

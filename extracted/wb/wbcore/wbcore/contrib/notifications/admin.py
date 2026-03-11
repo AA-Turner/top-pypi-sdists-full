@@ -2,7 +2,9 @@ from datetime import date, timedelta
 
 from django.contrib import admin
 
-from wbcore.contrib.notifications.models.notifications import send_notification_as_task
+from wbcore.contrib.notifications.models.notifications import (
+    send_notification_as_task,
+)
 
 from .models import (
     Notification,
@@ -16,9 +18,19 @@ from .models import (
 class NotificationModelAdmin(admin.ModelAdmin):
     search_fields = ["title", "body"]
 
-    list_display = ["title", "user", "notification_type", "endpoint", "sent", "read", "created"]
+    list_display = [
+        "title",
+        "user",
+        "notification_type",
+        "endpoint",
+        "sent_email",
+        "sent_mobile",
+        "sent_web",
+        "read",
+        "created",
+    ]
 
-    @admin.action(description="Send Notification")
+    @admin.action(description="Send Web Notification")
     def send_notification(self, request, queryset):
         for notification in queryset:
             send_notification_as_task.delay(notification.id)
@@ -40,7 +52,7 @@ class NotificationUserTokenModelAdmin(admin.ModelAdmin):
 
 @admin.register(NotificationTypeSetting)
 class NotificationTypeSettingModelAdmin(admin.ModelAdmin):
-    list_display = ("notification_type", "user", "enable_web", "enable_mobile", "enable_email")
+    list_display = ("notification_type", "user", "enable_web", "enable_mobile", "enable_email", "frequency")
 
 
 @admin.register(NotificationType)
@@ -53,4 +65,5 @@ class NotificationTypeModelAdmin(admin.ModelAdmin):
         "default_enable_mobile",
         "default_enable_email",
         "is_lock",
+        "is_important",
     )

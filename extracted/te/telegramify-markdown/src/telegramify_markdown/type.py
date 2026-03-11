@@ -1,51 +1,34 @@
-import dataclasses
-from enum import Enum
-from typing import Tuple, List, Any, Union
+"""0.x compat module. Migrate to telegramify_markdown.content."""
 
+from __future__ import annotations
+
+import warnings as _warnings
+
+_warnings.warn(
+    "telegramify_markdown.type is deprecated and will be removed in 2.0. "
+    "Use telegramify_markdown.content instead.",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
+from telegramify_markdown.content import (  # noqa: E402, F401
+    ContentTrace,
+    ContentType as ContentTypes,
+    File,
+    Photo,
+    Text,
+)
+from typing import List, Tuple, Any, Union  # noqa: E402, F401
+
+SentType = List[Union[Text, File, Photo]]
 TaskType = Tuple[str, List[Tuple[Any, Any]]]
-SentType = List[Union["Text", "File", "Photo"]]
 
-
-class ContentTypes(Enum):
-    TEXT = "text"
-    FILE = "file"
-    PHOTO = "photo"
-
-
-@dataclasses.dataclass
-class ContentTrace:
-    source_type: str
-    extra: dict = dataclasses.field(default_factory=dict)
-
-    def __init__(self, source_type: str, *, extra: dict = None):
-        self.source_type = source_type
-        self.extra = extra if extra is not None else {}
-
-
-@dataclasses.dataclass
-class Text:
-    content: str
-    content_trace: ContentTrace
-    content_type: ContentTypes = ContentTypes.TEXT
-
-
-@dataclasses.dataclass
-class File:
-    file_name: str
-    file_data: bytes
-
-    content_trace: ContentTrace
-    caption: str = ""
-    """Please use render_lines_func to render the content."""
-    content_type: ContentTypes = ContentTypes.FILE
-
-
-@dataclasses.dataclass
-class Photo:
-    file_name: str
-    file_data: bytes
-
-    content_trace: ContentTrace
-    caption: str = ""
-    """Please use render_lines_func to render the content."""
-    content_type: ContentTypes = ContentTypes.PHOTO
+__all__ = [
+    "ContentTypes",
+    "ContentTrace",
+    "Text",
+    "File",
+    "Photo",
+    "SentType",
+    "TaskType",
+]

@@ -396,6 +396,7 @@ class FacialRecognitionClient:
                                   image_data: Optional[str] = None,
                                   camera_name: Optional[str] = None,
                                   camera_id: Optional[str] = None,
+                                  rtp_number: Optional[str] = None,
                                   ) -> Dict[str, Any]:
         """
         Store people activity data with optional image data
@@ -422,6 +423,7 @@ class FacialRecognitionClient:
             "location": location,
             "camera_name": camera_name,
             "camera_id": camera_id,
+            "rtpNumber": rtp_number if rtp_number else "",
         }
 
         # Add optional fields if provided based on API spec

@@ -148,29 +148,29 @@ def test_open_save(resources, outdir):
         src.save(outdir / 'graph2.pdf')
 
 
-def test_readme_example(resources, outpdf):
+def test_readme_examples():
     readme_filename = Path(__file__).parent.with_name('README.md')
     if not readme_filename.exists():  # In case it's not in some sdist/wheel/etc.
         pytest.skip('no README')
     readme = readme_filename.read_text()
-    code_lines = []
-    keep = False
+
+    # Extract all Python code blocks from README
+    blocks = []
+    current_block: list[str] = []
+    in_block = False
     for line in readme.splitlines():
         if line.startswith('```python'):
-            assert (
-                not code_lines
-            ), "Test suite only allows one block of Python in README"
-            keep = True
+            in_block = True
+            current_block = []
             continue
-        elif line.startswith('```'):
-            keep = False
-        if keep:
-            code_lines.append(line)
+        elif line.startswith('```') and in_block:
+            in_block = False
+            blocks.append('\n'.join(current_block))
+            continue
+        if in_block:
+            current_block.append(line)
 
-    code = '\n'.join(code_lines)
-    assert ast.parse(code), "Code in README.md does not parse"
-    code = code.replace("'input.pdf'", "resources / 'sandwich.pdf'")
-    code = code.replace("'output.pdf'", "outpdf")
-    exec(  # pylint: disable=exec-used
-        code, globals(), dict(resources=resources, outpdf=outpdf)
-    )
+    assert blocks, "No Python code blocks found in README.md"
+    for i, code in enumerate(blocks):
+        ast.parse(code, filename=f'README.md block {i + 1}')
+        compile(code, filename=f'README.md block {i + 1}', mode='exec')

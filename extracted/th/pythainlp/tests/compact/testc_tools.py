@@ -1,5 +1,4 @@
-# -*- coding: utf-8 -*-
-# SPDX-FileCopyrightText: 2016-2025 PyThaiNLP Project
+# SPDX-FileCopyrightText: 2016-2026 PyThaiNLP Project
 # SPDX-FileType: SOURCE
 # SPDX-License-Identifier: Apache-2.0
 
@@ -7,7 +6,11 @@ import unittest
 
 import numpy as np
 
-from pythainlp.tools.misspell import misspell
+from pythainlp.tools.misspell import (
+    find_misspell_candidates,
+    misspell,
+    search_location_of_character,
+)
 
 
 def _count_difference(st1: str, st2: str) -> int:
@@ -21,9 +24,21 @@ def _count_difference(st1: str, st2: str) -> int:
     return count
 
 
-class MisspellTestCase(unittest.TestCase):
+class MisspellTestCaseC(unittest.TestCase):
     def setUp(self):
         self.texts = ["เรารักคุณมากที่สุดในโลก", "เราอยู่ที่มหาวิทยาลัยขอนแก่น"]
+
+    def test_misspell_edge_cases(self):
+        # Edge case: empty string
+        self.assertEqual(misspell(""), "")
+        # Edge case: single character with ratio 0
+        self.assertEqual(misspell("ก", ratio=0), "ก")
+        # Edge case: single character with ratio 1
+        result = misspell("ก", ratio=1)
+        self.assertEqual(len(result), 1)
+        # Edge case: None raises TypeError
+        with self.assertRaises(TypeError):
+            misspell(None)
 
     def test_misspell_naive(self):
         for text in self.texts:
@@ -74,3 +89,58 @@ class MisspellTestCase(unittest.TestCase):
                 2,
                 f"expect len(text)-2 misspells with ratio=1.5. (Δ={diff})",
             )
+
+    def test_search_location_of_character(self):
+        """Test search_location_of_character function."""
+        # Test Thai characters
+        loc = search_location_of_character("ก")
+        self.assertIsNotNone(loc)
+        self.assertEqual(len(loc), 4)  # (language_ix, is_shift, row, pos)
+
+        # Test English characters
+        loc = search_location_of_character("a")
+        self.assertIsNotNone(loc)
+        self.assertEqual(len(loc), 4)
+
+        # Test shifted characters
+        loc = search_location_of_character("A")
+        self.assertIsNotNone(loc)
+
+        # Test numbers
+        loc = search_location_of_character("1")
+        self.assertIsNotNone(loc)
+
+        # Test character not in keyboard
+        loc = search_location_of_character("€")
+        self.assertIsNone(loc)
+
+        # Test empty string
+        # Note: Empty string returns a location because Python's "in" operator
+        # matches empty string at the beginning of any string
+        loc = search_location_of_character("")
+        self.assertIsNotNone(loc)
+
+    def test_find_misspell_candidates(self):
+        """Test find_misspell_candidates function."""
+        # Test Thai character
+        candidates = find_misspell_candidates("ก")
+        self.assertIsNotNone(candidates)
+        self.assertIsInstance(candidates, list)
+        self.assertGreater(len(candidates), 0)
+
+        # Test English character
+        candidates = find_misspell_candidates("a")
+        self.assertIsNotNone(candidates)
+        self.assertIsInstance(candidates, list)
+        self.assertGreater(len(candidates), 0)
+
+        # Test character not in keyboard
+        candidates = find_misspell_candidates("€")
+        self.assertIsNone(candidates)
+
+        # Test that candidates are different from input
+        candidates = find_misspell_candidates("ด")
+        if candidates:
+            for candidate in candidates:
+                # Candidates should be strings
+                self.assertIsInstance(candidate, str)

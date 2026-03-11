@@ -50,10 +50,10 @@ os.environ["AUTOGRAPH_VERBOSITY"] = "0"
 import multiprocessing
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-try:
-    logging.getLogger("tensorflow").setLevel(logging.ERROR)
-except Exception:
-    pass
+# try:
+#     logging.getLogger("tensorflow").setLevel(logging.ERROR)
+# except Exception:
+#     pass
 
 from time import sleep
 
@@ -1144,6 +1144,9 @@ def pkscreenercli():
         _exit_gracefully(configManager, argParser)
         sys.exit(0)
     except Exception as e:
+        if "RUNNER" in os.environ.keys():
+            OutputControls().printOutput(e)
+            traceback.print_exc()
         if "RUNNER" not in os.environ.keys() and ('PKDevTools_Default_Log_Level' in os.environ.keys() and
                                                   os.environ["PKDevTools_Default_Log_Level"] != str(log.logging.NOTSET)):
             OutputControls().printOutput("  [+] RuntimeError with 'multiprocessing'.\n  [+] Please contact the Developer!")
@@ -1172,6 +1175,14 @@ if __name__ == "__main__":
     try:
         pkscreenercli()
     except KeyboardInterrupt:
+        from pkscreener.globals import closeWorkersAndExit
+        closeWorkersAndExit()
+        _exit_gracefully(configManager, argParser)
+        sys.exit(0)
+    except Exception as e:
+        default_logger().debug(e, exc_info=True)
+        if args.log:
+            traceback.print_exc()
         from pkscreener.globals import closeWorkersAndExit
         closeWorkersAndExit()
         _exit_gracefully(configManager, argParser)

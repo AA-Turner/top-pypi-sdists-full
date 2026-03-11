@@ -319,3 +319,34 @@ class GetOfflineQueryJobResponse(_message.Message):
         errors: _Optional[_Iterable[_Union[_chalk_error_pb2.ChalkError, _Mapping]]] = ...,
         columns: _Optional[_Union[ColumnMetadataList, _Mapping]] = ...,
     ) -> None: ...
+
+class PersistenceSettings(_message.Message):
+    __slots__ = (
+        "persist_verbose_metrics",
+        "persist_status_metrics",
+        "persist_online_storage",
+        "persist_offline_storage",
+        "max_num_feature_per_batch",
+        "override_skip_persistence",
+    )
+    PERSIST_VERBOSE_METRICS_FIELD_NUMBER: _ClassVar[int]
+    PERSIST_STATUS_METRICS_FIELD_NUMBER: _ClassVar[int]
+    PERSIST_ONLINE_STORAGE_FIELD_NUMBER: _ClassVar[int]
+    PERSIST_OFFLINE_STORAGE_FIELD_NUMBER: _ClassVar[int]
+    MAX_NUM_FEATURE_PER_BATCH_FIELD_NUMBER: _ClassVar[int]
+    OVERRIDE_SKIP_PERSISTENCE_FIELD_NUMBER: _ClassVar[int]
+    persist_verbose_metrics: bool
+    persist_status_metrics: bool
+    persist_online_storage: bool
+    persist_offline_storage: bool
+    max_num_feature_per_batch: int
+    override_skip_persistence: bool
+    def __init__(
+        self,
+        persist_verbose_metrics: bool = ...,
+        persist_status_metrics: bool = ...,
+        persist_online_storage: bool = ...,
+        persist_offline_storage: bool = ...,
+        max_num_feature_per_batch: _Optional[int] = ...,
+        override_skip_persistence: bool = ...,
+    ) -> None: ...

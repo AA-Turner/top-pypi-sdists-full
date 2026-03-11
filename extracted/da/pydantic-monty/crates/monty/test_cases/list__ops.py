@@ -12,6 +12,24 @@ lst += [3, 4]
 assert lst == [1, 2, 3, 4], 'basic iadd'
 
 lst = [1]
+alias = lst
+lst += [2]
+assert lst is alias, 'list += preserves identity'
+assert alias == [1, 2], 'list += mutates through aliases'
+
+lst = [1, 2, 3]
+index = 1
+lst[index] += 5
+assert lst == [1, 7, 3], 'subscript += updates the selected list item'
+
+try:
+    lst = [1]
+    lst[5] += 1
+    assert False, 'subscript += past the end of a list should raise IndexError'
+except IndexError as e:
+    assert e.args == ('list index out of range',), 'subscript += list index error matches normal setitem'
+
+lst = [1]
 lst += []
 assert lst == [1], 'iadd empty'
 
@@ -417,3 +435,39 @@ assert [].count([1]) == 0, 'count on empty list'
 assert [1, 2] in [[1, 2], [3, 4]], 'nested list in'
 assert [5, 6] not in [[1, 2], [3, 4]], 'nested list not in'
 assert [] in [[], [1]], 'empty list in list of lists'
+
+# === List unpacking (PEP 448) ===
+a = [1, 2]
+b = [3, 4]
+assert [*a] == [1, 2], 'single list unpack'
+assert [*a, *b] == [1, 2, 3, 4], 'double list unpack'
+assert [0, *a, 5] == [0, 1, 2, 5], 'mixed list unpack'
+assert [*[]] == [], 'unpack empty list'
+assert [*(1, 2)] == [1, 2], 'unpack tuple into list'
+assert [*'abc'] == ['a', 'b', 'c'], 'unpack string into list'
+assert [*{'x': 1, 'y': 2}] == ['x', 'y'], 'unpack dict keys into list'
+# Heap-allocated set: covers the HeapData::Set arm in list_extend
+assert sorted([*{1, 2, 3}]) == [1, 2, 3], 'unpack set into list'
+# Heap-allocated Str (result of concat, not interned): covers HeapData::Str in list_extend
+hs = 'hel' + 'lo'
+assert [*hs] == ['h', 'e', 'l', 'l', 'o'], 'unpack heap string into list'
+
+
+# Non-iterable heap-allocated Ref (closure) hits the inner `_` arm in list_extend.
+# A plain top-level function is Value::DefFunction (not a Ref), so a closure is
+# required to reach the Value::Ref(_) branch (HeapData that is not List/Tuple/Set/Dict/Str).
+def _make_list_unpack_closure():
+    _sentinel = 1
+
+    def _inner():
+        return _sentinel
+
+    return _inner
+
+
+_list_unpack_closure = _make_list_unpack_closure()
+try:
+    _x = [*_list_unpack_closure]
+    assert False, 'expected TypeError for non-iterable heap closure in list unpack'
+except TypeError:
+    pass

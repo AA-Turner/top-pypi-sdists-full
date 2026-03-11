@@ -16,11 +16,19 @@ from chalk._gen.chalk.streaming.v1.debug_service_pb2 import (
     GetDebugMessagesResponse,
     GetDebugModeStatusRequest,
     GetDebugModeStatusResponse,
+    PushTopicRequest,
+    PushTopicResponse,
+    WatchDebugStreamRequest,
+    WatchDebugStreamResponse,
+)
+from collections.abc import (
+    Iterator,
 )
 from grpc import (
     Channel,
     Server,
     ServicerContext,
+    UnaryStreamMultiCallable,
     UnaryUnaryMultiCallable,
 )
 
@@ -50,6 +58,16 @@ class StreamingDebugServiceStub:
         GetDebugMessagesResponse,
     ]
     """Get recent debug messages as parquet"""
+    WatchDebugStream: UnaryStreamMultiCallable[
+        WatchDebugStreamRequest,
+        WatchDebugStreamResponse,
+    ]
+    """Watch for new debug files in cloud storage and stream them back"""
+    PushTopic: UnaryUnaryMultiCallable[
+        PushTopicRequest,
+        PushTopicResponse,
+    ]
+    """Push a message to a streaming topic"""
 
 class StreamingDebugServiceServicer(metaclass=ABCMeta):
     """Streaming Debug Service
@@ -84,5 +102,19 @@ class StreamingDebugServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> GetDebugMessagesResponse:
         """Get recent debug messages as parquet"""
+    @abstractmethod
+    def WatchDebugStream(
+        self,
+        request: WatchDebugStreamRequest,
+        context: ServicerContext,
+    ) -> Iterator[WatchDebugStreamResponse]:
+        """Watch for new debug files in cloud storage and stream them back"""
+    @abstractmethod
+    def PushTopic(
+        self,
+        request: PushTopicRequest,
+        context: ServicerContext,
+    ) -> PushTopicResponse:
+        """Push a message to a streaming topic"""
 
 def add_StreamingDebugServiceServicer_to_server(servicer: StreamingDebugServiceServicer, server: Server) -> None: ...

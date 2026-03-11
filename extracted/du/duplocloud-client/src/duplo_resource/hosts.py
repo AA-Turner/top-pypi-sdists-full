@@ -1,4 +1,4 @@
-from duplocloud.client import DuploClient
+from duplocloud.controller import DuploCtl
 from duplocloud.resource import DuploResourceV2
 from duplocloud.errors import DuploError, DuploFailedResource, DuploStillWaiting
 from duplocloud.commander import Command, Resource
@@ -16,7 +16,7 @@ class DuploHosts(DuploResourceV2):
   See more details at: https://docs.duplocloud.com/docs/welcome-to-duplocloud/application-focussed-interface/duplocloud-common-components/hosts
   """
   
-  def __init__(self, duplo: DuploClient):
+  def __init__(self, duplo: DuploCtl):
     super().__init__(duplo)
     self.paths = {
       "list": "GetNativeHosts"
@@ -71,7 +71,7 @@ class DuploHosts(DuploResourceV2):
     # let's get started
     if body.get("ImageId", None) is None:
       body["ImageId"] = self.discover_image(body.get("AgentPlatform", 0))
-    res = self.duplo.post(self.endpoint("CreateNativeHost"), body)
+    res = self.client.post(self.endpoint("CreateNativeHost"), body)
     if self.duplo.wait:
       self.wait(wait_check)
     return {
@@ -110,17 +110,17 @@ class DuploHosts(DuploResourceV2):
     """
     host = self.find(name)
     inst_id = host["InstanceId"]
-    res = self.duplo.post(self.endpoint(f"TerminateNativeHost/{inst_id}"), host)
+    res = self.client.post(self.endpoint(f"TerminateNativeHost/{inst_id}"), host)
     def wait_check():
-      h = None 
       try:
         h = self.find(name)
       except DuploError as e:
         if e.code == 404:
-          return None # if 404 then it's gone so finish waiting
-        else:
-          raise DuploFailedResource(f"Host '{name}' failed to delete.")
-      if h["Status"] == "shutting-down" or h["Status"] == "running":
+          return None  # gone — done
+        raise DuploStillWaiting(f"Host '{name}' is waiting for termination")
+      if h.get("Status") in ("terminated", "shutting-down"):
+        return None  # effectively gone
+      if h.get("Status") == "running":
         raise DuploStillWaiting(f"Host '{name}' is waiting for termination")
     if self.duplo.wait:
       self.wait(wait_check, 500)
@@ -160,11 +160,11 @@ class DuploHosts(DuploResourceV2):
     """
     host = self.find(name)
     inst_id = host["InstanceId"]
-    res = self.duplo.post(self.endpoint(f"stopNativeHost/{inst_id}"), host)
+    res = self.client.post(self.endpoint(f"stopNativeHost/{inst_id}"), host)
     def wait_check():
       h = self.find(name)
       if h["Status"] == "running":
-        raise DuploError(f"Host '{name}' not ready", 404)
+        raise DuploStillWaiting(f"Host '{name}' is waiting to begin stopping")
       if h["Status"] != "stopped":
         if h["Status"] != "stopping":
           raise DuploFailedResource(f"Host '{name}' failed to stop.")
@@ -207,14 +207,14 @@ class DuploHosts(DuploResourceV2):
     """
     host = self.find(name)
     inst_id = host["InstanceId"]
-    res = self.duplo.post(self.endpoint(f"startNativeHost/{inst_id}"), host)
+    res = self.client.post(self.endpoint(f"startNativeHost/{inst_id}"), host)
     def wait_check():
       h = self.find(name)
       if h["Status"] == "stopped":
-        raise DuploError(f"Host '{name}' not ready", 404)
+        raise DuploStillWaiting(f"Host '{name}' is waiting to begin starting")
       if h["Status"] != "running":
         if h["Status"] != "pending":
-          raise DuploFailedResource(f"Host '{name}' failed to stop.")
+          raise DuploFailedResource(f"Host '{name}' failed to start.")
         raise DuploStillWaiting(f"Host '{name}' is waiting for status running")
     if self.duplo.wait:
       self.wait(wait_check, 500)
@@ -247,7 +247,7 @@ class DuploHosts(DuploResourceV2):
     """
     host = self.find(name)
     inst_id = host["InstanceId"]
-    res = self.duplo.post(self.endpoint(f"RebootNativeHost/{inst_id}"), host)
+    res = self.client.post(self.endpoint(f"RebootNativeHost/{inst_id}"), host)
     return {
       "message": f"Successfully rebooted host '{name}'",
       "data": res.json()

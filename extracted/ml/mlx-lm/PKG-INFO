@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mlx-lm
-Version: 0.31.0
+Version: 0.31.1
 Summary: LLMs with MLX and the Hugging Face Hub
 Home-page: https://github.com/ml-explore/mlx-lm
 Author: MLX Contributors

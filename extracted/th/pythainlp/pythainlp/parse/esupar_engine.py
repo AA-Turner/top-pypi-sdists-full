@@ -1,22 +1,26 @@
-# -*- coding: utf-8 -*-
-"""
-esupar: Tokenizer, POS tagger and dependency parser with BERT/RoBERTa/DeBERTa models for Japanese and other languages
+"""esupar: Tokenizer, POS tagger and dependency parser with BERT/RoBERTa/DeBERTa models for Japanese and other languages
 
 GitHub: https://github.com/KoichiYasuoka/esupar
 """
-from typing import List, Union
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, List, Optional, Union
 
 try:
     import esupar
 except ImportError:
     raise ImportError("Import Error; Install esupar by pip install esupar")
 
+if TYPE_CHECKING:
+    from esupar import Model
+
 
 class Parse:
-    def __init__(self, model: str = "th") -> None:
+    def __init__(self, model: Optional[str] = "th") -> None:
         if model is None:
             model = "th"
-        self.nlp = esupar.load(model)
+        self.nlp: Model = esupar.load(model)
 
     def __call__(
         self, text: str, tag: str = "str"

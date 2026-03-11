@@ -25,17 +25,22 @@ from .mockito import (
     when,
     when2,
     patch,
+    patch_attr,
+    patch_dict,
     expect,
     unstub,
     forget_invocations,
+    ensureNoUnverifiedInteractions,
     verify,
-    verifyNoMoreInteractions,
     verifyZeroInteractions,
-    verifyNoUnwantedInteractions,
+    verifyExpectedInteractions,
     verifyStubbedInvocationsAreUsed,
+    verifyNoUnwantedInteractions,  # deprecated
+    verifyNoMoreInteractions,  # deprecated
     ArgumentError,
 )
 from . import inorder
+from .inorder import InOrder
 from .spying import spy, spy2
 from .mocking import mock
 from .verification import VerificationError
@@ -44,7 +49,12 @@ from .matchers import *  # noqa: F401 F403
 from .matchers import any, contains, times
 from .verification import never
 
-__version__ = '1.5.5'
+try:
+    # Prefer the generated version file written by hatch-vcs/setuptools-scm
+    from ._version import __version__
+except Exception:  # pragma: no cover - purely defensive fallback
+    # Fallback for editable/dev scenarios before the version file exists
+    __version__ = "0+unknown"
 
 __all__ = [
     'mock',
@@ -53,19 +63,26 @@ __all__ = [
     'when',
     'when2',
     'patch',
+    'patch_attr',
+    'patch_dict',
     'expect',
+    'ensureNoUnverifiedInteractions',
     'verify',
-    'verifyNoMoreInteractions',
     'verifyZeroInteractions',
-    'verifyNoUnwantedInteractions',
+    'verifyExpectedInteractions',
     'verifyStubbedInvocationsAreUsed',
     'inorder',
+    'InOrder',
     'unstub',
     'forget_invocations',
     'VerificationError',
     'ArgumentError',
+
     'any',  # compatibility
     'contains',  # compatibility
     'never',  # compatibility
+
     'times',  # deprecated
+    'verifyNoUnwantedInteractions',  # deprecated
+    'verifyNoMoreInteractions',  # deprecated
 ]

@@ -22,7 +22,8 @@ fn build_topk_v1_protos() {
         "../protos/topk/data/v1/expr/function.proto",
         "../protos/topk/data/v1/expr/logical.proto",
         "../protos/topk/data/v1/expr/text.proto",
-        "../protos/topk/ctx/v1/dataset_service.proto",
+        "../protos/topk/ctx/v1/dataset_read_service.proto",
+        "../protos/topk/ctx/v1/dataset_write_service.proto",
         "../protos/topk/ctx/v1/context_service.proto",
     ];
 
@@ -96,11 +97,11 @@ fn build_topk_v1_protos() {
         "topk.control.v1.SemanticIndex",
         "topk.control.v1.MultiVectorIndex",
         // ctx
-        "topk.ctx.v1.AskResponseMessage",
-        "topk.ctx.v1.AskResponseMessage.message",
-        "topk.ctx.v1.AskResponseMessage.Search",
-        "topk.ctx.v1.AskResponseMessage.Reason",
-        "topk.ctx.v1.AskResponseMessage.Answer",
+        "topk.ctx.v1.AskResult",
+        "topk.ctx.v1.AskResult.message",
+        "topk.ctx.v1.AskResult.Search",
+        "topk.ctx.v1.AskResult.Reason",
+        "topk.ctx.v1.AskResult.Answer",
         "topk.ctx.v1.Fact",
         "topk.ctx.v1.SearchResult",
         "topk.ctx.v1.Content",

@@ -1,0 +1,391 @@
+- name: Tax unit with taxsimid 99466 in e21.its.csv and e21.ots.csv
+  # High error margin because of rounding in the tax tables
+  absolute_error_margin: 5
+  period: 2021
+  input:
+    people:
+      person1:
+        age: 56
+        employment_income: 160_010
+        taxable_interest_income: 11_010
+        ssi: 0  # not in TAXSIM35
+        ma_state_supplement: 0  # not in TAXSIM35
+        wic: 0  # not in TAXSIM35
+        ma_covid_19_essential_employee_premium_pay_program: 0  # not in TAXSIM35
+      person2:
+        age: 11
+        ssi: 0  # not in TAXSIM35
+        ma_state_supplement: 0  # not in TAXSIM35
+        wic: 0  # not in TAXSIM35
+        ma_covid_19_essential_employee_premium_pay_program: 0  # not in TAXSIM35
+    tax_units:
+      tax_unit:
+        members: [person1, person2]
+        aca_ptc: 0  # not in TAXSIM35
+        local_income_tax: 0  # not in TAXSIM35
+        state_sales_tax: 0  # not in TAXSIM35
+        ca_use_tax: 0  # not in TAXSIM35
+        il_use_tax: 0  # not in TAXSIM35
+        nm_2021_income_rebate: 0  # not in TAXSIM35
+        nm_additional_2021_income_rebate: 0  # not in TAXSIM35
+        nm_supplemental_2021_income_rebate: 0  # not in TAXSIM35
+        ny_supplemental_eitc: 0  # not in TAXSIM35
+        ok_use_tax: 0  # not in TAXSIM35
+        pa_use_tax: 0  # not in TAXSIM35
+    spm_units:
+      spm_unit:
+        members: [person1, person2]
+        snap: 0  # not in TAXSIM35
+        tanf: 0  # not in TAXSIM35
+    households:
+      household:
+        members: [person1, person2]
+        state_fips: 5  # AR
+  output:  # expected results from patched TAXSIM35 2024-02-05 version
+    ar_taxable_income_indiv: [168_820, 0]
+    ar_income_tax_before_non_refundable_credits_indiv: [9_710.38, 0]
+    ar_income_tax: 9_625.88
+
+- name: Tax unit with taxsimid 98028 in e21.its.csv and e21.ots.csv
+  absolute_error_margin: 0.01
+  period: 2021
+  input:
+    people:
+      person1:
+        age: 40
+        employment_income: 77010
+        taxable_interest_income: 5505.0
+        ssi: 0  # not in TAXSIM35
+        ma_state_supplement: 0  # not in TAXSIM35
+        wic: 0  # not in TAXSIM35
+        ma_covid_19_essential_employee_premium_pay_program: 0  # not in TAXSIM35
+      person2:
+        age: 40
+        employment_income: 20010
+        taxable_interest_income: 5505.0
+        ssi: 0  # not in TAXSIM35
+        ma_state_supplement: 0  # not in TAXSIM35
+        wic: 0  # not in TAXSIM35
+        ma_covid_19_essential_employee_premium_pay_program: 0  # not in TAXSIM35
+    tax_units:
+      tax_unit:
+        members: [person1, person2]
+        aca_ptc: 0  # not in TAXSIM35
+        local_income_tax: 0  # not in TAXSIM35
+        state_sales_tax: 0  # not in TAXSIM35
+        ca_use_tax: 0  # not in TAXSIM35
+        il_use_tax: 0  # not in TAXSIM35
+        nm_2021_income_rebate: 0  # not in TAXSIM35
+        nm_additional_2021_income_rebate: 0  # not in TAXSIM35
+        nm_supplemental_2021_income_rebate: 0  # not in TAXSIM35
+        ny_supplemental_eitc: 0  # not in TAXSIM35
+        ok_use_tax: 0  # not in TAXSIM35
+        pa_use_tax: 0  # not in TAXSIM35
+        vt_renter_credit: 0  # not in TAXSIM35
+    spm_units:
+      spm_unit:
+        members: [person1, person2]
+        snap: 0  # not in TAXSIM35
+        tanf: 0  # not in TAXSIM35
+    households:
+      household:
+        members: [person1, person2]
+        state_fips: 5  # AR
+  output:  # expected results from patched TAXSIM35 2024-02-09 version
+    ar_income_tax: 4427.88
+
+- name: Tax unit with taxsimid 77552 in e21.its.csv and e21.ots.csv
+  # High error margin because of rounding in the tax tables
+  absolute_error_margin: 5
+  period: 2021
+  input:
+    people:
+      person1:
+        age: 66
+        employment_income: 14_010
+        taxable_interest_income: 5_505.0
+      person2:
+        age: 66
+        employment_income: 7_010
+        taxable_interest_income: 5_505.0
+      person3:
+        age: 11
+      person4:
+        age: 11
+      person5:
+        age: 11
+    households:
+      household:
+        members: [person1, person2, person3, person4, person5]
+        state_fips: 5  # AR
+  output:  # expected results from patched TAXSIM35 2024-02-09 version
+    ar_agi_indiv: [19_515, 12_515, 0, 0, 0] # 32,030 joint AGI
+    ar_low_income_tax_joint: [933, 0, 0, 0, 0] # 0 joint low income tax
+    ar_standard_deduction_joint: [4_400, 0, 0, 0, 0]
+    ar_standard_deduction_indiv: [2_200, 2_200, 0, 0, 0]
+    ar_taxable_income_joint: [27_630, 0, 0, 0, 0]
+    ar_taxable_income_indiv: [17_315, 10_315, 0, 0, 0]
+    ar_income_tax_before_non_refundable_credits_indiv: [342, 120, 0, 0, 0]
+    ar_income_tax_before_non_refundable_credits_joint: [933, 0, 0, 0, 0]
+    ar_income_tax_before_non_refundable_credits_unit: 462
+    ar_files_separately: true
+    ar_personal_credits: [261]
+    ar_non_refundable_credits: 261
+    ar_refundable_credits: 0
+    # ar_income_tax: 687.03 expected value from TAXSIM35
+
+- name: Head of household with one dependent, high wages
+  # High error margin because of rounding in the tax tables
+  absolute_error_margin: 5
+  period: 2023
+  input:
+    people:
+      person1:
+        age: 40
+        employment_income: 144_000
+      person2:
+        age: 10
+    households:
+      household:
+        members: [person1, person2]
+        state_fips: 5  # AR
+  output: 
+    ar_taxable_income_indiv: [141_660, 0]
+    ar_income_tax_before_non_refundable_credits_indiv: [6_502, 0]
+    ar_files_separately: false
+    ar_income_tax: 6_415
+
+- name: 4448-AR.yaml
+  absolute_error_margin: 2
+  period: 2024
+  input:
+    people:
+      person1:
+        age: 36
+        employment_income: 0.0
+        qualified_dividend_income: 10068.2195
+        long_term_capital_gains: 28857.3535
+        taxable_interest_income: 4218.7285
+        is_tax_unit_head: true
+      person2:
+        age: 25
+        employment_income: 0.0
+        qualified_dividend_income: 10068.2195
+        long_term_capital_gains: 28857.3535
+        taxable_interest_income: 4218.7285
+        is_tax_unit_spouse: true
+      person3:
+        age: 10
+        employment_income: 0
+        is_tax_unit_dependent: true
+        is_tax_unit_head: false
+        is_tax_unit_spouse: false
+    tax_units:
+      tax_unit:
+        members: [person1, person2, person3]
+        premium_tax_credit: 0
+        local_income_tax: 0
+        state_sales_tax: 0
+    spm_units:
+      spm_unit:
+        members: [person1, person2, person3]
+        snap: 0
+        tanf: 0
+    households:
+      household:
+        members: [person1, person2, person3]
+        state_fips: 5
+  output:
+    ar_income_tax: 1_085
+
+- name: 3864-AR.yaml
+  absolute_error_margin: 2
+  period: 2024
+  input:
+    people:
+      person1:
+        age: 40
+        employment_income: 93904.383
+        ssi: 0
+        wic: 0
+        head_start: 0
+        early_head_start: 0
+        commodity_supplemental_food_program: 0
+        taxable_interest_income: 2514.2869
+        is_tax_unit_head: true
+    tax_units:
+      tax_unit:
+        members: [person1]
+        premium_tax_credit: 0
+        local_income_tax: 0
+        state_sales_tax: 0
+    spm_units:
+      spm_unit:
+        members: [person1]
+        snap: 0
+        tanf: 0
+        free_school_meals: 0
+        reduced_price_school_meals: 0
+    households:
+      household:
+        members: [person1]
+        state_fips: 5
+  output:
+    ar_income_tax: 3_410
+
+- name: Case 7, 2025 single filer with wage income.
+  absolute_error_margin: 1
+  period: 2025
+  input:
+    people:
+      person1:
+        age: 40
+        employment_income: 60_000
+    households:
+      household:
+        members: [person1]
+        state_fips: 5  # AR
+  output:
+    # AR AGI (indiv): $60,000
+    # Standard deduction (indiv): $2,470
+    # Taxable income (indiv): $60,000 - $2,470 = $57,530
+    # Rate: 3.9% ($26,400+ bracket)
+    # Pre-reduction: 0.039 * $57,530 = $2,243.67
+    # Reduction at $26,400: $420
+    # Tax before NR credits (indiv): $2,243.67 - $420 = $1,823.67
+    ar_taxable_income_indiv: [57_530]
+    ar_income_tax_before_non_refundable_credits_indiv: [1_823.67]
+    # Files jointly (single filer), uses joint pathway
+    ar_files_separately: false
+    # Personal credits: 1 * $29 = $29
+    ar_personal_credits: [29]
+    # Additional tax credit: $0 (income $57,530 >> $27,600)
+    # Non-refundable credits: $29
+    ar_non_refundable_credits: 29
+    # Tax before refundable credits: $1,823.67 - $29 = $1,794.67
+    ar_income_tax_before_refundable_credits: 1_794.67
+    # No refundable credits
+    ar_income_tax: 1_794.67
+
+- name: Case 8, 2025 single filer with high income.
+  absolute_error_margin: 1
+  period: 2025
+  input:
+    people:
+      person1:
+        age: 35
+        employment_income: 150_000
+    households:
+      household:
+        members: [person1]
+        state_fips: 5  # AR
+  output:
+    # AR AGI (indiv): $150,000
+    # Standard deduction (indiv): $2,470
+    # Taxable income (indiv): $150,000 - $2,470 = $147,530
+    # Rate: 3.9% ($26,400+ bracket)
+    # Pre-reduction: 0.039 * $147,530 = $5,753.67
+    # Reduction at $97,901: $89
+    # Tax before NR credits (indiv): $5,753.67 - $89 = $5,664.67
+    ar_taxable_income_indiv: [147_530]
+    ar_income_tax_before_non_refundable_credits_indiv: [5_664.67]
+    ar_files_separately: false
+    # Personal credits: 1 * $29 = $29
+    # No additional tax credit (income >> $27,600)
+    ar_non_refundable_credits: 29
+    # Tax: $5,664.67 - $29 = $5,635.67
+    ar_income_tax: 5_635.67
+
+- name: Case 10, 2024 joint filer where low income table is cheaper and joint path wins.
+  absolute_error_margin: 1
+  period: 2024
+  input:
+    people:
+      person1:
+        age: 40
+        employment_income: 27_000
+      person2:
+        age: 38
+    tax_units:
+      tax_unit:
+        members: [person1, person2]
+        premium_tax_credit: 0
+        local_income_tax: 0
+        state_sales_tax: 0
+    spm_units:
+      spm_unit:
+        members: [person1, person2]
+        snap: 0
+        tanf: 0
+    households:
+      household:
+        members: [person1, person2]
+        state_fips: 5  # AR
+  output:
+    # Joint AGI: $27,000 (within low income table range for 0-1 dep)
+    # Low income table tax: $376
+    # Regular rate tax on taxable income $22,180: higher → low income table used
+    ar_uses_low_income_tax_tables: true
+    # Net taxable income uses AGI ($27,000) since low income table active
+    ar_net_taxable_income_joint: [27_000, 0]
+    ar_low_income_tax_joint: [376, 0]
+    # Separate path: indiv tax $554.69, additional credit $60 (income < $25,800)
+    #   net separate = $554.69 - $60 = $494.69
+    # Joint path: low income table $376, additional credit $0 (AGI > $25,800)
+    #   net joint = $376
+    # Joint ($376) < Separate ($494.69) → files jointly
+    ar_files_separately: false
+    # Personal credits: 2 * $29 = $58
+    ar_personal_credits: [58]
+    ar_income_tax: 318
+
+- name: Case 9, 2024 joint filers using low income tax table with 2 dependents.
+  absolute_error_margin: 1
+  period: 2024
+  input:
+    people:
+      person1:
+        age: 40
+        taxable_interest_income: 15_066.30
+      person2:
+        age: 35
+        taxable_interest_income: 15_066.30
+      person3:
+        age: 10
+      person4:
+        age: 5
+    tax_units:
+      tax_unit:
+        members: [person1, person2, person3, person4]
+        premium_tax_credit: 0
+        local_income_tax: 0
+        state_sales_tax: 0
+    spm_units:
+      spm_unit:
+        members: [person1, person2, person3, person4]
+        snap: 0
+        tanf: 0
+    households:
+      household:
+        members: [person1, person2, person3, person4]
+        state_fips: 5  # AR
+  output:
+    # Joint path: low income table tax = $233, additional credit = $0
+    #   (AGI $30,132.60 > $25,800), net joint tax = $233
+    # Separate path: regular rate tax = $160.72 * 2 = $321.44,
+    #   additional credit = $60 * 2 = $120 (each indiv income
+    #   $12,656.30 < $25,800), net separate tax = $201.44
+    # Separate ($201.44) < Joint ($233), so files separately.
+    ar_uses_low_income_tax_tables: true
+    ar_files_separately: true
+    ar_income_tax_before_non_refundable_credits_indiv: [160.72, 160.72, 0, 0]
+    ar_income_tax_before_non_refundable_credits_unit: 321.44
+    # Additional credit: each person gets $60 (indiv income < threshold)
+    ar_additional_tax_credit_for_qualified_individuals_person: [60, 60, 0, 0]
+    # Personal credits: 4 * $29 = $116
+    ar_personal_credits: [116]
+    # Total non-refundable credits: $116 + $120 = $236
+    ar_non_refundable_credits: 236
+    # Tax: max($321.44 - $236, 0) = $85.44
+    # TaxAct reference: $86 (from TAXSIM issue #493)
+    ar_income_tax: 85

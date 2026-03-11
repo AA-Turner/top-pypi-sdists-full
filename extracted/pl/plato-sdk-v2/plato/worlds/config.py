@@ -32,6 +32,7 @@ __all__ = [
     "DockerRuntimeConfig",
     "RuntimeConfig",
     "SessionConfig",
+    "SlackNotificationConfig",
     "VMResources",
     "VMRuntimeConfig",
 ]
@@ -96,6 +97,15 @@ class SessionConfig(BaseModel):
     plato_session: SerializedSession | None = None
     parent_trace_id: str | None = None  # Parent trace ID (hex) for cross-world linking
     parent_span_id: str | None = None  # Parent span ID (hex) for cross-world linking
+
+
+class SlackNotificationConfig(BaseModel):
+    """Slack notification settings for world completion events."""
+
+    enabled: bool = False
+    channel_id: str = ""
+    channel_id_env: str = "SLACK_CHANNEL_ID"
+    bot_token_env: str = "SLACK_BOT_TOKEN"
 
 
 # =============================================================================
@@ -215,6 +225,9 @@ class RunConfig(BaseModel):
 
     # State persistence configuration
     state: StateConfig = Field(default_factory=StateConfig)
+
+    # Slack notifications on session completion
+    slack_notifications: SlackNotificationConfig = Field(default_factory=SlackNotificationConfig)
 
     # Optional Tailscale VPN — joins the tailnet before reset() if auth_key is set
     tailscale: TailscaleConfig = Field(default_factory=TailscaleConfig)

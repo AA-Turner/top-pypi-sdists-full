@@ -1236,7 +1236,7 @@ class TestEvalsRunInference:
                 }
             ),
         )
-        assert inference_result.candidate_name is None
+        assert inference_result.candidate_name == "agent_engine_0"
         assert inference_result.gcs_source is None
 
     @mock.patch.object(_evals_utils, "EvalDatasetLoader")
@@ -1315,7 +1315,7 @@ class TestEvalsRunInference:
                 }
             ),
         )
-        assert inference_result.candidate_name is None
+        assert inference_result.candidate_name == "agent_engine_0"
         assert inference_result.gcs_source is None
 
     @mock.patch.object(_evals_utils, "EvalDatasetLoader")
@@ -1387,6 +1387,11 @@ class TestEvalsRunInference:
         )
 
         mock_agent_instance = mock.Mock()
+        mock_agent_instance.name = "mock_agent"
+        mock_agent_instance.description = "mock description"
+        mock_agent_instance.instruction = "mock instruction"
+        mock_agent_instance.tools = []
+        mock_agent_instance.sub_agents = []
         mock_llm_agent.return_value = mock_agent_instance
         mock_session_service.return_value.create_session = mock.AsyncMock()
         mock_runner_instance = mock_runner.return_value
@@ -1494,7 +1499,7 @@ class TestEvalsRunInference:
             ),
             expected_df.sort_values(by="prompt").reset_index(drop=True),
         )
-        assert inference_result.candidate_name is None
+        assert inference_result.candidate_name == "mock_agent"
         assert inference_result.gcs_source is None
 
     def test_run_inference_with_litellm_string_prompt_format(
@@ -1913,6 +1918,35 @@ class TestRunAgentInternal:
             {"turn_index": 0, "turn_id": "t1", "events": []},
             {"turn_index": 1, "turn_id": "t2", "events": []},
         ]
+
+    @mock.patch.object(_evals_common, "_run_agent")
+    def test_run_agent_internal_multi_turn_with_agent(self, mock_run_agent):
+        mock_run_agent.return_value = [
+            [
+                {"turn_index": 0, "turn_id": "t1", "events": []},
+            ]
+        ]
+        prompt_dataset = pd.DataFrame({"prompt": ["p1"], "conversation_plan": ["plan"]})
+        mock_agent = mock.Mock()
+        mock_agent.name = "mock_agent"
+        mock_agent.description = "mock description"
+        mock_agent.instruction = "mock instruction"
+        mock_agent.tools = []
+        mock_agent.sub_agents = []
+        mock_api_client = mock.Mock()
+        result_df = _evals_common._run_agent_internal(
+            api_client=mock_api_client,
+            agent_engine=None,
+            agent=mock_agent,
+            prompt_dataset=prompt_dataset,
+        )
+
+        assert "agent_data" in result_df.columns
+        agent_data = result_df["agent_data"][0]
+        assert agent_data["turns"] == [
+            {"turn_index": 0, "turn_id": "t1", "events": []},
+        ]
+        assert "mock_agent" in agent_data["agents"]
 
     @mock.patch("vertexai._genai._evals_common.ADK_SessionInput")  # fmt: skip
     @mock.patch("vertexai._genai._evals_common.EvaluationGenerator")  # fmt: skip
@@ -3256,6 +3290,136 @@ class TestAgentInfo:
             mock_function_declaration
         ]
         mock_from_callable.assert_called_once_with(callable=my_search_tool)
+
+
+class TestValidateDatasetAgentData:
+    """Unit tests for the _validate_dataset_agent_data function."""
+
+    def test_valid_agent_data_in_df(self):
+        dataset = vertexai_genai_types.EvaluationDataset(
+            eval_dataset_df=pd.DataFrame(
+                [
+                    {
+                        "agent_data": {
+                            "turns": [{"turn_index": 0, "turn_id": "1", "events": []}]
+                        }
+                    },
+                    {
+                        "agent_data": '{"turns": [{"turn_index": 0, "turn_id": "2", "events": []}]}'
+                    },
+                    {
+                        "agent_data": vertexai_genai_types.evals.AgentData(
+                            turns=[{"turn_index": 0, "turn_id": "3", "events": []}]
+                        )
+                    },
+                ]
+            )
+        )
+        _evals_utils._validate_dataset_agent_data(dataset)
+
+    def test_valid_agent_data_in_eval_cases(self):
+        dataset = vertexai_genai_types.EvaluationDataset(
+            eval_cases=[
+                vertexai_genai_types.EvalCase(
+                    agent_data={
+                        "turns": [{"turn_index": 0, "turn_id": "1", "events": []}]
+                    }
+                ),
+                vertexai_genai_types.EvalCase(
+                    agent_data=json.loads(
+                        '{"turns": [{"turn_index": 0, "turn_id": "2", "events": []}]}'
+                    )
+                ),
+                vertexai_genai_types.EvalCase(
+                    agent_data=vertexai_genai_types.evals.AgentData(
+                        turns=[{"turn_index": 0, "turn_id": "3", "events": []}]
+                    )
+                ),
+            ]
+        )
+        _evals_utils._validate_dataset_agent_data(dataset)
+
+    def test_invalid_json_string_raises_error(self):
+        dataset = vertexai_genai_types.EvaluationDataset(
+            eval_dataset_df=pd.DataFrame([{"agent_data": '{"turns":'}])
+        )
+        with pytest.raises(ValueError, match="is not valid JSON"):
+            _evals_utils._validate_dataset_agent_data(dataset)
+
+    def test_invalid_dict_raises_error(self):
+        dataset = vertexai_genai_types.EvaluationDataset(
+            eval_dataset_df=pd.DataFrame([{"agent_data": {"agents": 123}}])
+        )
+        with pytest.raises(ValueError, match="is inconsistent with AgentData type"):
+            _evals_utils._validate_dataset_agent_data(dataset)
+
+    def test_valid_agent_data_with_error_in_dict(self):
+        dataset = vertexai_genai_types.EvaluationDataset(
+            eval_dataset_df=pd.DataFrame(
+                [{"agent_data": {"error": "some error message"}}]
+            )
+        )
+        _evals_utils._validate_dataset_agent_data(dataset)
+
+    def test_valid_agent_data_with_error_in_string(self):
+        dataset = vertexai_genai_types.EvaluationDataset(
+            eval_dataset_df=pd.DataFrame(
+                [{"agent_data": '{"error": "some error message"}'}]
+            )
+        )
+        _evals_utils._validate_dataset_agent_data(dataset)
+
+    def test_invalid_agent_data_type_raises_error(self):
+        dataset = vertexai_genai_types.EvaluationDataset(
+            eval_dataset_df=pd.DataFrame([{"agent_data": 123}])
+        )
+        with pytest.raises(ValueError, match="is inconsistent with AgentData type"):
+            _evals_utils._validate_dataset_agent_data(dataset)
+
+    def test_conflict_with_inference_configs_raises_error(self):
+        dataset = vertexai_genai_types.EvaluationDataset(
+            eval_dataset_df=pd.DataFrame(
+                [
+                    {
+                        "agent_data": {
+                            "agents": {"agent1": {"agent_id": "agent1"}},
+                            "turns": [],
+                        }
+                    }
+                ]
+            )
+        )
+        inference_configs = {
+            "cand1": {"agent_configs": {"agent1": {"agent_id": "agent1"}}}
+        }
+        with pytest.raises(
+            ValueError,
+            match="Cannot provide 'agents' in the dataset's 'agent_data'",
+        ):
+            _evals_utils._validate_dataset_agent_data(dataset, inference_configs)
+
+    def test_no_conflict_with_inference_configs(self):
+        dataset = vertexai_genai_types.EvaluationDataset(
+            eval_dataset_df=pd.DataFrame([{"agent_data": {"turns": []}}])
+        )
+        inference_configs = {"cand1": {"agent_configs": {"agent1": {"name": "agent1"}}}}
+        _evals_utils._validate_dataset_agent_data(dataset, inference_configs)
+
+    def test_no_conflict_if_inference_configs_has_no_agent_configs(self):
+        dataset = vertexai_genai_types.EvaluationDataset(
+            eval_dataset_df=pd.DataFrame(
+                [
+                    {
+                        "agent_data": {
+                            "agents": {"agent1": {"agent_id": "agent1"}},
+                            "turns": [],
+                        }
+                    }
+                ]
+            )
+        )
+        inference_configs = {"cand1": {"model": "gemini-pro"}}
+        _evals_utils._validate_dataset_agent_data(dataset, inference_configs)
 
 
 class TestEvent:
@@ -5822,3 +5986,170 @@ class TestEvalsGenerateUserScenarios(unittest.TestCase):
         assert len(eval_dataset.eval_dataset_df) == 2
 
         self.mock_api_client.async_request.assert_called_once()
+
+
+class TestCreateEvaluationSetFromDataFrame:
+    """Unit tests for the _create_evaluation_set_from_dataframe function."""
+
+    def setup_method(self):
+        self.mock_api_client = mock.Mock(spec=client.Client)
+        self.mock_api_client.project = "test-project"
+        self.mock_api_client.location = "us-central1"
+
+    @mock.patch.object(_evals_common, "evals")
+    @mock.patch.object(_evals_common, "_gcs_utils")
+    def test_create_evaluation_set_with_intermediate_events(
+        self, mock_gcs_utils, mock_evals_module
+    ):
+        intermediate_events = [
+            {
+                "content": {"parts": [{"text": "thought 1"}]},
+                "timestamp": "2024-01-01T00:00:00Z",
+            },
+            {
+                "content": {"parts": [{"functionCall": {"name": "foo"}}]},
+                "timestamp": "2024-01-01T00:00:01Z",
+            },
+        ]
+
+        eval_df = pd.DataFrame(
+            [
+                {
+                    "prompt": "test prompt",
+                    "response": "test response",
+                    "intermediate_events": intermediate_events,
+                }
+            ]
+        )
+
+        mock_gcs_instance = mock_gcs_utils.GcsUtils.return_value
+        mock_gcs_instance.upload_json_to_prefix.return_value = (
+            "gs://bucket/path/request.json"
+        )
+
+        mock_evals_instance = mock_evals_module.Evals.return_value
+        mock_eval_item = mock.Mock()
+        mock_eval_item.name = "eval_item_1"
+        mock_evals_instance.create_evaluation_item.return_value = mock_eval_item
+
+        mock_eval_set = mock.Mock()
+        mock_evals_instance.create_evaluation_set.return_value = mock_eval_set
+
+        result = _evals_common._create_evaluation_set_from_dataframe(
+            api_client=self.mock_api_client,
+            gcs_dest_prefix="gs://bucket/prefix",
+            eval_df=eval_df,
+            candidate_name="test-candidate",
+        )
+
+        assert result == mock_eval_set
+
+        mock_gcs_instance.upload_json_to_prefix.assert_called_once()
+        call_args = mock_gcs_instance.upload_json_to_prefix.call_args
+        uploaded_data = call_args.kwargs["data"]
+
+        candidate_responses = uploaded_data["candidate_responses"]
+        assert len(candidate_responses) == 1
+        candidate_response = candidate_responses[0]
+        assert candidate_response["candidate"] == "test-candidate"
+        assert candidate_response["text"] == "test response"
+
+        expected_events = [
+            {"parts": [{"text": "thought 1"}]},
+            {"parts": [{"function_call": {"name": "foo"}}]},
+        ]
+        assert candidate_response["events"] == expected_events
+
+    @mock.patch.object(_evals_common, "evals")
+    @mock.patch.object(_evals_common, "_gcs_utils")
+    def test_create_evaluation_set_with_user_scenario(
+        self, mock_gcs_utils, mock_evals_module
+    ):
+        eval_df = pd.DataFrame(
+            [
+                {
+                    "starting_prompt": "test starting prompt",
+                    "conversation_plan": "test conversation plan",
+                }
+            ]
+        )
+
+        mock_gcs_instance = mock_gcs_utils.GcsUtils.return_value
+        mock_gcs_instance.upload_json_to_prefix.return_value = (
+            "gs://bucket/path/request.json"
+        )
+
+        mock_evals_instance = mock_evals_module.Evals.return_value
+        mock_eval_item = mock.Mock()
+        mock_eval_item.name = "eval_item_1"
+        mock_evals_instance.create_evaluation_item.return_value = mock_eval_item
+
+        mock_eval_set = mock.Mock()
+        mock_evals_instance.create_evaluation_set.return_value = mock_eval_set
+
+        result = _evals_common._create_evaluation_set_from_dataframe(
+            api_client=self.mock_api_client,
+            gcs_dest_prefix="gs://bucket/prefix",
+            eval_df=eval_df,
+            candidate_name="test-candidate",
+        )
+
+        assert result == mock_eval_set
+
+        mock_gcs_instance.upload_json_to_prefix.assert_called_once()
+        call_args = mock_gcs_instance.upload_json_to_prefix.call_args
+        uploaded_data = call_args.kwargs["data"]
+
+        assert uploaded_data.get("candidate_responses") is None
+        assert uploaded_data["prompt"]["user_scenario"] == {
+            "starting_prompt": "test starting prompt",
+            "conversation_plan": "test conversation plan",
+        }
+
+    @mock.patch.object(_evals_common, "evals")
+    @mock.patch.object(_evals_common, "_gcs_utils")
+    def test_create_evaluation_set_with_agent_data(
+        self, mock_gcs_utils, mock_evals_module
+    ):
+        agent_data = {"turns": [{"turn_id": "turn1", "events": []}]}
+        eval_df = pd.DataFrame(
+            [
+                {
+                    "prompt": "test prompt",
+                    "agent_data": agent_data,
+                }
+            ]
+        )
+
+        mock_gcs_instance = mock_gcs_utils.GcsUtils.return_value
+        mock_gcs_instance.upload_json_to_prefix.return_value = (
+            "gs://bucket/path/request.json"
+        )
+
+        mock_evals_instance = mock_evals_module.Evals.return_value
+        mock_eval_item = mock.Mock()
+        mock_eval_item.name = "eval_item_1"
+        mock_evals_instance.create_evaluation_item.return_value = mock_eval_item
+
+        mock_eval_set = mock.Mock()
+        mock_evals_instance.create_evaluation_set.return_value = mock_eval_set
+
+        result = _evals_common._create_evaluation_set_from_dataframe(
+            api_client=self.mock_api_client,
+            gcs_dest_prefix="gs://bucket/prefix",
+            eval_df=eval_df,
+            candidate_name="test-candidate",
+        )
+
+        assert result == mock_eval_set
+
+        mock_gcs_instance.upload_json_to_prefix.assert_called_once()
+        call_args = mock_gcs_instance.upload_json_to_prefix.call_args
+        uploaded_data = call_args.kwargs["data"]
+
+        assert uploaded_data["prompt"]["text"] == "test prompt"
+        candidate_responses = uploaded_data["candidate_responses"]
+        assert len(candidate_responses) == 1
+        candidate_response = candidate_responses[0]
+        assert candidate_response["candidate"] == "test-candidate"
+        assert candidate_response["agent_data"] == agent_data

@@ -1,0 +1,13 @@
+description: Louisiana applies a flat income tax rate if this is true.
+values:
+  2020-01-01: false
+  2025-01-01: true
+metadata:
+  unit: bool
+  period: year
+  label: Louisiana flat income tax rate applies
+  reference:
+    - title: Louisiana Revised Statutes, RS 47:32 - Tax on individuals
+      href: https://www.legis.la.gov/legis/Law.aspx?d=101946
+    - title: 2025 Louisiana Resident Income Tax Return Instructions, Line 11
+      href: https://dam.ldr.la.gov/taxforms/IT540i%20WEB(2025)D11.pdf#page=3

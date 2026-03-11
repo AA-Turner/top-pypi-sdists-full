@@ -1575,8 +1575,91 @@ class ZombieKillerSpec(_message.Message):
     def __init__(self, interval: _Optional[int] = ...) -> None: ...
 
 class CoreDumpCollectorSpec(_message.Message):
-    __slots__ = ()
-    def __init__(self) -> None: ...
+    __slots__ = (
+        "core_dump_bucket_uri",
+        "host_directory",
+        "core_directory",
+        "event_directory",
+        "suid_dumpable",
+        "vendor",
+        "crio_endpoint",
+        "deploy_crio_config",
+        "include_crio_exe",
+        "mount_container_runtime_endpoint",
+        "host_container_runtime_endpoint",
+        "comp_log_level",
+        "comp_ignore_crio",
+        "comp_include_proc_info",
+        "comp_timeout",
+        "comp_compression",
+        "comp_core_events",
+        "comp_filename_template",
+        "comp_pod_selector_label",
+        "comp_log_length",
+    )
+    CORE_DUMP_BUCKET_URI_FIELD_NUMBER: _ClassVar[int]
+    HOST_DIRECTORY_FIELD_NUMBER: _ClassVar[int]
+    CORE_DIRECTORY_FIELD_NUMBER: _ClassVar[int]
+    EVENT_DIRECTORY_FIELD_NUMBER: _ClassVar[int]
+    SUID_DUMPABLE_FIELD_NUMBER: _ClassVar[int]
+    VENDOR_FIELD_NUMBER: _ClassVar[int]
+    CRIO_ENDPOINT_FIELD_NUMBER: _ClassVar[int]
+    DEPLOY_CRIO_CONFIG_FIELD_NUMBER: _ClassVar[int]
+    INCLUDE_CRIO_EXE_FIELD_NUMBER: _ClassVar[int]
+    MOUNT_CONTAINER_RUNTIME_ENDPOINT_FIELD_NUMBER: _ClassVar[int]
+    HOST_CONTAINER_RUNTIME_ENDPOINT_FIELD_NUMBER: _ClassVar[int]
+    COMP_LOG_LEVEL_FIELD_NUMBER: _ClassVar[int]
+    COMP_IGNORE_CRIO_FIELD_NUMBER: _ClassVar[int]
+    COMP_INCLUDE_PROC_INFO_FIELD_NUMBER: _ClassVar[int]
+    COMP_TIMEOUT_FIELD_NUMBER: _ClassVar[int]
+    COMP_COMPRESSION_FIELD_NUMBER: _ClassVar[int]
+    COMP_CORE_EVENTS_FIELD_NUMBER: _ClassVar[int]
+    COMP_FILENAME_TEMPLATE_FIELD_NUMBER: _ClassVar[int]
+    COMP_POD_SELECTOR_LABEL_FIELD_NUMBER: _ClassVar[int]
+    COMP_LOG_LENGTH_FIELD_NUMBER: _ClassVar[int]
+    core_dump_bucket_uri: str
+    host_directory: str
+    core_directory: str
+    event_directory: str
+    suid_dumpable: int
+    vendor: str
+    crio_endpoint: str
+    deploy_crio_config: bool
+    include_crio_exe: bool
+    mount_container_runtime_endpoint: bool
+    host_container_runtime_endpoint: str
+    comp_log_level: str
+    comp_ignore_crio: bool
+    comp_include_proc_info: bool
+    comp_timeout: int
+    comp_compression: bool
+    comp_core_events: bool
+    comp_filename_template: str
+    comp_pod_selector_label: str
+    comp_log_length: int
+    def __init__(
+        self,
+        core_dump_bucket_uri: _Optional[str] = ...,
+        host_directory: _Optional[str] = ...,
+        core_directory: _Optional[str] = ...,
+        event_directory: _Optional[str] = ...,
+        suid_dumpable: _Optional[int] = ...,
+        vendor: _Optional[str] = ...,
+        crio_endpoint: _Optional[str] = ...,
+        deploy_crio_config: bool = ...,
+        include_crio_exe: bool = ...,
+        mount_container_runtime_endpoint: bool = ...,
+        host_container_runtime_endpoint: _Optional[str] = ...,
+        comp_log_level: _Optional[str] = ...,
+        comp_ignore_crio: bool = ...,
+        comp_include_proc_info: bool = ...,
+        comp_timeout: _Optional[int] = ...,
+        comp_compression: bool = ...,
+        comp_core_events: bool = ...,
+        comp_filename_template: _Optional[str] = ...,
+        comp_pod_selector_label: _Optional[str] = ...,
+        comp_log_length: _Optional[int] = ...,
+    ) -> None: ...
 
 class PySpyStackTraceCollectorSpec(_message.Message):
     __slots__ = (

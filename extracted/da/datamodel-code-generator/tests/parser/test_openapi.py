@@ -12,9 +12,10 @@ import pydantic
 import pytest
 from packaging import version
 
-from datamodel_code_generator import OpenAPIScope, PythonVersionMin
-from datamodel_code_generator.model import DataModelFieldBase
-from datamodel_code_generator.model.pydantic import DataModelField
+from datamodel_code_generator import DataModelType, OpenAPIScope, PythonVersionMin
+from datamodel_code_generator.format import Formatter
+from datamodel_code_generator.model import DataModelFieldBase, get_data_model_types
+from datamodel_code_generator.model.pydantic_v2 import DataModelField
 from datamodel_code_generator.parser.base import dump_templates
 from datamodel_code_generator.parser.jsonschema import JsonSchemaObject
 from datamodel_code_generator.parser.openapi import (
@@ -24,8 +25,12 @@ from datamodel_code_generator.parser.openapi import (
     RequestBodyObject,
     ResponseObject,
 )
-from datamodel_code_generator.util import model_dump, model_validate
-from tests.conftest import assert_output, assert_parser_modules, assert_parser_results
+from tests.conftest import (
+    assert_generated_runtime_package,
+    assert_output,
+    assert_parser_modules,
+    assert_parser_results,
+)
 
 DATA_PATH: Path = Path(__file__).parents[1] / "data" / "openapi"
 
@@ -139,7 +144,7 @@ class Pets(BaseModel):
 def test_parse_object(source_obj: dict[str, Any], generated_classes: str) -> None:
     """Test parsing OpenAPI object schemas."""
     parser = OpenAPIParser("")
-    parser.parse_object("Pets", model_validate(JsonSchemaObject, source_obj), [])
+    parser.parse_object("Pets", JsonSchemaObject.model_validate(source_obj), [])
     assert dump_templates(list(parser.results)) == generated_classes
 
 
@@ -155,8 +160,8 @@ def test_parse_object(source_obj: dict[str, Any], generated_classes: str) -> Non
     name: Optional[str] = None
 
 
-class Pets(BaseModel):
-    __root__: List[Pet]""",
+class Pets(RootModel[List[Pet]]):
+    root: List[Pet]""",
         ),
         (
             {
@@ -167,23 +172,23 @@ class Pets(BaseModel):
     name: Optional[str] = None
 
 
-class Pets(BaseModel):
-    __root__: List[Pet]""",
+class Pets(RootModel[List[Pet]]):
+    root: List[Pet]""",
         ),
         (
             {
                 "type": "array",
                 "items": {},
             },
-            """class Pets(BaseModel):
-    __root__: List[Any]""",
+            """class Pets(RootModel[List[Any]]):
+    root: List[Any]""",
         ),
     ],
 )
 def test_parse_array(source_obj: dict[str, Any], generated_classes: str) -> None:
     """Test parsing OpenAPI array schemas."""
     parser = OpenAPIParser("")
-    parser.parse_array("Pets", model_validate(JsonSchemaObject, source_obj), [])
+    parser.parse_array("Pets", JsonSchemaObject.model_validate(source_obj), [])
     assert dump_templates(list(parser.results)) == generated_classes
 
 
@@ -224,20 +229,20 @@ def test_openapi_parser_parse(with_import: bool, format_: bool, base_class: str 
     [
         (
             {"type": "string", "nullable": True},
-            """class Name(BaseModel):
-    __root__: Optional[str] = None""",
+            """class Name(RootModel[Optional[str]]):
+    root: Optional[str] = None""",
         ),
         (
             {"type": "string", "nullable": False},
-            """class Name(BaseModel):
-    __root__: str""",
+            """class Name(RootModel[str]):
+    root: str""",
         ),
     ],
 )
 def test_parse_root_type(source_obj: dict[str, Any], generated_classes: str) -> None:
     """Test parsing OpenAPI root type schemas."""
     parser = OpenAPIParser("")
-    parser.parse_root_type("Name", model_validate(JsonSchemaObject, source_obj), [])
+    parser.parse_root_type("Name", JsonSchemaObject.model_validate(source_obj), [])
     assert dump_templates(list(parser.results)) == generated_classes
 
 
@@ -281,7 +286,7 @@ def test_openapi_parser_parse_lazy_resolved_models(tmp_path: Path, monkeypatch: 
 
 from typing import List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, RootModel
 
 
 class Pet(BaseModel):
@@ -290,8 +295,8 @@ class Pet(BaseModel):
     tag: Optional[str] = None
 
 
-class Pets(BaseModel):
-    __root__: List[Pet]
+class Pets(RootModel[List[Pet]]):
+    root: List[Pet]
 
 
 class Error(BaseModel):
@@ -304,8 +309,8 @@ class Event(BaseModel):
     event: Optional[Event] = None
 
 
-class Events(BaseModel):
-    __root__: List[Event]
+class Events(RootModel[List[Event]]):
+    root: List[Event]
 
 
 class Results(BaseModel):
@@ -473,6 +478,30 @@ def test_openapi_parser_parse_modular(tmp_path: Path, monkeypatch: pytest.Monkey
     assert_parser_modules(modules, EXPECTED_OPEN_API_PATH / "openapi_parser_parse_modular")
 
 
+def test_openapi_parser_parse_modular_pydantic_v2_ruff_keeps_runtime_imports(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test OpenAPIParser.parse() keeps runtime imports for modular Pydantic v2 Ruff output."""
+    monkeypatch.chdir(tmp_path)
+    data_model_types = get_data_model_types(DataModelType.PydanticV2BaseModel, target_python_version=PythonVersionMin)
+    parser = OpenAPIParser(
+        Path(DATA_PATH / "modular.yaml"),
+        data_model_type=data_model_types.data_model,
+        data_model_root_type=data_model_types.root_model,
+        data_model_field_type=data_model_types.field_model,
+        data_type_manager_type=data_model_types.data_type_manager,
+        dump_resolve_reference_action=data_model_types.dump_resolve_reference_action,
+        formatters=[Formatter.RUFF_CHECK, Formatter.RUFF_FORMAT],
+    )
+
+    modules = parser.parse(settings_path=DATA_PATH.parent)
+    assert_generated_runtime_package(
+        tmp_path / "model",
+        modules,
+        EXPECTED_OPEN_API_PATH / "openapi_parser_parse_modular_pydantic_v2_ruff",
+    )
+
+
 @pytest.mark.parametrize(
     ("with_import", "format_", "base_class"),
     [
@@ -585,7 +614,7 @@ def test_openapi_model_resolver(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
     parser.parse()
 
     references = {
-        k: model_dump(v, exclude={"source", "module_name", "actual_module_name", "children"})
+        k: v.model_dump(exclude={"source", "module_name", "actual_module_name", "children"})
         for k, v in parser.model_resolver.references.items()
     }
     assert references == {
@@ -745,8 +774,8 @@ def test_parse_all_parameters_duplicate_names_exception() -> None:
     """Test parsing parameters with duplicate names raises exception."""
     parser = OpenAPIParser("", include_path_parameters=True)
     parameters = [
-        model_validate(ParameterObject, {"name": "duplicate_param", "in": "path", "schema": {"type": "string"}}),
-        model_validate(ParameterObject, {"name": "duplicate_param", "in": "query", "schema": {"type": "integer"}}),
+        ParameterObject.model_validate({"name": "duplicate_param", "in": "path", "schema": {"type": "string"}}),
+        ParameterObject.model_validate({"name": "duplicate_param", "in": "query", "schema": {"type": "integer"}}),
     ]
 
     with pytest.raises(Exception) as exc_info:  # noqa: PT011
@@ -831,7 +860,7 @@ def test_parse_request_body_return(request_body_data: dict[str, Any], expected_t
         "TestRequest",
         RequestBodyObject(
             content={
-                media_type: model_validate(MediaObject, media_data)
+                media_type: MediaObject.model_validate(media_data)
                 for media_type, media_data in request_body_data.items()
             }
         ),
@@ -870,7 +899,7 @@ def test_parse_all_parameters_return(parameters_data: list[dict[str, Any]], expe
     )
     result = parser.parse_all_parameters(
         "TestParametersQuery",
-        [model_validate(ParameterObject, param_data) for param_data in parameters_data],
+        [ParameterObject.model_validate(param_data) for param_data in parameters_data],
         ["test", "path"],
     )
     if expected_type_hint is None:
@@ -935,7 +964,7 @@ def test_parse_responses_return(
     result = parser.parse_responses(
         "TestResponse",
         {
-            status_code: model_validate(ResponseObject, response_data)
+            status_code: ResponseObject.model_validate(response_data)
             for status_code, response_data in responses_data.items()
         },
         ["test", "path"],
@@ -970,7 +999,7 @@ def test_parse_all_parameters_strict_nullable() -> None:
     ]
     result = parser.parse_all_parameters(
         "TestParametersQuery",
-        [model_validate(ParameterObject, param_data) for param_data in parameters_data],
+        [ParameterObject.model_validate(param_data) for param_data in parameters_data],
         ["test", "path"],
     )
     assert result is not None

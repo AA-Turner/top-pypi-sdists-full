@@ -138,7 +138,12 @@ class TestAgentExecutionGrouping:
                 parent_span_id="missing_parent",
                 start_ns=0,
                 end_ns=5_000_000,
-                attributes={"atif.step.id": 1, "atif.step.source": "agent", "atif.step.prompt_tokens": 50},
+                attributes={
+                    "atif.step.id": 1,
+                    "atif.step.source": "world",
+                    "atif.step.prompt_tokens": 50,
+                    "atif.step.cost_usd": 0.02,
+                },
             ),
             _span(
                 "s2",
@@ -146,7 +151,12 @@ class TestAgentExecutionGrouping:
                 parent_span_id="missing_parent",
                 start_ns=5_000_000,
                 end_ns=10_000_000,
-                attributes={"atif.step.id": 2, "atif.step.source": "agent", "atif.step.prompt_tokens": 60},
+                attributes={
+                    "atif.step.id": 2,
+                    "atif.step.source": "world",
+                    "atif.step.prompt_tokens": 60,
+                    "atif.step.cost_usd": 0.03,
+                },
             ),
         ]
         result = analyze_session(spans, "test-session")
@@ -155,6 +165,7 @@ class TestAgentExecutionGrouping:
         assert ex.is_orphaned
         assert ex.step_count == 2
         assert ex.token_summary.prompt_tokens == 110
+        assert ex.token_summary.cost_usd == 0.05
 
 
 class TestAnalyzeSession:
@@ -228,6 +239,199 @@ class TestAnalyzeSession:
         result = analyze_session([], "empty")
         assert result.total_spans == 0
         assert result.agent_executions == []
+
+
+class TestDuplicateExecutionFix:
+    """Regression tests for duplicate execution and cost attribution bugs."""
+
+    def test_session_span_under_agent_execution_not_duplicated(self):
+        """Strategy 2 should skip spans whose parent is already claimed by Strategy 1."""
+        spans = [
+            _span(
+                "exec1",
+                "agent.execution.output",
+                start_ns=0,
+                end_ns=100_000_000,
+                attributes={"atif.agent.name": "verifier"},
+            ),
+            # session span nested under agent.execution.output — has atif.agent.name
+            # but should NOT create a separate execution
+            _span(
+                "session1",
+                "session",
+                parent_span_id="exec1",
+                start_ns=1_000_000,
+                end_ns=99_000_000,
+                attributes={
+                    "atif.agent.name": "verifier",
+                    "atif.agent.cost_usd": 1.50,
+                    "atif.agent.prompt_tokens": 5000,
+                    "atif.agent.completion_tokens": 1000,
+                    "atif.agent.cache_read_tokens": 200,
+                    "atif.agent.cache_write_tokens": 100,
+                },
+            ),
+            _span(
+                "step1",
+                "atif.step.1",
+                parent_span_id="session1",
+                start_ns=2_000_000,
+                end_ns=10_000_000,
+                attributes={"atif.step.id": 1, "atif.step.source": "agent"},
+            ),
+        ]
+        result = analyze_session(spans, "test-dedup")
+        # Should be 1 execution, not 2
+        assert len(result.agent_executions) == 1
+        ex = result.agent_executions[0]
+        assert ex.agent_name == "verifier"
+        assert ex.step_count == 1
+
+    def test_cost_found_on_child_session_span(self):
+        """Cost data on a session child span should be picked up by the execution."""
+        spans = [
+            _span(
+                "exec1",
+                "agent.execution.output",
+                start_ns=0,
+                end_ns=100_000_000,
+                attributes={"atif.agent.name": "builder"},
+            ),
+            _span(
+                "session1",
+                "session",
+                parent_span_id="exec1",
+                start_ns=1_000_000,
+                end_ns=99_000_000,
+                attributes={
+                    "atif.agent.cost_usd": 2.50,
+                    "atif.agent.prompt_tokens": 8000,
+                    "atif.agent.completion_tokens": 2000,
+                    "atif.agent.cache_read_tokens": 500,
+                    "atif.agent.cache_write_tokens": 300,
+                },
+            ),
+            _span(
+                "step1",
+                "atif.step.1",
+                parent_span_id="session1",
+                start_ns=2_000_000,
+                end_ns=10_000_000,
+                attributes={"atif.step.id": 1, "atif.step.source": "agent"},
+            ),
+        ]
+        result = analyze_session(spans, "test-cost-child")
+        assert len(result.agent_executions) == 1
+        ex = result.agent_executions[0]
+        assert ex.token_summary.cost_usd == 2.50
+        assert ex.token_summary.prompt_tokens == 8000
+        assert ex.token_summary.completion_tokens == 2000
+        assert ex.token_summary.cache_read_tokens == 500
+        assert ex.token_summary.cache_write_tokens == 300
+
+    def test_global_cost_is_sum_of_all_executions(self):
+        """Global token_summary should aggregate all executions, not take first span."""
+        spans = [
+            # Execution 1
+            _span(
+                "exec1",
+                "agent.execution.output",
+                start_ns=0,
+                end_ns=50_000_000,
+                attributes={
+                    "atif.agent.name": "agent-1",
+                    "atif.agent.cost_usd": 1.00,
+                    "atif.agent.prompt_tokens": 1000,
+                    "atif.agent.completion_tokens": 500,
+                },
+            ),
+            _span(
+                "step1",
+                "atif.step.1",
+                parent_span_id="exec1",
+                start_ns=1_000_000,
+                end_ns=10_000_000,
+                attributes={"atif.step.id": 1, "atif.step.source": "agent"},
+            ),
+            # Execution 2
+            _span(
+                "exec2",
+                "agent.execution.output",
+                start_ns=50_000_000,
+                end_ns=100_000_000,
+                attributes={
+                    "atif.agent.name": "agent-2",
+                    "atif.agent.cost_usd": 3.00,
+                    "atif.agent.prompt_tokens": 4000,
+                    "atif.agent.completion_tokens": 1500,
+                },
+            ),
+            _span(
+                "step2",
+                "atif.step.1",
+                parent_span_id="exec2",
+                start_ns=51_000_000,
+                end_ns=60_000_000,
+                attributes={"atif.step.id": 1, "atif.step.source": "agent"},
+            ),
+        ]
+        result = analyze_session(spans, "test-global-cost")
+        assert len(result.agent_executions) == 2
+        # Global should be sum: 1.00 + 3.00 = 4.00
+        assert result.token_summary.cost_usd == 4.00
+        assert result.token_summary.prompt_tokens == 5000
+        assert result.token_summary.completion_tokens == 2000
+
+    def test_many_agents_no_duplicates(self):
+        """Simulate many agent.execution.output → session → steps, no duplicates."""
+        spans = []
+        expected_cost = 0.0
+        for i in range(10):
+            exec_id = f"exec{i}"
+            sess_id = f"sess{i}"
+            step_id = f"step{i}"
+            cost = float(i + 1)
+            expected_cost += cost
+            base_ns = i * 100_000_000
+            spans.extend(
+                [
+                    _span(
+                        exec_id,
+                        "agent.execution.output",
+                        start_ns=base_ns,
+                        end_ns=base_ns + 90_000_000,
+                        attributes={"atif.agent.name": f"agent-{i}"},
+                    ),
+                    _span(
+                        sess_id,
+                        "session",
+                        parent_span_id=exec_id,
+                        start_ns=base_ns + 1_000_000,
+                        end_ns=base_ns + 89_000_000,
+                        attributes={
+                            "atif.agent.name": f"agent-{i}",
+                            "atif.agent.cost_usd": cost,
+                            "atif.agent.prompt_tokens": 1000,
+                            "atif.agent.completion_tokens": 500,
+                        },
+                    ),
+                    _span(
+                        step_id,
+                        "atif.step.1",
+                        parent_span_id=sess_id,
+                        start_ns=base_ns + 2_000_000,
+                        end_ns=base_ns + 10_000_000,
+                        attributes={"atif.step.id": 1, "atif.step.source": "agent"},
+                    ),
+                ]
+            )
+        result = analyze_session(spans, "test-many")
+        # 10 executions, not 20
+        assert len(result.agent_executions) == 10
+        # Global cost = 1+2+...+10 = 55
+        assert result.token_summary.cost_usd == expected_cost
+        assert result.token_summary.prompt_tokens == 10000
+        assert result.token_summary.completion_tokens == 5000
 
 
 class TestPhaseDetection:

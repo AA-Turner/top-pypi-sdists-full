@@ -38,7 +38,7 @@ class RemoteNetworkConfigResponse(BaseModel):
     sock_connect_timeout: Optional[Union[Annotated[float, Field(strict=True, ge=0.0)], Annotated[int, Field(strict=True, ge=0)]]] = Field(default=None, description="aiohttp.ClientTimeout.sock_connect (q.v.) for download-connections. The default is null, which will cause the default from the aiohttp library to be used.")
     sock_read_timeout: Optional[Union[Annotated[float, Field(strict=True, ge=0.0)], Annotated[int, Field(strict=True, ge=0)]]] = Field(default=None, description="aiohttp.ClientTimeout.sock_read (q.v.) for download-connections. The default is null, which will cause the default from the aiohttp library to be used.")
     headers: Optional[List[Dict[str, Any]]] = Field(default=None, description="Headers for aiohttp.Clientsession")
-    download_concurrency: Optional[StrictInt] = Field(default=None, description="Total number of simultaneous connections. If not set then the default value will be used.")
+    download_concurrency: Optional[Annotated[int, Field(strict=True, ge=1)]] = Field(default=None, description="Total number of simultaneous connections. If not set then the default value will be used.")
     rate_limit: Optional[StrictInt] = Field(default=None, description="Limits requests per second for each concurrent downloader")
     __properties: ClassVar[List[str]] = ["ca_cert", "client_cert", "tls_validation", "proxy_url", "max_retries", "total_timeout", "connect_timeout", "sock_connect_timeout", "sock_read_timeout", "headers", "download_concurrency", "rate_limit"]
 

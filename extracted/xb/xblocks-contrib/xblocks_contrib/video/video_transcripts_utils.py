@@ -12,12 +12,7 @@ from django.utils.translation import get_language_info
 
 from xblocks_contrib.video.bumper_utils import get_bumper_settings
 from xblocks_contrib.video.exceptions import TranscriptNotFoundError
-
-try:
-    from edxval import api as edxval_api
-except ImportError:
-    edxval_api = None
-
+from xblocks_contrib.video.video_utils import get_edxval_api
 
 log = logging.getLogger(__name__)
 
@@ -79,6 +74,7 @@ def get_available_transcript_languages(edx_video_id):
     """
     available_languages = []
     edx_video_id = clean_video_id(edx_video_id)
+    edxval_api = get_edxval_api()
     if edxval_api and edx_video_id:
         available_languages = edxval_api.get_available_transcript_languages(video_id=edx_video_id)
 

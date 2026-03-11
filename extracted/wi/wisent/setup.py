@@ -33,6 +33,7 @@ setup(
             "support/parameters/tasks/*.json",
             "scripts/*.sh",
             "core/control/steering_methods/configs/*.json",
+            "app/*.png",
         ],
     },
     classifiers=[
@@ -70,6 +71,7 @@ setup(
         "pacmap>=0.7.0",
         "optuna>=3.0.0",
         "hyperopt",
+        "psutil",
     ],
     extras_require={
         "harness": [
@@ -86,6 +88,9 @@ setup(
         ],
         "app": [
             "gradio>=4.0.0",
+        ],
+        "zerogpu": [
+            "spaces",
         ],
     },
     entry_points={

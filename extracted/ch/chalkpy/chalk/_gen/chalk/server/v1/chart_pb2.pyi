@@ -25,10 +25,21 @@ class MetricFormulaOperandKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper
     METRIC_FORMULA_OPERAND_KIND_DATASET: _ClassVar[MetricFormulaOperandKind]
     METRIC_FORMULA_OPERAND_KIND_FEATURE: _ClassVar[MetricFormulaOperandKind]
 
+class MetricHealthStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    METRIC_HEALTH_STATUS_UNSPECIFIED: _ClassVar[MetricHealthStatus]
+    METRIC_HEALTH_STATUS_HEALTHY: _ClassVar[MetricHealthStatus]
+    METRIC_HEALTH_STATUS_UNHEALTHY: _ClassVar[MetricHealthStatus]
+    METRIC_HEALTH_STATUS_NO_CHECKS: _ClassVar[MetricHealthStatus]
+
 METRIC_FORMULA_OPERAND_KIND_UNSPECIFIED: MetricFormulaOperandKind
 METRIC_FORMULA_OPERAND_KIND_SERIES: MetricFormulaOperandKind
 METRIC_FORMULA_OPERAND_KIND_DATASET: MetricFormulaOperandKind
 METRIC_FORMULA_OPERAND_KIND_FEATURE: MetricFormulaOperandKind
+METRIC_HEALTH_STATUS_UNSPECIFIED: MetricHealthStatus
+METRIC_HEALTH_STATUS_HEALTHY: MetricHealthStatus
+METRIC_HEALTH_STATUS_UNHEALTHY: MetricHealthStatus
+METRIC_HEALTH_STATUS_NO_CHECKS: MetricHealthStatus
 
 class Series(_message.Message):
     __slots__ = ("points", "label", "units")
@@ -291,6 +302,62 @@ class GetChartSnapshotResponse(_message.Message):
         sql_query_strings: _Optional[_Iterable[str]] = ...,
     ) -> None: ...
 
+class GetChartSnapshotByQueryRequest(_message.Message):
+    __slots__ = (
+        "query",
+        "start_time",
+        "end_time",
+        "use_start_as_origin",
+        "use_sketch_metrics_table",
+        "return_sql_query_string",
+        "exclude_incomplete_last_bucket",
+    )
+    QUERY_FIELD_NUMBER: _ClassVar[int]
+    START_TIME_FIELD_NUMBER: _ClassVar[int]
+    END_TIME_FIELD_NUMBER: _ClassVar[int]
+    USE_START_AS_ORIGIN_FIELD_NUMBER: _ClassVar[int]
+    USE_SKETCH_METRICS_TABLE_FIELD_NUMBER: _ClassVar[int]
+    RETURN_SQL_QUERY_STRING_FIELD_NUMBER: _ClassVar[int]
+    EXCLUDE_INCOMPLETE_LAST_BUCKET_FIELD_NUMBER: _ClassVar[int]
+    query: str
+    start_time: _timestamp_pb2.Timestamp
+    end_time: _timestamp_pb2.Timestamp
+    use_start_as_origin: bool
+    use_sketch_metrics_table: bool
+    return_sql_query_string: bool
+    exclude_incomplete_last_bucket: bool
+    def __init__(
+        self,
+        query: _Optional[str] = ...,
+        start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        use_start_as_origin: bool = ...,
+        use_sketch_metrics_table: bool = ...,
+        return_sql_query_string: bool = ...,
+        exclude_incomplete_last_bucket: bool = ...,
+    ) -> None: ...
+
+class GetChartSnapshotByQueryResponse(_message.Message):
+    __slots__ = ("charts", "x_series", "window_period", "sql_query_strings", "compiled_metric_config")
+    CHARTS_FIELD_NUMBER: _ClassVar[int]
+    X_SERIES_FIELD_NUMBER: _ClassVar[int]
+    WINDOW_PERIOD_FIELD_NUMBER: _ClassVar[int]
+    SQL_QUERY_STRINGS_FIELD_NUMBER: _ClassVar[int]
+    COMPILED_METRIC_CONFIG_FIELD_NUMBER: _ClassVar[int]
+    charts: _containers.RepeatedCompositeFieldContainer[_densetimeserieschart_pb2.DenseTimeSeriesChart]
+    x_series: _containers.RepeatedCompositeFieldContainer[_timestamp_pb2.Timestamp]
+    window_period: _duration_pb2.Duration
+    sql_query_strings: _containers.RepeatedScalarFieldContainer[str]
+    compiled_metric_config: _chart_pb2.MetricConfig
+    def __init__(
+        self,
+        charts: _Optional[_Iterable[_Union[_densetimeserieschart_pb2.DenseTimeSeriesChart, _Mapping]]] = ...,
+        x_series: _Optional[_Iterable[_Union[_timestamp_pb2.Timestamp, _Mapping]]] = ...,
+        window_period: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...,
+        sql_query_strings: _Optional[_Iterable[str]] = ...,
+        compiled_metric_config: _Optional[_Union[_chart_pb2.MetricConfig, _Mapping]] = ...,
+    ) -> None: ...
+
 class DeleteChartRequest(_message.Message):
     __slots__ = ("metric_config_id",)
     METRIC_CONFIG_ID_FIELD_NUMBER: _ClassVar[int]
@@ -400,3 +467,85 @@ class GetChartOptionsResponse(_message.Message):
         metrics: _Optional[_Iterable[_Union[MetricOptions, _Mapping]]] = ...,
         formulas: _Optional[_Iterable[_Union[MetricFormulaOption, _Mapping]]] = ...,
     ) -> None: ...
+
+class MetricHealthCheck(_message.Message):
+    __slots__ = ("status", "message")
+    STATUS_FIELD_NUMBER: _ClassVar[int]
+    MESSAGE_FIELD_NUMBER: _ClassVar[int]
+    status: MetricHealthStatus
+    message: str
+    def __init__(
+        self, status: _Optional[_Union[MetricHealthStatus, str]] = ..., message: _Optional[str] = ...
+    ) -> None: ...
+
+class SparkPoint(_message.Message):
+    __slots__ = ("x", "y")
+    X_FIELD_NUMBER: _ClassVar[int]
+    Y_FIELD_NUMBER: _ClassVar[int]
+    x: float
+    y: float
+    def __init__(self, x: _Optional[float] = ..., y: _Optional[float] = ...) -> None: ...
+
+class SparkSeries(_message.Message):
+    __slots__ = ("name", "points")
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    POINTS_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    points: _containers.RepeatedCompositeFieldContainer[SparkPoint]
+    def __init__(
+        self, name: _Optional[str] = ..., points: _Optional[_Iterable[_Union[SparkPoint, _Mapping]]] = ...
+    ) -> None: ...
+
+class EntityMetrics(_message.Message):
+    __slots__ = ("fqn", "successful_requests", "failed_requests", "health")
+    FQN_FIELD_NUMBER: _ClassVar[int]
+    SUCCESSFUL_REQUESTS_FIELD_NUMBER: _ClassVar[int]
+    FAILED_REQUESTS_FIELD_NUMBER: _ClassVar[int]
+    HEALTH_FIELD_NUMBER: _ClassVar[int]
+    fqn: str
+    successful_requests: SparkSeries
+    failed_requests: SparkSeries
+    health: MetricHealthCheck
+    def __init__(
+        self,
+        fqn: _Optional[str] = ...,
+        successful_requests: _Optional[_Union[SparkSeries, _Mapping]] = ...,
+        failed_requests: _Optional[_Union[SparkSeries, _Mapping]] = ...,
+        health: _Optional[_Union[MetricHealthCheck, _Mapping]] = ...,
+    ) -> None: ...
+
+class GetFeatureMetricsRequest(_message.Message):
+    __slots__ = ("fqns",)
+    FQNS_FIELD_NUMBER: _ClassVar[int]
+    fqns: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, fqns: _Optional[_Iterable[str]] = ...) -> None: ...
+
+class GetFeatureMetricsResponse(_message.Message):
+    __slots__ = ("metrics",)
+    METRICS_FIELD_NUMBER: _ClassVar[int]
+    metrics: _containers.RepeatedCompositeFieldContainer[EntityMetrics]
+    def __init__(self, metrics: _Optional[_Iterable[_Union[EntityMetrics, _Mapping]]] = ...) -> None: ...
+
+class GetResolverMetricsRequest(_message.Message):
+    __slots__ = ("fqns",)
+    FQNS_FIELD_NUMBER: _ClassVar[int]
+    fqns: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, fqns: _Optional[_Iterable[str]] = ...) -> None: ...
+
+class GetResolverMetricsResponse(_message.Message):
+    __slots__ = ("metrics",)
+    METRICS_FIELD_NUMBER: _ClassVar[int]
+    metrics: _containers.RepeatedCompositeFieldContainer[EntityMetrics]
+    def __init__(self, metrics: _Optional[_Iterable[_Union[EntityMetrics, _Mapping]]] = ...) -> None: ...
+
+class GetQueryMetricsRequest(_message.Message):
+    __slots__ = ("fqns",)
+    FQNS_FIELD_NUMBER: _ClassVar[int]
+    fqns: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, fqns: _Optional[_Iterable[str]] = ...) -> None: ...
+
+class GetQueryMetricsResponse(_message.Message):
+    __slots__ = ("metrics",)
+    METRICS_FIELD_NUMBER: _ClassVar[int]
+    metrics: _containers.RepeatedCompositeFieldContainer[EntityMetrics]
+    def __init__(self, metrics: _Optional[_Iterable[_Union[EntityMetrics, _Mapping]]] = ...) -> None: ...

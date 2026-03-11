@@ -36,12 +36,12 @@ class TestSetLabel(unittest.TestCase):
         model = SetLabel()
         if include_optional:
             return SetLabel(
-                key = 'z0',
+                key = '0',
                 value = ''
             )
         else:
             return SetLabel(
-                key = 'z0',
+                key = '0',
                 value = '',
         )
         """

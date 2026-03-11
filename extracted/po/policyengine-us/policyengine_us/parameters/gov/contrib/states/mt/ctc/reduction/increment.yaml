@@ -1,0 +1,7 @@
+description: Montana reduces the child tax credit for each of these increments that a filer's adjusted gross income exceeds the threshold.
+values:
+  2023-01-01: 1_000
+metadata:
+  unit: currency-USD
+  period: year
+  label: Montana child tax credit reduction increment

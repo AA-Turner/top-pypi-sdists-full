@@ -1,4 +1,4 @@
-# Copyright 2025 DeepMind Technologies Limited
+# Copyright 2026 DeepMind Technologies Limited
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -669,6 +669,7 @@ _NDIM = {
         'mesh_graphadr': 1,
         'mesh_normal': 2,
         'mesh_normaladr': 1,
+        'mesh_normalnum': 1,
         'mesh_polyadr': 1,
         'mesh_polymap': 1,
         'mesh_polymapadr': 1,
@@ -1198,6 +1199,7 @@ _BATCH_DIM = {
         'mesh_graphadr': False,
         'mesh_normal': False,
         'mesh_normaladr': False,
+        'mesh_normalnum': False,
         'mesh_polyadr': False,
         'mesh_polymap': False,
         'mesh_polymapadr': False,

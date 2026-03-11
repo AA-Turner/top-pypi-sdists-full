@@ -38,6 +38,9 @@ ConversationHandler.
 Send /start to initiate the conversation.
 Press Ctrl-C on the command line to stop the bot.
 """
+# pylint: disable=unused-argument, wrong-import-position
+# This program is dedicated to the public domain under the CC0 license.
+
 import os
 import html
 import json
@@ -45,14 +48,201 @@ import logging
 import re
 import sys
 import threading
+import traceback
+from datetime import datetime
+from time import sleep
+
+# =============================================================================
+# MOCK PKG_RESOURCES FOR APSCHEDULER COMPATIBILITY
+# =============================================================================
+"""
+This mock is required because PyInstaller builds sometimes miss pkg_resources,
+which apscheduler needs for entry point discovery. This mock provides all
+necessary functions and classes that apscheduler imports from pkg_resources.
+"""
+import sys
+from types import ModuleType
+
+try:
+    import pkg_resources
+    # If it exists, we're good
+    pass
+except ImportError:
+    # Create a comprehensive mock pkg_resources module
+    mock_pkg_resources = ModuleType('pkg_resources')
+    
+    class DistributionNotFound(Exception):
+        """Mock DistributionNotFound exception."""
+        pass
+    
+    class Distribution:
+        """Mock Distribution class."""
+        version = "0.0.0"
+        project_name = "mock"
+        location = "/mock/location"
+        key = "mock"
+        
+        def __init__(self, *args, **kwargs):
+            pass
+        
+        def get_entry_map(self, *args, **kwargs):
+            return {}
+        
+        def get_entry_info(self, *args, **kwargs):
+            return None
+    
+    class EntryPoint:
+        """Mock EntryPoint class."""
+        def __init__(self, name, module_name, attrs=(), extras=(), dist=None):
+            self.name = name
+            self.module_name = module_name
+            self.attrs = attrs
+            self.extras = extras
+            self.dist = dist
+            self.key = name
+            
+        def load(self):
+            """Mock load method."""
+            return None
+        
+        def resolve(self):
+            """Mock resolve method."""
+            return None
+        
+        def require(self):
+            """Mock require method."""
+            pass
+    
+    def get_distribution(*args, **kwargs):
+        """Mock get_distribution function."""
+        return Distribution()
+    
+    def require(*args, **kwargs):
+        """Mock require function."""
+        return [Distribution()]
+    
+    def iter_entry_points(group, name=None):
+        """Mock iter_entry_points function - what apscheduler needs."""
+        return []
+    
+    def entry_points():
+        """Mock entry_points function."""
+        return {}
+    
+    def get_entry_info(dist, group, name):
+        """Mock get_entry_info function."""
+        return None
+    
+    def get_entry_map(dist, group=None):
+        """Mock get_entry_map function."""
+        return {}
+    
+    def resource_filename(package_or_requirement, resource_name):
+        """Mock resource_filename function."""
+        return "/mock/filename"
+    
+    def resource_string(package_or_requirement, resource_name):
+        """Mock resource_string function."""
+        return b""
+    
+    def resource_stream(package_or_requirement, resource_name):
+        """Mock resource_stream function."""
+        import io
+        return io.BytesIO()
+    
+    def resource_exists(package_or_requirement, resource_name):
+        """Mock resource_exists function."""
+        return True
+    
+    def resource_isdir(package_or_requirement, resource_name):
+        """Mock resource_isdir function."""
+        return False
+    
+    def resource_listdir(package_or_requirement, resource_name):
+        """Mock resource_listdir function."""
+        return []
+    
+    def cleanup_resources(*args, **kwargs):
+        """Mock cleanup_resources function."""
+        pass
+    
+    def get_provider(package_or_requirement):
+        """Mock get_provider function."""
+        return None
+    
+    def working_set():
+        """Mock working_set function."""
+        return []
+    
+    def find_distributions(*args, **kwargs):
+        """Mock find_distributions function."""
+        return []
+    
+    def get_platform():
+        """Mock get_platform function."""
+        return sys.platform
+    
+    def load_entry_point(dist, group, name):
+        """Mock load_entry_point function."""
+        return None
+    
+    def get_build_platform():
+        """Mock get_build_platform function."""
+        return sys.platform
+    
+    def declare_namespace(name):
+        """Mock declare_namespace function."""
+        pass
+    
+    def fixup_namespace_packages(path):
+        """Mock fixup_namespace_packages function."""
+        pass
+    
+    # Add all the functions to the mock module
+    mock_pkg_resources.DistributionNotFound = DistributionNotFound
+    mock_pkg_resources.Distribution = Distribution
+    mock_pkg_resources.EntryPoint = EntryPoint
+    mock_pkg_resources.get_distribution = get_distribution
+    mock_pkg_resources.require = require
+    mock_pkg_resources.iter_entry_points = iter_entry_points
+    mock_pkg_resources.entry_points = entry_points
+    mock_pkg_resources.get_entry_info = get_entry_info
+    mock_pkg_resources.get_entry_map = get_entry_map
+    mock_pkg_resources.resource_filename = resource_filename
+    mock_pkg_resources.resource_string = resource_string
+    mock_pkg_resources.resource_stream = resource_stream
+    mock_pkg_resources.resource_exists = resource_exists
+    mock_pkg_resources.resource_isdir = resource_isdir
+    mock_pkg_resources.resource_listdir = resource_listdir
+    mock_pkg_resources.cleanup_resources = cleanup_resources
+    mock_pkg_resources.get_provider = get_provider
+    mock_pkg_resources.working_set = working_set
+    mock_pkg_resources.find_distributions = find_distributions
+    mock_pkg_resources.get_platform = get_platform
+    mock_pkg_resources.load_entry_point = load_entry_point
+    mock_pkg_resources.get_build_platform = get_build_platform
+    mock_pkg_resources.declare_namespace = declare_namespace
+    mock_pkg_resources.fixup_namespace_packages = fixup_namespace_packages
+    mock_pkg_resources.__version__ = "0.0.0-mock"
+    
+    # Insert the mock into sys.modules
+    sys.modules['pkg_resources'] = mock_pkg_resources
+    
+    # Also mock pkg_resources.py2_warn if needed
+    mock_py2_warn = ModuleType('pkg_resources.py2_warn')
+    sys.modules['pkg_resources.py2_warn'] = mock_py2_warn
+    
+    import warnings
+    warnings.warn("pkg_resources not found, using comprehensive mock for apscheduler compatibility")
+
+# =============================================================================
+# END OF MOCK
+# =============================================================================
+
 try:
     import thread
 except ImportError:
     import _thread as thread
-
-import traceback
-from datetime import datetime
-from time import sleep
 from telegram import __version__ as TG_VER
 # from telegram.constants import ParseMode
 

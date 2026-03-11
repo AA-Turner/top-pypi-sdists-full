@@ -1,18 +1,16 @@
-
+from __future__ import annotations
 from . import matchers
-from .utils import contains_strict
 
 import functools
 import inspect
 
 try:
-    from inspect import signature, Parameter
+    from inspect import signature, Parameter, Signature
 except ImportError:
-    from funcsigs import signature, Parameter  # type: ignore[import, no-redef]
+    from funcsigs import signature, Parameter, Signature  # type: ignore[import-not-found, no-redef]  # noqa: E501
 
 
-
-def get_signature(obj, method_name):
+def get_signature(obj: object, method_name: str) -> Signature | None:
     method = getattr(obj, method_name)
 
     # Eat self for unbound methods bc signature doesn't do it
@@ -29,17 +27,21 @@ def get_signature(obj, method_name):
         return None
 
 
-def match_signature(sig, args, kwargs):
+def match_signature(sig: Signature, args: tuple, kwargs: dict) -> None:
     sig.bind(*args, **kwargs)
-    return sig
 
 
-def match_signature_allowing_placeholders(sig, args, kwargs):  # noqa: C901
+def match_signature_allowing_placeholders(  # noqa: C901
+    sig: Signature, args: tuple, kwargs: dict
+) -> None:
     # Let's face it. If this doesn't work out, we have to do it the hard
     # way and reimplement something like `sig.bind` with our specific
     # need for `...`, `*args`, and `**kwargs` support.
 
-    if contains_strict(args, Ellipsis):
+    if len(args) == 1 and matchers.is_call_captor(args[0]) and not kwargs:
+        return
+
+    if args and args[-1] is Ellipsis and not kwargs:
         # Invariant: Ellipsis as the sole argument should just pass, regardless
         # if it actually can consume an arg or the function does not take any
         # arguments at all
@@ -47,7 +49,7 @@ def match_signature_allowing_placeholders(sig, args, kwargs):  # noqa: C901
             return
 
         has_kwargs = has_var_keyword(sig)
-        # Ellipsis is always the last arg in args; it matches all keyword
+        # Ellipsis is the last arg in args; then it matches all keyword
         # arguments as well. So the strategy here is to strip off all
         # the keyword arguments from the signature, and do a partial
         # bind with the rest.
@@ -61,7 +63,7 @@ def match_signature_allowing_placeholders(sig, args, kwargs):  # noqa: C901
     else:
         # `*args` should at least match one arg (t.i. not `*[]`), so we
         # keep it here. The value and its type is irrelevant in python.
-        args_provided = contains_strict(args, matchers.ARGS_SENTINEL)
+        args_provided = any(matchers.is_args_sentinel(arg) for arg in args)
 
         # If we find the `**kwargs` sentinel we must remove it, bc its
         # name cannot be matched against the sig.
@@ -79,8 +81,6 @@ def match_signature_allowing_placeholders(sig, args, kwargs):  # noqa: C901
                 if 'too many positional arguments' in error:
                     raise TypeError('no argument for *args left')
                 if 'multiple values for argument' in error:
-                    raise
-                if 'too many keyword arguments' in error:          # PY<3.5
                     raise
                 if 'got an unexpected keyword argument' in error:  # PY>3.5
                     raise
@@ -103,15 +103,13 @@ def match_signature_allowing_placeholders(sig, args, kwargs):  # noqa: C901
             # straight forward.
             sig.bind(*args, **kwargs)
 
-    return sig
 
-
-def positional_arguments(sig):
+def positional_arguments(sig: Signature) -> int:
     return len([p for n, p in sig.parameters.items()
                 if p.kind in (Parameter.POSITIONAL_ONLY,
                               Parameter.POSITIONAL_OR_KEYWORD)])
 
-def has_var_keyword(sig):
+def has_var_keyword(sig: Signature) -> bool:
     return any(p for n, p in sig.parameters.items()
                if p.kind is Parameter.VAR_KEYWORD)
 

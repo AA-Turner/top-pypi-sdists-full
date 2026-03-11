@@ -1089,6 +1089,51 @@ source_bucket = s3.Bucket(self, "SourceBucket",
 if source_bucket.replication_role_arn:
     destination_bucket.add_replication_policy(source_bucket.replication_role_arn, True, "111111111111")
 ```
+
+## Mixins
+
+S3 provides several [mixins](https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib-readme.html#mixins) that can be applied to L1 and L2 constructs.
+
+### BucketAutoDeleteObjects
+
+Automatically deletes all objects from a bucket when the bucket is removed from the stack or when the stack is deleted. Requires the bucket's removal policy to be set to `DESTROY`:
+
+```python
+s3.CfnBucket(self, "Bucket").with(s3.mixins.BucketAutoDeleteObjects())
+```
+
+### BucketVersioning
+
+Enables or suspends versioning on an S3 bucket:
+
+```python
+s3.CfnBucket(self, "Bucket").with(s3.mixins.BucketVersioning())
+```
+
+### BucketBlockPublicAccess
+
+Blocks public access on an S3 bucket. Defaults to blocking all public access:
+
+```python
+s3.CfnBucket(self, "Bucket").with(s3.mixins.BucketBlockPublicAccess())
+```
+
+### BucketPolicyStatements
+
+Adds IAM policy statements to a bucket policy:
+
+```python
+s3.CfnBucketPolicy(self, "Policy",
+    bucket=s3.CfnBucket(self, "Bucket").ref,
+    policy_document=iam.PolicyDocument()
+).with(s3.mixins.BucketPolicyStatements([
+    iam.PolicyStatement(
+        actions=["s3:GetObject"],
+        resources=["*"],
+        principals=[iam.AnyPrincipal()]
+    )
+]))
+```
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -2329,7 +2374,6 @@ class BucketPolicyProps:
 
         Example::
 
-            from aws_cdk.mixins_preview.with import
             import aws_cdk.mixins_preview.aws_cloudfront.mixins as cloudfront_mixins
             
             # Create CloudFront distribution
@@ -22666,6 +22710,11 @@ class BucketBase(
             check_type(argname="argument allowed_action_patterns", value=allowed_action_patterns, expected_type=type_hints["allowed_action_patterns"])
         return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantWrite", [identity, objects_key_pattern, allowed_action_patterns]))
 
+    @jsii.member(jsii_name="maybeAutoCreatePolicy")
+    def _maybe_auto_create_policy(self) -> None:
+        '''Ensures a bucket policy exists on the L2 if ``autoCreatePolicy`` is set.'''
+        return typing.cast(None, jsii.invoke(self, "maybeAutoCreatePolicy", []))
+
     @jsii.member(jsii_name="onCloudTrailEvent")
     def on_cloud_trail_event(
         self,
@@ -22939,6 +22988,12 @@ class BucketBase(
         ...
 
     @builtins.property
+    @jsii.member(jsii_name="grants")
+    def grants(self) -> "BucketGrants":
+        '''Collection of grant methods for a Bucket.'''
+        return typing.cast("BucketGrants", jsii.get(self, "grants"))
+
+    @builtins.property
     @jsii.member(jsii_name="encryptionKey")
     @abc.abstractmethod
     def encryption_key(self) -> typing.Optional["_IKey_5f11635f"]:
@@ -22963,19 +23018,6 @@ class BucketBase(
     @abc.abstractmethod
     def _auto_create_policy(self, value: builtins.bool) -> None:
         ...
-
-    @builtins.property
-    @jsii.member(jsii_name="grants")
-    def grants(self) -> "BucketGrants":
-        '''Collection of grant methods for a Bucket.'''
-        return typing.cast("BucketGrants", jsii.get(self, "grants"))
-
-    @grants.setter
-    def grants(self, value: "BucketGrants") -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4ea4d94f0db896ea19b4ab8ca5f5f2c6ddcec5adfcad9fa644cc43e2151cc883)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "grants", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="disallowPublicAccess")
@@ -23786,9 +23828,13 @@ __all__ = [
     "Transition",
     "TransitionDefaultMinimumObjectSize",
     "VirtualHostedStyleUrlOptions",
+    "mixins",
 ]
 
 publication.publish()
+
+# Loading modules to ensure their types are registered with the jsii runtime library
+from . import mixins
 
 def _typecheckingstub__7c7460d0788a3581f53118e0e633044dbbacdb3bb39e06a86a9c4e5c3d7e5a9f(
     value: typing.Optional[builtins.bool],
@@ -26309,12 +26355,6 @@ def _typecheckingstub__3e8522eebb64e091c996febc69696b36913bb45860295379a91f01890
     key: typing.Optional[builtins.str] = None,
     *,
     regional: typing.Optional[builtins.bool] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__4ea4d94f0db896ea19b4ab8ca5f5f2c6ddcec5adfcad9fa644cc43e2151cc883(
-    value: BucketGrants,
 ) -> None:
     """Type checking stubs"""
     pass

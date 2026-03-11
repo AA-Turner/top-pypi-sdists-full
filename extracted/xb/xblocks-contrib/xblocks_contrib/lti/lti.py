@@ -76,13 +76,8 @@ from web_fragments.fragment import Fragment
 from webob import Response
 from xblock.core import List, Scope, String, XBlock
 from xblock.fields import Boolean, Float, UserScope
-
-try:
-    from xblock.utils.resources import ResourceLoader
-    from xblock.utils.studio_editable import StudioEditableXBlockMixin
-except ModuleNotFoundError:
-    from xblockutils.resources import ResourceLoader
-    from xblockutils.studio_editable import StudioEditableXBlockMixin
+from xblock.utils.resources import ResourceLoader
+from xblock.utils.studio_editable import StudioEditableXBlockMixin
 
 from xblocks_contrib.common.xml_utils import LegacyXmlMixin
 
@@ -807,7 +802,7 @@ class LTIBlock(
 
     def get_icon_class(self):
         """ Returns the icon class """
-        if self.graded and self.has_score:
+        if self.graded and self.has_score:  # pylint: disable=no-member
             return 'problem'
         return 'other'
 

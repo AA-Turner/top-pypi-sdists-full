@@ -18,14 +18,17 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+from __future__ import annotations
+from collections.abc import Iterable, MutableMapping
 import operator
 
 from . import invocation
 from . import verification
 
-from .utils import get_obj, get_obj_attr_tuple
-from .mocking import Mock
+from .utils import deprecated, get_obj, get_obj_attr_tuple
+from .mocking import Chain, Mock
 from .mock_registry import mock_registry
+from .patching import restore_patch_contextmanager, patcher
 from .verification import VerificationError
 
 
@@ -38,74 +41,84 @@ __tracebackhide__ = operator.methodcaller(
 )
 
 
-def _multiple_arguments_in_use(*args):
-    return len([x for x in args if x]) > 1
-
-
-def _invalid_argument(value):
-    return (value is not None and value < 1) or value == 0
-
-
-def _invalid_between(between):
+def _invalid_between(between) -> bool:
     if between is not None:
         try:
-            start, end = between
+            if len(between) == 1:
+                start, end = between[0], float('inf')
+            else:
+                start, end = between
+            if start < 0 or start > end:
+                return True
         except Exception:
-            return True
-
-        if start > end or start < 0:
             return True
     return False
 
+
 def _get_wanted_verification(
-        times=None, atleast=None, atmost=None, between=None):
-    if times is not None and times < 0:
-        raise ArgumentError("'times' argument has invalid value.\n"
-                            "It should be at least 0. You wanted to set it to:"
-                            " %i" % times)
-    if _multiple_arguments_in_use(atleast, atmost, between):
+        times=None, atleast=None, atmost=None, between=None
+) -> verification.VerificationMode | None:
+    if (times, atleast, atmost, between).count(None) < 3:
         raise ArgumentError(
-            "You can set only one of the arguments: 'atleast', "
+            "You can set only one of the arguments: 'times', 'atleast', "
             "'atmost' or 'between'.")
-    if _invalid_argument(atleast):
-        raise ArgumentError("'atleast' argument has invalid value.\n"
-                            "It should be at least 1.  You wanted to set it "
-                            "to: %i" % atleast)
-    if _invalid_argument(atmost):
-        raise ArgumentError("'atmost' argument has invalid value.\n"
-                            "It should be at least 1.  You wanted to set it "
-                            "to: %i" % atmost)
-    if _invalid_between(between):
-        raise ArgumentError(
-            """'between' argument has invalid value.
-It should consist of positive values with second number not greater
-than first e.g. (1, 4) or (0, 3) or (2, 2).
-You wanted to set it to: %s""" % (between,))
 
-    if atleast:
-        return verification.AtLeast(atleast)
-    elif atmost:
-        return verification.AtMost(atmost)
-    elif between:
-        return verification.Between(*between)
-    elif times is not None:
+    if times is not None:
+        if times < 0:
+            raise ArgumentError(
+                "'times' argument has invalid value.\n"
+                f"It should be at least 0.  You wanted to set it to: {times}"
+            )
         return verification.Times(times)
+    if atleast is not None:
+        if atleast < 1:
+            raise ArgumentError(
+                "'atleast' argument has invalid value.\n"
+                f"It should be at least 1.  You wanted to set it to: {atleast}"
+            )
+        return verification.AtLeast(atleast)
+    if atmost is not None:
+        if atmost < 1:
+            raise ArgumentError(
+                "'atmost' argument has invalid value.\n"
+                f"It should be at least 1.  You wanted to set it to: {atmost}"
+            )
+        return verification.AtMost(atmost)
+    if between is not None:
+        if _invalid_between(between):
+            raise ArgumentError(
+                "'between' argument has invalid value.\n"
+                "It should consist of positive values with second number "
+                "greater than first e.g. (1, 4) or (0, 3) or (2, 2), "
+                "or a single non-negative number for open-ended range "
+                f"e.g. (0,).  You wanted to set it to: {between}"
+            )
+        return verification.Between(*between)
+    return None
 
-def _get_mock(obj, strict=True):
+
+def _get_mock(obj: object, strict=True) -> Mock:
     theMock = mock_registry.mock_for(obj)
     if theMock is None:
         theMock = Mock(obj, strict=strict, spec=obj)
         mock_registry.register(obj, theMock)
     return theMock
 
-def _get_mock_or_raise(obj):
+def _get_mock_or_raise(obj: object) -> Mock:
     theMock = mock_registry.mock_for(obj)
     if theMock is None:
         raise ArgumentError("obj '%s' is not registered" % obj)
     return theMock
 
-def verify(obj, times=1, atleast=None, atmost=None, between=None,
-           inorder=False):
+def verify(
+    obj,
+    times=None,
+    atleast=None,
+    atmost=None,
+    between=None,
+    inorder=False,
+    _factory=None,
+):
     """Central interface to verify interactions.
 
     `verify` uses a fluent interface::
@@ -131,17 +144,21 @@ def verify(obj, times=1, atleast=None, atmost=None, between=None,
     if isinstance(obj, str):
         obj = get_obj(obj)
 
-    verification_fn = _get_wanted_verification(
-        times=times, atleast=atleast, atmost=atmost, between=between)
+    verification_fn = (
+        _get_wanted_verification(
+            times=times, atleast=atleast, atmost=atmost, between=between
+        ) or verification.Times(1)
+    )
     if inorder:
         verification_fn = verification.InOrder(verification_fn)
 
     theMock = _get_mock_or_raise(obj)
 
+    factory = _factory or invocation.VerifiableInvocation
+
     class Verify(object):
         def __getattr__(self, method_name):
-            return invocation.VerifiableInvocation(
-                theMock, method_name, verification_fn)
+            return factory(theMock, method_name, verification_fn)
 
     return Verify()
 
@@ -225,11 +242,11 @@ def when(obj, strict=True):
         obj = get_obj(obj)
 
     theMock = _get_mock(obj, strict=strict)
+    chain = Chain(theMock, {"strict": strict})
 
     class When(object):
         def __getattr__(self, method_name):
-            return invocation.StubbedInvocation(
-                theMock, method_name, strict=strict)
+            return chain.new_segment(method_name)
 
     return When()
 
@@ -288,6 +305,100 @@ def patch(fn, attr_or_replacement, replacement=None):
             theMock, name, strict=False)(Ellipsis).thenAnswer(replacement)
 
 
+def patch_attr(obj_or_path, attr_or_replacement, replacement=OMITTED):
+    """Patch/replace an attribute with a concrete value.
+
+    Unlike :func:`patch`, this does *not* record interactions and does not
+    expose verification. It is intended for simple attribute replacement like
+    ``sys.stdout`` or ``sys.argv``.
+
+    Two ways to call this. Either::
+
+        patch_attr('sys.stdout', StringIO())  # two arguments
+        # OR
+        patch_attr(sys, 'stdout', StringIO())  # three arguments
+
+    ``with`` context management is supported and restores the original value
+    on ``__exit__``. ``__enter__`` returns the replacement object.
+
+    .. note:: You must :func:`unstub` after patching, or use `with`
+        statement.
+
+    """
+    if replacement is OMITTED:
+        replacement = attr_or_replacement
+        obj, name = get_obj_attr_tuple(obj_or_path)
+    else:
+        obj, name = obj_or_path, attr_or_replacement
+
+    patch = patcher.patch_attribute(
+        obj,
+        name,
+        replacement,
+        allow_unstub_by_replacement=True,
+    )
+    return restore_patch_contextmanager(patch, replacement)
+
+
+def patch_dict(mapping_or_path, values=None, *, clear=False, remove=None, **kwargs):
+    """Patch/update a dict-like object in place.
+
+    This is a convenience function for test-time dictionary patching,
+    especially for mutable global maps like ``os.environ``.
+
+    Usage::
+
+        patch_dict(os.environ, {'USER': 'foo'})
+        patch_dict(os.environ, [('USER', 'foo')])
+        patch_dict(os.environ, USER='foo')
+        patch_dict(os.environ, remove={'USER', 'PATH'})
+        patch_dict(os.environ, remove=all)
+        patch_dict(os.environ, clear=True)
+        patch_dict('os.environ', {'USER': 'foo'})
+
+    ``with`` context management is supported and restores the original mapping
+    state on ``__exit__``. ``__enter__`` returns the patched mapping.
+
+    ``values`` can be any value accepted by ``dict(values)``.
+    ``kwargs`` are merged into ``values`` and take precedence.
+
+    .. note:: You must :func:`unstub` after patching, or use `with`
+        statement.
+
+    """
+    mapping = (
+        get_obj(mapping_or_path)
+        if isinstance(mapping_or_path, str)
+        else mapping_or_path
+    )
+
+    if not isinstance(mapping, MutableMapping):
+        raise TypeError("target must be a mutable mapping")
+
+    if remove is all:
+        clear = True
+        remove = None
+
+    normalized_remove: tuple[object, ...]
+    if remove is None:
+        normalized_remove = ()
+    elif isinstance(remove, (str, bytes)):
+        normalized_remove = (remove,)
+    elif not isinstance(remove, Iterable):
+        raise TypeError("remove must be iterable, all, or None")
+    else:
+        normalized_remove = tuple(remove)
+
+    updates = {} if values is None else dict(values)
+    updates.update(kwargs)
+    patch = patcher.patch_dictionary(
+        mapping,
+        updates,
+        clear=clear,
+        remove=normalized_remove,
+    )
+    return restore_patch_contextmanager(patch, mapping)
+
 
 def expect(obj, strict=True,
            times=None, atleast=None, atmost=None, between=None):
@@ -301,12 +412,12 @@ def expect(obj, strict=True,
         dog.bark('Wuff')  # will throw at call time: too many invocations
 
         # maybe if you need to ensure that `dog.bark()` was called at all
-        verifyNoUnwantedInteractions()
+        verifyExpectedInteractions()
 
     .. note:: You must :func:`unstub` after stubbing, or use `with`
         statement.
 
-    See :func:`when`, :func:`when2`, :func:`verifyNoUnwantedInteractions`
+    See :func:`when`, :func:`when2`, :func:`verifyExpectedInteractions`
 
     """
 
@@ -318,32 +429,161 @@ def expect(obj, strict=True,
     verification_fn = _get_wanted_verification(
         times=times, atleast=atleast, atmost=atmost, between=between)
 
+    chain = Chain(theMock, {
+        "verification": verification_fn,
+        "strict": strict,
+    })
+
     class Expect(object):
         def __getattr__(self, method_name):
-            return invocation.StubbedInvocation(
-                theMock, method_name, verification=verification_fn,
-                strict=strict)
+            return chain.new_segment(method_name)
 
     return Expect()
 
 
 
 def unstub(*objs):
-    """Unstubs all stubbed methods and functions
+    """Unstubs all stubbed methods, functions, and patched attributes.
 
     If you don't pass in any argument, *all* registered mocks and
     patched modules, classes etc. will be unstubbed.
+
+    You can also unstub a single method/function target, e.g.::
+
+        unstub(os.path.exists)
+        unstub("os.path.exists")
+        unstub(cat.meow)
+
+    Or explicitly target one attribute by host and name, e.g.::
+
+        unstub((cat, "meow"))
+        unstub(cat, "meow")
+        unstub((cat, "meow"), (os.path, "exists"))
+
+    In these cases only the selected attributes are restored, while other stubs
+    on the same objects stay active.
 
     Note that additionally, the underlying registry will be cleaned.
     After an `unstub` you can't :func:`verify` anymore because all
     interactions will be forgotten.
     """
 
-    if objs:
-        for obj in objs:
-            mock_registry.unstub(obj)
-    else:
+    if not objs:
         mock_registry.unstub_all()
+        patcher.unstub_all()
+        return
+
+    explicit_attr_targets, generic_targets = _partition_unstub_targets(objs)
+
+    for host, attr_name in explicit_attr_targets:
+        _unstub_attr_target(host, attr_name)
+
+    for obj in generic_targets:
+        if isinstance(obj, str):
+            obj = get_obj(obj)
+
+        if mock_registry.unstub(obj) or patcher.unstub_matching(obj):
+            continue
+
+        resolved_target = _resolve_unstub_attr_target(obj)
+        if resolved_target is None:
+            continue
+
+        host, attr_name = resolved_target
+        _unstub_attr_target(host, attr_name)
+
+
+
+def _partition_unstub_targets(objs):
+    if _is_unstub_attr_pair_arguments(objs):
+        host, attr_name = objs
+        return [
+            _normalize_unstub_attr_target(host, attr_name)
+        ], []
+
+    explicit_attr_targets = []
+    generic_targets = []
+
+    for obj in objs:
+        explicit_attr_target = _coerce_unstub_attr_target_tuple(obj)
+        if explicit_attr_target is None:
+            generic_targets.append(obj)
+            continue
+
+        explicit_attr_targets.append(explicit_attr_target)
+
+    return explicit_attr_targets, generic_targets
+
+
+
+def _is_unstub_attr_pair_arguments(objs):
+    return (
+        len(objs) == 2
+        and not isinstance(objs[0], tuple)
+        and _looks_like_attr_name(objs[1])
+    )
+
+
+
+def _coerce_unstub_attr_target_tuple(target):
+    if not isinstance(target, tuple) or len(target) != 2:
+        return None
+
+    host, attr_name = target
+    if not _looks_like_attr_name(attr_name):
+        return None
+
+    return _normalize_unstub_attr_target(host, attr_name)
+
+
+
+def _normalize_unstub_attr_target(host, attr_name):
+    if isinstance(host, str):
+        host = get_obj(host)
+
+    return host, attr_name
+
+
+
+def _looks_like_attr_name(value):
+    return isinstance(value, str) and bool(value) and "." not in value
+
+
+
+def _unstub_attr_target(host, attr_name):
+    host_mock = mock_registry.mock_for(host)
+    if host_mock is not None:
+        host_mock.unstub_method(attr_name)
+
+    patcher.unstub_attribute(host, attr_name)
+
+
+
+def _resolve_unstub_attr_target(target):
+    if not callable(target):
+        return None
+
+    host = getattr(target, "__self__", None)
+    attr_name = getattr(target, "__name__", None)
+    if host is not None and attr_name is not None:
+        return host, attr_name
+
+    target_function = _unwrap_unstub_target(target)
+    for theMock in mock_registry.get_registered_mocks():
+        for method_name, patch in theMock._methods_to_unstub.items():
+            replacement = getattr(patch, "replacement", None)
+            if _unwrap_unstub_target(replacement) is target_function:
+                return theMock.mocked_obj, method_name
+
+    return None
+
+
+
+def _unwrap_unstub_target(target):
+    if isinstance(target, (staticmethod, classmethod)):
+        return target.__func__
+
+    return getattr(target, "__func__", target)
 
 
 def forget_invocations(*objs):
@@ -360,8 +600,15 @@ def forget_invocations(*objs):
         theMock.clear_invocations()
 
 
-def verifyNoMoreInteractions(*objs):
-    verifyNoUnwantedInteractions(*objs)
+def ensureNoUnverifiedInteractions(*objs):
+    """Check if any given object has any unverified interaction.
+
+    You can use this after `verify`-ing to ensure no other interactions
+    happened.
+
+    Can lead to over-specified tests.
+    """
+    verifyExpectedInteractions(*objs)
 
     for obj in objs:
         theMock = _get_mock_or_raise(obj)
@@ -374,11 +621,14 @@ def verifyNoMoreInteractions(*objs):
 def verifyZeroInteractions(*objs):
     """Verify that no methods have been called on given objs.
 
-    Note that strict mocks usually throw early on unexpected, unstubbed
-    invocations. Partial mocks ('monkeypatched' objects or modules) do not
-    support this functionality at all, bc only for the stubbed invocations
-    the actual usage gets recorded. So this function is of limited use,
-    nowadays.
+    Rarely used because `verify(..., times=0)` is more explicit.  Also:
+    strict mocks usually throw early on unexpected, unstubbed invocations.
+    For them, there may be no need to verify afterwards.
+    `expect(..., times=0)` may also appropriate.
+
+    Partial mocks ('monkeypatched' objects or modules) only look at the
+    stubbed invocations as the actual usage gets recorded only for them.
+    However, you could use `spy` and inject it.
 
     """
     for obj in objs:
@@ -390,14 +640,14 @@ def verifyZeroInteractions(*objs):
 
 
 
-def verifyNoUnwantedInteractions(*objs):
+def verifyExpectedInteractions(*objs):
     """Verifies that expectations set via `expect` are met
 
     E.g.::
 
         expect(os.path, times=1).exists(...).thenReturn(True)
         os.path('/foo')
-        verifyNoUnwantedInteractions(os.path)  # ok, called once
+        verifyExpectedInteractions(os.path)  # ok, called once
 
     If you leave out the argument *all* registered objects will
     be checked.
@@ -410,13 +660,14 @@ def verifyNoUnwantedInteractions(*objs):
     """
 
     if objs:
-        theMocks = map(_get_mock_or_raise, objs)
+        theMocks: Iterable[Mock] = map(_get_mock_or_raise, objs)
     else:
         theMocks = mock_registry.get_registered_mocks()
 
     for mock in theMocks:
         for i in mock.stubbed_invocations:
             i.verify()
+
 
 def verifyStubbedInvocationsAreUsed(*objs):
     """Ensure stubs are actually used.
@@ -427,7 +678,7 @@ def verifyStubbedInvocationsAreUsed(*objs):
 
     """
     if objs:
-        theMocks = map(_get_mock_or_raise, objs)
+        theMocks: Iterable[Mock] = map(_get_mock_or_raise, objs)
     else:
         theMocks = mock_registry.get_registered_mocks()
 
@@ -435,3 +686,29 @@ def verifyStubbedInvocationsAreUsed(*objs):
     for mock in theMocks:
         for i in mock.stubbed_invocations:
             i.check_used()
+
+
+@deprecated(
+    "'verifyNoMoreInteractions' is deprecated. "
+    "Use 'ensureNoUnverifiedInteractions' instead."
+)
+def verifyNoMoreInteractions(*objs):
+    return ensureNoUnverifiedInteractions(*objs)
+
+verifyNoMoreInteractions.__doc__ = (        # noqa: E305
+    ensureNoUnverifiedInteractions.__doc__  # type: ignore[operator]
+    + "\n\nDeprecated: Use 'ensureNoUnverifiedInteractions' instead."
+)
+
+
+@deprecated(
+    "'verifyNoUnwantedInteractions' is deprecated. "
+    "Use 'verifyExpectedInteractions' instead."
+)
+def verifyNoUnwantedInteractions(*args, **kwargs):
+    return verifyExpectedInteractions(*args, **kwargs)
+
+verifyNoUnwantedInteractions.__doc__ = (  # noqa: E305
+    verifyExpectedInteractions.__doc__    # type: ignore[operator]
+    + "\n\nDeprecated: Use 'verifyExpectedInteractions' instead."
+)

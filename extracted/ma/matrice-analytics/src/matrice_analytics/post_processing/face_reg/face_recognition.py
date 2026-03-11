@@ -2566,6 +2566,16 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):
         # Use the location_name passed from process() (fetched from API)
         location = location_name if location_name else "Entry Reception"
 
+        # Extract rtp_number from stream_info (same pattern as license_plate_monitoring)
+        input_settings = stream_info.get("input_settings", {}) if stream_info and isinstance(stream_info.get("input_settings", {}), dict) else {}
+        rtp_number = (
+            (stream_info or {}).get("rtp_number", "") or
+            (stream_info or {}).get("rtpNumber", "") or
+            input_settings.get("rtp_number", "") or
+            input_settings.get("rtpNumber", "") or
+            ""
+        )
+
         # Generate current timestamp
         current_timestamp = datetime.now(timezone.utc).isoformat()
 
@@ -2579,7 +2589,7 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):
                 detection, current_frame, location, current_timestamp, config,
                 current_recognized_count, current_unknown_count, 
                 recognized_persons, current_frame_staff_details,
-                camera_name=camera_name, camera_id=camera_id
+                camera_name=camera_name, camera_id=camera_id, rtp_number=rtp_number
             )
             # print("------------------WHOLE FACE RECOG PROCESSING DETECTION----------------------------")
             # print("LATENCY:",(time.time() - st1)*1000,"| Throughput fps:",(1.0 / (time.time() - st1)) if (time.time() - st1) > 0 else None)
@@ -2613,6 +2623,7 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):
         current_frame_staff_details: Dict = None,
         camera_name: str = "",
         camera_id: str = "",
+        rtp_number: str = "",
     ) -> Dict:
 
         # Extract and validate embedding using EmbeddingManager
@@ -2788,6 +2799,7 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):
                     location=location,
                     camera_name=camera_name,
                     camera_id=camera_id,
+                    rtp_number=rtp_number,
                 )
                 # print("------------------FACE RECOG ENQUEUEING DETECTION FOR ACTIVITY LOGGING----------------------------")
                 # print("LATENCY:",(time.time() - st4)*1000,"| Throughput fps:",(1.0 / (time.time() - st4)) if (time.time() - st4) > 0 else None)

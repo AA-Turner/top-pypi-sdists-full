@@ -95,7 +95,7 @@ class NeutronAPIDictWrapper(base.APIDictWrapper):
         # https://bugs.launchpad.net/horizon/+bug/2093367
         if 'is_port_security_enabled' in apidict:
             if apidict['is_port_security_enabled']:
-                apidict['port_security_enabled'] = 'UP'
+                apidict['port_security_enabled'] = True
 
         # Django cannot handle a key name with ':', so use '__'.
         apidict.update({
@@ -137,6 +137,12 @@ class Subnet(NeutronAPIDictWrapper):
 
     def __init__(self, apidict):
         apidict['ipver_str'] = get_ipver_str(apidict['ip_version'])
+
+        if 'is_dhcp_enabled' in apidict and 'enable_dhcp' not in apidict:
+            apidict['enable_dhcp'] = apidict['is_dhcp_enabled']
+        if 'enable_dhcp' in apidict and 'is_dhcp_enabled' not in apidict:
+            apidict['is_dhcp_enabled'] = apidict['enable_dhcp']
+
         super().__init__(apidict)
 
 
@@ -197,7 +203,13 @@ class Port(NeutronAPIDictWrapper):
                 ON_STATE if apidict['mac_learning_enabled'] else OFF_STATE
         pairs = apidict.get('allowed_address_pairs')
         if pairs:
-            apidict = copy.deepcopy(apidict)
+            # Convert to dict first if possible to avoid RecursionError
+            # when deepcopy encounters openstacksdk objects with custom
+            # __getattr__ methods. to_dict() already returns a new dict.
+            if hasattr(apidict, 'to_dict'):
+                apidict = apidict.to_dict()
+            else:
+                apidict = copy.deepcopy(apidict)
             wrapped_pairs = [PortAllowedAddressPair(pair) for pair in pairs]
             apidict['allowed_address_pairs'] = wrapped_pairs
         super().__init__(apidict)
@@ -746,12 +758,12 @@ class FloatingIpManager(object):
         :returns: List of FloatingIp object
         """
         if not all_tenants:
-            tenant_id = self.request.user.tenant_id
+            project_id = self.request.user.tenant_id
             # In Neutron, list_floatingips returns Floating IPs from
-            # all tenants when the API is called with admin role, so
-            # we need to filter them with tenant_id.
-            search_opts['tenant_id'] = tenant_id
-            port_search_opts = {'tenant_id': tenant_id}
+            # all projects when the API is called with admin role, so
+            # we need to filter them with project_id.
+            search_opts['project_id'] = project_id
+            port_search_opts = {'project_id': project_id}
         else:
             port_search_opts = {}
         fips = list(self.net_client.ips(**search_opts))
@@ -868,8 +880,7 @@ class FloatingIpManager(object):
         FloatingIpTarget.id can be passed as port_id in associate().
         FloatingIpTarget.name is displayed in Floating Ip Association Form.
         """
-        tenant_id = self.request.user.tenant_id
-        ports = port_list(self.request, tenant_id=tenant_id)
+        ports = port_list(self.request, project_id=self.request.user.tenant_id)
         servers, has_more = nova.server_list(self.request, detailed=False)
         server_dict = collections.OrderedDict(
             [(s.id, s.name) for s in servers])
@@ -895,8 +906,7 @@ class FloatingIpManager(object):
     def _target_ports_by_instance(self, instance_id):
         if not instance_id:
             return None
-        search_opts = {'device_id': instance_id}
-        return port_list(self.request, **search_opts)
+        return port_list(self.request, device_id=instance_id)
 
     @profiler.trace
     def list_targets_by_instance(self, instance_id, target_list=None):
@@ -1843,6 +1853,12 @@ def subnetpool_delete(request, subnetpool_id):
 @profiler.trace
 @memoized
 def port_list(request, **params):
+    # this is a possible fix for horizon plugins that make incorrect filtering
+    if "tenant_id" in params and "project_id" not in params:
+        params["project_id"] = params.pop("tenant_id")
+        LOG.error("port_list() is called with 'tenant_id' filter parameter. "
+                  "Use project_id instead.")
+
     LOG.debug("port_list(): params=%s", params)
     ports = networkclient(request).ports(**params)
     if not isinstance(ports, (types.GeneratorType, list)):

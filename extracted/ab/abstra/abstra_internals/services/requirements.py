@@ -236,7 +236,11 @@ def get_requirements_lint_markers(code: str) -> List[dict]:
                     pkg_names_with_positions.append(
                         (pkg_name, lineno, col_start, lineno, col_end)
                     )
-            elif isinstance(node, ast.ImportFrom) and node.module is not None:
+            elif (
+                isinstance(node, ast.ImportFrom)
+                and node.module is not None
+                and node.level == 0  # Skip relative imports
+            ):
                 pkg_name = node.module.split(".")[0]
                 from_idx = source_line.find("from ")
                 if from_idx != -1:
@@ -597,7 +601,9 @@ class RequirementsRepository:
                                 alias.name.split(".")[0] for alias in node.names
                             )
                         elif (
-                            isinstance(node, ast.ImportFrom) and node.module is not None
+                            isinstance(node, ast.ImportFrom)
+                            and node.module is not None
+                            and node.level == 0  # Skip relative imports
                         ):
                             pkg_names.append(node.module.split(".")[0])
 

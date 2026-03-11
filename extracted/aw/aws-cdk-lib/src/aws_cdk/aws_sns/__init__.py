@@ -7079,7 +7079,7 @@ class Topic(TopicBase, metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_sns.T
         
         dlt = sns.Topic(self, "DLQ")
         fn = lambda_.Function(self, "MyFunction",
-            runtime=lambda_.Runtime.NODEJS_18_X,
+            runtime=lambda_.Runtime.NODEJS_LATEST,
             handler="index.handler",
             code=lambda_.Code.from_inline("// your code here"),
             dead_letter_topic=dlt

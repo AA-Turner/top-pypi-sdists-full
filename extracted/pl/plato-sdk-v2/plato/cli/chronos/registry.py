@@ -101,6 +101,8 @@ def parse_package_string(package_string: str) -> tuple[str, str | None]:
         Tuple of (package_name, version) where version may be None
     """
     if ":" in package_string:
-        parts = package_string.split(":", 1)
-        return parts[0], parts[1]
+        name, version = package_string.split(":", 1)
+        if not version or version == "latest":
+            return name, None
+        return name, version
     return package_string, None

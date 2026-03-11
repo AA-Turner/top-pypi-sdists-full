@@ -1,10 +1,9 @@
-# -*- coding: utf-8 -*-
-# SPDX-FileCopyrightText: 2016-2025 PyThaiNLP Project
+# SPDX-FileCopyrightText: 2016-2026 PyThaiNLP Project
 # SPDX-FileType: SOURCE
 # SPDX-License-Identifier: Apache-2.0
-"""
-Generic support functions for PyThaiNLP.
-"""
+"""Generic support functions for PyThaiNLP."""
+
+from __future__ import annotations
 
 import sys
 import warnings
@@ -15,7 +14,7 @@ def warn_deprecation(
     replacing_func: str = "",
     deprecated_version: str = "",
     removal_version: str = "",
-):
+) -> None:
     """Warn about the deprecation of a function.
 
     :param str deprecated_func: Name of the deprecated function.
@@ -33,7 +32,8 @@ def warn_deprecation(
         message += f" Please use '{replacing_func}' instead."
     warnings.warn(message, DeprecationWarning, stacklevel=2)
 
-def safe_print(text: str):
+
+def safe_print(text: str) -> None:
     """Print text to console, handling UnicodeEncodeError.
 
     :param text: Text to print.

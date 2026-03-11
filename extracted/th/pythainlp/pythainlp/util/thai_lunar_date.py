@@ -1,16 +1,16 @@
-# -*- coding: utf-8 -*-
-# SPDX-FileCopyrightText: 2016-2025 PyThaiNLP Project
+# SPDX-FileCopyrightText: 2016-2026 PyThaiNLP Project
 # SPDX-FileType: SOURCE
 # SPDX-License-Identifier: Apache-2.0
-"""
-This file is a port from
+"""This file is a port from
 > https://gist.github.com/touchiep/99f4f5bb349d6b983ef78697630ab78e
 """
 
-from datetime import date, timedelta
-from typing import Dict, List, Tuple, Union
+from __future__ import annotations
 
-_YEAR_DEV: Dict[int, float] = {
+from datetime import date, timedelta
+from typing import Union
+
+_YEAR_DEV: dict[int, float] = {
     0: 0,
     1901: 0.122733000004352,
     1906: 1.91890000045229e-02,
@@ -126,7 +126,7 @@ _YEAR_DEV: Dict[int, float] = {
     2456: -0.390646999976078,
 }
 
-_BEGIN_DATES = [
+_BEGIN_DATES: list[date] = [
     date(1902, 11, 30),
     date(1912, 12, 8),
     date(1922, 11, 19),
@@ -185,12 +185,28 @@ _BEGIN_DATES = [
     date(2452, 12, 11),
 ]
 
-_DAYS_354 = [29, 30, 29, 30, 29, 30, 29, 30, 29, 30, 29, 30, 29, 30]
-_DAYS_355 = [29, 30, 29, 30, 29, 30, 30, 30, 29, 30, 29, 30, 29, 30]
-_DAYS_384 = [29, 30, 29, 30, 29, 30, 29, 30, 30, 29, 30, 29, 30, 29, 30]
+_DAYS_354: list[int] = [29, 30, 29, 30, 29, 30, 29, 30, 29, 30, 29, 30, 29, 30]
+_DAYS_355: list[int] = [29, 30, 29, 30, 29, 30, 30, 30, 29, 30, 29, 30, 29, 30]
+_DAYS_384: list[int] = [
+    29,
+    30,
+    29,
+    30,
+    29,
+    30,
+    29,
+    30,
+    30,
+    29,
+    30,
+    29,
+    30,
+    29,
+    30,
+]
 
 # Zodiac names in Thai, English, and Numeric representations
-_ZODIAC: Dict[int, List[Union[str, int]]] = {
+_ZODIAC: dict[int, list[Union[str, int]]] = {
     1: [
         "ชวด",
         "ฉลู",
@@ -223,7 +239,7 @@ _ZODIAC: Dict[int, List[Union[str, int]]] = {
 }
 
 
-def _calculate_f_year_f_dev(year: int) -> Tuple[int, float]:
+def _calculate_f_year_f_dev(year: int) -> tuple[int, float]:
     if year in _YEAR_DEV:
         return year, _YEAR_DEV[year]
 
@@ -281,9 +297,7 @@ def last_day_in_year(year: int) -> int:
 
 
 def athikasurathin(year: int) -> bool:
-    """
-    Check if a year is a leap year in the Thai lunar calendar
-    """
+    """Check if a year is a leap year in the Thai lunar calendar"""
     # Check divisibility by 400 (divisible by 400 is always a leap year)
     if year % 400 == 0:
         return True
@@ -309,8 +323,7 @@ def number_day_in_year(year: int) -> int:
 
 
 def th_zodiac(year: int, output_type: int = 1) -> Union[str, int]:
-    """
-    Thai Zodiac Year Name
+    """Thai Zodiac Year Name
     Converts a Gregorian year to its corresponding Zodiac name.
 
     :param int year: The Gregorian year. AD (Anno Domini)
@@ -318,6 +331,23 @@ def th_zodiac(year: int, output_type: int = 1) -> Union[str, int]:
 
     :return: The Zodiac name or number corresponding to the input year.
     :rtype: Union[str, int]
+
+    :Example:
+    ::
+
+        from pythainlp.util import th_zodiac
+
+        # Get Thai zodiac name
+        th_zodiac(2024, output_type=1)
+        # output: 'มะโรง'
+
+        # Get English zodiac name
+        th_zodiac(2024, output_type=2)
+        # output: 'DRAGON'
+
+        # Get zodiac number
+        th_zodiac(2024, output_type=3)
+        # output: 5
     """
     # Calculate zodiac index
     result = year % 12
@@ -331,12 +361,23 @@ def th_zodiac(year: int, output_type: int = 1) -> Union[str, int]:
 
 
 def to_lunar_date(input_date: date) -> str:
-    """
-    Convert the solar date to Thai Lunar Date
+    """Convert the solar date to Thai Lunar Date
 
     :param date input_date: date of the day.
     :return: Thai text lunar date
     :rtype: str
+
+    :Example:
+    ::
+
+        from pythainlp.util import to_lunar_date
+        from datetime import date
+
+        to_lunar_date(date(2024, 1, 1))
+        # output: 'แรม 5 ค่ำ เดือน 1'
+
+        to_lunar_date(date(2024, 12, 31))
+        # output: 'แรม 9 ค่ำ เดือน 2'
     """
     # Check if date is within supported range
     if input_date.year < 1903 or input_date.year > 2460:

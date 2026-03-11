@@ -6,7 +6,8 @@ import json
 import logging
 import os
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Optional, Type, Union
+from types import SimpleNamespace
+from typing import Dict, Iterable, List, Optional, Type, Union, Tuple
 from urllib.parse import urljoin
 
 import numpy as np
@@ -30,8 +31,8 @@ from seeq.spy.workbooks import _item
 from seeq.spy.workbooks import _render
 from seeq.spy.workbooks import _search
 from seeq.spy.workbooks._annotation import Annotation, Journal
-from seeq.spy.workbooks._context import WorkbookPushContext, DatasourceMapList
-from seeq.spy.workbooks._data import Datasource, StoredOrCalculatedItem, ThresholdMetric
+from seeq.spy.workbooks._context import WorkbookPushContext, DatasourceMapList, WorkbookPushMode
+from seeq.spy.workbooks._data import Datasource, StoredOrCalculatedItem, ThresholdMetric, CalculatedItem, Chart
 from seeq.spy.workbooks._folder import Folder
 from seeq.spy.workbooks._item import Item, ItemList, Reference, ItemExists
 from seeq.spy.workbooks._item_map import ItemMap
@@ -168,6 +169,10 @@ class Workbook(ItemWithOwnerAndAcl):
     def datasource_inventory(self):
         return self._datasource_inventory
 
+    @property
+    def annotation(self):
+        return self._annotation
+
     def get_workstep_usages(self, use_investigate_range=False, now: pd.Timestamp = None) -> Dict[str, list]:
         if now is not None:
             if not isinstance(now, pd.Timestamp):
@@ -192,18 +197,22 @@ class Workbook(ItemWithOwnerAndAcl):
         status.put('Result', result)
         status.update()
 
-    def refresh_from(self, new_item, item_map: ItemMap, status: Status, *, include_inventory: bool = False,
-                     specific_worksheet_ids: Optional[List[str]] = None):
-        super().refresh_from(new_item, item_map, status)
+    def refresh_from(self, context: WorkbookPushContext, new_item, item_map: ItemMap, status: Status, *,
+                     include_inventory: bool = False, specific_worksheet_ids: Optional[List[str]] = None):
+        super().refresh_from(context, new_item, item_map, status)
 
         for worksheet in self.worksheets:
             if specific_worksheet_ids is not None and worksheet.id not in specific_worksheet_ids:
                 continue
 
-            new_worksheet_id = item_map[worksheet.id]
+            if context.mode == WorkbookPushMode.IN_PLACE_DATASOURCE_SWAP:
+                new_worksheet_id = worksheet.id
+            else:
+                new_worksheet_id = item_map[worksheet.id]
+
             new_worksheet_list = [w for w in new_item.worksheets if w.id == new_worksheet_id]
             if len(new_worksheet_list) == 1:
-                worksheet.refresh_from(new_worksheet_list[0], item_map, status)
+                worksheet.refresh_from(context, new_worksheet_list[0], item_map, status)
 
         if not include_inventory:
             return
@@ -230,7 +239,7 @@ class Workbook(ItemWithOwnerAndAcl):
                     del self.item_inventory[inventory_item_id]
                 else:
                     new_inventory_item = new_inventory[new_inventory_item_id]
-                    inventory_item.refresh_from(new_inventory_item, item_map, status)
+                    inventory_item.refresh_from(context, new_inventory_item, item_map, status)
                     del self.item_inventory[inventory_item_id]
                     self.item_inventory[new_inventory_item_id] = inventory_item
 
@@ -307,9 +316,6 @@ class Workbook(ItemWithOwnerAndAcl):
 
     def pull_rendered_content(self, session: Session, status: Status):
         pass
-
-    def item_map_worksteps_key(self):
-        return f'Worksteps for {self.id}'
 
     @staticmethod
     def _get_workbook_output(session: Session, workbook_id: str) -> WorkbookOutputV1:
@@ -477,14 +483,6 @@ class Workbook(ItemWithOwnerAndAcl):
         status = context.status
         session = context.session
 
-        if 'Result' in status.df:
-            status.update('[%d/%d] Pushing %s "%s"' %
-                          (len(status.df[status.df['Result'] != 'Queued']),
-                           len(status.df), self['Workbook Type'], self['Name']),
-                          Status.RUNNING)
-        else:
-            status.update('Pushing %s "%s"' % (self['Workbook Type'], self['Name']), Status.RUNNING)
-
         try:
             self._push_errors = set()
 
@@ -498,6 +496,10 @@ class Workbook(ItemWithOwnerAndAcl):
 
             if len(self.worksheets) == 0:
                 raise SPyValueError('Workbook %s must have at least one worksheet before pushing' % self)
+
+            # Handle in-place datasource swap mode
+            if context.mode == WorkbookPushMode.IN_PLACE_DATASOURCE_SWAP:
+                return self._push_in_place_datasource_swap(context, item_map)
 
             datasource_output = _metadata.create_datasource(session, self._push_context.datasource,
                                                             status=status, dry_run=context.dry_run)
@@ -598,7 +600,10 @@ class Workbook(ItemWithOwnerAndAcl):
                     self._push_acl(context, workbook_output.id, item_map)
 
             if include_inventory:
-                results_df = self._push_inventory(item_map, label, datasource_output, workbook_output)
+                results_df = self._push_inventory(
+                    item_map=item_map, label=label,
+                    datasource_output=datasource_output, workbook_output=workbook_output
+                )
                 self._push_context.pushed_inventory[self.id] = results_df
 
             props.append(ScalarPropertyV1(name='Name', value=self.definition['Name']))
@@ -692,6 +697,11 @@ class Workbook(ItemWithOwnerAndAcl):
 
         next_worksheet_id = None
         for worksheet in reversed(self.worksheets):
+            if context.dry_run and worksheet.id not in item_map:
+                # Can't reorder something that wasn't pushed
+                status.log(f'[Dry Run] Would reorder worksheets')
+                return
+
             pushed_worksheet_id = item_map[worksheet.id]
             if next_worksheet_id is None:
                 safely(lambda: workbooks_api.move_worksheet(workbook_id=workbook_output.id,
@@ -787,7 +797,9 @@ class Workbook(ItemWithOwnerAndAcl):
 
         return existing_worksheet_identifiers
 
-    def _push_inventory(self, item_map: ItemMap, label, datasource_output, workbook_output) -> Optional[pd.DataFrame]:
+    def _push_inventory(
+            self, *, item_map: ItemMap, label, datasource_output, workbook_output
+    ) -> Optional[pd.DataFrame]:
         references_exist = self._do_references_exist()
 
         metadata_to_push = dict()
@@ -834,6 +846,7 @@ class Workbook(ItemWithOwnerAndAcl):
                 if _common.get(row, 'Dummy Item'):
                     item_map.add_dummy_item(row)
                 self.update_status('Pushing item inventory', 1)
+
         if results_df.spy.friendly_error_string is not None:
             self._push_context.status.on_error(results_df.spy.friendly_error_string)
 
@@ -958,20 +971,349 @@ class Workbook(ItemWithOwnerAndAcl):
                               inner_status, cleanse_data_ids=self._push_context.reconcile_inventory_by == 'name',
                               default_to_local=False, validate_ui_configs=False)
 
-    def push_containing_folders(self, context: WorkbookPushContext, item_map: ItemMap, datasource_output, use_full_path,
-                                parent_folder_id, owner, label, access_control):
+    def _push_in_place_datasource_swap(self, context: WorkbookPushContext, item_map: ItemMap):
+        """
+        Handles push in 'in-place datasource swap' mode.
+        Only pushes minimal changes: inventory (with datasource swaps), worksteps, and annotations if changed.
+        """
+        status = context.status
+        session = context.session
+
+        status.log('Pushing via "in-place datasource swap" mode')
+
+        status.put('Pushed Workbook ID', self.id)
+
+        # For in-place mode, we don't create any datasource since datasource parameter must be None
+        # We get the datasource from the existing workbook/items
+        datasource_output = None
+
+        # This step will end up only processing StoredItems and filling the item_map. CalculatedItems will
+        # be skipped unless they are explicitly mapped in a Datasource Map override.
+        # Create a minimal workbook_output-like object with the existing workbook ID to ensure
+        # pushed_workbook_id is correctly set for item scope checking downstream
+        workbook_output_stub = SimpleNamespace(id=self.id)
+        pushed_inventory_df = self._push_inventory(
+            item_map=item_map,
+            label=None,
+            datasource_output=datasource_output,
+            workbook_output=workbook_output_stub
+        )
+        self._push_context.pushed_inventory[self.id] = pushed_inventory_df
+
+        # Now we handle non-mapped CalculatedItems and ThresholdMetrics for datasource swap by running
+        # through the inventory again and updating their formula parameters (or equivalent for ThresholdMetrics).
+        self._push_in_place_datasource_swap_calculated_items(context, item_map)
+
+        # Push worksteps only (skip workbook and worksheet updates)
+        for worksheet in self.worksheets:
+            self._push_in_place_datasource_swap_worksheet(context, self, worksheet, item_map)
+
+        # Push annotations if they have changed (handled in worksheet/workstep push)
+        if context.include_annotations and self._annotation is not None:
+            status.log(f'Pushing workbook-level annotation for {self}')
+            self._annotation.push(context, self.id, self.id, item_map,
+                                  datasource_output, context.access_control, push_images=False, label=None)
+
+        # Construct URL for the workbook
+        link_url = Workbook.construct_url(session, None, self.id, None)
+        status.put('URL', link_url)
+
+    def _push_in_place_datasource_swap_worksheet(self, context: WorkbookPushContext, workbook, worksheet, item_map):
+        """
+        Pushes only the worksteps and annotations for a worksheet in in-place mode.
+        Skips worksheet creation/update.
+        """
+        status = context.status
+        session = context.session
+        workbooks_api = WorkbooksApi(session.client)
+
+        if isinstance(worksheet, AnalysisWorksheet):
+            status.log(f'Processing worksteps for {worksheet}')
+
+            pushed_current_workstep_id = None
+
+            try:
+                # We freeze the replace patterns here because otherwise we unnecessarily recompile the replacement
+                # regexes when the workstep IDs are added to the item map, even though worksteps never refer to other
+                # worksteps.
+                item_map.freeze_replace_patterns()
+
+                for workstep_id, workstep in worksheet.worksteps.items():
+                    self.update_status('Pushing worksteps', 0)
+
+                    pushed_workstep_id = workstep.push_to_specific_worksheet(
+                        context, workbook.id, worksheet.id,
+                        item_map, include_inventory=False, no_workstep_message=True
+                    )
+
+                    self.update_status('Pushing worksteps', 1)
+
+                    # Store the workstep mapping
+                    if worksheet.id not in item_map.workstep_mappings:
+                        item_map.workstep_mappings[worksheet.id] = dict()
+                    item_map.workstep_mappings[worksheet.id][workstep_id] = pushed_workstep_id
+
+                    if workstep_id == worksheet.definition['Current Workstep ID']:
+                        pushed_current_workstep_id = pushed_workstep_id
+            finally:
+                item_map.unfreeze_replace_patterns()
+
+            # Set the current workstep if needed
+            if pushed_current_workstep_id and not context.dry_run:
+                workbooks_api.set_current_workstep(
+                    workbook_id=workbook.id,
+                    worksheet_id=worksheet.id,
+                    workstep_id=pushed_current_workstep_id
+                )
+
+        # Push worksheet-level annotations if they exist
+        if context.include_annotations and worksheet.annotation is not None:
+            status.log(f'Processing worksheet-level annotation for {worksheet}')
+            worksheet.annotation.push(context, workbook.id, worksheet.id, item_map,
+                                      None, context.access_control, push_images=False, label=None)
+
+    def _push_in_place_datasource_swap_calculated_items(self, context: WorkbookPushContext, item_map: ItemMap):
+        """
+        Updates formula parameters for calculated items during in-place datasource swap mode.
+        Handles ThresholdMetrics and Charts differently using their specific APIs.
+        """
+        status = context.status
+        session = context.session
+        items_api = ItemsApi(session.client)
+        metrics_api = MetricsApi(session.client)
+        formulas_api = FormulasApi(session.client)
+
+        status.log('Updating calculated item formula parameters for datasource swap')
+
+        for item_id, item in self.item_inventory.items():
+            if not isinstance(item, CalculatedItem):
+                continue
+
+            # Skip if already mapped (means it was explicitly mapped in datasource map override)
+            if item_id in item_map and item_map[item_id] != item_id:
+                status.log(f'Skipping {item} - already explicitly mapped')
+                continue
+
+            if context.global_inventory == 'do not touch' and _common.get(item, 'Scoped To') is None:
+                status.log(f'Skipping global {item} -- global_inventory set to "do not touch"')
+                continue
+
+            formula_params = item.get('Formula Parameters')
+            if not formula_params:
+                continue
+
+            # Map the formula parameters to new IDs
+            formula_params_str = json.dumps(formula_params)
+            mapped_params_str = item_map.replace_items(formula_params_str)
+            if formula_params_str == mapped_params_str:
+                status.log(f'No formula parameter changes for {item} -- skipping')
+                continue
+
+            if _common.get(item, 'Scoped To') is None:
+                if context.dry_run:
+                    status.log(f'[Dry Run] Global would be modified: {item}', level=logging.WARNING)
+                else:
+                    status.log(f'Global being modified: {item}', level=logging.WARNING)
+
+            mapped_params = json.loads(mapped_params_str)
+
+            try:
+                if isinstance(item, ThresholdMetric):
+                    # Handle ThresholdMetrics differently
+                    threshold_metric_input = ThresholdMetricInputV1()
+
+                    # First populate basic fields like name, description, etc. from the item
+                    _metadata.dict_to_threshold_metric_input(item.definition_dict, threshold_metric_input)
+
+                    # Then fill in the formula parameters (already mapped)
+                    _metadata.fill_in_threshold_metric_input_from_formula_parameters(
+                        threshold_metric_input, mapped_params)
+
+                    if not context.dry_run:
+                        _metadata._put_threshold_metric(metrics_api, item_id, threshold_metric_input)
+                        status.log(f'Updated {item}')
+                    else:
+                        status.log(f'[Dry Run] Would update {item}')
+                elif isinstance(item, Chart):
+                    # Handle Chart/Function items using FormulasApi
+                    function_input = FunctionInputV1()
+
+                    # Populate basic fields like name, description, etc. from the item
+                    _metadata.dict_to_function_input(item.definition_dict, function_input)
+
+                    # Set the formula
+                    formula = item.get('Formula')
+                    if formula:
+                        function_input.formula = Item.formula_string_from_list(formula) if isinstance(formula,
+                                                                                                      list) else formula
+
+                    # Build the parameters list
+                    function_input.parameters = []
+                    for param_name, param_value in mapped_params.items():
+                        if _common.is_guid(param_value):
+                            # It's an item ID reference
+                            function_input.parameters.append(FormulaParameterInputV1(name=param_name, id=param_value))
+                        else:
+                            # It's a formula string
+                            function_input.parameters.append(FormulaParameterInputV1(
+                                name=param_name, formula=param_value, unbound=True))
+
+                    if not context.dry_run:
+                        formulas_api.update_function(id=item_id, body=function_input)
+                        status.log(f'Updated {item}')
+                    else:
+                        status.log(f'[Dry Run] Would update {item}')
+                else:
+                    # Handle regular calculated items (Signals, Conditions, Scalars)
+                    formula = item.get('Formula')
+                    if formula:
+                        formula_str = Item.formula_string_from_list(formula) if isinstance(formula, list) else formula
+
+                        # Convert mapped_params dict to list of "param_name=param_value" strings
+                        params_list = [f'{k}={v}' for k, v in mapped_params.items()]
+                        params_list.sort(key=lambda p: p.split('=')[0])
+
+                        if not context.dry_run:
+                            items_api.set_formula(id=item_id, body=FormulaUpdateInputV1(
+                                formula=formula_str, parameters=params_list))
+                            status.log(f'Updated formula parameters for {item}')
+                        else:
+                            status.log(f'[Dry Run] Would update formula parameters for {item}')
+            except Exception as e:
+                message = f'Error updating {item}: {str(e)}'
+                status.log(message, level=logging.ERROR)
+                self._push_errors.add(message)
+
+    def _create_folder_path_if_necessary(self, context: WorkbookPushContext, path: str, owner: str, item_map: ItemMap):
         session = context.session
         status = context.status
+
+        if path == _folder.ORIGINAL_FOLDER:
+            status.log('"path" argument is spy.workbooks.ORIGINAL_FOLDER; recreating original folder path')
+            return _folder.ORIGINAL_FOLDER
+
+        if _common.is_guid(path):
+            status.log(f'"path" argument is a folder ID; using folder ID {path} directly')
+            return path
+
+        folders_api = FoldersApi(session.client)
+
+        if path is None:
+            status.log(
+                '"path" argument is None; the workbook will stay where it is (if it has already been pushed once)')
+            return None
+
+        path = path.strip()
+
+        if not path:
+            status.log(
+                '"path" argument is empty; the workbook will stay where it is (if it has already been pushed once)')
+            return None
+
+        if path == _folder.MY_FOLDER:
+            status.log('"path" argument is spy.workbooks.MY_FOLDER; using user\'s home folder')
+            return folders_api.get_folder(folder_id='mine').id
+
+        workbook_path = _common.path_string_to_list(path)
+
+        status.log(f'Creating folder path "{path}" if it does not already exist')
+
+        owner_id = session.user.id
+        if owner is not None:
+            owner_id = self.decide_owner(context, item_map, owner=owner)
+        parent_id = None
+        folder_id = None
+        folder_filter = 'owner'
+        for i in range(0, len(workbook_path)):
+            existing_content_id = None
+            content_name = workbook_path[i]
+
+            if content_name in [_folder.SHARED, _folder.ALL, _folder.USERS]:
+                raise SPyRuntimeError(f'"path" argument cannot contain {content_name} folder in "{path}"')
+
+            if content_name == _folder.CORPORATE:
+                if not session.corporate_folder:
+                    raise SPyRuntimeError(f'Attempting to push to Corporate folder but user does not have access')
+
+                parent_id = session.corporate_folder.id
+                folder_id = session.corporate_folder.id
+                folder_filter = 'corporate'
+                continue
+
+            kwargs = {
+                'filter': folder_filter,
+                'types': [SeeqNames.Types.folder],
+                'text_search': content_name,
+                'is_exact': True,
+                'limit': session.options.search_page_size,
+            }
+
+            if parent_id:
+                kwargs['folder_id'] = parent_id
+
+            if owner_id and owner_id != session.user.id:
+                kwargs['user_id'] = owner_id
+
+            folders = safely(lambda: folders_api.get_folders(**kwargs),
+                             action_description=f'get Folders using filter "{folder_filter}" and name "{content_name}" '
+                                                f'within {parent_id} for user_id {owner_id}',
+                             additional_errors=[400],
+                             status=status)  # type: WorkbenchItemOutputListV1
+
+            if folders is not None:
+                for content in folders.content:  # type: WorkbenchSearchResultPreviewV1
+                    if content.type == 'Folder' and content_name == content.name:
+                        if (parent_id is not None and content.ancestors is not None and len(content.ancestors) >= 1
+                                and content.ancestors[-1].id != parent_id):
+                            continue
+
+                        status.log(f'Found existing Folder "{content.name}" ({content.id}) under parent ID '
+                                   f'{parent_id} for owner ID {owner_id}')
+                        existing_content_id = content.id
+                        break
+
+            if not existing_content_id:
+                folder_input = FolderInputV1()
+                folder_input.name = content_name
+                folder_input.description = 'Created by Seeq Data Lab'
+                folder_input.owner_id = owner_id
+                folder_input.parent_folder_id = parent_id
+
+                if not context.dry_run:
+                    folder_output = safely(lambda: folders_api.create_folder(body=folder_input),
+                                           action_description=f'create Folder {folder_input.name}',
+                                           status=status)  # type: FolderOutputV1
+                    if folder_output is not None:
+                        existing_content_id = folder_output.id
+                        status.log(
+                            f'Created Folder "{folder_output.name}" under parent ID {parent_id} for owner ID {owner_id}')
+                else:
+                    status.log(
+                        f'[Dry Run] Would create Folder "{folder_input.name}" under parent ID {parent_id} for owner ID {owner_id}')
+                    return None
+
+            parent_id = existing_content_id
+            folder_id = existing_content_id
+
+        return folder_id
+
+    def push_containing_folders(self, context: WorkbookPushContext, item_map: ItemMap, datasource_output, use_full_path,
+                                path, owner, label, access_control) -> Tuple[Optional[str], Optional[str]]:
+        session = context.session
+        status = context.status
+
+        parent_folder_id = self._create_folder_path_if_necessary(context, path, owner, item_map)
+        search_folder_id = parent_folder_id
 
         if 'Ancestors' not in self:
             if parent_folder_id != _folder.ORIGINAL_FOLDER:
                 status.log('No Ancestors information available to push containing folders; '
                            'skipping folder creation.')
-                return parent_folder_id
+                return search_folder_id, parent_folder_id
             else:
                 status.log('No Ancestors information available to push containing folders; '
                            'preserving existing location.')
-                return None
+                return None, None
 
         keep_skipping = parent_folder_id in self['Ancestors']
         create_folders_now = False
@@ -1025,7 +1367,7 @@ class Workbook(ItemWithOwnerAndAcl):
                            f'location.')
 
         status.log(f'Final parent folder ID for workbook is {parent_folder_id}')
-        return parent_folder_id
+        return search_folder_id, parent_folder_id
 
     @property
     def referenced_items(self) -> List[Reference]:
@@ -1596,7 +1938,7 @@ class Workbook(ItemWithOwnerAndAcl):
             # noinspection PyBroadException
             search_results = safely(
                 lambda: items_api.search_items(**kwargs),
-                action_description=f'scraping items scoped to workbook {self.id}',
+                action_description=f'scrape items scoped to workbook {self.id}',
                 status=status)  # type: ItemSearchPreviewPaginatedListV1
 
             if search_results is None:

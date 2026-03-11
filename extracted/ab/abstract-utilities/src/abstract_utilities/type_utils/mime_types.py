@@ -1,4 +1,5 @@
 from .imports import *
+
 # A big, but by no means exhaustive, map of extensions to mime‐types by category:
 def get_media_map(categories=None):
     """

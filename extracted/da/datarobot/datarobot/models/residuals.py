@@ -64,7 +64,8 @@ class ResidualsChart(APIObject):
     """
 
     _converter = (
-        t.Dict({
+        t
+        .Dict({
             t.Key("source"): String,
             t.Key("data"): t.List(t.List(t.Float)),
             t.Key("source_model_id"): String,

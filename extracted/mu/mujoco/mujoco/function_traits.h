@@ -4642,6 +4642,17 @@ struct mjs_getSpec {
   }
 };
 
+struct mjs_getCompiler {
+  static constexpr char name[] = "mjs_getCompiler";
+  static constexpr char doc[] = "Get compiler associated with element's origin spec.";
+  using type = mjsCompiler * (mjsElement *);
+  static constexpr auto param_names = std::make_tuple("element");
+
+  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
+    return ::mjs_getCompiler;
+  }
+};
+
 struct mjs_findSpec {
   static constexpr char name[] = "mjs_findSpec";
   static constexpr char doc[] = "Find spec (model asset) by name.";

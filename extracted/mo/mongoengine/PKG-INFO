@@ -1,14 +1,14 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: mongoengine
-Version: 0.29.1
+Version: 0.29.3
 Summary: MongoEngine is a Python Object-Document Mapper for working with MongoDB.
-Home-page: http://mongoengine.org/
+Home-page: https://github.com/MongoEngine/mongoengine
+Download-URL: https://github.com/MongoEngine/mongoengine/tarball/master
 Author: Harry Marr
 Author-email: harry.marr@gmail.com
 Maintainer: Bastien Gerard
 Maintainer-email: bast.gerard@gmail.com
 License: MIT
-Download-URL: https://github.com/MongoEngine/mongoengine/tarball/master
 Platform: any
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
@@ -24,9 +24,30 @@ Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Database
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.7
-Provides-Extra: test
 License-File: LICENSE
 License-File: AUTHORS
+Requires-Dist: pymongo<5.0,>=3.4
+Provides-Extra: test
+Requires-Dist: pytest; extra == "test"
+Requires-Dist: pytest-cov; extra == "test"
+Requires-Dist: coverage; extra == "test"
+Requires-Dist: blinker; extra == "test"
+Requires-Dist: Pillow>=7.0.0; extra == "test"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: download-url
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: maintainer
+Dynamic: maintainer-email
+Dynamic: platform
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 ===========
 MongoEngine
@@ -65,10 +86,10 @@ an `API reference <https://mongoengine-odm.readthedocs.io/apireference.html>`_.
 
 Supported MongoDB Versions
 ==========================
-MongoEngine is currently tested against MongoDB v3.6, v4.0, v4.4, v5.0, v6.0 and v7.0. Future versions
-should be supported as well, but aren't actively tested at the moment. Make
-sure to open an issue or submit a pull request if you experience any problems
-with a more recent MongoDB versions.
+MongoEngine is currently tested against MongoDB v4.4, v5.0, v6.0 and
+v7.0. Future versions should be supported as well, but aren't actively tested
+at the moment. Make sure to open an issue or submit a pull request if you
+experience any problems with a more recent MongoDB versions.
 
 Installation
 ============
@@ -182,5 +203,3 @@ Community
 Contributing
 ============
 We welcome contributions! See the `Contribution guidelines <https://github.com/MongoEngine/mongoengine/blob/master/CONTRIBUTING.rst>`_
-
-

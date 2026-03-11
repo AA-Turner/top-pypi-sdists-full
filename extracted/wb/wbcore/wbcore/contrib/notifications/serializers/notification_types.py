@@ -44,6 +44,7 @@ class NotificationTypeSettingModelSerializer(serializers.ModelSerializer):
             "enable_web",
             "enable_mobile",
             "enable_email",
+            "frequency",
             "locked",
             "locked_icon",
             "_additional_resources",

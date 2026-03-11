@@ -141,7 +141,8 @@ class AnomalyAssessmentRecord(BaseAPIObject):
     _create_path = "projects/{project_id}/models/{model_id}/anomalyAssessmentInitialization/"
 
     _converter = (
-        t.Dict({
+        t
+        .Dict({
             t.Key("status"): t.Enum(*AnomalyAssessmentStatus.ALL),
             t.Key("status_details"): String,
             t.Key("start_date"): t.Or(String(), t.Null),
@@ -437,7 +438,8 @@ class AnomalyAssessmentPredictionsPreview(BaseAPIObject):
     })
 
     _converter = (
-        t.Dict({
+        t
+        .Dict({
             t.Key("start_date"): String,
             t.Key("end_date"): String,
             t.Key("preview_bins"): t.List(PreviewBinTrafaret),
@@ -568,7 +570,8 @@ class AnomalyAssessmentExplanations(BaseAPIObject):
     })
 
     _converter = (
-        t.Dict({
+        t
+        .Dict({
             t.Key("count"): Int,
             t.Key("shap_base_value"): t.Float,
             t.Key("data"): t.List(_RowTrafaret),

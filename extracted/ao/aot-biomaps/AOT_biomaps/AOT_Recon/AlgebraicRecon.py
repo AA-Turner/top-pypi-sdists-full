@@ -13,6 +13,7 @@ import matplotlib.animation as animation
 from IPython.display import HTML
 from datetime import datetime
 from tempfile import gettempdir
+import math
 
 class AlgebraicRecon(Recon):
     """
@@ -78,7 +79,7 @@ class AlgebraicRecon(Recon):
         else:
             raise ValueError(f"Unknown Algebraic reconstruction type: {processType}")
     
-    def plot_MSE(self, isSaving=True, log_scale_x=False, log_scale_y=False, show_logs=True):
+    def plot_MSE(self, isSaving=True, log_scale_x=False, log_scale_y=False, figSize=(4,3), show_logs=True):
         """
         Plot the Mean Squared Error (MSE) of the reconstruction.
 
@@ -96,7 +97,7 @@ class AlgebraicRecon(Recon):
         if show_logs:
             print(f"Lowest MSE = {np.min(self.MSE):.4f} at iteration {best_idx+1}")
         # Plot MSE curve
-        plt.figure(figsize=(7, 5))
+        plt.figure(figsize=figSize)
         plt.plot(self.indices, self.MSE, 'r-', label="MSE curve")
         # Add blue dashed lines
         plt.axhline(np.min(self.MSE), color='blue', linestyle='--', label=f"Min MSE = {np.min(self.MSE):.4f}")
@@ -121,14 +122,14 @@ class AlgebraicRecon(Recon):
                 scale_str = "_logx"
             elif log_scale_y:
                 scale_str = "_logy"
-            SavingFolder = os.path.join(self.saveDir, f'{self.SMatrix.shape[3]}_SCANS_MSE_plot_{self.optimizer.name}_{scale_str}{date_str}.png')
+            SavingFolder = os.path.join(self.saveDir, f'{len(self.experiment.AcousticFields)}_SCANS_MSE_plot_{self.optimizer.name}_{scale_str}{date_str}.png')
             plt.savefig(SavingFolder, dpi=300)
             if show_logs:
                 print(f"MSE plot saved to {SavingFolder}")
 
         plt.show()
 
-    def show_MSE_bestRecon(self, isSaving=True, show_logs=True):
+    def show_MSE_bestRecon(self, isSaving=True, show_logs=True, figSize=(15, 5)):
         if not self.MSE:
             raise ValueError("MSE is empty. Please calculate MSE first.")
 
@@ -137,7 +138,7 @@ class AlgebraicRecon(Recon):
         best_recon = self.reconPhantom[best_idx]
 
         # Crée la figure et les axes
-        fig, axs = plt.subplots(1, 3, figsize=(15, 5))
+        fig, axs = plt.subplots(1, 3, figsize=figSize)
 
         # Left: Best reconstructed image (normalized)
         im0 = axs[0].imshow(best_recon,
@@ -188,14 +189,14 @@ class AlgebraicRecon(Recon):
             savePath = os.path.join(self.saveDir, 'results')
             if not os.path.exists(savePath):
                 os.makedirs(savePath)
-            SavingFolder = os.path.join(self.saveDir, f'{self.SMatrix.shape[3]}_SCANS_comparison_MSE_BestANDLastRecon_{self.optimizer.name}_{date_str}.png')
+            SavingFolder = os.path.join(self.saveDir, f'{len(self.experiment.AcousticFields)}_SCANS_comparison_MSE_BestANDLastRecon_{self.optimizer.name}_{date_str}.png')
             plt.savefig(SavingFolder, dpi=300, bbox_inches='tight')
             if show_logs:
                 print(f"MSE plot saved to {SavingFolder}")
 
         plt.show()
 
-    def show_theta_animation(self, vmin=None, vmax=None, total_duration_ms=3000, save_path=None, max_frames=1000, isPropMSE=True, show_logs=True):
+    def show_theta_animation(self, vmin=None, vmax=None, total_duration_ms=3000, save_path=None, max_frames=1000, figSize=(4, 4), isPropMSE=True, show_logs=True):
         """
         Show theta iteration animation with speed proportional to MSE acceleration.
         In "propMSE" mode: slow down when MSE changes rapidly, speed up when MSE stagnates.
@@ -230,7 +231,7 @@ class AlgebraicRecon(Recon):
         if vmax is None:
             vmax = np.max(frames_subset)
 
-        fig, ax = plt.subplots(figsize=(4, 4), dpi=100)
+        fig, ax = plt.subplots(figsize=figSize, dpi=100)
         im = ax.imshow(
             frames_subset[0],
             extent=(
@@ -304,7 +305,7 @@ class AlgebraicRecon(Recon):
         plt.close(fig)
         return HTML(ani.to_jshtml())
 
-    def plot_SSIM(self, isSaving=True, log_scale_x=False, log_scale_y=False, show_logs=True):
+    def plot_SSIM(self, isSaving=True, log_scale_x=False, log_scale_y=False, figSize=(4,3), show_logs=True):
         if not self.SSIM:
             raise ValueError("SSIM is empty. Please calculate SSIM first.")
 
@@ -312,7 +313,7 @@ class AlgebraicRecon(Recon):
         if show_logs:
             print(f"Highest SSIM = {np.max(self.SSIM):.4f} at iteration {best_idx+1}")
         # Plot SSIM curve
-        plt.figure(figsize=(7, 5))
+        plt.figure(figsize=figSize)
         plt.plot(self.indices, self.SSIM, 'r-', label="SSIM curve")
         # Add blue dashed lines
         plt.axhline(np.max(self.SSIM), color='blue', linestyle='--', label=f"Max SSIM = {np.max(self.SSIM):.4f}")
@@ -337,14 +338,14 @@ class AlgebraicRecon(Recon):
                 scale_str = "_logx"
             elif log_scale_y:
                 scale_str = "_logy"
-            SavingFolder = os.path.join(self.saveDir, f'{self.SMatrix.shape[3]}_SCANS_SSIM_plot_{self.optimizer.name}_{scale_str}{date_str}.png')
+            SavingFolder = os.path.join(self.saveDir, f'{len(self.experiment.AcousticFields)}_SCANS_SSIM_plot_{self.optimizer.name}_{scale_str}{date_str}.png')
             plt.savefig(SavingFolder, dpi=300)
             if show_logs:
                 print(f"SSIM plot saved to {SavingFolder}")
 
         plt.show()
 
-    def show_SSIM_bestRecon(self, isSaving=True, show_logs=True):
+    def show_SSIM_bestRecon(self, isSaving=True, figSize=(15, 5), show_logs=True):
         
         if not self.SSIM:
             raise ValueError("SSIM is empty. Please calculate SSIM first.")
@@ -353,7 +354,7 @@ class AlgebraicRecon(Recon):
         best_recon = self.reconPhantom[best_idx]
 
         # ----------------- Plotting -----------------
-        _, axs = plt.subplots(1, 3, figsize=(15, 5))  # 1 row, 3 columns
+        _, axs = plt.subplots(1, 3, figsize=figSize)  # 1 row, 3 columns
 
         # Left: Best reconstructed image (normalized)
         im0 = axs[0].imshow(best_recon, 
@@ -387,64 +388,118 @@ class AlgebraicRecon(Recon):
         if isSaving:
             now = datetime.now()    
             date_str = now.strftime("%Y_%d_%m_%y")
-            SavingFolder = os.path.join(self.saveDir, f'{self.SMatrix.shape[3]}_SCANS_comparison_SSIM_BestANDLastRecon_{self.optimizer.name}_{date_str}.png')
+            SavingFolder = os.path.join(self.saveDir, f'{len(self.experiment.AcousticFields)}_SCANS_comparison_SSIM_BestANDLastRecon_{self.optimizer.name}_{date_str}.png')
             plt.savefig(SavingFolder, dpi=300)
             if show_logs:
                 print(f"SSIM plot saved to {SavingFolder}")
         plt.show()
 
-    def plot_CRC_vs_Noise(self, use_ROI=True, fin=None, isSaving=True, show_logs=True):
+    def plot_CRC_vs_Noise(self, use_ROI=True, fin=None, min_distance=0.01, figSize = (4,3),
+                     log_scale_x=False, log_scale_y=False, isSaving=False, show_logs=True):
         """
-        Plot CRC (Contrast Recovery Coefficient) vs Noise for each iteration.
+        Plot CRC vs Noise with min_distance always calculated in linear space.
+
+        Args:
+            min_distance: Minimum linear distance between points (always calculated in linear space)
+            log_scale_x: Display X axis in logarithmic scale (but distance calculation remains linear)
+            log_scale_y: Display Y axis in logarithmic scale
         """
+        # Vérifications initiales
         if self.reconLaser is None or self.reconLaser == []:
             raise ValueError("Reconstructed laser is empty. Run reconstruction first.")
         if isinstance(self.reconLaser, list) and len(self.reconLaser) == 1:
-            raise ValueError("Reconstructed Image without tumor is a single frame. Run reconstruction with isSavingEachIteration=True to get a sequence of frames.")
+            raise ValueError("Reconstructed Image without tumor is a single frame. Run with isSavingEachIteration=True.")
         if self.reconPhantom is None or self.reconPhantom == []:
             raise ValueError("Reconstructed phantom is empty. Run reconstruction first.")
         if isinstance(self.reconPhantom, list) and len(self.reconPhantom) == 1:
-            raise ValueError("Reconstructed Image with tumor is a single frame. Run reconstruction with isSavingEachIteration=True to get a sequence of frames.")
-        
+            raise ValueError("Reconstructed Image with tumor is a single frame. Run with isSavingEachIteration=True.")
+
         if fin is None:
             fin = len(self.reconPhantom) - 1
+        iter_range = self.indices[:fin+1]
 
-        iter_range = self.indices
-        
         if self.CRC is None:
             self.calculateCRC(use_ROI=use_ROI)
 
+        # Calcul des valeurs de bruit
         noise_values = []
-
-        for i in iter_range:
-            recon_without_tumor = self.reconLaser[i].T
-            # Noise
+        for i in range(len(iter_range)):
+            recon_without_tumor = self.reconLaser[i]
             noise = np.mean(np.abs(recon_without_tumor - self.experiment.OpticImage.laser.intensity))
-            noise_values.append(noise)
+            noise_values.append(max(noise, 1e-10))  # Évite les valeurs nulles
 
-        plt.figure(figsize=(6, 5))
-        plt.plot(noise_values, self.CRC, 'o-', label=self.optimizer.name)
-        for i, (x, y) in zip(iter_range, zip(noise_values, self.CRC)):
-            plt.text(x, y, str(i), fontsize=5.5, ha='left', va='bottom')
+        # Sous-échantillonnage TOUJOURS basé sur la distance linéaire
+        sampled_indices = [0]
+        for i in range(1, len(noise_values)):
+            last_noise = noise_values[sampled_indices[-1]]
+            current_noise = noise_values[i]
 
+            # Calcul de la distance EN LINÉAIRE (peu importe l'échelle d'affichage)
+            distance = abs(current_noise - last_noise)
+
+            if distance > min_distance:
+                sampled_indices.append(i)
+
+        sampled_indices.append(len(noise_values) - 1)
+
+        # Vérification si l'avant-dernier point est trop proche du dernier
+        if len(sampled_indices) > 1:
+            last_idx = sampled_indices[-1]
+            prev_idx = sampled_indices[-2]
+            last_noise = noise_values[last_idx]
+            prev_noise = noise_values[prev_idx]
+
+            if abs(last_noise - prev_noise) <= min_distance:
+                sampled_indices = sampled_indices[:-1]  # Supprime l'avant-dernier
+
+        # Extraction des données
+        sampled_noise = [noise_values[i] for i in sampled_indices]
+        sampled_CRC = [self.CRC[i] for i in sampled_indices]
+        sampled_iter = [iter_range[i] for i in sampled_indices]
+
+        # Création de la figure
+        plt.figure(figsize=figSize)
+        plt.plot(sampled_noise, sampled_CRC, 'o-', color='blue', label=f'{self.optimizer.name}')
+
+        # Positionnement des labels
+        for x, y, it in zip(sampled_noise, sampled_CRC, sampled_iter):
+            plt.text(x * 1.01, y * 1.01, str(it),
+                    fontsize=8, ha='left', va='bottom',
+                    bbox=dict(facecolor='white', alpha=0.8, edgecolor='none', pad=1))
+
+        # Configuration des axes
         plt.xlabel("Noise (mean absolute error)")
         plt.ylabel("CRC (Contrast Recovery Coefficient)")
+        plt.title(f"CRC vs Noise (linear min_distance={min_distance})")
 
-        plt.xscale('log')
-        plt.yscale('log')
+        # Application des échelles (uniquement pour l'affichage)
+        if log_scale_x:
+            plt.xscale('log')
+        if log_scale_y:
+            plt.yscale('log')
 
-        plt.title("CRC vs Noise over Iterations")
-        plt.grid(True)
+        plt.grid(True, which="both", ls="--", alpha=0.5)
         plt.legend()
+
+        # Sauvegarde
         if isSaving:
-            now = datetime.now()    
-            date_str = now.strftime("%Y_%d_%m_%y")
-            SavingFolder = os.path.join(self.saveDir, f'{self.SMatrix.shape[3]}_SCANS_CRCvsNOISE_{self.optimizer.name}_{date_str}.png')
-            plt.savefig(SavingFolder, dpi=300)
-            if show_logs:
-                print(f"CRCvsNOISE plot saved to {SavingFolder}")
+            if self.saveDir is None:
+                print("Warning: saveDir is None. Configure saving path to save the figure.")
+            else:
+                os.makedirs(self.saveDir, exist_ok=True)
+                now = datetime.now()
+                date_str = now.strftime("%Y_%m_%d_%H%M")
+                scale_desc = "logX" if log_scale_x else "linX"
+                scale_desc += "_logY" if log_scale_y else "_linY"
+                filename = f"CRCvsNOISE_{len(self.experiment.AcousticFields)}scans_{self.optimizer.name}_{scale_desc}_{date_str}.png"
+                save_path = os.path.join(self.saveDir, filename)
+                plt.savefig(save_path, dpi=300, bbox_inches='tight')
+                if show_logs:
+                    print(f"Plot saved to: {save_path}")
+
+        plt.tight_layout()
         plt.show()
-        
+
     def show_reconstruction_progress(self, start=0, fin=None, save_path=None, with_tumor=True, show_logs=True):
         """
         Show the reconstruction progress for either with or without tumor.
@@ -555,13 +610,14 @@ class AlgebraicRecon(Recon):
 
         plt.show()
 
-    def checkExistingFile(self, date = None):
+    def checkExistingFile(self, date=None, withTumor=True):
         """
         Check if the reconstruction file already exists, based on current instance parameters.
 
         Args:
+            date (str, optional): Date string in format "ddmm". If None, uses current date.
             withTumor (bool): If True, checks reconPhantom.npy; otherwise, checks reconLaser.npy.
-            overwrite (bool): If False, returns False if the file exists.
+            overwrite (bool): If True, ignores existing files and returns True for saving.
 
         Returns:
             tuple: (bool: whether to save, str: the filepath)
@@ -574,9 +630,14 @@ class AlgebraicRecon(Recon):
         if not os.path.exists(results_dir):
             os.makedirs(results_dir)
 
-        if os.path.exists(os.path.join(results_dir,"indices.npy")):
+        # Détermine le nom du fichier en fonction de withTumor
+        indices_file = os.path.join(results_dir, f"indices_{'withTumor' if withTumor else 'withoutTumor'}.npy")
+
+        # Si le fichier existe retourne True
+        if os.path.exists(indices_file):
             return (True, results_dir)
 
+        # Sinon, retourne False, indiquant qu'on peut sauvegarder
         return (False, results_dir)
 
     def load(self, withTumor=True, results_date=None, optimizer=None, filePath=None, show_logs=True):
@@ -896,18 +957,19 @@ class AlgebraicRecon(Recon):
             self.SMatrix.flip_angle()
     # STATIC METHODS
     @staticmethod
-    def plot_mse_comparison(recon_list, labels=None):
+    def plot_mse_comparison(recon_list, figSize=(4.5, 3.5), labels=None):
         """
         Affiche les courbes de MSE pour chaque reconstruction dans recon_list.
 
         Args:
             recon_list (list): Liste d'objets recon (doivent avoir les attributs 'indices' et 'MSE').
+            figSize (tuple, optional): Taille de la figure.
             labels (list, optional): Liste des labels pour chaque courbe. Si None, utilise "Recon i".
         """
         if labels is None:
             labels = [f"Recon {i+1}" for i in range(len(recon_list))]
 
-        plt.figure(figsize=(4.5, 3.5))
+        plt.figure(figsize=figSize)
         colors = ['red', 'green', 'blue', 'orange', 'purple']  # Ajoute d'autres couleurs si nécessaire
 
         for i, recon in enumerate(recon_list):

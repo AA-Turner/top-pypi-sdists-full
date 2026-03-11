@@ -115,7 +115,7 @@ class ImageOptions:
 
 def get_image_save_kwargs(image: Image, image_options: ImageOptions) -> Dict[str, Any]:
     """Return pillow save args depending on format and image options."""
-    image_format = image_options.image_format if image_options.image_format else image.format
+    image_format = image_options.image_format or image.format
     kwargs = dict(compression="None", format=image_format)
     # add optional save parameters format dependant
     if image_format in {"JPEG", "PNG"}:

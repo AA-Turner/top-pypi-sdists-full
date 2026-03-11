@@ -438,16 +438,16 @@ class DataLoader:
         if (menuOption in ["X", "B", "G", "S", "F"] and not loadedStockData) or (
             self.configManager.cacheEnabled and not loadedStockData and not self.app_state.testing
         ):
-            try:
-                import tensorflow as tf
-                with tf.device("/device:GPU:0"):
-                    stockDictPrimary, stockDictSecondary = loadDatabaseOrFetch(
-                        downloadOnly, listStockCodes, menuOption, indexOption
-                    )
-            except:
-                stockDictPrimary, stockDictSecondary = loadDatabaseOrFetch(
-                    downloadOnly, listStockCodes, menuOption, indexOption
-                )
+            # try:
+            #     import tensorflow as tf
+            #     with tf.device("/device:GPU:0"):
+            #         stockDictPrimary, stockDictSecondary = loadDatabaseOrFetch(
+            #             downloadOnly, listStockCodes, menuOption, indexOption
+            #         )
+            # except:
+            stockDictPrimary, stockDictSecondary = loadDatabaseOrFetch(
+                downloadOnly, listStockCodes, menuOption, indexOption
+            )
         
         return len(stockDictPrimary) if stockDictPrimary is not None else 0
 

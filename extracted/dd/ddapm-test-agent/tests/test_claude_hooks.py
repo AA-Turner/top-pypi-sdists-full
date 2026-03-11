@@ -98,7 +98,7 @@ async def test_hook_tool_use_creates_tool_span(agent):
     assert len(tool_spans) == 1
 
     tool = tool_spans[0]
-    assert tool["name"] == "Bash"
+    assert tool["name"] == "Bash - ls"
     assert tool["duration"] >= 0
     assert "ls" in tool["meta"]["input"]["value"]
     assert "file1.txt" in tool["meta"]["output"]["value"]
@@ -297,7 +297,7 @@ async def test_hook_agent_manifest(agent):
     spans = body["spans"]
 
     root = [s for s in spans if s["parent_id"] == "undefined"][0]
-    manifest = root["meta"]["metadata"]["agent_manifest"]
+    manifest = root["meta"]["metadata"]["_dd"]["agent_manifest"]
 
     assert manifest["name"] == "claude-code"
     assert manifest["model"] == "claude-sonnet-4-5-20250929"

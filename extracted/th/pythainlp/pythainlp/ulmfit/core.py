@@ -1,18 +1,24 @@
-# -*- coding: utf-8 -*-
-# SPDX-FileCopyrightText: 2016-2025 PyThaiNLP Project
+# SPDX-FileCopyrightText: 2016-2026 PyThaiNLP Project
 # SPDX-FileType: SOURCE
 # SPDX-License-Identifier: Apache-2.0
-"""
-Universal Language Model Fine-tuning for Text Classification (ULMFiT).
-"""
-import collections
-from typing import Callable, Collection
+"""Universal Language Model Fine-tuning for Text Classification (ULMFiT)."""
 
-import numpy as np
+from __future__ import annotations
+
+import collections
+from typing import TYPE_CHECKING, Any, Optional, Union
+
 import torch
 
+if TYPE_CHECKING:
+    from collections.abc import Callable, Collection
+
+    import numpy as np
+    from fastai.basic_data import DataBunch
+    from fastai.basic_train import Learner
+
 from pythainlp.corpus import get_corpus_path
-from pythainlp.tokenize import THAI2FIT_TOKENIZER
+from pythainlp.tokenize import thai2fit_tokenizer
 from pythainlp.ulmfit.preprocess import (
     fix_html,
     lowercase_all,
@@ -30,21 +36,53 @@ from pythainlp.ulmfit.preprocess import (
 )
 from pythainlp.util import reorder_vowels
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device: "torch.device" = torch.device(
+    "cuda" if torch.cuda.is_available() else "cpu"
+)
 
-_MODEL_NAME_LSTM = "wiki_lm_lstm"
-_ITOS_NAME_LSTM = "wiki_itos_lstm"
+_MODEL_NAME_LSTM: str = "wiki_lm_lstm"
+_ITOS_NAME_LSTM: str = "wiki_itos_lstm"
 
 
 # Pretrained model paths
-THWIKI_LSTM = {
+# Note: These may be None if corpus is not downloaded.
+# Access via get_thwiki_lstm() for proper validation or use directly
+# if you've already verified the corpus is downloaded.
+THWIKI_LSTM: dict[str, Optional[str]] = {
     "wgts_fname": get_corpus_path(_MODEL_NAME_LSTM),
     "itos_fname": get_corpus_path(_ITOS_NAME_LSTM),
 }
 
+
+def get_thwiki_lstm() -> dict[str, str]:
+    """
+    Get THWIKI LSTM model paths with validation.
+
+    Returns dictionary with 'wgts_fname' and 'itos_fname' keys containing
+    validated file paths as strings.
+
+    :return: Dictionary with model file paths
+    :raises RuntimeError: If corpus files are not found
+    """
+    wgts_fname = THWIKI_LSTM["wgts_fname"]
+    itos_fname = THWIKI_LSTM["itos_fname"]
+
+    if not wgts_fname or not itos_fname:
+        raise FileNotFoundError(
+            "corpus-not-found names=['wiki_lm_lstm', 'wiki_itos_lstm']\n"
+            "  ULMFiT model files not found.\n"
+            "    Python: pythainlp.corpus.download('wiki_lm_lstm')\n"
+            "    CLI:    thainlp data get wiki_lm_lstm\n"
+            "    Python: pythainlp.corpus.download('wiki_itos_lstm')\n"
+            "    CLI:    thainlp data get wiki_itos_lstm"
+        )
+
+    return {"wgts_fname": wgts_fname, "itos_fname": itos_fname}
+
+
 # Preprocessing rules for Thai text
 # dense features
-pre_rules_th = [
+pre_rules_th: list[Callable[[str], str]] = [
     replace_rep_after,
     fix_html,
     reorder_vowels,
@@ -54,24 +92,32 @@ pre_rules_th = [
     rm_brackets,
     replace_url,
 ]
-post_rules_th = [replace_wrep_post, ungroup_emoji, lowercase_all]
+post_rules_th: list[Callable[[Collection[str]], list[str]]] = [
+    replace_wrep_post,
+    ungroup_emoji,
+    lowercase_all,
+]
 
 # sparse features
-pre_rules_th_sparse = pre_rules_th[1:] + [replace_rep_nonum]
-post_rules_th_sparse = post_rules_th[1:] + [
-    replace_wrep_post_nonum,
-    remove_space,
+pre_rules_th_sparse: list[Callable[[str], str]] = pre_rules_th[1:] + [
+    replace_rep_nonum
 ]
+post_rules_th_sparse: list[Callable[[Collection[str]], list[str]]] = (
+    post_rules_th[1:]
+    + [
+        replace_wrep_post_nonum,
+        remove_space,
+    ]
+)
 
 
 def process_thai(
     text: str,
     pre_rules: Collection = pre_rules_th_sparse,
-    tok_func: Callable = THAI2FIT_TOKENIZER.word_tokenize,
+    tok_func: Optional[Callable] = None,
     post_rules: Collection = post_rules_th_sparse,
 ) -> Collection[str]:
-    """
-    Process Thai texts for models (with sparse features as default)
+    """Process Thai texts for models (with sparse features as default)
 
     :param str text: text to be cleaned
     :param list[func] pre_rules: rules to apply before tokenization.
@@ -81,7 +127,7 @@ def process_thai(
     :param list[func]  post_rules: rules to apply after tokenizations
 
     :return: a list of cleaned tokenized texts
-    :rtype: list[str]
+    :rtype: Collection[str]
 
 
     :Note:
@@ -94,7 +140,7 @@ def process_thai(
         and :func:`replace_rep_nonum`.
 
       - The default **post-rules** consists of :func:`ungroup_emoji`,
-        :func:`lowercase_all`,  :func:`replace_wrep_post_nonum`,
+        :func:`lowercase_all`, :func:`replace_wrep_post_nonum`,
         and :func:`remove_space`.
 
     :Example:
@@ -104,7 +150,7 @@ def process_thai(
         >>> from pythainlp.ulmfit import process_thai
         >>> text = "บ้านนนนน () อยู่นานนานนาน 😂🤣😃😄😅 PyThaiNLP amp;     "
         >>> process_thai(text)
-        [บ้าน', 'xxrep', '   ', 'อยู่', 'xxwrep', 'นาน', '😂', '🤣',
+        ['บ้าน', 'xxrep', '   ', 'อยู่', 'xxwrep', 'นาน', '😂', '🤣',
         '😃', '😄', '😅', 'pythainlp', '&']
 
         2. Modify pre_rules and post_rules arguments with
@@ -130,20 +176,24 @@ def process_thai(
 
 
     """
-    res = text
+    res: Union[str, list[str]] = text
+
+    if tok_func is None:
+        tok_func = thai2fit_tokenizer().word_tokenize
 
     for rule in pre_rules:
         res = rule(res)
-    res = tok_func(res)
+    res = tok_func(res)  # type: ignore[arg-type]
     for rule in post_rules:
         res = rule(res)
 
     return res
 
 
-def document_vector(text: str, learn, data, agg: str = "mean"):
-    """
-    This function vectorizes Thai input text into a 400 dimension vector using
+def document_vector(
+    text: str, learn: "Learner", data: "DataBunch", agg: str = "mean"
+) -> "np.ndarray":
+    """This function vectorizes Thai input text into a 400 dimension vector using
     :class:`fastai` language model and data bunch.
 
     :meth: `document_vector` get document vector using fastai language model
@@ -160,9 +210,8 @@ def document_vector(text: str, learn, data, agg: str = "mean"):
 
     :Example:
 
-        >>> from pythainlp.ulmfit import document_vectorr
-        >>> from fastai import *
-        >>> from fastai.text import *
+        >>> from pythainlp.ulmfit import document_vector
+        >>> from fastai.text import load_data, language_model_learner, AWD_LSTM
         >>>
         >>> # Load Data Bunch
         >>> data = load_data(MODEL_PATH, 'thwiki_lm_data.pkl')
@@ -182,8 +231,7 @@ def document_vector(text: str, learn, data, agg: str = "mean"):
           <https://github.com/cstorm125/thai2fit/blob/master/thwiki_lm/word2vec_examples.ipynb>`_
 
     """
-
-    s = THAI2FIT_TOKENIZER.word_tokenize(text)
+    s = thai2fit_tokenizer().word_tokenize(text)
     t = torch.tensor(data.vocab.numericalize(s), requires_grad=False).to(
         device
     )
@@ -199,9 +247,10 @@ def document_vector(text: str, learn, data, agg: str = "mean"):
     return res
 
 
-def merge_wgts(em_sz, wgts, itos_pre, itos_new):
-    """
-    This function is to insert new vocab into an existing model named `wgts`
+def merge_wgts(
+    em_sz: int, wgts: dict[str, Any], itos_pre: list[str], itos_new: list[str]
+) -> dict[str, torch.Tensor]:
+    """This function is to insert new vocab into an existing model named `wgts`
     and update the model's weights for new vocab with the average embedding.
 
     :meth: `merge_wgts` insert pretrained weights and vocab into a new set
@@ -219,7 +268,7 @@ def merge_wgts(em_sz, wgts, itos_pre, itos_new):
         from pythainlp.ulmfit import merge_wgts
         import torch
 
-        wgts = {'0.encoder.weight': torch.randn(5,3)}
+        wgts = {"0.encoder.weight": torch.randn(5, 3)}
         itos_pre = ["แมว", "คน", "หนู"]
         itos_new = ["ปลา", "เต่า", "นก"]
         em_sz = 3
@@ -246,6 +295,8 @@ def merge_wgts(em_sz, wgts, itos_pre, itos_new):
     )
 
     # New embedding based on classification dataset
+    import numpy as np
+
     new_w = np.zeros((vocab_size, em_sz), dtype=np.float32)
 
     for i, w in enumerate(itos_new):

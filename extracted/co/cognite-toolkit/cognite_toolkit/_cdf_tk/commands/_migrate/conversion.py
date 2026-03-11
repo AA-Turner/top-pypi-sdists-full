@@ -3,12 +3,12 @@ from collections.abc import Hashable, Iterable, Mapping, Sequence, Set
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from functools import cache
-from typing import Any, ClassVar, Generic, Literal, cast
+from typing import Any, ClassVar, Generic, cast
 
 from pydantic import JsonValue
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.identifiers import AssetCentricExternalId, ExternalId, InternalId
+from cognite_toolkit._cdf_tk.client.identifiers import AssetCentricExternalId, EdgeTypeId, ExternalId, InternalId
 from cognite_toolkit._cdf_tk.client.resource_classes.annotation import AnnotationResponse, AssetLinkData, FileLinkData
 from cognite_toolkit._cdf_tk.client.resource_classes.asset import AssetResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
@@ -33,7 +33,7 @@ from cognite_toolkit._cdf_tk.client.resource_classes.data_modeling import (
 )
 from cognite_toolkit._cdf_tk.client.resource_classes.event import EventResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.filemetadata import FileMetadataResponse
-from cognite_toolkit._cdf_tk.client.resource_classes.legacy.migration import AssetCentricId
+from cognite_toolkit._cdf_tk.client.resource_classes.migration import AssetCentricId
 from cognite_toolkit._cdf_tk.client.resource_classes.resource_view_mapping import ResourceViewMappingRequest
 from cognite_toolkit._cdf_tk.client.resource_classes.timeseries import TimeSeriesResponse
 from cognite_toolkit._cdf_tk.client.resource_classes.view_to_view_mapping import ViewToViewMapping
@@ -147,7 +147,7 @@ class DirectRelationCache:
             if missing:
                 source_systems = self._client.migration.created_source_system.retrieve(list(missing))
                 for source_system in source_systems:
-                    source_reference = source_system.as_direct_relation_reference()
+                    source_reference = source_system.as_id()
                     cache[source_system.source] = source_reference
                     if original_str := missing.get(source_system.source):
                         cache[original_str] = source_reference
@@ -226,8 +226,8 @@ def asset_centric_to_dm(
     external_id = dumped.pop("externalId", None)
 
     issue = ConversionIssue(
-        id=str(AssetCentricId(resource_type, id_=id_)),
-        asset_centric_id=AssetCentricId(resource_type, id_=id_),
+        id=str(AssetCentricId(resource_type=resource_type, id_=id_)),
+        asset_centric_id=AssetCentricId(resource_type=resource_type, id_=id_),
         instance_id=NodeId(space=instance_id.space, external_id=instance_id.external_id),
     )
 
@@ -751,17 +751,19 @@ class ConnectionCreator:
         self, value: Any, dm_prop: DirectNodeRelation, source_prop_id: str, source_view_id: ViewId
     ) -> tuple[NodeId | list[NodeId], list[str]]:
         targets, target_issues = self._create_targets(value, source_prop_id, source_view_id)
-        relations, relation_issues = self._targets_to_direct_relation(targets, dm_prop, source_prop_id, source_view_id)
+        relations, relation_issues = self._targets_to_direct_relation(
+            targets, dm_prop, f"{source_view_id!s}.{source_prop_id!s}"
+        )
         return relations, target_issues + relation_issues
 
     def _targets_to_direct_relation(
-        self, targets: list[NodeId], dm_prop: DirectNodeRelation, source_prop_id: str, source_view_id: ViewId
+        self, targets: list[NodeId], dm_prop: DirectNodeRelation, source_display_name: str
     ) -> tuple[NodeId | list[NodeId], list[str]]:
         errors: list[str] = []
         if dm_prop.list:
             if dm_prop.max_list_size and len(targets) > dm_prop.max_list_size:
                 errors.append(
-                    f"Too many items for direct relation property {source_prop_id!s} in view {source_view_id!s}: expected at most {dm_prop.max_list_size}, got {len(targets)}. Truncated to the first {dm_prop.max_list_size} items."
+                    f"Too many items for direct relation property expected at most {dm_prop.max_list_size}, got {len(targets)}. Truncated to the first {dm_prop.max_list_size} items."
                 )
                 targets = targets[: dm_prop.max_list_size]
             return targets, errors
@@ -769,26 +771,33 @@ class ConnectionCreator:
             return targets[0], errors
         elif len(targets) == 0:
             raise ValueError(
-                f"No targets for items relation property {source_prop_id!r} in view {source_view_id!s}: expected exactly 1, got 0"
+                f"No targets for items relation property {source_display_name!s}: expected exactly 1, got 0"
             )
         else:
             errors.append(
-                f"Too many targets for items relation property {source_prop_id!r} in view {source_view_id!s}: expected exactly 1, got {len(targets)}. Returning the first item."
+                f"Too many targets for items relation property {source_display_name!s}: expected exactly 1, got {len(targets)}. Returning the first item."
             )
             return targets[0], errors
 
     def create_direct_relation_from_edges(
-        self, edges: list[EdgeOtherSide], dm_prop: DirectNodeRelation, source_prop_id: str, source_view_id: ViewId
+        self, edges: list[EdgeOtherSide], dm_prop: DirectNodeRelation, source_edge_type: EdgeTypeId
     ) -> tuple[NodeId | list[NodeId], list[str]]:
-        targets = [self.map_instance(edge.other_side) for edge in edges]
-        return self._targets_to_direct_relation(targets, dm_prop, source_prop_id, source_view_id)
+        targets: list[NodeId] = []
+        issues: list[str] = []
+        for edge in edges:
+            try:
+                target = self.map_instance(edge.other_side)
+            except KeyError as e:
+                issues.append(f"Failed to map {edge.other_side!s} to destination space: {e!s}")
+                continue
+            targets.append(target)
+        result, relation_issues = self._targets_to_direct_relation(targets, dm_prop, str(source_edge_type))
+        return result, issues + relation_issues
 
     def create_edges_from_edges(
         self,
         edges: list[EdgeOtherSide],
         dm_prop: EdgeProperty,
-        source_prop_id: str,
-        source_view_id: ViewId,
         source_id: NodeId,
     ) -> tuple[list[EdgeRequest], list[str]]:
         issues: list[str] = []
@@ -829,13 +838,71 @@ class ConversionResult:
     edges: list[EdgeRequest] = field(default_factory=list)
 
 
+@dataclass
+class ConversionContext:
+    """Context for converting properties and edges for instance to instance conversion.
+
+    Args:
+        mapping: The ViewToViewMapping defining how to map properties from the source view to the destination view.
+        destination_properties: Dict of defined properties in the destination view.
+        connection_creator: Helper object to create connections (edges and direct relations) based on property values.
+        source_view_id: The ID of the source view, used for error messages.
+        new_id: The ID of the new instance being created. Used when creating edges.
+    """
+
+    mapping: ViewToViewMapping
+    destination_properties: dict[str, ViewResponseProperty]
+    connection_creator: ConnectionCreator
+    source_view_id: ViewId
+    new_id: NodeId
+
+
+class ContainerPropertiesMapping(ABC):
+    """Base class for defining custom mapping of container properties in instance to instance conversion
+
+    ClassVar:
+        VIEW_IDS: Set of view IDs that this mapping applies to. If the source view ID of the instance being converted is in this set,
+        this mapping will be used to convert the container properties.
+
+    ."""
+
+    VIEW_IDS: ClassVar[Set[ViewId]] = frozenset()
+
+    @abstractmethod
+    def convert(self, source_properties: dict[str, JsonValue], context: ConversionContext) -> ConversionResult:
+        raise NotImplementedError()
+
+
+class InFieldConditionMapping(ContainerPropertiesMapping):
+    VIEW_IDS: ClassVar[Set[ViewId]] = frozenset({ViewId(space="cdf_apm", external_id="Condition", version="v1")})
+
+    def __init__(self, mappings: Sequence[ViewToViewMapping]) -> None:
+        self._source_view_mapping = {
+            self._as_source_view_format(mapping.source_view): self._as_source_view_format(mapping.destination_view)
+            for mapping in mappings
+        }
+
+    def _as_source_view_format(self, view_id: ViewId) -> str:
+        """The special format used in the sourceView property of InField"""
+        return f"{view_id.space}/{view_id.external_id}/{view_id.version!s}"
+
+    def convert(self, source_properties: dict[str, JsonValue], context: ConversionContext) -> ConversionResult:
+        created_properties: dict[str, JsonValue] = {}
+        issues: list[str] = []
+        if value := source_properties.get("sourceView"):
+            if not isinstance(value, str):
+                issues.append(
+                    f"Invalid sourceView value {value!r} for view {context.source_view_id!s}: expected a string."
+                )
+            elif value not in self._source_view_mapping:
+                issues.append(f"Unexpected sourceView value {value!r} for view {context.source_view_id!s}")
+            else:
+                created_properties["sourceView"] = self._source_view_mapping[value]
+        return ConversionResult(container_properties=created_properties, errors=issues)
+
+
 def convert_container_properties(
-    source_properties: dict[str, JsonValue],
-    mapping: ViewToViewMapping,
-    destination_properties: dict[str, ViewResponseProperty],
-    connection_creator: ConnectionCreator,
-    source_view_id: ViewId,
-    source_id: NodeId,
+    source_properties: dict[str, JsonValue], context: ConversionContext
 ) -> ConversionResult:
     """
     Create properties for a data model instance from another instance's properties.
@@ -844,37 +911,35 @@ def convert_container_properties(
 
     Args:
         source_properties: Dict of source property IDs to values.
-        mapping: The ViewToViewMapping defining how to map properties from the source view to the destination view.
-        destination_properties: Dict of defined properties in the destination view.
-        connection_creator: Helper object to create connections (edges and direct relations) based on property values.
-        source_view_id: The ID of the source view, used for error messages.
-        source_id: The ID of the source instance used for edge creation and error messages.
+        context: ConversionContext containing the mapping and other necessary information for the conversion.
+    Returns:
+        ConversionResult containing the created properties, edges to create and any errors encountered during conversion.
     """
     created_properties: dict[str, JsonValue] = {}
     edges: list[EdgeRequest] = []
     errors: list[str] = []
     for source_prop_id, value in source_properties.items():
-        dest_prop_id = mapping.get_destination_property(source_prop_id)
+        dest_prop_id = context.mapping.get_destination_property(source_prop_id)
         if not dest_prop_id or (
-            dest_prop_id not in destination_properties and dest_prop_id not in mapping.property_mapping
+            dest_prop_id not in context.destination_properties and dest_prop_id not in context.mapping.container_mapping
         ):
             # We do not warn about the node properties, as they are typically ignored.
             if not source_prop_id.startswith("node."):
                 errors.append(f"Source instance property {source_prop_id!r} is not mapped to any destination property.")
             continue
-        if dest_prop_id not in destination_properties:
+        if dest_prop_id not in context.destination_properties:
             errors.append(f"Destination instance is missing property {dest_prop_id!r}.")
             continue
 
-        dm_prop = destination_properties[dest_prop_id]
+        dm_prop = context.destination_properties[dest_prop_id]
         if isinstance(dm_prop, EdgeProperty):
             try:
-                created_edges, issues = connection_creator.create_edges(
+                created_edges, issues = context.connection_creator.create_edges(
                     value,
                     dm_prop,
                     source_prop_id,
-                    source_view_id,
-                    source_id,
+                    context.source_view_id,
+                    context.new_id,
                 )
             except ValueError as e:
                 errors.append(f"Failed to create edges for property {source_prop_id!r} with value {value!r}: {e!s}")
@@ -883,11 +948,11 @@ def convert_container_properties(
             errors.extend(issues)
         elif isinstance(dm_prop, ViewCorePropertyResponse) and isinstance(dm_prop.type, DirectNodeRelation):
             try:
-                created_connection, issues = connection_creator.create_direct_relation(
+                created_connection, issues = context.connection_creator.create_direct_relation(
                     value,
                     dm_prop.type,
                     source_prop_id,
-                    source_view_id,
+                    context.source_view_id,
                 )
             except ValueError as e:
                 errors.append(
@@ -917,39 +982,40 @@ def convert_container_properties(
 
 
 def convert_edges(
-    edge_targets_by_type_and_direction: dict[tuple[NodeId, Literal["outwards", "inwards"]], list[EdgeOtherSide]],
-    mapping: ViewToViewMapping,
-    destination_properties: dict[str, ViewResponseProperty],
-    source_id: NodeId,
-    connection_creator: ConnectionCreator,
-    source_view_id: ViewId,
+    edge_targets_by_type_and_direction: dict[EdgeTypeId, list[EdgeOtherSide]], context: ConversionContext
 ) -> ConversionResult:
+    """Convert edges from the source instance to the destination instance based on the edge mapping in the context.
+    Args:
+        edge_targets_by_type_and_direction: Dict mapping edge type IDs to lists of EdgeOtherSide, representing the edges connected to the source instance grouped by their type and direction.
+        context: ConversionContext containing the mapping and other necessary information for the conversion.
+
+    Returns:
+        ConversionResult containing the created properties, edges to create and any errors encountered during conversion.
+    """
     created_properties: dict[str, JsonValue] = {}
     new_edges: list[EdgeRequest] = []
     errors: list[str] = []
-    for prop_id, source_edge_def in connection_creator.edges(source_view_id).items():
-        edge_targets = edge_targets_by_type_and_direction.get((source_edge_def.type, source_edge_def.direction), [])
+    for source_type, dest_prop_id in (context.mapping.edge_mapping or {}).items():
+        edge_targets = edge_targets_by_type_and_direction.get(source_type, [])
         if not edge_targets:
             continue
 
-        dest_prop_id = mapping.get_destination_property(prop_id)
-        if not dest_prop_id or dest_prop_id not in destination_properties:
+        if dest_prop_id not in context.destination_properties:
             # Already captured as missing instance property in 'conver_container_properties', so we can just ignore it here.
             continue
 
-        dm_prop = destination_properties[dest_prop_id]
+        dm_prop = context.destination_properties[dest_prop_id]
 
         if isinstance(dm_prop, ViewCorePropertyResponse) and isinstance(dm_prop.type, DirectNodeRelation):
             try:
-                created_connection, issues = connection_creator.create_direct_relation_from_edges(
+                created_connection, issues = context.connection_creator.create_direct_relation_from_edges(
                     edge_targets,
                     dm_prop.type,
-                    prop_id,
-                    source_view_id,
+                    source_type,
                 )
             except ValueError as e:
                 errors.append(
-                    f"Failed to create direct relation for edge property {prop_id!r} with targets {[target.other_side.dump() for target in edge_targets]!r}: {e!s}"
+                    f"Failed to create direct relation for edge property {source_type!s} with targets {[target.other_side.dump() for target in edge_targets]!r}: {e!s}"
                 )
                 continue
             errors.extend(issues)
@@ -961,19 +1027,17 @@ def convert_edges(
                 created_properties[dest_prop_id] = created_connection.dump(include_instance_type=False)
         elif isinstance(dm_prop, ViewCorePropertyResponse):
             # Todo: If json or text we can potentially convert to a string representation of the edge targets, but for now we just log an error.
-            errors.append(f"Cannot map edge property {prop_id!r} to non-connection property {dm_prop.type.type!s}.")
+            errors.append(f"Cannot map edge property {source_type!s} to non-connection property {dm_prop.type.type!s}.")
         elif isinstance(dm_prop, EdgeProperty):
             try:
-                created_edges, issues = connection_creator.create_edges_from_edges(
+                created_edges, issues = context.connection_creator.create_edges_from_edges(
                     edge_targets,
                     dm_prop,
-                    prop_id,
-                    source_view_id,
-                    source_id,
+                    context.new_id,
                 )
             except ValueError as e:
                 errors.append(
-                    f"Failed to create edges for edge property {prop_id!r} with targets {[target.other_side.dump() for target in edge_targets]!r}: {e!s}"
+                    f"Failed to create edges for edge property {source_type!s} with targets {[target.other_side.dump() for target in edge_targets]!r}: {e!s}"
                 )
                 continue
             errors.extend(issues)

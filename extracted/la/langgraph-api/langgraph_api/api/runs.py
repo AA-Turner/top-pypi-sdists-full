@@ -38,6 +38,7 @@ from langgraph_api.utils import (
     get_pagination_headers,
     uuid7,
     validate_select_columns,
+    validate_timezone,
     validate_uuid,
 )
 from langgraph_api.validation import (
@@ -722,6 +723,7 @@ async def create_cron(request: ApiRequest):
     if webhook := payload.get("webhook"):
         await validate_webhook_url_or_raise(str(webhook))
     _validate_assistant_id(payload.get("assistant_id"))
+    timezone = validate_timezone(payload.get("timezone"))
 
     # Store encryption context at payload root so cron scheduler can extract it
     # regardless of which fields (metadata, input, config, context) are present.
@@ -752,6 +754,7 @@ async def create_cron(request: ApiRequest):
             payload=effective_payload,
             metadata=effective_payload.get("metadata"),
             enabled=enabled,
+            timezone=timezone,
         )
     cron_dict = await fetchone(cron)
     if not IS_POSTGRES_OR_GRPC_BACKEND or using_aes_encryption():
@@ -769,6 +772,7 @@ async def create_thread_cron(request: ApiRequest):
     if webhook := payload.get("webhook"):
         await validate_webhook_url_or_raise(str(webhook))
     _validate_assistant_id(payload.get("assistant_id"))
+    timezone = validate_timezone(payload.get("timezone"))
 
     # Store encryption context at payload root so cron scheduler can extract it
     # regardless of which fields (metadata, input, config, context) are present.
@@ -797,6 +801,7 @@ async def create_thread_cron(request: ApiRequest):
             payload=effective_payload,
             metadata=effective_payload.get("metadata"),
             enabled=payload.get("enabled", True),
+            timezone=timezone,
         )
     cron_dict = await fetchone(cron)
     if not IS_POSTGRES_OR_GRPC_BACKEND or using_aes_encryption():
@@ -814,6 +819,7 @@ async def patch_cron(request: ApiRequest):
     payload = await request.json(CronPatch)
     if not payload:
         raise HTTPException(status_code=400, detail="Request body cannot be empty")
+    timezone = validate_timezone(payload.get("timezone"))
 
     if webhook := payload.get("webhook"):
         await validate_webhook_url_or_raise(str(webhook))
@@ -838,6 +844,7 @@ async def patch_cron(request: ApiRequest):
             on_run_completed=payload.get("on_run_completed"),
             payload=effective_payload,
             metadata=effective_payload.get("metadata"),
+            timezone=timezone,
         )
     cron_dict = await fetchone(cron)
 

@@ -1,12 +1,6 @@
-from .module_imports import read_from_file, eatAll
-import os, sys, re, inspect
-from typing import *
-from .imports import make_list
-# ============================================================
-# Constants
-# ============================================================
-import_tag = 'import '
-from_tag = 'from '
+from .imports import *
+from .module_imports import read_from_file, eatAll,make_list
+from .constants import *
 
 # ============================================================
 # Helpers

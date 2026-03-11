@@ -1,24 +1,26 @@
-# -*- coding: utf-8 -*-
-# SPDX-FileCopyrightText: 2016-2025 PyThaiNLP Project
+# SPDX-FileCopyrightText: 2016-2026 PyThaiNLP Project
 # SPDX-FileType: SOURCE
 # SPDX-License-Identifier: Apache-2.0
-from typing import List
+from __future__ import annotations
 
-_MODEL = None
+from typing import Any, Optional, Union
+
+_MODEL: Optional[Any] = None
 
 
 def coreference_resolution(
-    texts: List[str], model_name: str = "han-coref-v1.0", device: str = "cpu"
-):
-    """
-    Coreference Resolution
+    texts: Union[str, list[str]],
+    model_name: str = "han-coref-v1.0",
+    device: str = "cpu",
+) -> list[dict]:
+    """Coreference Resolution
 
-    :param List[str] texts: list of texts to apply coreference resolution to
+    :param Union[str, list[str]] texts: list of texts to apply coreference resolution to
     :param str model_name: coreference resolution model
     :param str device: device for running coreference resolution model on\
         ("cpu", "cuda", and others)
     :return: List of texts with coreference resolution
-    :rtype: List[dict]
+    :rtype: list[dict]
 
     :Options for model_name:
         * *han-coref-v1.0* - (default) Han-Coref: Thai coreference resolution\
@@ -51,7 +53,7 @@ def coreference_resolution(
         _MODEL = HanCoref(device=device)
 
     if _MODEL:
-        return _MODEL.predict(texts)
+        return _MODEL.predict(texts)  # type: ignore[no-any-return]
 
     return [
         {"text": text, "clusters_string": [], "clusters": []} for text in texts

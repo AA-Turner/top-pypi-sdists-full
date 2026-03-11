@@ -1,4 +1,4 @@
-import datetime
+from datetime import datetime, timedelta, timezone
 import gc
 import locale
 import os
@@ -16,9 +16,9 @@ from pyramid.wsgi import wsgiapp
 from .pkgs.exceptionviewapp.models import AnException, NotAnException
 
 # 5 years from now (more or less)
-fiveyrsfuture = datetime.datetime.utcnow() + datetime.timedelta(5 * 365)
+fiveyrsfuture = datetime.now(timezone.utc) + timedelta(5 * 365)
 
-defaultlocale = locale.getdefaultlocale()[1]
+defaultlocale = locale.getlocale()[1]
 
 
 class INothing(Interface):
@@ -213,7 +213,13 @@ class TestEventOnlySubscribers(IntegrationBase, unittest.TestCase):
         res = self.testapp.get('/sendfoobar', status=200)
         self.assertEqual(
             sorted(res.body.split()),
-            [b'foobar', b'foobar2', b'foobaryup', b'foobaryup2'],
+            [
+                b'foobar',
+                b'foobar2',
+                b'foobaryup',
+                b'foobaryup2',
+                b'foobaryup3',
+            ],
         )
 
 
@@ -467,7 +473,7 @@ class TestForbiddenAppHasResult(IntegrationBase, unittest.TestCase):
 
     def test_it(self):
         res = self.testapp.get('/x', status=403)
-        message, result = [x.strip() for x in res.body.split(b'\n')]
+        message, result = (x.strip() for x in res.body.split(b'\n'))
         self.assertTrue(message.endswith(b'failed permission check'))
         self.assertTrue(
             result.startswith(

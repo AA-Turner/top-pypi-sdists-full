@@ -73,3 +73,29 @@ class TestCRUDFiles(BaseTest):
         self.assertIn("test", names)
         idx = names.index("test")
         self.assertEqual(types[idx], "module")
+
+    def test_always_hidden_dirs_are_not_listed(self):
+        always_hidden = [".git", ".venv", "venv", "__pycache__"]
+        for name in always_hidden:
+            (self.root / name).mkdir()
+            (self.root / name / "file.txt").touch()
+
+        res = self.client.get("/_editor/api/codebase/files")
+        self.assertEqual(res.status_code, 200)
+
+        names = [f["file"]["pathParts"][-1] for f in res.json or []]
+        for name in always_hidden:
+            self.assertNotIn(
+                name, names, f"{name} should be hidden but appeared in response"
+            )
+
+    def test_dotenv_and_dotabstra_are_visible(self):
+        (self.root / ".env").write_text("SECRET=123")
+        (self.root / ".abstra").mkdir(exist_ok=True)
+
+        res = self.client.get("/_editor/api/codebase/files")
+        self.assertEqual(res.status_code, 200)
+
+        names = [f["file"]["pathParts"][-1] for f in res.json or []]
+        self.assertIn(".env", names, ".env should be visible")
+        self.assertIn(".abstra", names, ".abstra should be visible")

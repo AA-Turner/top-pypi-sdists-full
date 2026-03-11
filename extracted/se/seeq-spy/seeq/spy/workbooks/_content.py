@@ -16,6 +16,7 @@ from seeq.spy._redaction import safely
 from seeq.spy._session import Session
 from seeq.spy._status import Status
 from seeq.spy.workbooks import _report_content_utilities
+from seeq.spy.workbooks._context import WorkbookPushContext, WorkbookPushMode
 from seeq.spy.workbooks._item import Item
 from seeq.spy.workbooks._item_map import ItemMap
 
@@ -82,9 +83,10 @@ class Content(Item):
                 del definition_copy[key]
         return Item.digest_hash(definition_copy)
 
-    def push(self, session: Session, item_map: ItemMap, existing_contents: dict, status: Status):
+    def push(self, context: WorkbookPushContext, session: Session, item_map: ItemMap, existing_contents: dict,
+             status: Status):
         session = Session.validate(session)
-        content_input = self._create_content_input(item_map)
+        content_input = self._create_content_input(context, item_map)
 
         existing_content = existing_contents.get(self.id)
         if not existing_content:
@@ -99,18 +101,18 @@ class Content(Item):
 
         content_api = ContentApi(session.client)
         if not existing_content:
-
             content_output = safely(
                 lambda: content_api.create_content(body=content_input),
-                action_description=f'create Content {content_input.name} '
+                action_description=f'create Content "{content_input.name}" '
                                    f'{content_input.worksheet_id}/{content_input.workstep_id}',
-                status=status)  # type: ContentOutputV1
+                status=status, dry_run=context.dry_run)  # type: ContentOutputV1
         else:
             content_output = safely(
                 lambda: content_api.update_content(id=existing_content.id, body=content_input),
-                action_description=f'update Content {content_input.name} '
+                action_description=f'update Content "{content_input.name}" '
                                    f'{content_input.worksheet_id}/{content_input.workstep_id}',
-                status=status)  # type: ContentOutputV1
+                status=status, dry_run=context.dry_run)  # type: ContentOutputV1
+
         if content_output is None:
             return None
 
@@ -118,7 +120,7 @@ class Content(Item):
 
         return content_output
 
-    def _create_content_input(self, item_map=None):
+    def _create_content_input(self, context: WorkbookPushContext, item_map: ItemMap = None):
         self._validate_fields_before_push()
 
         not_found_text = 'not found. Are you sure you are including all the necessary workbooks in your push operation?'
@@ -139,24 +141,31 @@ class Content(Item):
 
             asset_selection_id = item_map[self.definition['Asset Selection ID']]
 
-        if self.definition['Worksheet ID'] not in item_map:
-            raise SPyDependencyNotFound(f'Worksheet {self.definition["Worksheet ID"]} {not_found_text}')
-
-        if self.definition['Workstep ID'] not in item_map:
-            raise SPyDependencyNotFound(f'Workstep {self.definition["Workstep ID"]} {not_found_text}')
-
         # Report has definitely already been pushed by this time
-        report_id = item_map[self.report.id]
+        if context.mode != WorkbookPushMode.IN_PLACE_DATASOURCE_SWAP:
+            if self.report.id not in item_map:
+                raise SPyDependencyNotFound(f'{self.report} {not_found_text}')
+            if self.definition['Worksheet ID'] not in item_map:
+                raise SPyDependencyNotFound(f'Worksheet {self.definition["Worksheet ID"]} {not_found_text}')
+            if self.definition['Workstep ID'] not in item_map:
+                raise SPyDependencyNotFound(f'Workstep {self.definition["Workstep ID"]} {not_found_text}')
+
+            report_id = item_map[self.report.id]
+            worksheet_id = item_map[self.definition['Worksheet ID']]
+            workstep_id = item_map[self.definition['Workstep ID']]
+        else:
+            report_id = item_map.get(self.report.id, self.report.id)
+            worksheet_id = item_map.get(self.definition['Worksheet ID'], self.definition['Worksheet ID'])
+            workstep_id = item_map.get(self.definition['Workstep ID'], self.definition['Workstep ID'])
 
         content_input = ContentInputV1()
         self.set_input_via_attribute_map(content_input, Content.INPUT_ATTRIBUTE_MAP)
-        content_input.name = (f'content_{item_map[self.definition["Worksheet ID"]]}'
-                              f'_{item_map[self.definition["Workstep ID"]]}')
+        content_input.name = f'content_{worksheet_id}_{workstep_id}'
         content_input.asset_selection_id = asset_selection_id
         content_input.date_range_id = date_range_id
         content_input.report_id = report_id
-        content_input.worksheet_id = item_map[self.definition['Worksheet ID']]
-        content_input.workstep_id = item_map[self.definition['Workstep ID']]
+        content_input.worksheet_id = worksheet_id
+        content_input.workstep_id = workstep_id
 
         return content_input
 
@@ -262,20 +271,26 @@ class Content(Item):
     @staticmethod
     def push_with_check_for_existing(self: Union[DateRange, AssetSelection], existing_dict: dict,
                                      input_object: Union[DateRangeInputV1, AssetSelectionInputV1], item_map: ItemMap,
-                                     create_func, update_func):
+                                     create_func, update_func, status: Status, context: WorkbookPushContext):
         existing_object = existing_dict.get(self.id)
         if not existing_object:
             existing_object = existing_dict.get(self.name)
 
         if not existing_object:
-            output_object = create_func(body=input_object)  # type: DateRangeOutputV1
+            output_object = safely(
+                lambda: create_func(body=input_object),
+                action_description=f'create {self.type} "{input_object.name}"',
+                status=status, dry_run=context.dry_run)
             existing_id = output_object.id
         else:
             existing_id = existing_object.id
 
         # We update even if we just created it, because if we're trying to create an archived item, the create
         # function doesn't look at the archived flag on the input object.
-        output_object = update_func(id=existing_id, body=input_object)
+        output_object = safely(
+            lambda: update_func(id=existing_id, body=input_object),
+            action_description=f'update {self.type} "{input_object.name}"',
+            status=status, dry_run=context.dry_run)
 
         item_map[self.id] = output_object.id
 
@@ -318,11 +333,13 @@ class DateRange(Item):
         super().__init__(definition)
         self.report = report
 
-    def push(self, session: Session, item_map: ItemMap, existing_date_ranges: dict, status: Status):
-        date_range_input = self._create_date_range_input(session, item_map)
+    def push(self, context: WorkbookPushContext, session: Session, item_map: ItemMap, existing_date_ranges: dict,
+             status: Status):
+        date_range_input = self._create_date_range_input(context, session, item_map)
         content_api = ContentApi(session.client)
         return Content.push_with_check_for_existing(self, existing_date_ranges, date_range_input, item_map,
-                                                    content_api.create_date_range, content_api.update_date_range)
+                                                    content_api.create_date_range, content_api.update_date_range,
+                                                    status, context)
 
     STATIC_DATE_RANGE_REGEX = r'capsule\(\d+.*\d+.*\)'
 
@@ -512,7 +529,7 @@ class DateRange(Item):
 
         return frontend_date_range_dict
 
-    def _create_date_range_input(self, session: Session, item_map: ItemMap):
+    def _create_date_range_input(self, context: WorkbookPushContext, session: Session, item_map: ItemMap):
         self._validate_fields_before_push()
 
         # We put a dummy cron schedule here so that we can create a live date range prior to creating a report with a
@@ -528,10 +545,15 @@ class DateRange(Item):
 
             condition_id = item_map[_common.get(self.definition, 'Condition ID')]
 
+        if context.mode != WorkbookPushMode.IN_PLACE_DATASOURCE_SWAP:
+            report_id = item_map[self.report.id]
+        else:
+            report_id = item_map.get(self.report.id, self.report.id)
+
         return DateRangeInputV1(name=self.definition['Name'],
                                 formula=self.get_formula(session),
                                 cron_schedule=cron_schedule,
-                                report_id=item_map[self.report.id],
+                                report_id=report_id,
                                 enabled=_common.get(self.definition, 'Enabled', True),
                                 archived=_common.get(self.definition, 'Archived', False),
                                 condition_id=condition_id)
@@ -617,13 +639,15 @@ class AssetSelection(Item):
         super().__init__(definition)
         self.report = report
 
-    def push(self, session: Session, item_map: ItemMap, existing_asset_selections: dict, status: Status):
-        asset_selection_input = self._create_asset_selection_input(item_map)
+    def push(self, context: WorkbookPushContext, session: Session, item_map: ItemMap, existing_asset_selections: dict,
+             status: Status):
+        asset_selection_input = self._create_asset_selection_input(context, item_map)
 
         content_api = ContentApi(session.client)
         return Content.push_with_check_for_existing(self, existing_asset_selections, asset_selection_input, item_map,
                                                     content_api.create_asset_selection,
-                                                    content_api.update_asset_selection)
+                                                    content_api.update_asset_selection,
+                                                    status, context)
 
     @staticmethod
     def pull(item_id, *, allowed_types=None, report=None, session: Session = None, status=None):
@@ -647,7 +671,7 @@ class AssetSelection(Item):
 
         return AssetSelection(asset_selection_dict, report)
 
-    def _create_asset_selection_input(self, item_map):
+    def _create_asset_selection_input(self, context: WorkbookPushContext, item_map: ItemMap):
         self._validate_fields_before_push()
 
         asset_id = _common.get(self.definition, 'Asset ID')
@@ -655,11 +679,16 @@ class AssetSelection(Item):
             raise SPyDependencyNotFound(f'Asset {asset_id} not found in item_map.')
         map_asset_id = (item_map[asset_id] if asset_id else None)
 
+        if context.mode != WorkbookPushMode.IN_PLACE_DATASOURCE_SWAP:
+            report_id = item_map[self.report.id]
+        else:
+            report_id = item_map.get(self.report.id, self.report.id)
+
         return AssetSelectionInputV1(name=self.definition['Name'],
                                      selection_id=self.definition['ID'],
                                      asset_id=map_asset_id,
                                      asset_path_depth=self.definition['Path Levels'],
-                                     report_id=item_map[self.report.id],
+                                     report_id=report_id,
                                      archived=_common.get(self.definition, 'Archived', False))
 
     def _validate_fields_before_push(self):

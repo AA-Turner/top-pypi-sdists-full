@@ -25,6 +25,11 @@ class ChartsServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_chart__pb2.GetChartSnapshotRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_chart__pb2.GetChartSnapshotResponse.FromString,
         )
+        self.GetChartSnapshotByQuery = channel.unary_unary(
+            "/chalk.server.v1.ChartsService/GetChartSnapshotByQuery",
+            request_serializer=chalk_dot_server_dot_v1_dot_chart__pb2.GetChartSnapshotByQueryRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_chart__pb2.GetChartSnapshotByQueryResponse.FromString,
+        )
         self.UpdateMetricConfig = channel.unary_unary(
             "/chalk.server.v1.ChartsService/UpdateMetricConfig",
             request_serializer=chalk_dot_server_dot_v1_dot_chart__pb2.UpdateMetricConfigRequest.SerializeToString,
@@ -45,6 +50,21 @@ class ChartsServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_chart__pb2.GetChartOptionsRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_chart__pb2.GetChartOptionsResponse.FromString,
         )
+        self.GetFeatureMetrics = channel.unary_unary(
+            "/chalk.server.v1.ChartsService/GetFeatureMetrics",
+            request_serializer=chalk_dot_server_dot_v1_dot_chart__pb2.GetFeatureMetricsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_chart__pb2.GetFeatureMetricsResponse.FromString,
+        )
+        self.GetResolverMetrics = channel.unary_unary(
+            "/chalk.server.v1.ChartsService/GetResolverMetrics",
+            request_serializer=chalk_dot_server_dot_v1_dot_chart__pb2.GetResolverMetricsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_chart__pb2.GetResolverMetricsResponse.FromString,
+        )
+        self.GetQueryMetrics = channel.unary_unary(
+            "/chalk.server.v1.ChartsService/GetQueryMetrics",
+            request_serializer=chalk_dot_server_dot_v1_dot_chart__pb2.GetQueryMetricsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_chart__pb2.GetQueryMetricsResponse.FromString,
+        )
 
 
 class ChartsServiceServicer(object):
@@ -57,6 +77,12 @@ class ChartsServiceServicer(object):
         raise NotImplementedError("Method not implemented!")
 
     def GetChartSnapshot(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetChartSnapshotByQuery(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -86,6 +112,24 @@ class ChartsServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def GetFeatureMetrics(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetResolverMetrics(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetQueryMetrics(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_ChartsServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -98,6 +142,11 @@ def add_ChartsServiceServicer_to_server(servicer, server):
             servicer.GetChartSnapshot,
             request_deserializer=chalk_dot_server_dot_v1_dot_chart__pb2.GetChartSnapshotRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_chart__pb2.GetChartSnapshotResponse.SerializeToString,
+        ),
+        "GetChartSnapshotByQuery": grpc.unary_unary_rpc_method_handler(
+            servicer.GetChartSnapshotByQuery,
+            request_deserializer=chalk_dot_server_dot_v1_dot_chart__pb2.GetChartSnapshotByQueryRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_chart__pb2.GetChartSnapshotByQueryResponse.SerializeToString,
         ),
         "UpdateMetricConfig": grpc.unary_unary_rpc_method_handler(
             servicer.UpdateMetricConfig,
@@ -118,6 +167,21 @@ def add_ChartsServiceServicer_to_server(servicer, server):
             servicer.GetChartOptions,
             request_deserializer=chalk_dot_server_dot_v1_dot_chart__pb2.GetChartOptionsRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_chart__pb2.GetChartOptionsResponse.SerializeToString,
+        ),
+        "GetFeatureMetrics": grpc.unary_unary_rpc_method_handler(
+            servicer.GetFeatureMetrics,
+            request_deserializer=chalk_dot_server_dot_v1_dot_chart__pb2.GetFeatureMetricsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_chart__pb2.GetFeatureMetricsResponse.SerializeToString,
+        ),
+        "GetResolverMetrics": grpc.unary_unary_rpc_method_handler(
+            servicer.GetResolverMetrics,
+            request_deserializer=chalk_dot_server_dot_v1_dot_chart__pb2.GetResolverMetricsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_chart__pb2.GetResolverMetricsResponse.SerializeToString,
+        ),
+        "GetQueryMetrics": grpc.unary_unary_rpc_method_handler(
+            servicer.GetQueryMetrics,
+            request_deserializer=chalk_dot_server_dot_v1_dot_chart__pb2.GetQueryMetricsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_chart__pb2.GetQueryMetricsResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.server.v1.ChartsService", rpc_method_handlers)
@@ -176,6 +240,35 @@ class ChartsService(object):
             "/chalk.server.v1.ChartsService/GetChartSnapshot",
             chalk_dot_server_dot_v1_dot_chart__pb2.GetChartSnapshotRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_chart__pb2.GetChartSnapshotResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetChartSnapshotByQuery(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.ChartsService/GetChartSnapshotByQuery",
+            chalk_dot_server_dot_v1_dot_chart__pb2.GetChartSnapshotByQueryRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_chart__pb2.GetChartSnapshotByQueryResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -292,6 +385,93 @@ class ChartsService(object):
             "/chalk.server.v1.ChartsService/GetChartOptions",
             chalk_dot_server_dot_v1_dot_chart__pb2.GetChartOptionsRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_chart__pb2.GetChartOptionsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetFeatureMetrics(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.ChartsService/GetFeatureMetrics",
+            chalk_dot_server_dot_v1_dot_chart__pb2.GetFeatureMetricsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_chart__pb2.GetFeatureMetricsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetResolverMetrics(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.ChartsService/GetResolverMetrics",
+            chalk_dot_server_dot_v1_dot_chart__pb2.GetResolverMetricsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_chart__pb2.GetResolverMetricsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetQueryMetrics(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.ChartsService/GetQueryMetrics",
+            chalk_dot_server_dot_v1_dot_chart__pb2.GetQueryMetricsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_chart__pb2.GetQueryMetricsResponse.FromString,
             options,
             channel_credentials,
             insecure,

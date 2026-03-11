@@ -1,9 +1,7 @@
-# -*- coding: utf-8 -*-
-# SPDX-FileCopyrightText: 2016-2025 PyThaiNLP Project
+# SPDX-FileCopyrightText: 2016-2026 PyThaiNLP Project
 # SPDX-FileType: SOURCE
 # SPDX-License-Identifier: Apache-2.0
-"""
-Thai date/time conversion.
+"""Thai date/time conversion.
 
 Note: It does not take into account the change of new year's day in Thailand
 """
@@ -12,8 +10,11 @@ Note: It does not take into account the change of new year's day in Thailand
 # AD คือ ค.ศ.
 # AH ปีฮิจเราะห์ศักราชเป็นปีพุทธศักราช จะต้องบวกด้วย 1122
 # ไม่ได้รองรับปี พ.ศ. ก่อนการเปลี่ยนวันขึ้นปีใหม่ของประเทศไทย
+from __future__ import annotations
 
-__all__ = [
+from typing import Optional, Union
+
+__all__: list[str] = [
     "convert_years",
     "thai_abbr_months",
     "thai_abbr_weekdays",
@@ -25,16 +26,10 @@ __all__ = [
 
 import re
 from datetime import datetime, timedelta
-from typing import Union
+from zoneinfo import ZoneInfo
 
-try:
-    from zoneinfo import ZoneInfo
-except ImportError:
-    from backports.zoneinfo import ZoneInfo
-
-
-thai_abbr_weekdays = ["จ", "อ", "พ", "พฤ", "ศ", "ส", "อา"]
-thai_full_weekdays = [
+thai_abbr_weekdays: list[str] = ["จ", "อ", "พ", "พฤ", "ศ", "ส", "อา"]
+thai_full_weekdays: list[str] = [
     "วันจันทร์",
     "วันอังคาร",
     "วันพุธ",
@@ -44,7 +39,7 @@ thai_full_weekdays = [
     "วันอาทิตย์",
 ]
 
-thai_abbr_months = [
+thai_abbr_months: list[str] = [
     "ม.ค.",
     "ก.พ.",
     "มี.ค.",
@@ -58,7 +53,7 @@ thai_abbr_months = [
     "พ.ย.",
     "ธ.ค.",
 ]
-thai_full_months = [
+thai_full_months: list[str] = [
     "มกราคม",
     "กุมภาพันธ์",
     "มีนาคม",
@@ -72,7 +67,7 @@ thai_full_months = [
     "พฤศจิกายน",
     "ธันวาคม",
 ]
-thai_full_month_lists = [
+thai_full_month_lists: list[list[str]] = [
     ["มกราคม", "มกรา", "ม.ค.", "01", "1"],
     ["กุมภาพันธ์", "กุมภา", "ก.พ.", "02", "2"],
     ["มีนาคม", "มีนา", "มี.ค.", "03", "3"],
@@ -84,19 +79,21 @@ thai_full_month_lists = [
     ["กันยายน", "กันยา", "ก.ย.", "09", "9"],
     ["ตุลาคม", "ตุลา", "ต.ค.", "10"],
     ["พฤศจิกายน", "พฤศจิกา", "พ.ย.", "11"],
-    ["ธันวาคม", "ธันวา", "ธ.ค.", "12"]
+    ["ธันวาคม", "ธันวา", "ธ.ค.", "12"],
 ]
-thai_full_month_lists_regex = "(" + '|'.join(
-    ['|'.join(i) for i in thai_full_month_lists]
-) + ")"
-year_all_regex = r"(\d\d\d\d|\d\d)"
-dates_list = "(" + '|'.join(
-    [str(i) for i in range(32, 0, -1)] + [
-        "0" + str(i) for i in range(1, 10)
-    ]
-) + ")"
+thai_full_month_lists_regex: str = (
+    "(" + "|".join(["|".join(i) for i in thai_full_month_lists]) + ")"
+)
+year_all_regex: str = r"(\d\d\d\d|\d\d)"
+dates_list: str = (
+    "("
+    + "|".join(
+        list(map(str, range(32, 0, -1))) + ["0" + str(i) for i in range(1, 10)]
+    )
+    + ")"
+)
 
-_DAY = {
+_DAY: dict[str, int] = {
     "วันนี้": 0,
     "คืนนี้": 0,
     "พรุ่งนี้": 1,
@@ -119,9 +116,8 @@ _DAY = {
 }
 
 
-def convert_years(year: str, src="be", target="ad") -> str:
-    """
-    Convert years
+def convert_years(year: str, src: str = "be", target: str = "ad") -> str:
+    """Convert years
 
     :param int year: Year
     :param str src: The source year
@@ -139,13 +135,30 @@ def convert_years(year: str, src="be", target="ad") -> str:
     because Thailand has change the Thai calendar in 1941.
     If you are the time traveler or the historian, \
     you should care about the correct calendar.
+
+    :Example:
+    ::
+
+        from pythainlp.util import convert_years
+
+        # Convert Buddhist Era (BE) to Anno Domini (AD)
+        convert_years("2566", src="be", target="ad")
+        # output: '2023'
+
+        # Convert AD to BE
+        convert_years("2023", src="ad", target="be")
+        # output: '2566'
+
+        # Convert BE to Rattanakosin Era (RE)
+        convert_years("2566", src="be", target="re")
+        # output: '242'
     """
     output_year = None
     if src == "be":
         # พ.ศ. - 543  = ค.ศ.
         if target == "ad":
             output_year = str(int(year) - 543)
-        # พ.ศ. - 2324 = ร.ศ. 
+        # พ.ศ. - 2324 = ร.ศ.
         elif target == "re":
             output_year = str(int(year) - 2324)
         # พ.ศ. - 1122 = ฮ.ศ.
@@ -158,17 +171,17 @@ def convert_years(year: str, src="be", target="ad") -> str:
         # ค.ศ. + 543 - 2324 = ร.ศ.
         elif target == "re":
             output_year = str(int(year) + 543 - 2324)
-        # ค.ศ. +543- 1122   = ฮ.ศ.
+        # ค.ศ. +543- 1122 = ฮ.ศ.
         elif target == "ah":
             output_year = str(int(year) + 543 - 1122)
     elif src == "re":
         # ร.ศ. + 2324 = พ.ศ.
         if target == "be":
             output_year = str(int(year) + 2324)
-        # ร.ศ. + 2324 - 543  = ค.ศ.
+        # ร.ศ. + 2324 - 543 = ค.ศ.
         elif target == "ad":
             output_year = str(int(year) + 2324 - 543)
-        # ร.ศ. + 2324 - 1122  = ฮ.ศ.
+        # ร.ศ. + 2324 - 1122 = ฮ.ศ.
         elif target == "ah":
             output_year = str(int(year) + 2324 - 1122)
     elif src == "ah":
@@ -188,28 +201,28 @@ def convert_years(year: str, src="be", target="ad") -> str:
     return output_year
 
 
-def _find_month(text):
+def _find_month(text: str) -> int:
     for i, m in enumerate(thai_full_month_lists):
         for j in m:
             if j in text:
                 return i + 1
+    return 0  # Not found in list
 
 
 def thai_strptime(
     text: str,
     fmt: str,
     year: str = "be",
-    add_year: int = None,
-    tzinfo=ZoneInfo("Asia/Bangkok")
-):
-    """
-    Thai strptime
+    add_year: Optional[int] = None,
+    tzinfo: Optional[ZoneInfo] = ZoneInfo("Asia/Bangkok"),
+) -> datetime:
+    """Thai strptime
 
     :param str text: text
     :param str fmt: string containing date and time directives
     :param str year: year of the text \
         (ad is Anno Domini and be is Buddhist Era)
-    :param int add_year: add to year when converting to ad
+    :param Optional[int] add_year: add to year when converting to ad. Default is None.
     :param object tzinfo: tzinfo (default is Asia/Bangkok)
     :return: The year that is converted to datetime.datetime
     :rtype: datetime.datetime
@@ -240,9 +253,6 @@ def thai_strptime(
         #   tzinfo=zoneinfo.ZoneInfo(key='Asia/Bangkok')
         # )
     """
-    d = ""
-    m = ""
-    y = ""
     fmt = fmt.replace("%-m", "%m")
     fmt = fmt.replace("%-d", "%d")
     fmt = fmt.replace("%b", "%B")
@@ -264,27 +274,28 @@ def thai_strptime(
     if "%f" in fmt:
         fmt = fmt.replace("%f", r"(\d+)")
     keys = [
-        i.strip().strip('-').strip(':').strip('.')
-        for i in _old.split("%") if i != ''
+        i.strip().strip("-").strip(":").strip(".")
+        for i in _old.split("%")
+        if i != ""
     ]
-    y = re.findall(fmt, text)
+    y_matches = re.findall(fmt, text)
 
-    data = {i: ''.join(list(j)) for i, j in zip(keys, y[0])}
-    H = 0
-    M = 0
-    S = 0
-    f = 0
-    d = data['d']
-    m = _find_month(data['B'])
-    y = data['Y']
+    data = {i: "".join(list(j)) for i, j in zip(keys, y_matches[0])}
+    hour: Union[int, str] = 0
+    minute: Union[int, str] = 0
+    second: Union[int, str] = 0
+    f: Union[int, str] = 0
+    d = data["d"]
+    m: int = _find_month(data["B"])
+    y = data["Y"]
     if "H" in keys:
-        H = data['H']
+        hour = data["H"]
     if "M" in keys:
-        M = data['M']
+        minute = data["M"]
     if "S" in keys:
-        S = data['S']
+        second = data["S"]
     if "f" in keys:
-        f = data['f']
+        f = data["f"]
     if int(y) < 100 and year == "be":
         if add_year is None:
             y = str(2500 + int(y))
@@ -299,19 +310,18 @@ def thai_strptime(
         y = convert_years(y, src="be", target="ad")
     return datetime(
         year=int(y),
-        month=int(m),
+        month=m,
         day=int(d),
-        hour=int(H),
-        minute=int(M),
-        second=int(S),
+        hour=int(hour),
+        minute=int(minute),
+        second=int(second),
         microsecond=int(f),
-        tzinfo=tzinfo
+        tzinfo=tzinfo,
     )
 
 
 def now_reign_year() -> int:
-    """
-    Return the reign year of the 10th King of Chakri dynasty.
+    """Return the reign year of the 10th King of Chakri dynasty.
 
     :return: reign year of the 10th King of Chakri dynasty.
     :rtype: int
@@ -332,8 +342,7 @@ def now_reign_year() -> int:
 
 
 def reign_year_to_ad(reign_year: int, reign: int) -> int:
-    """
-    Convert reign year to AD.
+    """Convert reign year to AD.
 
     Return AD year according to the reign year for
     the 7th to 10th King of Chakri dynasty, Thailand.
@@ -358,6 +367,7 @@ def reign_year_to_ad(reign_year: int, reign: int) -> int:
             reign_year_to_ad(1, 9))
         # output: The 4th reign year of the King Rama X is in 1946
     """
+    ad = 0
     if int(reign) == 10:
         ad = int(reign_year) + 2015
     elif int(reign) == 9:
@@ -370,10 +380,9 @@ def reign_year_to_ad(reign_year: int, reign: int) -> int:
 
 
 def thaiword_to_date(
-    text: str, date: datetime = None
-) -> Union[datetime, None]:
-    """
-    Convert Thai relative date to :class:`datetime.datetime`.
+    text: str, date: Optional[datetime] = None
+) -> Optional[datetime]:
+    """Convert Thai relative date to :class:`datetime.datetime`.
 
     :param str text: Thai text containing relative date
     :param datetime.datetime date: date (default is datetime.datetime.now())
@@ -390,7 +399,7 @@ def thaiword_to_date(
     if text not in _DAY:
         return None
 
-    day_num = _DAY.get(text)
+    day_num = _DAY.get(text, 0)
 
     if not date:
         date = datetime.now()

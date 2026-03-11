@@ -299,6 +299,18 @@ repo.on_event("OnEventTargetLambda",
     target=LambdaFunction(lambda_handler)
 )
 ```
+
+## Mixins
+
+ECR provides [mixins](https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib-readme.html#mixins) that can be applied to L1 and L2 constructs.
+
+### RepositoryAutoDeleteImages
+
+Automatically deletes all images from a repository when it is removed from the stack or when the stack is deleted. Requires the repository's removal policy to be set to `DESTROY`:
+
+```python
+ecr.CfnRepository(self, "Repo").with(ecr.mixins.RepositoryAutoDeleteImages())
+```
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -2496,44 +2508,11 @@ class CfnRepository(
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecr-repository.html
     :cloudformationResource: AWS::ECR::Repository
-    :exampleMetadata: fixture=_generated
+    :exampleMetadata: infused
 
     Example::
 
-        from aws_cdk import CfnTag
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_ecr as ecr
-        
-        # repository_policy_text: Any
-        
-        cfn_repository = ecr.CfnRepository(self, "MyCfnRepository",
-            empty_on_delete=False,
-            encryption_configuration=ecr.CfnRepository.EncryptionConfigurationProperty(
-                encryption_type="encryptionType",
-        
-                # the properties below are optional
-                kms_key="kmsKey"
-            ),
-            image_scanning_configuration=ecr.CfnRepository.ImageScanningConfigurationProperty(
-                scan_on_push=False
-            ),
-            image_tag_mutability="imageTagMutability",
-            image_tag_mutability_exclusion_filters=[ecr.CfnRepository.ImageTagMutabilityExclusionFilterProperty(
-                image_tag_mutability_exclusion_filter_type="imageTagMutabilityExclusionFilterType",
-                image_tag_mutability_exclusion_filter_value="imageTagMutabilityExclusionFilterValue"
-            )],
-            lifecycle_policy=ecr.CfnRepository.LifecyclePolicyProperty(
-                lifecycle_policy_text="lifecyclePolicyText",
-                registry_id="registryId"
-            ),
-            repository_name="repositoryName",
-            repository_policy_text=repository_policy_text,
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )]
-        )
+        ecr.CfnRepository(self, "Repo").with(ecr.mixins.RepositoryAutoDeleteImages())
     '''
 
     def __init__(
@@ -6763,9 +6742,13 @@ __all__ = [
     "RepositoryProps",
     "TagMutability",
     "TagStatus",
+    "mixins",
 ]
 
 publication.publish()
+
+# Loading modules to ensure their types are registered with the jsii runtime library
+from . import mixins
 
 def _typecheckingstub__b189c1467d2bda9405aa4cabd8bab18d9bb346d049339366389c70f4216e7822(
     grantee: _IGrantable_71c4f5de,

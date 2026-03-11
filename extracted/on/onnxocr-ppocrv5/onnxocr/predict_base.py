@@ -3,7 +3,7 @@ import numpy as np
 import cv2
 
 class PredictBase(object):
-    def __init__(self, model_dir, use_openvino=True, use_npu=True, logger=None):
+    def __init__(self, model_dir, use_openvino=True, use_npu=True, logger=None, force_static_shape=False):
         self.is_openvino = use_openvino
         if logger is None:
             logger = logging.getLogger('onnxocr')
@@ -38,21 +38,22 @@ class PredictBase(object):
                     model = core.read_model(model=model_dir)
                     input_layer = model.inputs[0]
                     
-                    if device == "NPU":
+                    if device == "NPU" or force_static_shape:
                         try:
                             # NPU often requires static shapes. 
                             # Different shapes for detection vs recognition
                             if "det" in model_dir.lower():
                                 self.force_shape = (1, 3, 960, 960)
                             elif "rec" in model_dir.lower():
-                                self.force_shape = (1, 3, 48, 320)
+                                self.force_shape = (1, 3, 48, 640)
                             elif "cls" in model_dir.lower():
                                 self.force_shape = (1, 3, 48, 192)
 
                             if self.force_shape:
-                                self.logger.info(f'openvino force shape {model_dir} from {input_layer} to {self.force_shape}')
+                                self.logger.info(f'openvino force shape {model_dir} for {device} from {input_layer.get_partial_shape()} to {self.force_shape}')
                                 model.reshape({input_layer.any_name: self.force_shape})                                
-                        except Exception:
+                        except Exception as e:
+                            self.logger.warning(f"Failed to reshape model for {device}: {e}")
                             self.force_shape = None 
                     else:
                         # For CPU, ensure dynamic shapes are allowed
@@ -68,7 +69,7 @@ class PredictBase(object):
                 except Exception as e:
                     self.force_shape = None
                     if device == preferred_devices[-1]: raise e
-                    print(f"[Warning] Failed to compile model on {device}: {e}. Trying {preferred_devices[preferred_devices.index(device)+1]}...")
+                    self.logger.warning(f"Failed to compile model on {device}: {e}. Trying next...")
         else:
             import onnxruntime
             providers = ['CPUExecutionProvider']
@@ -79,8 +80,9 @@ class PredictBase(object):
     def run(self, output_name, input_feed):
         if self.is_openvino:
             # Handle NPU/Static shape force
-            if getattr(self, "is_npu", False) and getattr(self, "force_shape", None):
-                target_b, target_c, target_h, target_w = self.force_shape
+            force_shape = getattr(self, "force_shape", None)
+            if (getattr(self, "is_npu", False) or force_shape) and force_shape:
+                target_b, target_c, target_h, target_w = force_shape
                 input_batch_size = next(iter(input_feed.values())).shape[0]
                 
                 all_outputs = [[] for _ in self.session.outputs]
@@ -102,7 +104,7 @@ class PredictBase(object):
                         
                         # Adapt spatial shape
                         if chunk.shape[2:] != (target_h, target_w):
-                            processed_chunk = np.zeros(self.force_shape, dtype=chunk.dtype)
+                            processed_chunk = np.zeros(force_shape, dtype=chunk.dtype)
                             for b in range(target_b):
                                 img = chunk[b].transpose(1, 2, 0) # HWC
                                 oh, ow = img.shape[:2]
@@ -113,8 +115,15 @@ class PredictBase(object):
                                 
                                 # Use safe resize
                                 if nw > 0 and nh > 0:
-                                    img_resized = cv2.resize(img, (nw, nh))
-                                    processed_chunk[b, :, :nh, :nw] = img_resized.transpose(2, 0, 1)
+                                    if nw == ow and nh == oh:
+                                        img_resized = img
+                                    else:
+                                        img_resized = cv2.resize(img, (nw, nh))
+                                    
+                                    # Use BORDER_REPLICATE to avoid sharp edges at the bottom/right padding
+                                    # this is much better for DB detectors than zero padding
+                                    img_padded = cv2.copyMakeBorder(img_resized, 0, target_h - nh, 0, target_w - nw, cv2.BORDER_REPLICATE)
+                                    processed_chunk[b] = img_padded.transpose(2, 0, 1)
                                 
                                 if name == next(iter(input_feed)):
                                     batch_resize_info.append((oh, ow, nh, nw))
@@ -132,12 +141,23 @@ class PredictBase(object):
                         res = chunk_results[out_node]
                         
                         # If output is a heatmap (4D), resize it back to original input size
-                        if len(res.shape) == 4 and res.shape[2:] == (target_h, target_w):
+                        if len(res.shape) == 4:
+                            # Handle potential stride (e.g. output is H/stride, W/stride)
+                            out_h, out_w = res.shape[2:]
+                            ratio_h = out_h / target_h
+                            ratio_w = out_w / target_w
+                            
                             restored_list = []
                             for b in range(actual_count):
                                 oh, ow, nh, nw = batch_resize_info[b]
-                                heatmap = res[b, :, :nh, :nw].transpose(1, 2, 0) # (nh, nw, C)
-                                heatmap_restored = cv2.resize(heatmap, (ow, oh))
+                                s_nh, s_nw = int(nh * ratio_h), int(nw * ratio_w)
+                                
+                                # Extract only the relevant part of the heatmap
+                                heatmap = res[b, :, :s_nh, :s_nw].transpose(1, 2, 0) # (s_nh, s_nw, C)
+                                if (s_nh == oh and s_nw == ow):
+                                    heatmap_restored = heatmap
+                                else:
+                                    heatmap_restored = cv2.resize(heatmap, (ow, oh))
                                 if len(heatmap_restored.shape) == 2:
                                     heatmap_restored = heatmap_restored[..., None]
                                 restored_list.append(heatmap_restored.transpose(2, 0, 1))
@@ -148,7 +168,18 @@ class PredictBase(object):
                 return [np.concatenate(outs, axis=0) for outs in all_outputs]
 
             result_dict = self.session(inputs=input_feed)
-            return [result_dict[out] for out in self.session.outputs]
+            outputs = [result_dict[out] for out in self.session.outputs]
+            
+            # Robust layout check: OpenVINO sometimes returns NHWC on certain hardware/drivers
+            # but our post-processing expects NCHW.
+            processed_outputs = []
+            for res in outputs:
+                if len(res.shape) == 4 and res.shape[1] > res.shape[3] and (res.shape[3] == 1 or res.shape[3] == 3):
+                    # Likely NHWC (N, H, W, C), transpose to NCHW (N, C, H, W)
+                    processed_outputs.append(res.transpose(0, 3, 1, 2))
+                else:
+                    processed_outputs.append(res)
+            return processed_outputs
         else:
             return self.session.run(output_name, input_feed)
 

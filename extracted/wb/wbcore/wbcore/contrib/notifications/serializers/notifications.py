@@ -21,13 +21,16 @@ class NotificationModelSerializer(serializers.ModelSerializer):
         model = Notification
         fields = read_only_fields = (
             "id",
+            "title",
             "notification_type",
             "_notification_type",
-            "title",
             "body",
             "user",
             "endpoint",
-            "sent",
+            "sent_web",
+            "sent_email",
+            "sent_mobile",
             "read",
+            "created",
             "_additional_resources",
         )

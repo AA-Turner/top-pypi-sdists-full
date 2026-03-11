@@ -1811,6 +1811,8 @@ class ChalkGRPCClient:
             Additional files needed for inference (tokenizers, configs, etc.)
         model_type
             Type of model framework.
+        model_class
+            Task the model solves.
         model_encoding
             Serialization format.
         input_schema

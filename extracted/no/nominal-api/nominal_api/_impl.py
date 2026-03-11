@@ -36182,13 +36182,14 @@ class scout_chartdefinition_api_TimeSeriesChartDefinitionV1(ConjureBeanType):
             'disconnected_values': ConjureFieldDefinition('disconnectedValues', OptionalTypeWrapper[scout_chartdefinition_api_DisconnectedValueVisualization]),
             'staleness_configuration': ConjureFieldDefinition('stalenessConfiguration', OptionalTypeWrapper[scout_chartdefinition_api_StalenessConfiguration]),
             'plot_coloring_configuration': ConjureFieldDefinition('plotColoringConfiguration', OptionalTypeWrapper[scout_chartdefinition_api_PlotColoringConfiguration]),
+            'anchor_point': ConjureFieldDefinition('anchorPoint', OptionalTypeWrapper[api_Timestamp]),
             'bucket_strategy': ConjureFieldDefinition('bucketStrategy', OptionalTypeWrapper[scout_chartdefinition_api_PanelBucketStrategy]),
             'floating_legends_config': ConjureFieldDefinition('floatingLegendsConfig', OptionalTypeWrapper[scout_chartdefinition_api_FloatingLegendConfig])
         }
 
-    __slots__: List[str] = ['_rows', '_comparison_run_groups', '_events', '_title', '_value_axes', '_thresholds', '_disconnected_values', '_staleness_configuration', '_plot_coloring_configuration', '_bucket_strategy', '_floating_legends_config']
+    __slots__: List[str] = ['_rows', '_comparison_run_groups', '_events', '_title', '_value_axes', '_thresholds', '_disconnected_values', '_staleness_configuration', '_plot_coloring_configuration', '_anchor_point', '_bucket_strategy', '_floating_legends_config']
 
-    def __init__(self, comparison_run_groups: List["scout_comparisonrun_api_ComparisonRunGroup"], rows: List["scout_chartdefinition_api_TimeSeriesRow"], value_axes: List["scout_chartdefinition_api_ValueAxis"], bucket_strategy: Optional["scout_chartdefinition_api_PanelBucketStrategy"] = None, disconnected_values: Optional["scout_chartdefinition_api_DisconnectedValueVisualization"] = None, events: Optional[List["scout_chartdefinition_api_Event"]] = None, floating_legends_config: Optional["scout_chartdefinition_api_FloatingLegendConfig"] = None, plot_coloring_configuration: Optional["scout_chartdefinition_api_PlotColoringConfiguration"] = None, staleness_configuration: Optional["scout_chartdefinition_api_StalenessConfiguration"] = None, thresholds: Optional[List["scout_chartdefinition_api_AxisThresholdVisualization"]] = None, title: Optional[str] = None) -> None:
+    def __init__(self, comparison_run_groups: List["scout_comparisonrun_api_ComparisonRunGroup"], rows: List["scout_chartdefinition_api_TimeSeriesRow"], value_axes: List["scout_chartdefinition_api_ValueAxis"], anchor_point: Optional["api_Timestamp"] = None, bucket_strategy: Optional["scout_chartdefinition_api_PanelBucketStrategy"] = None, disconnected_values: Optional["scout_chartdefinition_api_DisconnectedValueVisualization"] = None, events: Optional[List["scout_chartdefinition_api_Event"]] = None, floating_legends_config: Optional["scout_chartdefinition_api_FloatingLegendConfig"] = None, plot_coloring_configuration: Optional["scout_chartdefinition_api_PlotColoringConfiguration"] = None, staleness_configuration: Optional["scout_chartdefinition_api_StalenessConfiguration"] = None, thresholds: Optional[List["scout_chartdefinition_api_AxisThresholdVisualization"]] = None, title: Optional[str] = None) -> None:
         self._rows = rows
         self._comparison_run_groups = comparison_run_groups
         self._events = events
@@ -36198,6 +36199,7 @@ class scout_chartdefinition_api_TimeSeriesChartDefinitionV1(ConjureBeanType):
         self._disconnected_values = disconnected_values
         self._staleness_configuration = staleness_configuration
         self._plot_coloring_configuration = plot_coloring_configuration
+        self._anchor_point = anchor_point
         self._bucket_strategy = bucket_strategy
         self._floating_legends_config = floating_legends_config
 
@@ -36243,6 +36245,13 @@ class scout_chartdefinition_api_TimeSeriesChartDefinitionV1(ConjureBeanType):
 independently between rows with a unique color if possible when created.
         """
         return self._plot_coloring_configuration
+
+    @builtins.property
+    def anchor_point(self) -> Optional["api_Timestamp"]:
+        """Optional anchor point for fixed bucket alignment. When set,
+buckets align to this time instead of the viewport start.
+        """
+        return self._anchor_point
 
     @builtins.property
     def bucket_strategy(self) -> Optional["scout_chartdefinition_api_PanelBucketStrategy"]:
@@ -45518,6 +45527,33 @@ scout_comparisonrun_api_OffsetSeriesAnchor.__qualname__ = "OffsetSeriesAnchor"
 scout_comparisonrun_api_OffsetSeriesAnchor.__module__ = "nominal_api.scout_comparisonrun_api"
 
 
+class scout_compute_api_Abs(ConjureBeanType):
+    """Computes the absolute value of each point in the series.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'x': ConjureFieldDefinition('x', scout_compute_api_NumericSeries)
+        }
+
+    __slots__: List[str] = ['_x']
+
+    def __init__(self, x: "scout_compute_api_NumericSeries") -> None:
+        self._x = x
+
+    @builtins.property
+    def x(self) -> "scout_compute_api_NumericSeries":
+        """Input numeric series.
+        """
+        return self._x
+
+
+scout_compute_api_Abs.__name__ = "Abs"
+scout_compute_api_Abs.__qualname__ = "Abs"
+scout_compute_api_Abs.__module__ = "nominal_api.scout_compute_api"
+
+
 class scout_compute_api_AbsoluteThreshold(ConjureBeanType):
     """Threshold defined as a real number corresponding the unit of a series.
     """
@@ -45574,6 +45610,68 @@ class scout_compute_api_AbsoluteTimestampSeries(ConjureBeanType):
 scout_compute_api_AbsoluteTimestampSeries.__name__ = "AbsoluteTimestampSeries"
 scout_compute_api_AbsoluteTimestampSeries.__qualname__ = "AbsoluteTimestampSeries"
 scout_compute_api_AbsoluteTimestampSeries.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_Acos(ConjureBeanType):
+    """Computes the arccosine of each value, returning radians.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'x': ConjureFieldDefinition('x', scout_compute_api_NumericSeries)
+        }
+
+    __slots__: List[str] = ['_x']
+
+    def __init__(self, x: "scout_compute_api_NumericSeries") -> None:
+        self._x = x
+
+    @builtins.property
+    def x(self) -> "scout_compute_api_NumericSeries":
+        """Input numeric series (values in [-1, 1]).
+        """
+        return self._x
+
+
+scout_compute_api_Acos.__name__ = "Acos"
+scout_compute_api_Acos.__qualname__ = "Acos"
+scout_compute_api_Acos.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_Add(ConjureBeanType):
+    """Adds two numeric series pointwise.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'left': ConjureFieldDefinition('left', scout_compute_api_NumericSeries),
+            'right': ConjureFieldDefinition('right', scout_compute_api_NumericSeries)
+        }
+
+    __slots__: List[str] = ['_left', '_right']
+
+    def __init__(self, left: "scout_compute_api_NumericSeries", right: "scout_compute_api_NumericSeries") -> None:
+        self._left = left
+        self._right = right
+
+    @builtins.property
+    def left(self) -> "scout_compute_api_NumericSeries":
+        """Left-hand operand.
+        """
+        return self._left
+
+    @builtins.property
+    def right(self) -> "scout_compute_api_NumericSeries":
+        """Right-hand operand.
+        """
+        return self._right
+
+
+scout_compute_api_Add.__name__ = "Add"
+scout_compute_api_Add.__qualname__ = "Add"
+scout_compute_api_Add.__module__ = "nominal_api.scout_compute_api"
 
 
 class scout_compute_api_AfterPersistenceWindow(ConjureBeanType):
@@ -46279,6 +46377,33 @@ scout_compute_api_ArrowNumericPlot.__qualname__ = "ArrowNumericPlot"
 scout_compute_api_ArrowNumericPlot.__module__ = "nominal_api.scout_compute_api"
 
 
+class scout_compute_api_Asin(ConjureBeanType):
+    """Computes the arcsine of each value, returning radians.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'x': ConjureFieldDefinition('x', scout_compute_api_NumericSeries)
+        }
+
+    __slots__: List[str] = ['_x']
+
+    def __init__(self, x: "scout_compute_api_NumericSeries") -> None:
+        self._x = x
+
+    @builtins.property
+    def x(self) -> "scout_compute_api_NumericSeries":
+        """Input numeric series (values in [-1, 1]).
+        """
+        return self._x
+
+
+scout_compute_api_Asin.__name__ = "Asin"
+scout_compute_api_Asin.__qualname__ = "Asin"
+scout_compute_api_Asin.__module__ = "nominal_api.scout_compute_api"
+
+
 class scout_compute_api_AssetChannel(ConjureBeanType):
 
     @builtins.classmethod
@@ -46345,6 +46470,41 @@ with an entry for each grouping. Only one of tagsToGroupBy and groupByTags shoul
 scout_compute_api_AssetChannel.__name__ = "AssetChannel"
 scout_compute_api_AssetChannel.__qualname__ = "AssetChannel"
 scout_compute_api_AssetChannel.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_Atan2(ConjureBeanType):
+    """Computes the two-argument arctangent atan2(y, x) using signs to determine the quadrant.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'y': ConjureFieldDefinition('y', scout_compute_api_NumericSeries),
+            'x': ConjureFieldDefinition('x', scout_compute_api_NumericSeries)
+        }
+
+    __slots__: List[str] = ['_y', '_x']
+
+    def __init__(self, x: "scout_compute_api_NumericSeries", y: "scout_compute_api_NumericSeries") -> None:
+        self._y = y
+        self._x = x
+
+    @builtins.property
+    def y(self) -> "scout_compute_api_NumericSeries":
+        """Y-coordinate series.
+        """
+        return self._y
+
+    @builtins.property
+    def x(self) -> "scout_compute_api_NumericSeries":
+        """X-coordinate series.
+        """
+        return self._x
+
+
+scout_compute_api_Atan2.__name__ = "Atan2"
+scout_compute_api_Atan2.__qualname__ = "Atan2"
+scout_compute_api_Atan2.__module__ = "nominal_api.scout_compute_api"
 
 
 class scout_compute_api_Average(ConjureBeanType):
@@ -49907,6 +50067,33 @@ scout_compute_api_Context.__qualname__ = "Context"
 scout_compute_api_Context.__module__ = "nominal_api.scout_compute_api"
 
 
+class scout_compute_api_Cos(ConjureBeanType):
+    """Computes the trigonometric cosine of each value (input in radians).
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'x': ConjureFieldDefinition('x', scout_compute_api_NumericSeries)
+        }
+
+    __slots__: List[str] = ['_x']
+
+    def __init__(self, x: "scout_compute_api_NumericSeries") -> None:
+        self._x = x
+
+    @builtins.property
+    def x(self) -> "scout_compute_api_NumericSeries":
+        """Input numeric series (radians).
+        """
+        return self._x
+
+
+scout_compute_api_Cos.__name__ = "Cos"
+scout_compute_api_Cos.__qualname__ = "Cos"
+scout_compute_api_Cos.__module__ = "nominal_api.scout_compute_api"
+
+
 class scout_compute_api_Count(ConjureBeanType):
     """The number of points inside the time window.
     """
@@ -50775,6 +50962,41 @@ class scout_compute_api_DetrendType(ConjureEnumType):
 scout_compute_api_DetrendType.__name__ = "DetrendType"
 scout_compute_api_DetrendType.__qualname__ = "DetrendType"
 scout_compute_api_DetrendType.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_Divide(ConjureBeanType):
+    """Divides left by right pointwise.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'left': ConjureFieldDefinition('left', scout_compute_api_NumericSeries),
+            'right': ConjureFieldDefinition('right', scout_compute_api_NumericSeries)
+        }
+
+    __slots__: List[str] = ['_left', '_right']
+
+    def __init__(self, left: "scout_compute_api_NumericSeries", right: "scout_compute_api_NumericSeries") -> None:
+        self._left = left
+        self._right = right
+
+    @builtins.property
+    def left(self) -> "scout_compute_api_NumericSeries":
+        """Numerator.
+        """
+        return self._left
+
+    @builtins.property
+    def right(self) -> "scout_compute_api_NumericSeries":
+        """Denominator.
+        """
+        return self._right
+
+
+scout_compute_api_Divide.__name__ = "Divide"
+scout_compute_api_Divide.__qualname__ = "Divide"
+scout_compute_api_Divide.__module__ = "nominal_api.scout_compute_api"
 
 
 class scout_compute_api_DoubleConstant(ConjureUnionType):
@@ -52657,6 +52879,41 @@ scout_compute_api_FirstPointMatchingCondition.__qualname__ = "FirstPointMatching
 scout_compute_api_FirstPointMatchingCondition.__module__ = "nominal_api.scout_compute_api"
 
 
+class scout_compute_api_FloorDivide(ConjureBeanType):
+    """Divides left by right pointwise and rounds down to the nearest integer.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'left': ConjureFieldDefinition('left', scout_compute_api_NumericSeries),
+            'right': ConjureFieldDefinition('right', scout_compute_api_NumericSeries)
+        }
+
+    __slots__: List[str] = ['_left', '_right']
+
+    def __init__(self, left: "scout_compute_api_NumericSeries", right: "scout_compute_api_NumericSeries") -> None:
+        self._left = left
+        self._right = right
+
+    @builtins.property
+    def left(self) -> "scout_compute_api_NumericSeries":
+        """Numerator.
+        """
+        return self._left
+
+    @builtins.property
+    def right(self) -> "scout_compute_api_NumericSeries":
+        """Denominator.
+        """
+        return self._right
+
+
+scout_compute_api_FloorDivide.__name__ = "FloorDivide"
+scout_compute_api_FloorDivide.__qualname__ = "FloorDivide"
+scout_compute_api_FloorDivide.__module__ = "nominal_api.scout_compute_api"
+
+
 class scout_compute_api_ForwardFillInterpolation(ConjureBeanType):
 
     @builtins.classmethod
@@ -54197,6 +54454,60 @@ scout_compute_api_LiteralRanges.__qualname__ = "LiteralRanges"
 scout_compute_api_LiteralRanges.__module__ = "nominal_api.scout_compute_api"
 
 
+class scout_compute_api_Ln(ConjureBeanType):
+    """Computes the natural logarithm (base e) of each value.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'x': ConjureFieldDefinition('x', scout_compute_api_NumericSeries)
+        }
+
+    __slots__: List[str] = ['_x']
+
+    def __init__(self, x: "scout_compute_api_NumericSeries") -> None:
+        self._x = x
+
+    @builtins.property
+    def x(self) -> "scout_compute_api_NumericSeries":
+        """Input numeric series (positive values).
+        """
+        return self._x
+
+
+scout_compute_api_Ln.__name__ = "Ln"
+scout_compute_api_Ln.__qualname__ = "Ln"
+scout_compute_api_Ln.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_Log10(ConjureBeanType):
+    """Computes the base-10 logarithm of each value.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'x': ConjureFieldDefinition('x', scout_compute_api_NumericSeries)
+        }
+
+    __slots__: List[str] = ['_x']
+
+    def __init__(self, x: "scout_compute_api_NumericSeries") -> None:
+        self._x = x
+
+    @builtins.property
+    def x(self) -> "scout_compute_api_NumericSeries":
+        """Input numeric series (positive values).
+        """
+        return self._x
+
+
+scout_compute_api_Log10.__name__ = "Log10"
+scout_compute_api_Log10.__qualname__ = "Log10"
+scout_compute_api_Log10.__module__ = "nominal_api.scout_compute_api"
+
+
 class scout_compute_api_LogExactMatchCaseInsensitiveFilter(ConjureBeanType):
     """Filters points such that the log message in each point contains an exact case-insensitive match of the
 provided token.
@@ -55022,6 +55333,76 @@ scout_compute_api_ModuleVersionReferenceVisitor.__qualname__ = "ModuleVersionRef
 scout_compute_api_ModuleVersionReferenceVisitor.__module__ = "nominal_api.scout_compute_api"
 
 
+class scout_compute_api_Modulo(ConjureBeanType):
+    """Computes the remainder of left divided by right pointwise.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'left': ConjureFieldDefinition('left', scout_compute_api_NumericSeries),
+            'right': ConjureFieldDefinition('right', scout_compute_api_NumericSeries)
+        }
+
+    __slots__: List[str] = ['_left', '_right']
+
+    def __init__(self, left: "scout_compute_api_NumericSeries", right: "scout_compute_api_NumericSeries") -> None:
+        self._left = left
+        self._right = right
+
+    @builtins.property
+    def left(self) -> "scout_compute_api_NumericSeries":
+        """Dividend.
+        """
+        return self._left
+
+    @builtins.property
+    def right(self) -> "scout_compute_api_NumericSeries":
+        """Divisor.
+        """
+        return self._right
+
+
+scout_compute_api_Modulo.__name__ = "Modulo"
+scout_compute_api_Modulo.__qualname__ = "Modulo"
+scout_compute_api_Modulo.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_Multiply(ConjureBeanType):
+    """Multiplies two numeric series pointwise.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'left': ConjureFieldDefinition('left', scout_compute_api_NumericSeries),
+            'right': ConjureFieldDefinition('right', scout_compute_api_NumericSeries)
+        }
+
+    __slots__: List[str] = ['_left', '_right']
+
+    def __init__(self, left: "scout_compute_api_NumericSeries", right: "scout_compute_api_NumericSeries") -> None:
+        self._left = left
+        self._right = right
+
+    @builtins.property
+    def left(self) -> "scout_compute_api_NumericSeries":
+        """Left-hand operand.
+        """
+        return self._left
+
+    @builtins.property
+    def right(self) -> "scout_compute_api_NumericSeries":
+        """Right-hand operand.
+        """
+        return self._right
+
+
+scout_compute_api_Multiply.__name__ = "Multiply"
+scout_compute_api_Multiply.__qualname__ = "Multiply"
+scout_compute_api_Multiply.__module__ = "nominal_api.scout_compute_api"
+
+
 class scout_compute_api_MultivariateBucket(ConjureBeanType):
 
     @builtins.classmethod
@@ -55209,6 +55590,33 @@ class scout_compute_api_MultivariateUnitResult(ConjureBeanType):
 scout_compute_api_MultivariateUnitResult.__name__ = "MultivariateUnitResult"
 scout_compute_api_MultivariateUnitResult.__qualname__ = "MultivariateUnitResult"
 scout_compute_api_MultivariateUnitResult.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_Negate(ConjureBeanType):
+    """Negates each value in the series pointwise (multiplies by -1).
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'x': ConjureFieldDefinition('x', scout_compute_api_NumericSeries)
+        }
+
+    __slots__: List[str] = ['_x']
+
+    def __init__(self, x: "scout_compute_api_NumericSeries") -> None:
+        self._x = x
+
+    @builtins.property
+    def x(self) -> "scout_compute_api_NumericSeries":
+        """Input numeric series.
+        """
+        return self._x
+
+
+scout_compute_api_Negate.__name__ = "Negate"
+scout_compute_api_Negate.__qualname__ = "Negate"
+scout_compute_api_Negate.__module__ = "nominal_api.scout_compute_api"
 
 
 class scout_compute_api_NegativeValueConfiguration(ConjureUnionType):
@@ -56283,8 +56691,25 @@ scout_compute_api_NumericResampleSeries.__module__ = "nominal_api.scout_compute_
 
 
 class scout_compute_api_NumericSeries(ConjureUnionType):
+    _abs: Optional["scout_compute_api_Abs"] = None
+    _negate: Optional["scout_compute_api_Negate"] = None
+    _cos: Optional["scout_compute_api_Cos"] = None
+    _sin: Optional["scout_compute_api_Sin"] = None
+    _tan: Optional["scout_compute_api_Tan"] = None
+    _acos: Optional["scout_compute_api_Acos"] = None
+    _asin: Optional["scout_compute_api_Asin"] = None
+    _ln: Optional["scout_compute_api_Ln"] = None
+    _log10: Optional["scout_compute_api_Log10"] = None
+    _sqrt: Optional["scout_compute_api_Sqrt"] = None
+    _add: Optional["scout_compute_api_Add"] = None
+    _subtract: Optional["scout_compute_api_Subtract"] = None
+    _multiply: Optional["scout_compute_api_Multiply"] = None
+    _divide: Optional["scout_compute_api_Divide"] = None
+    _floor_divide: Optional["scout_compute_api_FloorDivide"] = None
+    _power: Optional["scout_compute_api_Power"] = None
+    _modulo: Optional["scout_compute_api_Modulo"] = None
+    _atan2: Optional["scout_compute_api_Atan2"] = None
     _aggregate: Optional["scout_compute_api_AggregateNumericSeries"] = None
-    _arithmetic: Optional["scout_compute_api_ArithmeticSeries"] = None
     _bit_operation: Optional["scout_compute_api_BitOperationSeries"] = None
     _count_duplicate: Optional["scout_compute_api_EnumCountDuplicateSeries"] = None
     _cumulative_sum: Optional["scout_compute_api_CumulativeSumSeries"] = None
@@ -56308,8 +56733,6 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
     _absolute_timestamp: Optional["scout_compute_api_AbsoluteTimestampSeries"] = None
     _time_range_filter: Optional["scout_compute_api_NumericTimeRangeFilterSeries"] = None
     _time_shift: Optional["scout_compute_api_NumericTimeShiftSeries"] = None
-    _unary_arithmetic: Optional["scout_compute_api_UnaryArithmeticSeries"] = None
-    _binary_arithmetic: Optional["scout_compute_api_BinaryArithmeticSeries"] = None
     _union: Optional["scout_compute_api_NumericUnionSeries"] = None
     _unit_conversion: Optional["scout_compute_api_UnitConversionSeries"] = None
     _value_difference: Optional["scout_compute_api_ValueDifferenceSeries"] = None
@@ -56323,12 +56746,32 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
     _enum_to_numeric: Optional["scout_compute_api_EnumToNumericSeries"] = None
     _refprop: Optional["scout_compute_api_RefpropSeries"] = None
     _extract_from_struct: Optional["scout_compute_api_ExtractNumericFromStructSeries"] = None
+    _arithmetic: Optional["scout_compute_api_ArithmeticSeries"] = None
+    _unary_arithmetic: Optional["scout_compute_api_UnaryArithmeticSeries"] = None
+    _binary_arithmetic: Optional["scout_compute_api_BinaryArithmeticSeries"] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
+            'abs': ConjureFieldDefinition('abs', scout_compute_api_Abs),
+            'negate': ConjureFieldDefinition('negate', scout_compute_api_Negate),
+            'cos': ConjureFieldDefinition('cos', scout_compute_api_Cos),
+            'sin': ConjureFieldDefinition('sin', scout_compute_api_Sin),
+            'tan': ConjureFieldDefinition('tan', scout_compute_api_Tan),
+            'acos': ConjureFieldDefinition('acos', scout_compute_api_Acos),
+            'asin': ConjureFieldDefinition('asin', scout_compute_api_Asin),
+            'ln': ConjureFieldDefinition('ln', scout_compute_api_Ln),
+            'log10': ConjureFieldDefinition('log10', scout_compute_api_Log10),
+            'sqrt': ConjureFieldDefinition('sqrt', scout_compute_api_Sqrt),
+            'add': ConjureFieldDefinition('add', scout_compute_api_Add),
+            'subtract': ConjureFieldDefinition('subtract', scout_compute_api_Subtract),
+            'multiply': ConjureFieldDefinition('multiply', scout_compute_api_Multiply),
+            'divide': ConjureFieldDefinition('divide', scout_compute_api_Divide),
+            'floor_divide': ConjureFieldDefinition('floorDivide', scout_compute_api_FloorDivide),
+            'power': ConjureFieldDefinition('power', scout_compute_api_Power),
+            'modulo': ConjureFieldDefinition('modulo', scout_compute_api_Modulo),
+            'atan2': ConjureFieldDefinition('atan2', scout_compute_api_Atan2),
             'aggregate': ConjureFieldDefinition('aggregate', scout_compute_api_AggregateNumericSeries),
-            'arithmetic': ConjureFieldDefinition('arithmetic', scout_compute_api_ArithmeticSeries),
             'bit_operation': ConjureFieldDefinition('bitOperation', scout_compute_api_BitOperationSeries),
             'count_duplicate': ConjureFieldDefinition('countDuplicate', scout_compute_api_EnumCountDuplicateSeries),
             'cumulative_sum': ConjureFieldDefinition('cumulativeSum', scout_compute_api_CumulativeSumSeries),
@@ -56352,8 +56795,6 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
             'absolute_timestamp': ConjureFieldDefinition('absoluteTimestamp', scout_compute_api_AbsoluteTimestampSeries),
             'time_range_filter': ConjureFieldDefinition('timeRangeFilter', scout_compute_api_NumericTimeRangeFilterSeries),
             'time_shift': ConjureFieldDefinition('timeShift', scout_compute_api_NumericTimeShiftSeries),
-            'unary_arithmetic': ConjureFieldDefinition('unaryArithmetic', scout_compute_api_UnaryArithmeticSeries),
-            'binary_arithmetic': ConjureFieldDefinition('binaryArithmetic', scout_compute_api_BinaryArithmeticSeries),
             'union': ConjureFieldDefinition('union', scout_compute_api_NumericUnionSeries),
             'unit_conversion': ConjureFieldDefinition('unitConversion', scout_compute_api_UnitConversionSeries),
             'value_difference': ConjureFieldDefinition('valueDifference', scout_compute_api_ValueDifferenceSeries),
@@ -56366,13 +56807,33 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
             'filter_by_expression': ConjureFieldDefinition('filterByExpression', scout_compute_api_FilterByExpressionSeries),
             'enum_to_numeric': ConjureFieldDefinition('enumToNumeric', scout_compute_api_EnumToNumericSeries),
             'refprop': ConjureFieldDefinition('refprop', scout_compute_api_RefpropSeries),
-            'extract_from_struct': ConjureFieldDefinition('extractFromStruct', scout_compute_api_ExtractNumericFromStructSeries)
+            'extract_from_struct': ConjureFieldDefinition('extractFromStruct', scout_compute_api_ExtractNumericFromStructSeries),
+            'arithmetic': ConjureFieldDefinition('arithmetic', scout_compute_api_ArithmeticSeries),
+            'unary_arithmetic': ConjureFieldDefinition('unaryArithmetic', scout_compute_api_UnaryArithmeticSeries),
+            'binary_arithmetic': ConjureFieldDefinition('binaryArithmetic', scout_compute_api_BinaryArithmeticSeries)
         }
 
     def __init__(
             self,
+            abs: Optional["scout_compute_api_Abs"] = None,
+            negate: Optional["scout_compute_api_Negate"] = None,
+            cos: Optional["scout_compute_api_Cos"] = None,
+            sin: Optional["scout_compute_api_Sin"] = None,
+            tan: Optional["scout_compute_api_Tan"] = None,
+            acos: Optional["scout_compute_api_Acos"] = None,
+            asin: Optional["scout_compute_api_Asin"] = None,
+            ln: Optional["scout_compute_api_Ln"] = None,
+            log10: Optional["scout_compute_api_Log10"] = None,
+            sqrt: Optional["scout_compute_api_Sqrt"] = None,
+            add: Optional["scout_compute_api_Add"] = None,
+            subtract: Optional["scout_compute_api_Subtract"] = None,
+            multiply: Optional["scout_compute_api_Multiply"] = None,
+            divide: Optional["scout_compute_api_Divide"] = None,
+            floor_divide: Optional["scout_compute_api_FloorDivide"] = None,
+            power: Optional["scout_compute_api_Power"] = None,
+            modulo: Optional["scout_compute_api_Modulo"] = None,
+            atan2: Optional["scout_compute_api_Atan2"] = None,
             aggregate: Optional["scout_compute_api_AggregateNumericSeries"] = None,
-            arithmetic: Optional["scout_compute_api_ArithmeticSeries"] = None,
             bit_operation: Optional["scout_compute_api_BitOperationSeries"] = None,
             count_duplicate: Optional["scout_compute_api_EnumCountDuplicateSeries"] = None,
             cumulative_sum: Optional["scout_compute_api_CumulativeSumSeries"] = None,
@@ -56396,8 +56857,6 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
             absolute_timestamp: Optional["scout_compute_api_AbsoluteTimestampSeries"] = None,
             time_range_filter: Optional["scout_compute_api_NumericTimeRangeFilterSeries"] = None,
             time_shift: Optional["scout_compute_api_NumericTimeShiftSeries"] = None,
-            unary_arithmetic: Optional["scout_compute_api_UnaryArithmeticSeries"] = None,
-            binary_arithmetic: Optional["scout_compute_api_BinaryArithmeticSeries"] = None,
             union: Optional["scout_compute_api_NumericUnionSeries"] = None,
             unit_conversion: Optional["scout_compute_api_UnitConversionSeries"] = None,
             value_difference: Optional["scout_compute_api_ValueDifferenceSeries"] = None,
@@ -56411,18 +56870,72 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
             enum_to_numeric: Optional["scout_compute_api_EnumToNumericSeries"] = None,
             refprop: Optional["scout_compute_api_RefpropSeries"] = None,
             extract_from_struct: Optional["scout_compute_api_ExtractNumericFromStructSeries"] = None,
+            arithmetic: Optional["scout_compute_api_ArithmeticSeries"] = None,
+            unary_arithmetic: Optional["scout_compute_api_UnaryArithmeticSeries"] = None,
+            binary_arithmetic: Optional["scout_compute_api_BinaryArithmeticSeries"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (aggregate is not None) + (arithmetic is not None) + (bit_operation is not None) + (count_duplicate is not None) + (cumulative_sum is not None) + (derivative is not None) + (integral is not None) + (max is not None) + (mean is not None) + (min is not None) + (z_score is not None) + (offset is not None) + (product is not None) + (raw is not None) + (channel is not None) + (derived is not None) + (resample is not None) + (rolling_operation is not None) + (signal_filter is not None) + (sum is not None) + (scale is not None) + (time_difference is not None) + (absolute_timestamp is not None) + (time_range_filter is not None) + (time_shift is not None) + (unary_arithmetic is not None) + (binary_arithmetic is not None) + (union is not None) + (unit_conversion is not None) + (value_difference is not None) + (filter_transformation is not None) + (threshold_filter is not None) + (approximate_filter is not None) + (select1d_array_index is not None) + (select_newest_points is not None) + (aggregate_under_ranges is not None) + (filter_by_expression is not None) + (enum_to_numeric is not None) + (refprop is not None) + (extract_from_struct is not None) != 1:
+            if (abs is not None) + (negate is not None) + (cos is not None) + (sin is not None) + (tan is not None) + (acos is not None) + (asin is not None) + (ln is not None) + (log10 is not None) + (sqrt is not None) + (add is not None) + (subtract is not None) + (multiply is not None) + (divide is not None) + (floor_divide is not None) + (power is not None) + (modulo is not None) + (atan2 is not None) + (aggregate is not None) + (bit_operation is not None) + (count_duplicate is not None) + (cumulative_sum is not None) + (derivative is not None) + (integral is not None) + (max is not None) + (mean is not None) + (min is not None) + (z_score is not None) + (offset is not None) + (product is not None) + (raw is not None) + (channel is not None) + (derived is not None) + (resample is not None) + (rolling_operation is not None) + (signal_filter is not None) + (sum is not None) + (scale is not None) + (time_difference is not None) + (absolute_timestamp is not None) + (time_range_filter is not None) + (time_shift is not None) + (union is not None) + (unit_conversion is not None) + (value_difference is not None) + (filter_transformation is not None) + (threshold_filter is not None) + (approximate_filter is not None) + (select1d_array_index is not None) + (select_newest_points is not None) + (aggregate_under_ranges is not None) + (filter_by_expression is not None) + (enum_to_numeric is not None) + (refprop is not None) + (extract_from_struct is not None) + (arithmetic is not None) + (unary_arithmetic is not None) + (binary_arithmetic is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
+            if abs is not None:
+                self._abs = abs
+                self._type = 'abs'
+            if negate is not None:
+                self._negate = negate
+                self._type = 'negate'
+            if cos is not None:
+                self._cos = cos
+                self._type = 'cos'
+            if sin is not None:
+                self._sin = sin
+                self._type = 'sin'
+            if tan is not None:
+                self._tan = tan
+                self._type = 'tan'
+            if acos is not None:
+                self._acos = acos
+                self._type = 'acos'
+            if asin is not None:
+                self._asin = asin
+                self._type = 'asin'
+            if ln is not None:
+                self._ln = ln
+                self._type = 'ln'
+            if log10 is not None:
+                self._log10 = log10
+                self._type = 'log10'
+            if sqrt is not None:
+                self._sqrt = sqrt
+                self._type = 'sqrt'
+            if add is not None:
+                self._add = add
+                self._type = 'add'
+            if subtract is not None:
+                self._subtract = subtract
+                self._type = 'subtract'
+            if multiply is not None:
+                self._multiply = multiply
+                self._type = 'multiply'
+            if divide is not None:
+                self._divide = divide
+                self._type = 'divide'
+            if floor_divide is not None:
+                self._floor_divide = floor_divide
+                self._type = 'floorDivide'
+            if power is not None:
+                self._power = power
+                self._type = 'power'
+            if modulo is not None:
+                self._modulo = modulo
+                self._type = 'modulo'
+            if atan2 is not None:
+                self._atan2 = atan2
+                self._type = 'atan2'
             if aggregate is not None:
                 self._aggregate = aggregate
                 self._type = 'aggregate'
-            if arithmetic is not None:
-                self._arithmetic = arithmetic
-                self._type = 'arithmetic'
             if bit_operation is not None:
                 self._bit_operation = bit_operation
                 self._type = 'bitOperation'
@@ -56492,12 +57005,6 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
             if time_shift is not None:
                 self._time_shift = time_shift
                 self._type = 'timeShift'
-            if unary_arithmetic is not None:
-                self._unary_arithmetic = unary_arithmetic
-                self._type = 'unaryArithmetic'
-            if binary_arithmetic is not None:
-                self._binary_arithmetic = binary_arithmetic
-                self._type = 'binaryArithmetic'
             if union is not None:
                 self._union = union
                 self._type = 'union'
@@ -56537,17 +57044,111 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
             if extract_from_struct is not None:
                 self._extract_from_struct = extract_from_struct
                 self._type = 'extractFromStruct'
+            if arithmetic is not None:
+                self._arithmetic = arithmetic
+                self._type = 'arithmetic'
+            if unary_arithmetic is not None:
+                self._unary_arithmetic = unary_arithmetic
+                self._type = 'unaryArithmetic'
+            if binary_arithmetic is not None:
+                self._binary_arithmetic = binary_arithmetic
+                self._type = 'binaryArithmetic'
 
+        elif type_of_union == 'abs':
+            if abs is None:
+                raise ValueError('a union value must not be None')
+            self._abs = abs
+            self._type = 'abs'
+        elif type_of_union == 'negate':
+            if negate is None:
+                raise ValueError('a union value must not be None')
+            self._negate = negate
+            self._type = 'negate'
+        elif type_of_union == 'cos':
+            if cos is None:
+                raise ValueError('a union value must not be None')
+            self._cos = cos
+            self._type = 'cos'
+        elif type_of_union == 'sin':
+            if sin is None:
+                raise ValueError('a union value must not be None')
+            self._sin = sin
+            self._type = 'sin'
+        elif type_of_union == 'tan':
+            if tan is None:
+                raise ValueError('a union value must not be None')
+            self._tan = tan
+            self._type = 'tan'
+        elif type_of_union == 'acos':
+            if acos is None:
+                raise ValueError('a union value must not be None')
+            self._acos = acos
+            self._type = 'acos'
+        elif type_of_union == 'asin':
+            if asin is None:
+                raise ValueError('a union value must not be None')
+            self._asin = asin
+            self._type = 'asin'
+        elif type_of_union == 'ln':
+            if ln is None:
+                raise ValueError('a union value must not be None')
+            self._ln = ln
+            self._type = 'ln'
+        elif type_of_union == 'log10':
+            if log10 is None:
+                raise ValueError('a union value must not be None')
+            self._log10 = log10
+            self._type = 'log10'
+        elif type_of_union == 'sqrt':
+            if sqrt is None:
+                raise ValueError('a union value must not be None')
+            self._sqrt = sqrt
+            self._type = 'sqrt'
+        elif type_of_union == 'add':
+            if add is None:
+                raise ValueError('a union value must not be None')
+            self._add = add
+            self._type = 'add'
+        elif type_of_union == 'subtract':
+            if subtract is None:
+                raise ValueError('a union value must not be None')
+            self._subtract = subtract
+            self._type = 'subtract'
+        elif type_of_union == 'multiply':
+            if multiply is None:
+                raise ValueError('a union value must not be None')
+            self._multiply = multiply
+            self._type = 'multiply'
+        elif type_of_union == 'divide':
+            if divide is None:
+                raise ValueError('a union value must not be None')
+            self._divide = divide
+            self._type = 'divide'
+        elif type_of_union == 'floorDivide':
+            if floor_divide is None:
+                raise ValueError('a union value must not be None')
+            self._floor_divide = floor_divide
+            self._type = 'floorDivide'
+        elif type_of_union == 'power':
+            if power is None:
+                raise ValueError('a union value must not be None')
+            self._power = power
+            self._type = 'power'
+        elif type_of_union == 'modulo':
+            if modulo is None:
+                raise ValueError('a union value must not be None')
+            self._modulo = modulo
+            self._type = 'modulo'
+        elif type_of_union == 'atan2':
+            if atan2 is None:
+                raise ValueError('a union value must not be None')
+            self._atan2 = atan2
+            self._type = 'atan2'
         elif type_of_union == 'aggregate':
             if aggregate is None:
                 raise ValueError('a union value must not be None')
             self._aggregate = aggregate
             self._type = 'aggregate'
-        elif type_of_union == 'arithmetic':
-            if arithmetic is None:
-                raise ValueError('a union value must not be None')
-            self._arithmetic = arithmetic
-            self._type = 'arithmetic'
         elif type_of_union == 'bitOperation':
             if bit_operation is None:
                 raise ValueError('a union value must not be None')
@@ -56663,16 +57264,6 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._time_shift = time_shift
             self._type = 'timeShift'
-        elif type_of_union == 'unaryArithmetic':
-            if unary_arithmetic is None:
-                raise ValueError('a union value must not be None')
-            self._unary_arithmetic = unary_arithmetic
-            self._type = 'unaryArithmetic'
-        elif type_of_union == 'binaryArithmetic':
-            if binary_arithmetic is None:
-                raise ValueError('a union value must not be None')
-            self._binary_arithmetic = binary_arithmetic
-            self._type = 'binaryArithmetic'
         elif type_of_union == 'union':
             if union is None:
                 raise ValueError('a union value must not be None')
@@ -56738,14 +57329,97 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._extract_from_struct = extract_from_struct
             self._type = 'extractFromStruct'
+        elif type_of_union == 'arithmetic':
+            if arithmetic is None:
+                raise ValueError('a union value must not be None')
+            self._arithmetic = arithmetic
+            self._type = 'arithmetic'
+        elif type_of_union == 'unaryArithmetic':
+            if unary_arithmetic is None:
+                raise ValueError('a union value must not be None')
+            self._unary_arithmetic = unary_arithmetic
+            self._type = 'unaryArithmetic'
+        elif type_of_union == 'binaryArithmetic':
+            if binary_arithmetic is None:
+                raise ValueError('a union value must not be None')
+            self._binary_arithmetic = binary_arithmetic
+            self._type = 'binaryArithmetic'
+
+    @builtins.property
+    def abs(self) -> Optional["scout_compute_api_Abs"]:
+        return self._abs
+
+    @builtins.property
+    def negate(self) -> Optional["scout_compute_api_Negate"]:
+        return self._negate
+
+    @builtins.property
+    def cos(self) -> Optional["scout_compute_api_Cos"]:
+        return self._cos
+
+    @builtins.property
+    def sin(self) -> Optional["scout_compute_api_Sin"]:
+        return self._sin
+
+    @builtins.property
+    def tan(self) -> Optional["scout_compute_api_Tan"]:
+        return self._tan
+
+    @builtins.property
+    def acos(self) -> Optional["scout_compute_api_Acos"]:
+        return self._acos
+
+    @builtins.property
+    def asin(self) -> Optional["scout_compute_api_Asin"]:
+        return self._asin
+
+    @builtins.property
+    def ln(self) -> Optional["scout_compute_api_Ln"]:
+        return self._ln
+
+    @builtins.property
+    def log10(self) -> Optional["scout_compute_api_Log10"]:
+        return self._log10
+
+    @builtins.property
+    def sqrt(self) -> Optional["scout_compute_api_Sqrt"]:
+        return self._sqrt
+
+    @builtins.property
+    def add(self) -> Optional["scout_compute_api_Add"]:
+        return self._add
+
+    @builtins.property
+    def subtract(self) -> Optional["scout_compute_api_Subtract"]:
+        return self._subtract
+
+    @builtins.property
+    def multiply(self) -> Optional["scout_compute_api_Multiply"]:
+        return self._multiply
+
+    @builtins.property
+    def divide(self) -> Optional["scout_compute_api_Divide"]:
+        return self._divide
+
+    @builtins.property
+    def floor_divide(self) -> Optional["scout_compute_api_FloorDivide"]:
+        return self._floor_divide
+
+    @builtins.property
+    def power(self) -> Optional["scout_compute_api_Power"]:
+        return self._power
+
+    @builtins.property
+    def modulo(self) -> Optional["scout_compute_api_Modulo"]:
+        return self._modulo
+
+    @builtins.property
+    def atan2(self) -> Optional["scout_compute_api_Atan2"]:
+        return self._atan2
 
     @builtins.property
     def aggregate(self) -> Optional["scout_compute_api_AggregateNumericSeries"]:
         return self._aggregate
-
-    @builtins.property
-    def arithmetic(self) -> Optional["scout_compute_api_ArithmeticSeries"]:
-        return self._arithmetic
 
     @builtins.property
     def bit_operation(self) -> Optional["scout_compute_api_BitOperationSeries"]:
@@ -56840,14 +57514,6 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
         return self._time_shift
 
     @builtins.property
-    def unary_arithmetic(self) -> Optional["scout_compute_api_UnaryArithmeticSeries"]:
-        return self._unary_arithmetic
-
-    @builtins.property
-    def binary_arithmetic(self) -> Optional["scout_compute_api_BinaryArithmeticSeries"]:
-        return self._binary_arithmetic
-
-    @builtins.property
     def union(self) -> Optional["scout_compute_api_NumericUnionSeries"]:
         return self._union
 
@@ -56899,13 +57565,59 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
     def extract_from_struct(self) -> Optional["scout_compute_api_ExtractNumericFromStructSeries"]:
         return self._extract_from_struct
 
+    @builtins.property
+    def arithmetic(self) -> Optional["scout_compute_api_ArithmeticSeries"]:
+        return self._arithmetic
+
+    @builtins.property
+    def unary_arithmetic(self) -> Optional["scout_compute_api_UnaryArithmeticSeries"]:
+        return self._unary_arithmetic
+
+    @builtins.property
+    def binary_arithmetic(self) -> Optional["scout_compute_api_BinaryArithmeticSeries"]:
+        return self._binary_arithmetic
+
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_compute_api_NumericSeriesVisitor):
             raise ValueError('{} is not an instance of scout_compute_api_NumericSeriesVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'abs' and self.abs is not None:
+            return visitor._abs(self.abs)
+        if self._type == 'negate' and self.negate is not None:
+            return visitor._negate(self.negate)
+        if self._type == 'cos' and self.cos is not None:
+            return visitor._cos(self.cos)
+        if self._type == 'sin' and self.sin is not None:
+            return visitor._sin(self.sin)
+        if self._type == 'tan' and self.tan is not None:
+            return visitor._tan(self.tan)
+        if self._type == 'acos' and self.acos is not None:
+            return visitor._acos(self.acos)
+        if self._type == 'asin' and self.asin is not None:
+            return visitor._asin(self.asin)
+        if self._type == 'ln' and self.ln is not None:
+            return visitor._ln(self.ln)
+        if self._type == 'log10' and self.log10 is not None:
+            return visitor._log10(self.log10)
+        if self._type == 'sqrt' and self.sqrt is not None:
+            return visitor._sqrt(self.sqrt)
+        if self._type == 'add' and self.add is not None:
+            return visitor._add(self.add)
+        if self._type == 'subtract' and self.subtract is not None:
+            return visitor._subtract(self.subtract)
+        if self._type == 'multiply' and self.multiply is not None:
+            return visitor._multiply(self.multiply)
+        if self._type == 'divide' and self.divide is not None:
+            return visitor._divide(self.divide)
+        if self._type == 'floorDivide' and self.floor_divide is not None:
+            return visitor._floor_divide(self.floor_divide)
+        if self._type == 'power' and self.power is not None:
+            return visitor._power(self.power)
+        if self._type == 'modulo' and self.modulo is not None:
+            return visitor._modulo(self.modulo)
+        if self._type == 'atan2' and self.atan2 is not None:
+            return visitor._atan2(self.atan2)
         if self._type == 'aggregate' and self.aggregate is not None:
             return visitor._aggregate(self.aggregate)
-        if self._type == 'arithmetic' and self.arithmetic is not None:
-            return visitor._arithmetic(self.arithmetic)
         if self._type == 'bitOperation' and self.bit_operation is not None:
             return visitor._bit_operation(self.bit_operation)
         if self._type == 'countDuplicate' and self.count_duplicate is not None:
@@ -56952,10 +57664,6 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
             return visitor._time_range_filter(self.time_range_filter)
         if self._type == 'timeShift' and self.time_shift is not None:
             return visitor._time_shift(self.time_shift)
-        if self._type == 'unaryArithmetic' and self.unary_arithmetic is not None:
-            return visitor._unary_arithmetic(self.unary_arithmetic)
-        if self._type == 'binaryArithmetic' and self.binary_arithmetic is not None:
-            return visitor._binary_arithmetic(self.binary_arithmetic)
         if self._type == 'union' and self.union is not None:
             return visitor._union(self.union)
         if self._type == 'unitConversion' and self.unit_conversion is not None:
@@ -56982,6 +57690,12 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
             return visitor._refprop(self.refprop)
         if self._type == 'extractFromStruct' and self.extract_from_struct is not None:
             return visitor._extract_from_struct(self.extract_from_struct)
+        if self._type == 'arithmetic' and self.arithmetic is not None:
+            return visitor._arithmetic(self.arithmetic)
+        if self._type == 'unaryArithmetic' and self.unary_arithmetic is not None:
+            return visitor._unary_arithmetic(self.unary_arithmetic)
+        if self._type == 'binaryArithmetic' and self.binary_arithmetic is not None:
+            return visitor._binary_arithmetic(self.binary_arithmetic)
 
 
 scout_compute_api_NumericSeries.__name__ = "NumericSeries"
@@ -56992,11 +57706,79 @@ scout_compute_api_NumericSeries.__module__ = "nominal_api.scout_compute_api"
 class scout_compute_api_NumericSeriesVisitor:
 
     @abstractmethod
-    def _aggregate(self, aggregate: "scout_compute_api_AggregateNumericSeries") -> Any:
+    def _abs(self, abs: "scout_compute_api_Abs") -> Any:
         pass
 
     @abstractmethod
-    def _arithmetic(self, arithmetic: "scout_compute_api_ArithmeticSeries") -> Any:
+    def _negate(self, negate: "scout_compute_api_Negate") -> Any:
+        pass
+
+    @abstractmethod
+    def _cos(self, cos: "scout_compute_api_Cos") -> Any:
+        pass
+
+    @abstractmethod
+    def _sin(self, sin: "scout_compute_api_Sin") -> Any:
+        pass
+
+    @abstractmethod
+    def _tan(self, tan: "scout_compute_api_Tan") -> Any:
+        pass
+
+    @abstractmethod
+    def _acos(self, acos: "scout_compute_api_Acos") -> Any:
+        pass
+
+    @abstractmethod
+    def _asin(self, asin: "scout_compute_api_Asin") -> Any:
+        pass
+
+    @abstractmethod
+    def _ln(self, ln: "scout_compute_api_Ln") -> Any:
+        pass
+
+    @abstractmethod
+    def _log10(self, log10: "scout_compute_api_Log10") -> Any:
+        pass
+
+    @abstractmethod
+    def _sqrt(self, sqrt: "scout_compute_api_Sqrt") -> Any:
+        pass
+
+    @abstractmethod
+    def _add(self, add: "scout_compute_api_Add") -> Any:
+        pass
+
+    @abstractmethod
+    def _subtract(self, subtract: "scout_compute_api_Subtract") -> Any:
+        pass
+
+    @abstractmethod
+    def _multiply(self, multiply: "scout_compute_api_Multiply") -> Any:
+        pass
+
+    @abstractmethod
+    def _divide(self, divide: "scout_compute_api_Divide") -> Any:
+        pass
+
+    @abstractmethod
+    def _floor_divide(self, floor_divide: "scout_compute_api_FloorDivide") -> Any:
+        pass
+
+    @abstractmethod
+    def _power(self, power: "scout_compute_api_Power") -> Any:
+        pass
+
+    @abstractmethod
+    def _modulo(self, modulo: "scout_compute_api_Modulo") -> Any:
+        pass
+
+    @abstractmethod
+    def _atan2(self, atan2: "scout_compute_api_Atan2") -> Any:
+        pass
+
+    @abstractmethod
+    def _aggregate(self, aggregate: "scout_compute_api_AggregateNumericSeries") -> Any:
         pass
 
     @abstractmethod
@@ -57092,14 +57874,6 @@ class scout_compute_api_NumericSeriesVisitor:
         pass
 
     @abstractmethod
-    def _unary_arithmetic(self, unary_arithmetic: "scout_compute_api_UnaryArithmeticSeries") -> Any:
-        pass
-
-    @abstractmethod
-    def _binary_arithmetic(self, binary_arithmetic: "scout_compute_api_BinaryArithmeticSeries") -> Any:
-        pass
-
-    @abstractmethod
     def _union(self, union: "scout_compute_api_NumericUnionSeries") -> Any:
         pass
 
@@ -57149,6 +57923,18 @@ class scout_compute_api_NumericSeriesVisitor:
 
     @abstractmethod
     def _extract_from_struct(self, extract_from_struct: "scout_compute_api_ExtractNumericFromStructSeries") -> Any:
+        pass
+
+    @abstractmethod
+    def _arithmetic(self, arithmetic: "scout_compute_api_ArithmeticSeries") -> Any:
+        pass
+
+    @abstractmethod
+    def _unary_arithmetic(self, unary_arithmetic: "scout_compute_api_UnaryArithmeticSeries") -> Any:
+        pass
+
+    @abstractmethod
+    def _binary_arithmetic(self, binary_arithmetic: "scout_compute_api_BinaryArithmeticSeries") -> Any:
         pass
 
 
@@ -58313,6 +59099,41 @@ class scout_compute_api_PolynomialResultDetails(ConjureBeanType):
 scout_compute_api_PolynomialResultDetails.__name__ = "PolynomialResultDetails"
 scout_compute_api_PolynomialResultDetails.__qualname__ = "PolynomialResultDetails"
 scout_compute_api_PolynomialResultDetails.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_Power(ConjureBeanType):
+    """Raises base to the power of exponent pointwise.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'base': ConjureFieldDefinition('base', scout_compute_api_NumericSeries),
+            'exponent': ConjureFieldDefinition('exponent', scout_compute_api_NumericSeries)
+        }
+
+    __slots__: List[str] = ['_base', '_exponent']
+
+    def __init__(self, base: "scout_compute_api_NumericSeries", exponent: "scout_compute_api_NumericSeries") -> None:
+        self._base = base
+        self._exponent = exponent
+
+    @builtins.property
+    def base(self) -> "scout_compute_api_NumericSeries":
+        """Base values.
+        """
+        return self._base
+
+    @builtins.property
+    def exponent(self) -> "scout_compute_api_NumericSeries":
+        """Exponent values.
+        """
+        return self._exponent
+
+
+scout_compute_api_Power.__name__ = "Power"
+scout_compute_api_Power.__qualname__ = "Power"
+scout_compute_api_Power.__module__ = "nominal_api.scout_compute_api"
 
 
 class scout_compute_api_PowerCurve(ConjureBeanType):
@@ -61033,6 +61854,33 @@ scout_compute_api_SignalFilterSeries.__qualname__ = "SignalFilterSeries"
 scout_compute_api_SignalFilterSeries.__module__ = "nominal_api.scout_compute_api"
 
 
+class scout_compute_api_Sin(ConjureBeanType):
+    """Computes the trigonometric sine of each value (input in radians).
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'x': ConjureFieldDefinition('x', scout_compute_api_NumericSeries)
+        }
+
+    __slots__: List[str] = ['_x']
+
+    def __init__(self, x: "scout_compute_api_NumericSeries") -> None:
+        self._x = x
+
+    @builtins.property
+    def x(self) -> "scout_compute_api_NumericSeries":
+        """Input numeric series (radians).
+        """
+        return self._x
+
+
+scout_compute_api_Sin.__name__ = "Sin"
+scout_compute_api_Sin.__qualname__ = "Sin"
+scout_compute_api_Sin.__module__ = "nominal_api.scout_compute_api"
+
+
 class scout_compute_api_SinglePoint(ConjureBeanType):
     """Return type representing a single point value.
     """
@@ -61091,6 +61939,33 @@ Continues subdividing by prioritizing larger undivided buckets until reaching th
 scout_compute_api_SpatialDecimateStrategy.__name__ = "SpatialDecimateStrategy"
 scout_compute_api_SpatialDecimateStrategy.__qualname__ = "SpatialDecimateStrategy"
 scout_compute_api_SpatialDecimateStrategy.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_Sqrt(ConjureBeanType):
+    """Computes the square root of each value.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'x': ConjureFieldDefinition('x', scout_compute_api_NumericSeries)
+        }
+
+    __slots__: List[str] = ['_x']
+
+    def __init__(self, x: "scout_compute_api_NumericSeries") -> None:
+        self._x = x
+
+    @builtins.property
+    def x(self) -> "scout_compute_api_NumericSeries":
+        """Input numeric series (non-negative values).
+        """
+        return self._x
+
+
+scout_compute_api_Sqrt.__name__ = "Sqrt"
+scout_compute_api_Sqrt.__qualname__ = "Sqrt"
+scout_compute_api_Sqrt.__module__ = "nominal_api.scout_compute_api"
 
 
 class scout_compute_api_StabilityDetectionRanges(ConjureBeanType):
@@ -61577,6 +62452,41 @@ class scout_compute_api_StructSeriesVisitor:
 scout_compute_api_StructSeriesVisitor.__name__ = "StructSeriesVisitor"
 scout_compute_api_StructSeriesVisitor.__qualname__ = "StructSeriesVisitor"
 scout_compute_api_StructSeriesVisitor.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_Subtract(ConjureBeanType):
+    """Subtracts right from left pointwise.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'left': ConjureFieldDefinition('left', scout_compute_api_NumericSeries),
+            'right': ConjureFieldDefinition('right', scout_compute_api_NumericSeries)
+        }
+
+    __slots__: List[str] = ['_left', '_right']
+
+    def __init__(self, left: "scout_compute_api_NumericSeries", right: "scout_compute_api_NumericSeries") -> None:
+        self._left = left
+        self._right = right
+
+    @builtins.property
+    def left(self) -> "scout_compute_api_NumericSeries":
+        """Left-hand operand (minuend).
+        """
+        return self._left
+
+    @builtins.property
+    def right(self) -> "scout_compute_api_NumericSeries":
+        """Right-hand operand (subtrahend).
+        """
+        return self._right
+
+
+scout_compute_api_Subtract.__name__ = "Subtract"
+scout_compute_api_Subtract.__qualname__ = "Subtract"
+scout_compute_api_Subtract.__module__ = "nominal_api.scout_compute_api"
 
 
 class scout_compute_api_Sum(ConjureBeanType):
@@ -62168,6 +63078,33 @@ class scout_compute_api_TagFiltersVisitor:
 scout_compute_api_TagFiltersVisitor.__name__ = "TagFiltersVisitor"
 scout_compute_api_TagFiltersVisitor.__qualname__ = "TagFiltersVisitor"
 scout_compute_api_TagFiltersVisitor.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_Tan(ConjureBeanType):
+    """Computes the trigonometric tangent of each value (input in radians).
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'x': ConjureFieldDefinition('x', scout_compute_api_NumericSeries)
+        }
+
+    __slots__: List[str] = ['_x']
+
+    def __init__(self, x: "scout_compute_api_NumericSeries") -> None:
+        self._x = x
+
+    @builtins.property
+    def x(self) -> "scout_compute_api_NumericSeries":
+        """Input numeric series (radians).
+        """
+        return self._x
+
+
+scout_compute_api_Tan.__name__ = "Tan"
+scout_compute_api_Tan.__qualname__ = "Tan"
+scout_compute_api_Tan.__module__ = "nominal_api.scout_compute_api"
 
 
 class scout_compute_api_TemporalDecimateStrategy(ConjureBeanType):

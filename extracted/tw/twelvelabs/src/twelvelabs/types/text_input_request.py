@@ -8,7 +8,7 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 
 class TextInputRequest(UniversalBaseModel):
     """
-    This field is required if `input_type` is `text`.
+    This field is required if the `input_type` parameter is `text`.
     """
 
     input_text: str = pydantic.Field()

@@ -199,27 +199,40 @@ class JsonEncryptionWrapper:
         async def encryptor(ctx: Any, data: dict[str, Any]) -> dict[str, Any]:
             encrypted = await custom_encryptor(ctx, data)
 
+            # Reject non-dict returns outright.  An encryptor that returns a
+            # string (envelope encryption) changes the JSONB column type from
+            # object to string, breaks SQL JSONB operations, and silently
+            # bypasses the key-preservation check below.  This was the root
+            # cause of run kwargs subfields (input, context, …) being stored as
+            # unrecoverable encrypted blobs on 0.7.19-0.7.32.
+            if not isinstance(encrypted, dict):
+                raise EncryptionKeyError(
+                    f"JSON encryptor must return a dict, got "
+                    f"{type(encrypted).__name__}. Use per-key encryption "
+                    f"(transform values, not keys) instead of envelope patterns "
+                    f"that return a single encrypted token."
+                )
+
             # Validate key preservation for SQL JSONB merge compatibility
-            if encrypted is not None and isinstance(encrypted, dict):
-                input_keys = set(data.keys())
-                output_keys = set(encrypted.keys())
-                added_keys = output_keys - input_keys
-                removed_keys = input_keys - output_keys
-                if added_keys or removed_keys:
-                    raise EncryptionKeyError(
-                        f"JSON encryptor must preserve key structure for SQL JSONB merge compatibility. "
-                        f"Added keys: {added_keys or 'none'}, removed keys: {removed_keys or 'none'}. "
-                        f"Use per-key encryption (transform values, not keys) instead of envelope patterns."
-                    )
-
-                # Add encryption context marker with user's context
-                from langgraph_api.encryption.context import (  # noqa: PLC0415
-                    get_encryption_context,
+            input_keys = set(data.keys())
+            output_keys = set(encrypted.keys())
+            added_keys = output_keys - input_keys
+            removed_keys = input_keys - output_keys
+            if added_keys or removed_keys:
+                raise EncryptionKeyError(
+                    f"JSON encryptor must preserve key structure for SQL JSONB merge compatibility. "
+                    f"Added keys: {added_keys or 'none'}, removed keys: {removed_keys or 'none'}. "
+                    f"Use per-key encryption (transform values, not keys) instead of envelope patterns."
                 )
 
-                encrypted[ENCRYPTION_CONTEXT_KEY] = (
-                    ctx.metadata if ctx and ctx.metadata else get_encryption_context()
-                )
+            # Add encryption context marker with user's context
+            from langgraph_api.encryption.context import (  # noqa: PLC0415
+                get_encryption_context,
+            )
+
+            encrypted[ENCRYPTION_CONTEXT_KEY] = (
+                ctx.metadata if ctx and ctx.metadata else get_encryption_context()
+            )
 
             return encrypted
 

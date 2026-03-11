@@ -234,3 +234,5 @@ api_key_case_management_queues/org_id,ws_id:
     - r+w:workspace_case_queue/org_id,ws_id
 api_key_case_management_templates/org_id,ws_id:
     - r+w:workspace_case_template/org_id,ws_id
+scim_provisioner/org_id:
+    - r+w:scim_provisioning/org_id

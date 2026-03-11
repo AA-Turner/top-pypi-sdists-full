@@ -6,7 +6,7 @@ def parse_requirements(filename):
     return [line for line in lines if line]
 
 
-configcatclient_version = '9.0.4'
+configcatclient_version = '10.0.0'
 
 requirements = parse_requirements('requirements.txt')
 
@@ -27,19 +27,16 @@ setup(
     install_requires=requirements,
     classifiers=[
         'Intended Audience :: Developers',
-        'License :: OSI Approved :: Apache Software License',
+        'License :: OSI Approved :: MIT License',
         'Operating System :: OS Independent',
-        'Programming Language :: Python :: 2',
-        'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.5',
-        'Programming Language :: Python :: 3.6',
-        'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
         'Programming Language :: Python :: 3.11',
         'Programming Language :: Python :: 3.12',
+        'Programming Language :: Python :: 3.13',
+        'Programming Language :: Python :: 3.14',
         'Topic :: Software Development',
         'Topic :: Software Development :: Libraries',
     ],

@@ -32,7 +32,7 @@ def push(
 
     Parameters
     ----------
-    job_folder : {str}
+    job_folder : {str, pathlib.Path}
         A full or partial path to the job folder created by
         spy.workbooks.job.pull() and populated with data by
         spy.workbooks.job.pull_data().

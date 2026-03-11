@@ -924,10 +924,10 @@ class CfnChannel(
         def __init__(
             self,
             *,
-            id: builtins.str,
-            password: builtins.str,
-            url: builtins.str,
-            username: builtins.str,
+            id: typing.Optional[builtins.str] = None,
+            password: typing.Optional[builtins.str] = None,
+            url: typing.Optional[builtins.str] = None,
+            username: typing.Optional[builtins.str] = None,
         ) -> None:
             '''An endpoint for ingesting source content for a channel.
 
@@ -958,52 +958,51 @@ class CfnChannel(
                 check_type(argname="argument password", value=password, expected_type=type_hints["password"])
                 check_type(argname="argument url", value=url, expected_type=type_hints["url"])
                 check_type(argname="argument username", value=username, expected_type=type_hints["username"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "id": id,
-                "password": password,
-                "url": url,
-                "username": username,
-            }
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if id is not None:
+                self._values["id"] = id
+            if password is not None:
+                self._values["password"] = password
+            if url is not None:
+                self._values["url"] = url
+            if username is not None:
+                self._values["username"] = username
 
         @builtins.property
-        def id(self) -> builtins.str:
+        def id(self) -> typing.Optional[builtins.str]:
             '''The endpoint identifier.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackage-channel-ingestendpoint.html#cfn-mediapackage-channel-ingestendpoint-id
             '''
             result = self._values.get("id")
-            assert result is not None, "Required property 'id' is missing"
-            return typing.cast(builtins.str, result)
+            return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
-        def password(self) -> builtins.str:
+        def password(self) -> typing.Optional[builtins.str]:
             '''The system-generated password for WebDAV input authentication.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackage-channel-ingestendpoint.html#cfn-mediapackage-channel-ingestendpoint-password
             '''
             result = self._values.get("password")
-            assert result is not None, "Required property 'password' is missing"
-            return typing.cast(builtins.str, result)
+            return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
-        def url(self) -> builtins.str:
+        def url(self) -> typing.Optional[builtins.str]:
             '''The input URL where the source stream should be sent.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackage-channel-ingestendpoint.html#cfn-mediapackage-channel-ingestendpoint-url
             '''
             result = self._values.get("url")
-            assert result is not None, "Required property 'url' is missing"
-            return typing.cast(builtins.str, result)
+            return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
-        def username(self) -> builtins.str:
+        def username(self) -> typing.Optional[builtins.str]:
             '''The system-generated username for WebDAV input authentication.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackage-channel-ingestendpoint.html#cfn-mediapackage-channel-ingestendpoint-username
             '''
             result = self._values.get("username")
-            assert result is not None, "Required property 'username' is missing"
-            return typing.cast(builtins.str, result)
+            return typing.cast(typing.Optional[builtins.str], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7285,10 +7284,10 @@ def _typecheckingstub__d8879f1cc6590d96234de60e9c45cd369821bc7c5aed33b342acff35c
 
 def _typecheckingstub__4a0b9e94f252eb78a349be10dd707d652377ae6ccf636f5f08b2754b2de7260e(
     *,
-    id: builtins.str,
-    password: builtins.str,
-    url: builtins.str,
-    username: builtins.str,
+    id: typing.Optional[builtins.str] = None,
+    password: typing.Optional[builtins.str] = None,
+    url: typing.Optional[builtins.str] = None,
+    username: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

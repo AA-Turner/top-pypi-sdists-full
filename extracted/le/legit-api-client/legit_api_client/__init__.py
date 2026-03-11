@@ -14,7 +14,7 @@
 """  # noqa: E501
 
 
-__version__ = "1.1.4707"
+__version__ = "1.1.4709"
 
 # Define package exports
 __all__ = [
@@ -222,6 +222,7 @@ __all__ = [
     "SdlcAssetMetaType",
     "SdlcAssetType",
     "SecretIssueValidityStatus",
+    "SecretType",
     "SecretsDataDto",
     "SetProductUnitTicketTemplateDto",
     "Severity",
@@ -452,6 +453,7 @@ from legit_api_client.models.sdlc_asset_graph_link_dto_evidences import SdlcAsse
 from legit_api_client.models.sdlc_asset_meta_type import SdlcAssetMetaType as SdlcAssetMetaType
 from legit_api_client.models.sdlc_asset_type import SdlcAssetType as SdlcAssetType
 from legit_api_client.models.secret_issue_validity_status import SecretIssueValidityStatus as SecretIssueValidityStatus
+from legit_api_client.models.secret_type import SecretType as SecretType
 from legit_api_client.models.secrets_data_dto import SecretsDataDto as SecretsDataDto
 from legit_api_client.models.set_product_unit_ticket_template_dto import SetProductUnitTicketTemplateDto as SetProductUnitTicketTemplateDto
 from legit_api_client.models.severity import Severity as Severity

@@ -61,6 +61,7 @@ from datamodel_code_generator.format import (
     Formatter,
     PythonVersion,
     PythonVersionMin,
+    resolve_use_type_checking_imports,
 )
 from datamodel_code_generator.parser import DefaultPutDict, LiteralType
 
@@ -80,16 +81,9 @@ if TYPE_CHECKING:
 T = TypeVar("T")
 _ConfigT = TypeVar("_ConfigT", bound="ParserConfig")
 
-# Import is_pydantic_v2 here for module-level YamlValue type definition
-from datamodel_code_generator.util import is_pydantic_v2  # noqa: E402
-
 if not TYPE_CHECKING:  # pragma: no branch
     YamlScalar: TypeAlias = str | int | float | bool | None
-    if is_pydantic_v2():
-        YamlValue = TypeAliasType("YamlValue", "dict[str, YamlValue] | list[YamlValue] | YamlScalar")
-    else:
-        # Pydantic v1 cannot handle TypeAliasType, use Any for recursive parts
-        YamlValue: TypeAlias = dict[str, Any] | list[Any] | YamlScalar
+    YamlValue = TypeAliasType("YamlValue", "dict[str, YamlValue] | list[YamlValue] | YamlScalar")
 
 
 GeneratedModules: TypeAlias = dict[tuple[str, ...], str]
@@ -471,19 +465,13 @@ def _create_parser_config(
     Filters GenerateConfig fields to only those expected by the parser config class,
     then merges with additional_options.
     """
-    if is_pydantic_v2():
-        parser_config_fields = set(config_class.model_fields.keys())
-        all_options = {
-            k: v
-            for k, v in generate_config.model_dump().items()
-            if k in parser_config_fields and k not in additional_options
-        } | dict(additional_options)
-        return config_class.model_validate(all_options)
-    parser_config_fields = set(config_class.__fields__.keys())
+    parser_config_fields = set(config_class.model_fields.keys())
     all_options = {
-        k: v for k, v in generate_config.dict().items() if k in parser_config_fields and k not in additional_options
+        k: v
+        for k, v in generate_config.model_dump().items()
+        if k in parser_config_fields and k not in additional_options
     } | dict(additional_options)
-    return config_class.parse_obj(all_options)
+    return config_class.model_validate(all_options)
 
 
 def generate(  # noqa: PLR0912, PLR0914, PLR0915
@@ -518,18 +506,11 @@ def generate(  # noqa: PLR0912, PLR0914, PLR0915
         raise ValueError(msg)
 
     if config is None:
-        if is_pydantic_v2():
-            from datamodel_code_generator.model.pydantic_v2 import UnionMode  # noqa: PLC0415
-            from datamodel_code_generator.types import StrictTypes  # noqa: PLC0415
+        from datamodel_code_generator.model.pydantic_v2 import UnionMode  # noqa: PLC0415
+        from datamodel_code_generator.types import StrictTypes  # noqa: PLC0415
 
-            GenerateConfig.model_rebuild(_types_namespace={"StrictTypes": StrictTypes, "UnionMode": UnionMode})
-            config = GenerateConfig.model_validate(options)
-        else:
-            from datamodel_code_generator.enums import UnionMode  # noqa: PLC0415
-            from datamodel_code_generator.types import StrictTypes  # noqa: PLC0415
-
-            GenerateConfig.update_forward_refs(StrictTypes=StrictTypes, UnionMode=UnionMode)
-            config = GenerateConfig(**options)
+        GenerateConfig.model_rebuild(_types_namespace={"StrictTypes": StrictTypes, "UnionMode": UnionMode})
+        config = GenerateConfig.model_validate(options)
 
     # Variables that may be modified during processing
     input_filename = config.input_filename
@@ -733,6 +714,7 @@ def generate(  # noqa: PLR0912, PLR0914, PLR0915
         "target_date_class": config.output_date_class,
         "dataclass_arguments": dataclass_arguments,
         "defer_formatting": defer_formatting,
+        "use_type_checking_imports": config.use_type_checking_imports,
         "enum_field_as_literal": (
             config.enum_field_as_literal
             if config.enum_field_as_literal is not None
@@ -923,6 +905,14 @@ def generate(  # noqa: PLR0912, PLR0914, PLR0915
         and config.formatters
         and (Formatter.RUFF_CHECK in config.formatters or Formatter.RUFF_FORMAT in config.formatters)
     ):
+        effective_use_type_checking_imports = resolve_use_type_checking_imports(
+            config.use_type_checking_imports,
+            is_multi_module_output=True,
+            formatters=config.formatters,
+            requires_runtime_imports_with_ruff_check=(
+                data_model_types.data_model.REQUIRES_RUNTIME_IMPORTS_WITH_RUFF_CHECK
+            ),
+        )
         code_formatter = CodeFormatter(
             config.target_python_version,
             config.settings_path,
@@ -933,6 +923,8 @@ def generate(  # noqa: PLR0912, PLR0914, PLR0915
             custom_formatters_kwargs=config.custom_formatters_kwargs,
             encoding=config.encoding,
             formatters=config.formatters,
+            use_type_checking_imports=effective_use_type_checking_imports,
+            defer_formatting=True,
         )
         code_formatter.format_directory(output)
 
@@ -978,13 +970,6 @@ _LAZY_IMPORTS = {
 def __getattr__(name: str) -> Any:
     if name in _LAZY_IMPORTS:
         import importlib  # noqa: PLC0415
-
-        if name == "GenerateConfig" and not is_pydantic_v2():  # pragma: no cover
-            msg = (
-                f"'{name}' is only available in Pydantic v2 environments. "
-                "Use 'from datamodel_code_generator.config import GenerateConfig' instead."
-            )
-            raise ImportError(msg)
 
         module = importlib.import_module(_LAZY_IMPORTS[name])
         return getattr(module, name)
@@ -1034,5 +1019,4 @@ __all__ = [
     "generate_dynamic_models",  # noqa: F822
 ]
 
-if is_pydantic_v2():  # pragma: no cover
-    __all__ += ["GenerateConfig"]
+__all__ += ["GenerateConfig"]

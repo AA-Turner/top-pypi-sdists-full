@@ -1,5 +1,4 @@
-# -*- coding: utf-8 -*-
-# SPDX-FileCopyrightText: 2016-2025 PyThaiNLP Project
+# SPDX-FileCopyrightText: 2016-2026 PyThaiNLP Project
 # SPDX-FileType: SOURCE
 # SPDX-License-Identifier: Apache-2.0
 
@@ -18,6 +17,8 @@ from pythainlp.transliterate.wunsen import WunsenTransliterate
 class TransliterateTestCaseX(unittest.TestCase):
     def test_romanize(self):
         self.assertEqual(romanize("แมว", engine="tltk"), "maeo")
+        # Test for character ฅ (issue: Transliterator cannot handle ฅ)
+        self.assertIsNotNone(romanize("ภาษาไวคาลีฅ", engine="tltk"))
 
     def test_romanize_thai2rom(self):
         self.assertEqual(romanize("แมว", engine="thai2rom"), "maeo")
@@ -146,6 +147,9 @@ class TransliterateTestCaseX(unittest.TestCase):
         self.assertIsNotNone(transliterate("แมว", engine="tltk_g2p"))
         self.assertIsNotNone(transliterate("คน", engine="tltk_ipa"))
         self.assertIsNotNone(transliterate("แมว", engine="tltk_ipa"))
+        # Test for character ฅ (issue: Transliterator cannot handle ฅ)
+        self.assertIsNotNone(transliterate("ภาษาไวคาลีฅ", engine="tltk_g2p"))
+        self.assertIsNotNone(transliterate("ภาษาไวคาลีฅ", engine="tltk_ipa"))
 
         self.assertIsNotNone(trans_list("คน"))
         self.assertIsNotNone(xsampa_list("คน"))

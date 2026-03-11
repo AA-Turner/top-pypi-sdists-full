@@ -7,3 +7,4 @@ from .metric_enums import MetricAggregation, MetricResolution
 from .metric_single_values import OtelSingleMetricValue
 from .metric_summary import OtelMetricSummary
 from .metric_values import OtelMetricBucketValue, OtelMetricValue
+from .metrics import OtelMetrics

@@ -1171,6 +1171,7 @@ class StreamResolver(_message.Message):
         "update_aggregates",
         "message_format",
         "header_filters",
+        "resource_group",
     )
     class FeatureExpressionsEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -1206,6 +1207,7 @@ class StreamResolver(_message.Message):
     UPDATE_AGGREGATES_FIELD_NUMBER: _ClassVar[int]
     MESSAGE_FORMAT_FIELD_NUMBER: _ClassVar[int]
     HEADER_FILTERS_FIELD_NUMBER: _ClassVar[int]
+    RESOURCE_GROUP_FIELD_NUMBER: _ClassVar[int]
     fqn: str
     params: _containers.RepeatedCompositeFieldContainer[StreamResolverParam]
     outputs: _containers.RepeatedCompositeFieldContainer[ResolverOutput]
@@ -1230,6 +1232,7 @@ class StreamResolver(_message.Message):
     update_aggregates: bool
     message_format: StreamMessageFormat
     header_filters: _containers.RepeatedCompositeFieldContainer[StreamHeaderFilter]
+    resource_group: str
     def __init__(
         self,
         fqn: _Optional[str] = ...,
@@ -1256,6 +1259,7 @@ class StreamResolver(_message.Message):
         update_aggregates: bool = ...,
         message_format: _Optional[_Union[StreamMessageFormat, str]] = ...,
         header_filters: _Optional[_Iterable[_Union[StreamHeaderFilter, _Mapping]]] = ...,
+        resource_group: _Optional[str] = ...,
     ) -> None: ...
 
 class StreamMessageHeaderEqualityCheck(_message.Message):

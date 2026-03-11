@@ -269,6 +269,7 @@ class HookStage(StageWithFile):
             "input": self.input,
             "output": self.output,
             "task_schema": self.task_schema,
+            "type": self.type_name,
         }
 
     @property
@@ -367,6 +368,7 @@ class ScriptStage(StageWithFile):
             "input": self.input,
             "output": self.output,
             "task_schema": self.task_schema,
+            "type": self.type_name,
         }
 
     @property
@@ -449,6 +451,7 @@ class ComponentStage(Stage):
             "workflow_position": self.workflow_position,
             "transitions": [t.as_dict for t in self.workflow_transitions],
             "package_name": self.package_name,
+            "type": self.type_name,
         }
 
     @property
@@ -636,6 +639,7 @@ class JobStage(StageWithFile):
             "input": self.input,
             "output": self.output,
             "task_schema": self.task_schema,
+            "type": self.type_name,
         }
 
     @property
@@ -792,6 +796,7 @@ class FormStage(StageWithFile):
             ),
             "access_control": self.access_control.as_dict,
             "task_schema": self.task_schema,
+            "type": self.type_name,
         }
 
     @property

@@ -145,6 +145,7 @@ def proto_to_cron(proto_cron: pb.Cron) -> Cron:
         "on_run_completed": _on_run_completed_to_str(proto_cron),
         "end_time": end_time,
         "schedule": proto_cron.schedule,
+        "timezone": proto_cron.timezone if proto_cron.HasField("timezone") else None,
         "created_at": proto_cron.created_at.ToDatetime(tzinfo=UTC),
         "updated_at": proto_cron.updated_at.ToDatetime(tzinfo=UTC),
         "user_id": user_id,
@@ -195,6 +196,7 @@ class Crons(Authenticated):
         end_time: datetime | str | None = None,
         metadata: dict | None = None,
         enabled: bool,
+        timezone: str | None = None,
         ctx: Any = None,
     ) -> AsyncIterator[Cron]:
         """Create cron via gRPC."""
@@ -259,6 +261,7 @@ class Crons(Authenticated):
             thread_filters=thread_filters,
             user_id=user_id,
             encryption_context=build_encryption_context("cron"),
+            timezone=timezone,
         )
 
         client = await get_shared_client()
@@ -349,6 +352,7 @@ class Crons(Authenticated):
         on_run_completed: Literal["delete", "keep"] | None = None,
         payload: dict | None = None,
         metadata: dict | None = None,
+        timezone: str | None = None,
         ctx: Any = None,
     ) -> AsyncIterator[Cron]:
         """Update cron via gRPC."""
@@ -379,6 +383,7 @@ class Crons(Authenticated):
             payload=_payload_dict_to_proto(payload) if payload else None,
             metadata_json=json_dumpb_optional(metadata) if metadata else None,
             encryption_context=build_encryption_context("cron"),
+            timezone=timezone,
         )
 
         client = await get_shared_client()

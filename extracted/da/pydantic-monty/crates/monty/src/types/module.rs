@@ -2,12 +2,13 @@
 
 use crate::{
     args::ArgValues,
-    bytecode::VM,
+    bytecode::{CallResult, VM},
+    defer_drop,
     exception_private::{ExcType, RunResult},
     heap::{Heap, HeapGuard, HeapId},
     intern::{Interns, StringId},
     resource::ResourceTracker,
-    types::{AttrCallResult, Dict, PyTrait},
+    types::{Dict, PyTrait},
     value::{EitherStr, Value},
 };
 
@@ -56,23 +57,16 @@ impl Module {
     /// # Panics
     ///
     /// Panics if the attribute name string has not been pre-interned.
-    pub fn set_attr(
-        &mut self,
-        name: impl Into<StringId>,
-        value: Value,
-        heap: &mut Heap<impl ResourceTracker>,
-        interns: &Interns,
-    ) {
+    pub fn set_attr(&mut self, name: impl Into<StringId>, value: Value, vm: &mut VM<'_, '_, impl ResourceTracker>) {
         let key = Value::InternString(name.into());
         // Unwrap is safe because InternString keys are always hashable
-        self.attrs.set(key, value, heap, interns).unwrap();
+        self.attrs.set(key, value, vm.heap, vm.interns).unwrap();
     }
 
     /// Looks up an attribute by name in the module's attribute dictionary.
     ///
     /// Returns `Some(value)` if the attribute exists, `None` otherwise.
-    /// The returned value is copied without incrementing refcount - caller must
-    /// call `heap.inc_ref()` if the value is a `Value::Ref`.
+    /// The returned value is cloned with proper refcount handling.
     pub fn get_attr(
         &self,
         attr_value: &Value,
@@ -85,7 +79,7 @@ impl Module {
             .get(attr_value, heap, interns)
             .ok()
             .flatten()
-            .map(Value::copy_for_extend)
+            .map(|v| v.clone_with_heap(heap))
     }
 
     /// Returns whether this module has any heap references in its attributes.
@@ -105,17 +99,17 @@ impl Module {
     /// the Property itself - this implements Python's descriptor protocol.
     pub fn py_getattr(
         &self,
-        attr_id: StringId,
+        attr: &EitherStr,
         heap: &mut Heap<impl ResourceTracker>,
         interns: &Interns,
-    ) -> Option<AttrCallResult> {
-        let value = self.attrs.get_by_str(interns.get_str(attr_id), heap, interns)?;
+    ) -> Option<CallResult> {
+        let value = self.attrs.get_by_str(attr.as_str(interns), heap, interns)?;
 
         // If the value is a Property, invoke its getter to compute the actual value
         if let Value::Property(prop) = *value {
             Some(prop.get())
         } else {
-            Some(AttrCallResult::Value(value.clone_with_heap(heap)))
+            Some(CallResult::Value(value.clone_with_heap(heap)))
         }
     }
 
@@ -124,39 +118,32 @@ impl Module {
     /// Modules don't have methods - they have callable attributes. This looks up
     /// the attribute and calls it if it's a `ModuleFunction`.
     ///
-    /// Returns `AttrCallResult` because module functions may need OS operations
+    /// Returns `CallResult` because module functions may need OS operations
     /// (e.g., `os.getenv()`) that require host involvement.
-    pub fn py_call_attr_raw(
+    pub fn py_call_attr(
         &self,
         _self_id: HeapId,
         vm: &mut VM<'_, '_, impl ResourceTracker>,
         attr: &EitherStr,
         args: ArgValues,
-    ) -> RunResult<AttrCallResult> {
-        let heap = &mut *vm.heap;
-        let interns = vm.interns;
-        let mut args_guard = HeapGuard::new(args, heap);
-
+    ) -> RunResult<CallResult> {
+        let mut args_guard = HeapGuard::new(args, vm);
+        let vm = args_guard.heap();
         let attr_key = match attr {
             EitherStr::Interned(id) => Value::InternString(*id),
             EitherStr::Heap(s) => {
-                // Module attributes are always interned, so owned strings won't match
-                return Err(ExcType::attribute_error_module(interns.get_str(self.name), s));
+                return Err(ExcType::attribute_error_module(vm.interns.get_str(self.name), s));
             }
         };
 
-        match self.get_attr(&attr_key, args_guard.heap(), interns) {
-            Some(Value::ModuleFunction(mf)) => {
-                let (args, heap) = args_guard.into_parts();
-                mf.call(heap, args)
-            }
-            Some(func) => {
-                // Found attribute but it's not callable
-                func.drop_with_heap(args_guard.heap());
-                Err(ExcType::type_error("module attribute is not callable"))
+        match self.get_attr(&attr_key, vm.heap, vm.interns) {
+            Some(value) => {
+                let (args, vm) = args_guard.into_parts();
+                defer_drop!(value, vm);
+                vm.call_function(value, args)
             }
             None => Err(ExcType::attribute_error_module(
-                interns.get_str(self.name),
+                vm.interns.get_str(self.name),
                 attr.as_str(vm.interns),
             )),
         }

@@ -46,6 +46,16 @@ def _make_agent_alias(display_name: str | None) -> str:
     return f"{slug}-{suffix}"
 
 
+def _retry_agent_alias(base_alias: str, retry_attempt: int) -> str:
+    if retry_attempt <= 0:
+        return base_alias
+    return f"{base_alias}-retry-{retry_attempt}"
+
+
+def _is_duplicate_alias_error(exc: BaseException) -> bool:
+    return "Duplicate alias" in str(exc)
+
+
 class VMConfig(BaseModel):
     """Configuration for agent VMs."""
 
@@ -130,48 +140,62 @@ class PlatoVMRuntime(Runtime):
 
     async def prepare(self, ctx: AgentContext) -> PreparedAgent:
         """Start agent VM with desktop/Chrome but without running the task."""
-        agent_alias = _make_agent_alias(ctx.display_name)
         global_prepare_lock = self._get_global_prepare_lock()
+        last_exc: Exception | None = None
+        base_alias = _make_agent_alias(ctx.display_name)
 
-        try:
-            logger.info("Waiting for global VM prepare lock: %s", agent_alias)
-            async with global_prepare_lock:
-                logger.info("Acquired global VM prepare lock: %s", agent_alias)
-                async with self._prepare_lock:
-                    agent_env = await self._create_vm(ctx.image, agent_alias)
-                    self._agent_envs[agent_alias] = agent_env
+        for alias_attempt in range(3):
+            agent_alias = _retry_agent_alias(base_alias, alias_attempt)
+            try:
+                logger.info("Waiting for global VM prepare lock: %s", agent_alias)
+                async with global_prepare_lock:
+                    logger.info("Acquired global VM prepare lock: %s", agent_alias)
+                    async with self._prepare_lock:
+                        agent_env = await self._create_vm(ctx.image, agent_alias)
+                        self._agent_envs[agent_alias] = agent_env
 
-                    logger.info(f"Setting up network for {agent_alias}")
-                    await self._setup_network()
+                        logger.info(f"Setting up network for {agent_alias}")
+                        await self._setup_network()
 
-                    logger.info(f"Getting mesh IP for {agent_alias}")
-                    mesh_ip = await agent_env.get_mesh_ip()
-                    if not mesh_ip:
-                        raise RuntimeError(f"Failed to get mesh IP for agent VM {agent_alias}")
-                    logger.info(f"Mesh IP for {agent_alias}: {mesh_ip}")
+                        logger.info(f"Getting mesh IP for {agent_alias}")
+                        mesh_ip = await agent_env.get_mesh_ip()
+                        if not mesh_ip:
+                            raise RuntimeError(f"Failed to get mesh IP for agent VM {agent_alias}")
+                        logger.info(f"Mesh IP for {agent_alias}: {mesh_ip}")
 
-                    logger.info(f"Syncing code to {agent_alias}")
-                    await self._sync_code(ctx, agent_env, mesh_ip)
-                    logger.info(f"Code synced to {agent_alias}")
+                        logger.info(f"Syncing code to {agent_alias}")
+                        await self._sync_code(ctx, agent_env, mesh_ip)
+                        logger.info(f"Code synced to {agent_alias}")
 
-                    # Inject PLATO_API_KEY into the VM so it's available during
-                    # on_prepare hooks and agent execution.
-                    plato_api_key = os.environ.get("PLATO_API_KEY", "")
-                    if plato_api_key:
-                        await self._run_ssh_streaming(
-                            mesh_ip,
-                            f'echo "PLATO_API_KEY={plato_api_key}" >> /etc/environment',
-                        )
-                logger.info("Released global VM prepare lock: %s", agent_alias)
-        except Exception:
-            await self.cleanup(agent_alias, error=True)
-            raise
+                        # Inject PLATO_API_KEY into the VM so it's available during
+                        # on_prepare hooks and agent execution.
+                        plato_api_key = os.environ.get("PLATO_API_KEY", "")
+                        if plato_api_key:
+                            await self._run_ssh_streaming(
+                                mesh_ip,
+                                f'echo "PLATO_API_KEY={plato_api_key}" >> /etc/environment',
+                            )
+                    logger.info("Released global VM prepare lock: %s", agent_alias)
+            except Exception as exc:
+                last_exc = exc
+                await self.cleanup(agent_alias, error=True)
+                if _is_duplicate_alias_error(exc) and alias_attempt < 2:
+                    logger.warning(
+                        "Agent alias collision during VM prepare (%s). Retrying with alias %s.",
+                        agent_alias,
+                        _retry_agent_alias(base_alias, alias_attempt + 1),
+                    )
+                    continue
+                raise
 
-        return PreparedAgent(
-            agent_id=agent_alias,
-            hostname=mesh_ip,
-            runtime=self,
-        )
+            return PreparedAgent(
+                agent_id=agent_alias,
+                hostname=mesh_ip,
+                runtime=self,
+            )
+
+        assert last_exc is not None
+        raise last_exc
 
     async def execute(self, prepared: PreparedAgent, ctx: AgentContext) -> None:
         """Execute agent task in a prepared VM via SSH."""
@@ -208,6 +232,7 @@ class PlatoVMRuntime(Runtime):
         stop=tenacity.stop_after_attempt(3),
         wait=tenacity.wait_exponential(multiplier=10, min=10, max=60),
         before_sleep=tenacity.before_sleep_log(logger, logging.WARNING),
+        retry=tenacity.retry_if_exception(lambda exc: not _is_duplicate_alias_error(exc)),
         reraise=True,
     )
     async def _create_vm(self, image: str, alias: str) -> Environment:

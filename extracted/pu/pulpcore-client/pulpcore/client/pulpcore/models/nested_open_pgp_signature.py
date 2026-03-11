@@ -29,7 +29,7 @@ class NestedOpenPGPSignature(BaseModel):
     """
     Base serializer for use with [pulpcore.app.models.Model][]  This ensures that all Serializers provide values for the 'pulp_href` field.  The class provides a default for the ``ref_name`` attribute in the ModelSerializers's ``Meta`` class. This ensures that the OpenAPI definitions of plugins are namespaced properly.
     """ # noqa: E501
-    issuer: Optional[Annotated[str, Field(min_length=1, strict=True)]] = None
+    issuer: Optional[Annotated[str, Field(min_length=1, strict=True, max_length=16)]] = None
     created: datetime
     expiration_time: Optional[StrictStr] = None
     signers_user_id: Optional[Annotated[str, Field(min_length=1, strict=True)]] = None

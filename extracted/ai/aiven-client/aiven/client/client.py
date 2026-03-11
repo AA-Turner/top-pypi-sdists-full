@@ -754,6 +754,7 @@ class AivenClient(AivenClientBase):
         diskless_enable: bool | None = None,
         unclean_leader_election_enable: bool | None = None,
         tags: Sequence[str] | None = None,
+        cleanup_policy: str | None = None,
     ) -> Mapping:
         body: dict[str, Any] = {
             "partitions": partitions,
@@ -762,6 +763,8 @@ class AivenClient(AivenClientBase):
             "retention_bytes": retention_bytes,
             "retention_hours": retention_hours,
         }
+        if cleanup_policy is not None:
+            body["cleanup_policy"] = cleanup_policy
         config = {}
         if retention_ms is not None:
             config["retention_ms"] = retention_ms
@@ -2923,10 +2926,11 @@ class AivenClient(AivenClientBase):
             body=body,
         )
 
-    def byoc_delete(self, *, organization_id: str, byoc_id: str) -> Mapping[Any, Any]:
+    def byoc_delete(self, *, organization_id: str, byoc_id: str, force: bool = False) -> Mapping[Any, Any]:
         return self.verify(
             self.delete,
             self.build_path("organization", organization_id, "custom-cloud-environments", byoc_id),
+            params={"force": str(force).lower()},
         )
 
     def byoc_terraform_get_template(self, *, organization_id: str, byoc_id: str) -> str:
@@ -3415,3 +3419,25 @@ class AivenClient(AivenClientBase):
             ),
             body=body,
         )
+
+    def get_inkless_offerings(self, organization_id: str, project: str) -> Sequence[dict[str, Any]]:
+        path = self.build_path("organization", organization_id, "projects", project, "inkless", "offerings")
+        return self.verify(self.get, path, result_key="offerings")
+
+    def get_inkless_offering_rates(
+        self,
+        organization_id: str,
+        project: str,
+        offering_name: str | None = None,
+        cloud_provider: str | None = None,
+        cloud_name: str | None = None,
+    ) -> Sequence[dict[str, Any]]:
+        if cloud_provider is None:
+            raise ValueError("cloud_provider is required")
+        path = self.build_path("organization", organization_id, "projects", project, "inkless", "pricing", "rates")
+        params = {"cloud_provider": cloud_provider}
+        if offering_name is not None:
+            params["offering_name"] = offering_name
+        if cloud_name is not None:
+            params["cloud_name"] = cloud_name
+        return self.verify(self.get, path, result_key="rates", params=params)

@@ -12,6 +12,10 @@ from chalk._gen.chalk.server.v1.team_pb2 import (
     ArchiveEnvironmentResponse,
     ArchiveProjectRequest,
     ArchiveProjectResponse,
+    AssignEnvironmentRoleRequest,
+    AssignEnvironmentRoleResponse,
+    AssignScimGroupEnvironmentRoleRequest,
+    AssignScimGroupEnvironmentRoleResponse,
     AssignTeamRoleRequest,
     AssignTeamRoleResponse,
     CreateCustomRoleRequest,
@@ -56,6 +60,8 @@ from chalk._gen.chalk.server.v1.team_pb2 import (
     GetTeamResponse,
     InviteTeamMemberRequest,
     InviteTeamMemberResponse,
+    InviteTeamMemberWithTeamRoleRequest,
+    InviteTeamMemberWithTeamRoleResponse,
     ListServiceTokensRequest,
     ListServiceTokensResponse,
     ListTeamInvitesRequest,
@@ -160,6 +166,10 @@ class TeamServiceStub:
         InviteTeamMemberRequest,
         InviteTeamMemberResponse,
     ]
+    InviteTeamMemberWithTeamRole: UnaryUnaryMultiCallable[
+        InviteTeamMemberWithTeamRoleRequest,
+        InviteTeamMemberWithTeamRoleResponse,
+    ]
     ExpireTeamInvite: UnaryUnaryMultiCallable[
         ExpireTeamInviteRequest,
         ExpireTeamInviteResponse,
@@ -206,6 +216,16 @@ class TeamServiceStub:
         AssignTeamRoleResponse,
     ]
     """Assigns a team-scoped role to a user (i.e. role assignment with no environment)."""
+    AssignEnvironmentRole: UnaryUnaryMultiCallable[
+        AssignEnvironmentRoleRequest,
+        AssignEnvironmentRoleResponse,
+    ]
+    """Assigns an environment-scoped role to a user."""
+    AssignScimGroupEnvironmentRole: UnaryUnaryMultiCallable[
+        AssignScimGroupEnvironmentRoleRequest,
+        AssignScimGroupEnvironmentRoleResponse,
+    ]
+    """Assigns an environment-scoped role to a SCIM group."""
     CreateCustomRole: UnaryUnaryMultiCallable[
         CreateCustomRoleRequest,
         CreateCustomRoleResponse,
@@ -339,6 +359,12 @@ class TeamServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> InviteTeamMemberResponse: ...
     @abstractmethod
+    def InviteTeamMemberWithTeamRole(
+        self,
+        request: InviteTeamMemberWithTeamRoleRequest,
+        context: ServicerContext,
+    ) -> InviteTeamMemberWithTeamRoleResponse: ...
+    @abstractmethod
     def ExpireTeamInvite(
         self,
         request: ExpireTeamInviteRequest,
@@ -404,6 +430,20 @@ class TeamServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> AssignTeamRoleResponse:
         """Assigns a team-scoped role to a user (i.e. role assignment with no environment)."""
+    @abstractmethod
+    def AssignEnvironmentRole(
+        self,
+        request: AssignEnvironmentRoleRequest,
+        context: ServicerContext,
+    ) -> AssignEnvironmentRoleResponse:
+        """Assigns an environment-scoped role to a user."""
+    @abstractmethod
+    def AssignScimGroupEnvironmentRole(
+        self,
+        request: AssignScimGroupEnvironmentRoleRequest,
+        context: ServicerContext,
+    ) -> AssignScimGroupEnvironmentRoleResponse:
+        """Assigns an environment-scoped role to a SCIM group."""
     @abstractmethod
     def CreateCustomRole(
         self,

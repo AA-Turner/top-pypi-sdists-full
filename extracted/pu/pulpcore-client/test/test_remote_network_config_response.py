@@ -48,7 +48,7 @@ class TestRemoteNetworkConfigResponse(unittest.TestCase):
                 headers = [
                     None
                     ],
-                download_concurrency = 56,
+                download_concurrency = 1,
                 rate_limit = 56
             )
         else:

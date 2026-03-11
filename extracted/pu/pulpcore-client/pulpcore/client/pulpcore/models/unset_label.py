@@ -18,7 +18,7 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field
 from typing import Any, ClassVar, Dict, List
 from typing_extensions import Annotated
 from typing import Optional, Set
@@ -30,13 +30,6 @@ class UnsetLabel(BaseModel):
     """ # noqa: E501
     key: Annotated[str, Field(min_length=1, strict=True)]
     __properties: ClassVar[List[str]] = ["key"]
-
-    @field_validator('key')
-    def key_validate_regular_expression(cls, value):
-        """Validates the regular expression"""
-        if not re.match(r"^[-a-zA-Z0-9_]+$", value):
-            raise ValueError(r"must validate the regular expression /^[-a-zA-Z0-9_]+$/")
-        return value
 
     model_config = ConfigDict(
         populate_by_name=True,

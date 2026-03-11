@@ -778,7 +778,7 @@ class Acl:
             fn = lambda_.Function(self, "MyLambda",
                 # mount the access point to /mnt/msg in the lambda runtime environment
                 filesystem=lambda_.FileSystem.from_efs_access_point(access_point, "/mnt/msg"),
-                runtime=lambda_.Runtime.NODEJS_18_X,
+                runtime=lambda_.Runtime.NODEJS_LATEST,
                 handler="index.handler",
                 code=lambda_.Code.from_asset(path.join(__dirname, "lambda-handler")),
                 vpc=vpc
@@ -4296,7 +4296,7 @@ class PosixUser:
             fn = lambda_.Function(self, "MyLambda",
                 # mount the access point to /mnt/msg in the lambda runtime environment
                 filesystem=lambda_.FileSystem.from_efs_access_point(access_point, "/mnt/msg"),
-                runtime=lambda_.Runtime.NODEJS_18_X,
+                runtime=lambda_.Runtime.NODEJS_LATEST,
                 handler="index.handler",
                 code=lambda_.Code.from_asset(path.join(__dirname, "lambda-handler")),
                 vpc=vpc

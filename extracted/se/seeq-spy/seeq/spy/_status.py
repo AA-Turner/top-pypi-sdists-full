@@ -4,7 +4,6 @@ import concurrent.futures
 import html
 import logging
 import os
-from pathlib import Path
 import queue
 import re
 import textwrap
@@ -12,6 +11,7 @@ import threading
 import time
 from datetime import datetime, timedelta, timezone
 from functools import wraps
+from pathlib import Path
 from typing import Callable, Dict, Optional, Tuple
 
 import pandas as pd
@@ -63,7 +63,8 @@ class Status:
 
     def __init__(self, quiet: Optional[bool] = None, errors: Optional[str] = None,
                  *, verbose: bool = False, log_filename: Optional[str] = None, session: Session = None,
-                 on_update: Optional[Callable[[object], None]] = None):
+                 on_update: Optional[Callable[[object], None]] = None,
+                 parent: 'Status' = None):
         self.quiet = quiet if quiet is not None else False
         self.errors = errors if errors is not None else 'raise'
         self.timer = _common.timer_start()
@@ -79,6 +80,7 @@ class Status:
         self.on_update = on_update
         self.on_error = None
         self.session = session if session is not None else seeq.spy.session
+        self.parent = parent
 
         self._verbose = False
         self._log_filename = None
@@ -132,6 +134,10 @@ class Status:
     def log_file(self) -> Optional[str]:
         return self._log_file_handle
 
+    @property
+    def log_filename(self) -> Optional[str]:
+        return self._log_filename
+
     def set_verbose(self, verbose: bool, log_file: Optional[str] = None):
         self._verbose = verbose
 
@@ -165,8 +171,12 @@ class Status:
             self._log_file_handle = None
 
     def create_inner(self, name: str, quiet: bool = None, errors: str = None):
+        if name in self.inner:
+            return self.inner[name]
+
         inner_status = Status(quiet=self.quiet if quiet is None else quiet,
-                              errors=self.errors if errors is None else errors)
+                              errors=self.errors if errors is None else errors,
+                              parent=self)
         self.inner[name] = inner_status
         return inner_status
 
@@ -185,7 +195,9 @@ class Status:
             self.warnings.append(warning)
 
     def raise_or_put(self, e, column):
-        self.put(column, _common.format_exception(e))
+        exception_str = _common.format_exception(e)
+        self.log(exception_str, level=logging.ERROR)
+        self.put(column, exception_str)
         if self.errors == 'raise':
             raise e
 
@@ -193,6 +205,7 @@ class Status:
         """
         Raises an exception if errors == 'raise', otherwise calls the on_error callback if it exists.
         """
+        self.log(message, level=logging.ERROR)
         if self.errors == 'raise' or self.on_error is None:
             raise SPyRuntimeError(message)
         else:
@@ -237,6 +250,11 @@ class Status:
                         kwargs['status'].update('Operation canceled', Status.CANCELED)
 
                     raise SPyKeyboardInterrupt('Operation canceled')
+                except Exception:
+                    if not no_status:
+                        kwargs['status'].update(None, Status.FAILURE)
+
+                    raise
                 finally:
                     if not no_status:
                         status: Status = kwargs['status']
@@ -481,9 +499,18 @@ class Status:
         return text
 
     def _display_html(self, new_message):
-        display_df = self.df
         if self.code == Status.RUNNING and len(self.df) > 20 and 'Result' in self.df.columns:
-            display_df = self.df[~self.df['Result'].str.startswith(('Queued', 'Success'))]
+            # Put success/queued at the bottom so that we prioritize the currently processing
+            display_df = self.df.sort_values(
+                by="Result",
+                key=lambda s: (
+                        s.str.startswith("Queued").astype(int) * 1 +
+                        s.str.startswith("Success").astype(int) * 2
+                ),
+                kind="stable"
+            )
+        else:
+            display_df = self.df
 
         display_df = display_df.head(20)
 
@@ -777,6 +804,10 @@ class Status:
         level : int
             The log level (e.g., logging.INFO, logging.ERROR). Default is logging.INFO.
         """
+        if self.parent is not None:
+            self.parent.log(message, level=level)
+            return
+
         if self._log_file_handle is None:
             return
 

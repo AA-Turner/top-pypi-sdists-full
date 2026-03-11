@@ -1,8 +1,8 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: flwr
-Version: 1.26.1
+Version: 1.27.0
 Summary: Flower: A Friendly Federated AI Framework
-License: Apache-2.0
+License-Expression: Apache-2.0
 Keywords: Artificial Intelligence,Federated AI,Federated Analytics,Federated Evaluation,Federated Learning,Flower,Machine Learning
 Author: The Flower Authors
 Author-email: hello@flower.ai
@@ -15,11 +15,11 @@ Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
@@ -33,7 +33,7 @@ Provides-Extra: simulation
 Requires-Dist: SQLAlchemy (>=2.0.45,<3.0.0)
 Requires-Dist: alembic (>=1.18.1,<2.0.0)
 Requires-Dist: click (>=8.0.0,<9.0.0)
-Requires-Dist: cryptography (>=44.0.1,<45.0.0)
+Requires-Dist: cryptography (>=46.0.5,<47.0.0)
 Requires-Dist: grpcio (>=1.70.0,<2.0.0)
 Requires-Dist: grpcio-health-checking (>=1.70.0,<2.0.0)
 Requires-Dist: iterators (>=0.0.2,<0.0.3)
@@ -42,8 +42,8 @@ Requires-Dist: pathspec (>=0.12.1,<0.13.0)
 Requires-Dist: protobuf (>=5.28.0,<7.0.0)
 Requires-Dist: pycryptodome (>=3.18.0,<4.0.0)
 Requires-Dist: pyyaml (>=6.0.2,<7.0.0)
+Requires-Dist: ray (==2.51.1) ; (python_version == "3.13" and sys_platform != "win32") and (extra == "simulation")
 Requires-Dist: ray (==2.51.1) ; (python_version >= "3.10" and python_version < "3.13") and (extra == "simulation")
-Requires-Dist: ray (==2.51.1) ; (sys_platform != "win32" and python_version == "3.13") and (extra == "simulation")
 Requires-Dist: requests (>=2.31.0,<3.0.0)
 Requires-Dist: rich (>=13.5.0,<14.0.0)
 Requires-Dist: starlette (>=0.50.0,<0.51.0) ; extra == "rest"
@@ -67,7 +67,7 @@ Description-Content-Type: text/markdown
     <a href="https://flower.ai/">Website</a> |
     <a href="https://flower.ai/blog">Blog</a> |
     <a href="https://flower.ai/docs/">Docs</a> |
-    <a href="https://flower.ai/events/flower-ai-summit-2026">Summit</a> |
+    <a href="https://flower.ai/events/flower-ai-summit-2026/?utm_source=docs">Summit</a> |
     <a href="https://flower.ai/join-slack">Slack</a>
     <br /><br />
 </p>
@@ -228,5 +228,5 @@ Please also consider adding your publication to the list of Flower-based publica
 
 ## Contributing to Flower
 
-We welcome contributions. Please see [CONTRIBUTING.md](CONTRIBUTING.md) to get started!
+We welcome contributions. Please see [CONTRIBUTING.md](../CONTRIBUTING.md) to get started!
 

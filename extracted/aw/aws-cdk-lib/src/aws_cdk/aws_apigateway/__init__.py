@@ -1377,6 +1377,37 @@ apigateway.DomainName(self, "custom-domain",
 )
 ```
 
+API Gateway supports both legacy security policies (TLS 1.0, TLS 1.2) and enhanced security policies.
+Enhanced security policies (those starting with `SecurityPolicy_`) support TLS 1.3 and provide additional options
+such as post-quantum cryptography. Use enhanced security policies for regulated workloads, advanced governance, or to use post-quantum cryptography.
+For more details, see the [AWS documentation](https://docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-security-policies.html).
+
+When using enhanced security policies, you must specify `endpointAccessMode`. `STRICT` is recommended for production workloads, but `BASIC` may be needed during migration or for certain application architectures:
+
+```python
+# acm_certificate_for_example_com: Any
+
+
+# For regional or private APIs with enhanced security policy
+apigateway.DomainName(self, "custom-domain-tls13",
+    domain_name="example.com",
+    certificate=acm_certificate_for_example_com,
+    security_policy=apigateway.SecurityPolicy.TLS13_1_3_2025_09,  # TLS 1.3
+    endpoint_access_mode=apigateway.EndpointAccessMode.STRICT
+)
+
+# For edge-optimized APIs with enhanced security policy
+apigateway.DomainName(self, "custom-domain-edge-tls13",
+    domain_name="example.com",
+    certificate=acm_certificate_for_example_com,
+    endpoint_type=apigateway.EndpointType.EDGE,
+    security_policy=apigateway.SecurityPolicy.TLS13_2025_EDGE,  # Enhanced security policy for edge
+    endpoint_access_mode=apigateway.EndpointAccessMode.STRICT
+)
+```
+
+> **Note:** Mutual TLS (mTLS) cannot be enabled on a domain name that uses an enhanced security policy.
+
 Once you have a domain, you can map base paths of the domain to APIs.
 The following example will map the URL [https://example.com/go-to-api1](https://example.com/go-to-api1)
 to the `api1` API and [https://example.com/boom](https://example.com/boom) to the `api2` API.
@@ -1475,7 +1506,7 @@ Additional requirements for creating multi-level path mappings for RestApis:
 
 (both are defaults)
 
-* Must use `SecurityPolicy.TLS_1_2`
+* Must use `SecurityPolicy.TLS_1_2` or higher (TLS 1.0 is not supported for multi-level paths)
 * DomainNames must be `EndpointType.REGIONAL`
 
 ```python
@@ -16642,6 +16673,7 @@ class DomainNameAttributes:
         "certificate": "certificate",
         "domain_name": "domainName",
         "base_path": "basePath",
+        "endpoint_access_mode": "endpointAccessMode",
         "endpoint_type": "endpointType",
         "mtls": "mtls",
         "security_policy": "securityPolicy",
@@ -16654,6 +16686,7 @@ class DomainNameOptions:
         certificate: "_ICertificateRef_1878d79b",
         domain_name: builtins.str,
         base_path: typing.Optional[builtins.str] = None,
+        endpoint_access_mode: typing.Optional["EndpointAccessMode"] = None,
         endpoint_type: typing.Optional["EndpointType"] = None,
         mtls: typing.Optional[typing.Union["MTLSConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         security_policy: typing.Optional["SecurityPolicy"] = None,
@@ -16662,6 +16695,7 @@ class DomainNameOptions:
         :param certificate: The reference to an AWS-managed certificate for use by the edge-optimized endpoint for the domain name. For "EDGE" domain names, the certificate needs to be in the US East (N. Virginia) region.
         :param domain_name: The custom domain name for your API. Uppercase letters are not supported.
         :param base_path: The base path name that callers of the API must provide in the URL after the domain name (e.g. ``example.com/base-path``). If you specify this property, it can't be an empty string. Default: - map requests from the domain root (e.g. ``example.com``).
+        :param endpoint_access_mode: The endpoint access mode for this domain name. When using enhanced security policies (those starting with ``SecurityPolicy_``), you must specify this property. STRICT is recommended for production workloads, but BASIC may be needed during migration or for certain application architectures. Default: - No endpoint access mode is configured. Required for enhanced security policies.
         :param endpoint_type: The type of endpoint for this DomainName. Default: REGIONAL
         :param mtls: The mutual TLS authentication configuration for a custom domain name. Default: - mTLS is not configured.
         :param security_policy: The Transport Layer Security (TLS) version + cipher suite for this domain name. Default: SecurityPolicy.TLS_1_2
@@ -16687,6 +16721,7 @@ class DomainNameOptions:
             check_type(argname="argument certificate", value=certificate, expected_type=type_hints["certificate"])
             check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
             check_type(argname="argument base_path", value=base_path, expected_type=type_hints["base_path"])
+            check_type(argname="argument endpoint_access_mode", value=endpoint_access_mode, expected_type=type_hints["endpoint_access_mode"])
             check_type(argname="argument endpoint_type", value=endpoint_type, expected_type=type_hints["endpoint_type"])
             check_type(argname="argument mtls", value=mtls, expected_type=type_hints["mtls"])
             check_type(argname="argument security_policy", value=security_policy, expected_type=type_hints["security_policy"])
@@ -16696,6 +16731,8 @@ class DomainNameOptions:
         }
         if base_path is not None:
             self._values["base_path"] = base_path
+        if endpoint_access_mode is not None:
+            self._values["endpoint_access_mode"] = endpoint_access_mode
         if endpoint_type is not None:
             self._values["endpoint_type"] = endpoint_type
         if mtls is not None:
@@ -16732,6 +16769,21 @@ class DomainNameOptions:
         '''
         result = self._values.get("base_path")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def endpoint_access_mode(self) -> typing.Optional["EndpointAccessMode"]:
+        '''The endpoint access mode for this domain name.
+
+        When using enhanced security policies (those starting with ``SecurityPolicy_``),
+        you must specify this property. STRICT is recommended for production workloads,
+        but BASIC may be needed during migration or for certain application architectures.
+
+        :default: - No endpoint access mode is configured. Required for enhanced security policies.
+
+        :see: https://docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-security-policies.html#apigateway-security-policies-endpoint-access-mode
+        '''
+        result = self._values.get("endpoint_access_mode")
+        return typing.cast(typing.Optional["EndpointAccessMode"], result)
 
     @builtins.property
     def endpoint_type(self) -> typing.Optional["EndpointType"]:
@@ -16781,6 +16833,7 @@ class DomainNameOptions:
         "certificate": "certificate",
         "domain_name": "domainName",
         "base_path": "basePath",
+        "endpoint_access_mode": "endpointAccessMode",
         "endpoint_type": "endpointType",
         "mtls": "mtls",
         "security_policy": "securityPolicy",
@@ -16794,6 +16847,7 @@ class DomainNameProps(DomainNameOptions):
         certificate: "_ICertificateRef_1878d79b",
         domain_name: builtins.str,
         base_path: typing.Optional[builtins.str] = None,
+        endpoint_access_mode: typing.Optional["EndpointAccessMode"] = None,
         endpoint_type: typing.Optional["EndpointType"] = None,
         mtls: typing.Optional[typing.Union["MTLSConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         security_policy: typing.Optional["SecurityPolicy"] = None,
@@ -16803,6 +16857,7 @@ class DomainNameProps(DomainNameOptions):
         :param certificate: The reference to an AWS-managed certificate for use by the edge-optimized endpoint for the domain name. For "EDGE" domain names, the certificate needs to be in the US East (N. Virginia) region.
         :param domain_name: The custom domain name for your API. Uppercase letters are not supported.
         :param base_path: The base path name that callers of the API must provide in the URL after the domain name (e.g. ``example.com/base-path``). If you specify this property, it can't be an empty string. Default: - map requests from the domain root (e.g. ``example.com``).
+        :param endpoint_access_mode: The endpoint access mode for this domain name. When using enhanced security policies (those starting with ``SecurityPolicy_``), you must specify this property. STRICT is recommended for production workloads, but BASIC may be needed during migration or for certain application architectures. Default: - No endpoint access mode is configured. Required for enhanced security policies.
         :param endpoint_type: The type of endpoint for this DomainName. Default: REGIONAL
         :param mtls: The mutual TLS authentication configuration for a custom domain name. Default: - mTLS is not configured.
         :param security_policy: The Transport Layer Security (TLS) version + cipher suite for this domain name. Default: SecurityPolicy.TLS_1_2
@@ -16813,14 +16868,13 @@ class DomainNameProps(DomainNameOptions):
         Example::
 
             # acm_certificate_for_example_com: Any
-            # rest_api: apigateway.RestApi
             
             
             apigateway.DomainName(self, "custom-domain",
                 domain_name="example.com",
                 certificate=acm_certificate_for_example_com,
-                mapping=rest_api,
-                base_path="orders/v1/api"
+                endpoint_type=apigateway.EndpointType.EDGE,  # default is REGIONAL
+                security_policy=apigateway.SecurityPolicy.TLS_1_2
             )
         '''
         if isinstance(mtls, dict):
@@ -16830,6 +16884,7 @@ class DomainNameProps(DomainNameOptions):
             check_type(argname="argument certificate", value=certificate, expected_type=type_hints["certificate"])
             check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
             check_type(argname="argument base_path", value=base_path, expected_type=type_hints["base_path"])
+            check_type(argname="argument endpoint_access_mode", value=endpoint_access_mode, expected_type=type_hints["endpoint_access_mode"])
             check_type(argname="argument endpoint_type", value=endpoint_type, expected_type=type_hints["endpoint_type"])
             check_type(argname="argument mtls", value=mtls, expected_type=type_hints["mtls"])
             check_type(argname="argument security_policy", value=security_policy, expected_type=type_hints["security_policy"])
@@ -16840,6 +16895,8 @@ class DomainNameProps(DomainNameOptions):
         }
         if base_path is not None:
             self._values["base_path"] = base_path
+        if endpoint_access_mode is not None:
+            self._values["endpoint_access_mode"] = endpoint_access_mode
         if endpoint_type is not None:
             self._values["endpoint_type"] = endpoint_type
         if mtls is not None:
@@ -16878,6 +16935,21 @@ class DomainNameProps(DomainNameOptions):
         '''
         result = self._values.get("base_path")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def endpoint_access_mode(self) -> typing.Optional["EndpointAccessMode"]:
+        '''The endpoint access mode for this domain name.
+
+        When using enhanced security policies (those starting with ``SecurityPolicy_``),
+        you must specify this property. STRICT is recommended for production workloads,
+        but BASIC may be needed during migration or for certain application architectures.
+
+        :default: - No endpoint access mode is configured. Required for enhanced security policies.
+
+        :see: https://docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-security-policies.html#apigateway-security-policies-endpoint-access-mode
+        '''
+        result = self._values.get("endpoint_access_mode")
+        return typing.cast(typing.Optional["EndpointAccessMode"], result)
 
     @builtins.property
     def endpoint_type(self) -> typing.Optional["EndpointType"]:
@@ -16933,6 +17005,54 @@ class DomainNameProps(DomainNameOptions):
         return "DomainNameProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.enum(jsii_type="aws-cdk-lib.aws_apigateway.EndpointAccessMode")
+class EndpointAccessMode(enum.Enum):
+    '''The endpoint access mode for the domain name.
+
+    When using enhanced security policies (those starting with ``SecurityPolicy_``),
+    you must set the endpoint access mode to either ``STRICT`` or ``BASIC``.
+    Use ``STRICT`` for production workloads requiring the highest security.
+    Use ``BASIC`` for migration scenarios or certain application architectures.
+
+    :see: https://docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-security-policies.html#apigateway-security-policies-endpoint-access-mode
+    :exampleMetadata: infused
+
+    Example::
+
+        # acm_certificate_for_example_com: Any
+        
+        
+        # For regional or private APIs with enhanced security policy
+        apigateway.DomainName(self, "custom-domain-tls13",
+            domain_name="example.com",
+            certificate=acm_certificate_for_example_com,
+            security_policy=apigateway.SecurityPolicy.TLS13_1_3_2025_09,  # TLS 1.3
+            endpoint_access_mode=apigateway.EndpointAccessMode.STRICT
+        )
+        
+        # For edge-optimized APIs with enhanced security policy
+        apigateway.DomainName(self, "custom-domain-edge-tls13",
+            domain_name="example.com",
+            certificate=acm_certificate_for_example_com,
+            endpoint_type=apigateway.EndpointType.EDGE,
+            security_policy=apigateway.SecurityPolicy.TLS13_2025_EDGE,  # Enhanced security policy for edge
+            endpoint_access_mode=apigateway.EndpointAccessMode.STRICT
+        )
+    '''
+
+    STRICT = "STRICT"
+    '''Strict mode - only accepts connections from clients using the specified security policy.
+
+    Recommended for production workloads.
+    '''
+    BASIC = "BASIC"
+    '''Basic mode - one of the two valid endpoint access modes for enhanced security policies.
+
+    Suitable for migration scenarios or certain application architectures.
+    Note: legacy security policies (TLS_1_0, TLS_1_2) do not use this attribute.
+    '''
 
 
 @jsii.data_type(
@@ -17036,14 +17156,14 @@ class EndpointType(enum.Enum):
 
     Example::
 
-        # some_endpoint: ec2.IVpcEndpoint
+        # acm_certificate_for_example_com: Any
         
         
-        api = apigateway.RestApi(self, "api",
-            endpoint_configuration=apigateway.EndpointConfiguration(
-                types=[apigateway.EndpointType.PRIVATE],
-                vpc_endpoints=[some_endpoint]
-            )
+        apigateway.DomainName(self, "custom-domain",
+            domain_name="example.com",
+            certificate=acm_certificate_for_example_com,
+            endpoint_type=apigateway.EndpointType.EDGE,  # default is REGIONAL
+            security_policy=apigateway.SecurityPolicy.TLS_1_2
         )
     '''
 
@@ -25238,6 +25358,7 @@ class RestApiBase(
         certificate: "_ICertificateRef_1878d79b",
         domain_name: builtins.str,
         base_path: typing.Optional[builtins.str] = None,
+        endpoint_access_mode: typing.Optional["EndpointAccessMode"] = None,
         endpoint_type: typing.Optional["EndpointType"] = None,
         mtls: typing.Optional[typing.Union["MTLSConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         security_policy: typing.Optional["SecurityPolicy"] = None,
@@ -25248,6 +25369,7 @@ class RestApiBase(
         :param certificate: The reference to an AWS-managed certificate for use by the edge-optimized endpoint for the domain name. For "EDGE" domain names, the certificate needs to be in the US East (N. Virginia) region.
         :param domain_name: The custom domain name for your API. Uppercase letters are not supported.
         :param base_path: The base path name that callers of the API must provide in the URL after the domain name (e.g. ``example.com/base-path``). If you specify this property, it can't be an empty string. Default: - map requests from the domain root (e.g. ``example.com``).
+        :param endpoint_access_mode: The endpoint access mode for this domain name. When using enhanced security policies (those starting with ``SecurityPolicy_``), you must specify this property. STRICT is recommended for production workloads, but BASIC may be needed during migration or for certain application architectures. Default: - No endpoint access mode is configured. Required for enhanced security policies.
         :param endpoint_type: The type of endpoint for this DomainName. Default: REGIONAL
         :param mtls: The mutual TLS authentication configuration for a custom domain name. Default: - mTLS is not configured.
         :param security_policy: The Transport Layer Security (TLS) version + cipher suite for this domain name. Default: SecurityPolicy.TLS_1_2
@@ -25259,6 +25381,7 @@ class RestApiBase(
             certificate=certificate,
             domain_name=domain_name,
             base_path=base_path,
+            endpoint_access_mode=endpoint_access_mode,
             endpoint_type=endpoint_type,
             mtls=mtls,
             security_policy=security_policy,
@@ -26085,6 +26208,7 @@ class RestApiBaseProps:
             
                     # the properties below are optional
                     base_path="basePath",
+                    endpoint_access_mode=apigateway.EndpointAccessMode.STRICT,
                     endpoint_type=apigateway.EndpointType.EDGE,
                     mtls=apigateway.MTLSConfig(
                         bucket=bucket,
@@ -27220,6 +27344,41 @@ class SecurityPolicy(enum.Enum):
     '''Cipher suite TLS 1.0.'''
     TLS_1_2 = "TLS_1_2"
     '''Cipher suite TLS 1.2.'''
+    TLS13_1_3_2025_09 = "TLS13_1_3_2025_09"
+    '''Cipher suite TLS 1.3 for regional/private endpoints.
+
+    :see: https://docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-custom-domain-tls-version.html
+    '''
+    TLS13_1_3_FIPS_2025_09 = "TLS13_1_3_FIPS_2025_09"
+    '''Cipher suite TLS 1.3 (FIPS compliant) for regional/private endpoints.
+
+    :see: https://docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-custom-domain-tls-version.html
+    '''
+    TLS13_1_2_PQ_2025_09 = "TLS13_1_2_PQ_2025_09"
+    '''Cipher suite TLS 1.3 and TLS 1.2 with post-quantum cryptography for regional/private endpoints.
+
+    :see: https://docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-custom-domain-tls-version.html
+    '''
+    TLS13_1_2_PFS_PQ_2025_09 = "TLS13_1_2_PFS_PQ_2025_09"
+    '''Cipher suite TLS 1.3 and TLS 1.2 with Perfect Forward Secrecy and post-quantum cryptography for regional/private endpoints.
+
+    :see: https://docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-custom-domain-tls-version.html
+    '''
+    TLS13_2025_EDGE = "TLS13_2025_EDGE"
+    '''Cipher suite TLS 1.3 for edge-optimized endpoints.
+
+    :see: https://docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-custom-domain-tls-version.html
+    '''
+    TLS12_PFS_2025_EDGE = "TLS12_PFS_2025_EDGE"
+    '''Cipher suite TLS 1.2 with Perfect Forward Secrecy for edge-optimized endpoints.
+
+    :see: https://docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-custom-domain-tls-version.html
+    '''
+    TLS12_2018_EDGE = "TLS12_2018_EDGE"
+    '''Cipher suite TLS 1.2 for edge-optimized endpoints (legacy).
+
+    :see: https://docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-custom-domain-tls-version.html
+    '''
 
 
 class SpecRestApi(
@@ -32056,6 +32215,7 @@ class DomainName(
         certificate: "_ICertificateRef_1878d79b",
         domain_name: builtins.str,
         base_path: typing.Optional[builtins.str] = None,
+        endpoint_access_mode: typing.Optional["EndpointAccessMode"] = None,
         endpoint_type: typing.Optional["EndpointType"] = None,
         mtls: typing.Optional[typing.Union["MTLSConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         security_policy: typing.Optional["SecurityPolicy"] = None,
@@ -32067,6 +32227,7 @@ class DomainName(
         :param certificate: The reference to an AWS-managed certificate for use by the edge-optimized endpoint for the domain name. For "EDGE" domain names, the certificate needs to be in the US East (N. Virginia) region.
         :param domain_name: The custom domain name for your API. Uppercase letters are not supported.
         :param base_path: The base path name that callers of the API must provide in the URL after the domain name (e.g. ``example.com/base-path``). If you specify this property, it can't be an empty string. Default: - map requests from the domain root (e.g. ``example.com``).
+        :param endpoint_access_mode: The endpoint access mode for this domain name. When using enhanced security policies (those starting with ``SecurityPolicy_``), you must specify this property. STRICT is recommended for production workloads, but BASIC may be needed during migration or for certain application architectures. Default: - No endpoint access mode is configured. Required for enhanced security policies.
         :param endpoint_type: The type of endpoint for this DomainName. Default: REGIONAL
         :param mtls: The mutual TLS authentication configuration for a custom domain name. Default: - mTLS is not configured.
         :param security_policy: The Transport Layer Security (TLS) version + cipher suite for this domain name. Default: SecurityPolicy.TLS_1_2
@@ -32080,6 +32241,7 @@ class DomainName(
             certificate=certificate,
             domain_name=domain_name,
             base_path=base_path,
+            endpoint_access_mode=endpoint_access_mode,
             endpoint_type=endpoint_type,
             mtls=mtls,
             security_policy=security_policy,
@@ -32130,11 +32292,13 @@ class DomainName(
         This uses the ApiMapping from ApiGatewayV2 which supports multi-level paths, but
         also only supports:
 
-        - SecurityPolicy.TLS_1_2
+        - SecurityPolicy TLS 1.2 or higher for multi-level base paths (TLS 1.0 is not supported for multi-level paths)
         - EndpointType.REGIONAL
 
         :param target_stage: the target API stage.
         :param base_path: The api path name that callers of the API must provide in the URL after the domain name (e.g. ``example.com/base-path``). If you specify this property, it can't be an empty string. If this is undefined, a mapping will be added for the empty path. Any request that does not match a mapping will get sent to the API that has been mapped to the empty path. Default: - map requests from the domain root (e.g. ``example.com``).
+
+        :see: https://docs.aws.amazon.com/apigateway/latest/developerguide/rest-api-mappings.html
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__821fdc8b9fd1b8f6ead947633bcbfaee025d8a1adbd4241c3f0854b9a0db8097)
@@ -35010,6 +35174,7 @@ __all__ = [
     "DomainNameAttributes",
     "DomainNameOptions",
     "DomainNameProps",
+    "EndpointAccessMode",
     "EndpointConfiguration",
     "EndpointType",
     "FirehoseLogDestination",
@@ -37542,6 +37707,7 @@ def _typecheckingstub__0bdcaf279d4b106d16c7f0aa0d23a9d2783cc9dcc73ee5530eac66139
     certificate: _ICertificateRef_1878d79b,
     domain_name: builtins.str,
     base_path: typing.Optional[builtins.str] = None,
+    endpoint_access_mode: typing.Optional[EndpointAccessMode] = None,
     endpoint_type: typing.Optional[EndpointType] = None,
     mtls: typing.Optional[typing.Union[MTLSConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     security_policy: typing.Optional[SecurityPolicy] = None,
@@ -37554,6 +37720,7 @@ def _typecheckingstub__fd56e3d47a950d5babcb79f21442620ade11693af8810f3b0b64fa029
     certificate: _ICertificateRef_1878d79b,
     domain_name: builtins.str,
     base_path: typing.Optional[builtins.str] = None,
+    endpoint_access_mode: typing.Optional[EndpointAccessMode] = None,
     endpoint_type: typing.Optional[EndpointType] = None,
     mtls: typing.Optional[typing.Union[MTLSConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     security_policy: typing.Optional[SecurityPolicy] = None,
@@ -38403,6 +38570,7 @@ def _typecheckingstub__8a12b95d4a36a48d1209e193238414419355802b1437b6082f336abab
     certificate: _ICertificateRef_1878d79b,
     domain_name: builtins.str,
     base_path: typing.Optional[builtins.str] = None,
+    endpoint_access_mode: typing.Optional[EndpointAccessMode] = None,
     endpoint_type: typing.Optional[EndpointType] = None,
     mtls: typing.Optional[typing.Union[MTLSConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     security_policy: typing.Optional[SecurityPolicy] = None,
@@ -39063,6 +39231,7 @@ def _typecheckingstub__aeb0e10d0ef995f9c2a6135581d4faac5b0cdde97f2e1aad887d35984
     certificate: _ICertificateRef_1878d79b,
     domain_name: builtins.str,
     base_path: typing.Optional[builtins.str] = None,
+    endpoint_access_mode: typing.Optional[EndpointAccessMode] = None,
     endpoint_type: typing.Optional[EndpointType] = None,
     mtls: typing.Optional[typing.Union[MTLSConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     security_policy: typing.Optional[SecurityPolicy] = None,

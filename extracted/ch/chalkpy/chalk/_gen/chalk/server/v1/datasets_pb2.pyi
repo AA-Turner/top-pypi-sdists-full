@@ -371,3 +371,99 @@ class ArchiveDatasetRevisionsResponse(_message.Message):
     def __init__(
         self, archived_revisions: _Optional[_Iterable[_Union[DatasetRevisionMeta, _Mapping]]] = ...
     ) -> None: ...
+
+class DeleteDatasetRequest(_message.Message):
+    __slots__ = ("dataset_id",)
+    DATASET_ID_FIELD_NUMBER: _ClassVar[int]
+    dataset_id: str
+    def __init__(self, dataset_id: _Optional[str] = ...) -> None: ...
+
+class DeleteDatasetResponse(_message.Message):
+    __slots__ = ("dataset_id",)
+    DATASET_ID_FIELD_NUMBER: _ClassVar[int]
+    dataset_id: str
+    def __init__(self, dataset_id: _Optional[str] = ...) -> None: ...
+
+class GetDatasetRevisionPreviewRequest(_message.Message):
+    __slots__ = ("revision_id",)
+    REVISION_ID_FIELD_NUMBER: _ClassVar[int]
+    revision_id: str
+    def __init__(self, revision_id: _Optional[str] = ...) -> None: ...
+
+class GetDatasetRevisionPreviewResponse(_message.Message):
+    __slots__ = ("output_preview", "summary")
+    OUTPUT_PREVIEW_FIELD_NUMBER: _ClassVar[int]
+    SUMMARY_FIELD_NUMBER: _ClassVar[int]
+    output_preview: _struct_pb2.Value
+    summary: _struct_pb2.Value
+    def __init__(
+        self,
+        output_preview: _Optional[_Union[_struct_pb2.Value, _Mapping]] = ...,
+        summary: _Optional[_Union[_struct_pb2.Value, _Mapping]] = ...,
+    ) -> None: ...
+
+class GenerateDatasetStatsRequest(_message.Message):
+    __slots__ = ("revision_id",)
+    REVISION_ID_FIELD_NUMBER: _ClassVar[int]
+    revision_id: str
+    def __init__(self, revision_id: _Optional[str] = ...) -> None: ...
+
+class GenerateDatasetStatsResponse(_message.Message):
+    __slots__ = ("summary",)
+    SUMMARY_FIELD_NUMBER: _ClassVar[int]
+    summary: _struct_pb2.Value
+    def __init__(self, summary: _Optional[_Union[_struct_pb2.Value, _Mapping]] = ...) -> None: ...
+
+class DatasetEdf(_message.Message):
+    __slots__ = ("id", "job_id", "feature_name", "data_max", "data_min", "data_count", "bucket_count", "bucket_values")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    JOB_ID_FIELD_NUMBER: _ClassVar[int]
+    FEATURE_NAME_FIELD_NUMBER: _ClassVar[int]
+    DATA_MAX_FIELD_NUMBER: _ClassVar[int]
+    DATA_MIN_FIELD_NUMBER: _ClassVar[int]
+    DATA_COUNT_FIELD_NUMBER: _ClassVar[int]
+    BUCKET_COUNT_FIELD_NUMBER: _ClassVar[int]
+    BUCKET_VALUES_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    job_id: str
+    feature_name: str
+    data_max: float
+    data_min: float
+    data_count: int
+    bucket_count: int
+    bucket_values: _containers.RepeatedScalarFieldContainer[float]
+    def __init__(
+        self,
+        id: _Optional[str] = ...,
+        job_id: _Optional[str] = ...,
+        feature_name: _Optional[str] = ...,
+        data_max: _Optional[float] = ...,
+        data_min: _Optional[float] = ...,
+        data_count: _Optional[int] = ...,
+        bucket_count: _Optional[int] = ...,
+        bucket_values: _Optional[_Iterable[float]] = ...,
+    ) -> None: ...
+
+class GetDatasetEdfsRequest(_message.Message):
+    __slots__ = ("revision_id",)
+    REVISION_ID_FIELD_NUMBER: _ClassVar[int]
+    revision_id: str
+    def __init__(self, revision_id: _Optional[str] = ...) -> None: ...
+
+class GetDatasetEdfsResponse(_message.Message):
+    __slots__ = ("edfs",)
+    EDFS_FIELD_NUMBER: _ClassVar[int]
+    edfs: _containers.RepeatedCompositeFieldContainer[DatasetEdf]
+    def __init__(self, edfs: _Optional[_Iterable[_Union[DatasetEdf, _Mapping]]] = ...) -> None: ...
+
+class GenerateDatasetEdfsRequest(_message.Message):
+    __slots__ = ("revision_id",)
+    REVISION_ID_FIELD_NUMBER: _ClassVar[int]
+    revision_id: str
+    def __init__(self, revision_id: _Optional[str] = ...) -> None: ...
+
+class GenerateDatasetEdfsResponse(_message.Message):
+    __slots__ = ("features",)
+    FEATURES_FIELD_NUMBER: _ClassVar[int]
+    features: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, features: _Optional[_Iterable[str]] = ...) -> None: ...

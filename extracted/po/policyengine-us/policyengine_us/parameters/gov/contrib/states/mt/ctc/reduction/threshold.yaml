@@ -1,0 +1,28 @@
+description: Montana reduces the child tax credit for filers with AGI above this threshold.
+
+SINGLE:
+  values:
+    2023-01-01: 60_000
+
+HEAD_OF_HOUSEHOLD:
+  values:
+    2023-01-01: 60_000
+
+JOINT:
+  values:
+    2023-01-01: 120_000
+
+SEPARATE:
+  values:
+    2023-01-01: 60_000
+
+SURVIVING_SPOUSE:
+  values:
+    2023-01-01: 120_000
+
+metadata:
+  unit: currency-USD
+  period: year
+  label: Montana child tax credit reduction threshold
+  breakdown:
+    - filing_status

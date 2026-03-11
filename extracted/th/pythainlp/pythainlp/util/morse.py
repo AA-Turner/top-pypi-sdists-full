@@ -1,9 +1,9 @@
-# -*- coding: utf-8 -*-
-# SPDX-FileCopyrightText: 2016-2025 PyThaiNLP Project
+# SPDX-FileCopyrightText: 2016-2026 PyThaiNLP Project
 # SPDX-FileType: SOURCE
 # SPDX-License-Identifier: Apache-2.0
+from __future__ import annotations
 
-THAI_MORSE_CODE = {
+THAI_MORSE_CODE: dict[str, str] = {
     "ก": "--.",
     "ข": "-.-.",
     "ค": "-.-",
@@ -74,7 +74,7 @@ THAI_MORSE_CODE = {
     "อ": "-...-",
 }
 
-ENGLISH_MORSE_CODE = {
+ENGLISH_MORSE_CODE: dict[str, str] = {
     "A": ".-",
     "B": "-...",
     "C": "-.-.",
@@ -121,11 +121,13 @@ ENGLISH_MORSE_CODE = {
     "(": "-.--.-",
 }
 
-decodingeng = {}
+decodingeng: dict[str, str] = {}
+key: str
+val: str
 for key, val in ENGLISH_MORSE_CODE.items():
     decodingeng[val] = key
 
-decodingthai = {}
+decodingthai: dict[str, str] = {}
 for key, val in THAI_MORSE_CODE.items():
     decodingthai[val.replace(" ", "")] = key
 
@@ -134,8 +136,7 @@ for key, val in THAI_MORSE_CODE.items():
 
 
 def morse_encode(text: str, lang: str = "th") -> str:
-    """
-    Convert text to Morse code (support Thai and English)
+    """Convert text to Morse code (support Thai and English)
 
     :param str text: Text
     :param str lang: Language Code (*th* is Thai and *en* is English)
@@ -146,6 +147,7 @@ def morse_encode(text: str, lang: str = "th") -> str:
     ::
 
         from pythainlp.util.morse import morse_encode
+
         print(morse_encode("แมว", lang="th"))
         # output: .-.- -- .--
 
@@ -154,19 +156,18 @@ def morse_encode(text: str, lang: str = "th") -> str:
     """
     if lang == "th":  # Thai
         return " ".join(
-            map(lambda x, g=THAI_MORSE_CODE.get: g(x, " "), text.upper())
+            THAI_MORSE_CODE.get(char, " ") for char in text.upper()
         )
     elif lang == "en":  # English
         return " ".join(
-            map(lambda x, g=ENGLISH_MORSE_CODE.get: g(x, " "), text.upper())
+            ENGLISH_MORSE_CODE.get(char, " ") for char in text.upper()
         )
     else:
         raise NotImplementedError(f"This function doesn't support {lang}.")
 
 
 def morse_decode(morse_text: str, lang: str = "th") -> str:
-    """
-    Simple Convert Morse code to text
+    """Simple Convert Morse code to text
 
     Thai still have some wrong character problem that\
         can fix by spell corrector.
@@ -188,12 +189,12 @@ def morse_decode(morse_text: str, lang: str = "th") -> str:
     """
     if lang == "th":
         ans = "".join(
-            map(lambda x, g=decodingthai.get: g(x, ""), morse_text.split(" "))
+            decodingthai.get(code, "") for code in morse_text.split(" ")
         )
         return "".join(ans.split())
     elif lang == "en":
         ans = "".join(
-            map(lambda x, g=decodingeng.get: g(x, " "), morse_text.split(" "))
+            decodingeng.get(code, " ") for code in morse_text.split(" ")
         )
         return " ".join(ans.split())
     else:

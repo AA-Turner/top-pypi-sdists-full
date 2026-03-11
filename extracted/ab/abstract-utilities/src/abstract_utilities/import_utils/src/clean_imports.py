@@ -4,7 +4,6 @@ from ...safe_utils import *
 def is_local_import(line):
     print(line)
     imports_from_import_pkg = clean_imports(line)
-    input(imports_from_import_pkg)
 def try_is_file(file_path):
     try:
         return os.path.isfile(file_path)

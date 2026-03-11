@@ -22,7 +22,7 @@ def test_send_notification(mocker, notification, user):
 
     NotificationUserTokenModelFactory.create(user=user, device_type=NotificationUserToken.NotificationDeviceType.WEB)
     notification.notification_type.user_settings.filter(user=notification.user).update(enable_web=True)
-    FirebaseNotificationBackend.send_notification(notification)
+    FirebaseNotificationBackend.send_web_notification(notification)
 
     mocked_send.assert_called_once()
     mocked_get_firebase_credentials.assert_called_once()
@@ -45,7 +45,7 @@ def test_send_multiple_notifications(mocker, notification, user):
         3, user=user, device_type=NotificationUserToken.NotificationDeviceType.WEB
     )
     notification.notification_type.user_settings.filter(user=notification.user).update(enable_web=True)
-    FirebaseNotificationBackend.send_notification(notification)
+    FirebaseNotificationBackend.send_web_notification(notification)
 
     assert mocked_send.call_count == 3
     mocked_get_firebase_credentials.assert_called_once()
@@ -66,7 +66,7 @@ def test_send_notification_with_initialize(mocker, notification, user):
     mocked_get_firebase_credentials = mocker.patch.object(FirebaseNotificationBackend, "get_firebase_credentials")
     NotificationUserTokenModelFactory.create(user=user, device_type=NotificationUserToken.NotificationDeviceType.WEB)
     notification.notification_type.user_settings.filter(user=notification.user).update(enable_web=True)
-    FirebaseNotificationBackend.send_notification(notification)
+    FirebaseNotificationBackend.send_web_notification(notification)
 
     mocked_get_app.assert_called_once()
     mocked_initialize_app.assert_called_once()

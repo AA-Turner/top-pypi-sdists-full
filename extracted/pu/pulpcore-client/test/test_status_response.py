@@ -73,9 +73,9 @@ class TestStatusResponse(unittest.TestCase):
                 redis_connection = pulpcore.client.pulpcore.models.redis_connection_response.RedisConnectionResponse(
                     connected = True, ),
                 storage = pulpcore.client.pulpcore.models.storage_response.StorageResponse(
-                    total = 56, 
-                    used = 56, 
-                    free = 56, ),
+                    total = 0, 
+                    used = 0, 
+                    free = 0, ),
                 content_settings = pulpcore.client.pulpcore.models.content_settings_response.ContentSettingsResponse(
                     content_origin = '', 
                     content_path_prefix = '', ),

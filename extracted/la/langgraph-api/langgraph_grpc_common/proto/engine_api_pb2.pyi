@@ -10,11 +10,11 @@ from google.protobuf import message as _message
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
 import builtins as _builtins
-from . import engine_common_pb2 as _engine_common_pb2
-from . import enum_durability_pb2 as _enum_durability_pb2
-from . import enum_store_operation_entry_type_pb2 as _enum_store_operation_entry_type_pb2
-from . import enum_stream_mode_pb2 as _enum_stream_mode_pb2
-from . import errors_pb2 as _errors_pb2
+import engine_common_pb2 as _engine_common_pb2
+import enum_durability_pb2 as _enum_durability_pb2
+import enum_store_operation_entry_type_pb2 as _enum_store_operation_entry_type_pb2
+import enum_stream_mode_pb2 as _enum_stream_mode_pb2
+import errors_pb2 as _errors_pb2
 import sys
 import typing as _typing
 

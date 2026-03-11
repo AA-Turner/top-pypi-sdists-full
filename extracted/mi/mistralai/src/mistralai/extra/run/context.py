@@ -21,24 +21,26 @@ from mistralai.extra.run.tools import (
     create_function_result,
     create_tool_call,
 )
-from mistralai.models import (
+from mistralai.client.models import (
     CompletionArgs,
     CompletionArgsTypedDict,
     ConversationInputs,
     ConversationInputsTypedDict,
+    ConversationRequestTool,
+    ConversationRequestToolTypedDict,
     FunctionCallEntry,
     FunctionResultEntry,
     FunctionTool,
     InputEntries,
     MessageInputEntry,
     ResponseFormat,
-    Tools,
-    ToolsTypedDict,
+    UnknownAgentTool,
+    UpdateAgentRequestTool,
 )
-from mistralai.types.basemodel import BaseModel, OptionalNullable, UNSET
+from mistralai.client.types.basemodel import BaseModel, OptionalNullable, UNSET
 
 if typing.TYPE_CHECKING:
-    from mistralai import Beta, OptionalNullable
+    from mistralai.client import Beta, OptionalNullable
 
 logger = getLogger(__name__)
 
@@ -50,7 +52,7 @@ class AgentRequestKwargs(typing.TypedDict):
 class ModelRequestKwargs(typing.TypedDict):
     model: str
     instructions: OptionalNullable[str]
-    tools: OptionalNullable[list[Tools] | list[ToolsTypedDict]]
+    tools: OptionalNullable[list[ConversationRequestTool] | list[ConversationRequestToolTypedDict]]
     completion_args: OptionalNullable[CompletionArgs | CompletionArgsTypedDict]
 
 
@@ -186,10 +188,12 @@ class RunContext:
             )
         agent = await beta_client.agents.get_async(agent_id=self.agent_id)
         agent_tools = agent.tools or []
-        updated_tools = []
-        for i in range(len(agent_tools)):
-            tool = agent_tools[i]
-            if tool.type != "function":
+        updated_tools: list[UpdateAgentRequestTool] = []
+        for tool in agent_tools:
+            if isinstance(tool, UnknownAgentTool):
+                # Skip unknown tools - can't include them in update request
+                continue
+            if not isinstance(tool, FunctionTool):
                 updated_tools.append(tool)
             elif tool.function.name in self._callable_tools:
                 # function already exists in the agent, don't add it again
@@ -209,7 +213,7 @@ class RunContext:
 
     async def prepare_model_request(
         self,
-        tools: OptionalNullable[list[Tools] | list[ToolsTypedDict]] = UNSET,
+        tools: OptionalNullable[list[ConversationRequestTool] | list[ConversationRequestToolTypedDict]] = UNSET,
         completion_args: OptionalNullable[CompletionArgs | CompletionArgsTypedDict] = UNSET,
         instructions: OptionalNullable[str] = None,
     ) -> ModelRequestKwargs:
@@ -225,7 +229,7 @@ class RunContext:
         request_tools = []
         if isinstance(tools, list):
             for tool in tools:
-                request_tools.append(typing.cast(Tools, tool))
+                request_tools.append(typing.cast(ConversationRequestTool, tool))
         for tool in self.get_tools():
             request_tools.append(tool)
         return ModelRequestKwargs(
@@ -248,7 +252,7 @@ async def _validate_run(
     run_ctx: RunContext,
     inputs: ConversationInputs | ConversationInputsTypedDict,
     instructions: OptionalNullable[str] = UNSET,
-    tools: OptionalNullable[list[Tools] | list[ToolsTypedDict]] = UNSET,
+    tools: OptionalNullable[list[ConversationRequestTool] | list[ConversationRequestToolTypedDict]] = UNSET,
     completion_args: OptionalNullable[CompletionArgs | CompletionArgsTypedDict] = UNSET,
 ) -> tuple[
     AgentRequestKwargs | ModelRequestKwargs, RunResult, list[InputEntries]

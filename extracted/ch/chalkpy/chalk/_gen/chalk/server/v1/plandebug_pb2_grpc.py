@@ -30,6 +30,16 @@ class PlanDebugServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_plandebug__pb2.GetQueryPlanStageDownloadLinkRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_plandebug__pb2.GetQueryPlanStageDownloadLinkResponse.FromString,
         )
+        self.GetQueryPlanStageResolverInputScalarLinks = channel.unary_unary(
+            "/chalk.server.v1.PlanDebugService/GetQueryPlanStageResolverInputScalarLinks",
+            request_serializer=chalk_dot_server_dot_v1_dot_plandebug__pb2.GetQueryPlanStageResolverInputScalarLinksRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_plandebug__pb2.GetQueryPlanStageResolverInputScalarLinksResponse.FromString,
+        )
+        self.GetQueryPlanStageResolverInputDataframeLinks = channel.unary_unary(
+            "/chalk.server.v1.PlanDebugService/GetQueryPlanStageResolverInputDataframeLinks",
+            request_serializer=chalk_dot_server_dot_v1_dot_plandebug__pb2.GetQueryPlanStageResolverInputDataframeLinksRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_plandebug__pb2.GetQueryPlanStageResolverInputDataframeLinksResponse.FromString,
+        )
 
 
 class PlanDebugServiceServicer(object):
@@ -53,6 +63,18 @@ class PlanDebugServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def GetQueryPlanStageResolverInputScalarLinks(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetQueryPlanStageResolverInputDataframeLinks(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_PlanDebugServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -70,6 +92,16 @@ def add_PlanDebugServiceServicer_to_server(servicer, server):
             servicer.GetQueryPlanStageDownloadLink,
             request_deserializer=chalk_dot_server_dot_v1_dot_plandebug__pb2.GetQueryPlanStageDownloadLinkRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_plandebug__pb2.GetQueryPlanStageDownloadLinkResponse.SerializeToString,
+        ),
+        "GetQueryPlanStageResolverInputScalarLinks": grpc.unary_unary_rpc_method_handler(
+            servicer.GetQueryPlanStageResolverInputScalarLinks,
+            request_deserializer=chalk_dot_server_dot_v1_dot_plandebug__pb2.GetQueryPlanStageResolverInputScalarLinksRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_plandebug__pb2.GetQueryPlanStageResolverInputScalarLinksResponse.SerializeToString,
+        ),
+        "GetQueryPlanStageResolverInputDataframeLinks": grpc.unary_unary_rpc_method_handler(
+            servicer.GetQueryPlanStageResolverInputDataframeLinks,
+            request_deserializer=chalk_dot_server_dot_v1_dot_plandebug__pb2.GetQueryPlanStageResolverInputDataframeLinksRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_plandebug__pb2.GetQueryPlanStageResolverInputDataframeLinksResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.server.v1.PlanDebugService", rpc_method_handlers)
@@ -157,6 +189,64 @@ class PlanDebugService(object):
             "/chalk.server.v1.PlanDebugService/GetQueryPlanStageDownloadLink",
             chalk_dot_server_dot_v1_dot_plandebug__pb2.GetQueryPlanStageDownloadLinkRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_plandebug__pb2.GetQueryPlanStageDownloadLinkResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetQueryPlanStageResolverInputScalarLinks(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.PlanDebugService/GetQueryPlanStageResolverInputScalarLinks",
+            chalk_dot_server_dot_v1_dot_plandebug__pb2.GetQueryPlanStageResolverInputScalarLinksRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_plandebug__pb2.GetQueryPlanStageResolverInputScalarLinksResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetQueryPlanStageResolverInputDataframeLinks(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.PlanDebugService/GetQueryPlanStageResolverInputDataframeLinks",
+            chalk_dot_server_dot_v1_dot_plandebug__pb2.GetQueryPlanStageResolverInputDataframeLinksRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_plandebug__pb2.GetQueryPlanStageResolverInputDataframeLinksResponse.FromString,
             options,
             channel_credentials,
             insecure,

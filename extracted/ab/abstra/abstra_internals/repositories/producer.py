@@ -37,6 +37,7 @@ class PreExecution(Serializable):
     stage_id: str
     context: ClientContext
     execution_id: str
+    user_jwt: Optional[str] = None
 
 
 @dataclass
@@ -50,11 +51,15 @@ class ProducerRepository(ABC):
     queue: Queue
 
     @abstractmethod
-    def enqueue(self, stage_id: str, context: ClientContext) -> ConnectionProtocol:
+    def enqueue(
+        self, stage_id: str, context: ClientContext, user_jwt: Optional[str] = None
+    ) -> ConnectionProtocol:
         raise NotImplementedError()
 
     @abstractmethod
-    def enqueue_fire_and_forget(self, stage_id: str, context: ClientContext) -> None:
+    def enqueue_fire_and_forget(
+        self, stage_id: str, context: ClientContext, user_jwt: Optional[str] = None
+    ) -> None:
         raise NotImplementedError()
 
     def consume_and_forward(self, conn: ConnectionProtocol, stage_id: str) -> None:
@@ -67,7 +72,9 @@ class LocalProducerRepository(ProducerRepository):
     def __init__(self, local_queue: Queue):
         self.queue = local_queue
 
-    def enqueue(self, stage_id: str, context: ClientContext) -> Connection:
+    def enqueue(
+        self, stage_id: str, context: ClientContext, user_jwt: Optional[str] = None
+    ) -> Connection:
         execution_id = uuid4().__str__()
 
         parent_conn, child_conn = Pipe()
@@ -76,6 +83,7 @@ class LocalProducerRepository(ProducerRepository):
             stage_id=stage_id,
             context=context,
             execution_id=execution_id,
+            user_jwt=user_jwt,
         )
 
         self.queue.put(
@@ -88,7 +96,9 @@ class LocalProducerRepository(ProducerRepository):
 
         return parent_conn
 
-    def enqueue_fire_and_forget(self, stage_id: str, context: ClientContext) -> None:
+    def enqueue_fire_and_forget(
+        self, stage_id: str, context: ClientContext, user_jwt: Optional[str] = None
+    ) -> None:
         execution_id = uuid4().__str__()
 
         _, child_conn = Pipe()
@@ -97,6 +107,7 @@ class LocalProducerRepository(ProducerRepository):
             stage_id=stage_id,
             context=context,
             execution_id=execution_id,
+            user_jwt=user_jwt,
         )
 
         self.queue.put(
@@ -172,13 +183,16 @@ class RabbitMQProducerRepository(ProducerRepository):
 
         raise last_exception or AMQPConnectionError("Failed to connect to RabbitMQ")
 
-    def enqueue(self, stage_id: str, context: ClientContext) -> ConnectionProtocol:
+    def enqueue(
+        self, stage_id: str, context: ClientContext, user_jwt: Optional[str] = None
+    ) -> ConnectionProtocol:
         execution_id = uuid4().__str__()
 
         preexecution = PreExecution(
             stage_id=stage_id,
             context=context,
             execution_id=execution_id,
+            user_jwt=user_jwt,
         )
 
         with self._connect_with_retry() as connection:
@@ -202,8 +216,10 @@ class RabbitMQProducerRepository(ProducerRepository):
 
         return rabbitmq_connection
 
-    def enqueue_fire_and_forget(self, stage_id: str, context: ClientContext) -> None:
-        conn = self.enqueue(stage_id, context)
+    def enqueue_fire_and_forget(
+        self, stage_id: str, context: ClientContext, user_jwt: Optional[str] = None
+    ) -> None:
+        conn = self.enqueue(stage_id, context, user_jwt)
 
         if WORKER_LOG_TO_QUEUE:
             AbstraLogger.warning(

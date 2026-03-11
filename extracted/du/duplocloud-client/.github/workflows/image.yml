@@ -58,11 +58,16 @@ jobs:
         private-key: ${{ secrets.GH_APP_KEY }}
         python-version: ${{ env.PY_VERSION }}
 
+    - name: Sanitize tag
+      run: echo "GIT_TAG=${TAG//\//-}" >> $GITHUB_ENV
+      env:
+        TAG: ${{ inputs.tag }}
+
     - name: Build and Push Docker Image
       id: build_image
       uses: duplocloud/actions/build-image@main
       env:
-        GIT_TAG: ${{ inputs.tag }}
+        GIT_TAG: ${{ env.GIT_TAG }}
       with:
         type: bake
         target: duploctl
@@ -71,7 +76,7 @@ jobs:
         docker-password: ${{ secrets.DOCKER_PASSWORD }}
 
     - name: Docker Hub Description
-      uses: peter-evans/dockerhub-description@v4
+      uses: peter-evans/dockerhub-description@v5
       if: inputs.push
       with:
         username: ${{ secrets.DOCKER_USERNAME }}

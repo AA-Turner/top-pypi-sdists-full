@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: markdown_to_mrkdwn
-Version: 0.3.1
+Version: 0.3.2
 Summary: A library to convert Markdown to Slack's mrkdwn format
 Home-page: https://github.com/fla9ua/markdown_to_mrkdwn
 Download-URL: https://github.com/fla9ua/markdown_to_mrkdwn
@@ -34,7 +34,7 @@ Dynamic: summary
 [![PyPI Version](https://img.shields.io/pypi/v/markdown-to-mrkdwn.svg?style=flat-square&logo=python&logoColor=white)](https://pypi.org/project/markdown-to-mrkdwn/)
 [![Documentation](https://img.shields.io/badge/docs-latest-blue.svg?style=flat-square)](https://fla9ua.github.io/markdown_to_mrkdwn/)  
 [![codecov](https://codecov.io/gh/fla9ua/markdown_to_mrkdwn/branch/main/graph/badge.svg)](https://codecov.io/gh/fla9ua/markdown_to_mrkdwn)
-[![Test, Build Docs and Deploy to GitHub Pages](https://github.com/fla9ua/markdown_to_mrkdwn/actions/workflows/ci-docs-pages.yml/badge.svg?branch=main)](https://github.com/fla9ua/markdown_to_mrkdwn/actions/workflows/ci-docs-pages.yml)
+[![CI Tests](https://github.com/fla9ua/markdown_to_mrkdwn/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/fla9ua/markdown_to_mrkdwn/actions/workflows/ci.yml)
 
 A lightweight, efficient library for converting standard Markdown to Slack's mrkdwn format. This library helps you maintain consistent formatting when sending messages to Slack from your applications.
 
@@ -116,6 +116,7 @@ print(mrkdwn_text)
 | `[Link](https://example.com)` | `<https://example.com\|Link>` |
 | `![Image](https://example.com/img.png)` | `<https://example.com/img.png>` |
 | `- List item` | `• List item` |
+| `* List item` | `• List item` |
 | `1. Ordered item` | `1. Ordered item` |
 | `- [ ] Task` | `• ☐ Task` |
 | `- [x] Task` | `• ☑ Task` |

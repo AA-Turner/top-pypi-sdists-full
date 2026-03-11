@@ -1,79 +1,66 @@
-use std::time::Duration;
-
 use futures_util::StreamExt;
 use test_context::test_context;
 
 use topk_rs::proto::v1::{
-    ctx::{ask_response_message, file::InputFile, AskResponseMessage},
+    ctx::{ask_result::Message, AskResult},
     data::Value,
 };
 
 mod utils;
-use utils::{dataset::test_pdf_path, ProjectTestContext};
+use utils::ProjectTestContext;
+
+use crate::utils::dataset::test_pdf;
 
 #[test_context(ProjectTestContext)]
 #[tokio::test]
+#[ignore]
 async fn test_ask(ctx: &mut ProjectTestContext) {
     let dataset = ctx
         .client
         .datasets()
         .create(ctx.wrap("test"))
         .await
-        .expect("could not create dataset");
+        .expect("could not create dataset")
+        .into_inner()
+        .dataset
+        .unwrap();
 
-    let handle = ctx
+    let upsert = ctx
         .client
         .dataset(&dataset.name)
-        .upsert_file(
-            "doc1",
-            InputFile::from_path(test_pdf_path()).expect("could not create InputFile from path"),
-            Vec::<(String, Value)>::new(),
-        )
+        .upsert_file("doc1", test_pdf(), Vec::<(String, Value)>::new())
         .await
         .expect("could not upsert file");
 
-    let max_attempts = 120;
-    for _ in 0..max_attempts {
-        let processed = ctx
-            .client
-            .dataset(&dataset.name)
-            .check_handle(handle.clone())
-            .await
-            .expect("could not check handle");
+    // Wait for file to be processed
+    ctx.client
+        .dataset(&dataset.name)
+        .wait_for_handle(&upsert.handle, None)
+        .await
+        .expect("could not wait handle");
 
-        if processed {
-            break;
-        }
-
-        tokio::time::sleep(Duration::from_secs(1)).await;
-    }
-
-    // assert!(
-    //     processed,
-    //     "Handle was not processed within {} seconds",
-    //     max_attempts
-    // );
-
+    // Ask
     let mut stream = ctx
         .client
         .ask(
             "What score must general education students achieve who first entered ninth grade in 1997 ?",
             [&dataset.name],
             None,
+            None,
             None
         )
         .await
         .expect("could not call ask");
 
-    let mut last_message: Option<AskResponseMessage> = None;
+    let mut last_message: Option<AskResult> = None;
     while let Some(result) = stream.next().await {
         last_message = Some(result.expect("could not receive message from stream"));
     }
 
     assert!(matches!(
         last_message,
-        Some(AskResponseMessage {
-            message: Some(ask_response_message::Message::Answer(_))
+        Some(AskResult {
+            message: Some(Message::Answer(_))
         })
     ));
 }

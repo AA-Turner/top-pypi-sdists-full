@@ -8,10 +8,16 @@ from abc import (
     abstractmethod,
 )
 from chalk._gen.chalk.server.v1.trace_pb2 import (
+    GetSpanFacetValuesRequest,
+    GetSpanFacetValuesResponse,
+    GetSpanFacetsRequest,
+    GetSpanFacetsResponse,
     GetSpanRequest,
     GetSpanResponse,
     GetTraceRequest,
     GetTraceResponse,
+    ListSpanAggregatedRequest,
+    ListSpanAggregatedResponse,
     ListSpanRequest,
     ListSpanResponse,
     ListTraceRequest,
@@ -48,6 +54,21 @@ class TraceServiceStub:
         ListSpanResponse,
     ]
     """ListSpan retrieves a list of spans for a specific trace with optional filtering"""
+    GetSpanFacets: UnaryUnaryMultiCallable[
+        GetSpanFacetsRequest,
+        GetSpanFacetsResponse,
+    ]
+    """GetSpanFacets returns available facets for filtering spans"""
+    GetSpanFacetValues: UnaryUnaryMultiCallable[
+        GetSpanFacetValuesRequest,
+        GetSpanFacetValuesResponse,
+    ]
+    """GetSpanFacetValues returns values for a specific span facet"""
+    ListSpanAggregated: UnaryUnaryMultiCallable[
+        ListSpanAggregatedRequest,
+        ListSpanAggregatedResponse,
+    ]
+    """ListSpanAggregated returns aggregated span counts bucketed by time and status"""
 
 class TraceServiceServicer(metaclass=ABCMeta):
     """TraceService provides methods for retrieving trace data"""
@@ -80,5 +101,26 @@ class TraceServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> ListSpanResponse:
         """ListSpan retrieves a list of spans for a specific trace with optional filtering"""
+    @abstractmethod
+    def GetSpanFacets(
+        self,
+        request: GetSpanFacetsRequest,
+        context: ServicerContext,
+    ) -> GetSpanFacetsResponse:
+        """GetSpanFacets returns available facets for filtering spans"""
+    @abstractmethod
+    def GetSpanFacetValues(
+        self,
+        request: GetSpanFacetValuesRequest,
+        context: ServicerContext,
+    ) -> GetSpanFacetValuesResponse:
+        """GetSpanFacetValues returns values for a specific span facet"""
+    @abstractmethod
+    def ListSpanAggregated(
+        self,
+        request: ListSpanAggregatedRequest,
+        context: ServicerContext,
+    ) -> ListSpanAggregatedResponse:
+        """ListSpanAggregated returns aggregated span counts bucketed by time and status"""
 
 def add_TraceServiceServicer_to_server(servicer: TraceServiceServicer, server: Server) -> None: ...

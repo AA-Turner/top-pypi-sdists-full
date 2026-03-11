@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Type, TypeVar, Union, cast
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
+from ..models.new_kafka_trigger_auto_offset_reset import NewKafkaTriggerAutoOffsetReset
 from ..models.new_kafka_trigger_mode import NewKafkaTriggerMode
 from ..types import UNSET, Unset
 
@@ -26,6 +27,8 @@ class NewKafkaTrigger:
         group_id (str): Kafka consumer group ID for this trigger
         topics (List[str]): Array of Kafka topic names to subscribe to
         filters (List['NewKafkaTriggerFiltersItem']):
+        auto_offset_reset (Union[Unset, NewKafkaTriggerAutoOffsetReset]): Initial offset behavior when consumer group
+            has no committed offset. Default: NewKafkaTriggerAutoOffsetReset.LATEST.
         mode (Union[Unset, NewKafkaTriggerMode]): job trigger mode
         error_handler_path (Union[Unset, str]): Path to a script or flow to run when the triggered job fails
         error_handler_args (Union[Unset, NewKafkaTriggerErrorHandlerArgs]): The arguments to pass to the script or flow
@@ -43,6 +46,7 @@ class NewKafkaTrigger:
     group_id: str
     topics: List[str]
     filters: List["NewKafkaTriggerFiltersItem"]
+    auto_offset_reset: Union[Unset, NewKafkaTriggerAutoOffsetReset] = NewKafkaTriggerAutoOffsetReset.LATEST
     mode: Union[Unset, NewKafkaTriggerMode] = UNSET
     error_handler_path: Union[Unset, str] = UNSET
     error_handler_args: Union[Unset, "NewKafkaTriggerErrorHandlerArgs"] = UNSET
@@ -64,6 +68,10 @@ class NewKafkaTrigger:
             filters_item = filters_item_data.to_dict()
 
             filters.append(filters_item)
+
+        auto_offset_reset: Union[Unset, str] = UNSET
+        if not isinstance(self.auto_offset_reset, Unset):
+            auto_offset_reset = self.auto_offset_reset.value
 
         mode: Union[Unset, str] = UNSET
         if not isinstance(self.mode, Unset):
@@ -94,6 +102,8 @@ class NewKafkaTrigger:
                 "filters": filters,
             }
         )
+        if auto_offset_reset is not UNSET:
+            field_dict["auto_offset_reset"] = auto_offset_reset
         if mode is not UNSET:
             field_dict["mode"] = mode
         if error_handler_path is not UNSET:
@@ -135,6 +145,13 @@ class NewKafkaTrigger:
 
             filters.append(filters_item)
 
+        _auto_offset_reset = d.pop("auto_offset_reset", UNSET)
+        auto_offset_reset: Union[Unset, NewKafkaTriggerAutoOffsetReset]
+        if isinstance(_auto_offset_reset, Unset):
+            auto_offset_reset = UNSET
+        else:
+            auto_offset_reset = NewKafkaTriggerAutoOffsetReset(_auto_offset_reset)
+
         _mode = d.pop("mode", UNSET)
         mode: Union[Unset, NewKafkaTriggerMode]
         if isinstance(_mode, Unset):
@@ -170,6 +187,7 @@ class NewKafkaTrigger:
             group_id=group_id,
             topics=topics,
             filters=filters,
+            auto_offset_reset=auto_offset_reset,
             mode=mode,
             error_handler_path=error_handler_path,
             error_handler_args=error_handler_args,

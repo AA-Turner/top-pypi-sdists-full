@@ -1,9 +1,7 @@
-# -*- coding: utf-8 -*-
-# SPDX-FileCopyrightText: 2016-2025 PyThaiNLP Project
+# SPDX-FileCopyrightText: 2016-2026 PyThaiNLP Project
 # SPDX-FileType: SOURCE
 # SPDX-License-Identifier: Apache-2.0
-"""
-Universal Language Model Fine-tuning for Text Classification (ULMFiT).
+"""Universal Language Model Fine-tuning for Text Classification (ULMFiT).
 
 Code by Charin Polpanumas
 https://github.com/cstorm125/thai2fit/
@@ -15,10 +13,11 @@ Universal Language Model Fine-tuning for Text Classification
 https://arxiv.org/abs/1801.06146
 """
 
-__all__ = [
+__all__: list[str] = [
     "THWIKI_LSTM",
     "ThaiTokenizer",
     "document_vector",
+    "get_thwiki_lstm",
     "merge_wgts",
     "post_rules_th",
     "post_rules_th_sparse",
@@ -43,6 +42,7 @@ __all__ = [
 from pythainlp.ulmfit.core import (
     THWIKI_LSTM,
     document_vector,
+    get_thwiki_lstm,
     merge_wgts,
     post_rules_th,
     post_rules_th_sparse,

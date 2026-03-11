@@ -16,7 +16,7 @@ class ScheduledFreezeResponse(typing.TypedDict, total=False):
     start: typing.Required[str]
     end: typing.Required[str | None]
     timezone: typing.Required[str]
-    matching_conditions: typing.Required[list[str]]
+    matching_conditions: list[str]
     exclude_conditions: list[str]
 
 
@@ -25,7 +25,7 @@ class CreateScheduledFreezePayload(typing.TypedDict, total=False):
     start: typing.Required[str | None]
     end: typing.Required[str | None]
     timezone: typing.Required[str]
-    matching_conditions: typing.Required[list[str]]
+    matching_conditions: list[str]
     exclude_conditions: list[str]
 
 
@@ -55,7 +55,7 @@ async def create_freeze(
     *,
     reason: str,
     timezone: str,
-    matching_conditions: list[str],
+    matching_conditions: list[str] | None = None,
     start: datetime.datetime | None = None,
     end: datetime.datetime | None = None,
     exclude_conditions: list[str] | None = None,
@@ -65,8 +65,9 @@ async def create_freeze(
         "start": start.isoformat() if start is not None else None,
         "end": end.isoformat() if end is not None else None,
         "timezone": timezone,
-        "matching_conditions": matching_conditions,
     }
+    if matching_conditions is not None:
+        payload["matching_conditions"] = matching_conditions
     if exclude_conditions:
         payload["exclude_conditions"] = exclude_conditions
 
@@ -117,12 +118,8 @@ async def delete_freeze(
     *,
     delete_reason: str | None = None,
 ) -> None:
-    url = f"/v1/repos/{repository}/scheduled_freeze/{freeze_id}"
+    url = f"/v1/repos/{repository}/scheduled_freeze/{freeze_id}/delete"
+    payload: dict[str, str] = {}
     if delete_reason is not None:
-        await client.request(
-            "DELETE",
-            url,
-            json={"delete_reason": delete_reason},
-        )
-    else:
-        await client.delete(url)
+        payload["delete_reason"] = delete_reason
+    await client.post(url, json=payload)

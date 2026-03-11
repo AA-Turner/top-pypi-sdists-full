@@ -241,7 +241,7 @@ class BaseSteeringObject(ABC):
     def load(cls, path: str) -> "BaseSteeringObject":
         """Load steering object from file."""
         if path.endswith('.pt'):
-            data = torch.load(path, map_location='cpu')
+            data = torch.load(path, map_location='cpu', weights_only=False)
         else:
             with open(path, 'r') as f:
                 data = json.load(f)
@@ -279,6 +279,9 @@ class BaseSteeringObject(ABC):
         elif method == 'przelom':
             from wisent.core.control.steering_methods.methods.przelom import PrzelomSteeringObject
             return PrzelomSteeringObject.from_dict(data)
+        elif method == 'zapis':
+            from wisent.core.control.steering_methods.methods.zapis import ZapisSteeringObject
+            return ZapisSteeringObject.from_dict(data)
         else:
             raise ValueError(f"Unknown steering method: {method}")
 

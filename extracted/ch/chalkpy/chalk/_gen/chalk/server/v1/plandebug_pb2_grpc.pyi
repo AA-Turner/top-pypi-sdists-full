@@ -11,6 +11,10 @@ from chalk._gen.chalk.server.v1.plandebug_pb2 import (
     GetQueryPlanStageDownloadLinkRequest,
     GetQueryPlanStageDownloadLinkResponse,
     GetQueryPlanStageRequest,
+    GetQueryPlanStageResolverInputDataframeLinksRequest,
+    GetQueryPlanStageResolverInputDataframeLinksResponse,
+    GetQueryPlanStageResolverInputScalarLinksRequest,
+    GetQueryPlanStageResolverInputScalarLinksResponse,
     GetQueryPlanStageResolverInputsRequest,
     GetQueryPlanStageResolverInputsResponse,
     GetQueryPlanStageResponse,
@@ -36,6 +40,14 @@ class PlanDebugServiceStub:
         GetQueryPlanStageDownloadLinkRequest,
         GetQueryPlanStageDownloadLinkResponse,
     ]
+    GetQueryPlanStageResolverInputScalarLinks: UnaryUnaryMultiCallable[
+        GetQueryPlanStageResolverInputScalarLinksRequest,
+        GetQueryPlanStageResolverInputScalarLinksResponse,
+    ]
+    GetQueryPlanStageResolverInputDataframeLinks: UnaryUnaryMultiCallable[
+        GetQueryPlanStageResolverInputDataframeLinksRequest,
+        GetQueryPlanStageResolverInputDataframeLinksResponse,
+    ]
 
 class PlanDebugServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -56,5 +68,17 @@ class PlanDebugServiceServicer(metaclass=ABCMeta):
         request: GetQueryPlanStageDownloadLinkRequest,
         context: ServicerContext,
     ) -> GetQueryPlanStageDownloadLinkResponse: ...
+    @abstractmethod
+    def GetQueryPlanStageResolverInputScalarLinks(
+        self,
+        request: GetQueryPlanStageResolverInputScalarLinksRequest,
+        context: ServicerContext,
+    ) -> GetQueryPlanStageResolverInputScalarLinksResponse: ...
+    @abstractmethod
+    def GetQueryPlanStageResolverInputDataframeLinks(
+        self,
+        request: GetQueryPlanStageResolverInputDataframeLinksRequest,
+        context: ServicerContext,
+    ) -> GetQueryPlanStageResolverInputDataframeLinksResponse: ...
 
 def add_PlanDebugServiceServicer_to_server(servicer: PlanDebugServiceServicer, server: Server) -> None: ...

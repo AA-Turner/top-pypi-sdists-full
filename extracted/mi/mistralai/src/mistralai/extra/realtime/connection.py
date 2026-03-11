@@ -16,7 +16,7 @@ except ImportError as exc:
         "Install with: pip install 'mistralai[realtime]'"
     ) from exc
 
-from mistralai.models import (
+from mistralai.client.models import (
     AudioFormat,
     RealtimeTranscriptionInputAudioAppend,
     RealtimeTranscriptionInputAudioEnd,
@@ -32,7 +32,7 @@ from mistralai.models import (
     TranscriptionStreamSegmentDelta,
     TranscriptionStreamTextDelta,
 )
-from mistralai.types import UNSET
+from mistralai.client.types import UNSET
 
 
 class UnknownRealtimeEvent(BaseModel):

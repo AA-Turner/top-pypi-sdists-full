@@ -3,7 +3,7 @@ Type annotations for lexv2-models service literal definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lexv2_models/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -26,6 +26,7 @@ __all__ = (
     "AggregatedUtterancesFilterNameType",
     "AggregatedUtterancesFilterOperatorType",
     "AggregatedUtterancesSortAttributeType",
+    "AnalysisScopeType",
     "AnalyticsBinByNameType",
     "AnalyticsCommonFilterNameType",
     "AnalyticsFilterOperatorType",
@@ -56,6 +57,7 @@ __all__ = (
     "BotAliasAvailableWaiterName",
     "BotAliasReplicationStatusType",
     "BotAliasStatusType",
+    "BotAnalyzerStatusType",
     "BotAvailableWaiterName",
     "BotExportCompletedWaiterName",
     "BotFilterNameType",
@@ -82,6 +84,7 @@ __all__ = (
     "ConversationEndStateType",
     "ConversationLogsInputModeFilterType",
     "CustomVocabularyStatusType",
+    "DescribeBotAnalyzerRecommendationPaginatorName",
     "DialogActionTypeType",
     "EffectType",
     "ErrorCodeType",
@@ -102,9 +105,12 @@ __all__ = (
     "IntentSortAttributeType",
     "IntentStateType",
     "LexModelsV2ServiceName",
+    "ListBotAnalyzerHistoryPaginatorName",
     "MergeStrategyType",
     "MessageSelectionStrategyType",
     "ObfuscationSettingTypeType",
+    "PaginatorName",
+    "PriorityType",
     "PromptAttemptType",
     "RegionName",
     "ResourceServiceName",
@@ -146,6 +152,7 @@ __all__ = (
 AggregatedUtterancesFilterNameType = Literal["Utterance"]
 AggregatedUtterancesFilterOperatorType = Literal["CO", "EQ"]
 AggregatedUtterancesSortAttributeType = Literal["HitCount", "MissedCount"]
+AnalysisScopeType = Literal["BotLocale"]
 AnalyticsBinByNameType = Literal["ConversationStartTime", "UtteranceTimestamp"]
 AnalyticsCommonFilterNameType = Literal[
     "BotAliasId", "BotVersion", "Channel", "LocaleId", "Modality"
@@ -221,6 +228,7 @@ BedrockTraceStatusType = Literal["DISABLED", "ENABLED"]
 BotAliasAvailableWaiterName = Literal["bot_alias_available"]
 BotAliasReplicationStatusType = Literal["Available", "Creating", "Deleting", "Failed", "Updating"]
 BotAliasStatusType = Literal["Available", "Creating", "Deleting", "Failed"]
+BotAnalyzerStatusType = Literal["Available", "Failed", "Processing", "Stopped", "Stopping"]
 BotAvailableWaiterName = Literal["bot_available"]
 BotExportCompletedWaiterName = Literal["bot_export_completed"]
 BotFilterNameType = Literal["BotName", "BotType"]
@@ -269,6 +277,7 @@ BuiltInSlotTypeSortAttributeType = Literal["SlotTypeSignature"]
 ConversationEndStateType = Literal["Dropped", "Failure", "Success"]
 ConversationLogsInputModeFilterType = Literal["Speech", "Text"]
 CustomVocabularyStatusType = Literal["Creating", "Deleting", "Exporting", "Importing", "Ready"]
+DescribeBotAnalyzerRecommendationPaginatorName = Literal["describe_bot_analyzer_recommendation"]
 DialogActionTypeType = Literal[
     "CloseIntent",
     "ConfirmIntent",
@@ -305,9 +314,11 @@ IntentSortAttributeType = Literal["IntentName", "LastUpdatedDateTime"]
 IntentStateType = Literal[
     "Failed", "Fulfilled", "FulfillmentInProgress", "InProgress", "ReadyForFulfillment", "Waiting"
 ]
+ListBotAnalyzerHistoryPaginatorName = Literal["list_bot_analyzer_history"]
 MergeStrategyType = Literal["Append", "FailOnConflict", "Overwrite"]
 MessageSelectionStrategyType = Literal["Ordered", "Random"]
 ObfuscationSettingTypeType = Literal["DefaultObfuscation", "None"]
+PriorityType = Literal["High", "Low", "Medium"]
 PromptAttemptType = Literal["Initial", "Retry1", "Retry2", "Retry3", "Retry4", "Retry5"]
 SearchOrderType = Literal["Ascending", "Descending"]
 SlotConstraintType = Literal["Optional", "Required"]
@@ -452,6 +463,7 @@ ServiceName = Literal[
     "connectcampaigns",
     "connectcampaignsv2",
     "connectcases",
+    "connecthealth",
     "connectparticipant",
     "controlcatalog",
     "controltower",
@@ -491,16 +503,15 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
+    "elementalinference",
     "emr",
     "emr-containers",
     "emr-serverless",
     "entityresolution",
     "es",
     "events",
-    "evidently",
     "evs",
     "finspace",
     "finspace-data",
@@ -540,7 +551,6 @@ ServiceName = Literal[
     "iot-data",
     "iot-jobs-data",
     "iot-managed-integrations",
-    "iotanalytics",
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
@@ -715,6 +725,7 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signer-data",
     "signin",
     "simspaceweaver",
     "snow-device-management",
@@ -756,6 +767,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",
@@ -769,6 +781,7 @@ ServiceName = Literal[
 ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
+PaginatorName = Literal["describe_bot_analyzer_recommendation", "list_bot_analyzer_history"]
 WaiterName = Literal[
     "bot_alias_available",
     "bot_available",

@@ -233,7 +233,9 @@ class BaseProcessor(ABC):
         return {
             "camera_name": "camera_1",
             "camera_group": "camera_group_1", 
-            "location": "Location TBD"
+            "location": "Location TBD",
+            "app_deployment_id": "",
+            "application_id": "",
         }
     
     def get_default_level_settings(self) -> Dict[str, int]:
@@ -257,22 +259,80 @@ class BaseProcessor(ABC):
             }
         ]
     
+    def extract_deployment_ids(self, stream_info: Optional[Dict[str, Any]] = None) -> Dict[str, str]:
+        """Extract app_deployment_id and application_id from stream_info.
+
+        Uses a priority-based fallback chain identical to the one in
+        incident_manager_utils / business_metrics_manager_utils:
+
+            stream_info root  >  input_settings  >  camera_info
+
+        Each level checks snake_case and camelCase key variants.
+        Returns a dict with ``app_deployment_id`` and ``application_id``
+        (empty strings when not found).
+        """
+        result = {"app_deployment_id": "", "application_id": ""}
+        if not stream_info or not isinstance(stream_info, dict):
+            return result
+
+        input_settings = stream_info.get("input_settings", {}) or {}
+        if not isinstance(input_settings, dict):
+            input_settings = {}
+        cam_info = stream_info.get("camera_info", {}) or {}
+        if not isinstance(cam_info, dict):
+            cam_info = {}
+
+        result["app_deployment_id"] = (
+            stream_info.get("app_deployment_id", "") or
+            stream_info.get("appDeploymentId", "") or
+            stream_info.get("app_deploymentId", "") or
+            input_settings.get("app_deployment_id", "") or
+            input_settings.get("appDeploymentId", "") or
+            cam_info.get("app_deployment_id", "") or
+            cam_info.get("appDeploymentId", "") or
+            ""
+        )
+
+        result["application_id"] = (
+            stream_info.get("application_id", "") or
+            stream_info.get("applicationId", "") or
+            stream_info.get("app_id", "") or
+            input_settings.get("application_id", "") or
+            input_settings.get("applicationId", "") or
+            cam_info.get("application_id", "") or
+            cam_info.get("applicationId", "") or
+            ""
+        )
+
+        return result
+
     def get_camera_info_from_stream(self, stream_info: Optional[Dict[str, Any]] = None, 
                                    camera_info: Optional[Dict[str, Any]] = None) -> Dict[str, str]:
-        """Extract camera info from stream_info or use provided camera_info."""
+        """Extract camera info from stream_info or use provided camera_info.
+
+        The returned dict always includes ``app_deployment_id`` and
+        ``application_id`` extracted from *stream_info* using a
+        priority-based fallback chain (root -> input_settings -> camera_info).
+        """
         default_camera_info = self.get_default_camera_info()
         
         if camera_info:
             result = default_camera_info.copy()
             result.update(camera_info)
-            return result
-        
-        if stream_info and stream_info.get("camera_info"):
+        elif stream_info and stream_info.get("camera_info"):
             result = default_camera_info.copy()
             result.update(stream_info["camera_info"])
-            return result
-        
-        return default_camera_info
+        else:
+            result = default_camera_info.copy()
+
+        if stream_info and isinstance(stream_info, dict):
+            deployment_ids = self.extract_deployment_ids(stream_info)
+            if deployment_ids.get("app_deployment_id") and not result.get("app_deployment_id"):
+                result["app_deployment_id"] = deployment_ids["app_deployment_id"]
+            if deployment_ids.get("application_id") and not result.get("application_id"):
+                result["application_id"] = deployment_ids["application_id"]
+
+        return result
     
     def create_incident(self, incident_id: str, incident_type: str, severity_level: str,
                        human_text: str = "", camera_info: Optional[Dict[str, Any]] = None,

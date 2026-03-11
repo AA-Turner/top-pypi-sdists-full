@@ -105,7 +105,7 @@ Lambda function which contains the logic that evaluates whether your AWS resourc
 eval_compliance_fn = lambda_.Function(self, "CustomFunction",
     code=lambda_.AssetCode.from_inline("exports.handler = (event) => console.log(event);"),
     handler="index.handler",
-    runtime=lambda_.Runtime.NODEJS_18_X
+    runtime=lambda_.Runtime.NODEJS_LATEST
 )
 
 # A custom rule that runs on configuration changes of EC2 instances
@@ -272,7 +272,7 @@ Compliance events are published to an SNS topic.
 eval_compliance_fn = lambda_.Function(self, "CustomFunction",
     code=lambda_.AssetCode.from_inline("exports.handler = (event) => console.log(event);"),
     handler="index.handler",
-    runtime=lambda_.Runtime.NODEJS_18_X
+    runtime=lambda_.Runtime.NODEJS_LATEST
 )
 
 # A custom rule that runs on configuration changes of EC2 instances
@@ -10454,7 +10454,7 @@ class ResourceType(
         eval_compliance_fn = lambda_.Function(self, "CustomFunction",
             code=lambda_.AssetCode.from_inline("exports.handler = (event) => console.log(event);"),
             handler="index.handler",
-            runtime=lambda_.Runtime.NODEJS_18_X
+            runtime=lambda_.Runtime.NODEJS_LATEST
         )
         
         # A custom rule that runs on configuration changes of EC2 instances
@@ -12990,7 +12990,7 @@ class RuleScope(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_config.RuleS
         eval_compliance_fn = lambda_.Function(self, "CustomFunction",
             code=lambda_.AssetCode.from_inline("exports.handler = (event) => console.log(event);"),
             handler="index.handler",
-            runtime=lambda_.Runtime.NODEJS_18_X
+            runtime=lambda_.Runtime.NODEJS_LATEST
         )
         
         # A custom rule that runs on configuration changes of EC2 instances

@@ -25,7 +25,7 @@ from abstract_utilities import (SingletonMeta,
                                 read_from_file,
                                 make_list
                                 )
-from abstract_utilities.robust_reader import (
+from abstract_utilities.file_utils import (
     collect_filepaths,
     DEFAULT_EXCLUDE_DIRS,
     DEFAULT_EXCLUDE_FILE_PATTERNS,

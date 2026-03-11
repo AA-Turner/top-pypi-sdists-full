@@ -1,26 +1,29 @@
-# -*- coding: utf-8 -*-
-# SPDX-FileCopyrightText: 2016-2025 PyThaiNLP Project
+# SPDX-FileCopyrightText: 2016-2026 PyThaiNLP Project
 # SPDX-FileType: SOURCE
 # SPDX-License-Identifier: Apache-2.0
-"""
-Thank https://dev.to/ton_ami/text-data-augmentation-synonym-replacement-4h8l
-"""
-__all__ = [
+"""Thank https://dev.to/ton_ami/text-data-augmentation-synonym-replacement-4h8l"""
+
+from __future__ import annotations
+
+__all__: list[str] = [
     "WordNetAug",
     "postype2wordnet",
 ]
 
 import itertools
 from collections import OrderedDict
-from typing import List
+from typing import TYPE_CHECKING, Callable, Optional
 
 from nltk.corpus import wordnet as wn
+
+if TYPE_CHECKING:
+    from nltk.corpus.reader.wordnet import Synset
 
 from pythainlp.corpus import wordnet
 from pythainlp.tag import pos_tag
 from pythainlp.tokenize import word_tokenize
 
-orchid = {
+orchid: dict[str, str] = {
     "": "",
     # NOUN
     "NOUN": wn.NOUN,
@@ -101,9 +104,8 @@ orchid = {
 }
 
 
-def postype2wordnet(pos: str, corpus: str):
-    """
-    Convert part-of-speech type to wordnet type
+def postype2wordnet(pos: str, corpus: str) -> Optional[str]:
+    """Convert part-of-speech type to wordnet type
 
     :param str pos: POS type
     :param str corpus: part-of-speech corpus
@@ -117,40 +119,54 @@ def postype2wordnet(pos: str, corpus: str):
 
 
 class WordNetAug:
-    """
-    Text Augment using wordnet
-    """
+    """Text Augment using wordnet"""
 
-    def __init__(self):
+    synonyms: list[str]
+    list_synsets: list
+    p2w_pos: Optional[str]
+    synset: Synset
+    syn: str
+    synonyms_without_duplicates: list[str]
+    list_words: list[str]
+    list_synonym: list
+    p_all: int
+    list_pos: list[tuple[str, str]]
+    temp: list[str]
+
+    def __init__(self) -> None:
         pass
 
     def find_synonyms(
-        self, word: str, pos: str = None, postag_corpus: str = "orchid"
-    ) -> List[str]:
-        """
-        Find synonyms using wordnet
+        self,
+        word: str,
+        pos: Optional[str] = None,
+        postag_corpus: str = "orchid",
+    ) -> list[str]:
+        """Find synonyms using wordnet
 
         :param str word: word
-        :param str pos: part-of-speech type
+        :param Optional[str] pos: part-of-speech type. Default is None.
         :param str postag_corpus: name of POS tag corpus
         :return: list of synonyms
-        :rtype: List[str]
+        :rtype: list[str]
         """
-        self.synonyms = []
+        self.synonyms: list[str] = []
         if pos is None:
-            self.list_synsets = wordnet.synsets(word)
+            self.list_synsets: list = wordnet.synsets(word)
         else:
-            self.p2w_pos = postype2wordnet(pos, postag_corpus)
+            self.p2w_pos: Optional[str] = postype2wordnet(pos, postag_corpus)
             if self.p2w_pos != "":
-                self.list_synsets = wordnet.synsets(word, pos=self.p2w_pos)
+                self.list_synsets: list = wordnet.synsets(
+                    word, pos=self.p2w_pos
+                )
             else:
-                self.list_synsets = wordnet.synsets(word)
+                self.list_synsets: list = wordnet.synsets(word)
 
         for self.synset in wordnet.synsets(word):
             for self.syn in self.synset.lemma_names(lang="tha"):
                 self.synonyms.append(self.syn)
 
-        self.synonyms_without_duplicates = list(
+        self.synonyms_without_duplicates: list[str] = list(
             OrderedDict.fromkeys(self.synonyms)
         )
         return self.synonyms_without_duplicates
@@ -158,13 +174,12 @@ class WordNetAug:
     def augment(
         self,
         sentence: str,
-        tokenize: object = word_tokenize,
+        tokenize: Callable[[str], list[str]] = word_tokenize,
         max_syn_sent: int = 6,
         postag: bool = True,
         postag_corpus: str = "orchid",
-    ) -> List[List[str]]:
-        """
-        Text Augment using wordnet
+    ) -> list[list[str]]:
+        """Text Augment using wordnet
 
         :param str sentence: Thai sentence
         :param object tokenize: function for tokenizing words
@@ -173,7 +188,7 @@ class WordNetAug:
         :param str postag_corpus: name of POS tag corpus
 
         :return: list of synonyms
-        :rtype: List[Tuple[str]]
+        :rtype: list[list[str]]
 
         :Example:
         ::
@@ -190,13 +205,17 @@ class WordNetAug:
              ('เรา', 'ชอบ', 'ไปยัง', 'รร.')]
         """
         new_sentences = []
-        self.list_words = tokenize(sentence)
-        self.list_synonym = []
-        self.p_all = 1
+        self.list_words: list[str] = tokenize(sentence)
+        self.list_synonym: list = []
+        self.p_all: int = 1
         if postag:
-            self.list_pos = pos_tag(self.list_words, corpus=postag_corpus)
+            self.list_pos: list[tuple[str, str]] = pos_tag(
+                self.list_words, corpus=postag_corpus
+            )
             for word, pos in self.list_pos:
-                self.temp = self.find_synonyms(word, pos, postag_corpus)
+                self.temp: list[str] = self.find_synonyms(
+                    word, pos, postag_corpus
+                )
                 if not self.temp:
                     self.list_synonym.append([word])
                 else:
@@ -204,7 +223,7 @@ class WordNetAug:
                     self.p_all *= len(self.temp)
         else:
             for word in self.list_words:
-                self.temp = self.find_synonyms(word)
+                self.temp: list[str] = self.find_synonyms(word)
                 if not self.temp:
                     self.list_synonym.append([word])
                 else:
@@ -213,5 +232,5 @@ class WordNetAug:
         if max_syn_sent > self.p_all:
             max_syn_sent = self.p_all
         for x in list(itertools.product(*self.list_synonym))[0:max_syn_sent]:
-            new_sentences.append(x)
+            new_sentences.append(list(x))
         return new_sentences

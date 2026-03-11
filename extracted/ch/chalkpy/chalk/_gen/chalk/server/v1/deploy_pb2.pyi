@@ -6,6 +6,7 @@ from chalk._gen.chalk.graph.v1 import graph_pb2 as _graph_pb2
 from chalk._gen.chalk.server.v1 import deployment_pb2 as _deployment_pb2
 from google.protobuf import empty_pb2 as _empty_pb2
 from google.protobuf import field_mask_pb2 as _field_mask_pb2
+from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
@@ -231,3 +232,54 @@ class GetDeploymentSourceResponse(_message.Message):
     SIGNED_URL_FIELD_NUMBER: _ClassVar[int]
     signed_url: str
     def __init__(self, signed_url: _Optional[str] = ...) -> None: ...
+
+class ResolverDeploymentHistoryEntry(_message.Message):
+    __slots__ = ("resolver_id", "deployment_id", "triggered_by", "created_at")
+    RESOLVER_ID_FIELD_NUMBER: _ClassVar[int]
+    DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    TRIGGERED_BY_FIELD_NUMBER: _ClassVar[int]
+    CREATED_AT_FIELD_NUMBER: _ClassVar[int]
+    resolver_id: int
+    deployment_id: str
+    triggered_by: str
+    created_at: _timestamp_pb2.Timestamp
+    def __init__(
+        self,
+        resolver_id: _Optional[int] = ...,
+        deployment_id: _Optional[str] = ...,
+        triggered_by: _Optional[str] = ...,
+        created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+    ) -> None: ...
+
+class GetResolverHistoryRequest(_message.Message):
+    __slots__ = ("fqn", "start", "end", "cursor", "limit")
+    FQN_FIELD_NUMBER: _ClassVar[int]
+    START_FIELD_NUMBER: _ClassVar[int]
+    END_FIELD_NUMBER: _ClassVar[int]
+    CURSOR_FIELD_NUMBER: _ClassVar[int]
+    LIMIT_FIELD_NUMBER: _ClassVar[int]
+    fqn: str
+    start: _timestamp_pb2.Timestamp
+    end: _timestamp_pb2.Timestamp
+    cursor: str
+    limit: int
+    def __init__(
+        self,
+        fqn: _Optional[str] = ...,
+        start: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        end: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        cursor: _Optional[str] = ...,
+        limit: _Optional[int] = ...,
+    ) -> None: ...
+
+class GetResolverHistoryResponse(_message.Message):
+    __slots__ = ("entries", "next_cursor")
+    ENTRIES_FIELD_NUMBER: _ClassVar[int]
+    NEXT_CURSOR_FIELD_NUMBER: _ClassVar[int]
+    entries: _containers.RepeatedCompositeFieldContainer[ResolverDeploymentHistoryEntry]
+    next_cursor: str
+    def __init__(
+        self,
+        entries: _Optional[_Iterable[_Union[ResolverDeploymentHistoryEntry, _Mapping]]] = ...,
+        next_cursor: _Optional[str] = ...,
+    ) -> None: ...

@@ -3,8 +3,9 @@ import re
 import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any, Protocol, TypeAlias, TypeVar, cast
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import structlog
 from langchain_core.runnables import RunnableConfig
@@ -157,11 +158,30 @@ def validate_stream_id(stream_id: str | None, invalid_stream_id_detail: str | No
     raise HTTPException(status_code=422, detail=invalid_stream_id_detail)
 
 
-def next_cron_date(schedule: str, base_time: datetime) -> datetime:
+def next_cron_date(
+    schedule: str, base_time: datetime, timezone: str | None = None
+) -> datetime:
     import croniter  # type: ignore[unresolved-import]  # noqa: PLC0415
 
+    if timezone:
+        base_time = base_time.astimezone(ZoneInfo(timezone))
     cron_iter = croniter.croniter(schedule, base_time)
-    return cron_iter.get_next(datetime)
+    next_dt = cron_iter.get_next(datetime)
+    return next_dt.astimezone(UTC)
+
+
+def validate_timezone(timezone: str | None) -> str | None:
+    """Validate an IANA timezone string. Returns the timezone or None."""
+    if timezone is None:
+        return None
+    try:
+        ZoneInfo(timezone)
+    except (ZoneInfoNotFoundError, KeyError):
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid timezone: '{timezone}'. Use IANA timezone format (e.g. 'America/New_York').",
+        ) from None
+    return timezone
 
 
 class SchemaGenerator(BaseSchemaGenerator):
@@ -240,5 +260,6 @@ __all__ = [
     "next_cron_date",
     "uuid7",
     "validate_select_columns",
+    "validate_timezone",
     "validate_uuid",
 ]

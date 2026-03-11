@@ -73,6 +73,7 @@ __all__ = [
     'contains',
     'matches',
     'captor',
+    'call_captor',
     'times',
     'args', 'ARGS',
     'kwargs', 'KWARGS'
@@ -266,6 +267,17 @@ class ArgumentCaptor(Matcher, Capturing):
             return
         return True
 
+    def __iter__(self):
+        yield CaptorArgsSentinel(self)
+
+    def keys(self):
+        return [KWARGS_SENTINEL]
+
+    def __getitem__(self, key):
+        if key is not KWARGS_SENTINEL and key != KWARGS_SENTINEL:
+            raise KeyError(key)
+        return CaptorKwargsSentinel(self)
+
     @property
     def value(self):
         if not self.all_values:
@@ -279,6 +291,67 @@ class ArgumentCaptor(Matcher, Capturing):
         return "<ArgumentCaptor: matcher=%s values=%s>" % (
             repr(self.matcher), self.all_values,
         )
+
+
+class CallCaptor:
+    def __init__(self):
+        self.all_values = []
+
+    @property
+    def value(self):
+        if not self.all_values:
+            raise MatcherError("No call value was captured!")
+        return self.all_values[-1]
+
+    def capture_call(self, args, kwargs):
+        self.all_values.append((tuple(args), dict(kwargs)))
+
+    def __repr__(self):
+        return "<CallCaptor: values=%s>" % self.all_values
+
+
+class CaptorArgsSentinel:
+    def __init__(self, captor):
+        self.captor = captor
+
+    def matches(self, args):
+        return all(self.captor.matches(arg) for arg in args)
+
+    def capture_value(self, value):
+        self.captor.capture_value(value)
+
+    def __repr__(self):
+        return "<CaptorArgsSentinel: %r>" % self.captor
+
+
+class CaptorKwargsSentinel:
+    def __init__(self, captor):
+        self.captor = captor
+
+    def matches(self, kwargs):
+        return all(self.captor.matches(value) for value in kwargs.values())
+
+    def capture_value(self, value):
+        self.captor.capture_value(value)
+
+    def __repr__(self):
+        return "<CaptorKwargsSentinel: %r>" % self.captor
+
+
+def is_call_captor(value):
+    return isinstance(value, CallCaptor)
+
+
+def is_captor_args_sentinel(value):
+    return isinstance(value, CaptorArgsSentinel)
+
+
+def is_captor_kwargs_sentinel(value):
+    return isinstance(value, CaptorKwargsSentinel)
+
+
+def is_args_sentinel(value):
+    return value is ARGS_SENTINEL or is_captor_args_sentinel(value)
 
 
 def any(wanted_type=None):
@@ -407,8 +480,27 @@ def captor(matcher=None):
         arg = captor(any(str))
         arg = captor(contains("foo"))
 
+    captor can also be used to capture rest arguments::
+
+        args = captor()
+        kwargs = captor()
+        when(mock).do(*args, **kwargs)
     """
     return ArgumentCaptor(matcher)
+
+
+def call_captor():
+    """Returns a call captor that captures ``(args, kwargs)`` tuples.
+
+    Example::
+
+        call = call_captor()
+        when(mock).do(call).thenReturn("ok")
+        mock.do(1, 2, x=3)
+        assert call.value == ((1, 2), {"x": 3})
+
+    """
+    return CallCaptor()
 
 
 def times(count):

@@ -76,7 +76,7 @@ elif command == "coverage":
 
 long_description = ""
 if command not in ["test", "coverage"]:
-    long_description = open("README.rst").read()
+    long_description = open("README.md").read()
 
 install_requires = []
 tests_require = [
@@ -92,10 +92,12 @@ tests_require = [
 
 setup(
     name="ConfigArgParse",
-    version="1.7.3",
+    use_scm_version={"version_scheme": "no-guess-dev"},
+    setup_requires=["setuptools_scm"],
     description="A drop-in replacement for argparse that allows options to "
     "also be set via config files and/or environment variables.",
     long_description=long_description,
+    long_description_content_type="text/markdown",
     url="https://github.com/bw2/ConfigArgParse",
     py_modules=["configargparse"],
     include_package_data=True,

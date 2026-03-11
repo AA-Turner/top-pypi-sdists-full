@@ -11,6 +11,11 @@ from wbcore.models import WBModel
 
 
 class NotificationTypeSetting(WBModel):
+    class Frequency(models.TextChoices):
+        IMMEDIATLY = "IMMEDIATLY", "IMMEDIATLY"
+        HOURLY = "HOURLY", "Hourly"
+        DAILY = "DAILY", "Daily"
+
     notification_type = models.ForeignKey(
         to="notifications.NotificationType", related_name="user_settings", on_delete=models.CASCADE
     )
@@ -19,6 +24,12 @@ class NotificationTypeSetting(WBModel):
     enable_web = models.BooleanField(default=False)
     enable_mobile = models.BooleanField(default=False)
     enable_email = models.BooleanField(default=False)
+    frequency = models.CharField(
+        default=Frequency.IMMEDIATLY,
+        choices=Frequency.choices,
+        verbose_name="Frequency",
+        help_text="Frequency at which to aggregate these notifications. Default to immediatly.",
+    )
 
     def __str__(self) -> str:
         return f"{self.user}: {self.notification_type} ({self.enable_web}/{self.enable_mobile}/{self.enable_email})"
@@ -32,6 +43,7 @@ class NotificationTypeSetting(WBModel):
                 fields=["user", "notification_type"],
             )
         ]
+        indexes = [models.Index(fields=["notification_type", "user"])]
 
     def save(self, *args, **kwargs):
         if self.notification_type.is_lock:
@@ -72,6 +84,9 @@ class NotificationType(WBModel):
     default_enable_web = models.BooleanField(default=False)
     default_enable_mobile = models.BooleanField(default=False)
     default_enable_email = models.BooleanField(default=False)
+    is_important = models.BooleanField(
+        default=False, verbose_name="Is Important", help_text="If true, these notifications will be sent Immediately"
+    )
     is_lock = models.BooleanField(default=False)
 
     def __str__(self) -> str:

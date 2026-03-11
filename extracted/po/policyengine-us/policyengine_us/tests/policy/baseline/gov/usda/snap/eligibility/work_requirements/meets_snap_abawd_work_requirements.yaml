@@ -1,0 +1,441 @@
+# =====================================================
+# Pre-HR1 ABAWD exemptions — 7 CFR 273.24(c)
+# Applies to periods before 2025-07-01 (federal) and
+# CA through 2026-05-31 (ACL 25-93 delayed adoption).
+# =====================================================
+
+# --- 273.24(c)(1): Age — under 18 or 55+ exempt ---
+
+- name: Case 1, pre-HR1 age 17 exempt.
+  period: 2022
+  input:
+    age: 17
+    weekly_hours_worked_before_lsr: 1
+    is_disabled: false
+  output:
+    meets_snap_abawd_work_requirements: true
+
+- name: Case 2, pre-HR1 age 18 NOT exempt.
+  period: 2022
+  input:
+    age: 18
+    weekly_hours_worked_before_lsr: 1
+    is_disabled: false
+  output:
+    meets_snap_abawd_work_requirements: false
+
+- name: Case 3, pre-HR1 age 55 exempt.
+  period: 2022
+  input:
+    age: 55
+    weekly_hours_worked_before_lsr: 1
+    is_disabled: false
+  output:
+    meets_snap_abawd_work_requirements: true
+
+- name: Case 4, pre-HR1 age 54 NOT exempt.
+  period: 2024
+  absolute_error_margin: 0.1
+  input:
+    age: 54
+    weekly_hours_worked_before_lsr: 1
+    is_disabled: false
+  output:
+    meets_snap_abawd_work_requirements: false
+
+# --- 273.24(c)(2): Medically certified disabled ---
+
+- name: Case 5, pre-HR1 disabled person exempt.
+  period: 2022
+  input:
+    age: 30
+    weekly_hours_worked_before_lsr: 1
+    is_disabled: true
+  output:
+    meets_snap_abawd_work_requirements: true
+
+# --- 273.24(a)(1): Work activity — 20 hrs/week ---
+
+- name: Case 6, pre-HR1 working 19 hrs fails.
+  period: 2022
+  input:
+    age: 30
+    weekly_hours_worked_before_lsr: 19
+    is_disabled: false
+  output:
+    meets_snap_abawd_work_requirements: false
+
+- name: Case 7, pre-HR1 working 20 hrs meets requirement.
+  period: 2022
+  input:
+    age: 30
+    weekly_hours_worked_before_lsr: 20
+    is_disabled: false
+  output:
+    meets_snap_abawd_work_requirements: true
+
+# --- 273.24(c)(3): Parent with dependent under 18 ---
+
+- name: Case 8, pre-HR1 parent with child age 15 exempt.
+  period: 2024-01
+  absolute_error_margin: 0.1
+  input:
+    people:
+      person1:
+        age: 55
+        weekly_hours_worked_before_lsr: 1
+        is_disabled: false
+        is_parent: true
+      person2:
+        age: 15
+        is_disabled: false
+        is_tax_unit_dependent: true
+  output:
+    meets_snap_abawd_work_requirements: [true, true]
+
+# --- 273.24(c)(4): Pregnant ---
+
+- name: Case 9, pre-HR1 pregnant person exempt.
+  period: 2022
+  input:
+    people:
+      person1:
+        age: 30
+        weekly_hours_worked_before_lsr: 19
+      person2:
+        age: 30
+        weekly_hours_worked_before_lsr: 20
+        is_pregnant: true
+    spm_units:
+      spm_unit:
+        members: [person1, person2]
+    tax_units:
+      tax_unit:
+        members: [person1, person2]
+    households:
+      household:
+        members: [person1, person2]
+  output:
+    meets_snap_abawd_work_requirements: [false, true]
+
+# --- 273.24(c)(5) via 273.7(b)(1)(iv): Incapacitated person ---
+
+- name: Case 10, pre-HR1 caregiver of incapacitated person exempt.
+  period: 2024-01
+  absolute_error_margin: 0.1
+  input:
+    people:
+      person1:
+        age: 40
+        weekly_hours_worked_before_lsr: 1
+        is_disabled: false
+      person2:
+        is_incapable_of_self_care: true
+    spm_units:
+      spm_unit:
+        members: [person1, person2]
+    tax_units:
+      tax_unit:
+        members: [person1, person2]
+    households:
+      household:
+        members: [person1, person2]
+  output:
+    meets_snap_abawd_work_requirements: [true, true]
+
+# --- 273.24(c)(6): Homeless (pre-HR1 only) ---
+
+- name: Case 11, pre-HR1 homeless person exempt.
+  period: 2022
+  input:
+    age: 30
+    weekly_hours_worked_before_lsr: 1
+    is_disabled: false
+    is_homeless: true
+  output:
+    meets_snap_abawd_work_requirements: true
+
+# --- 273.24(c)(7): Veteran (pre-HR1 only) ---
+
+- name: Case 12, pre-HR1 veteran exempt.
+  period: 2022
+  input:
+    age: 30
+    weekly_hours_worked_before_lsr: 1
+    is_disabled: false
+    is_veteran: true
+  output:
+    meets_snap_abawd_work_requirements: true
+
+# =====================================================
+# Post-HR1 ABAWD exemptions — 7 U.S.C. 2015(o)(3)
+# Effective 2025-07-01 (federal); CA adopts 2026-06-01.
+# =====================================================
+
+# --- 2015(o)(3)(A): Age — under 18 or 65+ exempt ---
+
+- name: Case 13, post-HR1 age 65 exempt.
+  period: 2026-01
+  absolute_error_margin: 0.1
+  input:
+    age: 65
+    weekly_hours_worked_before_lsr: 1
+    is_disabled: false
+    state_code: TX
+  output:
+    meets_snap_abawd_work_requirements: true
+
+- name: Case 14, post-HR1 age 64 NOT exempt.
+  period: 2026-01
+  absolute_error_margin: 0.1
+  input:
+    age: 64
+    weekly_hours_worked_before_lsr: 1
+    is_disabled: false
+    state_code: TX
+  output:
+    meets_snap_abawd_work_requirements: false
+
+- name: Case 15, post-HR1 ages 55-64 no longer exempt.
+  period: 2026-01
+  absolute_error_margin: 0.1
+  input:
+    age: 62
+    weekly_hours_worked_before_lsr: 1
+    is_disabled: false
+    state_code: TX
+  output:
+    meets_snap_abawd_work_requirements: false
+
+# --- 2015(o)(3)(B): Disability ---
+
+- name: Case 16, post-HR1 disabled person exempt.
+  period: 2027
+  absolute_error_margin: 0.1
+  input:
+    age: 55
+    weekly_hours_worked_before_lsr: 1
+    is_disabled: true
+  output:
+    meets_snap_abawd_work_requirements: true
+
+# --- 2015(o)(3)(C): Parent with dependent child under 14 ---
+
+- name: Case 17, post-HR1 parent with child age 6 exempt.
+  period: 2027
+  absolute_error_margin: 0.1
+  input:
+    people:
+      person1:
+        age: 55
+        weekly_hours_worked_before_lsr: 1
+        is_disabled: false
+        is_parent: true
+      person2:
+        age: 6
+        is_disabled: false
+        is_tax_unit_dependent: true
+  output:
+    meets_snap_abawd_work_requirements: [true, true]
+
+- name: Case 18, post-HR1 parent with child age 15 NOT exempt.
+  period: 2027
+  absolute_error_margin: 0.1
+  input:
+    people:
+      person1:
+        age: 55
+        weekly_hours_worked_before_lsr: 1
+        is_disabled: false
+        is_parent: true
+      person2:
+        age: 15
+        is_disabled: false
+        is_tax_unit_dependent: true
+  output:
+    meets_snap_abawd_work_requirements: [false, true]
+
+# --- 2015(o)(3)(D) via 273.7(b)(1)(iv): Incapacitated person ---
+
+- name: Case 19, post-HR1 caregiver of incapacitated person exempt.
+  period: 2026-01
+  absolute_error_margin: 0.1
+  input:
+    people:
+      person1:
+        age: 62
+        weekly_hours_worked_before_lsr: 1
+        is_disabled: false
+      person2:
+        is_incapable_of_self_care: true
+    spm_units:
+      spm_unit:
+        members: [person1, person2]
+    tax_units:
+      tax_unit:
+        members: [person1, person2]
+    households:
+      household:
+        members: [person1, person2]
+  output:
+    meets_snap_abawd_work_requirements: [true, true]
+
+# --- 2015(o)(3)(D) via 273.7(b)(1)(iv): Child under 6 ---
+
+- name: Case 20, post-HR1 person with child under 6 exempt.
+  period: 2026-01
+  absolute_error_margin: 0.1
+  input:
+    people:
+      person1:
+        age: 30
+        weekly_hours_worked_before_lsr: 1
+        is_disabled: false
+      person2:
+        age: 5
+        is_tax_unit_dependent: true
+    spm_units:
+      spm_unit:
+        members: [person1, person2]
+    tax_units:
+      tax_unit:
+        members: [person1, person2]
+    households:
+      household:
+        members: [person1, person2]
+  output:
+    meets_snap_abawd_work_requirements: [true, true]
+
+# --- 2015(o)(3)(D) via 273.7(b)(1)(viii): Student ---
+
+- name: Case 21, post-HR1 half-time student exempt.
+  period: 2026-01
+  absolute_error_margin: 0.1
+  input:
+    age: 30
+    weekly_hours_worked_before_lsr: 1
+    is_disabled: false
+    is_full_time_college_student: true
+  output:
+    meets_snap_abawd_work_requirements: true
+
+# --- 2015(o)(3)(D) via 273.7(b)(1)(v): UI recipient ---
+
+- name: Case 22, post-HR1 UI recipient exempt.
+  period: 2026-01
+  absolute_error_margin: 0.1
+  input:
+    age: 30
+    weekly_hours_worked_before_lsr: 1
+    is_disabled: false
+    unemployment_compensation: 12_000
+  output:
+    meets_snap_abawd_work_requirements: true
+
+# --- 2015(o)(3)(E): Pregnant ---
+
+- name: Case 23, post-HR1 pregnant person exempt.
+  period: 2027
+  absolute_error_margin: 0.1
+  input:
+    age: 55
+    weekly_hours_worked_before_lsr: 1
+    is_disabled: false
+    is_pregnant: true
+  output:
+    meets_snap_abawd_work_requirements: true
+
+# --- HR1 removed exemptions: Homeless and veteran ---
+
+- name: Case 24, post-HR1 homeless NOT exempt.
+  period: 2027
+  absolute_error_margin: 0.1
+  input:
+    age: 30
+    weekly_hours_worked_before_lsr: 1
+    is_disabled: false
+    is_homeless: true
+  output:
+    meets_snap_abawd_work_requirements: false
+
+- name: Case 25, post-HR1 veteran NOT exempt.
+  period: 2027
+  absolute_error_margin: 0.1
+  input:
+    age: 55
+    weekly_hours_worked_before_lsr: 1
+    is_disabled: false
+    is_veteran: true
+  output:
+    meets_snap_abawd_work_requirements: false
+
+# =====================================================
+# California delayed adoption — ACL 25-93
+# =====================================================
+
+- name: Case 28, CA pre-HR1 age 55 still exempt.
+  period: 2026-01
+  absolute_error_margin: 0.1
+  input:
+    age: 55
+    weekly_hours_worked_before_lsr: 1
+    is_disabled: false
+    state_code: CA
+  output:
+    meets_snap_abawd_work_requirements: true
+
+- name: Case 29, CA pre-HR1 homeless still exempt.
+  period: 2026-01
+  absolute_error_margin: 0.1
+  input:
+    age: 30
+    weekly_hours_worked_before_lsr: 1
+    is_disabled: false
+    is_homeless: true
+    state_code: CA
+  output:
+    meets_snap_abawd_work_requirements: true
+
+- name: Case 30, CA pre-HR1 veteran still exempt.
+  period: 2026-01
+  absolute_error_margin: 0.1
+  input:
+    age: 30
+    weekly_hours_worked_before_lsr: 1
+    is_disabled: false
+    is_veteran: true
+    state_code: CA
+  output:
+    meets_snap_abawd_work_requirements: true
+
+- name: Case 31, CA pre-HR1 parent with child under 18 exempt.
+  period: 2026-01
+  absolute_error_margin: 0.1
+  input:
+    people:
+      person1:
+        age: 30
+        weekly_hours_worked_before_lsr: 1
+        is_disabled: false
+        is_parent: true
+      person2:
+        age: 15
+        is_disabled: false
+        is_tax_unit_dependent: true
+    households:
+      household:
+        members: [person1, person2]
+        state_code: CA
+  output:
+    meets_snap_abawd_work_requirements: [true, true]
+
+- name: Case 32, CA pre-HR1 non-exempt person fails.
+  period: 2026-01
+  absolute_error_margin: 0.1
+  input:
+    age: 30
+    weekly_hours_worked_before_lsr: 1
+    is_disabled: false
+    state_code: CA
+  output:
+    meets_snap_abawd_work_requirements: false

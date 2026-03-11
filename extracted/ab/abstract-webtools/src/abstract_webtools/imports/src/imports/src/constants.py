@@ -1,6 +1,5 @@
 from .init_imports import *
 from .module_imports import *
-from .pyqt_imports import *
 VIDEO_ENV_KEY = "DATA_DIRECTORY"
 # --- hard defaults ---
 VIDEOS_ROOT_DEFAULT = "~/videos"

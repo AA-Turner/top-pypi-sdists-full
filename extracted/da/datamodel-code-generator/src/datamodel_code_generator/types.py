@@ -26,9 +26,8 @@ from typing import (
     runtime_checkable,
 )
 
-import pydantic
-from packaging import version
-from pydantic import Field, StrictBool, StrictInt, StrictStr, create_model
+from pydantic import ConfigDict, Field, GetCoreSchemaHandler, StrictBool, StrictInt, StrictStr, create_model
+from pydantic_core import core_schema
 from typing_extensions import TypeIs
 
 from datamodel_code_generator.format import (
@@ -55,7 +54,6 @@ from datamodel_code_generator.imports import (
     Import,
 )
 from datamodel_code_generator.reference import Reference, _BaseModel
-from datamodel_code_generator.util import ConfigDict, is_pydantic_v2
 
 T = TypeVar("T")
 SourceT = TypeVar("SourceT")
@@ -102,19 +100,12 @@ __getattr__ = create_module_getattr(
     },
 )
 
-
 if TYPE_CHECKING:
     import builtins
     from collections.abc import Callable, Iterable, Iterator, Sequence
 
-    from pydantic_core import core_schema
-
     from datamodel_code_generator.enums import StrictTypes
     from datamodel_code_generator.model.base import DataModelFieldBase
-
-if is_pydantic_v2():
-    from pydantic import GetCoreSchemaHandler
-    from pydantic_core import core_schema
 
 
 class UnionIntFloat:
@@ -124,22 +115,13 @@ class UnionIntFloat:
         """Initialize with an int or float value."""
         self.value: int | float = value
 
-    def __int__(self) -> int:
+    def __int__(self) -> int:  # pragma: no cover
         """Convert value to int."""
         return int(self.value)
 
     def __float__(self) -> float:
         """Convert value to float."""
         return float(self.value)
-
-    def __str__(self) -> str:
-        """Convert value to string."""
-        return str(self.value)
-
-    @classmethod
-    def __get_validators__(cls) -> Iterator[Callable[[Any], Any]]:  # noqa: PLW3201
-        """Return Pydantic v1 validators."""
-        yield cls.validate
 
     @classmethod
     def __get_pydantic_core_schema__(  # noqa: PLW3201
@@ -164,7 +146,7 @@ class UnionIntFloat:
     @classmethod
     def validate(cls, v: Any) -> UnionIntFloat:
         """Validate and convert value to UnionIntFloat."""
-        if isinstance(v, UnionIntFloat):
+        if isinstance(v, UnionIntFloat):  # pragma: no cover
             return v
         if not isinstance(v, (int, float)):  # pragma: no cover
             try:
@@ -401,31 +383,10 @@ class Nullable(Protocol):
 class DataType(_BaseModel):
     """Represents a type in generated code with imports and references."""
 
-    if is_pydantic_v2():
-        # TODO[pydantic]: The following keys were removed: `copy_on_model_validation`.
-        # Check https://docs.pydantic.dev/dev-v2/migration/#changes-to-config for more information.
-        model_config = ConfigDict(  # ty: ignore
-            extra="forbid",
-            revalidate_instances="never",
-        )
-    else:
-        if not TYPE_CHECKING:  # pragma: no branch
-
-            @classmethod
-            def model_rebuild(
-                cls,
-                *,
-                _types_namespace: dict[str, type] | None = None,
-            ) -> None:
-                """Update forward references for Pydantic v1."""
-                localns = _types_namespace or {}
-                cls.update_forward_refs(**localns)
-
-        class Config:
-            """Pydantic v1 model configuration."""
-
-            extra = "forbid"
-            copy_on_model_validation = False if version.parse(pydantic.VERSION) < version.parse("1.9.2") else "none"
+    model_config = ConfigDict(  # ty: ignore
+        extra="forbid",
+        revalidate_instances="never",
+    )
 
     type: Optional[str] = None  # noqa: UP045
     reference: Optional[Reference] = None  # noqa: UP045
@@ -470,7 +431,7 @@ class DataType(_BaseModel):
             return memo[obj_id]
 
         cls = self.__class__
-        model_fields = getattr(cls, "model_fields" if is_pydantic_v2() else "__fields__")
+        model_fields = cls.model_fields
 
         shallow_kwargs: dict[str, Any] = {}
         for field_name in model_fields:
@@ -480,8 +441,7 @@ class DataType(_BaseModel):
             else:
                 shallow_kwargs[field_name] = value
 
-        constructor = getattr(cls, "model_construct" if is_pydantic_v2() else "construct")
-        new_obj: DataType = constructor(**shallow_kwargs)
+        new_obj: DataType = cls.model_construct(**shallow_kwargs)
         memo[obj_id] = new_obj
 
         for field_name in model_fields:
@@ -813,11 +773,9 @@ class DataType(_BaseModel):
                 type_ = dict_
         if self.is_optional and type_ != ANY:
             return get_optional_type(type_, self.use_union_operator)
-        if self.is_func:
-            if self.kwargs:
-                kwargs: str = ", ".join(f"{k}={v}" for k, v in self.kwargs.items())
-                return f"{type_}({kwargs})"
-            return f"{type_}()"
+        if self.is_func and self.kwargs:
+            kwargs: str = ", ".join(f"{k}={v}" for k, v in self.kwargs.items())
+            return f"{type_}({kwargs})"
         return type_
 
     @property
@@ -940,8 +898,6 @@ class DataType(_BaseModel):
 
         if self.is_optional and type_ != ANY:
             return get_optional_type(type_, self.use_union_operator)
-        if self.is_func:  # pragma: no cover
-            return f"{type_}()"
         return type_
 
 
@@ -1057,20 +1013,3 @@ class DataTypeManager(ABC):
     def get_data_type_from_full_path(self, full_path: str, is_custom_type: bool) -> DataType:  # noqa: FBT001
         """Create a DataType from a fully qualified Python path."""
         return self.data_type.from_import(Import.from_full_path(full_path), is_custom_type=is_custom_type)
-
-    def get_data_type_from_value(self, value: Any) -> DataType:  # noqa: PLR0911
-        """Infer a DataType from a Python value."""
-        match value:
-            case str():
-                return self.get_data_type(Types.string)
-            case bool():  # bool must come before int (bool is subclass of int)
-                return self.get_data_type(Types.boolean)
-            case int():
-                return self.get_data_type(Types.integer)
-            case float():
-                return self.get_data_type(Types.float)
-            case dict():
-                return self.data_type.from_import(IMPORT_DICT)
-            case list():
-                return self.data_type.from_import(IMPORT_LIST)
-        return self.get_data_type(Types.any)
