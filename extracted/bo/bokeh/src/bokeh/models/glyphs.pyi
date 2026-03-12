@@ -15,12 +15,12 @@ from .._specs import (
     DistanceSpec,
     FloatSpec,
     MarkerSpec,
-    NonNegative,
     NullDistanceSpec,
     NumberSpec,
     SizeSpec,
     StringSpec,
 )
+from .._types import NonNegative
 from ..core.enums import (
     DirectionType as Direction,
     HexTileOrientationType as HexTileOrientation,
@@ -429,6 +429,10 @@ class Step(XYGlyph, ScalarLineProps):
     y: NumberSpec = ...
 
     mode: StepMode = ...
+
+    pad_before: float = ...
+
+    pad_after: float = ...
 
 @dataclass
 class Text(XYGlyph, TextProps, BackgroundFillProps, BackgroundHatchProps, BorderLineProps):

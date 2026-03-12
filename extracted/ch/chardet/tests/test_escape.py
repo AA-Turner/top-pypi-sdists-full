@@ -11,7 +11,7 @@ def test_iso_2022_jp_esc_dollar_b() -> None:
     data = b"Hello \x1b$B$3$s$K$A$O\x1b(B World"
     result = detect_escape_encoding(data)
     assert result is not None
-    assert result.encoding == "iso2022-jp-2"
+    assert result.encoding == "iso2022_jp_2"
     assert result.confidence == 0.95
 
 
@@ -19,14 +19,14 @@ def test_iso_2022_jp_esc_dollar_at() -> None:
     data = b"Hello \x1b$@$3$s$K$A$O\x1b(B World"
     result = detect_escape_encoding(data)
     assert result is not None
-    assert result.encoding == "iso2022-jp-2"
+    assert result.encoding == "iso2022_jp_2"
 
 
 def test_iso_2022_kr() -> None:
     data = b"\x1b$)C\x0e\x21\x21\x0f"
     result = detect_escape_encoding(data)
     assert result is not None
-    assert result.encoding == "iso-2022-kr"
+    assert result.encoding == "iso2022_kr"
     assert result.confidence == 0.95
 
 
@@ -34,7 +34,7 @@ def test_hz_gb_2312() -> None:
     data = b"Hello ~{CEDE~} World"
     result = detect_escape_encoding(data)
     assert result is not None
-    assert result.encoding == "hz-gb-2312"
+    assert result.encoding == "hz"
     assert result.confidence == 0.95
 
 
@@ -205,7 +205,7 @@ def test_iso2022_jp_base_returns_jp2() -> None:
     data = b"Hello \x1b$B$3$s$K$A$O\x1b(B World"
     result = detect_escape_encoding(data)
     assert result is not None
-    assert result.encoding == "iso2022-jp-2"
+    assert result.encoding == "iso2022_jp_2"
 
 
 def test_iso2022_jp_2004_codes() -> None:
@@ -214,7 +214,15 @@ def test_iso2022_jp_2004_codes() -> None:
     data = b"\x1b$B$3$s\x1b(B\x1b$(O\x21\x21\x1b(B"
     result = detect_escape_encoding(data)
     assert result is not None
-    assert result.encoding == "iso2022-jp-2004"
+    assert result.encoding == "iso2022_jp_2004"
+
+
+def test_iso2022_jp_2004_esc_dollar_paren_q() -> None:
+    """ESC$(Q designates JIS X 0213:2000 plane 1 -> ISO-2022-JP-2004."""
+    data = b"\x1b$B$3$s\x1b(B\x1b$(Q\x21\x21\x1b(B"
+    result = detect_escape_encoding(data)
+    assert result is not None
+    assert result.encoding == "iso2022_jp_2004"
 
 
 def test_iso2022_jp_ext_codes() -> None:
@@ -223,7 +231,39 @@ def test_iso2022_jp_ext_codes() -> None:
     data = b"\x1b$B$3$s\x1b(B\x0e\xb1\xb2\x0f"
     result = detect_escape_encoding(data)
     assert result is not None
-    assert result.encoding == "iso2022-jp-ext"
+    assert result.encoding == "iso2022_jp_ext"
+
+
+def test_iso2022_jp_ext_esc_kana() -> None:
+    """ESC(I (JIS X 0201 Kana designation) should trigger JP-EXT even without SI/SO."""
+    data = b"\x1b$B$3$s\x1b(B\x1b(I\x31\x32\x1b(B"
+    result = detect_escape_encoding(data)
+    assert result is not None
+    assert result.encoding == "iso2022_jp_ext"
+
+
+def test_iso2022_jp_ext_esc_kana_only() -> None:
+    """ESC(I alone (no base sequences, no SI/SO) should detect JP-EXT."""
+    data = b"\x1b(I\x31\x32\x1b(B"
+    result = detect_escape_encoding(data)
+    assert result is not None
+    assert result.encoding == "iso2022_jp_ext"
+
+
+def test_iso2022_jp_jis_x_0212_entry() -> None:
+    """ESC$(D (JIS X 0212-1990) alone should enter the JP branch -> JP-2."""
+    data = b"\x1b$(D\x30\x21\x1b(B"
+    result = detect_escape_encoding(data)
+    assert result is not None
+    assert result.encoding == "iso2022_jp_2"
+
+
+def test_iso2022_jp_2004_without_base() -> None:
+    """JIS X 0213 escape alone (no ESC$B/ESC$@/ESC(J) should detect JP-2004."""
+    data = b"\x1b$(O\x21\x21\x1b(B"
+    result = detect_escape_encoding(data)
+    assert result is not None
+    assert result.encoding == "iso2022_jp_2004"
 
 
 def test_hz_close_marker_before_open_marker() -> None:
@@ -231,7 +271,7 @@ def test_hz_close_marker_before_open_marker() -> None:
     data = b"prefix ~} text ~{CEDE~}"
     result = detect_escape_encoding(data)
     assert result is not None
-    assert result.encoding == "hz-gb-2312"
+    assert result.encoding == "hz"
 
 
 def test_hz_only_close_before_open() -> None:
@@ -246,6 +286,12 @@ def test_utf7_short_base64_rejected() -> None:
     data = b"text +AB- more text"
     result = detect_escape_encoding(data)
     assert result is None
+
+
+def test_utf7_b64_rejects_lone_low_surrogate() -> None:
+    """A low surrogate (0xDC00) without a preceding high surrogate is invalid."""
+    # 0xDC00 in UTF-16BE = DC 00, base64 = "3AA"
+    assert not _is_valid_utf7_b64(b"3AA")
 
 
 def test_utf7_b64_rejects_consecutive_high_surrogates() -> None:
@@ -270,6 +316,44 @@ def test_utf7_b64_accepts_valid_surrogate_pair() -> None:
     """A valid surrogate pair (U+10000 = 0xD800 0xDC00) must be accepted."""
     # 0xD800 0xDC00 encoded as UTF-7 base64
     assert _is_valid_utf7_b64(b"2ADcAA")
+
+
+def test_utf7_rejects_increment_operator() -> None:
+    """++row in C code must not trigger UTF-7 detection (regression #332).
+
+    The ``++`` prefix causes Guard A to skip the first ``+``, but the second
+    ``+`` starts a new candidate sequence with ``row`` as Base64.  ``row``
+    (3 chars) decodes to the valid code point U+AE8C, which previously
+    caused a false positive.
+    """
+    data = b"int f() {\n  int row = 0;\n  ++row;\n}"
+    result = detect_escape_encoding(data)
+    assert result is None
+
+
+def test_utf7_rejects_triple_plus_variable() -> None:
+    """+++i should not trigger UTF-7 — all consecutive pluses must be skipped."""
+    data = b"for (int i = 0; i < n; +++i) {}"
+    result = detect_escape_encoding(data)
+    assert result is None
+
+
+def test_utf7_rejects_double_plus_at_end() -> None:
+    """++ at end of data should not cause issues (Guard A boundary)."""
+    data = b"I love C++"
+    result = detect_escape_encoding(data)
+    assert result is None
+
+
+def test_utf7_rejects_all_lowercase_base64() -> None:
+    """All-lowercase base64 blocks like +foo are variable names, not UTF-7.
+
+    UTF-7 encodes UTF-16BE, so real base64 blocks almost always contain
+    uppercase letters or digits.
+    """
+    data = b"hello +foo world"
+    result = detect_escape_encoding(data)
+    assert result is None
 
 
 def test_utf7_rejects_sha1_git_hash() -> None:
@@ -305,4 +389,4 @@ def test_utf7_rejects_hex_hash_in_requirements_file() -> None:
         b"4bafdea31b1a83b6eff5dac6cedcff073cb984f6\n"
     )
     result = detect(data)
-    assert result["encoding"] != "utf-7"
+    assert result["encoding"] != "UTF-7"

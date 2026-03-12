@@ -1,36 +1,30 @@
 Metadata-Version: 2.4
 Name: plugp100
-Version: 5.1.5
+Version: 5.1.6
 Summary: Controller for TP-Link Tapo P100 and other devices
-Home-page: https://github.com/petretiandrea/plugp100
-Download-URL: https://github.com/petretiandrea/plugp100
-Author: @petretiandrea
-Author-email: petretiandrea@gmail.com
-License: GPL3
+Author-email: "@petretiandrea" <petretiandrea@gmail.com>
+License: GPL-3.0-only
+Project-URL: Homepage, https://github.com/petretiandrea/plugp100
+Project-URL: Repository, https://github.com/petretiandrea/plugp100
 Keywords: Tapo,P100
 Classifier: Development Status :: 5 - Production/Stable
+Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: aiohttp>=3.8.1
 Requires-Dist: certifi>=2021.5.30
+Requires-Dist: cryptography>=38.0.3
 Requires-Dist: jsons>=1.6.3
 Requires-Dist: requests>=2.27.1
-Requires-Dist: aiohttp>=3.8.1
-Requires-Dist: semantic-version==2.10.0
-Requires-Dist: cryptography>=38.0.3
 Requires-Dist: scapy>=2.5.0
+Requires-Dist: semantic-version==2.10.0
 Requires-Dist: urllib3<3,>=2.5
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: download-url
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
 Dynamic: license-file
-Dynamic: requires-dist
-Dynamic: summary
 
 # Plug P100
 This is a fork of original work of [@K4CZP3R](https://github.com/K4CZP3R/tapo-p100-python)
@@ -39,6 +33,13 @@ The purpose of this fork is to provide the library as PyPi package.
 
 # How to install
 ```pip install plugp100```
+
+## Development
+```bash
+uv sync
+uv run pytest tests/unit
+uv run black --check .
+```
 
 ## Library Architecture
 The library was rewritten by taking inspiration from [Component Gaming Design Pattern](https://gameprogrammingpatterns.com/component.html) to achieve better decoupling from device and its capabilities.

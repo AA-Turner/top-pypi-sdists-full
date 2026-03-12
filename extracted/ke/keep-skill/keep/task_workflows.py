@@ -1,19 +1,17 @@
-"""Shared local task workflows for processor-backed tasks.
+"""Local task workflow dispatch.
 
-These workflows encapsulate the current "magic behavior" for summarize/ocr/analyze
-so queue-driven processing and flow-driven processing can reuse the same
-execution logic without duplication.
+Actions implement a single ``run(params, context)`` method.  This module
+provides the ``TaskRequest`` / ``TaskRunResult`` types, a lightweight
+adapter that presents a Keeper as an ``ActionContext``, a generic
+mutation applier, and the ``run_local_task`` dispatcher that ties them
+together.
 """
 
 from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
-
-from .processors import process_ocr, process_summarize
-from .types import filter_non_system_tags
 
 if TYPE_CHECKING:
     from .api import Keeper
@@ -40,162 +38,280 @@ class TaskRunResult:
     details: dict[str, Any] = field(default_factory=dict)
 
 
-def _run_summarize(keeper: "Keeper", req: TaskRequest) -> TaskRunResult:
-    doc = keeper._document_store.get(req.collection, req.id)
-    if doc is None:
-        return TaskRunResult(status="skipped", details={"reason": "deleted"})
+# ---------------------------------------------------------------------------
+# Adapter: Keeper → ActionContext
+# ---------------------------------------------------------------------------
 
-    summarize_prompt = None
-    try:
-        summarize_prompt = keeper._resolve_prompt_doc("summarize", doc.tags)
-    except Exception as e:
-        logger.debug("Summarize prompt doc resolution failed: %s", e)
+class _KeeperActionContext:
+    """Present a Keeper as an ActionContext for background task execution."""
 
-    context = None
-    user_tags = filter_non_system_tags(doc.tags)
-    if user_tags:
-        context = keeper._gather_context(req.id, user_tags)
+    def __init__(
+        self,
+        keeper: "Keeper",
+        *,
+        collection: str,
+        item_id: str | None = None,
+        item_content: str | None = None,
+    ) -> None:
+        self._keeper = keeper
+        self._collection = collection
+        self.item_id = item_id
+        self.item_content = item_content
 
-    result = process_summarize(
-        req.content,
-        context=context,
-        summarization_provider=keeper._get_summarization_provider(),
-        system_prompt_override=summarize_prompt,
-    )
-    keeper.apply_result(req.id, req.collection, result)
-    return TaskRunResult(status="applied")
+    def get(self, id: str) -> Any:
+        return self._keeper.get(id)
 
-
-def _run_analyze(keeper: "Keeper", req: TaskRequest) -> TaskRunResult:
-    tags = req.metadata.get("tags")
-    force = req.metadata.get("force", False)
-    parts = keeper.analyze(req.id, tags=tags, force=force)
-    return TaskRunResult(status="applied", details={"parts_count": len(parts)})
-
-
-def _run_ocr(keeper: "Keeper", req: TaskRequest) -> TaskRunResult:
-    uri = req.metadata.get("uri") or req.id
-    ocr_pages = req.metadata.get("ocr_pages", [])
-    content_type = req.metadata.get("content_type", "")
-
-    if not ocr_pages:
-        return TaskRunResult(status="skipped", details={"reason": "no_ocr_pages"})
-
-    max_ocr_pages = 1000
-    if len(ocr_pages) > max_ocr_pages:
-        logger.warning(
-            "OCR page count %d exceeds limit %d for %s — truncating",
-            len(ocr_pages), max_ocr_pages, uri,
-        )
-        ocr_pages = ocr_pages[:max_ocr_pages]
-
-    extractor = keeper._get_content_extractor()
-    if not extractor:
-        raise IOError("No content extractor configured for OCR")
-
-    path = Path(str(uri).removeprefix("file://")).resolve()
-    if not path.exists():
-        logger.warning("File no longer exists for OCR: %s", path)
-        return TaskRunResult(status="skipped", details={"reason": "missing_file"})
-
-    from .paths import validate_path_within_home
-
-    try:
-        validate_path_within_home(path)
-    except ValueError:
-        logger.warning("OCR path outside home directory, skipping: %s", path)
-        return TaskRunResult(status="skipped", details={"reason": "path_outside_home"})
-
-    is_image = str(content_type).startswith("image/") if content_type else False
-    if not content_type:
-        from .providers.documents import FileDocumentProvider
-
-        ext = path.suffix.lower()
-        detected = FileDocumentProvider.EXTENSION_TYPES.get(ext, "")
-        is_image = detected.startswith("image/")
-        if is_image:
-            content_type = detected
-
-    if is_image:
-        full_content = keeper._ocr_image(path, content_type, extractor)
-    else:
-        full_content = keeper._ocr_pdf(path, ocr_pages, extractor)
-
-    if not full_content or not full_content.strip():
-        logger.info("OCR produced no usable text for %s", uri)
-        return TaskRunResult(status="skipped", details={"reason": "no_usable_text"})
-
-    existing = keeper._document_store.get(req.collection, req.id)
-    if not existing:
-        return TaskRunResult(status="skipped", details={"reason": "deleted"})
-
-    context = None
-    user_tags = filter_non_system_tags(existing.tags)
-    if user_tags:
-        context = keeper._gather_context(req.id, user_tags)
-
-    try:
-        result = process_ocr(
-            full_content,
-            max_summary_length=keeper._config.max_summary_length,
-            context=context,
-            summarization_provider=keeper._get_summarization_provider(),
-        )
-    except Exception as e:
-        logger.warning("OCR summarization failed for %s: %s", uri, e)
-        result = process_ocr(
-            full_content,
-            max_summary_length=keeper._config.max_summary_length,
-            context=context,
-            summarization_provider=None,
+    def find(
+        self,
+        query: str | None = None,
+        *,
+        tags: dict[str, Any] | None = None,
+        similar_to: str | None = None,
+        limit: int = 10,
+        since: str | None = None,
+        until: str | None = None,
+        include_hidden: bool = False,
+    ) -> list[Any]:
+        return self._keeper.find(
+            query, tags=tags, similar_to=similar_to, limit=limit,
+            since=since, until=until, include_hidden=include_hidden,
         )
 
-    keeper.apply_result(req.id, req.collection, result, existing_tags=existing.tags)
-    return TaskRunResult(
-        status="applied",
-        details={"chars": len(full_content), "content_type": content_type or "pdf"},
-    )
+    def list_items(
+        self,
+        *,
+        prefix: str | None = None,
+        tags: dict[str, Any] | None = None,
+        since: str | None = None,
+        until: str | None = None,
+        order_by: str = "updated",
+        include_hidden: bool = False,
+        limit: int = 10,
+    ) -> list[Any]:
+        return self._keeper.list_items(
+            prefix=prefix, tags=tags, since=since, until=until,
+            order_by=order_by, include_hidden=include_hidden, limit=limit,
+        )
+
+    def get_document(self, id: str) -> Any:
+        return self._keeper._document_store.get(self._collection, id)
+
+    def find_by_name(self, stem: str, *, vault: str | None = None) -> Any:
+        results = self._keeper._document_store.find_by_name(
+            self._collection, stem, id_prefix=vault, limit=1,
+        )
+        if results:
+            from .types import Item
+            rec = results[0]
+            return Item(id=rec.id, summary=rec.summary, tags=rec.tags)
+        return None
+
+    def find_referencing(self, target_id: str, tag_key: str = "references", limit: int = 50) -> list[Any]:
+        """Find items that reference *target_id* via edge-tag *tag_key*."""
+        doc_coll = self._keeper._resolve_doc_collection()
+        edges = self._keeper._document_store.get_inverse_edges(doc_coll, target_id)
+        # edges: list of (inverse, source_id, created) — we want the sources
+        source_ids = list(dict.fromkeys(src for _, src, _ in edges))[:limit]
+        if not source_ids:
+            return []
+        docs = self._keeper._document_store.get_many(doc_coll, source_ids)
+        from .types import Item
+        return [
+            Item(id=rec.id, summary=rec.summary, tags=rec.tags)
+            for rec in docs.values()
+        ]
+
+    def resolve_meta(self, id: str, limit_per_doc: int = 3) -> dict[str, list[Any]]:
+        return self._keeper.resolve_meta(item_id=id, limit_per_doc=limit_per_doc)
+
+    def resolve_provider(self, kind: str, name: str | None = None) -> Any:
+        _PROVIDER_MAP = {
+            "summarization": self._keeper._get_summarization_provider,
+            "content_extractor": self._keeper._get_content_extractor,
+            "analyzer": self._keeper._get_analyzer,
+            "media": self._keeper._get_media_describer,
+        }
+        method = _PROVIDER_MAP.get(kind)
+        if method is None:
+            raise ValueError(f"unknown provider kind: {kind!r}")
+        return method()
+
+    def resolve_prompt(self, prefix: str, doc_tags: dict[str, Any] | None = None) -> str | None:
+        try:
+            return self._keeper._resolve_prompt_doc(prefix, doc_tags or {})
+        except Exception:
+            return None
+
+    def traverse(self, source_ids: list[str], *, limit: int = 5) -> dict[str, list[Any]]:
+        traverse = getattr(self._keeper, "traverse_related", None)
+        if callable(traverse):
+            return traverse(source_ids, limit_per_source=limit)
+        return {}
 
 
-def _run_tag(keeper: "Keeper", req: TaskRequest) -> TaskRunResult:
-    content = str(req.content or "").strip()
-    if not content:
-        return TaskRunResult(status="skipped", details={"reason": "no_content"})
+# ---------------------------------------------------------------------------
+# Generic mutation applier
+# ---------------------------------------------------------------------------
 
-    provider_name = str(req.metadata.get("provider") or "noop").strip()
-    provider_params = req.metadata.get("provider_params")
-    if provider_params is not None and not isinstance(provider_params, dict):
-        provider_params = None
+def _resolve_ref(value: Any, output: dict[str, Any]) -> Any:
+    """Resolve ``$output.X`` references to concrete values."""
+    if isinstance(value, str) and value.startswith("$output."):
+        key = value[len("$output."):]
+        return output.get(key, value)
+    return value
 
-    from .providers.base import get_registry
 
-    registry = get_registry()
-    provider = registry.create_tagging(provider_name, provider_params)
-    tag_method = getattr(provider, "tag", None)
-    if not callable(tag_method):
-        return TaskRunResult(status="skipped", details={"reason": "provider_has_no_tag"})
+def _apply_mutations(
+    keeper: "Keeper",
+    collection: str,
+    output: dict[str, Any],
+) -> None:
+    """Process mutations returned by an action's ``run()`` method."""
+    from .types import casefold_tags_for_index
 
-    tags = tag_method(content)
-    if not isinstance(tags, dict):
-        return TaskRunResult(status="skipped", details={"reason": "invalid_provider_output"})
+    mutations = output.get("mutations")
+    if not isinstance(mutations, list):
+        return
 
-    normalized = {str(k): str(v) for k, v in tags.items() if str(k).strip() and str(v).strip()}
-    if not normalized:
-        return TaskRunResult(status="skipped", details={"reason": "empty_tags"})
+    for mut in mutations:
+        if not isinstance(mut, dict):
+            continue
+        op = mut.get("op", "")
 
-    keeper.tag(req.id, tags=normalized)
-    return TaskRunResult(status="applied", details={"tag_count": len(normalized)})
+        if op == "set_summary":
+            target = str(mut["target"])
+            summary = str(_resolve_ref(mut["summary"], output))
+            keeper._document_store.update_summary(collection, target, summary)
+            if mut.get("embed"):
+                chroma_coll = keeper._resolve_chroma_collection()
+                embedding = keeper._get_embedding_provider().embed(summary)
+                existing = keeper._document_store.get(collection, target)
+                tags = {}
+                if existing:
+                    tags = casefold_tags_for_index(existing.tags or {})
+                keeper._store.upsert(
+                    collection=chroma_coll, id=target,
+                    embedding=embedding, summary=summary, tags=tags,
+                )
+            else:
+                keeper._store.update_summary(collection, target, summary)
 
+        elif op == "set_content":
+            target = str(mut["target"])
+            content = str(_resolve_ref(mut["content"], output))
+            content_hash = str(mut.get("content_hash", ""))
+            content_hash_full = str(mut.get("content_hash_full", ""))
+            summary = str(_resolve_ref(mut.get("summary", ""), output))
+            keeper._document_store.update_summary(collection, target, summary)
+            if content_hash:
+                keeper._document_store.update_content_hash(
+                    collection, target,
+                    content_hash=content_hash,
+                    content_hash_full=content_hash_full,
+                )
+            chroma_coll = keeper._resolve_chroma_collection()
+            embedding = keeper._get_embedding_provider().embed(summary)
+            existing = keeper._document_store.get(collection, target)
+            tags = {}
+            if existing:
+                tags = casefold_tags_for_index(existing.tags or {})
+            keeper._store.upsert(
+                collection=chroma_coll, id=target,
+                embedding=embedding, summary=summary, tags=tags,
+            )
+
+        elif op == "put_item":
+            from .types import is_part_id, parse_part_id
+            item_id = mut.get("id", "")
+            if is_part_id(item_id):
+                # Parts go through part-specific storage, not _put_direct
+                base_id, part_num = parse_part_id(item_id)
+                from .document_store import PartInfo
+                from .types import utc_now
+                part = PartInfo(
+                    part_num=part_num,
+                    summary=str(mut.get("summary", "")),
+                    content=str(mut.get("content", "")),
+                    tags=dict(mut.get("tags") or {}),
+                    created_at=utc_now(),
+                )
+                keeper._document_store.upsert_single_part(collection, base_id, part)
+                chroma_coll = keeper._resolve_chroma_collection()
+                embedding = keeper._get_embedding_provider().embed(part.summary)
+                keeper._store.upsert_part(
+                    chroma_coll, base_id, part_num,
+                    embedding, part.summary, casefold_tags_for_index(part.tags),
+                )
+            else:
+                keeper._put_direct(
+                    content=str(mut.get("content", "")),
+                    id=item_id,
+                    summary=str(mut.get("summary", "")),
+                    tags=mut.get("tags"),
+                    queue_background_tasks=mut.get("queue_background_tasks", False),
+                )
+
+        elif op == "set_tags":
+            target = str(mut["target"])
+            tags = _resolve_ref(mut["tags"], output)
+            if isinstance(tags, dict):
+                # Fetch existing tags for edge diff
+                existing_doc = keeper._document_store.get(collection, target)
+                existing_tags = existing_doc.tags if existing_doc else {}
+
+                keeper._document_store.update_tags(collection, target, tags)
+                chroma_coll = keeper._resolve_chroma_collection()
+                keeper._store.update_tags(
+                    chroma_coll, target, casefold_tags_for_index(tags),
+                )
+
+                # Sync edge table for any edge-tag changes
+                keeper._process_edge_tags(target, tags, existing_tags, collection)
+
+        elif op == "delete_prefix":
+            prefix = str(mut["prefix"])
+            chroma_coll = keeper._resolve_chroma_collection()
+            keeper._store.delete_parts(chroma_coll, prefix.rstrip("@p"))
+            keeper._document_store.delete_parts(collection, prefix.rstrip("@p"))
+
+        else:
+            logger.warning("Unknown mutation op: %r", op)
+
+
+# ---------------------------------------------------------------------------
+# Dispatcher
+# ---------------------------------------------------------------------------
 
 def run_local_task(keeper: "Keeper", req: TaskRequest) -> TaskRunResult:
-    """Run one local task workflow."""
+    """Run a background task by calling the action's ``run()`` method."""
+    from .actions import get_action
+    from .perf_stats import perf
+
     task_type = str(req.task_type or "").strip()
-    if task_type == "summarize":
-        return _run_summarize(keeper, req)
-    if task_type == "analyze":
-        return _run_analyze(keeper, req)
-    if task_type == "ocr":
-        return _run_ocr(keeper, req)
-    if task_type == "tag":
-        return _run_tag(keeper, req)
-    raise ValueError(f"unsupported local task workflow: {task_type}")
+    action = get_action(task_type)
+
+    ctx = _KeeperActionContext(
+        keeper,
+        collection=req.collection,
+        item_id=req.id,
+        item_content=req.content or None,
+    )
+
+    params: dict[str, Any] = {"item_id": req.id}
+    params.update(req.metadata)
+
+    with perf.timer("action", task_type):
+        output = action.run(params, ctx)
+
+    if not isinstance(output, dict):
+        return TaskRunResult(status="skipped", details={"reason": "no_output"})
+
+    if output.get("skipped"):
+        return TaskRunResult(status="skipped", details=output)
+
+    mutations = output.get("mutations")
+    if not mutations:
+        return TaskRunResult(status="skipped", details=output)
+
+    _apply_mutations(keeper, req.collection, output)
+    return TaskRunResult(status="applied", details=output)

@@ -33,8 +33,6 @@ Individual sub-protocols (for fine-grained dependencies):
 - DeviceLinkManagementProtocol, DeviceGroupManagementProtocol, DeviceLifecycleProtocol
 """
 
-from __future__ import annotations
-
 from abc import abstractmethod
 from collections.abc import Callable, Mapping
 from datetime import datetime
@@ -96,6 +94,8 @@ if TYPE_CHECKING:
     from aiohomematic.model.schedule_models import TargetChannelInfo
     from aiohomematic.model.support import DataPointNameData
     from aiohomematic.type_aliases import UnsubscribeCallback
+
+from aiohomematic._payload_protocol import PayloadProtocol
 
 # =============================================================================
 # DataPoint Protocol Interfaces
@@ -254,7 +254,7 @@ class CallbackDataPointProtocol(Protocol):
 
 
 @runtime_checkable
-class GenericHubDataPointProtocol(CallbackDataPointProtocol, Protocol):
+class GenericHubDataPointProtocol(CallbackDataPointProtocol, PayloadProtocol, Protocol):
     """
     Protocol for hub-level data points (programs, sysvars).
 
@@ -470,7 +470,7 @@ class GenericInstallModeDataPointProtocol(HubSensorDataPointProtocol, Protocol):
 
 
 @runtime_checkable
-class BaseDataPointProtocol(CallbackDataPointProtocol, Protocol):
+class BaseDataPointProtocol(CallbackDataPointProtocol, PayloadProtocol, Protocol):
     """
     Protocol for channel-bound data points.
 
@@ -1651,6 +1651,7 @@ class ChannelProtocol(
     ChannelDataPointAccessProtocol,
     ChannelMetadataAndGroupingProtocol,
     ChannelManagementProtocol,
+    PayloadProtocol,
     Protocol,
 ):
     """
@@ -2246,6 +2247,7 @@ class DeviceProtocol(
     DeviceOperationsProtocol,
     DeviceConfigurationProtocol,
     DeviceProvidersProtocol,
+    PayloadProtocol,
     Protocol,
 ):
     """

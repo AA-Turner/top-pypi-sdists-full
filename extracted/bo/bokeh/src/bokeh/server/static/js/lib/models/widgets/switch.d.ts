@@ -5,6 +5,7 @@ import type { StyleSheetLike } from "../../core/dom";
 import type * as p from "../../core/properties";
 export declare class SwitchView extends ToggleInputView {
     model: Switch;
+    static aria_role: "switch";
     protected icon_el: HTMLElement;
     protected body_el: HTMLElement;
     protected bar_el: HTMLElement;

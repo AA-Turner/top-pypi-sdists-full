@@ -36,7 +36,7 @@ def sync(
     body: UpdateNotesRequest,
     x_api_key: str | None = None,
 ) -> SessionResponse:
-    """Update notes for a session."""
+    """Update session-level notes while preserving structured sub-keys like span notes."""
 
     request_args = _build_request_args(
         public_id=public_id,
@@ -55,7 +55,7 @@ async def asyncio(
     body: UpdateNotesRequest,
     x_api_key: str | None = None,
 ) -> SessionResponse:
-    """Update notes for a session."""
+    """Update session-level notes while preserving structured sub-keys like span notes."""
 
     request_args = _build_request_args(
         public_id=public_id,

@@ -20,6 +20,7 @@ from plato.worlds.dvc_models import (
     DVCManifest,
     LazyDVCMount,
     S3Config,
+    _env_flag_enabled,
 )
 
 logger = logging.getLogger(__name__)
@@ -27,6 +28,21 @@ logger = logging.getLogger(__name__)
 PLATO_FUSE_S3_BUCKET = "plato-public-static"
 PLATO_FUSE_S3_KEY = "plato-fuse"
 PLATO_FUSE_INSTALL_PATH = "/usr/local/bin/plato-fuse"
+
+
+async def _forward_worker_logs(
+    stream: asyncio.StreamReader | None,
+    *,
+    label: str,
+    level: int = logging.INFO,
+) -> None:
+    if stream is None:
+        return
+    while True:
+        line = await stream.readline()
+        if not line:
+            break
+        logger.log(level, "plato_fuse[%s] %s", label, line.decode(errors="replace").rstrip())
 
 
 async def _ensure_plato_fuse() -> str:
@@ -41,6 +57,7 @@ async def _ensure_plato_fuse() -> str:
 
     binary = shutil.which("plato-fuse")
     if binary:
+        logger.info("Using plato-fuse from PATH: %s", binary)
         return binary
 
     logger.info(
@@ -81,6 +98,11 @@ async def mount_lazy(
     """
     # Write config for the worker process
     config_path = cache_dir / "config.json"
+    for transient_path in (
+        cache_dir / "live-meta.json",
+        cache_dir / "live-dir-renames.json",
+    ):
+        transient_path.unlink(missing_ok=True)
     config_path.write_text(
         json.dumps(
             {
@@ -104,6 +126,12 @@ async def mount_lazy(
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
+    worker_log_tasks: tuple[asyncio.Task[None], ...] | None = None
+    if _env_flag_enabled("PLATO_FUSE_DEBUG"):
+        worker_log_tasks = (
+            asyncio.create_task(_forward_worker_logs(proc.stdout, label="stdout")),
+            asyncio.create_task(_forward_worker_logs(proc.stderr, label="stderr")),
+        )
 
     # Wait for the mount to appear (up to ~10 s)
     for _ in range(100):
@@ -129,6 +157,7 @@ async def mount_lazy(
         cache_dir=cache_dir,
         manifest=manifest,
         worker_proc=proc,
+        worker_log_tasks=worker_log_tasks,
     )
 
 
@@ -149,5 +178,7 @@ async def unmount_lazy(mount: LazyDVCMount) -> None:
         except asyncio.TimeoutError:
             mount.worker_proc.kill()
             await mount.worker_proc.wait()
+    if mount.worker_log_tasks:
+        await asyncio.gather(*mount.worker_log_tasks, return_exceptions=True)
 
     logger.debug("Lazy DVC unmounted from %s", mount.mountpoint)

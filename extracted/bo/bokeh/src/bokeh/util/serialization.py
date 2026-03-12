@@ -29,6 +29,7 @@ log = logging.getLogger(__name__)
 
 # Standard library imports
 import datetime as dt
+import sys
 import uuid
 from functools import lru_cache
 from threading import Lock
@@ -38,32 +39,35 @@ from typing import TYPE_CHECKING, Any, TypeGuard
 import numpy as np
 
 # Bokeh imports
-from ..core.types import ID
 from ..settings import settings
+from .dependencies import is_installed, uses_pandas
 from .strings import format_docstring
 
 if TYPE_CHECKING:
     import numpy.typing as npt
     import pandas as pd
 
+    from ..core.types import ID
+
 #-----------------------------------------------------------------------------
 # Globals and constants
 #-----------------------------------------------------------------------------
 
 @lru_cache(None)
-def _compute_datetime_types() -> set[type]:
-    import pandas as pd
+def _compute_datetime_types(pandas_imported: bool) -> set[type]:
 
     result = {dt.time, dt.datetime, np.datetime64}
-    result.add(pd.Timestamp)
-    result.add(pd.Timedelta)
-    result.add(pd.Period)
-    result.add(type(pd.NaT))
+    if pandas_imported:
+        import pandas as pd
+        result.add(pd.Timestamp)
+        result.add(pd.Timedelta)
+        result.add(pd.Period)
+        result.add(type(pd.NaT))
     return result
 
 def __getattr__(name: str) -> Any:
     if name == "DATETIME_TYPES":
-        return _compute_datetime_types()
+        return _compute_datetime_types(is_installed("pandas") and "pandas" in sys.modules)
     raise AttributeError
 
 BINARY_ARRAY_TYPES = {
@@ -117,7 +121,7 @@ def is_datetime_type(obj: Any) -> TypeGuard[dt.time | dt.datetime | np.datetime6
         bool : True if ``obj`` is a datetime type
 
     '''
-    _dt_tuple = tuple(_compute_datetime_types())
+    _dt_tuple = tuple(_compute_datetime_types(is_installed("pandas") and "pandas" in sys.modules))
 
     return isinstance(obj, _dt_tuple)
 
@@ -131,7 +135,7 @@ def is_timedelta_type(obj: Any) -> TypeGuard[dt.timedelta | np.timedelta64]:
         bool : True if ``obj`` is a timedelta type
 
     '''
-    return isinstance(obj, dt.timedelta | np.timedelta64)
+    return isinstance(obj, (dt.timedelta, np.timedelta64))
 
 def convert_date_to_datetime(obj: dt.date) -> float:
     ''' Convert a date object to a datetime
@@ -143,7 +147,7 @@ def convert_date_to_datetime(obj: dt.date) -> float:
         datetime
 
     '''
-    return (dt.datetime(*obj.timetuple()[:6], tzinfo=dt.timezone.utc) - DT_EPOCH).total_seconds() * 1000
+    return (dt.datetime.combine(obj, dt.time(), tzinfo=dt.timezone.utc) - DT_EPOCH).total_seconds() * 1000
 
 def convert_timedelta_type(obj: dt.timedelta | np.timedelta64) -> float:
     ''' Convert any recognized timedelta value to floating point absolute
@@ -175,41 +179,42 @@ def convert_datetime_type(obj: Any | pd.Timestamp | pd.Timedelta | dt.datetime |
         float : milliseconds
 
     '''
-    import pandas as pd
+    if uses_pandas(obj):
+        import pandas as pd
 
-    # Pandas NaT
-    if obj is pd.NaT:
-        return np.nan
+        # Pandas NaT
+        if obj is pd.NaT:
+            return np.nan
 
-    # Pandas Period
-    if isinstance(obj, pd.Period):
-        return obj.to_timestamp().value / 10**6.0
+        # Pandas Period
+        if isinstance(obj, pd.Period):
+            return obj.to_timestamp().value / 10**6.0
 
-    # Pandas Timestamp
-    if isinstance(obj, pd.Timestamp):
-        return obj.value / 10**6.0
+        # Pandas Timestamp
+        if isinstance(obj, pd.Timestamp):
+            return obj.value / 10**6.0
 
-    # Pandas Timedelta
-    elif isinstance(obj, pd.Timedelta):
-        return obj.value / 10**6.0
+        # Pandas Timedelta
+        if isinstance(obj, pd.Timedelta):
+            return obj.value / 10**6.0
 
     # Datetime (datetime is a subclass of date)
-    elif isinstance(obj, dt.datetime):
+    if isinstance(obj, dt.datetime):
         diff = obj.replace(tzinfo=dt.timezone.utc) - DT_EPOCH
         return diff.total_seconds() * 1000
 
     # XXX (bev) ideally this would not be here "dates are not datetimes"
     # Date
-    elif isinstance(obj, dt.date):
+    if isinstance(obj, dt.date):
         return convert_date_to_datetime(obj)
 
     # NumPy datetime64
-    elif isinstance(obj, np.datetime64):
+    if isinstance(obj, np.datetime64):
         epoch_delta = obj - NP_EPOCH
         return float(epoch_delta / NP_MS_DELTA)
 
     # Time
-    elif isinstance(obj, dt.time):
+    if isinstance(obj, dt.time):
         return (obj.hour*3600 + obj.minute*60 + obj.second)*1000 + obj.microsecond/1000.0
 
     raise ValueError(f"unknown datetime object: {obj!r}")
@@ -259,6 +264,8 @@ def make_id() -> ID:
     '''
     global _simple_id
 
+    from ..core.types import ID
+
     if settings.simple_ids():
         with _simple_id_lock:
             _simple_id += 1
@@ -276,6 +283,8 @@ def make_globally_unique_id() -> ID:
         str
 
     '''
+    from ..core.types import ID
+
     return ID(str(uuid.uuid4()))
 
 def make_globally_unique_css_safe_id() -> ID:
@@ -289,6 +298,8 @@ def make_globally_unique_css_safe_id() -> ID:
         str
 
     '''
+    from ..core.types import ID
+
     max_iter = 100
 
     for _i in range(0, max_iter):

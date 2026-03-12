@@ -13,7 +13,6 @@ from typing import TYPE_CHECKING
 import urllib
 
 from acme import challenges, client, crypto_util, errors, messages
-import async_timeout
 from atomicwrites import atomic_write
 import attr
 from cryptography import x509
@@ -513,12 +512,12 @@ class AcmeHandler:
                 # Update DNS
                 self._update_status(CertificateStatus.CHALLENGE_DNS_UPDATING)
                 try:
-                    async with async_timeout.timeout(30):
+                    async with asyncio.timeout(30):
                         await self.cloud.instance.create_dns_challenge_record(
                             value=challenge.validation
                         )
                     self._update_status(CertificateStatus.CHALLENGE_DNS_UPDATED)
-                except (TimeoutError, AssertionError):
+                except TimeoutError, AssertionError:
                     self._update_status(CertificateStatus.CHALLENGE_DNS_FAILED)
                     raise AcmeNabuCasaError(
                         "Can't set challenge token to NabuCasa DNS!",
@@ -551,7 +550,7 @@ class AcmeHandler:
             # Cleanup DNS challenge records
             self._update_status(CertificateStatus.CHALLENGE_CLEANUP)
             try:
-                async with async_timeout.timeout(30):
+                async with asyncio.timeout(30):
                     # We only need to cleanup for the last entry
                     await self.cloud.instance.cleanup_dns_challenge_record(
                         value=dns_challenges[-1].validation,

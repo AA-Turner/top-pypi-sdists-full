@@ -43,12 +43,15 @@ def _create_szlak_steering_object(
         neg = torch.stack([t.detach().float().reshape(-1) for t in neg_list], dim=0)
         q_data = layer_activations[layer_str].get("q_proj_activations")
         k_data = layer_activations[layer_str].get("k_proj_activations")
-        if q_data is None or k_data is None:
-            raise ValueError(f"Layer {layer_str}: Q/K projections required for SZLAK attention-transport")
-        q_neg = torch.stack([t.detach().float().reshape(-1) for t in q_data], dim=0)
-        k_pos = torch.stack([t.detach().float().reshape(-1) for t in k_data], dim=0)
-        cost = compute_attention_affinity_cost(q_neg, k_pos, num_heads=num_heads, num_kv_heads=num_kv_heads)
-        T = sinkhorn_one_sided(cost, reg=sinkhorn_reg, max_iter=max_iter)
+        if q_data is not None and k_data is not None:
+            q_neg = torch.stack([t.detach().float().reshape(-1) for t in q_data], dim=0)
+            k_pos = torch.stack([t.detach().float().reshape(-1) for t in k_data], dim=0)
+            cost = compute_attention_affinity_cost(q_neg, k_pos, num_heads=num_heads, num_kv_heads=num_kv_heads)
+            T = sinkhorn_one_sided(cost, reg=sinkhorn_reg, max_iter=max_iter)
+        else:
+            print(f"   Layer {layer_str}: Q/K absent, using uniform transport")
+            N_neg, N_pos = neg.shape[0], pos.shape[0]
+            T = torch.ones(N_neg, N_pos, device=neg.device, dtype=neg.dtype) / (N_neg * N_pos)
         row_sums = T.sum(dim=1, keepdim=True).clamp(min=LOG_EPS)
         T_norm = T / row_sums
         targets = T_norm @ pos

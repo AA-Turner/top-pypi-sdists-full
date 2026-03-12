@@ -1,6 +1,6 @@
 [package]
 name = "obstore"
-version = "0.9.1"
+version = "0.9.2"
 authors = { workspace = true }
 edition = { workspace = true }
 description = "The simplest, highest-throughput interface to Amazon S3, Google Cloud Storage, Azure Blob Storage, and S3-compliant APIs like Cloudflare R2."
@@ -19,6 +19,8 @@ crate-type = ["cdylib"]
 
 [features]
 abi3-py311 = ["pyo3/abi3-py311"]
+# https://www.maturin.rs/distribution.html#cross-compile-to-windows
+generate-import-lib = ["pyo3/generate-import-lib"]
 
 [dependencies]
 arrow = "57"

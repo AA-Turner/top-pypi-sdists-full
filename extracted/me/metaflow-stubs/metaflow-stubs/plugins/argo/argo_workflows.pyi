@@ -1,16 +1,16 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.20                                                                                #
-# Generated on 2026-02-26T21:59:51.348069                                                            #
+# MF version: 2.19.21                                                                                #
+# Generated on 2026-03-12T01:00:36.764263                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import typing
 import metaflow
+import typing
 if typing.TYPE_CHECKING:
-    import metaflow.exception
     import metaflow.graph
+    import metaflow.exception
 
 from ...parameters import JSONType as JSONType
 from ...metaflow_current import current as current

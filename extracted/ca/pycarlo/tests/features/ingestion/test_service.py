@@ -11,6 +11,10 @@ from pycarlo.features.ingestion.models import (
     AssetFreshness,
     AssetMetadata,
     AssetVolume,
+    ColumnLineageField,
+    ColumnLineageSourceField,
+    LineageAssetRef,
+    LineageEvent,
     RelationalAsset,
     Tag,
 )
@@ -34,6 +38,20 @@ class TestIngestionServiceInit(TestCase):
         client = _mock_client()
         svc = IngestionService(mc_client=client)
         assert svc._client is client
+
+
+class TestExtractInvocationId(TestCase):
+    def test_returns_invocation_id_when_present(self):
+        assert (
+            IngestionService.extract_invocation_id({"invocation_id": "test-invocation-id"})
+            == "test-invocation-id"
+        )
+
+    def test_returns_none_when_response_missing(self):
+        assert IngestionService.extract_invocation_id(None) is None
+
+    def test_returns_none_when_value_is_not_string(self):
+        assert IngestionService.extract_invocation_id({"invocation_id": 123}) is None
 
 
 class TestSendMetadata(TestCase):
@@ -76,6 +94,24 @@ class TestSendMetadata(TestCase):
         assert relational_asset["freshness"] == {
             "last_update_time": "2026-03-02T10:00:00Z",
         }
+
+    def test_exposes_invocation_id_from_response(self):
+        client = _mock_client()
+        client.make_request.return_value = {"invocation_id": "metadata-invocation-id"}
+        svc = IngestionService(mc_client=client)
+
+        result = svc.send_metadata(
+            resource_uuid="res-001",
+            resource_type="snowflake",
+            events=[
+                RelationalAsset(
+                    type="TABLE",
+                    metadata=AssetMetadata(name="orders", database="analytics", schema="public"),
+                )
+            ],
+        )
+
+        assert IngestionService.extract_invocation_id(result) == "metadata-invocation-id"
 
     def test_sends_multiple_events(self):
         client = _mock_client()
@@ -180,3 +216,201 @@ class TestSendMetadataRaw(TestCase):
 
         with self.assertRaises(IngestionError):
             svc.send_metadata_raw(payload={"event_type": "METADATA"})
+
+
+# ---------------------------------------------------------------
+# send_lineage
+# ---------------------------------------------------------------
+
+
+def _table_event() -> LineageEvent:
+    return LineageEvent(
+        destination=LineageAssetRef(
+            type="TABLE", database="analytics", schema="pub", name="summary"
+        ),
+        sources=[
+            LineageAssetRef(type="TABLE", database="raw", schema="pub", name="orders"),
+            LineageAssetRef(type="TABLE", database="raw", schema="pub", name="customers"),
+        ],
+    )
+
+
+def _column_event() -> LineageEvent:
+    return LineageEvent(
+        destination=LineageAssetRef(type="TABLE", database="db", schema="s", name="dst"),
+        sources=[
+            LineageAssetRef(type="TABLE", database="db", schema="s", name="src", asset_id="src1"),
+        ],
+        fields=[
+            ColumnLineageField(
+                name="total",
+                source_fields=[
+                    ColumnLineageSourceField(asset_id="src1", field_name="amount"),
+                ],
+            ),
+        ],
+    )
+
+
+class TestSendLineage(TestCase):
+    def test_sends_correct_table_lineage_payload(self):
+        client = _mock_client()
+        client.make_request.return_value = {"status": "ok"}
+        svc = IngestionService(mc_client=client)
+
+        result = svc.send_lineage(
+            resource_uuid="res-001",
+            resource_type="snowflake",
+            events=[_table_event()],
+        )
+
+        assert result == {"status": "ok"}
+        client.make_request.assert_called_once()
+        call_kwargs = client.make_request.call_args
+        assert call_kwargs.kwargs["path"] == "/ingest/v1/lineage"
+        assert call_kwargs.kwargs["method"] == "POST"
+
+        body = call_kwargs.kwargs["body"]
+        assert body["event_type"] == "LINEAGE"
+        assert body["resource"]["uuid"] == "res-001"
+        assert body["resource"]["resource_type"] == "snowflake"
+        assert len(body["events"]) == 1
+        assert body["events"][0]["destination"]["name"] == "summary"
+        assert len(body["events"][0]["sources"]) == 2
+
+    def test_exposes_invocation_id_from_response(self):
+        client = _mock_client()
+        client.make_request.return_value = {"invocation_id": "lineage-invocation-id"}
+        svc = IngestionService(mc_client=client)
+
+        result = svc.send_lineage(
+            resource_uuid="res-001",
+            resource_type="snowflake",
+            events=[_table_event()],
+        )
+
+        assert IngestionService.extract_invocation_id(result) == "lineage-invocation-id"
+
+    def test_sends_column_lineage_payload(self):
+        client = _mock_client()
+        client.make_request.return_value = {"status": "ok"}
+        svc = IngestionService(mc_client=client)
+
+        result = svc.send_lineage(
+            resource_uuid="res-001",
+            resource_type="snowflake",
+            events=[_column_event()],
+        )
+
+        assert result == {"status": "ok"}
+        body = client.make_request.call_args.kwargs["body"]
+        assert body["event_type"] == "COLUMN_LINEAGE"
+        assert "fields" in body["events"][0]
+        assert body["events"][0]["fields"][0]["name"] == "total"
+
+    def test_explicit_event_type_overrides(self):
+        client = _mock_client()
+        client.make_request.return_value = None
+        svc = IngestionService(mc_client=client)
+
+        svc.send_lineage(
+            resource_uuid="res-001",
+            resource_type="snowflake",
+            events=[_column_event()],
+            event_type="LINEAGE",
+        )
+
+        body = client.make_request.call_args.kwargs["body"]
+        assert body["event_type"] == "LINEAGE"
+
+    def test_sends_multiple_events(self):
+        client = _mock_client()
+        client.make_request.return_value = None
+        svc = IngestionService(mc_client=client)
+
+        svc.send_lineage(
+            resource_uuid="res-002",
+            resource_type="bigquery",
+            events=[_table_event(), _table_event()],
+        )
+
+        body = client.make_request.call_args.kwargs["body"]
+        assert len(body["events"]) == 2
+
+    def test_raises_on_empty_events(self):
+        client = _mock_client()
+        svc = IngestionService(mc_client=client)
+
+        with self.assertRaises(ValueError, msg="At least one"):
+            svc.send_lineage(
+                resource_uuid="res-003",
+                resource_type="snowflake",
+                events=[],
+            )
+        client.make_request.assert_not_called()
+
+    def test_wraps_http_error_as_ingestion_error(self):
+        client = _mock_client()
+        response = Mock(spec=Response)
+        response.text = '{"error": "unauthorized"}'
+        client.make_request.side_effect = HTTPError(response=response)
+
+        svc = IngestionService(mc_client=client)
+
+        with self.assertRaises(IngestionError) as ctx:
+            svc.send_lineage(
+                resource_uuid="res-004",
+                resource_type="snowflake",
+                events=[_table_event()],
+            )
+        assert "unauthorized" in str(ctx.exception)
+
+
+class TestSendLineageRaw(TestCase):
+    def test_sends_raw_payload(self):
+        client = _mock_client()
+        client.make_request.return_value = {"status": "ok"}
+        svc = IngestionService(mc_client=client)
+
+        raw = {
+            "event_type": "LINEAGE",
+            "resource": {"uuid": "r1", "resource_type": "snowflake"},
+            "events": [
+                {
+                    "destination": {
+                        "type": "TABLE",
+                        "database": "db",
+                        "schema": "s",
+                        "name": "t",
+                    },
+                    "sources": [
+                        {
+                            "type": "TABLE",
+                            "database": "db",
+                            "schema": "s",
+                            "name": "src",
+                        },
+                    ],
+                },
+            ],
+        }
+
+        result = svc.send_lineage_raw(payload=raw)
+
+        assert result == {"status": "ok"}
+        client.make_request.assert_called_once_with(
+            path="/ingest/v1/lineage",
+            method="POST",
+            body=raw,
+        )
+
+    def test_wraps_http_error(self):
+        client = _mock_client()
+        response = Mock(spec=Response)
+        response.text = "Bad Request"
+        client.make_request.side_effect = HTTPError(response=response)
+
+        svc = IngestionService(mc_client=client)
+
+        with self.assertRaises(IngestionError):
+            svc.send_lineage_raw(payload={"event_type": "LINEAGE"})

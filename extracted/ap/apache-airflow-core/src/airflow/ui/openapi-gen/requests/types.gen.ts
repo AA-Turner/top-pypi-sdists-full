@@ -1129,6 +1129,9 @@ export type PluginResponse = {
  */
 export type PoolBody = {
     name: string;
+    /**
+     * Number of slots. Use -1 for unlimited.
+     */
     slots: number;
     description?: string | null;
     include_deferred?: boolean;
@@ -1157,6 +1160,9 @@ export type PoolPatchBody = {
  */
 export type PoolResponse = {
     name: string;
+    /**
+     * Number of slots. Use -1 for unlimited.
+     */
     slots: number;
     description?: string | null;
     include_deferred: boolean;
@@ -1593,6 +1599,7 @@ export type XComResponse = {
     run_id: string;
     dag_display_name: string;
     task_display_name: string;
+    run_after: string;
 };
 
 /**
@@ -1608,6 +1615,7 @@ export type XComResponseNative = {
     run_id: string;
     dag_display_name: string;
     task_display_name: string;
+    run_after: string;
     value: unknown;
 };
 
@@ -1624,6 +1632,7 @@ export type XComResponseString = {
     run_id: string;
     dag_display_name: string;
     task_display_name: string;
+    run_after: string;
     value: string | null;
 };
 
@@ -1892,6 +1901,7 @@ export type HistoricalMetricDataResponse = {
  */
 export type LightGridTaskInstanceSummary = {
     task_id: string;
+    task_display_name: string;
     state: TaskInstanceState | null;
     child_states: {
     [key: string]: (number);
@@ -3484,10 +3494,6 @@ export type $OpenApiTs = {
                  */
                 403: HTTPExceptionResponse;
                 /**
-                 * Not Found
-                 */
-                404: HTTPExceptionResponse;
-                /**
                  * Validation Error
                  */
                 422: HTTPValidationError;
@@ -3562,10 +3568,6 @@ export type $OpenApiTs = {
                  * Forbidden
                  */
                 403: HTTPExceptionResponse;
-                /**
-                 * Not Found
-                 */
-                404: HTTPExceptionResponse;
                 /**
                  * Validation Error
                  */

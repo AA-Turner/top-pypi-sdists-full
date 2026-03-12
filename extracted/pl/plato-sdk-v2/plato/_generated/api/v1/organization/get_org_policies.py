@@ -37,7 +37,7 @@ def sync(
     authorization: str | None = None,
     x_api_key: str | None = None,
 ) -> list[OrgPolicyResponse]:
-    """Get policies for an organization. Use 'me' for current org, or org ID (admin only)."""
+    """Get policies for an organization. Use 'me' for current org, 'all' for global, or org ID (admin only)."""
 
     request_args = _build_request_args(
         org_id=org_id,
@@ -56,7 +56,7 @@ async def asyncio(
     authorization: str | None = None,
     x_api_key: str | None = None,
 ) -> list[OrgPolicyResponse]:
-    """Get policies for an organization. Use 'me' for current org, or org ID (admin only)."""
+    """Get policies for an organization. Use 'me' for current org, 'all' for global, or org ID (admin only)."""
 
     request_args = _build_request_args(
         org_id=org_id,

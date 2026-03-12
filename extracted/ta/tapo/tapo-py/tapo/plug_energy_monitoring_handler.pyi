@@ -1,6 +1,10 @@
-from datetime import datetime
+from datetime import date, datetime
+from typing import Optional
 
+from tapo.debug_ext import DebugExt
 from tapo.device_management_ext import DeviceManagementExt
+from tapo.on_off_ext import OnOffExt
+from tapo.refresh_session_ext import RefreshSessionExt
 from tapo.requests import EnergyDataInterval, PowerDataInterval
 from tapo.responses import (
     CurrentPowerResult,
@@ -11,7 +15,7 @@ from tapo.responses import (
     PowerDataResult,
 )
 
-class PlugEnergyMonitoringHandler(DeviceManagementExt):
+class PlugEnergyMonitoringHandler(OnOffExt, DeviceManagementExt, RefreshSessionExt, DebugExt):
     """Handler for the [P110](https://www.tapo.com/en/search/?q=P110),
     [P110M](https://www.tapo.com/en/search/?q=P110M) and
     [P115](https://www.tapo.com/en/search/?q=P115) devices.
@@ -22,15 +26,6 @@ class PlugEnergyMonitoringHandler(DeviceManagementExt):
         It should not be called from outside the tapo library.
         """
 
-    async def refresh_session(self) -> None:
-        """Refreshes the authentication session."""
-
-    async def on(self) -> None:
-        """Turns *on* the device."""
-
-    async def off(self) -> None:
-        """Turns *off* the device."""
-
     async def get_device_info(self) -> DeviceInfoPlugEnergyMonitoringResult:
         """Returns *device info* as `DeviceInfoPlugEnergyMonitoringResult`.
         It is not guaranteed to contain all the properties returned from the Tapo API.
@@ -40,14 +35,6 @@ class PlugEnergyMonitoringHandler(DeviceManagementExt):
         Returns:
             DeviceInfoPlugEnergyMonitoringResult: Device info of P110, P110M and P115.
             Superset of `GenericDeviceInfoResult`.
-        """
-
-    async def get_device_info_json(self) -> dict:
-        """Returns *device info* as json.
-        It contains all the properties returned from the Tapo API.
-
-        Returns:
-            dict: Device info as a dictionary.
         """
 
     async def get_current_power(self) -> CurrentPowerResult:
@@ -76,8 +63,8 @@ class PlugEnergyMonitoringHandler(DeviceManagementExt):
     async def get_energy_data(
         self,
         interval: EnergyDataInterval,
-        start_date: datetime,
-        end_date: datetime = None,
+        start_date: date,
+        end_date: Optional[date] = None,
     ) -> EnergyDataResult:
         """Returns *energy data* as `EnergyDataResult`.
 

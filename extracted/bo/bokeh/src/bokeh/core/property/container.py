@@ -32,6 +32,7 @@ from typing import TYPE_CHECKING, Any, TypeVar
 
 # Bokeh imports
 from ._sphinx import property_link, register_type_link, type_link
+from .any import Any as AnyVal
 from .bases import (
     ContainerProperty,
     Init,
@@ -92,7 +93,11 @@ class Seq(ContainerProperty[T]):
     def validate(self, value: Any, detail: bool = True) -> None:
         super().validate(value, True)
 
-        if self._is_seq(value) and all(self.item_type.is_valid(item) for item in value):
+        if not self._is_seq(value):
+            msg = "" if not detail else f"expected sequence {self}, got {value!r} of type {type(value)!r}"
+            raise ValueError(msg)
+
+        if self._should_skip_item_validation() or all(self.item_type.is_valid(item) for item in value):
             return
 
         if self._is_seq(value):
@@ -106,13 +111,16 @@ class Seq(ContainerProperty[T]):
         msg = "" if not detail else f"expected an element of {self}, got {value!r}"
         raise ValueError(msg)
 
+    def _should_skip_item_validation(self):
+        return isinstance(self.item_type, AnyVal)
+
     @classmethod
     def _is_seq(cls, value: Any) -> bool:
         return ((isinstance(value, Sequence) or cls._is_seq_like(value)) and not isinstance(value, str))
 
     @classmethod
     def _is_seq_like(cls, value: Any) -> bool:
-        return (isinstance(value, Container | Sized | Iterable)
+        return (isinstance(value, (Container, Sized, Iterable))
                 and hasattr(value, "__getitem__") # NOTE: this is what makes it disallow set type
                 and not isinstance(value, Mapping))
 
@@ -291,7 +299,7 @@ class Tuple(ContainerProperty):
     def validate(self, value: Any, detail: bool = True) -> None:
         super().validate(value, detail)
 
-        if isinstance(value, tuple | list) and len(self.type_params) == len(value):
+        if isinstance(value, (tuple, list)) and len(self.type_params) == len(value):
             if all(type_param.is_valid(item) for type_param, item in zip(self.type_params, value)):
                 return
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: black
-Version: 26.3.0
+Version: 26.3.1
 Summary: The uncompromising code formatter.
 Project-URL: Documentation, https://black.readthedocs.io/
 Project-URL: Changelog, https://github.com/psf/black/blob/main/CHANGES.md
@@ -72,8 +72,7 @@ becomes transparent after a while and you can focus on the content instead.
 
 _Black_ makes code review faster by producing the smallest diffs possible.
 
-Try it out now using the [Black Playground](https://black.vercel.app). Watch the
-[PyCon 2019 talk](https://youtu.be/esZLCuWs_2Y) to learn more.
+Watch the [PyCon 2019 talk](https://youtu.be/esZLCuWs_2Y) to learn more.
 
 ---
 
@@ -273,6 +272,25 @@ Flying Circus is expected. We are not savages.
 
 And if you _really_ need to slap somebody, do it with a fish while dancing.
 # Change Log
+
+## 26.3.1
+
+### Stable style
+
+- Prevent Jupyter notebook magic masking collisions from corrupting cells by using
+  exact-length placeholders for short magics and aborting if a placeholder can no longer
+  be unmasked safely (#5038)
+
+### Configuration
+
+- Always hash cache filename components derived from `--python-cell-magics` so custom
+  magic names cannot affect cache paths (#5038)
+
+### _Blackd_
+
+- Disable browser-originated requests by default, add configurable origin allowlisting
+  and request body limits, and bound executor submissions to improve backpressure
+  (#5039)
 
 ## 26.3.0
 

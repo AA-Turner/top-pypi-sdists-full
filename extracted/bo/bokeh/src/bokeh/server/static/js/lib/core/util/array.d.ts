@@ -1,5 +1,5 @@
 import type { Arrayable } from "../types";
-export { map, reduce, min, min_by, max, max_by, sum, cumsum, every, some, find, find_last, find_index, find_last_index, sorted_index, is_empty, includes, contains, sort_by, } from "./arrayable";
+export { map, reduce, min, min_by, max, max_by, sum, cumsum, every, some, find, find_last, find_index, find_last_index, sorted_index, is_empty, includes, contains, sort_by, subselect, } from "./arrayable";
 export declare function head<T>(array: T[]): T;
 export declare function last<T>(array: ArrayLike<T>): T;
 export declare function copy<T>(array: T[]): T[];
@@ -39,4 +39,5 @@ export declare function elementwise<T, U>(array0: Arrayable<T>, array1: Arrayabl
 export declare function reversed<T>(array: T[]): T[];
 export declare function repeat<T>(value: T, n: number): T[];
 export declare function resize<T>(array: T[], new_length: number, fill_value?: T): T[];
+export declare function interleave<T>(seq: Iterable<T>, separator: () => T): T[];
 //# sourceMappingURL=array.d.ts.map

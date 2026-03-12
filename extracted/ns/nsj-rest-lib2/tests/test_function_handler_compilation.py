@@ -21,9 +21,33 @@ from nsj_rest_lib2.compiler.util.type_naming_util import (
 from nsj_rest_lib2.dto.escopo_dto import EscopoDTO
 
 
+def _ensure_pk_required(edl_data: dict) -> dict:
+    """
+    Normaliza payload de teste para garantir PKs dentro de `required`.
+
+    Alguns fixtures legados nao declaram explicitamente `required`, mas a regra
+    atual do modelo exige essa consistencia para PK.
+    """
+    normalized = json.loads(json.dumps(edl_data))
+    properties = normalized.get("properties") or {}
+    required = normalized.get("required")
+    required_list = list(required) if isinstance(required, list) else []
+
+    for prop_name, prop_meta in properties.items():
+        if isinstance(prop_meta, dict) and prop_meta.get("pk") is True:
+            if prop_name not in required_list:
+                required_list.append(prop_name)
+
+    if required_list:
+        normalized["required"] = required_list
+
+    return normalized
+
+
 def _load_entity(path: Path):
     with path.open("r") as fp:
         edl_data = json.load(fp)
+    edl_data = _ensure_pk_required(edl_data)
 
     model = (
         EntityModelRoot(**edl_data)
@@ -144,7 +168,11 @@ def test_compile_handlers_generates_get_and_list_function_types_from_edl():
 
     compiler = EDLCompiler()
     escopo = EscopoDTO(codigo="test", service_account=None)
-    result = compiler.compile_model_from_edl(edl_json, [], escopo=escopo)
+    result = compiler.compile_model_from_edl(
+        _ensure_pk_required(edl_json),
+        [],
+        escopo=escopo,
+    )
 
     assert result is not None
     assert result.get_function_name == "test.fn_foo_get"
@@ -215,7 +243,11 @@ def test_compile_handlers_generates_partial_row_response_dto():
 
     compiler = EDLCompiler()
     escopo = EscopoDTO(codigo="test", service_account=None)
-    result = compiler.compile_model_from_edl(edl_json, [], escopo=escopo)
+    result = compiler.compile_model_from_edl(
+        _ensure_pk_required(edl_json),
+        [],
+        escopo=escopo,
+    )
 
     assert result is not None
     assert result.post_response_dto_class_name == "BarPostResponseDTO"
@@ -259,7 +291,11 @@ def test_compile_handlers_sets_custom_json_flag_without_impl():
 
     compiler = EDLCompiler()
     escopo = EscopoDTO(codigo="test", service_account=None)
-    result = compiler.compile_model_from_edl(edl_json, [], escopo=escopo)
+    result = compiler.compile_model_from_edl(
+        _ensure_pk_required(edl_json),
+        [],
+        escopo=escopo,
+    )
 
     assert result is not None
     assert result.custom_json_post_response is True
@@ -302,7 +338,11 @@ def test_compile_handlers_sets_custom_json_for_get_and_list():
 
     compiler = EDLCompiler()
     escopo = EscopoDTO(codigo="test", service_account=None)
-    result = compiler.compile_model_from_edl(edl_json, [], escopo=escopo)
+    result = compiler.compile_model_from_edl(
+        _ensure_pk_required(edl_json),
+        [],
+        escopo=escopo,
+    )
 
     assert result is not None
     assert result.custom_json_get_response is True
@@ -341,7 +381,11 @@ def test_compile_handlers_sets_custom_json_for_delete():
 
     compiler = EDLCompiler()
     escopo = EscopoDTO(codigo="test", service_account=None)
-    result = compiler.compile_model_from_edl(edl_json, [], escopo=escopo)
+    result = compiler.compile_model_from_edl(
+        _ensure_pk_required(edl_json),
+        [],
+        escopo=escopo,
+    )
 
     assert result is not None
     assert result.custom_json_delete_response is True
@@ -384,7 +428,11 @@ def test_compile_handlers_retrieve_after_update_and_partial_update_flags():
 
     compiler = EDLCompiler()
     escopo = EscopoDTO(codigo="test", service_account=None)
-    result = compiler.compile_model_from_edl(edl_json, [], escopo=escopo)
+    result = compiler.compile_model_from_edl(
+        _ensure_pk_required(edl_json),
+        [],
+        escopo=escopo,
+    )
 
     assert result is not None
     assert result.retrieve_after_update is True
@@ -428,7 +476,11 @@ def test_compile_handlers_disable_retrieve_after_update_for_partial_row():
 
     compiler = EDLCompiler()
     escopo = EscopoDTO(codigo="test", service_account=None)
-    result = compiler.compile_model_from_edl(edl_json, [], escopo=escopo)
+    result = compiler.compile_model_from_edl(
+        _ensure_pk_required(edl_json),
+        [],
+        escopo=escopo,
+    )
 
     assert result is not None
     assert result.retrieve_after_update is False
@@ -469,4 +521,8 @@ def test_compile_handlers_partial_row_requires_properties():
     escopo = EscopoDTO(codigo="test", service_account=None)
 
     with pytest.raises(ValidationError):
-        compiler.compile_model_from_edl(edl_json, [], escopo=escopo)
+        compiler.compile_model_from_edl(
+            _ensure_pk_required(edl_json),
+            [],
+            escopo=escopo,
+        )

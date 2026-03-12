@@ -1,6 +1,8 @@
 # coding=utf-8
 from .._impl import (
     scout_checks_api_ArchiveChecklistsRequest as ArchiveChecklistsRequest,
+    scout_checks_api_BatchEditChecklistMetadataRequest as BatchEditChecklistMetadataRequest,
+    scout_checks_api_BatchEditChecklistMetadataResponse as BatchEditChecklistMetadataResponse,
     scout_checks_api_BatchGetChecklistMetadataRequest as BatchGetChecklistMetadataRequest,
     scout_checks_api_BatchGetChecklistMetadataResponse as BatchGetChecklistMetadataResponse,
     scout_checks_api_BatchGetJobReportsRequest as BatchGetJobReportsRequest,
@@ -77,6 +79,8 @@ from .._impl import (
 
 __all__ = [
     'ArchiveChecklistsRequest',
+    'BatchEditChecklistMetadataRequest',
+    'BatchEditChecklistMetadataResponse',
     'BatchGetChecklistMetadataRequest',
     'BatchGetChecklistMetadataResponse',
     'BatchGetJobReportsRequest',

@@ -5,7 +5,7 @@ from abstra_internals.repositories.linter.models import LinterIssue, LinterRule
 from abstra_internals.repositories.project.project import LocalProjectRepository
 
 # Constant to make it easy to change the line limit
-MAX_LINES_THRESHOLD = 500
+MAX_LINES_THRESHOLD = 1000
 
 
 class BigPyFileFound(LinterIssue):

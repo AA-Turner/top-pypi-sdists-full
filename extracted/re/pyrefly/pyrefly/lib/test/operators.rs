@@ -200,7 +200,6 @@ assert_type(x, Literal[""])
 );
 
 testcase!(
-    bug = "Should narrow",
     test_boolean_operator_narrow,
     r#"
 from typing import assert_type, Literal
@@ -283,6 +282,25 @@ assert_type(y5, Literal[False])
 x6 = ""
 y6 = not x6
 assert_type(y6, Literal[True])
+    "#,
+);
+
+testcase!(
+    test_unary_bool_literals,
+    r#"
+from typing import Literal, assert_type
+
+def invert_literal_false(x: Literal[False]) -> None:
+    assert_type(~x, Literal[-1])
+
+def invert_literal_true(x: Literal[True]) -> None:
+    assert_type(~x, Literal[-2])
+
+def negate_literal_false(x: Literal[False]) -> None:
+    assert_type(-x, Literal[0])
+
+def negate_literal_true(x: Literal[True]) -> None:
+    assert_type(-x, Literal[-1])
     "#,
 );
 
@@ -412,6 +430,29 @@ def f(x: Any):
 def f2(x: int | Any):
     assert_type(1 + x, int | Any)
     assert_type(x < 10,  bool | Any )
+    "#,
+);
+
+testcase!(
+    test_compare_on_any,
+    r#"
+from typing import Any, assert_type
+
+def test1(x: Any) -> None:
+    assert_type(x == 1, Any)
+    assert_type(1 == x, Any)
+    assert_type(x != 1, Any)
+    assert_type(x is None, Any)
+    assert_type(x is not None, Any)
+    assert_type(x in [1, 2], Any)
+    assert_type(1 in x, Any)
+
+def test2(x: float, y: Any) -> None:
+    any( x == y )
+    assert_type(x==y, Any)
+    assert_type(y==x, Any)
+    assert_type(x!=y, Any)
+    assert_type(y!=x, Any)
     "#,
 );
 
@@ -781,5 +822,30 @@ def test(x, y):
     assert_type(z, Any)
     # This should not produce an error since z is Any
     f(z)
+"#,
+);
+
+// https://github.com/facebook/pyrefly/issues/972
+testcase!(
+    test_int_pow_inference,
+    r#"
+from typing import assert_type, Any
+
+# Typeshed covers __pow__ for Literal[1..25] (-> int) and
+# Literal[-1..-25] (-> float).
+assert_type(2 ** 25, int)
+assert_type(2 ** -25, float)
+
+# For exponents outside the typeshed range, we special-case int ** int:
+# positive exponent -> int, negative exponent -> float.
+assert_type(2 ** 26, int)
+assert_type(2 ** 100, int)
+assert_type((-2) ** 26, int)
+assert_type(2 ** -26, float)
+assert_type(2 ** -100, float)
+
+# When the exponent sign is unknown, fall back to Any like typeshed.
+def f(x: int, y: int) -> None:
+    assert_type(x ** y, Any)
 "#,
 );

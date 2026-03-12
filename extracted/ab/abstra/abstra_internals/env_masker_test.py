@@ -11,6 +11,9 @@ def set_env(env: Dict[str, str]) -> None:
 
 
 class TestImportAsNew(TestCase):
+    def setUp(self) -> None:
+        os.environ.clear()
+
     def tearDown(self) -> None:
         os.environ.clear()
 

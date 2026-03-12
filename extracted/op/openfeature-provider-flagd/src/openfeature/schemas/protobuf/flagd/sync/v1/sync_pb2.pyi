@@ -49,6 +49,7 @@ class SyncFlagsRequest(google.protobuf.message.Message):
     flag configurations from a collection, select the source of the flag or combine this to any desired underlying
     filtering mechanism.
        ex:- selector: 'source=database,app=weatherapp'
+    Deprecated: Use the 'Flagd-Selector' header instead. Remember to reserve field number 2 if this is removed;
     """
     def __init__(
         self,
@@ -106,6 +107,7 @@ class FetchAllFlagsRequest(google.protobuf.message.Message):
     flag configurations from a collection, select the source of the flag or combine this to any desired underlying
     filtering mechanism.
        ex:- selector: 'source=database,app=weatherapp'
+    Deprecated: Use the 'Flagd-Selector' header instead. Remember to reserve field number 2 if this is removed;
     """
     def __init__(
         self,

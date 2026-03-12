@@ -40,7 +40,13 @@ def sync(
     authorization: str | None = None,
     x_api_key: str | None = None,
 ) -> AppApiV2SchemasSessionEvaluateResponse:
-    """Evaluate the current session."""
+    """Evaluate the current session.
+
+    Scores the session's state mutations per-simulator (using v2_scoring_config
+    if available, otherwise falls back to v1 default_scoring_config).
+    Optionally scores output value for OUTPUT-type test cases.
+
+    Returns per-simulator breakdown and aggregate score."""
 
     request_args = _build_request_args(
         session_id=session_id,
@@ -61,7 +67,13 @@ async def asyncio(
     authorization: str | None = None,
     x_api_key: str | None = None,
 ) -> AppApiV2SchemasSessionEvaluateResponse:
-    """Evaluate the current session."""
+    """Evaluate the current session.
+
+    Scores the session's state mutations per-simulator (using v2_scoring_config
+    if available, otherwise falls back to v1 default_scoring_config).
+    Optionally scores output value for OUTPUT-type test cases.
+
+    Returns per-simulator breakdown and aggregate score."""
 
     request_args = _build_request_args(
         session_id=session_id,

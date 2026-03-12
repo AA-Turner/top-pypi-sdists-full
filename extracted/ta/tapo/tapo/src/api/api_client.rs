@@ -15,11 +15,15 @@ use crate::requests::{
     MultipleRequestParams, PlayAlarmParams, PowerDataInterval, SegmentEffect, TapoParams,
     TapoRequest,
 };
+#[cfg(feature = "debug")]
+use crate::responses::{
+    ChildDeviceComponentList, ChildDeviceComponentListResult, Component, ComponentListResult,
+    SupportedAlarmTypeListResult,
+};
 use crate::responses::{
     ControlChildResult, CurrentPowerResult, DecodableResultExt, EnergyDataResult,
     EnergyDataResultRaw, EnergyUsageResult, PowerDataResult, PowerDataResultRaw,
-    SupportedAlarmTypeListResult, TapoMultipleResponse, TapoResponseExt, TapoResult,
-    validate_response,
+    TapoMultipleResponse, TapoResponseExt, TapoResult, validate_response,
 };
 
 use super::discovery::DeviceDiscovery;
@@ -664,6 +668,7 @@ impl ApiClient {
             .await
     }
 
+    #[cfg(feature = "debug")]
     pub(crate) async fn get_supported_alarm_type_list(
         &self,
     ) -> Result<SupportedAlarmTypeListResult, Error> {
@@ -693,6 +698,20 @@ impl ApiClient {
             .await?;
 
         Ok(())
+    }
+
+    #[cfg(feature = "debug")]
+    pub(crate) async fn get_component_list(&self) -> Result<Vec<Component>, Error> {
+        debug!("Get Component list...");
+        let request = TapoRequest::ComponentNegotiation(TapoParams::new(EmptyParams));
+
+        let result: ComponentListResult = self
+            .get_protocol()?
+            .execute_request(request, true)
+            .await?
+            .ok_or_else(|| Error::Tapo(TapoResponseError::EmptyResult))?;
+
+        Ok(result.component_list)
     }
 
     pub(crate) async fn get_device_info<R>(&self) -> Result<R, Error>
@@ -825,18 +844,20 @@ impl ApiClient {
             .ok_or_else(|| Error::Tapo(TapoResponseError::EmptyResult))?
     }
 
-    pub(crate) async fn get_child_device_component_list<R>(&self) -> Result<R, Error>
-    where
-        R: fmt::Debug + DeserializeOwned + TapoResponseExt + DecodableResultExt,
-    {
+    #[cfg(feature = "debug")]
+    pub(crate) async fn get_child_device_component_list(
+        &self,
+    ) -> Result<Vec<ChildDeviceComponentList>, Error> {
         debug!("Get Child device component list...");
         let request = TapoRequest::GetChildDeviceComponentList(TapoParams::new(EmptyParams));
 
-        self.get_protocol()?
-            .execute_request::<R>(request, true)
+        let result: ChildDeviceComponentListResult = self
+            .get_protocol()?
+            .execute_request(request, true)
             .await?
-            .map(|result| result.decode())
-            .ok_or_else(|| Error::Tapo(TapoResponseError::EmptyResult))?
+            .ok_or_else(|| Error::Tapo(TapoResponseError::EmptyResult))?;
+
+        Ok(result.child_component_list)
     }
 
     pub(crate) async fn control_child<R>(

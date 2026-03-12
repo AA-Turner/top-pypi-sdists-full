@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: strands-agents
-Version: 1.29.0
+Version: 1.30.0
 Summary: A model-driven approach to building AI agents in just a few lines of code
 Project-URL: Homepage, https://github.com/strands-agents/sdk-python
 Project-URL: Bug Tracker, https://github.com/strands-agents/sdk-python/issues
@@ -31,6 +31,7 @@ Requires-Dist: opentelemetry-api<2.0.0,>=1.30.0
 Requires-Dist: opentelemetry-instrumentation-threading<1.00b0,>=0.51b0
 Requires-Dist: opentelemetry-sdk<2.0.0,>=1.30.0
 Requires-Dist: pydantic<3.0.0,>=2.4.0
+Requires-Dist: pyyaml<7.0.0,>=6.0.0
 Requires-Dist: typing-extensions<5.0.0,>=4.13.2
 Requires-Dist: watchdog<7.0.0,>=6.0.0
 Provides-Extra: a2a

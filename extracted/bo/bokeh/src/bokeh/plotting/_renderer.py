@@ -26,9 +26,8 @@ from typing import TYPE_CHECKING, Any, TypeAlias
 import numpy as np
 
 # Bokeh imports
-from ..core.properties import ColorSpec
+from ..core.property.dataspec import ColorSpec
 from ..models import ColumnarDataSource, ColumnDataSource, GlyphRenderer
-from ..util.strings import nice_join
 from ._legends import pop_legend_kwarg, update_legend
 
 if TYPE_CHECKING:
@@ -96,6 +95,8 @@ def create_renderer(glyphclass: type[Glyph], plot: Plot, **kwargs: Any) -> Glyph
     incompatible_literal_spec_values += _process_sequence_literals(glyphclass, kwargs, source, is_user_source)
     incompatible_literal_spec_values += _process_sequence_literals(glyphclass, glyph_visuals, source, is_user_source)
     if incompatible_literal_spec_values:
+        from ..util.strings import nice_join
+
         raise RuntimeError(_GLYPH_SOURCE_MSG % nice_join(incompatible_literal_spec_values, conjunction="and"))
 
     # handle the nonselection glyph, we always set one
@@ -254,7 +255,7 @@ def _convert_data_source(kwargs: Attrs) -> bool:
 
 def _pop_renderer_args(kwargs: Attrs) -> Attrs:
     result = {attr: kwargs.pop(attr) for attr in RENDERER_ARGS if attr in kwargs}
-    result['data_source'] = kwargs.pop('source', ColumnDataSource())
+    result['data_source'] = kwargs.pop('source') if 'source' in kwargs else ColumnDataSource()
     return result
 
 def _process_sequence_literals(glyphclass: type[Glyph], kwargs: Attrs, source: ColumnarDataSource, is_user_source: bool) -> list[str]:

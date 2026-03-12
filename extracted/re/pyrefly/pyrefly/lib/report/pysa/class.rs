@@ -275,7 +275,7 @@ pub fn get_context_from_class<'a>(
     let handle = Handle::new(
         class.module_name(),
         class.module_path().clone(),
-        context.handle.sys_info().clone(),
+        *context.handle.sys_info(),
     );
     ModuleContext::create(handle, context.transaction, context.module_ids).unwrap()
 }
@@ -381,7 +381,7 @@ fn export_class_fields(
 
             let explicit_annotation = match field_binding {
                 Some(BindingClassField {
-                    definition: ClassFieldDefinition::DeclaredByAnnotation { annotation },
+                    definition: ClassFieldDefinition::DeclaredByAnnotation { annotation, .. },
                     ..
                 }) => Some(*annotation),
                 Some(BindingClassField {

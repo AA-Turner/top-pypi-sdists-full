@@ -23,6 +23,28 @@ from plato.chronos.models import DVCManifestEntry
 logger = logging.getLogger(__name__)
 
 
+def _env_flag_enabled(name: str) -> bool:
+    value = os.environ.get(name, "")
+    return value.lower() not in {"", "0", "false", "no"}
+
+
+def _smart_commit_debug(message: str, *args: Any) -> None:
+    if _env_flag_enabled("PLATO_SMART_COMMIT_DEBUG"):
+        logger.info("smart_commit_debug: " + message, *args)
+
+
+def _path_kind_for_debug(path: Path) -> str:
+    try:
+        st = os.lstat(path)
+    except OSError:
+        return "missing"
+    if stat_mod.S_ISDIR(st.st_mode):
+        return "dir"
+    if stat_mod.S_ISLNK(st.st_mode):
+        return "symlink"
+    return "file"
+
+
 # ============================================================
 # Data models
 # ============================================================
@@ -74,8 +96,51 @@ class DVCManifest:
             raw = await s3_download_bytes(s3_config, manifest_key_alt)
         items = json.loads(raw)
         entries = [DVCManifestEntry(**it) for it in items]
+        await cls._resolve_missing_sizes(entries, s3_config)
 
         return cls(entries_list=entries, manifest_md5=manifest_md5)
+
+    @staticmethod
+    async def _resolve_missing_sizes(entries: list[DVCManifestEntry], s3_config: S3Config) -> None:
+        async def _resolve(entry: DVCManifestEntry) -> None:
+            if (entry.size or 0) > 0 or entry.isdir:
+                return
+            if entry.islink:
+                if entry.symlink_target is None:
+                    if entry.md5:
+                        key = dvc_file_key(s3_config, entry.md5)
+                        try:
+                            raw = await s3_download_bytes(s3_config, key)
+                            entry.symlink_target = raw.decode("utf-8")
+                            entry.size = len(raw)
+                        except Exception as exc:
+                            logger.warning(
+                                "Could not resolve symlink target for %s from S3: %s",
+                                entry.relpath,
+                                exc,
+                            )
+                            entry.size = 0
+                    else:
+                        entry.size = 0
+                    return
+                entry.size = len(entry.symlink_target.encode("utf-8"))
+                return
+            if not entry.md5:
+                return
+
+            key = dvc_file_key(s3_config, entry.md5)
+            try:
+                entry.size = await s3_head_size(s3_config, key)
+            except Exception as exc:
+                logger.warning(
+                    "Could not resolve size for %s from s3://%s/%s: %s",
+                    entry.relpath,
+                    s3_config.bucket,
+                    key,
+                    exc,
+                )
+
+        await asyncio.gather(*(_resolve(entry) for entry in entries if (entry.size or 0) == 0))
 
     def entries_dict(self) -> dict[str, DVCManifestEntry]:
         return {e.relpath: e for e in self.entries_list}
@@ -102,6 +167,7 @@ class LazyDVCMount:
     cache_dir: Path
     manifest: DVCManifest
     worker_proc: Any = None
+    worker_log_tasks: tuple[Any, ...] | None = None
 
     @property
     def meta_path(self) -> Path:
@@ -110,6 +176,27 @@ class LazyDVCMount:
     @property
     def overlay_dir(self) -> Path:
         return self.cache_dir / "overlay"
+
+
+@dataclass
+class DirectorySnapshotEntry:
+    relpath: str
+    mode: int
+
+
+@dataclass
+class DirectoryRenameEntry:
+    old_relpath: str
+    new_relpath: str
+
+
+@dataclass
+class SmartCommitMetadata:
+    modified: set[str]
+    deleted: set[str]
+    created: set[str]
+    directories: list[DirectorySnapshotEntry] | None = None
+    dir_renames: list[DirectoryRenameEntry] | None = None
 
 
 # ============================================================
@@ -180,6 +267,39 @@ async def s3_download_bytes(config: S3Config, key: str) -> bytes:
             os.unlink(tmp_path)
         except OSError:
             pass
+
+
+async def s3_head_size(config: S3Config, key: str) -> int:
+    await _ensure_s5cmd()
+    s3_url = f"s3://{config.bucket}/{key}"
+    proc = await asyncio.create_subprocess_exec(
+        "s5cmd",
+        "ls",
+        s3_url,
+        env=_s3_env(config),
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    stdout, stderr = await proc.communicate()
+    stderr_text = stderr.decode().strip()
+    if proc.returncode != 0:
+        lower = stderr_text.lower()
+        if "not found" in lower or "no object found" in lower or "404" in lower:
+            raise FileNotFoundError(s3_url)
+        raise RuntimeError(f"s5cmd ls failed for {s3_url}: {stderr_text}")
+
+    lines = [line.strip() for line in stdout.decode().splitlines() if line.strip()]
+    if not lines:
+        raise FileNotFoundError(s3_url)
+
+    parts = lines[0].split()
+    if len(parts) < 4:
+        raise RuntimeError(f"unexpected s5cmd ls output for {s3_url}: {lines[0]!r}")
+
+    try:
+        return int(parts[-2])
+    except ValueError as exc:
+        raise RuntimeError(f"unexpected size field in s5cmd ls output for {s3_url}: {lines[0]!r}") from exc
 
 
 async def s3_upload_bytes(config: S3Config, key: str, data: bytes) -> None:
@@ -286,18 +406,40 @@ def _scan_overlay(overlay_dir: Path, ignore_patterns: list[str] | None = None) -
     if not overlay_dir.exists():
         return result
 
+    _ignored_name, _ignored_path = _build_ignore_matchers(ignore_patterns)
+
+    for root, dirs, files in os.walk(overlay_dir):
+        rel_root = Path(root).relative_to(overlay_dir)
+        kept_dirs: list[str] = []
+        for dirname in dirs:
+            relpath = str(rel_root / dirname) if str(rel_root) != "." else dirname
+            if _ignored_name(dirname) or _ignored_path(relpath) or _ignored_path(f"{relpath}/"):
+                continue
+            kept_dirs.append(dirname)
+        dirs[:] = kept_dirs
+        for f in files:
+            if _ignored_name(f):
+                continue
+            relpath = str(rel_root / f) if str(rel_root) != "." else f
+            if _ignored_path(relpath):
+                continue
+            result.add(relpath)
+    return result
+
+
+def _build_ignore_matchers(ignore_patterns: list[str] | None = None) -> tuple[Any, Any]:
     import fnmatch as _fnmatch
 
     bare: list[str] = []
     glob: list[str] = []
-    for p in ignore_patterns or []:
-        p = p.strip()
-        if not p or p.startswith("#"):
+    for pattern in ignore_patterns or []:
+        pattern = pattern.strip()
+        if not pattern or pattern.startswith("#"):
             continue
-        if "/" in p.rstrip("/"):
-            glob.append(p.rstrip("/"))
+        if "/" in pattern.rstrip("/"):
+            glob.append(pattern.rstrip("/"))
         else:
-            bare.append(p)
+            bare.append(pattern)
 
     def _ignored_name(name: str) -> bool:
         return any(_fnmatch.fnmatch(name, pat) for pat in bare)
@@ -305,17 +447,106 @@ def _scan_overlay(overlay_dir: Path, ignore_patterns: list[str] | None = None) -
     def _ignored_path(relpath: str) -> bool:
         return any(_fnmatch.fnmatch(relpath, pat) for pat in glob)
 
-    for root, dirs, files in os.walk(overlay_dir):
-        dirs[:] = [d for d in dirs if not _ignored_name(d)]
-        rel_root = Path(root).relative_to(overlay_dir)
-        for f in files:
-            if _ignored_name(f):
+    return _ignored_name, _ignored_path
+
+
+def _scan_mount_directories(mountpoint: Path, ignore_patterns: list[str] | None = None) -> dict[str, int]:
+    """Walk the live mount and return all non-root directory relpaths and modes."""
+    result: dict[str, int] = {}
+    if not mountpoint.exists():
+        return result
+
+    _ignored_name, _ignored_path = _build_ignore_matchers(ignore_patterns)
+
+    for root, dirs, _files in os.walk(mountpoint, followlinks=False):
+        rel_root = Path(root).relative_to(mountpoint)
+        kept_dirs: list[str] = []
+        for dirname in dirs:
+            relpath = str(rel_root / dirname) if str(rel_root) != "." else dirname
+            full_path = Path(root) / dirname
+            if os.path.islink(full_path):
                 continue
-            relpath = str(rel_root / f) if str(rel_root) != "." else f
-            if glob and _ignored_path(relpath):
+            if _ignored_name(dirname) or _ignored_path(relpath):
                 continue
-            result.add(relpath)
+            try:
+                mode = stat_mod.S_IMODE(os.lstat(full_path).st_mode)
+            except OSError:
+                continue
+            kept_dirs.append(dirname)
+            result[relpath] = mode
+        dirs[:] = kept_dirs
     return result
+
+
+def _load_smart_commit_metadata(meta_path: Path) -> SmartCommitMetadata:
+    if not meta_path.exists():
+        return SmartCommitMetadata(modified=set(), deleted=set(), created=set())
+
+    try:
+        meta = json.loads(meta_path.read_text())
+    except (json.JSONDecodeError, OSError):
+        return SmartCommitMetadata(modified=set(), deleted=set(), created=set())
+
+    directories_raw = meta.get("directories")
+    dir_renames_raw = meta.get("dir_renames")
+    directories = None
+    if isinstance(directories_raw, list):
+        directories = [
+            DirectorySnapshotEntry(relpath=str(entry["relpath"]), mode=int(entry["mode"]))
+            for entry in directories_raw
+            if isinstance(entry, dict) and "relpath" in entry and "mode" in entry
+        ]
+    dir_renames = None
+    if isinstance(dir_renames_raw, list):
+        dir_renames = [
+            DirectoryRenameEntry(
+                old_relpath=str(entry["old_relpath"]),
+                new_relpath=str(entry["new_relpath"]),
+            )
+            for entry in dir_renames_raw
+            if isinstance(entry, dict) and "old_relpath" in entry and "new_relpath" in entry
+        ]
+
+    return SmartCommitMetadata(
+        modified=set(meta.get("modified", [])),
+        deleted=set(meta.get("deleted", [])),
+        created=set(meta.get("created", [])),
+        directories=directories,
+        dir_renames=dir_renames,
+    )
+
+
+def _remap_path_prefix(relpath: str, old_prefix: str, new_prefix: str) -> str:
+    if relpath == old_prefix:
+        return new_prefix
+    old_dir_prefix = f"{old_prefix}/"
+    if relpath.startswith(old_dir_prefix):
+        return f"{new_prefix}/{relpath.removeprefix(old_dir_prefix)}"
+    return relpath
+
+
+def _apply_dir_renames_to_entries(
+    entries: dict[str, DVCManifestEntry],
+    dir_renames: list[DirectoryRenameEntry] | None,
+) -> dict[str, DVCManifestEntry]:
+    if not dir_renames:
+        return entries
+
+    remapped: dict[str, DVCManifestEntry] = {}
+    ordered_renames = sorted(dir_renames, key=lambda entry: len(entry.old_relpath), reverse=True)
+    for entry in entries.values():
+        relpath = entry.relpath
+        for rename in ordered_renames:
+            new_relpath = _remap_path_prefix(relpath, rename.old_relpath, rename.new_relpath)
+            if new_relpath != relpath:
+                relpath = new_relpath
+                break
+        remapped_entry = entry.model_copy(update={"relpath": relpath})
+        existing = remapped.get(relpath)
+        if existing is not None and existing != remapped_entry:
+            raise RuntimeError(f"Directory rename produced conflicting manifest entries for {relpath}")
+        remapped[relpath] = remapped_entry
+    return remapped
 
 
 async def smart_commit(
@@ -329,41 +560,111 @@ async def smart_commit(
     Returns ``(manifest_md5, dvc_yaml_content)``.
     """
     overlay_dir = mount.overlay_dir
+    mountpoint = mount.mountpoint
     original = mount.manifest.entries_dict()
+    meta_path = mount.meta_path
+    live_dir_renames_path = mount.cache_dir / "live-dir-renames.json"
+    live_worker_running = mount.worker_proc is not None and mount.worker_proc.returncode is None
+    _smart_commit_debug(
+        "start mountpoint=%s cache_dir=%s live_worker_running=%s original_entries=%d",
+        mountpoint,
+        mount.cache_dir,
+        live_worker_running,
+        len(original),
+    )
+    if live_worker_running:
+        meta = _load_smart_commit_metadata(live_dir_renames_path)
+    else:
+        meta = _load_smart_commit_metadata(meta_path)
+    original_files = {relpath: entry for relpath, entry in original.items() if not entry.isdir}
+    original_files = _apply_dir_renames_to_entries(original_files, meta.dir_renames)
+    if live_worker_running or meta.directories is None:
+        dir_modes = _scan_mount_directories(mountpoint, ignore_patterns=ignore_patterns)
+    else:
+        _ignored_name, _ignored_path = _build_ignore_matchers(ignore_patterns)
+        dir_modes = {
+            entry.relpath: entry.mode
+            for entry in meta.directories
+            if not _ignored_name(Path(entry.relpath).name)
+            and not _ignored_path(entry.relpath)
+            and not _ignored_path(f"{entry.relpath}/")
+        }
+
+    def _current_path_kind(relpath: str) -> str:
+        if relpath in dir_modes:
+            return "dir"
+        if os.path.lexists(overlay_dir / relpath):
+            return "file"
+        try:
+            st = os.lstat(mountpoint / relpath)
+        except OSError:
+            return "missing"
+        return "dir" if stat_mod.S_ISDIR(st.st_mode) else "file"
 
     overlay_files = _scan_overlay(overlay_dir, ignore_patterns=ignore_patterns)
+    _smart_commit_debug(
+        "scanned overlay_files=%d dir_modes=%d deleted=%d created_meta=%d modified_meta=%d",
+        len(overlay_files),
+        len(dir_modes),
+        len(meta.deleted),
+        len(meta.created),
+        len(meta.modified),
+    )
+    overlay_dir_conflicts = sorted(relpath for relpath in overlay_files if relpath in dir_modes)
+    if overlay_dir_conflicts:
+        sample = [
+            f"{relpath}:{_path_kind_for_debug(overlay_dir / relpath)}->{_path_kind_for_debug(mountpoint / relpath)}"
+            for relpath in overlay_dir_conflicts[:20]
+        ]
+        _smart_commit_debug(
+            "overlay file paths also visible as directories count=%d sample=%s",
+            len(overlay_dir_conflicts),
+            sample,
+        )
     modified: set[str] = set()
     created: set[str] = set()
     for relpath in overlay_files:
-        if relpath in original:
+        if relpath in original_files:
             modified.add(relpath)
         else:
             created.add(relpath)
 
-    meta_path = mount.meta_path
-    deleted: set[str] = set()
-    if meta_path.exists():
-        try:
-            meta = json.loads(meta_path.read_text())
-            deleted = set(meta.get("deleted", []))
-        except (json.JSONDecodeError, OSError):
-            pass
+    deleted = set(meta.deleted)
 
-    mountpoint = mount.mountpoint
-    for relpath in original:
-        if relpath in modified or relpath in deleted:
+    for relpath in original_files:
+        if relpath in deleted:
             continue
-        if not os.path.lexists(mountpoint / relpath):
+        current_kind = _current_path_kind(relpath)
+        if current_kind != "file":
+            _smart_commit_debug(
+                "dropping original file relpath=%s because current_kind=%s overlay_kind=%s mount_kind=%s",
+                relpath,
+                current_kind,
+                _path_kind_for_debug(overlay_dir / relpath),
+                _path_kind_for_debug(mountpoint / relpath),
+            )
             deleted.add(relpath)
 
-    entries: list[dict[str, Any]] = []
+    entries_by_relpath: dict[str, DVCManifestEntry] = {}
     total_size = 0
     import tempfile
 
     batch_uploads: list[tuple[str, str]] = []
     temp_files: list[str] = []
 
-    def _process_overlay_file(relpath: str) -> tuple[dict[str, Any], int]:
+    def _store_manifest_entry(entry: DVCManifestEntry) -> None:
+        existing = entries_by_relpath.get(entry.relpath)
+        if existing is not None and existing != entry:
+            _smart_commit_debug(
+                "manifest conflict relpath=%s existing=%s new=%s",
+                entry.relpath,
+                existing,
+                entry,
+            )
+            raise RuntimeError(f"Smart commit produced conflicting manifest entries for {entry.relpath}")
+        entries_by_relpath[entry.relpath] = entry
+
+    def _process_overlay_file(relpath: str) -> tuple[DVCManifestEntry, int]:
         local_path = overlay_dir / relpath
         if not os.path.lexists(local_path):
             raise FileNotFoundError(f"Missing overlay path: {local_path}")
@@ -393,15 +694,18 @@ async def smart_commit(
             isexec=True if (not is_symlink and mode & 0o111) else None,
             islink=True if is_symlink else None,
             symlink_target=symlink_target,
-        ).model_dump(exclude_none=True)
+        )
         return entry, size
 
-    for relpath, entry in original.items():
+    for relpath, entry in original_files.items():
         if relpath in deleted:
             continue
         if relpath in modified:
+            if _current_path_kind(relpath) != "file":
+                deleted.add(relpath)
+                continue
             new_entry, size = _process_overlay_file(relpath)
-            entries.append(new_entry)
+            _store_manifest_entry(new_entry)
             total_size += size
         else:
             entry_size = entry.size or 0
@@ -410,26 +714,29 @@ async def smart_commit(
                     entry_size = os.lstat(mountpoint / relpath).st_size
                 except OSError:
                     pass
-            entries.append(
-                DVCManifestEntry(
-                    relpath=entry.relpath,
-                    md5=entry.md5,
-                    size=entry_size,
-                    isexec=entry.isexec,
-                    islink=entry.islink,
-                    symlink_target=entry.symlink_target,
-                ).model_dump(exclude_none=True)
-            )
+            if entry_size != (entry.size or 0):
+                entry = entry.model_copy(update={"size": entry_size})
+            _store_manifest_entry(entry)
             total_size += entry_size
 
     for relpath in created:
-        if relpath in original:
-            continue
-        if not os.path.lexists(overlay_dir / relpath):
+        current_kind = _current_path_kind(relpath)
+        if current_kind != "file" or not os.path.lexists(overlay_dir / relpath):
+            if os.path.lexists(overlay_dir / relpath):
+                _smart_commit_debug(
+                    "skipping created relpath=%s because current_kind=%s overlay_kind=%s mount_kind=%s",
+                    relpath,
+                    current_kind,
+                    _path_kind_for_debug(overlay_dir / relpath),
+                    _path_kind_for_debug(mountpoint / relpath),
+                )
             continue
         new_entry, size = _process_overlay_file(relpath)
-        entries.append(new_entry)
+        _store_manifest_entry(new_entry)
         total_size += size
+
+    for relpath, mode in dir_modes.items():
+        _store_manifest_entry(DVCManifestEntry(relpath=relpath, mode=mode, isdir=True))
 
     if batch_uploads:
         await s3_upload_batch(s3_config, batch_uploads)
@@ -440,7 +747,19 @@ async def smart_commit(
         except OSError:
             pass
 
-    entries.sort(key=lambda e: e["relpath"])
+    entries = [entries_by_relpath[relpath].model_dump(exclude_none=True) for relpath in sorted(entries_by_relpath)]
+    if len(entries) != len({entry["relpath"] for entry in entries}):
+        raise RuntimeError("Smart commit produced duplicate manifest relpaths")
+    file_count = sum(1 for entry in entries if not entry.get("isdir"))
+    _smart_commit_debug(
+        "final manifest entries=%d files=%d dirs=%d modified=%d created=%d deleted=%d",
+        len(entries),
+        file_count,
+        len(entries) - file_count,
+        len(modified),
+        len(created),
+        len(deleted),
+    )
 
     manifest_json = json.dumps(entries).encode()
     manifest_md5 = hashlib.md5(manifest_json).hexdigest()
@@ -458,14 +777,16 @@ async def smart_commit(
         f"outs:\n"
         f"- md5: {manifest_md5}.dir\n"
         f"  size: {total_size}\n"
-        f"  nfiles: {len(entries)}\n"
+        f"  nfiles: {file_count}\n"
         f"  hash: md5\n"
         f"  path: {dir_name}\n"
     )
 
     logger.info(
-        "Smart commit: %d files (%d modified, %d new, %d deleted), manifest=%s",
+        "Smart commit: %d entries (%d files, %d directories, %d modified, %d new, %d deleted), manifest=%s",
         len(entries),
+        file_count,
+        len(entries) - file_count,
         len(modified),
         len(created),
         len(deleted),

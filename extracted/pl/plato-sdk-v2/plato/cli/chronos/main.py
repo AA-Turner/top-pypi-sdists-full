@@ -596,3 +596,92 @@ def download(
     except Exception as e:
         console.print(f"[red]Failed: {e}[/red]")
         raise typer.Exit(1)
+
+
+@chronos_app.command()
+def test(
+    config: Annotated[
+        Path,
+        typer.Argument(help="Path to test config JSON file", exists=True, readable=True),
+    ],
+    phase: Annotated[
+        str,
+        typer.Option("--phase", help="Phase filter: unit|integration|all"),
+    ] = "all",
+    pytest_args: Annotated[
+        str,
+        typer.Option("--pytest-args", help="Extra args appended to pytest commands"),
+    ] = "",
+    artifacts_dir: Annotated[
+        Path | None,
+        typer.Option("--artifacts-dir", help="Local output directory for logs and junit"),
+    ] = None,
+    keep_vm_on_fail: Annotated[
+        bool,
+        typer.Option("--keep-vm-on-fail", help="Keep VM alive when tests fail"),
+    ] = False,
+    verbose: Annotated[
+        bool,
+        typer.Option("--verbose", "-v", help="Show detailed logs"),
+    ] = False,
+):
+    """Run synced tests on a one-shot Chronos VM."""
+    from rich.logging import RichHandler
+
+    from plato.cli.chronos.test import TestConfig, TestRunner
+
+    # Configure logging with Rich handler for colored output
+    logging.basicConfig(
+        level=logging.INFO if verbose else logging.WARNING,
+        format="%(message)s",
+        datefmt="[%X]",
+        handlers=[RichHandler(rich_tracebacks=True, show_path=False, show_time=verbose)],
+    )
+    logging.getLogger("plato.cli.chronos.test.runner").setLevel(logging.INFO)
+    logging.getLogger("plato.cli.chronos.dev.sync").setLevel(logging.INFO)
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
+
+    phase_key = phase.strip().lower()
+    if not phase_key:
+        console.print("[red]--phase must be non-empty[/red]")
+        raise typer.Exit(2)
+
+    api_key = os.environ.get("PLATO_API_KEY")
+    if not api_key:
+        console.print("[red]PLATO_API_KEY environment variable required[/red]")
+        raise typer.Exit(1)
+
+    try:
+        test_config = TestConfig.from_file(config)
+    except json.JSONDecodeError as e:
+        console.print(f"[red]Invalid JSON in {config}: {e}[/red]")
+        raise typer.Exit(1)
+    except Exception as e:
+        console.print(f"[red]Failed to load test config: {e}[/red]")
+        if verbose:
+            logger.exception("Failed to load test config")
+        raise typer.Exit(1)
+
+    try:
+        runner = TestRunner(
+            config=test_config,
+            config_path=config,
+            api_key=api_key,
+            phase_filter=phase_key,
+            pytest_args=pytest_args,
+            artifacts_dir=artifacts_dir,
+            keep_vm_on_fail=keep_vm_on_fail,
+            verbose=verbose,
+        )
+        exit_code = asyncio.run(runner.run())
+    except KeyboardInterrupt:
+        raise typer.Exit(130)
+    except Exception as e:
+        console.print(f"[red]Failed: {e}[/red]")
+        if verbose:
+            logger.exception("Chronos test failed")
+        raise typer.Exit(1)
+
+    if exit_code != 0:
+        raise typer.Exit(exit_code)

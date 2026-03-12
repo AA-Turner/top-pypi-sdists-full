@@ -1,4 +1,4 @@
-# Copyright (c) 2023-2025 Arista Networks, Inc.
+# Copyright (c) 2023-2026 Arista Networks, Inc.
 # Use of this source code is governed by the Apache License 2.0
 # that can be found in the LICENSE file.
 """Module related to the hardware or environment tests."""
@@ -20,6 +20,8 @@ from anta.result_manager.models import AntaTestStatus
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+
+    from anta.result_manager.models import AtomicTestResult
 
 
 class VerifyTransceiversManufacturers(AntaTest):
@@ -161,6 +163,7 @@ class VerifyTransceiversTemperature(AntaTest):
 
     categories: ClassVar[list[str]] = ["hardware"]
     commands: ClassVar[list[AntaCommand | AntaTemplate]] = [AntaCommand(command="show system environment temperature transceiver", revision=1)]
+    _atomic_support: ClassVar[bool] = True
 
     @skip_on_platforms(["cEOSLab", "vEOS-lab", "cEOSCloudLab", "vEOS"])
     @AntaTest.anta_test
@@ -171,10 +174,12 @@ class VerifyTransceiversTemperature(AntaTest):
         sensors = command_output.get("tempSensors", "")
 
         for sensor in sensors:
+            # Atomic result
+            result = self.result.add(description=f"Sensor: {sensor['name']}", status=AntaTestStatus.SUCCESS)
             if sensor["hwStatus"] != "ok":
-                self.result.is_failure(f"Sensor: {sensor['name']} - Invalid hardware state - Expected: ok Actual: {sensor['hwStatus']}")
+                result.is_failure(f"Invalid hardware state - Expected: ok Actual: {sensor['hwStatus']}")
             if sensor["alertCount"] != 0:
-                self.result.is_failure(f"Sensor: {sensor['name']} - Incorrect alert counter - Expected: 0 Actual: {sensor['alertCount']}")
+                result.is_failure(f"Incorrect alert counter - Expected: 0 Actual: {sensor['alertCount']}")
 
 
 class VerifyEnvironmentSystemCooling(AntaTest):
@@ -229,6 +234,7 @@ class VerifyEnvironmentCooling(AntaTest):
 
     categories: ClassVar[list[str]] = ["hardware"]
     commands: ClassVar[list[AntaCommand | AntaTemplate]] = [AntaCommand(command="show system environment cooling", revision=1)]
+    _atomic_support: ClassVar[bool] = True
 
     class Input(AntaTest.Input):
         """Input model for the VerifyEnvironmentCooling test."""
@@ -244,34 +250,32 @@ class VerifyEnvironmentCooling(AntaTest):
         """Main test function for VerifyEnvironmentCooling."""
         command_output = self.instance_commands[0].json_output
         self.result.is_success()
+
         # First go through power supplies fans
         for power_supply in command_output.get("powerSupplySlots", []):
             for fan in power_supply.get("fans", []):
+                # Atomic result
+                result = self.result.add(description=f"Power Slot: {power_supply['label']} Fan: {fan['label']}", status=AntaTestStatus.SUCCESS)
+
                 # Verify the fan status
                 if (state := fan["status"]) not in self.inputs.states:
-                    self.result.is_failure(
-                        f"Power Slot: {power_supply['label']} Fan: {fan['label']} - Invalid state - Expected: {', '.join(self.inputs.states)} Actual: {state}"
-                    )
+                    result.is_failure(f"Invalid state - Expected: {', '.join(self.inputs.states)} Actual: {state}")
                 # Verify the configured fan speed
                 elif self.inputs.configured_fan_speed_limit and fan["configuredSpeed"] > self.inputs.configured_fan_speed_limit:
-                    self.result.is_failure(
-                        f"Power Slot: {power_supply['label']} Fan: {fan['label']} - High fan speed - Expected: <= {self.inputs.configured_fan_speed_limit} "
-                        f"Actual: {fan['configuredSpeed']}"
-                    )
+                    result.is_failure(f"High fan speed - Expected: <= {self.inputs.configured_fan_speed_limit} Actual: {fan['configuredSpeed']}")
+
         # Then go through fan trays
         for fan_tray in command_output.get("fanTraySlots", []):
             for fan in fan_tray.get("fans", []):
+                # Atomic result
+                result = self.result.add(description=f"Fan Tray: {fan_tray['label']} Fan: {fan['label']}", status=AntaTestStatus.SUCCESS)
+
                 # Verify the fan status
                 if (state := fan["status"]) not in self.inputs.states:
-                    self.result.is_failure(
-                        f"Fan Tray: {fan_tray['label']} Fan: {fan['label']} - Invalid state - Expected: {', '.join(self.inputs.states)} Actual: {state}"
-                    )
+                    result.is_failure(f"Invalid state - Expected: {', '.join(self.inputs.states)} Actual: {state}")
                 # Verify the configured fan speed
                 elif self.inputs.configured_fan_speed_limit and fan["configuredSpeed"] > self.inputs.configured_fan_speed_limit:
-                    self.result.is_failure(
-                        f"Fan Tray: {fan_tray['label']} Fan: {fan['label']} - High fan speed - Expected: <= {self.inputs.configured_fan_speed_limit} "
-                        f"Actual: {fan['configuredSpeed']}"
-                    )
+                    result.is_failure(f"High fan speed - Expected: <= {self.inputs.configured_fan_speed_limit} Actual: {fan['configuredSpeed']}")
 
 
 class VerifyEnvironmentPower(AntaTest):
@@ -295,6 +299,7 @@ class VerifyEnvironmentPower(AntaTest):
 
     categories: ClassVar[list[str]] = ["hardware"]
     commands: ClassVar[list[AntaCommand | AntaTemplate]] = [AntaCommand(command="show system environment power", revision=1)]
+    _atomic_support: ClassVar[bool] = True
 
     class Input(AntaTest.Input):
         """Input model for the VerifyEnvironmentPower test."""
@@ -312,14 +317,15 @@ class VerifyEnvironmentPower(AntaTest):
         command_output = self.instance_commands[0].json_output
         power_supplies = command_output.get("powerSupplies", "{}")
         for power_supply, value in dict(power_supplies).items():
+            # Atomic result
+            result = self.result.add(description=f"Power Slot: {power_supply}", status=AntaTestStatus.SUCCESS)
+
             if (state := value["state"]) not in self.inputs.states:
-                self.result.is_failure(f"Power Slot: {power_supply} - Invalid power supplies state - Expected: {', '.join(self.inputs.states)} Actual: {state}")
+                result.is_failure(f"Invalid power supplies state - Expected: {', '.join(self.inputs.states)} Actual: {state}")
 
             # Verify if the power supply voltage is greater than the minimum input voltage
             if self.inputs.min_input_voltage and value["inputVoltage"] < self.inputs.min_input_voltage:
-                self.result.is_failure(
-                    f"Power Supply: {power_supply} - Input voltage mismatch - Expected: >= {self.inputs.min_input_voltage} Actual: {value['inputVoltage']}"
-                )
+                result.is_failure(f"Input voltage mismatch - Expected: >= {self.inputs.min_input_voltage} Actual: {value['inputVoltage']}")
 
 
 class VerifyAdverseDrops(AntaTest):
@@ -660,6 +666,7 @@ class VerifyInventory(AntaTest):
 
     categories: ClassVar[list[str]] = ["hardware"]
     commands: ClassVar[list[AntaCommand | AntaTemplate]] = [AntaCommand(command="show inventory", revision=2)]
+    _atomic_support: ClassVar[bool] = True
 
     class Input(AntaTest.Input):
         """Input model for the VerifyInventory test."""
@@ -672,46 +679,33 @@ class VerifyInventory(AntaTest):
     def test(self) -> None:
         """Main test function for VerifyInventory."""
         self.result.is_success()
-
         command_output = self.instance_commands[0].json_output
         inventory = self._build_inventory(command_output)
 
-        if self.inputs.requirements is None:
-            self._verify_all_slots_populated(inventory)
-        else:
-            self._verify_specific_requirements(inventory)
+        for component_type, component_data in inventory.items():
+            requirement = getattr(self.inputs.requirements, component_type, None)
 
-    def _verify_all_slots_populated(self, inventory: dict[str, dict[str, Any]]) -> None:
-        """Verify that all available slots for all component types are populated."""
-        for component_data in inventory.values():
-            self._report_failures(component_data)
-
-    def _verify_specific_requirements(self, inventory: dict[str, dict[str, Any]]) -> None:
-        """Verify that the inventory meets the user-defined requirements."""
-        for component_type in HardwareInventory.model_fields:
-            requirement = getattr(self.inputs.requirements, component_type)
-
-            if requirement is None:
-                # Requirement for this component type is not specified so we skip it
+            # Avoids the atomic results in specific requirements case
+            if self.inputs.requirements is not None and not requirement:
                 continue
 
-            component_data = inventory[component_type]
+            result = self.result.add(description=f"{component_type.replace('_', ' ').title()}", status=AntaTestStatus.SUCCESS)
 
-            if requirement == "all":
+            if self.inputs.requirements is None or requirement == "all":
                 # All available slots for this component type must be inserted
-                self._report_failures(component_data)
+                self._report_failures(component_data, result)
                 continue
 
             if isinstance(requirement, int) and (installed_count := component_data["installed"]) < requirement:
                 # Check if the number of installed units meets the minimum requirement
-                self.result.is_failure(f"{component_type.replace('_', ' ').title()} - Count mismatch - Expected: >= {requirement} Actual: {installed_count}")
+                result.is_failure(f"Count mismatch - Expected: >= {requirement} Actual: {installed_count}")
 
-    def _report_failures(self, component_data: dict[str, Any]) -> None:
+    def _report_failures(self, component_data: dict[str, Any], result: AtomicTestResult) -> None:
         """Report failures for a given component type based on its state."""
         for slot in component_data.get("not_inserted", []):
-            self.result.is_failure(f"{slot} - Not inserted")
+            result.is_failure(f"{slot} not inserted")
         for slot in component_data.get("unidentified", []):
-            self.result.is_failure(f"{slot} - Unidentified component")
+            result.is_failure(f"{slot} unidentified component")
 
     def _build_inventory(self, inventory_data: dict[str, Any]) -> dict[str, dict[str, Any]]:
         """Build a structured dictionary of the device hardware inventory."""
@@ -727,21 +721,18 @@ class VerifyInventory(AntaTest):
         self._update_inventory_component(
             inventory=inventory,
             slots_data=inventory_data.get("powerSupplySlots", {}),
-            slot_prefix="Power Supply Slot",
             name_key="name",
             component_type="power_supplies",
         )
         self._update_inventory_component(
             inventory=inventory,
             slots_data=inventory_data.get("fanTraySlots", {}),
-            slot_prefix="Fan Tray Slot",
             name_key="name",
             component_type="fan_trays",
         )
         self._update_inventory_component(
             inventory=inventory,
             slots_data=inventory_data.get("cardSlots", {}),
-            slot_prefix="Card Slot",
             name_key="modelName",
             component_type_getter=self._get_card_component_type,
         )
@@ -752,7 +743,6 @@ class VerifyInventory(AntaTest):
         self,
         inventory: dict[str, Any],
         slots_data: dict[str, dict[str, Any]],
-        slot_prefix: str,
         name_key: str,
         component_type: str | None = None,
         component_type_getter: Callable[[str], str | None] | None = None,
@@ -767,7 +757,7 @@ class VerifyInventory(AntaTest):
                 continue
 
             inventory_entry = inventory[current_component_type]
-            slot_name = f"{slot_prefix}: {slot}"
+            slot_name = f"Slot{slot}" if current_component_type in ["power_supplies", "fan_trays"] else slot
             component_name = details.get(name_key)
 
             if not component_name:

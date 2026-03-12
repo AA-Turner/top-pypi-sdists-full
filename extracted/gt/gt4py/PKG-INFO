@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gt4py
-Version: 1.1.6
+Version: 1.1.7
 Summary: Python library for generating high-performance implementations of stencil kernels for weather and climate modeling from a domain-specific language (DSL)
 Author-email: ETH Zurich <gridtools@cscs.ch>
 License-Expression: BSD-3-Clause

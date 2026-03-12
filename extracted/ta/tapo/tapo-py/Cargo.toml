@@ -19,9 +19,11 @@ anyhow = { workspace = true }
 chrono = { workspace = true }
 log = { workspace = true }
 pyo3 = { workspace = true, features = [
+    "anyhow",
     "chrono",
     "experimental-async",
     "extension-module",
+    "multiple-pymethods",
     "py-clone",
 ] }
 pyo3-async-runtimes = { version = "0.28", features = ["attributes", "tokio-runtime"] }
@@ -30,4 +32,4 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread", "sync"] }
 
-tapo = { path = "../tapo", features = ["python"] }
+tapo = { path = "../tapo", features = ["python", "debug"] }

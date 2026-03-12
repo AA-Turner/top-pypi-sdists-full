@@ -277,7 +277,7 @@ NodegroupStatusType = Literal[
     "ACTIVE", "CREATE_FAILED", "CREATING", "DEGRADED", "DELETE_FAILED", "DELETING", "UPDATING"
 ]
 NodegroupUpdateStrategiesType = Literal["DEFAULT", "MINIMAL"]
-ProvisionedControlPlaneTierType = Literal["standard", "tier-2xl", "tier-4xl", "tier-xl"]
+ProvisionedControlPlaneTierType = Literal["standard", "tier-2xl", "tier-4xl", "tier-8xl", "tier-xl"]
 RepairActionType = Literal["NoAction", "Reboot", "Replace"]
 ResolveConflictsType = Literal["NONE", "OVERWRITE", "PRESERVE"]
 SsoIdentityTypeType = Literal["SSO_GROUP", "SSO_USER"]
@@ -449,6 +449,7 @@ ServiceName = Literal[
     "connectcampaigns",
     "connectcampaignsv2",
     "connectcases",
+    "connecthealth",
     "connectparticipant",
     "controlcatalog",
     "controltower",
@@ -490,13 +491,13 @@ ServiceName = Literal[
     "elasticbeanstalk",
     "elb",
     "elbv2",
+    "elementalinference",
     "emr",
     "emr-containers",
     "emr-serverless",
     "entityresolution",
     "es",
     "events",
-    "evidently",
     "evs",
     "finspace",
     "finspace-data",
@@ -536,7 +537,6 @@ ServiceName = Literal[
     "iot-data",
     "iot-jobs-data",
     "iot-managed-integrations",
-    "iotanalytics",
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
@@ -711,7 +711,9 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signer-data",
     "signin",
+    "simpledbv2",
     "simspaceweaver",
     "snow-device-management",
     "snowball",

@@ -43,6 +43,9 @@ import tempfile
 import time
 import traceback
 
+# Disable protobuf logging
+os.environ['PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION'] = 'python'
+os.environ['PROTOBUF_PYTHON_SILENT_WARNINGS'] = '1'
 os.environ["PYTHONWARNINGS"] = "ignore::UserWarning"
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 os.environ["AUTOGRAPH_VERBOSITY"] = "0"
@@ -54,6 +57,92 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 #     logging.getLogger("tensorflow").setLevel(logging.ERROR)
 # except Exception:
 #     pass
+# =============================================================================
+# PROTOBUF PATCH - MUST BE FIRST
+# =============================================================================
+"""
+This patch fixes the 'GetPrototype' AttributeError in protobuf by monkey-patching
+the MessageFactory class before any other code imports it.
+"""
+import sys
+import os
+
+# Set environment variables to reduce protobuf logging
+os.environ['PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION'] = 'python'
+os.environ['PROTOBUF_PYTHON_SILENT_WARNINGS'] = '1'
+
+# Force import of protobuf modules first
+try:
+    import google.protobuf.message_factory
+    
+    # Patch MessageFactory class
+    if hasattr(google.protobuf.message_factory, 'MessageFactory'):
+        # Store the original __init__
+        original_init = google.protobuf.message_factory.MessageFactory.__init__
+        
+        def patched_init(self, *args, **kwargs):
+            """Patched __init__ that adds GetPrototype method"""
+            original_init(self, *args, **kwargs)
+            
+            # Add GetPrototype if it doesn't exist
+            if not hasattr(self, 'GetPrototype'):
+                def get_prototype(self, descriptor):
+                    """Add GetPrototype method to MessageFactory instances"""
+                    try:
+                        # Try the modern method
+                        return self._GetPrototype(descriptor)
+                    except AttributeError:
+                        try:
+                            # Try the older method
+                            from google.protobuf import message_factory
+                            return message_factory.GetMessageClass(descriptor)
+                        except (ImportError, AttributeError):
+                            # Ultimate fallback - create a dummy class
+                            class DummyMessage:
+                                DESCRIPTOR = descriptor
+                                @classmethod
+                                def FromString(cls, s):
+                                    return cls()
+                            return DummyMessage
+                
+                # Bind the method to the instance
+                self.GetPrototype = get_prototype.__get__(self)
+        
+        # Apply the patch
+        google.protobuf.message_factory.MessageFactory.__init__ = patched_init
+        
+        # Also patch the module-level function if needed
+        if not hasattr(google.protobuf.message_factory, 'GetPrototype'):
+            def module_get_prototype(descriptor):
+                """Module-level GetPrototype function"""
+                try:
+                    return google.protobuf.message_factory.GetMessageClass(descriptor)
+                except AttributeError:
+                    # Create a dynamic message class
+                    from google.protobuf import descriptor_pb2
+                    from google.protobuf.message import Message
+                    
+                    class DynamicMessage(Message):
+                        DESCRIPTOR = descriptor
+                        
+                        def __init__(self, **kwargs):
+                            super().__init__(**kwargs)
+                        
+                        @classmethod
+                        def FromString(cls, s):
+                            return cls()
+                    
+                    return DynamicMessage
+            
+            google.protobuf.message_factory.GetPrototype = module_get_prototype
+    
+    # print("✓ Protobuf patched successfully", file=sys.stderr)
+    
+except ImportError:
+    # protobuf not installed, nothing to patch
+    pass
+except Exception as e:
+    print(f"⚠️ Protobuf patch warning: {e}", file=sys.stderr)
 
 from time import sleep
 

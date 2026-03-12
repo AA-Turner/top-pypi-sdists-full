@@ -13,11 +13,9 @@ macro_rules! call_handler_constructor {
             .spawn(async move {
                 $constructor(client, $($params),*)
                     .await
-                    .map_err($crate::errors::ErrorWrapper)
             })
             .await
-            .map_err(anyhow::Error::from)
-            .map_err($crate::errors::ErrorWrapper::from)??;
+            .map_err(anyhow::Error::from)??;
 
         handler
     }};
@@ -25,35 +23,31 @@ macro_rules! call_handler_constructor {
 
 #[macro_export]
 macro_rules! call_handler_method {
-    ($handler:expr, $method:path) => (call_handler_method!($handler, $method,));
-    ($handler:expr, $method:path, discard_result) => (call_handler_method!($handler, $method, discard_result,));
+    ($handler:expr, $method:path) => ($crate::call_handler_method!($handler, $method,));
+    ($handler:expr, $method:path, discard_result) => ($crate::call_handler_method!($handler, $method, discard_result,));
     ($handler:expr, $method:path, $($param:expr),*) => {{
         let result = $crate::runtime::tokio()
             .spawn(async move {
                 let result = $method($handler, $($param),*)
-                    .await
-                    .map_err($crate::errors::ErrorWrapper)?;
+                    .await?;
 
-                Ok::<_, $crate::errors::ErrorWrapper>(result)
+                Ok::<_, tapo::Error>(result)
             })
             .await
-            .map_err(anyhow::Error::from)
-            .map_err($crate::errors::ErrorWrapper::from)??;
+            .map_err(anyhow::Error::from)??;
 
-        Ok::<_, PyErr>(result)
+        Ok::<_, pyo3::PyErr>(result)
     }};
     ($handler:expr, $method:path, discard_result, $($param:expr),*) => {{
         let result = $crate::runtime::tokio()
             .spawn(async move {
                 $method($handler, $($param),*)
-                    .await
-                    .map_err($crate::errors::ErrorWrapper)?;
+                    .await?;
 
-                Ok::<_, $crate::errors::ErrorWrapper>(())
+                Ok::<_, tapo::Error>(())
             })
             .await
-            .map_err(anyhow::Error::from)
-            .map_err($crate::errors::ErrorWrapper::from)??;
+            .map_err(anyhow::Error::from)??;
 
         Ok(result)
     }};

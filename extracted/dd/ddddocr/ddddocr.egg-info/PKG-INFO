@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ddddocr
-Version: 1.6.0
+Version: 1.6.1
 Summary: 带带弟弟OCR
 Author: sml2h3
 License: The MIT License (MIT)
@@ -1112,7 +1112,7 @@ print(f"识别结果: {result['result']}")
 
 | 环境变量名 | 默认值 | 说明 |
 |-----------|-------|------|
-| `DDDDOCR_HOST` | 0.0.0.0（CLI 默认）/ 127.0.0.1（直接运行 api.py 默认） | API 服务主机地址 |
+| `DDDDOCR_HOST` | 0.0.0.0（CLI 默认）/ 127.0.0.1（直接运行 `python -m ddddocr.api` 默认） | API 服务主机地址 |
 | `DDDDOCR_PORT` | 8000 | API 服务端口 |
 | `DDDDOCR_WORKERS` | 1 | API 服务工作进程数 |
 | `DDDDOCR_OCR` | true | 是否启用 OCR 功能 |

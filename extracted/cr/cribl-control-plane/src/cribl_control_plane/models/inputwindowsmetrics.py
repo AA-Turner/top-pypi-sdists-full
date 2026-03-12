@@ -8,10 +8,7 @@ from .itemstypeconnectionsoptional import (
     ItemsTypeConnectionsOptional,
     ItemsTypeConnectionsOptionalTypedDict,
 )
-from .itemstypenotificationmetadata import (
-    ItemsTypeNotificationMetadata,
-    ItemsTypeNotificationMetadataTypedDict,
-)
+from .itemstypemetadata import ItemsTypeMetadata, ItemsTypeMetadataTypedDict
 from .modeoptionshost import ModeOptionsHost
 from .pqtype import PqType, PqTypeTypedDict
 from .processtype import ProcessType, ProcessTypeTypedDict
@@ -72,7 +69,7 @@ class InputWindowsMetricsSystem(BaseModel):
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
-            val = serialized.get(k)
+            val = serialized.get(k, serialized.get(n))
 
             if val != UNSET_SENTINEL:
                 if val is not None or k not in optional_fields:
@@ -135,7 +132,7 @@ class InputWindowsMetricsCPU(BaseModel):
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
-            val = serialized.get(k)
+            val = serialized.get(k, serialized.get(n))
 
             if val != UNSET_SENTINEL:
                 if val is not None or k not in optional_fields:
@@ -188,7 +185,7 @@ class InputWindowsMetricsMemory(BaseModel):
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
-            val = serialized.get(k)
+            val = serialized.get(k, serialized.get(n))
 
             if val != UNSET_SENTINEL:
                 if val is not None or k not in optional_fields:
@@ -260,7 +257,7 @@ class InputWindowsMetricsNetwork(BaseModel):
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
-            val = serialized.get(k)
+            val = serialized.get(k, serialized.get(n))
 
             if val != UNSET_SENTINEL:
                 if val is not None or k not in optional_fields:
@@ -323,7 +320,7 @@ class InputWindowsMetricsDisk(BaseModel):
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
-            val = serialized.get(k)
+            val = serialized.get(k, serialized.get(n))
 
             if val != UNSET_SENTINEL:
                 if val is not None or k not in optional_fields:
@@ -359,7 +356,7 @@ class InputWindowsMetricsCustom(BaseModel):
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
-            val = serialized.get(k)
+            val = serialized.get(k, serialized.get(n))
 
             if val != UNSET_SENTINEL:
                 if val is not None or k not in optional_fields:
@@ -397,7 +394,7 @@ class InputWindowsMetricsHost(BaseModel):
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
-            val = serialized.get(k)
+            val = serialized.get(k, serialized.get(n))
 
             if val != UNSET_SENTINEL:
                 if val is not None or k not in optional_fields:
@@ -464,7 +461,7 @@ class InputWindowsMetricsPersistence(BaseModel):
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
-            val = serialized.get(k)
+            val = serialized.get(k, serialized.get(n))
 
             if val != UNSET_SENTINEL:
                 if val is not None or k not in optional_fields:
@@ -495,7 +492,7 @@ class InputWindowsMetricsTypedDict(TypedDict):
     r"""Time, in seconds, between consecutive metric collections. Default is 10 seconds."""
     host: NotRequired[InputWindowsMetricsHostTypedDict]
     process: NotRequired[ProcessTypeTypedDict]
-    metadata: NotRequired[List[ItemsTypeNotificationMetadataTypedDict]]
+    metadata: NotRequired[List[ItemsTypeMetadataTypedDict]]
     r"""Fields to add to events from this input"""
     persistence: NotRequired[InputWindowsMetricsPersistenceTypedDict]
     disable_native_module: NotRequired[bool]
@@ -540,7 +537,7 @@ class InputWindowsMetrics(BaseModel):
 
     process: Optional[ProcessType] = None
 
-    metadata: Optional[List[ItemsTypeNotificationMetadata]] = None
+    metadata: Optional[List[ItemsTypeMetadata]] = None
     r"""Fields to add to events from this input"""
 
     persistence: Optional[InputWindowsMetricsPersistence] = None
@@ -579,10 +576,32 @@ class InputWindowsMetrics(BaseModel):
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
-            val = serialized.get(k)
+            val = serialized.get(k, serialized.get(n))
 
             if val != UNSET_SENTINEL:
                 if val is not None or k not in optional_fields:
                     m[k] = val
 
         return m
+
+
+try:
+    InputWindowsMetricsCPU.model_rebuild()
+except NameError:
+    pass
+try:
+    InputWindowsMetricsNetwork.model_rebuild()
+except NameError:
+    pass
+try:
+    InputWindowsMetricsDisk.model_rebuild()
+except NameError:
+    pass
+try:
+    InputWindowsMetricsPersistence.model_rebuild()
+except NameError:
+    pass
+try:
+    InputWindowsMetrics.model_rebuild()
+except NameError:
+    pass

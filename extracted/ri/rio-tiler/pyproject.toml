@@ -30,7 +30,7 @@ dependencies = [
     "pystac>=1.9,<2.0",
     "rasterio>=1.4.0",
     "color-operations",
-    "typing-extensions",
+    "typing-extensions>=4.10.0; python_version < '3.12'",
 ]
 
 [dependency-groups]
@@ -38,10 +38,12 @@ dev = [
     "pytest",
     "pytest-cov",
     "pytest-benchmark",
+    "pytest-asyncio",
     # XarrayReader
     "xarray",
     "rioxarray",
     "h5netcdf",
+    "h5py",
     # S3
     "boto3",
     # Some tests will fail with 5.0
@@ -50,9 +52,12 @@ dev = [
     "vsifile>=0.2",
     "zarr~=3.0",
     "obstore",
+    "async-geotiff>=0.3,<0.4",
     "tilebench",
     "pre-commit",
-    "bump-my-version",
+    "IPython",
+    "jupyter",
+    "matplotlib",
 ]
 
 performance = [
@@ -61,7 +66,7 @@ performance = [
 ]
 
 docs = [
-    "mkdocs>=1.4.3",
+    "mkdocs>=1.4.3,<2.0",
     "mkdocs-jupyter>=0.24.5",
     "mkdocs-material[imaging]>=9.5",
     "griffe-inherited-docstrings>=1.0.0",
@@ -70,11 +75,6 @@ docs = [
 ]
 deploy = [
     "hatch",
-]
-notebook = [
-    "IPython",
-    "jupyter",
-    "matplotlib",
 ]
 
 [project.optional-dependencies]
@@ -87,6 +87,10 @@ xarray = [
 ]
 zarr = [
     "zarr~=3.0",
+    "obstore",
+]
+async = [
+    "async-geotiff>=0.3,<0.4",
     "obstore",
 ]
 
@@ -109,6 +113,9 @@ only-include = ["rio_tiler/"]
 
 [tool.hatch.build.targets.wheel]
 only-include = ["rio_tiler/"]
+
+[tool.hatch.metadata]
+allow-direct-references = true
 
 [tool.coverage.run]
 branch = true
@@ -161,7 +168,7 @@ exclude = [
 max-complexity = 14
 
 [tool.bumpversion]
-current_version = "8.0.5"
+current_version = "9.0.0"
 parse = """(?x)
     (?P<major>\\d+)\\.
     (?P<minor>\\d+)\\.

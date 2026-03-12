@@ -21,7 +21,7 @@ from chardet.equivalences import (
     is_equivalent_detection,
     is_language_equivalent,
 )
-from chardet.registry import REGISTRY
+from chardet.registry import REGISTRY, lookup_encoding
 
 # ---------------------------------------------------------------------------
 # Known accuracy failures — marked xfail so they don't block CI but are
@@ -62,7 +62,6 @@ _KNOWN_FAILURES: frozenset[str] = frozenset(
         "cp1006-ur/culturax_00001.txt",
         "cp1006-ur/culturax_00002.txt",
         "gb2312-zh/_mozilla_bug171813_text.html",
-        "hp-roman8-it/culturax_00002.txt",
         "iso-8859-1-en/ioreg_output.txt",
         "iso-8859-10-fi/culturax_00002.txt",
         "iso-8859-13-et/culturax_00002.txt",
@@ -106,7 +105,6 @@ _KNOWN_ERA_FILTERED_FAILURES: frozenset[str] = frozenset(
         "cp1006-ur/culturax_00001.txt",
         "cp1006-ur/culturax_00002.txt",
         "gb2312-zh/_mozilla_bug171813_text.html",
-        "hp-roman8-it/culturax_00002.txt",
         "iso-8859-10-fi/culturax_00002.txt",
         "iso-8859-13-et/culturax_00002.txt",
         "iso-8859-15-ga/culturax_mC4_63469.txt",
@@ -127,12 +125,9 @@ def _encoding_era(name: str | None) -> EncodingEra:
     """Look up the encoding era for a test-data encoding name."""
     if name is None:
         return EncodingEra.ALL
-    if name in REGISTRY:
-        return REGISTRY[name].era
-    lower = name.lower()
-    for info in REGISTRY.values():
-        if lower in (a.lower() for a in info.aliases):
-            return info.era
+    canonical = lookup_encoding(name)
+    if canonical is not None:
+        return REGISTRY[canonical].era
     return EncodingEra.ALL
 
 
@@ -166,7 +161,7 @@ def test_detect(
 ) -> None:
     """Detect encoding of a single test file and verify correctness."""
     data = test_file_path.read_bytes()
-    result = chardet.detect(data, encoding_era=EncodingEra.ALL)
+    result = chardet.detect(data, encoding_era=EncodingEra.ALL, prefer_superset=True)
     detected = result["encoding"]
 
     # Binary files: expect encoding=None
@@ -208,7 +203,7 @@ def test_detect_era_filtered(
     """Detect encoding using only the expected encoding's own era."""
     era = _encoding_era(expected_encoding)
     data = test_file_path.read_bytes()
-    result = chardet.detect(data, encoding_era=era)
+    result = chardet.detect(data, encoding_era=era, prefer_superset=True)
     detected = result["encoding"]
 
     # Binary files: expect encoding=None

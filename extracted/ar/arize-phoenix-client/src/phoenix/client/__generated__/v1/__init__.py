@@ -87,6 +87,10 @@ class DatasetWithExampleCount(TypedDict):
     example_count: int
 
 
+class DeleteSessionsRequestBody(TypedDict):
+    session_identifiers: Sequence[str]
+
+
 class Experiment(TypedDict):
     id: str
     dataset_id: str
@@ -295,7 +299,29 @@ class PromptAzureOpenAIInvocationParametersContent(TypedDict):
     reasoning_effort: NotRequired[Literal["none", "minimal", "low", "medium", "high", "xhigh"]]
 
 
+class PromptCerebrasInvocationParametersContent(TypedDict):
+    temperature: NotRequired[float]
+    max_tokens: NotRequired[int]
+    max_completion_tokens: NotRequired[int]
+    frequency_penalty: NotRequired[float]
+    presence_penalty: NotRequired[float]
+    top_p: NotRequired[float]
+    seed: NotRequired[int]
+    reasoning_effort: NotRequired[Literal["none", "minimal", "low", "medium", "high", "xhigh"]]
+
+
 class PromptDeepSeekInvocationParametersContent(TypedDict):
+    temperature: NotRequired[float]
+    max_tokens: NotRequired[int]
+    max_completion_tokens: NotRequired[int]
+    frequency_penalty: NotRequired[float]
+    presence_penalty: NotRequired[float]
+    top_p: NotRequired[float]
+    seed: NotRequired[int]
+    reasoning_effort: NotRequired[Literal["none", "minimal", "low", "medium", "high", "xhigh"]]
+
+
+class PromptFireworksInvocationParametersContent(TypedDict):
     temperature: NotRequired[float]
     max_tokens: NotRequired[int]
     max_completion_tokens: NotRequired[int]
@@ -314,6 +340,28 @@ class PromptGoogleInvocationParametersContent(TypedDict):
     frequency_penalty: NotRequired[float]
     top_p: NotRequired[float]
     top_k: NotRequired[int]
+
+
+class PromptGroqInvocationParametersContent(TypedDict):
+    temperature: NotRequired[float]
+    max_tokens: NotRequired[int]
+    max_completion_tokens: NotRequired[int]
+    frequency_penalty: NotRequired[float]
+    presence_penalty: NotRequired[float]
+    top_p: NotRequired[float]
+    seed: NotRequired[int]
+    reasoning_effort: NotRequired[Literal["none", "minimal", "low", "medium", "high", "xhigh"]]
+
+
+class PromptMoonshotInvocationParametersContent(TypedDict):
+    temperature: NotRequired[float]
+    max_tokens: NotRequired[int]
+    max_completion_tokens: NotRequired[int]
+    frequency_penalty: NotRequired[float]
+    presence_penalty: NotRequired[float]
+    top_p: NotRequired[float]
+    seed: NotRequired[int]
+    reasoning_effort: NotRequired[Literal["none", "minimal", "low", "medium", "high", "xhigh"]]
 
 
 class PromptOllamaInvocationParametersContent(TypedDict):
@@ -338,6 +386,17 @@ class PromptOpenAIInvocationParametersContent(TypedDict):
     reasoning_effort: NotRequired[Literal["none", "minimal", "low", "medium", "high", "xhigh"]]
 
 
+class PromptPerplexityInvocationParametersContent(TypedDict):
+    temperature: NotRequired[float]
+    max_tokens: NotRequired[int]
+    max_completion_tokens: NotRequired[int]
+    frequency_penalty: NotRequired[float]
+    presence_penalty: NotRequired[float]
+    top_p: NotRequired[float]
+    seed: NotRequired[int]
+    reasoning_effort: NotRequired[Literal["none", "minimal", "low", "medium", "high", "xhigh"]]
+
+
 class PromptResponseFormatJSONSchemaDefinition(TypedDict):
     name: str
     description: NotRequired[str]
@@ -348,6 +407,17 @@ class PromptResponseFormatJSONSchemaDefinition(TypedDict):
 class PromptStringTemplate(TypedDict):
     type: Literal["string"]
     template: str
+
+
+class PromptTogetherInvocationParametersContent(TypedDict):
+    temperature: NotRequired[float]
+    max_tokens: NotRequired[int]
+    max_completion_tokens: NotRequired[int]
+    frequency_penalty: NotRequired[float]
+    presence_penalty: NotRequired[float]
+    top_p: NotRequired[float]
+    seed: NotRequired[int]
+    reasoning_effort: NotRequired[Literal["none", "minimal", "low", "medium", "high", "xhigh"]]
 
 
 class PromptToolChoiceNone(TypedDict):
@@ -739,14 +809,34 @@ class PromptAzureOpenAIInvocationParameters(TypedDict):
     azure_openai: PromptAzureOpenAIInvocationParametersContent
 
 
+class PromptCerebrasInvocationParameters(TypedDict):
+    type: Literal["cerebras"]
+    cerebras: PromptCerebrasInvocationParametersContent
+
+
 class PromptDeepSeekInvocationParameters(TypedDict):
     type: Literal["deepseek"]
     deepseek: PromptDeepSeekInvocationParametersContent
 
 
+class PromptFireworksInvocationParameters(TypedDict):
+    type: Literal["fireworks"]
+    fireworks: PromptFireworksInvocationParametersContent
+
+
 class PromptGoogleInvocationParameters(TypedDict):
     type: Literal["google"]
     google: PromptGoogleInvocationParametersContent
+
+
+class PromptGroqInvocationParameters(TypedDict):
+    type: Literal["groq"]
+    groq: PromptGroqInvocationParametersContent
+
+
+class PromptMoonshotInvocationParameters(TypedDict):
+    type: Literal["moonshot"]
+    moonshot: PromptMoonshotInvocationParametersContent
 
 
 class PromptOllamaInvocationParameters(TypedDict):
@@ -759,9 +849,19 @@ class PromptOpenAIInvocationParameters(TypedDict):
     openai: PromptOpenAIInvocationParametersContent
 
 
+class PromptPerplexityInvocationParameters(TypedDict):
+    type: Literal["perplexity"]
+    perplexity: PromptPerplexityInvocationParametersContent
+
+
 class PromptResponseFormatJSONSchema(TypedDict):
     type: Literal["json_schema"]
     json_schema: PromptResponseFormatJSONSchemaDefinition
+
+
+class PromptTogetherInvocationParameters(TypedDict):
+    type: Literal["together"]
+    together: PromptTogetherInvocationParametersContent
 
 
 class PromptToolFunction(TypedDict):
@@ -862,7 +962,20 @@ class PromptChatTemplate(TypedDict):
 
 class PromptVersionData(TypedDict):
     model_provider: Literal[
-        "OPENAI", "AZURE_OPENAI", "ANTHROPIC", "GOOGLE", "DEEPSEEK", "XAI", "OLLAMA", "AWS"
+        "OPENAI",
+        "AZURE_OPENAI",
+        "ANTHROPIC",
+        "GOOGLE",
+        "DEEPSEEK",
+        "XAI",
+        "OLLAMA",
+        "AWS",
+        "CEREBRAS",
+        "FIREWORKS",
+        "GROQ",
+        "MOONSHOT",
+        "PERPLEXITY",
+        "TOGETHER",
     ]
     model_name: str
     template: Union[PromptChatTemplate, PromptStringTemplate]
@@ -877,6 +990,12 @@ class PromptVersionData(TypedDict):
         PromptXAIInvocationParameters,
         PromptOllamaInvocationParameters,
         PromptAwsInvocationParameters,
+        PromptCerebrasInvocationParameters,
+        PromptFireworksInvocationParameters,
+        PromptGroqInvocationParameters,
+        PromptMoonshotInvocationParameters,
+        PromptPerplexityInvocationParameters,
+        PromptTogetherInvocationParameters,
     ]
     description: NotRequired[str]
     tools: NotRequired[PromptTools]

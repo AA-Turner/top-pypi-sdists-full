@@ -22,7 +22,6 @@ import functools
 import itertools
 import json
 import logging
-import multiprocessing
 import os
 import pathlib
 import re
@@ -376,6 +375,7 @@ class AirflowConfigParser(ConfigParser):
         ("api", "require_confirmation_dag_change"): ("webserver", "require_confirmation_dag_change", "3.1.0"),
         ("api", "instance_name"): ("webserver", "instance_name", "3.1.0"),
         ("api", "log_config"): ("api", "access_logfile", "3.1.0"),
+        ("workers", "missing_dag_retries"): ("workers", "missing_dag_retires", "3.1.8"),
     }
 
     # A mapping of new section -> (old section, since_version).
@@ -416,7 +416,6 @@ class AirflowConfigParser(ConfigParser):
     enums_options = {
         ("core", "default_task_weight_rule"): sorted(WeightRule.all_weight_rules()),
         ("core", "dag_ignore_file_syntax"): ["regexp", "glob"],
-        ("core", "mp_start_method"): multiprocessing.get_all_start_methods(),
         ("dag_processor", "file_parsing_sort_mode"): [
             "modified_time",
             "random_seeded_by_host",

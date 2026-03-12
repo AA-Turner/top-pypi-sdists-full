@@ -66,9 +66,11 @@ def run_agent(
     prompt_list = to_list(prompt)
     context = SDKContextStore.get_by_thread()
 
-    return context.ai_sdk.run_agent(
+    response = context.ai_sdk.run_agent(
         prompts=prompt_list,
         tool_callables=tool_callables if tool_callables else None,
         tool_items=tool_items if tool_items else None,
         max_steps=max_steps,
     )
+
+    return response.get("data", response)

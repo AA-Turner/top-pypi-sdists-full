@@ -54,8 +54,8 @@ class TestUser:
         if is_valid:
             mock_instance.save.assert_called_once_with(
                 request="mocked_request",
-                email_template_name="password_reset_email.html",
-                html_email_template_name="password_reset_email_html.html",
+                email_template_name="authentication/email/password_reset_email.html",
+                html_email_template_name="authentication/email/password_reset_email_html.html",
             )
         else:
             mock_instance.save.assert_not_called()

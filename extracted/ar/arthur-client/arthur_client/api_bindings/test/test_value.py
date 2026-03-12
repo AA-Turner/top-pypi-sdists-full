@@ -36,21 +36,21 @@ class TestValue(unittest.TestCase):
         if include_optional:
             return Value(
                 metric_kind = 'sketch',
-                value = 56,
+                value = 1.337,
                 row_count = 56,
-                min = 56,
-                max = 56,
-                q1 = 56,
-                q3 = 56
+                min = 1.337,
+                max = 1.337,
+                q1 = 1.337,
+                q3 = 1.337
             )
         else:
             return Value(
-                value = 56,
+                value = 1.337,
                 row_count = 56,
-                min = 56,
-                max = 56,
-                q1 = 56,
-                q3 = 56,
+                min = 1.337,
+                max = 1.337,
+                q1 = 1.337,
+                q3 = 1.337,
         )
         """
 

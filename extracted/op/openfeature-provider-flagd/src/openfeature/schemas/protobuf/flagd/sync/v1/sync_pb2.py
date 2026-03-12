@@ -25,7 +25,7 @@ _sym_db = _symbol_database.Default()
 from google.protobuf import struct_pb2 as google_dot_protobuf_dot_struct__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n5openfeature/schemas/protobuf/flagd/sync/v1/sync.proto\x12\rflagd.sync.v1\x1a\x1cgoogle/protobuf/struct.proto\"9\n\x10SyncFlagsRequest\x12\x13\n\x0bprovider_id\x18\x01 \x01(\t\x12\x10\n\x08selector\x18\x02 \x01(\t\"t\n\x11SyncFlagsResponse\x12\x1a\n\x12\x66lag_configuration\x18\x01 \x01(\t\x12\x32\n\x0csync_context\x18\x02 \x01(\x0b\x32\x17.google.protobuf.StructH\x00\x88\x01\x01\x42\x0f\n\r_sync_context\"=\n\x14\x46\x65tchAllFlagsRequest\x12\x13\n\x0bprovider_id\x18\x01 \x01(\t\x12\x10\n\x08selector\x18\x02 \x01(\t\"3\n\x15\x46\x65tchAllFlagsResponse\x12\x1a\n\x12\x66lag_configuration\x18\x01 \x01(\t\"\x18\n\x12GetMetadataRequest:\x02\x18\x01\"J\n\x13GetMetadataResponse\x12)\n\x08metadata\x18\x02 \x01(\x0b\x32\x17.google.protobuf.Struct:\x02\x18\x01J\x04\x08\x01\x10\x02\x32\x9e\x02\n\x0f\x46lagSyncService\x12R\n\tSyncFlags\x12\x1f.flagd.sync.v1.SyncFlagsRequest\x1a .flagd.sync.v1.SyncFlagsResponse\"\x00\x30\x01\x12\\\n\rFetchAllFlags\x12#.flagd.sync.v1.FetchAllFlagsRequest\x1a$.flagd.sync.v1.FetchAllFlagsResponse\"\x00\x12Y\n\x0bGetMetadata\x12!.flagd.sync.v1.GetMetadataRequest\x1a\".flagd.sync.v1.GetMetadataResponse\"\x03\x88\x02\x01\x42\xa8\x01\n\x1f\x64\x65v.openfeature.flagd.grpc.syncZ\rflagd/sync/v1\xaa\x02\x1bOpenFeature.Flagd.Grpc.Sync\xca\x02,OpenFeature\\Providers\\Flagd\\Schema\\Grpc\\Sync\xea\x02(OpenFeature::Flagd::Provider::Grpc::Syncb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n5openfeature/schemas/protobuf/flagd/sync/v1/sync.proto\x12\rflagd.sync.v1\x1a\x1cgoogle/protobuf/struct.proto\"=\n\x10SyncFlagsRequest\x12\x13\n\x0bprovider_id\x18\x01 \x01(\t\x12\x14\n\x08selector\x18\x02 \x01(\tB\x02\x18\x01\"t\n\x11SyncFlagsResponse\x12\x1a\n\x12\x66lag_configuration\x18\x01 \x01(\t\x12\x32\n\x0csync_context\x18\x02 \x01(\x0b\x32\x17.google.protobuf.StructH\x00\x88\x01\x01\x42\x0f\n\r_sync_context\"A\n\x14\x46\x65tchAllFlagsRequest\x12\x13\n\x0bprovider_id\x18\x01 \x01(\t\x12\x14\n\x08selector\x18\x02 \x01(\tB\x02\x18\x01\"3\n\x15\x46\x65tchAllFlagsResponse\x12\x1a\n\x12\x66lag_configuration\x18\x01 \x01(\t\"\x18\n\x12GetMetadataRequest:\x02\x18\x01\"J\n\x13GetMetadataResponse\x12)\n\x08metadata\x18\x02 \x01(\x0b\x32\x17.google.protobuf.Struct:\x02\x18\x01J\x04\x08\x01\x10\x02\x32\x9e\x02\n\x0f\x46lagSyncService\x12R\n\tSyncFlags\x12\x1f.flagd.sync.v1.SyncFlagsRequest\x1a .flagd.sync.v1.SyncFlagsResponse\"\x00\x30\x01\x12\\\n\rFetchAllFlags\x12#.flagd.sync.v1.FetchAllFlagsRequest\x1a$.flagd.sync.v1.FetchAllFlagsResponse\"\x00\x12Y\n\x0bGetMetadata\x12!.flagd.sync.v1.GetMetadataRequest\x1a\".flagd.sync.v1.GetMetadataResponse\"\x03\x88\x02\x01\x42\xa8\x01\n\x1f\x64\x65v.openfeature.flagd.grpc.syncZ\rflagd/sync/v1\xaa\x02\x1bOpenFeature.Flagd.Grpc.Sync\xca\x02,OpenFeature\\Providers\\Flagd\\Schema\\Grpc\\Sync\xea\x02(OpenFeature::Flagd::Provider::Grpc::Syncb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -33,6 +33,10 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'openfeature.schemas.protobu
 if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._loaded_options = None
   _globals['DESCRIPTOR']._serialized_options = b'\n\037dev.openfeature.flagd.grpc.syncZ\rflagd/sync/v1\252\002\033OpenFeature.Flagd.Grpc.Sync\312\002,OpenFeature\\Providers\\Flagd\\Schema\\Grpc\\Sync\352\002(OpenFeature::Flagd::Provider::Grpc::Sync'
+  _globals['_SYNCFLAGSREQUEST'].fields_by_name['selector']._loaded_options = None
+  _globals['_SYNCFLAGSREQUEST'].fields_by_name['selector']._serialized_options = b'\030\001'
+  _globals['_FETCHALLFLAGSREQUEST'].fields_by_name['selector']._loaded_options = None
+  _globals['_FETCHALLFLAGSREQUEST'].fields_by_name['selector']._serialized_options = b'\030\001'
   _globals['_GETMETADATAREQUEST']._loaded_options = None
   _globals['_GETMETADATAREQUEST']._serialized_options = b'\030\001'
   _globals['_GETMETADATARESPONSE']._loaded_options = None
@@ -40,17 +44,17 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_FLAGSYNCSERVICE'].methods_by_name['GetMetadata']._loaded_options = None
   _globals['_FLAGSYNCSERVICE'].methods_by_name['GetMetadata']._serialized_options = b'\210\002\001'
   _globals['_SYNCFLAGSREQUEST']._serialized_start=102
-  _globals['_SYNCFLAGSREQUEST']._serialized_end=159
-  _globals['_SYNCFLAGSRESPONSE']._serialized_start=161
-  _globals['_SYNCFLAGSRESPONSE']._serialized_end=277
-  _globals['_FETCHALLFLAGSREQUEST']._serialized_start=279
-  _globals['_FETCHALLFLAGSREQUEST']._serialized_end=340
-  _globals['_FETCHALLFLAGSRESPONSE']._serialized_start=342
-  _globals['_FETCHALLFLAGSRESPONSE']._serialized_end=393
-  _globals['_GETMETADATAREQUEST']._serialized_start=395
-  _globals['_GETMETADATAREQUEST']._serialized_end=419
-  _globals['_GETMETADATARESPONSE']._serialized_start=421
-  _globals['_GETMETADATARESPONSE']._serialized_end=495
-  _globals['_FLAGSYNCSERVICE']._serialized_start=498
-  _globals['_FLAGSYNCSERVICE']._serialized_end=784
+  _globals['_SYNCFLAGSREQUEST']._serialized_end=163
+  _globals['_SYNCFLAGSRESPONSE']._serialized_start=165
+  _globals['_SYNCFLAGSRESPONSE']._serialized_end=281
+  _globals['_FETCHALLFLAGSREQUEST']._serialized_start=283
+  _globals['_FETCHALLFLAGSREQUEST']._serialized_end=348
+  _globals['_FETCHALLFLAGSRESPONSE']._serialized_start=350
+  _globals['_FETCHALLFLAGSRESPONSE']._serialized_end=401
+  _globals['_GETMETADATAREQUEST']._serialized_start=403
+  _globals['_GETMETADATAREQUEST']._serialized_end=427
+  _globals['_GETMETADATARESPONSE']._serialized_start=429
+  _globals['_GETMETADATARESPONSE']._serialized_end=503
+  _globals['_FLAGSYNCSERVICE']._serialized_start=506
+  _globals['_FLAGSYNCSERVICE']._serialized_end=792
 # @@protoc_insertion_point(module_scope)

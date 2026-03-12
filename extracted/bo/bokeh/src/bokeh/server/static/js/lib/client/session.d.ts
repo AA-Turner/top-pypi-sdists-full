@@ -1,7 +1,7 @@
 import type { Patch, Document, DocumentEvent } from "../document";
 import { Message } from "../protocol/message";
 import type { ClientConnection } from "./connection";
-export type OkMsg = Message<{}>;
+export type OkMsg = Message<void>;
 export type ErrorMsg = Message<{
     text: string;
     traceback: string | null;

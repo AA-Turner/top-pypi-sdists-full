@@ -4248,8 +4248,9 @@ export const $PoolBody = {
         },
         slots: {
             type: 'integer',
-            exclusiveMinimum: 0,
-            title: 'Slots'
+            minimum: -1,
+            title: 'Slots',
+            description: 'Number of slots. Use -1 for unlimited.'
         },
         description: {
             anyOf: [
@@ -4312,7 +4313,8 @@ export const $PoolPatchBody = {
             anyOf: [
                 {
                     type: 'integer',
-                    exclusiveMinimum: 0
+                    minimum: -1,
+                    description: 'Number of slots. Use -1 for unlimited.'
                 },
                 {
                     type: 'null'
@@ -4357,8 +4359,9 @@ export const $PoolResponse = {
         },
         slots: {
             type: 'integer',
-            exclusiveMinimum: 0,
-            title: 'Slots'
+            minimum: -1,
+            title: 'Slots',
+            description: 'Number of slots. Use -1 for unlimited.'
         },
         description: {
             anyOf: [
@@ -6429,10 +6432,15 @@ export const $XComResponse = {
         task_display_name: {
             type: 'string',
             title: 'Task Display Name'
+        },
+        run_after: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Run After'
         }
     },
     type: 'object',
-    required: ['key', 'timestamp', 'logical_date', 'map_index', 'task_id', 'dag_id', 'run_id', 'dag_display_name', 'task_display_name'],
+    required: ['key', 'timestamp', 'logical_date', 'map_index', 'task_id', 'dag_id', 'run_id', 'dag_display_name', 'task_display_name', 'run_after'],
     title: 'XComResponse',
     description: 'Serializer for a xcom item.'
 } as const;
@@ -6484,12 +6492,17 @@ export const $XComResponseNative = {
             type: 'string',
             title: 'Task Display Name'
         },
+        run_after: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Run After'
+        },
         value: {
             title: 'Value'
         }
     },
     type: 'object',
-    required: ['key', 'timestamp', 'logical_date', 'map_index', 'task_id', 'dag_id', 'run_id', 'dag_display_name', 'task_display_name', 'value'],
+    required: ['key', 'timestamp', 'logical_date', 'map_index', 'task_id', 'dag_id', 'run_id', 'dag_display_name', 'task_display_name', 'run_after', 'value'],
     title: 'XComResponseNative',
     description: 'XCom response serializer with native return type.'
 } as const;
@@ -6541,6 +6554,11 @@ export const $XComResponseString = {
             type: 'string',
             title: 'Task Display Name'
         },
+        run_after: {
+            type: 'string',
+            format: 'date-time',
+            title: 'Run After'
+        },
         value: {
             anyOf: [
                 {
@@ -6554,7 +6572,7 @@ export const $XComResponseString = {
         }
     },
     type: 'object',
-    required: ['key', 'timestamp', 'logical_date', 'map_index', 'task_id', 'dag_id', 'run_id', 'dag_display_name', 'task_display_name', 'value'],
+    required: ['key', 'timestamp', 'logical_date', 'map_index', 'task_id', 'dag_id', 'run_id', 'dag_display_name', 'task_display_name', 'run_after', 'value'],
     title: 'XComResponseString',
     description: 'XCom response serializer with string return type.'
 } as const;
@@ -7525,6 +7543,10 @@ export const $LightGridTaskInstanceSummary = {
             type: 'string',
             title: 'Task Id'
         },
+        task_display_name: {
+            type: 'string',
+            title: 'Task Display Name'
+        },
         state: {
             anyOf: [
                 {
@@ -7575,7 +7597,7 @@ export const $LightGridTaskInstanceSummary = {
         }
     },
     type: 'object',
-    required: ['task_id', 'state', 'child_states', 'min_start_date', 'max_end_date'],
+    required: ['task_id', 'task_display_name', 'state', 'child_states', 'min_start_date', 'max_end_date'],
     title: 'LightGridTaskInstanceSummary',
     description: 'Task Instance Summary model for the Grid UI.'
 } as const;

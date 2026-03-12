@@ -66,7 +66,8 @@ from typing import (
 )
 
 # Bokeh imports
-from ..core.serialization import Serializable, Serializer
+from ..core.serialization import Serializable
+from ..util.dependencies import uses_pandas
 from .json import (
     ColumnDataChanged,
     ColumnsPatched,
@@ -83,12 +84,12 @@ if TYPE_CHECKING:
     import pandas as pd
 
     from ..core.has_props import Setter
+    from ..core.serialization import Serializer
     from ..model import Model
-    from ..models.sources import DataDict
+    from ..models.sources import DataDict, Patches
     from ..protocol.message import BufferRef
     from ..server.callbacks import SessionCallback
     from .document import Document
-    from .json import Patches
 
 #-----------------------------------------------------------------------------
 # Globals and constants
@@ -514,9 +515,10 @@ class ColumnsStreamedEvent(DocumentPatchedEvent):
         self.attr = attr
 
 
-        import pandas as pd
-        if isinstance(data, pd.DataFrame):
-            data = {c: data[c] for c in data.columns}
+        if uses_pandas(data):
+            import pandas as pd
+            if isinstance(data, pd.DataFrame):
+                data = {c: data[c] for c in data.columns}
 
         self.data = data
         self.rollover = rollover

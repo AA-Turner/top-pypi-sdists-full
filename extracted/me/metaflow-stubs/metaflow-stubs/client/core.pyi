@@ -1,19 +1,19 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.20                                                                                #
-# Generated on 2026-02-26T21:59:51.269707                                                            #
+# MF version: 2.19.21                                                                                #
+# Generated on 2026-03-12T01:00:36.685631                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import typing
 import metaflow
+import typing
 if typing.TYPE_CHECKING:
     import datetime
-    import tarfile
-    import metaflow.client.core
     import tempfile
+    import tarfile
     import typing
+    import metaflow.client.core
 
 from ..metaflow_current import current as current
 from ..events import Trigger as Trigger

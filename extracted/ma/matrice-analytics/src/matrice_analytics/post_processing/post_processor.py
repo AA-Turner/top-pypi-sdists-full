@@ -320,7 +320,7 @@ class PostProcessor:
         config_params = config.copy()
         config_params.pop("usecase", None)
         config_params.pop("category", None)
-        category = config.get("category", "general")
+        category = config.get("category")
         
         # Clean up use-case specific parameters
         self._clean_use_case_specific_params(usecase, config_params)
@@ -863,18 +863,31 @@ class PostProcessor:
             ProcessingResult: Standardized result object
         """
         start_time = time.time()
-        
+
+        logger.info("PostProcessor.process started")
+        logger.info("Received config: %s", config)
+        logger.info("Default post_processing_config: %s", self.post_processing_config)
+        logger.info("Custom post_processing_config: %s", custom_post_processing_config)
+        logger.info("Stream key: %s", stream_key)
+        logger.info("Stream info: %s", stream_info)
+
         try:
             if config:
                 try:
                     config = self._parse_config(config)
+                    logger.info("Parsed config: %s", config)
                 except Exception as e:
-                    logger.error(f"Failed to parse config: {e}", exc_info=True)
+                    logger.error("Failed to parse config: %s", e, exc_info=True)
                     raise ValueError(f"Failed to parse config: {e}")
 
             parsed_config = config or self.post_processing_config
-                
+
             if not parsed_config:
+                logger.info(
+                    "No valid configuration found | config=%s | post_processing_config=%s",
+                    config,
+                    self.post_processing_config
+                )
                 raise ValueError("No valid configuration found")
 
 
@@ -1085,7 +1098,7 @@ class PostProcessor:
                 if not usecase:
                     return ["Configuration must specify 'usecase'"]
 
-                category = config.get("category", "general")
+                category = config.get("category")
                 parsed_config = config_manager.create_config(
                     usecase, category=category, **config
                 )
@@ -1159,7 +1172,7 @@ class PostProcessor:
             if not usecase:
                 raise ValueError("Configuration dict must contain 'usecase' key")
 
-            category = config.get("category", "general")
+            category = config.get("category")
             return config_manager.create_config(usecase, category=category, **config)
         elif isinstance(config, (str, Path)):
             return config_manager.load_from_file(config)

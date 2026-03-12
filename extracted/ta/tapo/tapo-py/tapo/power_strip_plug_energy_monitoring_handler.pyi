@@ -1,5 +1,8 @@
-from datetime import datetime
+from datetime import date, datetime
+from typing import Optional
 
+from tapo.debug_ext import DebugExt
+from tapo.on_off_ext import OnOffExt
 from tapo.requests import EnergyDataInterval, PowerDataInterval
 from tapo.responses import (
     CurrentPowerResult,
@@ -10,7 +13,7 @@ from tapo.responses import (
     PowerStripPlugEnergyMonitoringResult,
 )
 
-class PowerStripPlugEnergyMonitoringHandler:
+class PowerStripPlugEnergyMonitoringHandler(OnOffExt, DebugExt):
     """Handler for the [P304M](https://www.tp-link.com/uk/search/?q=P304M) and
     [P316M](https://www.tp-link.com/us/search/?q=P316M) child plugs.
     """
@@ -20,12 +23,6 @@ class PowerStripPlugEnergyMonitoringHandler:
         It should not be called from outside the tapo library.
         """
 
-    async def on(self) -> None:
-        """Turns *on* the device."""
-
-    async def off(self) -> None:
-        """Turns *off* the device."""
-
     async def get_device_info(self) -> PowerStripPlugEnergyMonitoringResult:
         """Returns *device info* as `PowerStripPlugEnergyMonitoringResult`.
         It is not guaranteed to contain all the properties returned from the Tapo API.
@@ -34,14 +31,6 @@ class PowerStripPlugEnergyMonitoringHandler:
 
         Returns:
             PowerStripPlugEnergyMonitoringResult: P304M and P316M power strip child plugs.
-        """
-
-    async def get_device_info_json(self) -> dict:
-        """Returns *device info* as json.
-        It contains all the properties returned from the Tapo API.
-
-        Returns:
-            dict: Device info as a dictionary.
         """
 
     async def get_current_power(self) -> CurrentPowerResult:
@@ -70,8 +59,8 @@ class PowerStripPlugEnergyMonitoringHandler:
     async def get_energy_data(
         self,
         interval: EnergyDataInterval,
-        start_date: datetime,
-        end_date: datetime = None,
+        start_date: date,
+        end_date: Optional[date] = None,
     ) -> EnergyDataResult:
         """Returns *energy data* as `EnergyDataResult`.
 

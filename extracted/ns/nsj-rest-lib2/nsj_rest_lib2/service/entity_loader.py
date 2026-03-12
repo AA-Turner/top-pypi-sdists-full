@@ -4,18 +4,20 @@ import os
 import re
 import sys
 import threading
+import heapq
 import types
 from typing import Any
 
+from redis.exceptions import RedisError
 from nsj_rest_lib.settings import get_logger
+from nsj_rest_lib.dto.dto_base import DTOBase
+from nsj_rest_lib.entity.entity_base import EntityBase
 
 import yaml
 
 from nsj_rest_lib2.compiler.compiler import EDLCompiler
 from nsj_rest_lib2.compiler.edl_model.entity_model import EntityModel
 from nsj_rest_lib2.compiler.edl_model.entity_model_base import EntityModelBase
-from nsj_rest_lib2.compiler.edl_model.entity_model_root import EntityModelRoot
-from nsj_rest_lib2.compiler.edl_model.primitives import REGEX_EXTERNAL_REF
 from nsj_rest_lib2.compiler.model import CompilerResult, RelationDependency
 from nsj_rest_lib2.compiler.util.type_naming_util import (
     build_entity_hash as build_entity_hash_util,
@@ -23,7 +25,10 @@ from nsj_rest_lib2.compiler.util.type_naming_util import (
     resolve_namespace_key as resolve_namespace_key_util,
 )
 from nsj_rest_lib2.dto.escopo_dto import EscopoDTO
-from nsj_rest_lib2.exception import MissingEntityConfigException
+from nsj_rest_lib2.exception import (
+    MissingDependencyConfigException,
+    MissingEntityConfigException,
+)
 from nsj_rest_lib2.settings import (
     EDLS_FROM_REDIS,
     ESCOPO_RESTLIB2,
@@ -77,6 +82,16 @@ class Namespace:
 namespaces_dict: dict[str, Namespace] = {}
 
 
+class _CircularDependencyLoadException(Exception):
+    """
+    Excecao interna para interromper somente o ramo recursivo com ciclo.
+    """
+
+    def __init__(self, loading_key: str):
+        self.loading_key = loading_key
+        super().__init__(f"Circular dependency detected while loading '{loading_key}'.")
+
+
 class EntityLoader:
     def __init__(self, edls_path: str | None = None) -> types.NoneType:
         self._lock = threading.Lock()
@@ -90,6 +105,7 @@ class EntityLoader:
         grupo_empresarial: str | None,
         escopo: str = ESCOPO_RESTLIB2,
         force_reload: bool = False,
+        _loading_chain: set[str] | None = None,
     ) -> tuple[
         str,
         str,
@@ -120,9 +136,21 @@ class EntityLoader:
         bool,
         bool,
     ]:
-        # Assumind o escopo default se necessário
+        # Assumindo o escopo default se necessário
         if not escopo:
             escopo = ESCOPO_RESTLIB2
+
+        if _loading_chain is None:
+            _loading_chain = set()
+
+        # Guarda o caminho atual para detectar ciclos durante carga recursiva.
+        loading_key = (
+            f"{escopo}/{entity_resource}"
+            f"|tenant={tenant}|grupo_empresarial={grupo_empresarial}"
+        )
+        if loading_key in _loading_chain:
+            raise _CircularDependencyLoadException(loading_key)
+        _loading_chain.add(loading_key)
 
         # Montando as chaves dos namespaces
         grupo_key, tenant_key, default_key = compile_namespace_keys(
@@ -204,13 +232,43 @@ class EntityLoader:
                         f"Erro: Dependência de entidade mal formada na entidade {entity_resource}."
                     )
 
-                self.load_entity_source(
-                    rd.entity_resource,
-                    str(rd.tenant),
-                    str(rd.grupo_empresarial),
-                    rd.entity_scope,
-                    force_reload=force_reload,
-                )
+                try:
+                    self.load_entity_source(
+                        rd.entity_resource,
+                        str(rd.tenant),
+                        str(rd.grupo_empresarial),
+                        rd.entity_scope,
+                        force_reload=force_reload,
+                        _loading_chain=_loading_chain,
+                    )
+                except _CircularDependencyLoadException as exc:
+                    # Em ciclo A->B->A, a dependencia ja esta em processo de carga.
+                    get_logger().debug(
+                        f"Ciclo de dependência ignorado durante carregamento: {exc.loading_key}"
+                    )
+                    continue
+                except MissingDependencyConfigException as exc:
+                    # Preserva a causa original, atualizando o contexto da entidade atual.
+                    raise MissingDependencyConfigException(
+                        entity_resource=entity_resource,
+                        dependency_resource=exc.dependency_resource,
+                        dependency_scope=exc.dependency_scope,
+                        dependency_tenant=exc.dependency_tenant,
+                        dependency_grupo_empresarial=exc.dependency_grupo_empresarial,
+                    ) from exc
+                except MissingEntityConfigException as exc:
+                    # Converte falha generica da dependencia para erro especializado.
+                    raise MissingDependencyConfigException(
+                        entity_resource=entity_resource,
+                        dependency_resource=rd.entity_resource,
+                        dependency_scope=rd.entity_scope,
+                        dependency_tenant=rd.tenant,
+                        dependency_grupo_empresarial=(
+                            str(rd.grupo_empresarial)
+                            if rd.grupo_empresarial
+                            else None
+                        ),
+                    ) from exc
 
             if loaded_entity.never_expire or not EDLS_FROM_REDIS:
                 return cached_result
@@ -227,18 +285,42 @@ class EntityLoader:
                 loaded_entity.loaded_at = datetime.datetime.now()
 
                 # Recuperando do Redis direto pela key (faz uma só chamada ao redis)
-                loaded_config = self._load_entity_config_from_redis(
-                    entity_resource,
-                    grupo_key,
-                    tenant_key,
-                    default_key,
-                    entity_config_key,
-                    escopo=escopo,
-                )
+                try:
+                    loaded_config = self._load_entity_config_from_redis(
+                        entity_resource,
+                        grupo_key,
+                        tenant_key,
+                        default_key,
+                        entity_config_key,
+                        escopo=escopo,
+                    )
 
-                # Se não achar no redis, usa o que estava em memória
-                if not loaded_config:
+                    if not loaded_config and entity_config_key is not None:
+                        loaded_config = self._load_entity_config_from_redis(
+                            entity_resource,
+                            grupo_key,
+                            tenant_key,
+                            default_key,
+                            None,
+                            escopo=escopo,
+                        )
+                except RedisError as exc:
+                    get_logger().warning(
+                        "Redis unavailable while refreshing entity cache "
+                        f"for '{entity_resource}'. Keeping in-memory version. Error: {exc}"
+                    )
                     return cached_result
+                # Se não achar no redis, remove cache stale em memória e
+                # sinaliza que a entidade não está mais disponível.
+                if not loaded_config:
+                    self._evict_entity_from_memory(
+                        entity_resource=entity_resource,
+                        entity_config_key=entity_config_key,
+                        grupo_key=grupo_key,
+                        tenant_key=tenant_key,
+                        default_key=default_key,
+                    )
+                    raise MissingEntityConfigException()
 
                 # Desempacotando resultado
                 entity_config_key, entity_config_str = loaded_config
@@ -249,6 +331,7 @@ class EntityLoader:
                     entity_config_key,
                     entity_resource,
                     check_refresh=True,
+                    _loading_chain=_loading_chain,
                 )
 
                 # Se não carregou novo código, usa o que estava em memória
@@ -341,7 +424,10 @@ class EntityLoader:
 
         # Executando o código da entidade
         result_execute = self._execute_entity_source(
-            entity_config_str, entity_config_key, entity_resource
+            entity_config_str,
+            entity_config_key,
+            entity_resource,
+            _loading_chain=_loading_chain,
         )
 
         if result_execute is None:
@@ -438,19 +524,24 @@ class EntityLoader:
         if not edl_files:
             return
 
+        compiler = EDLCompiler()
         entities: dict[str, EntityModelBase] = {}
+        dependencies_map: dict[str, list[str]] = {}
+        order_hint: list[str] = []
         for file_path in edl_files:
             edl_json = self._read_edl_file(file_path)
             if not isinstance(edl_json, dict):
                 continue
 
-            if edl_json.get("mixin", False):
-                entity_model = EntityModelRoot(**edl_json)
-            else:
-                entity_model = EntityModel(**edl_json)
-
+            dependencies, entity_model = compiler.list_dependencies(edl_json)
             complete_entity_id = f"{entity_model.escopo}/{entity_model.id}"
+            if complete_entity_id in entities:
+                get_logger().warning(
+                    f"Entidade duplicada encontrada em EDLs: '{complete_entity_id}'. Usando a última ocorrência."
+                )
             entities[complete_entity_id] = entity_model
+            dependencies_map[complete_entity_id] = dependencies
+            order_hint.append(complete_entity_id)
 
         if not entities:
             return
@@ -463,10 +554,14 @@ class EntityLoader:
                     service_account=None,
                 )
 
-        compiler = EDLCompiler()
         dependencies = list(entities.items())
 
-        for entity_model in entities.values():
+        ordered_entity_ids = self._order_entities_by_dependency(
+            entities, dependencies_map, order_hint
+        )
+
+        for entity_id in ordered_entity_ids:
+            entity_model = entities[entity_id]
             escopo_dto = escopos.get(entity_model.escopo)
             if escopo_dto is None:
                 continue
@@ -493,8 +588,83 @@ class EntityLoader:
                 entity_config_key,
                 entity_resource,
                 from_disk=True,
-                skip_dependency_load=not EDLS_FROM_REDIS,
+                # Durante bootstrap por EDL em disco, depend?ncias devem ser resolvidas
+                # pela ordena??o dos EDLs carregados, sem fallback para Redis.
+                skip_dependency_load=True,
             )
+
+    def _order_entities_by_dependency(
+        self,
+        entities: dict[str, EntityModelBase],
+        dependencies_map: dict[str, list[str]],
+        order_hint: list[str],
+    ) -> list[str]:
+        # Base order: maintain file order, then append any missing keys
+        base_order: list[str] = []
+        seen: set[str] = set()
+        for key in order_hint:
+            if key in entities and key not in seen:
+                base_order.append(key)
+                seen.add(key)
+        for key in entities.keys():
+            if key not in seen:
+                base_order.append(key)
+                seen.add(key)
+
+        order_index = {key: idx for idx, key in enumerate(base_order)}
+
+        # Build dependency graph (edges: dep -> entity)
+        forward: dict[str, set[str]] = {key: set() for key in entities}
+        in_degree: dict[str, int] = {key: 0 for key in entities}
+        missing_deps: dict[str, set[str]] = {}
+
+        for key, deps in dependencies_map.items():
+            for dep in deps or []:
+                if dep not in entities:
+                    missing_deps.setdefault(key, set()).add(dep)
+                    continue
+                if dep == key:
+                    continue
+                if key not in forward[dep]:
+                    forward[dep].add(key)
+                    in_degree[key] += 1
+
+        if missing_deps:
+            missing_str = ", ".join(
+                f"{k} -> {sorted(list(v))}" for k, v in missing_deps.items()
+            )
+            get_logger().warning(
+                f"Dependências externas não encontradas nos EDLs locais: {missing_str}"
+            )
+
+        heap: list[tuple[int, str]] = [
+            (order_index.get(key, 0), key)
+            for key, deg in in_degree.items()
+            if deg == 0
+        ]
+        heapq.heapify(heap)
+
+        ordered: list[str] = []
+        while heap:
+            _, key = heapq.heappop(heap)
+            ordered.append(key)
+            for dependent in forward.get(key, set()):
+                in_degree[dependent] -= 1
+                if in_degree[dependent] == 0:
+                    heapq.heappush(
+                        heap, (order_index.get(dependent, 0), dependent)
+                    )
+
+        if len(ordered) != len(entities):
+            ordered_set = set(ordered)
+            remaining = [key for key in base_order if key not in ordered_set]
+            get_logger().warning(
+                "Não foi possível resolver a ordem completa das dependências. "
+                "Mantendo ordem topológica parcial e anexando o restante na ordem original."
+            )
+            return ordered + remaining
+
+        return ordered
 
     def _resolve_edls_path(self, edls_path: str) -> str | None:
         edls_path = edls_path.strip()
@@ -612,6 +782,7 @@ class EntityLoader:
         check_refresh: bool = False,
         from_disk: bool = False,
         skip_dependency_load: bool = False,
+        _loading_chain: set[str] | None = None,
     ) -> tuple[
         str,
         str,
@@ -732,21 +903,6 @@ class EntityLoader:
                 )
                 return None
 
-        # Verificando se alguma de suas dependências precisariam ser carregadas (ou recarregadas)
-        if not skip_dependency_load:
-            for rd in relations_dependencies:
-                if rd.entity_resource is None or rd.entity_scope is None:
-                    raise RuntimeError(
-                        f"Erro: Dependência de entidade mal formada na entidade {entity_resource}."
-                    )
-
-                self.load_entity_source(
-                    rd.entity_resource,
-                    str(rd.tenant),
-                    str(rd.grupo_empresarial),
-                    rd.entity_scope,
-                )
-
         # Verificando se a entidade precisa ou não de refresh
         if check_refresh:
             loaded_namespace = namespaces_dict.get(entity_config_key)
@@ -765,40 +921,75 @@ class EntityLoader:
             f"Carregando entidade {entity_resource} no namespace {entity_config_key}."
         )
 
-        # Carregando a entidade no namespace
+        # Publica a Entity real antes de recursar nas dependências. Em ciclos
+        # A->B->A, isso evita que descritores de DTO observem apenas um
+        # placeholder de Entity sem `pk_field`/`fields_map` resolvidos.
         with self._lock:
-            self._ensure_dynamic_package()
-
-            namespace = namespaces_dict.get(entity_config_key)
-            if namespace is None:
-                namespace = Namespace()
-                namespace.key = entity_config_key
-                namespaces_dict[entity_config_key] = namespace
-
-            # Hot reload: removendo o módulo do sys.modules, se existir
-            full_name = f"dynamic.{entity_config_key}"
-            # if full_name in sys.modules:
-            #     sys.modules.pop(full_name)
-
-            # Executando o código da entidade
-            module = sys.modules.get(full_name)
-            if not module:
-                module = types.ModuleType(full_name)
-                module.__package__ = "dynamic"
-                module.__dict__["__builtins__"] = __builtins__
-                sys.modules[full_name] = module
-
-                parent = sys.modules["dynamic"]
-                setattr(parent, entity_config_key, module)
-
-                namespace.module = module
-                namespace.entities_dict = module.__dict__
+            namespace = self._ensure_namespace_module(entity_config_key)
+            assert namespace.entities_dict is not None
 
             get_logger().debug(
                 f"Executando o código da entidade {entity_resource} no namespace {entity_config_key}. Código:"
             )
             get_logger().debug(f"Entity source:\n{source_entity}")
             get_logger().debug(f"DTO source:\n{source_dto}")
+
+            self._safe_exec(source_entity, namespace.entities_dict, "Entity source")
+
+            # Em ciclo A->B->A, a dependência precisa ao menos enxergar o DTO
+            # atual como placeholder para que o import dinâmico não falhe.
+            if dto_class_name:
+                self._ensure_dynamic_placeholder(dto_class_name, namespace.entities_dict)
+
+        # Verificando se alguma de suas dependências precisariam ser carregadas (ou recarregadas)
+        if not skip_dependency_load:
+            for rd in relations_dependencies:
+                if rd.entity_resource is None or rd.entity_scope is None:
+                    raise RuntimeError(
+                        f"Erro: Dependência de entidade mal formada na entidade {entity_resource}."
+                    )
+
+                try:
+                    self.load_entity_source(
+                        rd.entity_resource,
+                        str(rd.tenant),
+                        str(rd.grupo_empresarial),
+                        rd.entity_scope,
+                        _loading_chain=_loading_chain,
+                    )
+                except _CircularDependencyLoadException as exc:
+                    # Em ciclo A->B->A, a dependência já está em processo de carga.
+                    get_logger().debug(
+                        f"Ciclo de dependência ignorado durante carregamento: {exc.loading_key}"
+                    )
+                    continue
+                except MissingDependencyConfigException as exc:
+                    # Preserva a causa original, atualizando o contexto da entidade atual.
+                    raise MissingDependencyConfigException(
+                        entity_resource=entity_resource,
+                        dependency_resource=exc.dependency_resource,
+                        dependency_scope=exc.dependency_scope,
+                        dependency_tenant=exc.dependency_tenant,
+                        dependency_grupo_empresarial=exc.dependency_grupo_empresarial,
+                    ) from exc
+                except MissingEntityConfigException as exc:
+                    # Converte falha genérica da dependência para erro especializado.
+                    raise MissingDependencyConfigException(
+                        entity_resource=entity_resource,
+                        dependency_resource=rd.entity_resource,
+                        dependency_scope=rd.entity_scope,
+                        dependency_tenant=rd.tenant,
+                        dependency_grupo_empresarial=(
+                            str(rd.grupo_empresarial)
+                            if rd.grupo_empresarial
+                            else None
+                        ),
+                    ) from exc
+
+        # Carregando DTO e function types no namespace
+        with self._lock:
+            namespace = self._ensure_namespace_module(entity_config_key)
+            assert namespace.entities_dict is not None
 
             if insert_function_code:
                 self._safe_exec(
@@ -835,8 +1026,16 @@ class EntityLoader:
                     "Delete FunctionType source",
                 )
 
-            self._safe_exec(source_entity, namespace.entities_dict, "Entity source")
+            dynamic_import_symbols = self._collect_dynamic_import_symbols(source_dto)
+            for symbol in dynamic_import_symbols:
+                self._ensure_dynamic_placeholder(symbol, namespace.entities_dict)
+
+            # Autorreferencias podem nao gerar import; garantimos placeholder local para o proprio DTO.
+            if dto_class_name:
+                self._ensure_dynamic_placeholder(dto_class_name, namespace.entities_dict)
+
             self._safe_exec(source_dto, namespace.entities_dict, "DTO source")
+            self._resolve_dynamic_placeholders(namespace.entities_dict)
 
             # Gravando a entidade no dict de entidades carregadas
             loaded_entity = LoadedEntity()
@@ -930,6 +1129,125 @@ class EntityLoader:
             bool(custom_json_delete_response),
         )
 
+    def _collect_dynamic_import_symbols(self, source_code: str) -> set[str]:
+        symbols: set[str] = set()
+        pattern = re.compile(
+            r"^from\s+dynamic\.[A-Za-z0-9_]+\s+import\s+([A-Za-z0-9_]+)",
+            re.MULTILINE,
+        )
+        for match in pattern.finditer(source_code):
+            symbols.add(match.group(1))
+        return symbols
+
+    def _ensure_namespace_module(self, entity_config_key: str) -> Namespace:
+        self._ensure_dynamic_package()
+
+        namespace = namespaces_dict.get(entity_config_key)
+        if namespace is None:
+            namespace = Namespace()
+            namespace.key = entity_config_key
+            namespaces_dict[entity_config_key] = namespace
+
+        full_name = f"dynamic.{entity_config_key}"
+        module = sys.modules.get(full_name)
+        if not module:
+            module = types.ModuleType(full_name)
+            module.__package__ = "dynamic"
+            module.__dict__["__builtins__"] = __builtins__
+            sys.modules[full_name] = module
+
+            parent = sys.modules["dynamic"]
+            setattr(parent, entity_config_key, module)
+
+        namespace.module = module
+        namespace.entities_dict = module.__dict__
+        return namespace
+
+    def _ensure_dynamic_placeholder(self, symbol: str, context: dict[str, Any]) -> None:
+        if not symbol or symbol in context:
+            return
+
+        base_type = None
+        attrs: dict[str, Any] = {"__dynamic_placeholder__": True}
+        if symbol.endswith("DTO"):
+            base_type = DTOBase
+            attrs.update(
+                {
+                    "resume_fields": set(),
+                    "partition_fields": set(),
+                    "fields_map": {},
+                    "insert_function_field_lookup": {},
+                    "update_function_field_lookup": {},
+                    "get_function_field_lookup": {},
+                    "list_function_field_lookup": {},
+                    "delete_function_field_lookup": {},
+                    "list_fields_map": {},
+                    "integrity_check_fields_map": {},
+                    "left_join_fields_map": {},
+                    "left_join_fields_map_to_query": {},
+                    "sql_join_fields_map": {},
+                    "sql_join_fields_map_to_query": {},
+                    "sql_read_only_fields": [],
+                    "sql_no_update_fields": set(),
+                    "object_fields_map": {},
+                    "one_to_one_fields_map": {},
+                    "field_filters_map": {},
+                    "aggregator_fields_map": {},
+                    "search_fields": set(),
+                    "uniques": {},
+                    "candidate_keys": [],
+                    "fixed_filters": {},
+                    "data_override_group": [],
+                    "data_override_fields": [],
+                    "pk_field": "id",
+                }
+            )
+        elif symbol.endswith("Entity"):
+            base_type = EntityBase
+
+        if base_type is None:
+            return
+
+        context[symbol] = type(symbol, (base_type,), attrs)
+
+    def _resolve_dynamic_placeholders(self, context: dict[str, Any]) -> None:
+        def resolve_attr(target: Any, attr_name: str) -> Any:
+            value = getattr(target, attr_name, None)
+            if not isinstance(value, type):
+                return None
+            if not getattr(value, "__dynamic_placeholder__", False):
+                return None
+
+            resolved = context.get(value.__name__)
+            if (
+                isinstance(resolved, type)
+                and not getattr(resolved, "__dynamic_placeholder__", False)
+            ):
+                setattr(target, attr_name, resolved)
+                return resolved
+            return None
+
+        for obj in list(context.values()):
+            if not isinstance(obj, type):
+                continue
+            if getattr(obj, "__dynamic_placeholder__", False):
+                continue
+            if not issubclass(obj, DTOBase):
+                continue
+
+            annotations = getattr(obj, "__annotations__", {})
+
+            for field_name, descriptor in getattr(obj, "one_to_one_fields_map", {}).items():
+                resolved_expected = resolve_attr(descriptor, "expected_type")
+                if resolved_expected is not None:
+                    annotations[field_name] = resolved_expected
+                resolve_attr(descriptor, "entity_type")
+
+            for map_name in ("list_fields_map", "object_fields_map", "left_join_fields_map"):
+                for descriptor in getattr(obj, map_name, {}).values():
+                    resolve_attr(descriptor, "dto_type")
+                    resolve_attr(descriptor, "entity_type")
+
     def _safe_exec(self, source_code, context, description):
         try:
             exec(source_code, context)
@@ -946,6 +1264,27 @@ class EntityLoader:
         entity_config_key: str | None,
         escopo: str,
     ) -> tuple[str, str] | None:
+        """
+        Carrega a configuracao da entidade no Redis com fallback de namespace.
+
+        Ordem de busca:
+            1) entity_config_key informado
+            2) grupo_key
+            3) tenant_key
+            4) default_key
+
+        Args:
+            entity_resource: Resource da entidade.
+            grupo_key: Namespace de grupo empresarial.
+            tenant_key: Namespace de tenant.
+            default_key: Namespace default.
+            entity_config_key: Namespace preferencial (quando conhecido).
+            escopo: Escopo da entidade no Redis.
+
+        Returns:
+            Tupla (namespace_key, entity_config_json) quando encontrado.
+            Retorna None quando nao existir no Redis.
+        """
         if not EDLS_FROM_REDIS:
             return None
 
@@ -1014,3 +1353,36 @@ class EntityLoader:
             return (entity_config_key, namespace)
         else:
             return None
+
+    def _evict_entity_from_memory(
+        self,
+        entity_resource: str,
+        entity_config_key: str | None,
+        grupo_key: str,
+        tenant_key: str,
+        default_key: str,
+    ) -> None:
+        """
+        Remove a entidade carregada de todos os namespaces de memoria.
+
+        Args:
+            entity_resource: Resource da entidade.
+            entity_config_key: Namespace originalmente utilizado (quando conhecido).
+            grupo_key: Namespace de grupo empresarial.
+            tenant_key: Namespace de tenant.
+            default_key: Namespace default.
+
+        Returns:
+            None.
+        """
+        # Remove a entidade de todos os namespaces possíveis para evitar
+        # reaproveitamento de código dinâmico obsoleto.
+        keys = [grupo_key, tenant_key, default_key]
+        if entity_config_key:
+            keys.insert(0, entity_config_key)
+
+        for key in keys:
+            namespace = namespaces_dict.get(key)
+            if namespace is None:
+                continue
+            namespace.loaded_entities.pop(entity_resource, None)

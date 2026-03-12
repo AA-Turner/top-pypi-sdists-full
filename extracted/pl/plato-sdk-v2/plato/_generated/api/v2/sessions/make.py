@@ -7,11 +7,15 @@ from typing import Any
 import httpx
 
 from plato._generated.errors import raise_for_status
-from plato._generated.models import CreateSessionFromEnvs, CreateSessionResponse
+from plato._generated.models import (
+    CreateSessionFromEnvs,
+    CreateSessionFromTestCase,
+    CreateSessionResponse,
+)
 
 
 def _build_request_args(
-    body: CreateSessionFromEnvs,
+    body: CreateSessionFromEnvs | CreateSessionFromTestCase,
     wait: bool | None = False,
     wait_timeout: int | None = 300,
     authorization: str | None = None,
@@ -43,7 +47,7 @@ def _build_request_args(
 
 def sync(
     client: httpx.Client,
-    body: CreateSessionFromEnvs,
+    body: CreateSessionFromEnvs | CreateSessionFromTestCase,
     wait: bool | None = False,
     wait_timeout: int | None = 300,
     authorization: str | None = None,
@@ -53,7 +57,7 @@ def sync(
 
     Supports two modes:
     1. From envs: Provide list of environment configurations
-    2. From task: Provide task_id (artifacts inferred from task config)"""
+    2. From testcase: Provide testcase_id (artifacts inferred from test case config)"""
 
     request_args = _build_request_args(
         body=body,
@@ -70,7 +74,7 @@ def sync(
 
 async def asyncio(
     client: httpx.AsyncClient,
-    body: CreateSessionFromEnvs,
+    body: CreateSessionFromEnvs | CreateSessionFromTestCase,
     wait: bool | None = False,
     wait_timeout: int | None = 300,
     authorization: str | None = None,
@@ -80,7 +84,7 @@ async def asyncio(
 
     Supports two modes:
     1. From envs: Provide list of environment configurations
-    2. From task: Provide task_id (artifacts inferred from task config)"""
+    2. From testcase: Provide testcase_id (artifacts inferred from test case config)"""
 
     request_args = _build_request_args(
         body=body,

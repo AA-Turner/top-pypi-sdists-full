@@ -224,12 +224,12 @@ def fix_head_if_github_action(metadata: GitMeta) -> None:
     help="Enable malicious dependency rules for this scan.",
 )
 @click.option(
-    "--x-use-scan-v2",
+    "--x-use-scan-v2/--x-no-scan-v2",
     "use_scan_v2",
-    is_flag=True,
+    default=True,
     envvar="SEMGREP_USE_SCAN_V2",
     hidden=True,
-    help="Enable experimental v2 /scans endpoint.",
+    help="Use v2 /scans endpoint (default). Pass --x-no-scan-v2 to fall back to v1.",
 )
 @handle_command_errors
 def ci(
@@ -281,6 +281,7 @@ def ci(
     allow_untrusted_validators: bool,
     supply_chain: bool,
     scan_unknown_extensions: bool,
+    secrets_timeout: Optional[int],
     subdir: Optional[Path],
     time_flag: bool,
     timeout_threshold: int,
@@ -769,6 +770,7 @@ def ci(
             "timeout_threshold": timeout_threshold,
             "skip_unknown_extensions": (not scan_unknown_extensions),
             "allow_untrusted_validators": allow_untrusted_validators,
+            "secrets_timeout": secrets_timeout,
             "optimizations": optimizations,
             "baseline_commit": final_baseline_commit,
             "baseline_commit_is_mergebase": True,

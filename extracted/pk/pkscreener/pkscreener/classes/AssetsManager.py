@@ -1046,6 +1046,7 @@ class PKAssetsManager:
         default_logger().debug(f"Attempted fresh download of {len(stockCodes)} stocks and downloaded {len(processedStocks)} stocks. {len(leftOutStocks)} stocks remaining/ignored.")
         return stockDict, 0
 
+    @Halo(text='  [+] Downloading fresh instruments and their data from Data Providers...', spinner='dots')
     def loadStockData(
         stockDict,
         configManager,

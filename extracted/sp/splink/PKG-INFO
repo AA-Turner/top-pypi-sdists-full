@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: splink
-Version: 4.0.15
+Version: 4.0.16
 Summary: Fast probabilistic data linkage at scale
 Project-URL: Homepage, https://github.com/moj-analytical-services/splink
 Project-URL: Repository, https://github.com/moj-analytical-services/splink

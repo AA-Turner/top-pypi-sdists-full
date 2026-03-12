@@ -13,6 +13,7 @@ export declare class BoxZoomToolView extends GestureToolView {
     get overlays(): import("../..").Renderer[];
     protected _base_point: Point | null;
     _match_aspect([bx, by]: Point, [cx, cy]: Point, frame: CartesianFrameView): [Point, Point];
+    protected _get_dimensions(base_point: Point, curr_point: Point): Dimensions;
     protected _compute_limits(base_point: Point, curr_point: Point): [Point, Point];
     _pan_start(ev: PanEvent): void;
     _pan(ev: PanEvent): void;

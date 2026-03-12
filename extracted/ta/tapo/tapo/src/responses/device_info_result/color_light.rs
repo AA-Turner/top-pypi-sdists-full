@@ -52,16 +52,7 @@ pub struct DeviceInfoColorLightResult {
 }
 
 #[cfg(feature = "python")]
-#[pyo3::pymethods]
-impl DeviceInfoColorLightResult {
-    /// Gets all the properties of this result as a dictionary.
-    pub fn to_dict(&self, py: pyo3::Python) -> pyo3::PyResult<pyo3::Py<pyo3::types::PyDict>> {
-        let value = serde_json::to_value(self)
-            .map_err(|e| pyo3::exceptions::PyException::new_err(e.to_string()))?;
-
-        crate::python::serde_object_to_py_dict(py, &value)
-    }
-}
+crate::impl_to_dict!(DeviceInfoColorLightResult);
 
 impl TapoResponseExt for DeviceInfoColorLightResult {}
 
@@ -83,6 +74,9 @@ pub struct DefaultColorLightState {
     pub state: ColorLightState,
 }
 
+#[cfg(feature = "python")]
+crate::impl_to_dict!(DefaultColorLightState);
+
 /// Color Light State.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "python", pyo3::prelude::pyclass(from_py_object, get_all))]
@@ -93,3 +87,6 @@ pub struct ColorLightState {
     pub saturation: Option<u16>,
     pub color_temp: u16,
 }
+
+#[cfg(feature = "python")]
+crate::impl_to_dict!(ColorLightState);

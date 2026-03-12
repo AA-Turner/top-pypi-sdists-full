@@ -7,6 +7,7 @@ export interface Hatch extends Readonly<mixins.Hatch> {
 }
 export declare class Hatch extends VisualProperties {
     protected _hatch_image: CanvasImageSource | null;
+    protected _hatch_svg: CanvasImageSource | null;
     protected _update_iteration: number;
     update(): void;
     get doit(): boolean;
@@ -14,6 +15,11 @@ export declare class Hatch extends VisualProperties {
     set_value(ctx: Context2d): void;
     pattern(ctx: Context2d): CanvasPattern | null;
     repetition(): CanvasPatternRepetition;
+    ComputedValues: {
+        scale: number;
+        pattern: string;
+    };
+    computed_values(): this["ComputedValues"];
     get_hatch_color(): Color | null;
     get_hatch_alpha(): number;
     get_hatch_scale(): number;

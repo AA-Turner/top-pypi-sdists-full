@@ -3,7 +3,7 @@ import type { GlyphRendererView } from "./glyph_renderer";
 import { GlyphRenderer } from "./glyph_renderer";
 import type { GlyphView } from "../glyphs/glyph";
 import type * as p from "../../core/properties";
-import type { IterViews } from "../../core/build_views";
+import type { View } from "../../core/build_views";
 import type { SelectionManager } from "../../core/selection_manager";
 import type { Geometry } from "../../core/geometry";
 import type { HitTestResult } from "../../core/hittest";
@@ -12,7 +12,7 @@ export declare class ContourRendererView extends DataRendererView {
     model: ContourRenderer;
     fill_view: GlyphRendererView;
     line_view: GlyphRendererView;
-    children(): IterViews;
+    children_views(): View[];
     get glyph_view(): GlyphView;
     lazy_initialize(): Promise<void>;
     remove(): void;

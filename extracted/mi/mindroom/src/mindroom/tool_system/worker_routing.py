@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from mindroom.config.main import Config
 
 WorkerScope = Literal["shared", "user", "user_agent", "room_thread"]
-ExecutionChannel = Literal["matrix", "openai_compat"]
+_ExecutionChannel = Literal["matrix", "openai_compat"]
 
 _WORKER_DIRNAME_MAX_PREFIX_LENGTH = 80
 SHARED_ONLY_INTEGRATION_NAMES = frozenset(
@@ -36,7 +36,7 @@ SHARED_ONLY_INTEGRATION_NAMES = frozenset(
 class ToolExecutionIdentity:
     """Serializable execution identity used for worker resolution."""
 
-    channel: ExecutionChannel
+    channel: _ExecutionChannel
     agent_name: str
     requester_id: str | None
     room_id: str | None
@@ -151,6 +151,32 @@ def resolve_worker_key(
     return worker_key
 
 
+def resolve_unscoped_worker_key(
+    *,
+    agent_name: str,
+    execution_identity: ToolExecutionIdentity | None = None,
+) -> str:
+    """Derive a stable backend worker key for unscoped sandbox execution."""
+    identity = execution_identity or get_tool_execution_identity()
+    tenant_key = _normalize_worker_key_part(
+        identity.tenant_id
+        if identity is not None and identity.tenant_id is not None
+        else (
+            identity.account_id
+            if identity is not None and identity.account_id is not None
+            else os.getenv("CUSTOMER_ID") or os.getenv("ACCOUNT_ID") or "default"
+        ),
+    )
+    effective_agent_name = _normalize_worker_key_part(agent_name)
+    return f"v1:{tenant_key}:unscoped:{effective_agent_name}"
+
+
+def is_unscoped_worker_key(worker_key: str) -> bool:
+    """Return whether a worker key uses the unscoped backend worker form."""
+    parts = worker_key.split(":")
+    return len(parts) >= 4 and parts[0] == "v1" and parts[2] == "unscoped"
+
+
 def resolve_execution_identity_for_worker_scope(
     worker_scope: WorkerScope | None,
     *,
@@ -230,7 +256,7 @@ def worker_root_path(base_storage_path: Path, worker_key: str) -> Path:
     return workers_dir / worker_dir_name(worker_key)
 
 
-def resolve_agent_worker_root(
+def _resolve_agent_worker_root(
     *,
     agent_name: str,
     base_storage_path: Path,
@@ -258,7 +284,7 @@ def resolve_agent_state_storage_path(
 ) -> Path:
     """Return the storage path that should back the agent's mutable state."""
     return (
-        resolve_agent_worker_root(
+        _resolve_agent_worker_root(
             agent_name=agent_name,
             base_storage_path=base_storage_path,
             config=config,

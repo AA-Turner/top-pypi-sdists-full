@@ -35,11 +35,11 @@ log = logging.getLogger(__name__)
 #-----------------------------------------------------------------------------
 
 # Standard library imports
+import asyncio
 import atexit
 import signal
 import socket
 import sys
-from types import FrameType
 from typing import TYPE_CHECKING, Any, Mapping
 
 # External imports
@@ -49,13 +49,9 @@ from tornado.ioloop import IOLoop
 
 # Bokeh imports
 from .. import __version__
-from ..core import properties as p
-from ..core.properties import (
-    Bool,
-    Int,
-    Nullable,
-    String,
-)
+from ..core.property.container import List
+from ..core.property.nullable import Nullable
+from ..core.property.primitive import Bool, Int, String
 from ..resources import DEFAULT_SERVER_PORT, server_url
 from ..util.options import Options
 from .tornado import DEFAULT_WEBSOCKET_MAX_MESSAGE_SIZE_BYTES, BokehTornado
@@ -196,9 +192,14 @@ class BaseServer:
         '''
         if not self._started:
             self.start()
+
         # Install shutdown hooks
         atexit.register(self._atexit)
-        signal.signal(signal.SIGTERM, self._sigterm)
+
+        if sys.platform != "win32":
+            io_loop = asyncio.get_event_loop()
+            io_loop.add_signal_handler(signal.SIGTERM, self._sigterm)
+
         try:
             self._loop.start()
         except KeyboardInterrupt:
@@ -289,10 +290,10 @@ class BaseServer:
         if not self._stopped:
             self.stop(wait=False)
 
-    def _sigterm(self, signum: int, frame: FrameType | None) -> None:
-        print(f"Received signal {signum}, shutting down")
+    def _sigterm(self) -> None:
+        print("Received signal SIGTERM, shutting down")
         # Tell self._loop.start() to return.
-        self._loop.add_callback_from_signal(self._loop.stop)
+        self._loop.stop()
 
     @property
     def port(self) -> int | None:
@@ -529,7 +530,7 @@ class _ServerOpts(Options):
     A path to a Jinja2 template to use for the index "/"
     """)  # type: ignore[assignment]
 
-    allow_websocket_origin: list[str] | None = Nullable(p.List(String), help="""
+    allow_websocket_origin: list[str] | None = Nullable(List(String), help="""
     A list of hosts that can connect to the websocket.
 
     This is typically required when embedding a Bokeh server app in an external

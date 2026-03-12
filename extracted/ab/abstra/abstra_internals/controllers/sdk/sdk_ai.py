@@ -263,7 +263,9 @@ class AiSDKController:
                 print(f"[Agent] Tool call result: {trucate(repr(value))}")
                 result = {"status": "success", "value": value}
             except Exception as e:
-                result = {"status": "error", "error": str(e)}
+                error_msg = str(e)
+                is_fatal = error_msg.startswith("FATAL:")
+                result = {"status": "error", "error": error_msg, "fatal": is_fatal}
                 print(f"[Agent] Tool call error: {trucate(repr(e))}")
 
             if result["status"] == "success" and isinstance(

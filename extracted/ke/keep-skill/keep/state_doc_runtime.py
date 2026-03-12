@@ -116,6 +116,10 @@ def run_flow(
         optional return data. When status is "stopped", the cursor
         field contains a resumable token.
     """
+    from .perf_stats import perf as _perf
+    import time as _time
+    _flow_t0 = _time.monotonic()
+
     # Resume from cursor or start fresh
     if cursor is not None:
         current_state = cursor.state
@@ -132,9 +136,13 @@ def run_flow(
     ticks = 0
     history: list[str] = []
 
-    # Wrap run_action to enrich find output with statistics
+    def _record_flow() -> None:
+        _perf.record("flow", initial_state, _time.monotonic() - _flow_t0)
+
+    # Wrap run_action to enrich find output with statistics and track timing
     def _action_callback(action_name: str, action_params: dict[str, Any]) -> dict[str, Any]:
-        output = run_action(action_name, action_params)
+        with _perf.timer("action", action_name):
+            output = run_action(action_name, action_params)
         if action_name == "find" and isinstance(output, dict):
             output = enrich_find_output(output)
         return output
@@ -143,6 +151,7 @@ def run_flow(
         doc = load_state_doc(current_state)
         if doc is None:
             logger.info("flow: %s -> error (state doc not found)", current_state)
+            _record_flow()
             return FlowResult(
                 status="error",
                 data={"reason": f"state doc not found: {current_state}"},
@@ -161,6 +170,7 @@ def run_flow(
             result = evaluate_state_doc(doc, eval_ctx, run_action=_action_callback)
         except Exception as exc:
             logger.warning("State doc %r evaluation failed: %s", current_state, exc)
+            _record_flow()
             return FlowResult(
                 status="error",
                 data={"reason": f"evaluation failed: {exc}"},
@@ -174,6 +184,7 @@ def run_flow(
         # Terminal
         if result.terminal is not None:
             logger.info("flow: %s -> %s (%d ticks)", current_state, result.terminal, ticks)
+            _record_flow()
             return FlowResult(
                 status=result.terminal,
                 bindings=accumulated_bindings,
@@ -187,6 +198,7 @@ def run_flow(
             next_state, transition_params = _parse_transition(result.transition)
             if next_state is None:
                 logger.info("flow: %s -> error (invalid transition)", current_state)
+                _record_flow()
                 return FlowResult(
                     status="error",
                     data={"reason": f"invalid transition: {result.transition}"},
@@ -202,6 +214,7 @@ def run_flow(
 
         # No terminal, no transition — shouldn't happen (evaluator defaults to done)
         logger.info("flow: %s -> done (implicit, %d ticks)", current_state, ticks)
+        _record_flow()
         return FlowResult(
             status="done",
             bindings=accumulated_bindings,
@@ -213,6 +226,7 @@ def run_flow(
     total_ticks = prior_ticks + ticks
     cursor_token = encode_cursor(current_state, total_ticks, accumulated_bindings)
     logger.info("flow: %s -> stopped (budget, %d ticks)", current_state, total_ticks)
+    _record_flow()
     return FlowResult(
         status="stopped",
         bindings=accumulated_bindings,
@@ -308,30 +322,18 @@ def make_state_doc_loader(
     skip full migration, and the brief window before first migration
     on a fresh store.
     """
-    from .state_doc import parse_state_doc
-    from .builtin_state_docs import BUILTIN_STATE_DOCS
+    from .state_doc import load_state_doc as _load_state_doc
 
     def _load(name: str) -> Optional[StateDoc]:
         bare_name = name.removeprefix(".state/")
-        note_id = f".state/{bare_name}"
 
-        # Primary path: load from the store
-        doc_note = env.get(note_id)
-        if doc_note is not None:
-            body = str(getattr(doc_note, "summary", "") or "").strip()
-            if body:
-                try:
-                    return parse_state_doc(bare_name, body)
-                except (ValueError, RuntimeError) as exc:
-                    logger.warning("Failed to compile state doc %r: %s", note_id, exc)
+        def _get_note(id: str):
+            return env.get(id)
 
-        # Fallback: compiled builtins (pre-migration or test environments)
-        builtin_body = BUILTIN_STATE_DOCS.get(bare_name)
-        if builtin_body is not None:
-            logger.debug("State doc %r not in store, using builtin fallback", bare_name)
-            return _get_compiled_builtin(bare_name, builtin_body)
+        def _list_children(prefix: str):
+            return env.list_items(prefix=prefix, include_hidden=True, limit=50)
 
-        return None
+        return _load_state_doc(bare_name, get_note=_get_note, list_children=_list_children)
 
     return _load
 
@@ -412,6 +414,13 @@ class _EnvActionContext:
 
     def get_document(self, id: str) -> Any:
         return self._env.get_document(id)
+
+    def find_by_name(self, stem: str, *, vault: str | None = None) -> Any:
+        # Delegate to env if available; extract_links runs via _KeeperActionContext
+        fn = getattr(self._env, "find_by_name", None)
+        if fn is not None:
+            return fn(stem, vault=vault)
+        return None
 
     def resolve_meta(self, id: str, limit_per_doc: int = 3) -> dict[str, list[Any]]:
         return self._env.resolve_meta(id, limit_per_doc=limit_per_doc)

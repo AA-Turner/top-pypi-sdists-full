@@ -8,7 +8,7 @@ from . import action
 from ._item_scope import resolve_item_content
 
 
-@action
+@action(id="summarize", priority=3)
 class Summarize:
     """Generate and return a summary for the target item."""
 
@@ -57,7 +57,7 @@ class Summarize:
                 {
                     "op": "set_summary",
                     "target": item_id,
-                    "summary": "$output.summary",
+                    "summary": out_summary,
                 }
             ],
         }

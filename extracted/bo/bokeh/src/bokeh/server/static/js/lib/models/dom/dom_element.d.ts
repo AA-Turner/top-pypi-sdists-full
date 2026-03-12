@@ -1,7 +1,7 @@
 import { DOMNode, DOMNodeView } from "./dom_node";
 import { StylesLike } from "../ui/styled_element";
 import { UIElement } from "../ui/ui_element";
-import type { ViewStorage, BuildResult, IterViews } from "../../core/build_views";
+import type { ViewStorage, BuildResult, View } from "../../core/build_views";
 import type { RenderingTarget } from "../../core/dom_view";
 import type { BBox } from "../../core/util/bbox";
 import type * as p from "../../core/properties";
@@ -11,7 +11,7 @@ export declare abstract class DOMElementView extends DOMNodeView {
     get bbox(): BBox;
     get self_target(): RenderingTarget;
     readonly child_views: ViewStorage<DOMNode | UIElement>;
-    children(): IterViews;
+    children_views(): View[];
     lazy_initialize(): Promise<void>;
     remove(): void;
     connect_signals(): void;

@@ -2034,17 +2034,13 @@ async def generate_agent_card(request: ApiRequest, assistant_id: str) -> dict[st
 
 async def handle_agent_card_endpoint(request: ApiRequest) -> Response:
     """Serve Agent Card for a specific assistant.
-
-    Expected URL: /.well-known/agent-card.json?assistant_id=uuid
-
-    Can also use DEFAULT_A2A_ASSISTANT_ID env var as fallback when no
-    query parameter is provided (useful for TCK testing in multi-tenant mode).
-
-    Args:
-        request: HTTP request
-
-    Returns:
-        JSON response with Agent Card for the specific assistant
+    ---
+    summary: Serve Agent Card for a specific assistant.
+    description: >
+        Serves the Agent Card for a specific assistant identified by the
+        assistant_id query parameter. Falls back to the DEFAULT_A2A_ASSISTANT_ID
+        env var when no query parameter is provided.
+        Expected URL is /.well-known/agent-card.json?assistant_id=uuid
     """
     try:
         # Get assistant_id from query parameters, env var, or file fallback
@@ -2557,14 +2553,12 @@ async def handle_message_stream(
 
 async def handle_a2a_assistant_endpoint(request: ApiRequest) -> Response:
     """A2A endpoint handler for specific assistant.
-
-    Expected URL: /a2a/{assistant_id}
-
-    Args:
-        request: The incoming HTTP request
-
-    Returns:
-        JSON-RPC response or appropriate HTTP error response
+    ---
+    summary: A2A endpoint handler for specific assistant.
+    description: >
+        Handles A2A JSON-RPC requests for a specific assistant identified
+        by the assistant_id path parameter.
+        Expected URL is /a2a/{assistant_id}
     """
     # Extract assistant_id from URL path params
     assistant_id = request.path_params.get("assistant_id")
@@ -2584,17 +2578,13 @@ async def handle_a2a_assistant_endpoint(request: ApiRequest) -> Response:
 
 async def handle_assistant_agent_card_endpoint(request: ApiRequest) -> Response:
     """Serve Agent Card for a specific assistant via path parameter.
-
-    Expected URL: /a2a/{assistant_id}/.well-known/agent-card.json
-
-    This endpoint follows the A2A multi-tenant pattern where each agent has
-    its own well-known agent card path.
-
-    Args:
-        request: HTTP request
-
-    Returns:
-        JSON response with Agent Card for the specific assistant
+    ---
+    summary: Serve Agent Card for a specific assistant via path parameter.
+    description: >
+        Serves the Agent Card for a specific assistant via path parameter,
+        following the A2A multi-tenant pattern where each agent has its own
+        well-known agent card path.
+        Expected URL is /a2a/{assistant_id}/.well-known/agent-card.json
     """
     try:
         assistant_id = request.path_params.get("assistant_id")

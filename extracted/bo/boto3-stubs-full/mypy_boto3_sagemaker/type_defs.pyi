@@ -970,6 +970,9 @@ __all__ = (
     "DescribeTrainingJobRequestTypeDef",
     "DescribeTrainingJobRequestWaitTypeDef",
     "DescribeTrainingJobResponseTypeDef",
+    "DescribeTrainingPlanExtensionHistoryRequestPaginateTypeDef",
+    "DescribeTrainingPlanExtensionHistoryRequestTypeDef",
+    "DescribeTrainingPlanExtensionHistoryResponseTypeDef",
     "DescribeTrainingPlanRequestTypeDef",
     "DescribeTrainingPlanResponseTypeDef",
     "DescribeTransformJobRequestTypeDef",
@@ -1062,6 +1065,8 @@ __all__ = (
     "ExplainerConfigOutputTypeDef",
     "ExplainerConfigTypeDef",
     "ExplainerConfigUnionTypeDef",
+    "ExtendTrainingPlanRequestTypeDef",
+    "ExtendTrainingPlanResponseTypeDef",
     "FSxLustreConfigTypeDef",
     "FSxLustreFileSystemConfigTypeDef",
     "FSxLustreFileSystemTypeDef",
@@ -1930,6 +1935,8 @@ __all__ = (
     "TrainingJobStepMetadataTypeDef",
     "TrainingJobSummaryTypeDef",
     "TrainingJobTypeDef",
+    "TrainingPlanExtensionOfferingTypeDef",
+    "TrainingPlanExtensionTypeDef",
     "TrainingPlanFilterTypeDef",
     "TrainingPlanOfferingTypeDef",
     "TrainingPlanSummaryTypeDef",
@@ -3842,6 +3849,24 @@ class WarmPoolStatusTypeDef(TypedDict):
     ResourceRetainedBillableTimeInSeconds: NotRequired[int]
     ReusedByJob: NotRequired[str]
 
+class DescribeTrainingPlanExtensionHistoryRequestTypeDef(TypedDict):
+    TrainingPlanArn: str
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+
+class TrainingPlanExtensionTypeDef(TypedDict):
+    TrainingPlanExtensionOfferingId: str
+    ExtendedAt: NotRequired[datetime]
+    StartDate: NotRequired[datetime]
+    EndDate: NotRequired[datetime]
+    Status: NotRequired[str]
+    PaymentStatus: NotRequired[str]
+    AvailabilityZone: NotRequired[str]
+    AvailabilityZoneId: NotRequired[str]
+    DurationHours: NotRequired[int]
+    UpfrontFee: NotRequired[str]
+    CurrencyCode: NotRequired[str]
+
 class DescribeTrainingPlanRequestTypeDef(TypedDict):
     TrainingPlanName: str
 
@@ -4085,6 +4110,9 @@ class InstanceGroupScalingMetadataTypeDef(TypedDict):
     TargetCount: NotRequired[int]
     MinCount: NotRequired[int]
     FailureMessage: NotRequired[str]
+
+class ExtendTrainingPlanRequestTypeDef(TypedDict):
+    TrainingPlanExtensionOfferingId: str
 
 class FailStepMetadataTypeDef(TypedDict):
     ErrorMessage: NotRequired[str]
@@ -5057,6 +5085,8 @@ class ReservedCapacityOfferingTypeDef(TypedDict):
     DurationMinutes: NotRequired[int]
     StartTime: NotRequired[datetime]
     EndTime: NotRequired[datetime]
+    ExtensionStartTime: NotRequired[datetime]
+    ExtensionEndTime: NotRequired[datetime]
 
 class ResourceConfigForUpdateTypeDef(TypedDict):
     KeepAlivePeriodInSeconds: int
@@ -5068,6 +5098,15 @@ class VisibilityConditionsTypeDef(TypedDict):
 class TotalHitsTypeDef(TypedDict):
     Value: NotRequired[int]
     Relation: NotRequired[RelationType]
+
+class TrainingPlanExtensionOfferingTypeDef(TypedDict):
+    TrainingPlanExtensionOfferingId: str
+    AvailabilityZone: NotRequired[str]
+    StartDate: NotRequired[datetime]
+    EndDate: NotRequired[datetime]
+    DurationHours: NotRequired[int]
+    UpfrontFee: NotRequired[str]
+    CurrencyCode: NotRequired[str]
 
 class SelectedStepTypeDef(TypedDict):
     StepName: str
@@ -6657,6 +6696,10 @@ class UpdateDeviceFleetRequestTypeDef(TypedDict):
     RoleArn: NotRequired[str]
     Description: NotRequired[str]
     EnableIotRoleAlias: NotRequired[bool]
+
+class DescribeTrainingPlanExtensionHistoryRequestPaginateTypeDef(TypedDict):
+    TrainingPlanArn: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListAliasesRequestPaginateTypeDef(TypedDict):
     ImageName: str
@@ -8291,6 +8334,7 @@ class SearchTrainingPlanOfferingsRequestTypeDef(TypedDict):
     EndTimeBefore: NotRequired[TimestampTypeDef]
     DurationHours: NotRequired[int]
     TargetResources: NotRequired[Sequence[SageMakerResourceNameType]]
+    TrainingPlanArn: NotRequired[str]
 
 class CreateTrialComponentRequestTypeDef(TypedDict):
     TrialComponentName: str
@@ -8617,6 +8661,15 @@ class TrainingJobSummaryTypeDef(TypedDict):
     SecondaryStatus: NotRequired[SecondaryStatusType]
     WarmPoolStatus: NotRequired[WarmPoolStatusTypeDef]
     TrainingPlanArn: NotRequired[str]
+
+class DescribeTrainingPlanExtensionHistoryResponseTypeDef(TypedDict):
+    TrainingPlanExtensions: list[TrainingPlanExtensionTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class ExtendTrainingPlanResponseTypeDef(TypedDict):
+    TrainingPlanExtensions: list[TrainingPlanExtensionTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeTrainingPlanResponseTypeDef(TypedDict):
     TrainingPlanArn: str
@@ -10729,6 +10782,7 @@ class HumanTaskConfigTypeDef(TypedDict):
 
 class SearchTrainingPlanOfferingsResponseTypeDef(TypedDict):
     TrainingPlanOfferings: list[TrainingPlanOfferingTypeDef]
+    TrainingPlanExtensionOfferings: list[TrainingPlanExtensionOfferingTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribePipelineExecutionResponseTypeDef(TypedDict):

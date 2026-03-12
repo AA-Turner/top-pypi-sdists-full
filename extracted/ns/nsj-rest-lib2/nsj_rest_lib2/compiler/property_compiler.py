@@ -296,6 +296,8 @@ class EDLPropertyCompiler:
         related_dto_class_name, related_entity_class_name = (
             self._resolve_related_class_names(relation_ref)
         )
+        current_entity_key = f"{entity_model.escopo}/{entity_model.id}"
+        is_self_reference = related_entity_key == current_entity_key
 
         tenant = related_entity.tenant
         grupo_empresarial = related_entity.grupo_empresarial
@@ -307,7 +309,8 @@ class EDLPropertyCompiler:
             tenant
             and tenant != 0
             and grupo_empresarial
-            and grupo_empresarial != "00000000-0000-0000-0000-000000000000"
+            # UUID pode chegar como objeto uuid.UUID; normaliza para comparar.
+            and str(grupo_empresarial) != "00000000-0000-0000-0000-000000000000"
         ):
             related_import = grupo_key
         elif tenant and tenant != 0:
@@ -315,21 +318,24 @@ class EDLPropertyCompiler:
         else:
             related_import = default_key
 
-        related_imports.append(
-            (
-                related_import,
-                related_dto_class_name,
-                related_entity_class_name,
+        # Autorreferencia não precisa de import externo nem dependência em Redis;
+        # ambos causam ciclo desnecessário no carregador dinâmico.
+        if not is_self_reference:
+            related_imports.append(
+                (
+                    related_import,
+                    related_dto_class_name,
+                    related_entity_class_name,
+                )
             )
-        )
 
-        # Gravando a dependência de relacionamento
-        relation_dependency = RelationDependency()
-        relation_dependency.entity_resource = related_entity.api.resource
-        relation_dependency.entity_scope = related_entity.escopo
-        relation_dependency.tenant = tenant
-        relation_dependency.grupo_empresarial = grupo_empresarial
-        relations_dependencies.append(relation_dependency)
+            # Gravando a dependencia de relacionamento
+            relation_dependency = RelationDependency()
+            relation_dependency.entity_resource = related_entity.api.resource
+            relation_dependency.entity_scope = related_entity.escopo
+            relation_dependency.tenant = tenant
+            relation_dependency.grupo_empresarial = grupo_empresarial
+            relations_dependencies.append(relation_dependency)
 
         # Instanciando o ast
         if prop.cardinality == CardinalityTypes.C1_N:

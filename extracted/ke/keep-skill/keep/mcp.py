@@ -13,6 +13,10 @@ ChromaDB cross-process safety is handled at the store layer.
 
 import asyncio
 import json
+import os
+import platform
+import signal
+import sys
 from pathlib import Path
 from typing import Annotated, Any, Optional
 
@@ -20,7 +24,8 @@ from mcp.server.fastmcp import FastMCP
 from mcp.types import ToolAnnotations
 from pydantic import Field
 
-from .api import Keeper, _text_content_id
+from .api import Keeper
+from .utils import _text_content_id
 from .cli import render_context, render_find_context, expand_prompt
 
 # ---------------------------------------------------------------------------
@@ -73,7 +78,7 @@ _DESTRUCTIVE = ToolAnnotations(destructiveHint=True, idempotentHint=False)
     description=(
         "Store a fact, preference, decision, URL, or document in long-term memory. "
         "For URLs, fetches and indexes the content. "
-        "Set analyze=true to decompose into searchable parts."
+        "Background tasks (analyze, tag, OCR) are dispatched automatically."
     ),
     annotations=_IDEMPOTENT,
 )
@@ -90,9 +95,6 @@ async def keep_put(
     tags: Annotated[Optional[dict[str, str | list[str]]], Field(
         description='Tags to categorize. Example: {"topic": "preferences", "project": "myapp"}',
     )] = None,
-    analyze: Annotated[bool, Field(
-        description="If true, decompose the stored content into searchable parts after storing.",
-    )] = False,
 ) -> str:
     """Store content in memory."""
     async with _lock:
@@ -110,13 +112,6 @@ async def keep_put(
 
         status = "Unchanged" if item.changed is False else "Stored"
         result = f"{status}: {item.id}"
-
-        if analyze:
-            try:
-                parts = keeper.analyze(item.id)
-                result += f" ({len(parts)} parts)"
-            except ValueError as e:
-                result += f" (analyze failed: {e})"
 
     return result
 
@@ -450,9 +445,6 @@ async def keep_flow(
 
 def _check_mcp_setup():
     """Print setup hints for detected tools missing keep MCP config."""
-    import json
-    import sys
-
     home = Path.home()
     hints: list[str] = []
 
@@ -525,7 +517,6 @@ def _check_mcp_setup():
             )
 
     # VS Code: user-level mcp.json → servers.keep
-    import platform
     if platform.system() == "Darwin":
         vscode_dir = home / "Library" / "Application Support" / "Code"
     else:
@@ -569,8 +560,6 @@ def _check_integrations():
 
 def main():
     """Run the MCP stdio server."""
-    import os
-    import signal
     # anyio's stdin reader uses abandon_on_cancel=False, which shields the
     # blocking readline from task cancellation.  The first Ctrl+C only cancels
     # the task (which can't take effect), so install our own handler.

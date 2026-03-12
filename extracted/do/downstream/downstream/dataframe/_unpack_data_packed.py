@@ -1,6 +1,6 @@
-from concurrent import futures
 import io
 import logging
+from multiprocessing import pool as mp_pool
 import os
 import pathlib
 import typing
@@ -155,49 +155,62 @@ def _compute_parity_chunk(
     return np.sum(syndromes, axis=1)
 
 
-def _compute_parity_chunk_threaded(args: tuple) -> tuple:
-    """Compute parity violations for one chunk of a group LazyFrame.
+def _compute_indexed_parity_chunk(args: tuple) -> tuple:
+    """Compute parity violations for a pre-collected chunk.
 
-    Each worker collects its own slice, joins hex strings, and computes
-    the parity syndrome. Returns both chunk indices and violation counts
-    so index extraction is parallelized across workers.
+    Wraps ``_compute_parity_chunk`` to pair the result with row
+    indices, suitable for use as a ``mp_pool.ThreadPool`` worker on data that
+    has already been collected from polars.
 
     Parameters
     ----------
     args : tuple
-        (group_slice, h_matrix, bits_per_row) tuple, packed for
-        compatibility with ``pool.map``.
+        (chunk_indices, concat_hex, h_matrix, bits_per_row) packed for
+        compatibility with ``pool.imap_unordered``.
 
     Returns
     -------
     tuple
         (chunk_indices, row_violations) arrays.
     """
-    group_slice, h_matrix, bits_per_row = args
-    chunk = group_slice.select(
-        "data_hex",
-        "_downstream_parity_idx",
-    ).collect()
-    concat_hex = chunk.select(
-        pl.col("data_hex").str.join(""),
-    ).item()
-    chunk_indices = chunk["_downstream_parity_idx"].to_numpy()
+    chunk_indices, concat_hex, h_matrix, bits_per_row = args
     row_violations = _compute_parity_chunk(concat_hex, h_matrix, bits_per_row)
     return chunk_indices, row_violations
 
 
-def _divvy_parity_work(
+def _collect_parity_work(
     group: pl.LazyFrame,
     chunk_slices: typing.Iterable[slice],
     h_matrix: np.ndarray,
     bits_per_row: int,
 ) -> typing.Iterator[tuple]:
-    """Yield per-chunk work items for the thread pool.
+    """Collect polars data sequentially, yielding worker-ready tuples.
 
-    Yields (group_slice, h_matrix, bits_per_row) tuples.
+    Polars collection and string concatenation happen in whichever
+    thread consumes this generator (the pool's task-handler thread),
+    serializing the memory-heavy polars operations so that at most one
+    chunk's DataFrame is alive at a time.
+
+    Yields (chunk_indices, concat_hex, h_matrix, bits_per_row) tuples.
     """
     for chunk_slice in chunk_slices:
-        yield group[chunk_slice], h_matrix, bits_per_row
+        chunk_lf = group[chunk_slice].select(
+            "data_hex",
+            "_downstream_parity_idx",
+        )
+        concat_hex = (
+            chunk_lf.select(
+                pl.col("data_hex").str.join(""),
+            )
+            .collect()
+            .item()
+        )
+        chunk_indices = (
+            chunk_lf.select("_downstream_parity_idx")
+            .collect()["_downstream_parity_idx"]
+            .to_numpy()
+        )
+        yield chunk_indices, concat_hex, h_matrix, bits_per_row
 
 
 def _apply_data_parity0(
@@ -330,21 +343,23 @@ def _apply_data_parity0(
                 f" {mp_pool_size} worker(s)...",
             )
 
-            work_items = _divvy_parity_work(
+            # Polars collection is serialized in the pool's
+            # task-handler thread via the generator; only numpy
+            # work runs in the worker threads.
+            work_items = _collect_parity_work(
                 group,
                 iter_slices(nrow_group, nrow_chunk),
                 h_matrix,
                 bits_per_row,
             )
-
-            with futures.ThreadPoolExecutor(
-                max_workers=mp_pool_size,
-            ) as pool:
+            with mp_pool.ThreadPool(mp_pool_size) as pool:
+                results = pool.imap_unordered(
+                    _compute_indexed_parity_chunk,
+                    work_items,
+                    chunksize=1,
+                )
                 for i, (chunk_indices, row_violations) in enumerate(
-                    pool.map(
-                        _compute_parity_chunk_threaded,
-                        work_items,
-                    ),
+                    results,
                 ):
                     logging.info(
                         " - received parity chunk result"

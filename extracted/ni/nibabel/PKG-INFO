@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nibabel
-Version: 5.4.0
+Version: 5.4.2
 Summary: Access a multitude of neuroimaging data formats
 Project-URL: Homepage, https://nipy.org/nibabel
 Project-URL: Development, https://github.com/nipy/nibabel
@@ -38,11 +38,6 @@ Provides-Extra: dicomfs
 Requires-Dist: pillow>=8.4; extra == 'dicomfs'
 Requires-Dist: pydicom>=2.3; extra == 'dicomfs'
 Provides-Extra: doc
-Requires-Dist: matplotlib>=3.5; extra == 'doc'
-Requires-Dist: numpydoc>=1.9; extra == 'doc'
-Requires-Dist: sphinx>=7.4; extra == 'doc'
-Requires-Dist: texext>=0.6.8; extra == 'doc'
-Requires-Dist: tomli>=2.3; (python_version < '3.11') and extra == 'doc'
 Provides-Extra: doctest
 Provides-Extra: indexed-gzip
 Requires-Dist: indexed-gzip>=1.6; extra == 'indexed-gzip'

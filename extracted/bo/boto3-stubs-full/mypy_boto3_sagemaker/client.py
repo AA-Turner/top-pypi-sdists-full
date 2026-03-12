@@ -28,6 +28,7 @@ from botocore.exceptions import ClientError as BotocoreClientError
 
 from .paginator import (
     CreateHubContentPresignedUrlsPaginator,
+    DescribeTrainingPlanExtensionHistoryPaginator,
     ListActionsPaginator,
     ListAlgorithmsPaginator,
     ListAliasesPaginator,
@@ -462,6 +463,8 @@ from .type_defs import (
     DescribeSubscribedWorkteamResponseTypeDef,
     DescribeTrainingJobRequestTypeDef,
     DescribeTrainingJobResponseTypeDef,
+    DescribeTrainingPlanExtensionHistoryRequestTypeDef,
+    DescribeTrainingPlanExtensionHistoryResponseTypeDef,
     DescribeTrainingPlanRequestTypeDef,
     DescribeTrainingPlanResponseTypeDef,
     DescribeTransformJobRequestTypeDef,
@@ -481,6 +484,8 @@ from .type_defs import (
     DisassociateTrialComponentRequestTypeDef,
     DisassociateTrialComponentResponseTypeDef,
     EmptyResponseMetadataTypeDef,
+    ExtendTrainingPlanRequestTypeDef,
+    ExtendTrainingPlanResponseTypeDef,
     GetDeviceFleetReportRequestTypeDef,
     GetDeviceFleetReportResponseTypeDef,
     GetLineageGroupPolicyRequestTypeDef,
@@ -2881,6 +2886,16 @@ class SageMakerClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#describe_training_plan)
         """
 
+    def describe_training_plan_extension_history(
+        self, **kwargs: Unpack[DescribeTrainingPlanExtensionHistoryRequestTypeDef]
+    ) -> DescribeTrainingPlanExtensionHistoryResponseTypeDef:
+        """
+        Retrieves the extension history for a specified training plan.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/describe_training_plan_extension_history.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#describe_training_plan_extension_history)
+        """
+
     def describe_transform_job(
         self, **kwargs: Unpack[DescribeTransformJobRequestTypeDef]
     ) -> DescribeTransformJobResponseTypeDef:
@@ -2978,6 +2993,16 @@ class SageMakerClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/enable_sagemaker_servicecatalog_portfolio.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#enable_sagemaker_servicecatalog_portfolio)
+        """
+
+    def extend_training_plan(
+        self, **kwargs: Unpack[ExtendTrainingPlanRequestTypeDef]
+    ) -> ExtendTrainingPlanResponseTypeDef:
+        """
+        Extends an existing training plan by purchasing an extension offering.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/extend_training_plan.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#extend_training_plan)
         """
 
     def get_device_fleet_report(
@@ -4686,6 +4711,17 @@ class SageMakerClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["create_hub_content_presigned_urls"]
     ) -> CreateHubContentPresignedUrlsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["describe_training_plan_extension_history"]
+    ) -> DescribeTrainingPlanExtensionHistoryPaginator:
         """
         Create a paginator for an operation.
 

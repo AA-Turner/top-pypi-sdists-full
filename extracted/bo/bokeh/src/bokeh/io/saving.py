@@ -22,21 +22,24 @@ log = logging.getLogger(__name__)
 
 # Standard library imports
 from os.path import abspath, expanduser
-from typing import Sequence
+from typing import TYPE_CHECKING
 
 # External imports
 from jinja2 import Template
 
 # Bokeh imports
 from ..core.templates import FILE
-from ..core.types import PathLike
-from ..models.ui import UIElement
-from ..resources import Resources, ResourcesLike
+from ..resources import Resources
 from ..settings import settings
-from ..themes import Theme
-from ..util.warnings import warn
-from .state import State, curstate
+from .state import curstate
 from .util import default_filename
+
+if TYPE_CHECKING:
+    from ..core.types import PathLike
+    from ..resources import ResourcesLike
+    from ..themes import Theme
+    from .showing import Showable
+    from .state import State
 
 #-----------------------------------------------------------------------------
 # Globals and constants
@@ -52,7 +55,7 @@ __all__ = (
 # General API
 #-----------------------------------------------------------------------------
 
-def save(obj: UIElement | Sequence[UIElement], filename: PathLike | None = None, resources: ResourcesLike | None = None,
+def save(obj: Showable, filename: PathLike | None = None, resources: ResourcesLike | None = None,
         title: str | None = None, template: Template | str | None = None, state: State | None = None) -> str:
     ''' Save an HTML file with the data for the current document.
 
@@ -63,7 +66,7 @@ def save(obj: UIElement | Sequence[UIElement], filename: PathLike | None = None,
     ``/foo/myplot.html``)
 
     Args:
-        obj (UIElement object) : a Layout (Row/Column), Plot or Widget object to display
+        obj (UIElement or DOMNode object) : a Layout (Row/Column), Plot or Widget object to display
 
         filename (PathLike, e.g. str, Path, optional) : filename to save document under (default: None)
             If None, use the default state configuration.
@@ -139,6 +142,8 @@ def _get_save_resources(state: State, resources: ResourcesLike | None, suppress_
         return state.file.resources
 
     if not suppress_warning:
+        from ..util.warnings import warn
+
         warn("save() called but no resources were supplied and output_file(...) was never called, defaulting to resources.CDN")
 
     return Resources(mode=settings.resources())
@@ -151,11 +156,13 @@ def _get_save_title(state: State, title: str | None, suppress_warning: bool) -> 
         return state.file.title
 
     if not suppress_warning:
+        from ..util.warnings import warn
+
         warn("save() called but no title was supplied and output_file(...) was never called, using default title 'Bokeh Plot'")
 
     return DEFAULT_TITLE
 
-def _save_helper(obj: UIElement | Sequence[UIElement], filename: PathLike, resources: Resources | None,
+def _save_helper(obj: Showable, filename: PathLike, resources: Resources | None,
         title: str | None, template: Template | str | None, theme: Theme | None = None) -> None:
     '''
 

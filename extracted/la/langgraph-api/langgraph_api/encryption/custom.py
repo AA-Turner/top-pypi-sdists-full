@@ -199,12 +199,6 @@ class JsonEncryptionWrapper:
         async def encryptor(ctx: Any, data: dict[str, Any]) -> dict[str, Any]:
             encrypted = await custom_encryptor(ctx, data)
 
-            # Reject non-dict returns outright.  An encryptor that returns a
-            # string (envelope encryption) changes the JSONB column type from
-            # object to string, breaks SQL JSONB operations, and silently
-            # bypasses the key-preservation check below.  This was the root
-            # cause of run kwargs subfields (input, context, …) being stored as
-            # unrecoverable encrypted blobs on 0.7.19-0.7.32.
             if not isinstance(encrypted, dict):
                 raise EncryptionKeyError(
                     f"JSON encryptor must return a dict, got "

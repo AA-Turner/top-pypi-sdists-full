@@ -1,5 +1,7 @@
 import type { Arrayable, FloatArray, TypedArray } from "../types";
-export { min, max, minmax } from "./iterator";
+export declare function minmax(array: Arrayable<number>): [number, number];
+export declare function min(array: Arrayable<number>): number;
+export declare function max(array: Arrayable<number>): number;
 export declare function is_empty(array: Arrayable): boolean;
 export declare function is_sorted<T>(array: Arrayable<T>): boolean;
 export declare function copy<T>(array: T[]): T[];

@@ -1,33 +1,24 @@
-use std::ops::{Deref, DerefMut};
-use std::sync::Arc;
+use std::ops::Deref;
 
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};
 use tapo::requests::{AlarmDuration, AlarmRingtone, AlarmVolume};
-use tapo::responses::{ChildDeviceHubResult, DeviceInfoHubResult};
-use tapo::{DeviceManagementExt as _, Error, HubDevice, HubHandler};
-use tokio::sync::RwLock;
+use tapo::responses::{ChildDeviceComponentList, ChildDeviceHubResult, DeviceInfoHubResult};
+use tapo::{Error, HubDevice, HubHandler};
 
 use crate::api::{
     PyKE100Handler, PyS200Handler, PyT31XHandler, PyT100Handler, PyT110Handler, PyT300Handler,
 };
 use crate::call_handler_method;
-use crate::errors::ErrorWrapper;
 use crate::requests::PyAlarmDuration;
 
-#[derive(Clone)]
-#[pyclass(from_py_object, name = "HubHandler")]
-pub struct PyHubHandler {
-    inner: Arc<RwLock<HubHandler>>,
+py_handler! {
+    PyHubHandler(HubHandler, DeviceInfoHubResult),
+    py_name = "HubHandler",
+    device_management,
 }
 
 impl PyHubHandler {
-    pub fn new(handler: HubHandler) -> Self {
-        Self {
-            inner: Arc::new(RwLock::new(handler)),
-        }
-    }
-
     fn parse_identifier(
         device_id: Option<String>,
         nickname: Option<String>,
@@ -35,10 +26,10 @@ impl PyHubHandler {
         match (device_id, nickname) {
             (Some(device_id), _) => Ok(HubDevice::ByDeviceId(device_id)),
             (None, Some(nickname)) => Ok(HubDevice::ByNickname(nickname)),
-            _ => Err(Into::<ErrorWrapper>::into(Error::Validation {
+            _ => Err(Error::Validation {
                 field: "identifier".to_string(),
                 message: "Either a device_id or nickname must be provided".to_string(),
-            })
+            }
             .into()),
         }
     }
@@ -46,43 +37,6 @@ impl PyHubHandler {
 
 #[pymethods]
 impl PyHubHandler {
-    pub async fn refresh_session(&self) -> PyResult<()> {
-        let handler = self.inner.clone();
-        call_handler_method!(
-            handler.write().await.deref_mut(),
-            HubHandler::refresh_session,
-            discard_result
-        )
-    }
-
-    pub async fn device_reboot(&self, delay_s: u16) -> PyResult<()> {
-        let handler = self.inner.clone();
-        call_handler_method!(
-            handler.read().await.deref(),
-            HubHandler::device_reboot,
-            delay_s
-        )
-    }
-
-    pub async fn device_reset(&self) -> PyResult<()> {
-        let handler = self.inner.clone();
-        call_handler_method!(handler.read().await.deref(), HubHandler::device_reset)
-    }
-
-    pub async fn get_device_info(&self) -> PyResult<DeviceInfoHubResult> {
-        let handler = self.inner.clone();
-        call_handler_method!(handler.read().await.deref(), HubHandler::get_device_info)
-    }
-
-    pub async fn get_device_info_json(&self) -> PyResult<Py<PyDict>> {
-        let handler = self.inner.clone();
-        let result = call_handler_method!(
-            handler.read().await.deref(),
-            HubHandler::get_device_info_json
-        )?;
-        Python::attach(|py| tapo::python::serde_object_to_py_dict(py, &result))
-    }
-
     pub async fn get_child_device_list(&self) -> PyResult<Py<PyList>> {
         let handler = self.inner.clone();
         let children = call_handler_method!(
@@ -133,13 +87,12 @@ impl PyHubHandler {
         Python::attach(|py| tapo::python::serde_object_to_py_dict(py, &result))
     }
 
-    pub async fn get_child_device_component_list_json(&self) -> PyResult<Py<PyDict>> {
+    pub async fn get_child_device_component_list(&self) -> PyResult<Vec<ChildDeviceComponentList>> {
         let handler = self.inner.clone();
-        let result = call_handler_method!(
+        call_handler_method!(
             handler.read().await.deref(),
-            HubHandler::get_child_device_component_list_json
-        )?;
-        Python::attach(|py| tapo::python::serde_object_to_py_dict(py, &result))
+            HubHandler::get_child_device_component_list
+        )
     }
 
     pub async fn get_supported_ringtone_list(&self) -> PyResult<Vec<String>> {
@@ -167,12 +120,12 @@ impl PyHubHandler {
                 if let Some(seconds) = seconds {
                     AlarmDuration::Seconds(seconds)
                 } else {
-                    return Err(Into::<ErrorWrapper>::into(Error::Validation {
+                    return Err(Error::Validation {
                         field: "seconds".to_string(),
                         message:
                             "A value must be provided for seconds when duration = AlarmDuration.Seconds"
                                 .to_string(),
-                    })
+                    }
                     .into());
                 }
             }

@@ -1,5 +1,6 @@
 from enum import Enum
 from typing import List, Optional, Tuple
+from tapo.to_dict_ext import ToDictExt
 
 class LightingEffectType(str, Enum):
     Sequence = "Sequence"
@@ -7,7 +8,7 @@ class LightingEffectType(str, Enum):
     Pulse = "Pulse"
     Static = "Static"
 
-class LightingEffect:
+class LightingEffect(ToDictExt):
     brightness: int
     is_custom: bool
     display_colors: List[Tuple[int, int, int]]

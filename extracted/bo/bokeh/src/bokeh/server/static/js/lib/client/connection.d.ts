@@ -2,6 +2,7 @@ import type { DocJson } from "../document";
 import { Message } from "../protocol/message";
 import { Receiver } from "../protocol/receiver";
 import { ClientSession } from "./session";
+import type { ID } from "../core/types";
 export declare const DEFAULT_SERVER_WEBSOCKET_URL = "ws://localhost:5006/ws";
 export declare const DEFAULT_TOKEN = "eyJzZXNzaW9uX2lkIjogImRlZmF1bHQifQ";
 export type Rejecter = (error: Error | string) => void;
@@ -40,7 +41,10 @@ export declare class ClientConnection {
     protected _schedule_reconnect(milliseconds: number): void;
     send(message: Message<unknown>): void;
     send_with_reply<T>(message: Message<unknown>): Promise<Message<T>>;
-    protected _pull_doc_json(): Promise<DocJson>;
+    protected _pull_doc_json(): Promise<{
+        doc_json: DocJson;
+        buffers: Map<ID, ArrayBuffer>;
+    }>;
     protected _repull_session_doc(resolve: SessionResolver, reject: Rejecter): Promise<void>;
     protected _on_open(resolve: SessionResolver, reject: Rejecter): void;
     protected _on_message(event: MessageEvent): void;

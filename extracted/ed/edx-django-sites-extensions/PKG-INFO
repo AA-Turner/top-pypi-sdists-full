@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: edx-django-sites-extensions
-Version: 5.1.0
+Version: 6.0.0
 Summary: Custom extensions for the Django sites framework
 Home-page: https://github.com/openedx/edx-django-sites-extensions
 Author: edX
@@ -10,7 +10,6 @@ Keywords: Django sites edx
 Classifier: Development Status :: 4 - Beta
 Classifier: License :: OSI Approved :: GNU Affero General Public License v3
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Topic :: Internet
 Classifier: Intended Audience :: Developers
@@ -21,6 +20,16 @@ Classifier: Framework :: Django :: 5.2
 License-File: LICENSE.txt
 License-File: AUTHORS
 Requires-Dist: Django
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary
 
 Part of `edX code <http://code.edx.org/>`_.
 

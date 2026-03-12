@@ -35,9 +35,11 @@ class ConnectorsTools(AgentTools):
 
     def __init__(
         self,
+        connection: Optional[Union[str, Iterable[str]]] = None,
         action: Optional[Union[str, Iterable[str]]] = None,
         params: Optional[Dict[str, Any]] = None,
     ):
+        self.connections = to_connections(connection)
         self.actions = to_actions(action)
         self.params = to_params(params)
 

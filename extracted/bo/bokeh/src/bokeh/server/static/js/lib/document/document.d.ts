@@ -48,8 +48,8 @@ export declare class Document implements Equatable {
     views_manager?: ViewManager;
     readonly event_manager: EventManager;
     readonly idle: Signal0<this>;
+    readonly resolver: ModelResolver;
     protected readonly _init_timestamp: number;
-    protected readonly _resolver: ModelResolver;
     protected _title: string;
     protected _roots: HasProps[];
     protected _all_models: Map<ID, HasProps>;
@@ -119,7 +119,7 @@ export declare class Document implements Equatable {
     to_json(include_defaults?: boolean): DocJson;
     static from_json_string(s: string, events?: Out<DocumentEvent[]>): Document;
     private static _handle_version;
-    static from_json(doc_json: DocJson, events?: Out<DocumentEvent[]>): Document;
+    static from_json(doc_json: DocJson, events?: Out<DocumentEvent[]>, buffers?: Map<ID, ArrayBuffer>): Document;
     replace_with_json(json: DocJson): void;
     create_json_patch(events: DocumentChangedEvent[]): Patch;
     apply_json_patch(patch: Patch, buffers?: Map<ID, ArrayBuffer>): void;

@@ -36,11 +36,11 @@ class TestNumericCustomAggregationTestResult(unittest.TestCase):
         if include_optional:
             return NumericCustomAggregationTestResult(
                 metric_kind = 'numeric',
-                value = 56
+                value = 1.337
             )
         else:
             return NumericCustomAggregationTestResult(
-                value = 56,
+                value = 1.337,
         )
         """
 

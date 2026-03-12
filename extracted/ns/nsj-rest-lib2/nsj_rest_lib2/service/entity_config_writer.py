@@ -16,7 +16,7 @@ from nsj_rest_lib2.settings import ESCOPO_RESTLIB2
 
 class EntityConfigWriter:
     """
-    Serializa o resultado da compilação e publica no Redis usando o mesmo
+    Serializa o resultado da compilacao e publica no Redis usando o mesmo
     layout consumido pelo EntityLoader.
     """
 
@@ -31,11 +31,16 @@ class EntityConfigWriter:
         entity_hash: str | None = None,
     ) -> Dict[str, Any]:
         """
-        Serializa e grava o resultado da compilação no Redis.
+        Serializa e grava o resultado da compilacao no Redis.
 
-        :return: Payload serializado (útil para inspeção/testes).
+        Args:
+            entity_model: Modelo EDL ja validado.
+            compiler_result: Resultado retornado pelo compilador.
+            entity_hash: Hash da versao compilada. Quando None, e calculado.
+
+        Returns:
+            Payload serializado (util para inspecao/testes).
         """
-
         payload = self.build_payload(
             entity_model, compiler_result, entity_hash=entity_hash
         )
@@ -60,18 +65,23 @@ class EntityConfigWriter:
         entity_hash: str | None = None,
     ) -> Dict[str, Any]:
         """
-        Constrói o dicionário serializável que representa a entidade compilada.
-        """
+        Constroi o dicionario serializavel da entidade compilada.
 
+        Args:
+            entity_model: Modelo EDL ja validado.
+            compiler_result: Resultado retornado pelo compilador.
+            entity_hash: Hash da versao compilada. Quando None, e calculado.
+
+        Returns:
+            Dicionario pronto para ser persistido em `entity_config`.
+        """
         resource = self._resolve_resource(entity_model)
-        relations = [
-            rd.to_dict()
-            for rd in (compiler_result.relations_dependencies or [])
-        ]
+        relations = [rd.to_dict() for rd in (compiler_result.relations_dependencies or [])]
 
         return {
             "dto_class_name": compiler_result.dto_class_name,
             "entity_class_name": compiler_result.entity_class_name,
+            "lut": bool(getattr(entity_model, "lut", False)),
             "service_account": compiler_result.service_account,
             "insert_function_class_name": compiler_result.insert_function_class_name,
             "insert_function_name": compiler_result.insert_function_name,
@@ -112,19 +122,49 @@ class EntityConfigWriter:
         }
 
     def _resolve_namespace_key(self, entity_model: EntityModelBase) -> str:
+        """
+        Resolve a chave de namespace com tenant e grupo empresarial.
+
+        Args:
+            entity_model: Modelo da entidade compilada.
+
+        Returns:
+            Namespace key no padrao usado pelo loader.
+        """
         tenant = getattr(entity_model, "tenant", None)
         grupo_empresarial = getattr(entity_model, "grupo_empresarial", None)
 
         return resolve_namespace_key(tenant, grupo_empresarial)
 
     def _resolve_resource(self, entity_model: EntityModelBase) -> str:
+        """
+        Resolve o resource HTTP declarado no bloco `api`.
+
+        Args:
+            entity_model: Modelo da entidade compilada.
+
+        Returns:
+            Nome do resource da API dinamica.
+
+        Raises:
+            ValueError: Quando o modelo nao possui bloco `api.resource`.
+        """
         if not isinstance(entity_model, EntityModel) or not entity_model.api:
             raise ValueError(
-                "EntityModel precisa possuir bloco de API para publicação no Redis."
+                "EntityModel precisa possuir bloco de API para publicacao no Redis."
             )
         if not entity_model.api.resource:
-            raise ValueError("api.resource é obrigatório para publicação no Redis.")
+            raise ValueError("api.resource e obrigatorio para publicacao no Redis.")
         return entity_model.api.resource
 
     def _build_entity_hash(self, compiler_result: CompilerResult) -> str:
+        """
+        Gera hash deterministico da configuracao compilada.
+
+        Args:
+            compiler_result: Resultado retornado pelo compilador.
+
+        Returns:
+            Hash SHA-256 da entidade compilada.
+        """
         return build_entity_hash(compiler_result)

@@ -49,14 +49,14 @@ from worker_automate_hub.utils.util import (
 console = Console()
 log = console.log
 
-ASSETS_BASE_PATH = fr"assets\importacao_extratos"
+ASSETS_BASE_PATH = rf"assets\importacao_extratos"
 # ASSETS_BASE_PATH = r"C:\Users\automatehub\Desktop\img_leo"
 ano_atual = date.today().year
 
 # === DESTINOS ===
-DESTINO_BASE = fr"Z:\Nexera\Extrato\{ano_atual}"  # tentativa principal (Z:)
+DESTINO_BASE = rf"Z:\Nexera\Extrato\{ano_atual}"  # tentativa principal (Z:)
 DESTINO_IP_ROOT = r"\\fcaswfs01.ditrento.com.br\compartilhadas$"  # root do share
-DESTINO_BASE_IP = fr"{DESTINO_IP_ROOT}\Nexera\Extrato\{ano_atual}"  # pasta final UNC
+DESTINO_BASE_IP = rf"{DESTINO_IP_ROOT}\Nexera\Extrato\{ano_atual}"  # pasta final UNC
 
 EMPRESA = "1"  # empresa fixa
 
@@ -86,11 +86,14 @@ async def importacao_extratos(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
     try:
         # ======== PARÂMETROS ========
         PASTA = r"Z:\Nexera\Extrato"
-        IGNORAR_SE_CONTEM = ["EXT_237_", "EXT_748_"]  # padrões no nome do arquivo a ignorar
-        EXT_PERMITIDAS = [".ret", ".txt"]             # extensões permitidas (case-insensitive)
-        TEXTO_ALVO = "SIM REDE DE POSTOS"             # texto a procurar no conteúdo
-        BTN_IMPORTAR_IMG = fr"{ASSETS_BASE_PATH}\btn_imp_arq.png"
-        DLG_TIT_RE = ".*Browse.*"                     # regex de título do diálogo de arquivo
+        IGNORAR_SE_CONTEM = [
+            "EXT_237_",
+            "EXT_748_",
+        ]  # padrões no nome do arquivo a ignorar
+        EXT_PERMITIDAS = [".ret", ".txt"]  # extensões permitidas (case-insensitive)
+        TEXTO_ALVO = "SIM REDE DE POSTOS"  # texto a procurar no conteúdo
+        BTN_IMPORTAR_IMG = rf"{ASSETS_BASE_PATH}\btn_imp_arq.png"
+        DLG_TIT_RE = ".*Browse.*"  # regex de título do diálogo de arquivo
 
         EXT_STR = "/".join(EXT_PERMITIDAS).upper()
 
@@ -183,7 +186,6 @@ async def importacao_extratos(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
         log("Arquivos lidos com sucesso               : %s", lidos)
         log("Arquivos com erro de leitura             : %s", erros)
         log("==============================================")
-
 
         # ======== VERIFICA RESULTADO ========
         if not selecionados:
@@ -288,17 +290,23 @@ async def importacao_extratos(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
 
             # 2) Conectar na janela de importação
             try:
-                log("Conectando na janela 'TFrmImportarArquivoConciliadorBancario2' ...")
+                log(
+                    "Conectando na janela 'TFrmImportarArquivoConciliadorBancario2' ..."
+                )
                 app_imp = Application(backend="win32").connect(
                     class_name="TFrmImportarArquivoConciliadorBancario2", timeout=30
                 )
                 main_window = app_imp["TFrmImportarArquivoConciliadorBancario2"]
                 main_window.set_focus()
-                main_window.child_window(class_name="TWinControl", found_index=0).click_input()
+                main_window.child_window(
+                    class_name="TWinControl", found_index=0
+                ).click_input()
                 log("[green]Janela de importação focada[/green].")
                 await worker_sleep(3)
             except Exception:
-                log("[yellow]Janela 'TFrmImportarArquivoConciliadorBancario2' não encontrada. Tentando seguir...[/yellow]")
+                log(
+                    "[yellow]Janela 'TFrmImportarArquivoConciliadorBancario2' não encontrada. Tentando seguir...[/yellow]"
+                )
 
             # 3) Selecionar tipo de arquivo
             log("Selecionando tipo de arquivo: digitando 'A' e [TAB]...")
@@ -310,7 +318,10 @@ async def importacao_extratos(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
                 await worker_sleep(0.3)
                 log("[green]Tipo selecionado[/green].")
             except Exception as e:
-                log("[yellow]Não foi possível interagir com o tipo de arquivo: %s[/yellow]", e)
+                log(
+                    "[yellow]Não foi possível interagir com o tipo de arquivo: %s[/yellow]",
+                    e,
+                )
 
             # 4) Capturar janela de diálogo de arquivo
             log("Aguardando diálogo de arquivo (%s)...", DLG_TIT_RE)
@@ -333,7 +344,9 @@ async def importacao_extratos(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
                 await worker_sleep(1)
 
             if dlg is None or not dlg.exists():
-                msg = f"Diálogo de arquivo (#32770) não apareceu dentro de {TEMPO_MAX}s."
+                msg = (
+                    f"Diálogo de arquivo (#32770) não apareceu dentro de {TEMPO_MAX}s."
+                )
                 log(f"[red]{msg}[/red]")
                 falhas.append({"arquivo": sel["arquivo"], "motivo": msg})
                 continue
@@ -367,7 +380,7 @@ async def importacao_extratos(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
 
                 # Clique do botão de importação/confirmar dentro do EMSys
                 pyautogui.click(1203, 509)
-                await worker_sleep(10)
+                await worker_sleep(22)
 
                 # Se aparecer "Erro" => falha e NÃO move
                 viu_erro = False
@@ -375,23 +388,31 @@ async def importacao_extratos(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
 
                 # Informação
                 try:
-                    app_info = Application(backend="win32").connect(title="Informação", found_index=0)
+                    app_info = Application(backend="win32").connect(
+                        title="Informação", found_index=0
+                    )
                     main_info = app_info["Informação"]
                     info_txt = _try_get_dialog_text(main_info)
                     try:
                         main_info.child_window(title="OK", found_index=0).click()
                     except Exception:
                         pass
-                    log("[green]Confirmação de 'Informação' recebida e confirmada[/green].")
+                    log(
+                        "[green]Confirmação de 'Informação' recebida e confirmada[/green]."
+                    )
                     if info_txt:
                         log("Mensagem (Informação): %s", info_txt)
                     await worker_sleep(2)
                 except Exception:
-                    log("[yellow]Janela 'Informação' não apareceu (pode ser normal).[/yellow]")
+                    log(
+                        "[yellow]Janela 'Informação' não apareceu (pode ser normal).[/yellow]"
+                    )
 
                 # Erro
                 try:
-                    app_err = Application(backend="win32").connect(title="Error", found_index=0)
+                    app_err = Application(backend="win32").connect(
+                        title="Error", found_index=0
+                    )
                     main_err = app_err["Error"]
                     err_txt = _try_get_dialog_text(main_err)
                     viu_erro = True
@@ -410,7 +431,9 @@ async def importacao_extratos(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
                             pass
 
                     await worker_sleep(1)
-                    erro_msg_import = err_txt or "Importação retornou janela 'Erro' no EMSys."
+                    erro_msg_import = (
+                        err_txt or "Importação retornou janela 'Erro' no EMSys."
+                    )
                 except Exception:
                     pass
 
@@ -422,10 +445,7 @@ async def importacao_extratos(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
                     log("[red][ERRO IMPORTAÇÃO][/red] Arquivo: %s", sel["arquivo"])
                     log("[red]Motivo:[/red] %s", motivo)
 
-                    falhas.append({
-                        "arquivo": sel["arquivo"],
-                        "motivo": motivo
-                    })
+                    falhas.append({"arquivo": sel["arquivo"], "motivo": motivo})
 
                     # fecha janela e segue fluxo normal
                     app_imp = Application(backend="win32").connect(
@@ -434,7 +454,9 @@ async def importacao_extratos(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
                     main_window = app_imp["TFrmImportarArquivoConciliadorBancario2"]
                     main_window.close()
 
-                    app_info = Application(backend="win32").connect(title="Information", found_index=0)
+                    app_info = Application(backend="win32").connect(
+                        title="Information", found_index=0
+                    )
                     await worker_sleep(5)
                     main_info = app_info["Information"]
                     info_txt = _try_get_dialog_text(main_info)
@@ -442,9 +464,10 @@ async def importacao_extratos(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
 
                     continue
 
-
                 # Se não viu erro, considera OK
-                log("[green]Importação marcada como OK[/green]. Prosseguindo para mover arquivo...")
+                log(
+                    "[green]Importação marcada como OK[/green]. Prosseguindo para mover arquivo..."
+                )
 
                 # ============ MOVER ARQUIVO (SÓ SE OK) ============
                 origem = sel["caminho"]
@@ -458,12 +481,20 @@ async def importacao_extratos(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
                         try:
                             os.remove(destino_arquivo)
                         except Exception as e_rm:
-                            log("[yellow]Aviso[/yellow]: não foi possível remover no destino: %s (%s)", destino_arquivo, e_rm)
+                            log(
+                                "[yellow]Aviso[/yellow]: não foi possível remover no destino: %s (%s)",
+                                destino_arquivo,
+                                e_rm,
+                            )
 
                     shutil.move(origem, destino_arquivo)
                     movidos.append(destino_arquivo)
                     importados.append(arquivo)
-                    log("[green]Arquivo movido[/green]: %s -> %s", origem, destino_arquivo)
+                    log(
+                        "[green]Arquivo movido[/green]: %s -> %s",
+                        origem,
+                        destino_arquivo,
+                    )
 
                 except Exception:
                     # Fallback UNC
@@ -472,9 +503,14 @@ async def importacao_extratos(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
                         senha = user_folder_cfg.get("senha")
 
                         if win32wnet is None:
-                            raise RuntimeError("pywin32 não disponível para mapear caminho de rede (win32wnet).")
+                            raise RuntimeError(
+                                "pywin32 não disponível para mapear caminho de rede (win32wnet)."
+                            )
 
-                        log("Falha ao mover para Z:. Tentando fallback via UNC em %s ...", DESTINO_IP_ROOT)
+                        log(
+                            "Falha ao mover para Z:. Tentando fallback via UNC em %s ...",
+                            DESTINO_IP_ROOT,
+                        )
 
                         try:
                             win32wnet.WNetAddConnection2(
@@ -494,12 +530,20 @@ async def importacao_extratos(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
                                 try:
                                     os.remove(destino_arquivo_ip)
                                 except Exception as e_rm_ip:
-                                    log("[yellow]Aviso[/yellow]: não foi possível remover no destino IP: %s (%s)", destino_arquivo_ip, e_rm_ip)
+                                    log(
+                                        "[yellow]Aviso[/yellow]: não foi possível remover no destino IP: %s (%s)",
+                                        destino_arquivo_ip,
+                                        e_rm_ip,
+                                    )
 
                             shutil.move(origem, destino_arquivo_ip)
                             movidos.append(destino_arquivo_ip)
                             importados.append(arquivo)
-                            log("[green]Arquivo movido (via IP)[/green]: %s -> %s", origem, destino_arquivo_ip)
+                            log(
+                                "[green]Arquivo movido (via IP)[/green]: %s -> %s",
+                                origem,
+                                destino_arquivo_ip,
+                            )
                         else:
                             msg = f"Erro ao mover (via IP): origem não encontrada: {origem} | destino: {caminho_ip}"
                             log(f"[red]{msg}[/red]")
@@ -532,7 +576,7 @@ async def importacao_extratos(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
 
         # ======== RETORNO FINAL (REGRA DEFINITIVA) ========
         # REGRA: se falhas > 0 => sucesso = False (independente de importados)
-        sucesso_final = (len(falhas) == 0)
+        sucesso_final = len(falhas) == 0
 
         # Se teve falhas: retorna e sucesso False
         if falhas:

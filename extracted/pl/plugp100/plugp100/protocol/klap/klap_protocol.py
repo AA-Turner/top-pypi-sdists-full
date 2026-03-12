@@ -48,11 +48,12 @@ class KlapProtocol(TapoProtocol):
         self._klap_session: Optional[KlapSession] = None
         self._last_request_url = None
         self._request_lock = asyncio.Lock()  # to protect cypher
+        self._owns_http_session = http_session is None
         self._http_session = (
             aiohttp.ClientSession(
                 cookie_jar=aiohttp.CookieJar(unsafe=True, quote_cookie=False)
             )
-            if http_session is None
+            if self._owns_http_session
             else http_session
         )
 
@@ -115,7 +116,8 @@ class KlapProtocol(TapoProtocol):
 
     async def close(self):
         self._klap_session = None
-        await self._http_session.close()
+        if self._owns_http_session:
+            await self._http_session.close()
 
     async def perform_handshake(self) -> "KlapSession":
         logger.debug("[KLAP] Starting handshake with %s", self._base_url)
@@ -340,3 +342,5 @@ class KlapChiper:
 
     def _cbc(self):
         return self._iv + KlapChiper.PACK_LONG(self._seq)
+
+

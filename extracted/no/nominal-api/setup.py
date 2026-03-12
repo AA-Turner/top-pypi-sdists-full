@@ -6,7 +6,7 @@ from setuptools import (
 
 setup(
     name='nominal-api',
-    version='0.1154.1',
+    version='0.1155.0',
     python_requires='>=3.8',
     package_data={"": ["py.typed", "nominal-api.conjure.json"]},
     packages=find_packages(),

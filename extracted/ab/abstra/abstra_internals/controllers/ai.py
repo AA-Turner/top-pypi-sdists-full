@@ -368,3 +368,11 @@ class AiController:
             tunnel_session_path=get_session_path(),
             user_jwt=user_jwt,
         )
+
+    def compact_conversation(self, conversation_id: str, user_jwt=None):
+        headers = resolve_headers()
+        if headers is None:
+            return None
+        if user_jwt:
+            headers["Web-Editor-Authorization"] = f"Bearer {user_jwt}"
+        return self.repos.ai.compact_conversation(headers, conversation_id)

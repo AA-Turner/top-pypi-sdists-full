@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+﻿from pydantic import BaseModel, Field, root_validator
 from typing import List, Optional
 
 from nsj_rest_lib2.compiler.edl_model.column_meta_model import ColumnMetaModel
@@ -25,8 +25,12 @@ class RepositoryLinkToBaseModel(BaseModel):
 
 
 class RepositoryModel(BaseModel):
-    map: str = Field(
-        ..., description="Nome da tabela, no BD, para a qual a entidade é mapeada."
+    map: Optional[str] = Field(
+        default=None,
+        description=(
+            "Nome da tabela, no BD, para a qual a entidade é mapeada. "
+            "Pode ser omitido em mixins."
+        ),
     )
     shared_table: Optional[bool] = Field(
         default=False,
@@ -34,12 +38,12 @@ class RepositoryModel(BaseModel):
     )
     table_owner: Optional[bool] = Field(
         None, description="Indica que essa entidade é dona da tabela (schema)."
-    )  # TODO Validar explicação
+    )
     properties: Optional[dict[str, ColumnMetaModel]] = Field(
         None, description="Dicionário de colunas da entidade."
     )
     indexes: Optional[List[IndexModel]] = Field(
-        None, description="Lista de índices de banco de dados, associados à entidade."
+        None, description="Lista de índices de banco de dados associados à entidade."
     )
     link_to_base: Optional[RepositoryLinkToBaseModel] = Field(
         None,

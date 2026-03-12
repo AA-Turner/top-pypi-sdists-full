@@ -880,16 +880,23 @@ impl ConfigFile {
         {
             Some(handle) => handle.dupe(),
             None => {
+                // Check site-package paths before search paths so that files
+                // in site-packages (which live under the project root) get their
+                // module name from the more specific site-packages prefix rather
+                // than from the project root.
                 let module_kind = if fallback_search_path.is_empty() {
-                    let name = ModuleName::from_path(module_path.as_path(), self.search_path())
-                        .unwrap_or_else(ModuleName::unknown);
+                    let name = ModuleName::from_path(
+                        module_path.as_path(),
+                        self.search_path().chain(self.site_package_path()),
+                    )
+                    .unwrap_or_else(ModuleName::unknown);
                     ModuleNameWithKind::guaranteed(name)
                 } else {
                     let fallback_paths =
                         fallback_search_path.for_directory(Some(module_path.as_path()));
                     ModuleName::from_path_with_fallback(
                         module_path.as_path(),
-                        self.search_path(),
+                        self.search_path().chain(self.site_package_path()),
                         fallback_paths.iter(),
                     )
                     .unwrap_or(ModuleNameWithKind::guaranteed(ModuleName::unknown()))
@@ -1137,36 +1144,6 @@ impl ConfigFile {
                 Err(error) => Some(error),
             }
         };
-
-        // TODO(connernilsen): remove once PyTorch performs an upgrade
-        #[allow(unexpected_cfgs)]
-        if cfg!(fbcode_build) {
-            let root = match &self.source {
-                ConfigSource::File(path) => {
-                    let mut root = path.to_path_buf();
-                    root.pop();
-                    Some(root)
-                }
-                _ => None,
-            };
-            if let Some(root) = root
-                && root.ends_with("fbsource/fbcode/caffe2")
-            {
-                self.build_system = Some(BuildSystem::new(
-                    Some(".pyrelsp".to_owned()),
-                    Some(vec![
-                        "--oncall=pyre".to_owned(),
-                        "--client-metadata=id=pyrefly".to_owned(),
-                    ]),
-                    true,
-                    vec![
-                        "../python/typeshed_experimental".into(),
-                        "../python/typeshed_internal".into(),
-                        "../python/pyre_temporary_stubs".into(),
-                    ],
-                ));
-            }
-        }
 
         if let Some(build_system) = &mut self.build_system
             && let Some(error) = configure_source_db(build_system)

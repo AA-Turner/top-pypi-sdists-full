@@ -5,6 +5,7 @@ from chardet.equivalences import (
     apply_legacy_rename,
     is_correct,
     is_equivalent_detection,
+    is_language_equivalent,
 )
 
 
@@ -96,7 +97,7 @@ def test_is_correct_superset_reversed():
 def test_apply_legacy_rename_ascii():
     d = {"encoding": "ascii", "confidence": 1.0, "language": None}
     apply_legacy_rename(d)
-    assert d["encoding"] == "Windows-1252"
+    assert d["encoding"] == "cp1252"
 
 
 def test_apply_legacy_rename_no_match():
@@ -151,3 +152,71 @@ def test_is_equivalent_expected_none_detected_none():
 def test_is_equivalent_expected_none_detected_encoding():
     """Binary file expected but encoding detected -> not equivalent."""
     assert is_equivalent_detection(b"\x00\x01", None, "utf-8") is False
+
+
+# ---------------------------------------------------------------------------
+# is_language_equivalent tests
+# ---------------------------------------------------------------------------
+
+
+def test_language_equivalent_exact_match():
+    """Identical language codes are equivalent."""
+    assert is_language_equivalent("ru", "ru") is True
+
+
+def test_language_equivalent_east_slavic_group():
+    """Languages in the East Slavic + Bulgarian group are equivalent."""
+    assert is_language_equivalent("uk", "ru") is True
+    assert is_language_equivalent("ru", "bg") is True
+    assert is_language_equivalent("bg", "be") is True
+
+
+def test_language_equivalent_scandinavian_group():
+    """Scandinavian languages are equivalent."""
+    assert is_language_equivalent("no", "da") is True
+    assert is_language_equivalent("da", "sv") is True
+    assert is_language_equivalent("sv", "no") is True
+
+
+def test_language_equivalent_malay_indonesian():
+    """Malay and Indonesian are equivalent."""
+    assert is_language_equivalent("ms", "id") is True
+    assert is_language_equivalent("id", "ms") is True
+
+
+def test_language_equivalent_czech_slovak():
+    """Czech and Slovak are equivalent."""
+    assert is_language_equivalent("sk", "cs") is True
+    assert is_language_equivalent("cs", "sk") is True
+
+
+def test_language_equivalent_non_equivalent():
+    """Languages in different groups are not equivalent."""
+    assert is_language_equivalent("ru", "da") is False
+    assert is_language_equivalent("sk", "sv") is False
+
+
+def test_language_equivalent_unknown_language():
+    """Unknown language code returns False."""
+    assert is_language_equivalent("xx", "yy") is False
+    assert is_language_equivalent("en", "fr") is False
+
+
+def test_compat_names_maps_codec_to_display() -> None:
+    """_COMPAT_NAMES maps codec names to 5.x/6.x display names."""
+    from chardet.equivalences import _COMPAT_NAMES
+
+    # 5.x compat entries
+    assert _COMPAT_NAMES["big5hkscs"] == "Big5"
+    assert _COMPAT_NAMES["cp855"] == "IBM855"
+    assert _COMPAT_NAMES["euc_jis_2004"] == "EUC-JP"
+    assert _COMPAT_NAMES["iso2022_jp_2"] == "ISO-2022-JP"
+    assert _COMPAT_NAMES["shift_jis_2004"] == "SHIFT_JIS"
+    # Windows codepage entries
+    assert _COMPAT_NAMES["cp1252"] == "Windows-1252"
+    assert _COMPAT_NAMES["cp1251"] == "Windows-1251"
+    # ISO entries
+    assert _COMPAT_NAMES["iso8859-1"] == "ISO-8859-1"
+    # Codec names that match 5.x output have no entry
+    assert "ascii" not in _COMPAT_NAMES
+    assert "utf-8" not in _COMPAT_NAMES

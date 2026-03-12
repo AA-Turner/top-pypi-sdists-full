@@ -2,8 +2,8 @@ import { Control, ControlView } from "./control";
 import type { TooltipView } from "../ui/tooltip";
 import { Tooltip } from "../ui/tooltip";
 import { HTML, HTMLView } from "../dom/html";
-import type { IterViews } from "../../core/build_views";
 import type { StyleSheetLike } from "../../core/dom";
+import { View } from "../../core/view";
 import type * as p from "../../core/properties";
 import { ModelEvent } from "../../core/bokeh_events";
 export type HTMLInputElementLike = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
@@ -21,7 +21,7 @@ export declare abstract class InputWidgetView extends ControlView {
     desc_el: HTMLElement | null;
     protected group_el: HTMLElement;
     controls(): Generator<HTMLInputElementLike, void, unknown>;
-    children(): IterViews;
+    children_views(): View[];
     lazy_initialize(): Promise<void>;
     remove(): void;
     connect_signals(): void;

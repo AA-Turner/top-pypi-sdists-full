@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dm_control
-Version: 1.0.37
+Version: 1.0.38
 Summary: Continuous control environments and MuJoCo Python bindings.
 Home-page: https://github.com/google-deepmind/dm_control
 Author: DeepMind
@@ -17,7 +17,7 @@ Requires-Dist: dm-tree!=0.1.2
 Requires-Dist: glfw
 Requires-Dist: labmaze
 Requires-Dist: lxml
-Requires-Dist: mujoco>=3.5.0
+Requires-Dist: mujoco>=3.6.0
 Requires-Dist: numpy>=1.9.0
 Requires-Dist: protobuf>=3.19.4
 Requires-Dist: pyopengl>=3.1.4

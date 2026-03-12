@@ -41,9 +41,7 @@ _BINARY_RESULT = DetectionResult(
 _EMPTY_RESULT = DetectionResult(encoding="utf-8", confidence=0.10, language=None)
 # windows-1252 is the most common single-byte encoding on the web and the
 # HTTP/1.1 default charset — used when no encoding can be determined.
-_FALLBACK_RESULT = DetectionResult(
-    encoding="windows-1252", confidence=0.10, language=None
-)
+_FALLBACK_RESULT = DetectionResult(encoding="cp1252", confidence=0.10, language=None)
 # Threshold at which a CJK structural score is confident enough to trigger
 # combined structural+statistical ranking rather than purely statistical.
 _STRUCTURAL_CONFIDENCE_THRESHOLD = 0.85
@@ -55,9 +53,9 @@ _STRUCTURAL_CONFIDENCE_THRESHOLD = 0.85
 # (e.g. windows-1254).
 _COMMON_LATIN_ENCODINGS: frozenset[str] = frozenset(
     {
-        "iso-8859-1",
-        "iso-8859-15",
-        "windows-1252",
+        "iso8859-1",
+        "iso8859-15",
+        "cp1252",
     }
 )
 
@@ -171,9 +169,9 @@ _WINDOWS_1254_DISTINGUISHING: frozenset[int] = frozenset(
 # that encoding differs from iso-8859-1 (or windows-1252 in the case of
 # windows-1254).
 _DEMOTION_CANDIDATES: dict[str, frozenset[int]] = {
-    "iso-8859-10": _ISO_8859_10_DISTINGUISHING,
-    "iso-8859-14": _ISO_8859_14_DISTINGUISHING,
-    "windows-1254": _WINDOWS_1254_DISTINGUISHING,
+    "iso8859-10": _ISO_8859_10_DISTINGUISHING,
+    "iso8859-14": _ISO_8859_14_DISTINGUISHING,
+    "cp1254": _WINDOWS_1254_DISTINGUISHING,
 }
 
 # Bytes where KOI8-T maps to Tajik-specific Cyrillic letters but KOI8-R
@@ -305,7 +303,9 @@ def _score_structural_candidates(
     relative ranking among candidates.  ``run_pipeline`` clamps all
     confidence values to [0.0, 1.0] before returning to callers.
     """
-    enc_lookup = {e.name: e for e in valid_candidates if e.is_multibyte}
+    enc_lookup: dict[str, EncodingInfo] = {
+        e.name: e for e in valid_candidates if e.is_multibyte
+    }
     valid_mb = tuple(
         enc_lookup[name] for name, _sc in structural_scores if name in enc_lookup
     )
@@ -373,11 +373,7 @@ def _promote_koi8t(
     if not results or results[0].encoding != "koi8-r":
         return results
     # Check if KOI8-T is anywhere in the results
-    koi8t_idx = None
-    for i, r in enumerate(results):
-        if r.encoding == "koi8-t":
-            koi8t_idx = i
-            break
+    koi8t_idx = next((i for i, r in enumerate(results) if r.encoding == "koi8-t"), None)
     if koi8t_idx is None:
         return results
     # Check for Tajik-specific bytes

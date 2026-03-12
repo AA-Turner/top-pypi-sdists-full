@@ -1,8 +1,9 @@
 use std::time::Duration;
 
-use cas_client::LocalTestServer;
+use cas_client::LocalTestServerBuilder;
 // Run tests that determine deduplication, especially across different test subjects.
 use data::FileUploadSession;
+use data::Sha256Policy;
 use data::configurations::TranslatorConfig;
 use deduplication::constants::{MAX_XORB_BYTES, MAX_XORB_CHUNKS, TARGET_CHUNK_SIZE};
 use tempfile::TempDir;
@@ -39,6 +40,7 @@ mod tests {
     use more_asserts::*;
     use progress_tracking::aggregator::AggregatingProgressUpdater;
     use rand::prelude::*;
+    use ulid::Ulid;
 
     use super::*;
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -55,9 +57,9 @@ mod tests {
         let mut rng = StdRng::seed_from_u64(0);
         rng.fill(&mut data[..]);
 
-        let server = LocalTestServer::start(true).await;
+        let server = LocalTestServerBuilder::new().start().await;
         let shard_base = TempDir::new().unwrap();
-        let config = Arc::new(TranslatorConfig::test_server_config(server.endpoint(), shard_base.path()).unwrap());
+        let config = Arc::new(TranslatorConfig::test_server_config(server.http_endpoint(), shard_base.path()).unwrap());
 
         {
             let progress_tracker = AggregatingProgressUpdater::new_aggregation_only();
@@ -67,7 +69,7 @@ mod tests {
 
             // Feed it half the data, and checkpoint.
             let mut cleaner = file_upload_session
-                .start_clean(Some("data".into()), data.len() as u64, None)
+                .start_clean(Some("data".into()), data.len() as u64, Sha256Policy::Compute, Ulid::new())
                 .await;
             cleaner.add_data(&data[..half_n]).await.unwrap();
             cleaner.checkpoint().await.unwrap();
@@ -85,7 +87,7 @@ mod tests {
 
             // Feed it half the data, and checkpoint.
             let mut cleaner = file_upload_session
-                .start_clean(Some("data".into()), data.len() as u64, None)
+                .start_clean(Some("data".into()), data.len() as u64, Sha256Policy::Compute, Ulid::new())
                 .await;
 
             // Add all the data.  Roughly the first half should dedup.
@@ -126,9 +128,9 @@ mod tests {
         let mut rng = StdRng::seed_from_u64(0);
         rng.fill(&mut data[..]);
 
-        let server = LocalTestServer::start(true).await;
+        let server = LocalTestServerBuilder::new().start().await;
         let shard_base = TempDir::new().unwrap();
-        let config = Arc::new(TranslatorConfig::test_server_config(server.endpoint(), shard_base.path()).unwrap());
+        let config = Arc::new(TranslatorConfig::test_server_config(server.http_endpoint(), shard_base.path()).unwrap());
 
         let mut prev_rn = 0;
 
@@ -140,7 +142,7 @@ mod tests {
 
             // Feed it half the data, and checkpoint.
             let mut cleaner = file_upload_session
-                .start_clean(Some("data".into()), data.len() as u64, None)
+                .start_clean(Some("data".into()), data.len() as u64, Sha256Policy::Compute, Ulid::new())
                 .await;
             cleaner.add_data(&data[..rn]).await.unwrap();
             cleaner.checkpoint().await.unwrap();
@@ -172,7 +174,7 @@ mod tests {
 
             // Feed it half the data, and checkpoint.
             let mut cleaner = file_upload_session
-                .start_clean(Some("data".into()), data.len() as u64, None)
+                .start_clean(Some("data".into()), data.len() as u64, Sha256Policy::Compute, Ulid::new())
                 .await;
 
             // Add all the data.  Roughly the first half should dedup.

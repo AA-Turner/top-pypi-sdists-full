@@ -26,7 +26,7 @@ from albert.resources.data_templates import (
     ParameterValue,
 )
 from albert.resources.parameter_groups import DataType, EnumValidationValue, ValueValidation
-from albert.utils._patch import generate_data_template_patches
+from albert.utils._patch import build_acl_patch_payload, generate_data_template_patches
 from albert.utils.data_template import (
     add_parameter_enums,
     build_curve_example,
@@ -356,7 +356,6 @@ class DataTemplateCollection(BaseCollection):
         --------
         Only scalar data column values (text, number, dropdown) can be updated using this function. Use
         `set_curve_example` / `set_image_example` to set example values for other data column types.
-
         """
 
         existing = self.get_by_id(id=data_template.id)
@@ -371,6 +370,8 @@ class DataTemplateCollection(BaseCollection):
             new_parameters,
             parameter_enum_patches,
             parameter_patches,
+            acl_add_values,
+            acl_delete_values,
         ) = generate_data_template_patches(
             initial_patches=base_payload,
             updated_data_template=data_template,
@@ -518,6 +519,20 @@ class DataTemplateCollection(BaseCollection):
                     json=json_payload,
                 )
 
+        acl_add_payload = build_acl_patch_payload(operation="add", values=acl_add_values)
+        if acl_add_payload is not None:
+            self.session.patch(
+                path,
+                json=acl_add_payload.model_dump(mode="json", by_alias=True, exclude_none=True),
+            )
+
+        acl_delete_payload = build_acl_patch_payload(operation="delete", values=acl_delete_values)
+        if acl_delete_payload is not None:
+            self.session.patch(
+                path,
+                json=acl_delete_payload.model_dump(mode="json", by_alias=True, exclude_none=True),
+            )
+
         if len(general_patches.data) > 0:
             payload = GeneralPatchPayload(data=general_patches.data)
             self.session.patch(
@@ -534,6 +549,10 @@ class DataTemplateCollection(BaseCollection):
         ----------
         id : str
             The ID of the data template to delete.
+
+        Returns
+        -------
+        None
         """
         self.session.delete(f"{self.base_path}/{id}")
 
@@ -616,7 +635,7 @@ class DataTemplateCollection(BaseCollection):
         data_column_name : str, optional
             Target curve column name (provide exactly one of id or name).
         example : CurveExample
-            Curve example payload
+            Curve example data.
 
         Returns
         -------
@@ -664,7 +683,7 @@ class DataTemplateCollection(BaseCollection):
         data_column_name : str, optional
             Target image column name (provide exactly one of id or name).
         example : ImageExample
-            Image example payload
+            Image example data.
 
         Returns
         -------

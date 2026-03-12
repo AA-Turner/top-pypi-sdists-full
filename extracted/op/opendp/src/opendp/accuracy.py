@@ -38,11 +38,11 @@ def accuracy_to_discrete_gaussian_scale(
 ):
     r"""Convert a desired `accuracy` (tolerance) into a discrete gaussian noise scale at a statistical significance level `alpha`.
 
-    [accuracy_to_discrete_gaussian_scale in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/accuracy/fn.accuracy_to_discrete_gaussian_scale.html)
+    [accuracy_to_discrete_gaussian_scale in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/accuracy/fn.accuracy_to_discrete_gaussian_scale.html)
 
     **Proof Definition:**
 
-    [(Proof Document)](https://docs.opendp.org/en/v0.14.1/proofs/rust/src/accuracy/accuracy_to_discrete_gaussian_scale.pdf)
+    [(Proof Document)](https://docs.opendp.org/en/v0.14.2/proofs/rust/src/accuracy/accuracy_to_discrete_gaussian_scale.pdf)
 
     .. end-markdown
 
@@ -88,11 +88,11 @@ def accuracy_to_discrete_laplacian_scale(
 ):
     r"""Convert a desired `accuracy` (tolerance) into a discrete Laplacian noise scale at a statistical significance level `alpha`.
 
-    [accuracy_to_discrete_laplacian_scale in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/accuracy/fn.accuracy_to_discrete_laplacian_scale.html)
+    [accuracy_to_discrete_laplacian_scale in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/accuracy/fn.accuracy_to_discrete_laplacian_scale.html)
 
     **Proof Definition:**
 
-    [(Proof Document)](https://docs.opendp.org/en/v0.14.1/proofs/rust/src/accuracy/accuracy_to_discrete_laplacian_scale.pdf)
+    [(Proof Document)](https://docs.opendp.org/en/v0.14.2/proofs/rust/src/accuracy/accuracy_to_discrete_laplacian_scale.pdf)
 
     .. end-markdown
 
@@ -139,7 +139,7 @@ def accuracy_to_gaussian_scale(
 ):
     r"""Convert a desired `accuracy` (tolerance) into a gaussian noise scale at a statistical significance level `alpha`.
 
-    [accuracy_to_gaussian_scale in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/accuracy/fn.accuracy_to_gaussian_scale.html)
+    [accuracy_to_gaussian_scale in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/accuracy/fn.accuracy_to_gaussian_scale.html)
 
     .. end-markdown
 
@@ -185,7 +185,7 @@ def accuracy_to_laplacian_scale(
 ):
     r"""Convert a desired `accuracy` (tolerance) into a Laplacian noise scale at a statistical significance level `alpha`.
 
-    [accuracy_to_laplacian_scale in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/accuracy/fn.accuracy_to_laplacian_scale.html)
+    [accuracy_to_laplacian_scale in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/accuracy/fn.accuracy_to_laplacian_scale.html)
 
     .. end-markdown
 
@@ -232,11 +232,11 @@ def discrete_gaussian_scale_to_accuracy(
 ):
     r"""Convert a discrete gaussian scale into an accuracy estimate (tolerance) at a statistical significance level `alpha`.
 
-    [discrete_gaussian_scale_to_accuracy in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/accuracy/fn.discrete_gaussian_scale_to_accuracy.html)
+    [discrete_gaussian_scale_to_accuracy in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/accuracy/fn.discrete_gaussian_scale_to_accuracy.html)
 
     **Proof Definition:**
 
-    [(Proof Document)](https://docs.opendp.org/en/v0.14.1/proofs/rust/src/accuracy/discrete_gaussian_scale_to_accuracy.pdf)
+    [(Proof Document)](https://docs.opendp.org/en/v0.14.2/proofs/rust/src/accuracy/discrete_gaussian_scale_to_accuracy.pdf)
 
     .. end-markdown
 
@@ -288,11 +288,11 @@ def discrete_laplacian_scale_to_accuracy(
     This function returns a float accuracy.
     You can take the floor without affecting the coverage probability.
 
-    [discrete_laplacian_scale_to_accuracy in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/accuracy/fn.discrete_laplacian_scale_to_accuracy.html)
+    [discrete_laplacian_scale_to_accuracy in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/accuracy/fn.discrete_laplacian_scale_to_accuracy.html)
 
     **Proof Definition:**
 
-    [(Proof Document)](https://docs.opendp.org/en/v0.14.1/proofs/rust/src/accuracy/discrete_laplacian_scale_to_accuracy.pdf)
+    [(Proof Document)](https://docs.opendp.org/en/v0.14.2/proofs/rust/src/accuracy/discrete_laplacian_scale_to_accuracy.pdf)
 
     .. end-markdown
 
@@ -338,7 +338,7 @@ def gaussian_scale_to_accuracy(
 ):
     r"""Convert a gaussian scale into an accuracy estimate (tolerance) at a statistical significance level `alpha`.
 
-    [gaussian_scale_to_accuracy in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/accuracy/fn.gaussian_scale_to_accuracy.html)
+    [gaussian_scale_to_accuracy in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/accuracy/fn.gaussian_scale_to_accuracy.html)
 
     .. end-markdown
 
@@ -384,7 +384,7 @@ def laplacian_scale_to_accuracy(
 ):
     r"""Convert a Laplacian scale into an accuracy estimate (tolerance) at a statistical significance level `alpha`.
 
-    [laplacian_scale_to_accuracy in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/accuracy/fn.laplacian_scale_to_accuracy.html)
+    [laplacian_scale_to_accuracy in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/accuracy/fn.laplacian_scale_to_accuracy.html)
 
     .. end-markdown
 
@@ -447,51 +447,51 @@ def summarize_polars_measurement(
 
     :example:
 
-    First, create a measurement with the Polars API:
+        First, create a measurement with the Polars API:
 
-    >>> import opendp.prelude as dp
-    >>> import polars as pl
-    >>> dp.enable_features("contrib")
-    ... 
-    >>> lf = pl.LazyFrame(schema={"A": pl.Int32, "B": pl.String})
-    >>> lf_domain = dp.lazyframe_domain([
-    ...     dp.series_domain("A", dp.atom_domain(T="i32")), 
-    ...     dp.series_domain("B", dp.atom_domain(T=str))
-    ... ])
-    >>> lf_domain = dp.with_margin(lf_domain, dp.polars.Margin(by=[], max_length=1000))
-    >>> meas = dp.m.make_private_lazyframe(
-    ...     lf_domain,
-    ...     dp.symmetric_distance(),
-    ...     dp.max_divergence(),
-    ...     lf.select([dp.len(), pl.col("A").dp.sum((0, 1))]),
-    ...     global_scale=1.0
-    ... )
+        >>> import opendp.prelude as dp
+        >>> import polars as pl
+        >>> dp.enable_features("contrib")
+        ... 
+        >>> lf = pl.LazyFrame(schema={"A": pl.Int32, "B": pl.String})
+        >>> lf_domain = dp.lazyframe_domain([
+        ...     dp.series_domain("A", dp.atom_domain(T="i32")), 
+        ...     dp.series_domain("B", dp.atom_domain(T=str))
+        ... ])
+        >>> lf_domain = dp.with_margin(lf_domain, dp.polars.Margin(by=[], max_length=1000))
+        >>> meas = dp.m.make_private_lazyframe(
+        ...     lf_domain,
+        ...     dp.symmetric_distance(),
+        ...     dp.max_divergence(),
+        ...     lf.select([dp.len(), pl.col("A").dp.sum((0, 1))]),
+        ...     global_scale=1.0
+        ... )
 
-    This function extracts utility information about each aggregate in the resulting data frame:
+        This function extracts utility information about each aggregate in the resulting data frame:
 
-    >>> dp.summarize_polars_measurement(meas)
-    shape: (2, 4)
-    ┌────────┬──────────────┬─────────────────┬───────┐
-    │ column ┆ aggregate    ┆ distribution    ┆ scale │
-    │ ---    ┆ ---          ┆ ---             ┆ ---   │
-    │ str    ┆ str          ┆ str             ┆ f64   │
-    ╞════════╪══════════════╪═════════════════╪═══════╡
-    │ len    ┆ Frame Length ┆ Integer Laplace ┆ 1.0   │
-    │ A      ┆ Sum          ┆ Integer Laplace ┆ 1.0   │
-    └────────┴──────────────┴─────────────────┴───────┘
+        >>> dp.summarize_polars_measurement(meas)
+        shape: (2, 4)
+        ┌────────┬──────────────┬─────────────────┬───────┐
+        │ column ┆ aggregate    ┆ distribution    ┆ scale │
+        │ ---    ┆ ---          ┆ ---             ┆ ---   │
+        │ str    ┆ str          ┆ str             ┆ f64   │
+        ╞════════╪══════════════╪═════════════════╪═══════╡
+        │ len    ┆ Frame Length ┆ Integer Laplace ┆ 1.0   │
+        │ A      ┆ Sum          ┆ Integer Laplace ┆ 1.0   │
+        └────────┴──────────────┴─────────────────┴───────┘
 
-    If you pass an alpha argument, then you also get accuracy estimates:
+        If you pass an alpha argument, then you also get accuracy estimates:
 
-    >>> dp.summarize_polars_measurement(meas, alpha=.05)
-    shape: (2, 5)
-    ┌────────┬──────────────┬─────────────────┬───────┬──────────┐
-    │ column ┆ aggregate    ┆ distribution    ┆ scale ┆ accuracy │
-    │ ---    ┆ ---          ┆ ---             ┆ ---   ┆ ---      │
-    │ str    ┆ str          ┆ str             ┆ f64   ┆ f64      │
-    ╞════════╪══════════════╪═════════════════╪═══════╪══════════╡
-    │ len    ┆ Frame Length ┆ Integer Laplace ┆ 1.0   ┆ 3.375618 │
-    │ A      ┆ Sum          ┆ Integer Laplace ┆ 1.0   ┆ 3.375618 │
-    └────────┴──────────────┴─────────────────┴───────┴──────────┘
+        >>> dp.summarize_polars_measurement(meas, alpha=.05)
+        shape: (2, 5)
+        ┌────────┬──────────────┬─────────────────┬───────┬──────────┐
+        │ column ┆ aggregate    ┆ distribution    ┆ scale ┆ accuracy │
+        │ ---    ┆ ---          ┆ ---             ┆ ---   ┆ ---      │
+        │ str    ┆ str          ┆ str             ┆ f64   ┆ f64      │
+        ╞════════╪══════════════╪═════════════════╪═══════╪══════════╡
+        │ len    ┆ Frame Length ┆ Integer Laplace ┆ 1.0   ┆ 3.375618 │
+        │ A      ┆ Sum          ┆ Integer Laplace ┆ 1.0   ┆ 3.375618 │
+        └────────┴──────────────┴─────────────────┴───────┴──────────┘
 
 
     """

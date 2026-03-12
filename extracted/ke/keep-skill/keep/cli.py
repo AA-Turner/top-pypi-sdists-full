@@ -6,12 +6,17 @@ Usage:
     keep get file:///path/to/doc.md
 """
 
+import importlib.metadata
+import importlib.resources
 import json
 import os
+import platform
 import re
 import select
 import shutil
+import signal
 import sys
+import tempfile
 import time
 from pathlib import Path
 from typing import Any, Optional
@@ -32,7 +37,8 @@ PART_SUFFIX_PATTERN = re.compile(r'@P\{(\d+)\}$')
 # Used to distinguish URIs from plain text in the update command
 _URI_SCHEME_PATTERN = re.compile(r'^[a-zA-Z][a-zA-Z0-9+.-]*://')
 
-from .api import Keeper, _text_content_id
+from .api import Keeper
+from .utils import _text_content_id
 from .config import get_tool_directory
 from .types import (
     SYSTEM_TAG_PREFIX,
@@ -67,20 +73,34 @@ def _is_filesystem_path(source: str) -> Optional[Path]:
     return None
 
 
-def _list_directory_files(directory: Path) -> list[Path]:
+def _list_directory_files(directory: Path, *, recurse: bool = False) -> list[Path]:
     """List regular files in a directory, sorted by name.
 
-    Skips symlinks, subdirectories, and hidden files (names starting with '.').
+    Skips symlinks, hidden files/dirs (names starting with '.').
+    When recurse=True, walks subdirectories.
     """
     files = []
-    for entry in sorted(directory.iterdir()):
-        if entry.name.startswith("."):
-            continue
-        if entry.is_symlink():
-            continue
-        if entry.is_dir():
-            continue
-        files.append(entry)
+    if recurse:
+        for root, dirs, filenames in os.walk(directory, followlinks=False):
+            # Skip hidden directories (modifying dirs in-place prunes them)
+            dirs[:] = sorted(d for d in dirs if not d.startswith("."))
+            root_path = Path(root)
+            for name in sorted(filenames):
+                if name.startswith("."):
+                    continue
+                entry = root_path / name
+                if entry.is_symlink():
+                    continue
+                files.append(entry)
+    else:
+        for entry in sorted(directory.iterdir()):
+            if entry.name.startswith("."):
+                continue
+            if entry.is_symlink():
+                continue
+            if entry.is_dir():
+                continue
+            files.append(entry)
     return files
 
 
@@ -89,6 +109,28 @@ def _output_width() -> int:
     if not sys.stdout.isatty():
         return 200
     return shutil.get_terminal_size((120, 24)).columns
+
+
+def _progress_bar(current: int, total: int, label: str, *, err: bool = False) -> None:
+    """Render an inline progress bar to stderr, overwriting the current line."""
+    cols = shutil.get_terminal_size((80, 24)).columns
+    pct = current * 100 // total
+    counter = f" {current}/{total}"
+    # bar takes ~30 chars, leave rest for label
+    bar_width = 20
+    filled = current * bar_width // total
+    bar = "\u2588" * filled + "\u2591" * (bar_width - filled)
+    prefix = f"\r  [{bar}] {pct:3d}%{counter} "
+    # Truncate label to fit
+    max_label = cols - len(prefix) - 2
+    if len(label) > max_label > 0:
+        label = label[:max_label - 1] + "\u2026"
+    line = f"{prefix}{label}"
+    # Pad to overwrite previous longer lines
+    line = line.ljust(cols - 1)
+    stream = sys.stderr if err else sys.stdout
+    stream.write(line)
+    stream.flush()
 
 
 def _has_stdin_data() -> bool:
@@ -1256,7 +1298,7 @@ def _parse_frontmatter(text: str) -> tuple[str, dict[str, str]]:
     a ``tags`` dict.  Keys starting with ``_`` are skipped (system reserved).
     Non-scalar values (lists, nested dicts) are dropped except ``tags`` dict.
     """
-    from .api import _extract_markdown_frontmatter
+    from .utils import _extract_markdown_frontmatter
     return _extract_markdown_frontmatter(text)
 
 
@@ -1615,6 +1657,7 @@ def _put_store(
     summary: Optional[str],
     do_analyze: bool,
     force: bool = False,
+    recurse: bool = False,
 ) -> Optional["Item"]:
     """Execute the store operation for put(). Returns Item, or None for directory mode."""
     if source == "-" or (source is None and _has_stdin_data()):
@@ -1641,17 +1684,20 @@ def _put_store(
         doc_id = id or _text_content_id(content)
         return kp.put(content, id=doc_id, tags=parsed_tags or None, force=force)
     elif resolved_path is not None and resolved_path.is_dir():
-        # Directory mode: index all regular files in directory
+        # Directory mode: index files in directory
         if summary is not None:
             typer.echo("Error: --summary cannot be used with directory mode", err=True)
             raise typer.Exit(1)
         if id is not None:
             typer.echo("Error: --id cannot be used with directory mode", err=True)
             raise typer.Exit(1)
-        files = _list_directory_files(resolved_path)
+        files = _list_directory_files(resolved_path, recurse=recurse)
         if not files:
             typer.echo(f"Error: no eligible files in {resolved_path}/", err=True)
-            typer.echo("Hint: hidden files, symlinks, and subdirectories are skipped", err=True)
+            hint = "hidden files and symlinks are skipped"
+            if not recurse:
+                hint += "; use -r to recurse into subdirectories"
+            typer.echo(f"Hint: {hint}", err=True)
             raise typer.Exit(1)
         if len(files) > MAX_DIR_FILES:
             typer.echo(f"Error: directory has {len(files)} files (max {MAX_DIR_FILES})", err=True)
@@ -1660,18 +1706,31 @@ def _put_store(
         results: list[Item] = []
         errors: list[str] = []
         total = len(files)
+        is_tty = sys.stderr.isatty()
         for i, fpath in enumerate(files, 1):
             file_uri = f"file://{fpath}"
+            rel = fpath.relative_to(resolved_path) if recurse else fpath.name
             try:
                 item = kp.put(uri=file_uri, tags=parsed_tags or None, force=force)
                 results.append(item)
-                typer.echo(f"[{i}/{total}] {fpath.name} ok", err=True)
+                if is_tty:
+                    _progress_bar(i, total, str(rel), err=True)
+                else:
+                    typer.echo(f"[{i}/{total}] {rel} ok", err=True)
             except Exception as e:
-                errors.append(f"{fpath.name}: {e}")
-                typer.echo(f"[{i}/{total}] {fpath.name} error: {e}", err=True)
+                errors.append(f"{rel}: {e}")
+                if is_tty:
+                    _progress_bar(i, total, f"{rel} ERROR", err=True)
+                else:
+                    typer.echo(f"[{i}/{total}] {rel} error: {e}", err=True)
+        if is_tty:
+            typer.echo("", err=True)  # newline after progress bar
         indexed = len(results)
         skipped = len(errors)
-        typer.echo(f"\n{indexed} indexed, {skipped} skipped from {resolved_path.name}/", err=True)
+        typer.echo(f"{indexed} indexed, {skipped} errors from {resolved_path.name}/", err=True)
+        if errors:
+            for e in errors:
+                typer.echo(f"  error: {e}", err=True)
         if results:
             typer.echo(_format_items(results, as_json=_get_json_output()))
         if do_analyze and results:
@@ -1740,6 +1799,10 @@ def put(
         "--analyze",
         help="Queue background analysis (decompose into parts)"
     )] = False,
+    recurse: Annotated[bool, typer.Option(
+        "--recurse", "-r",
+        help="Recurse into subdirectories (directory mode)"
+    )] = False,
     force: Annotated[bool, typer.Option(
         "--force",
         help="Re-process even if content is unchanged"
@@ -1749,16 +1812,16 @@ def put(
 
     \b
     Input modes (auto-detected):
-      keep put /path/to/folder/   # Directory mode: index all files
-      keep put /path/to/file.pdf  # File mode: index single file
-      keep put file:///path       # URI mode: has ://
-      keep put "my note"          # Text mode: content-addressed ID
-      keep put -                  # Stdin mode: explicit -
-      echo "pipe" | keep put      # Stdin mode: piped input
+      keep put /path/to/folder/      # Directory mode: index top-level files
+      keep put /path/to/folder/ -r   # Directory mode: recurse into subdirs
+      keep put /path/to/file.pdf     # File mode: index single file
+      keep put file:///path          # URI mode: has ://
+      keep put "my note"             # Text mode: content-addressed ID
+      keep put -                     # Stdin mode: explicit -
+      echo "pipe" | keep put         # Stdin mode: piped input
 
     \b
-    Directory mode indexes all regular files (non-recursive).
-    Skips hidden files, symlinks, and subdirectories.
+    Directory mode skips hidden files/dirs and symlinks.
 
     \b
     Text mode uses content-addressed IDs for versioning:
@@ -1774,7 +1837,7 @@ def put(
     resolved_path = _is_filesystem_path(source) if source and source != "-" else None
 
     try:
-        item = _put_store(kp, source, resolved_path, parsed_tags, id, summary, do_analyze, force)
+        item = _put_store(kp, source, resolved_path, parsed_tags, id, summary, do_analyze, force, recurse=recurse)
     except ValueError as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(1)
@@ -1951,7 +2014,7 @@ def now(
     if setting:
         if reset:
             # Reset to default from system (delete first to clear old tags)
-            from .api import _load_frontmatter, SYSTEM_DOC_DIR
+            from .system_docs import _load_frontmatter, SYSTEM_DOC_DIR
             kp.delete(doc_id)
             try:
                 new_content, default_tags = _load_frontmatter(SYSTEM_DOC_DIR / "now.md")
@@ -2452,7 +2515,7 @@ def _get_meta_list(kp: Keeper, actual_id: str, limit: int) -> str:
 
 def _get_resolve_list(kp: Keeper, actual_id: str, resolve: list[str], limit: int) -> str:
     """Resolve inline meta-doc syntax strings."""
-    from .api import _parse_meta_doc
+    from .utils import _parse_meta_doc
     all_queries: list[dict[str, str]] = []
     all_context: list[str] = []
     all_prereqs: list[str] = []
@@ -2793,7 +2856,7 @@ def _get_config_value(cfg, store_path: Path, path: str):
     if path == "tool":
         return str(get_tool_directory())
     if path == "openclaw-plugin":
-        import importlib.resources
+
         return str(Path(str(importlib.resources.files("keep"))) / "data" / "openclaw-plugin")
     if path == "docs":
         return str(get_tool_directory() / "docs")
@@ -2852,7 +2915,7 @@ def _format_config_with_defaults(cfg, store_path: Path) -> str:
     lines.append(f"tool: {get_tool_directory()}")
     lines.append(f"docs: {get_tool_directory() / 'docs'}")
     lines.append(f"store: {store_path}")
-    import importlib.resources
+
     lines.append(f"openclaw-plugin: {Path(str(importlib.resources.files('keep'))) / 'data' / 'openclaw-plugin'}")
 
     if cfg:
@@ -3152,7 +3215,7 @@ def config(
 
     # Full config output
     if _get_json_output():
-        import importlib.resources
+
         result = {
             "file": str(config_path) if config_path else None,
             "tool": str(get_tool_directory()),
@@ -3183,6 +3246,10 @@ def pending_cmd(
         "--retry",
         help="Reset failed items back to pending for retry"
     )] = False,
+    purge: Annotated[bool, typer.Option(
+        "--purge",
+        help="Delete all pending work items from the queue"
+    )] = False,
     stop: Annotated[bool, typer.Option(
         "--stop",
         help="Stop the background processor"
@@ -3199,7 +3266,6 @@ def pending_cmd(
     progress. Ctrl-C detaches without stopping the processor.
     Use --reindex to re-embed all items with the current embedding provider.
     """
-    import signal
     kp = _get_keeper(store)
 
     # --stop: send SIGTERM to the daemon
@@ -3322,6 +3388,14 @@ def pending_cmd(
             processor_lock.release()
         return
 
+    # --purge: delete all pending work items
+    if purge:
+        wq = kp._get_work_queue()
+        n = wq.purge()
+        typer.echo(f"Purged {n} pending work items.", err=True)
+        kp.close()
+        return
+
     # --retry: reset failed items back to pending
     if retry:
         n = kp._pending_queue.retry_failed()
@@ -3419,8 +3493,6 @@ def _queue_status_line(kp, queue_stats: dict) -> str:
 
 def _tail_ops_log(log_path: Path, kp) -> None:
     """Tail the ops log, showing new lines until daemon finishes or Ctrl-C."""
-    import time
-
     # Grace period for daemon startup (takes a moment to acquire lock)
     time.sleep(1.0)
 
@@ -3680,9 +3752,6 @@ def doctor(
     )] = False,
 ):
     """Diagnostic checks for debugging setup and crash issues."""
-    import platform
-    import time
-
     if log:
         from .paths import get_config_dir, get_default_store_path
         from .config import load_or_create_config
@@ -3723,9 +3792,8 @@ def doctor(
         typer.echo(f"  [WARN] {msg}")
 
     # 1. Environment
-    from importlib.metadata import version as pkg_version
     try:
-        kv = pkg_version("keep-skill")
+        kv = importlib.metadata.version("keep-skill")
     except Exception:
         kv = "?"
     py_ver = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
@@ -3964,8 +4032,6 @@ def doctor(
         ok("Lock: skipped (no store path)")
 
     # 11. Round-trip (temp store, isolates stack from store data)
-    import tempfile
-    import shutil
     from .config import StoreConfig, ProviderConfig
     tmp_dir = None
     try:

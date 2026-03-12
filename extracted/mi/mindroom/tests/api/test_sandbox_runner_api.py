@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import subprocess
+import sys
 import threading
 from types import SimpleNamespace
 from typing import TYPE_CHECKING
@@ -24,6 +26,10 @@ if TYPE_CHECKING:
 
 SANDBOX_TOKEN = "secret-token"  # noqa: S105
 SANDBOX_HEADERS = {"x-mindroom-sandbox-token": SANDBOX_TOKEN}
+REQUIRES_LINUX_LOCAL_WORKER = pytest.mark.skipif(
+    sys.platform != "linux",
+    reason="local worker venv bootstrap is validated on Linux",
+)
 
 
 @pytest.fixture(autouse=True)
@@ -67,6 +73,42 @@ def test_sandbox_runner_executes_tool_call(runner_client: TestClient, monkeypatc
     data = response.json()
     assert data["ok"] is True
     assert '"result": 3' in data["result"]
+
+
+def test_sandbox_runner_applies_tool_init_overrides(
+    runner_client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """Sandbox runner should instantiate tools with forwarded non-secret init overrides."""
+    _set_sandbox_token(monkeypatch)
+    workspace = tmp_path / "mind_data"
+    workspace.mkdir(parents=True, exist_ok=True)
+    (workspace / "USER.md").write_text("Bas\n", encoding="utf-8")
+
+    response = runner_client.post(
+        "/api/sandbox-runner/execute",
+        headers=SANDBOX_HEADERS,
+        json={
+            "tool_name": "coding",
+            "function_name": "ls",
+            "args": [],
+            "kwargs": {"path": "."},
+            "tool_init_overrides": {"base_dir": str(workspace)},
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["ok"] is True
+    assert "USER.md" in data["result"]
+
+
+def test_sandbox_runner_healthz(runner_client: TestClient) -> None:
+    """Sandbox runner should expose a minimal unauthenticated health endpoint."""
+    response = runner_client.get("/healthz")
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
 
 
 def test_sandbox_runner_executes_tool_call_in_subprocess_mode(
@@ -139,6 +181,123 @@ def test_sandbox_runner_rejects_when_token_not_configured(
     )
     assert response.status_code == 503
     assert "not configured" in response.json()["detail"]
+
+
+def test_sandbox_runner_rejects_direct_credential_overrides(
+    runner_client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Credential overrides must come from a lease, not the execute request payload."""
+    _set_sandbox_token(monkeypatch)
+
+    response = runner_client.post(
+        "/api/sandbox-runner/execute",
+        headers=SANDBOX_HEADERS,
+        json={
+            "tool_name": "calculator",
+            "function_name": "add",
+            "args": [2, 3],
+            "kwargs": {},
+            "credential_overrides": {"OPENAI_API_KEY": "test-key"},
+        },
+    )
+
+    assert response.status_code == 400
+    assert "lease_id" in response.json()["detail"]
+
+
+def test_sandbox_runner_rejects_unsafe_tool_init_overrides(
+    runner_client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Tool init overrides should reject non-whitelisted config fields."""
+    _set_sandbox_token(monkeypatch)
+
+    response = runner_client.post(
+        "/api/sandbox-runner/execute",
+        headers=SANDBOX_HEADERS,
+        json={
+            "tool_name": "openai",
+            "function_name": "list_models",
+            "args": [],
+            "kwargs": {},
+            "tool_init_overrides": {"api_key": "test-key"},
+        },
+    )
+
+    assert response.status_code == 400
+    assert "api_key" in response.json()["detail"]
+
+
+def test_sandbox_runner_rejects_invalid_base_dir_override_type(
+    runner_client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Malformed base_dir overrides should be rejected before toolkit construction."""
+    _set_sandbox_token(monkeypatch)
+
+    response = runner_client.post(
+        "/api/sandbox-runner/execute",
+        headers=SANDBOX_HEADERS,
+        json={
+            "tool_name": "coding",
+            "function_name": "ls",
+            "args": [],
+            "kwargs": {"path": "."},
+            "tool_init_overrides": {"base_dir": {"bad": "value"}},
+        },
+    )
+
+    assert response.status_code == 400
+    assert "base_dir" in response.json()["detail"]
+
+
+def test_sandbox_runner_subprocess_rejects_unsafe_tool_init_overrides(
+    runner_client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Unsafe tool init overrides should be rejected before subprocess execution starts."""
+    _set_sandbox_token(monkeypatch)
+    monkeypatch.setenv("MINDROOM_SANDBOX_RUNNER_EXECUTION_MODE", "subprocess")
+
+    response = runner_client.post(
+        "/api/sandbox-runner/execute",
+        headers=SANDBOX_HEADERS,
+        json={
+            "tool_name": "openai",
+            "function_name": "list_models",
+            "args": [],
+            "kwargs": {},
+            "tool_init_overrides": {"api_key": "test-key"},
+        },
+    )
+
+    assert response.status_code == 400
+    assert "api_key" in response.json()["detail"]
+
+
+def test_sandbox_runner_subprocess_rejects_invalid_base_dir_override_type(
+    runner_client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Malformed base_dir overrides should be rejected before subprocess dispatch."""
+    _set_sandbox_token(monkeypatch)
+    monkeypatch.setenv("MINDROOM_SANDBOX_RUNNER_EXECUTION_MODE", "subprocess")
+
+    response = runner_client.post(
+        "/api/sandbox-runner/execute",
+        headers=SANDBOX_HEADERS,
+        json={
+            "tool_name": "coding",
+            "function_name": "ls",
+            "args": [],
+            "kwargs": {"path": "."},
+            "tool_init_overrides": {"base_dir": {"bad": "value"}},
+        },
+    )
+
+    assert response.status_code == 400
+    assert "base_dir" in response.json()["detail"]
 
 
 def test_sandbox_runner_lease_is_one_time_use(runner_client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -276,6 +435,7 @@ def test_sandbox_runner_forwards_worker_context_to_tool_rebuild(
     assert captured_kwargs["routing_agent_name"] == "general"
 
 
+@REQUIRES_LINUX_LOCAL_WORKER
 def test_sandbox_runner_worker_file_state_persists_and_is_isolated(
     runner_client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
@@ -335,6 +495,7 @@ def test_sandbox_runner_worker_file_state_persists_and_is_isolated(
     assert worker_file.read_text(encoding="utf-8") == "hello from worker A"
 
 
+@REQUIRES_LINUX_LOCAL_WORKER
 def test_sandbox_runner_worker_python_uses_persistent_virtualenv(
     runner_client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
@@ -364,6 +525,7 @@ def test_sandbox_runner_worker_python_uses_persistent_virtualenv(
     assert str(expected_prefix) in data["result"]
 
 
+@REQUIRES_LINUX_LOCAL_WORKER
 def test_sandbox_runner_worker_python_supports_matrix_scoped_worker_keys(
     runner_client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
@@ -410,6 +572,7 @@ def test_sandbox_runner_worker_python_supports_matrix_scoped_worker_keys(
     assert str(expected_prefix) in data["result"]
 
 
+@REQUIRES_LINUX_LOCAL_WORKER
 def test_sandbox_runner_lists_known_workers(
     runner_client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
@@ -442,6 +605,7 @@ def test_sandbox_runner_lists_known_workers(
     assert worker["debug_metadata"]["state_root"] == str((tmp_path / "workers" / worker_dir_name("worker-a")).resolve())
 
 
+@REQUIRES_LINUX_LOCAL_WORKER
 def test_sandbox_runner_cleanup_marks_idle_workers_without_deleting_state(
     runner_client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
@@ -486,6 +650,157 @@ def test_sandbox_runner_cleanup_marks_idle_workers_without_deleting_state(
     assert worker_file.read_text(encoding="utf-8") == "hello from worker A"
 
 
+def test_dedicated_worker_mode_uses_mounted_root(
+    runner_client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """Dedicated worker mode should execute against the mounted worker root directly."""
+    _set_sandbox_token(monkeypatch)
+    worker_root = tmp_path / "dedicated-worker"
+    monkeypatch.setenv("MINDROOM_SANDBOX_DEDICATED_WORKER_KEY", "worker-a")
+    monkeypatch.setenv("MINDROOM_SANDBOX_DEDICATED_WORKER_ROOT", str(worker_root))
+
+    def fake_create(_self: object, venv_dir: Path) -> None:
+        (venv_dir / "bin").mkdir(parents=True, exist_ok=True)
+        (venv_dir / "bin" / "python").write_text("", encoding="utf-8")
+
+    def fake_run(
+        cmd: list[str],
+        **run_kwargs: object,
+    ) -> subprocess.CompletedProcess[str]:
+        assert run_kwargs["capture_output"] is True
+        assert run_kwargs["text"] is True
+        assert isinstance(run_kwargs["timeout"], float)
+        assert run_kwargs["check"] is False
+        request_input = str(run_kwargs["input"])
+        env = run_kwargs["env"]
+        cwd = run_kwargs["cwd"]
+        assert env is not None
+        assert isinstance(env, dict)
+        assert cmd[0] == str(worker_root / "venv" / "bin" / "python")
+        assert isinstance(cwd, str)
+        assert cwd == str(worker_root / "workspace")
+        assert env["MINDROOM_SANDBOX_DEDICATED_WORKER_KEY"] == "worker-a"
+        assert env["MINDROOM_SANDBOX_DEDICATED_WORKER_ROOT"] == str(worker_root)
+        request_payload = json.loads(request_input)
+        assert request_payload["worker_key"] == "worker-a"
+        note_path = worker_root / "workspace" / request_payload["args"][1]
+        note_path.parent.mkdir(parents=True, exist_ok=True)
+        note_path.write_text(request_payload["args"][0], encoding="utf-8")
+        response = sandbox_runner_module.SandboxRunnerExecuteResponse(ok=True, result="saved")
+        return subprocess.CompletedProcess(
+            args=cmd,
+            returncode=0,
+            stdout="",
+            stderr=sandbox_runner_module._RESPONSE_MARKER + response.model_dump_json(),
+        )
+
+    with (
+        patch("mindroom.workers.backends.local.venv.EnvBuilder.create", new=fake_create),
+        patch("mindroom.api.sandbox_runner.subprocess.run", new=fake_run),
+    ):
+        save_response = runner_client.post(
+            "/api/sandbox-runner/execute",
+            headers=SANDBOX_HEADERS,
+            json={
+                "tool_name": "file",
+                "function_name": "save_file",
+                "args": ["hello from dedicated worker", "note.txt"],
+                "kwargs": {},
+                "worker_key": "worker-a",
+            },
+        )
+    assert save_response.status_code == 200
+    assert save_response.json()["ok"] is True
+
+    worker_file = worker_root / "workspace" / "note.txt"
+    assert worker_file.read_text(encoding="utf-8") == "hello from dedicated worker"
+
+
+def test_dedicated_worker_mode_defaults_missing_worker_key_to_pinned_worker(
+    runner_client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """Dedicated worker mode should infer the pinned worker key when callers omit it."""
+    _set_sandbox_token(monkeypatch)
+    worker_root = tmp_path / "dedicated-worker"
+    monkeypatch.setenv("MINDROOM_SANDBOX_DEDICATED_WORKER_KEY", "worker-a")
+    monkeypatch.setenv("MINDROOM_SANDBOX_DEDICATED_WORKER_ROOT", str(worker_root))
+
+    def fake_create(_self: object, venv_dir: Path) -> None:
+        (venv_dir / "bin").mkdir(parents=True, exist_ok=True)
+        (venv_dir / "bin" / "python").write_text("", encoding="utf-8")
+
+    def fake_run(
+        cmd: list[str],
+        **run_kwargs: object,
+    ) -> subprocess.CompletedProcess[str]:
+        request_payload = json.loads(str(run_kwargs["input"]))
+        assert request_payload["worker_key"] == "worker-a"
+
+        note_path = worker_root / "workspace" / request_payload["args"][1]
+        note_path.parent.mkdir(parents=True, exist_ok=True)
+        note_path.write_text(request_payload["args"][0], encoding="utf-8")
+
+        response = sandbox_runner_module.SandboxRunnerExecuteResponse(ok=True, result="saved")
+        return subprocess.CompletedProcess(
+            args=cmd,
+            returncode=0,
+            stdout="",
+            stderr=sandbox_runner_module._RESPONSE_MARKER + response.model_dump_json(),
+        )
+
+    with (
+        patch("mindroom.workers.backends.local.venv.EnvBuilder.create", new=fake_create),
+        patch("mindroom.api.sandbox_runner.subprocess.run", new=fake_run),
+    ):
+        save_response = runner_client.post(
+            "/api/sandbox-runner/execute",
+            headers=SANDBOX_HEADERS,
+            json={
+                "tool_name": "file",
+                "function_name": "save_file",
+                "args": ["hello from inferred worker", "note.txt"],
+                "kwargs": {},
+            },
+        )
+
+    assert save_response.status_code == 200
+    assert save_response.json()["ok"] is True
+
+    worker_file = worker_root / "workspace" / "note.txt"
+    assert worker_file.read_text(encoding="utf-8") == "hello from inferred worker"
+
+
+def test_dedicated_worker_mode_rejects_mismatched_worker_key(
+    runner_client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """Dedicated worker mode should reject requests for other worker keys."""
+    _set_sandbox_token(monkeypatch)
+    monkeypatch.setenv("MINDROOM_SANDBOX_DEDICATED_WORKER_KEY", "worker-a")
+    monkeypatch.setenv("MINDROOM_SANDBOX_DEDICATED_WORKER_ROOT", str(tmp_path / "dedicated-worker"))
+
+    response = runner_client.post(
+        "/api/sandbox-runner/execute",
+        headers=SANDBOX_HEADERS,
+        json={
+            "tool_name": "file",
+            "function_name": "read_file",
+            "args": ["note.txt"],
+            "kwargs": {},
+            "worker_key": "worker-b",
+        },
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["ok"] is False
+    assert "Dedicated sandbox worker is pinned" in data["error"]
+
+
 def test_worker_subprocess_env_preserves_parent_worker_root_without_explicit_override(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -495,13 +810,13 @@ def test_worker_subprocess_env_preserves_parent_worker_root_without_explicit_ove
     monkeypatch.setenv("MINDROOM_STORAGE_PATH", str(tmp_path / ".mindroom"))
 
     worker_root = local_workers_module._default_worker_root()
-    paths = local_workers_module.local_worker_state_paths("worker-a", worker_root=worker_root)
+    paths = local_workers_module._local_worker_state_paths("worker-a", worker_root=worker_root)
     subprocess_env = sandbox_runner_module._worker_subprocess_env(paths)
 
     with patch.dict("os.environ", subprocess_env, clear=True):
         child_worker_root = local_workers_module._default_worker_root()
 
-    child_paths = local_workers_module.local_worker_state_paths("worker-a", worker_root=child_worker_root)
+    child_paths = local_workers_module._local_worker_state_paths("worker-a", worker_root=child_worker_root)
     assert child_worker_root == worker_root
     assert child_paths.root == paths.root
     assert subprocess_env["MINDROOM_SANDBOX_WORKER_ROOT"] == str(worker_root)
@@ -543,7 +858,7 @@ def test_get_local_worker_manager_singleton_creation_is_thread_safe(
         except Exception as exc:  # pragma: no cover - surfaced by assertion below
             exceptions.append(exc)
 
-    monkeypatch.setattr(local_workers_module, "LocalWorkerBackend", FakeBackend)
+    monkeypatch.setattr(local_workers_module, "_LocalWorkerBackend", FakeBackend)
 
     first_thread = threading.Thread(target=load_manager)
     second_thread = threading.Thread(target=load_manager)
@@ -564,7 +879,7 @@ def test_get_local_worker_manager_singleton_creation_is_thread_safe(
 
 def test_local_worker_backend_serializes_same_worker_initialization(tmp_path: Path) -> None:
     """Concurrent requests for one worker key should not initialize the venv twice."""
-    backend = local_workers_module.LocalWorkerBackend(
+    backend = local_workers_module._LocalWorkerBackend(
         worker_root=tmp_path / "workers",
         api_root="/api/sandbox-runner",
         idle_timeout_seconds=60.0,

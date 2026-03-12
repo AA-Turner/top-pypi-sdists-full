@@ -757,12 +757,18 @@ def list_auth_audit_records(ctx, **kwargs):
 @click.option("--has-resource-or-application-roles", is_flag=True, default=None)
 @click.option("--includes-any-label", type=str, multiple=True, default=None)
 @click.option("--has-label", type=bool, default=None)
+@click.option(
+    "--page-size",
+    type=int,
+    default=100,
+    help="number of items in each pagination, useful ONLY when page-at-id is set",
+)
 @click.pass_context
 def list_users(ctx, organisation, org_id, show_columns, reset_columns, **kwargs):
     # get all orgs
     kwargs["search_params"] = kwargs.pop("search_param", None)
 
-    results = users.query(ctx, org_id, **kwargs).users
+    results = users.query(ctx, org_id, **kwargs)
     columns = make_columns(
         ctx,
         results,
@@ -922,7 +928,7 @@ def output_list_groups(ctx, groups_list, hide_members):
         _members = []
         if not hide_members:
             for _member in entry["members"]:
-                _members.append(_member["email"])
+                _members.append(str(_member["email"]))
         table.add_row(
             [
                 entry["id"],
@@ -951,6 +957,12 @@ def output_list_groups(ctx, groups_list, hide_members):
 @click.option("--last-name", default=None)
 @click.option("--search-param", multiple=True, default=None)
 @click.option("--allow-partial-match", is_flag=True, default=False)
+@click.option(
+    "--page-size",
+    type=int,
+    default=100,
+    help="number of items in each pagination, useful ONLY when page-at-id is set",
+)
 @click.pass_context
 def list_groups(ctx, organisation, org_id, type, **kwargs):
     kwargs["search_params"] = kwargs.pop("search_param", None)
@@ -961,8 +973,8 @@ def list_groups(ctx, organisation, org_id, type, **kwargs):
     org_id = get_org_id_by_name_or_use_given(
         org_by_name, org_name=organisation, org_id=org_id
     )
-    users_groups = users.query_groups(ctx, org_id, type=list(type), **kwargs)
-    output_list_groups(ctx, users_groups["groups"], hide_members)
+    groups = users.query_groups(ctx, org_id, type=list(type), **kwargs)
+    output_list_groups(ctx, groups, hide_members)
 
 
 @cli.command(name="list-sysgroups")
@@ -6076,6 +6088,7 @@ def vnc_pw_valid(ctx, param, value):
     help="extra configs for rdp desktops",
     multiple=True,
 )
+@click.option("--allow-non-domain-joined-users", default=None, type=bool)
 @click.pass_context
 def add_desktop_resource(ctx, name, **kwargs):
     if kwargs.get("extra_configs", None) is not None:
@@ -6093,6 +6106,7 @@ def add_desktop_resource(ctx, name, **kwargs):
 @click.option("--session-type", default=None)
 @click.option("--desktop-type", default=None, type=str)
 @click.option("--disable-gateway", default=None, type=bool)
+@click.option("--allow-non-domain-joined-users", default=None, type=bool)
 @click.option(
     "--read-write-password",
     default=None,

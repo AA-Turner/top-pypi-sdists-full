@@ -360,15 +360,17 @@ async def entrada_de_notas_37(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
             await worker_sleep(10) # ajustado aqui
             
             console.print("Verificar se existem itens não localizados")
+
+
             try:
                 img_nao_localizados = pyautogui.locateOnScreen(
                     r"assets\\entrada_notas\\itens_nao_localizados.png",
-                    confidence=0.8
+                    confidence=0.9
                 )
 
-                # Se EXISTIR a imagem -> erro
-                if img_nao_localizados is not None:
+                if img_nao_localizados:
                     console.print("Erro: Há itens não localizados para o Fornecedor")
+
                     return RpaRetornoProcessoDTO(
                         sucesso=False,
                         retorno="Erro: Há itens não localizados para o Fornecedor",
@@ -376,16 +378,24 @@ async def entrada_de_notas_37(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
                         tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)]
                     )
 
-                # Se NÃO existir -> continua normalmente
-                console.print("Itens localizados, continuando fluxo...")
+            except Exception:
+                pass
 
-            except Exception as error:
-                return RpaRetornoProcessoDTO(
-                    sucesso=False,
-                    retorno=f"Erro ao verificar imagem: {error}",
-                    status=RpaHistoricoStatusEnum.Falha,
-                    tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
-                )
+            await worker_sleep(10)
+
+            try:
+                ##### Janela Information #####
+                app = Application(backend="win32").connect(title_re="Information")
+
+                # Seleciona a janela pelo título
+                dlg = app.window(title_re="Information")
+
+                # Clica no botão "Não"
+                dlg['&No'].click_input()
+
+                console.print("Clique em NÃO realizado com sucesso!")
+            except:
+                pass
 
             console.print(
                 "Verificando a existencia da tela Informações para importação da Nota Fiscal Eletrônica...\n"

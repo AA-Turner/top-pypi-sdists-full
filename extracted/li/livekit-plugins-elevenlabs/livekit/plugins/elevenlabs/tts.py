@@ -88,7 +88,7 @@ class PronunciationDictionaryLocator:
     version_id: str
 
 
-DEFAULT_VOICE_ID = "bIHbv24MWmeRgasZH58o"
+DEFAULT_VOICE_ID = "l7kNoIfnJKPg7779LI2t"
 API_BASE_URL_V1 = "https://api.elevenlabs.io/v1"
 AUTHORIZATION_HEADER = "xi-api-key"
 WS_INACTIVITY_TIMEOUT = 180
@@ -877,6 +877,9 @@ def _to_timed_words(
     timestamps = start_times_ms + [start_times_ms[-1] + durations_ms[-1]]  # N+1
 
     words = split_words(text, ignore_punctuation=False, split_character=True)
+    if not words:
+        return [], text
+
     timed_words = []
     _, start_indices, _ = zip(*words, strict=False)
     end = 0

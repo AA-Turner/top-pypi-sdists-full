@@ -23,8 +23,8 @@ log = logging.getLogger(__name__)
 # Standard library imports
 import gc
 import os
+import sys
 from pprint import pformat
-from types import ModuleType
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -43,17 +43,14 @@ if TYPE_CHECKING:
 
 # Bokeh imports
 from ..application import Application
-from ..document import Document
 from ..model import Model
 from ..resources import Resources
 from ..settings import settings
 from ..util.dependencies import import_optional
 from ..util.strings import format_docstring
-from ..util.tornado import fixup_windows_event_loop_policy
 from .auth_provider import NullAuth
 from .connection import ServerConnection
 from .contexts import ApplicationContext
-from .session import ServerSession
 from .urls import per_app_patterns, toplevel_patterns
 from .views.ico_handler import IcoHandler
 from .views.root_handler import RootHandler
@@ -65,6 +62,7 @@ if TYPE_CHECKING:
     from ..core.types import ID
     from ..protocol import Protocol
     from .auth_provider import AuthProvider
+    from .session import ServerSession
     from .urls import RouteContext, URLRoutes
 
 #-----------------------------------------------------------------------------
@@ -756,6 +754,9 @@ class BokehTornado(TornadoApplication):
 
         all_objs = gc.get_objects()
 
+        from ..document import Document
+        from .session import ServerSession
+
         for name, typ in [('Documents', Document), ('Sessions', ServerSession), ('Models', Model)]:
             objs = [x for x in all_objs if isinstance(x, typ)]
             log.debug(f"  uncollected {name}: {len(objs)}")
@@ -766,12 +767,14 @@ class BokehTornado(TornadoApplication):
             #     for i in range(10):
             #         print(i, objs[i], gc.get_referents(objs[i]))
 
+        from types import ModuleType
+
         objs = [x for x in gc.get_objects() if isinstance(x, ModuleType) and "bokeh_app_" in str(x)]
         log.debug(f"  uncollected modules: {len(objs)}")
 
-        import pandas as pd
-        objs = [x for x in all_objs if isinstance(x, pd.DataFrame)]
-        log.debug("  uncollected DataFrames: %d", len(objs))
+        if pd := sys.modules.get("pandas"):
+            objs = [x for x in all_objs if isinstance(x, pd.DataFrame)]
+            log.debug("  uncollected DataFrames: %d", len(objs))
 
         # uncomment (and install pympler) for mem usage by type report
         # from operator import itemgetter
@@ -817,5 +820,3 @@ BokehTornado.__doc__ = format_docstring(
     DEFAULT_WEBSOCKET_MAX_MESSAGE_SIZE_BYTES=DEFAULT_WEBSOCKET_MAX_MESSAGE_SIZE_BYTES,
     DEFAULT_SESSION_TOKEN_EXPIRATION=DEFAULT_SESSION_TOKEN_EXPIRATION,
 )
-
-fixup_windows_event_loop_policy()

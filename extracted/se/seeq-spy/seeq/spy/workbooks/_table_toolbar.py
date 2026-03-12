@@ -639,12 +639,14 @@ class ConditionTableColumnReservedProperty(ConditionTableColumn):
         END_KEY = 'endTime'
         NAME_EXPRESSION_KEY = 'nameExpression'
         ASSET_KEY = 'asset'
+        FULL_PATH_KEY = "fullpath"
 
         KEY_MAPPING = {
             'start': START_KEY,
             'end': END_KEY,
             'name': NAME_EXPRESSION_KEY,
-            'asset': ASSET_KEY
+            'asset': ASSET_KEY,
+            'fullpath': FULL_PATH_KEY
         }
 
         KEYS_OR_VALUES = set(KEY_MAPPING) | set(KEY_MAPPING.values())

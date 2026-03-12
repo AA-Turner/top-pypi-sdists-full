@@ -13,6 +13,19 @@ from lovely_numpy import config as np_config
 # %% ../../nbs/03a_utils.config.ipynb #3a08f70b
 class Config(SimpleNamespace):
     "Config"
+    precision: int
+    threshold_max: int
+    threshold_min: int
+    sci_mode: Optional[bool]
+    show_mem_above: int
+    indent: int
+    color: bool
+    verbose_grad: bool
+    deeper_width: int
+    plt_seed: int
+    fig_close: bool
+    fig_show: bool
+    show_histogram: bool
     def __init__(self,
             precision     = 3,    # Digits after `.`
             threshold_max = 3,    # .abs() larger than 1e3 -> Sci mode
@@ -26,6 +39,7 @@ class Config(SimpleNamespace):
             plt_seed      = 42,   # Sampling seed for `plot`
             fig_close     = True, # Close matplotlib Figure
             fig_show      = False,# Call `plt.show()` for `.plt`, `.chans` and `.rgb`
+            show_histogram= True, # Show the histogram in lovely(): '▁▂▃▃▆█▆▃▁▁'
 
     ):
         super().__init__(**{k:v for k,v in locals().items() if k not in ["self", "__class__"]})
@@ -46,14 +60,15 @@ def set_config( precision       :Optional[Union[Default,int]]  =D,
                 threshold_min   :Optional[Union[Default,int]]  =D,
                 threshold_max   :Optional[Union[Default,int]]  =D,
                 sci_mode        :Optional[Union[Default,bool]] =D,
-                show_mem_above  :Optional[Union[Default,bool]] =D,
-                indent          :Optional[Union[Default,bool]] =D,
+                show_mem_above  :Optional[Union[Default,int,float]] =D,
+                indent          :Optional[Union[Default,int]] =D,
                 color           :Optional[Union[Default,bool]] =D,
                 deeper_width    :Optional[Union[Default,int]]  =D,
                 verbose_grad    :Optional[Union[Default,bool]] =D,
                 plt_seed        :Optional[Union[Default,int]]  =D,
                 fig_close       :Optional[Union[Default,bool]] =D,
-                fig_show        :Optional[Union[Default,bool]] =D
+                fig_show        :Optional[Union[Default,bool]] =D,
+                show_histogram  :Optional[Union[Default,bool]]  =D,
                 ) -> None:
 
     "Set config variables"
@@ -66,7 +81,7 @@ def set_config( precision       :Optional[Union[Default,int]]  =D,
                 setattr(_config, k, v)
 
 # %% ../../nbs/03a_utils.config.ipynb #db943758
-def get_config():
+def get_config() -> Config:
     "Get a copy of config variables"
     return copy(_config)
 
@@ -76,14 +91,15 @@ def config( precision       :Optional[Union[Default,int]]   =D,
             threshold_min   :Optional[Union[Default,int]]   =D,
             threshold_max   :Optional[Union[Default,int]]   =D,
             sci_mode        :Optional[Union[Default,bool]]  =D,
-            show_mem_above  :Optional[Union[Default,bool]]  =D,
-            indent          :Optional[Union[Default,bool]]  =D,
+            show_mem_above  :Optional[Union[Default,int,float]]  =D,
+            indent          :Optional[Union[Default,int]]  =D,
             color           :Optional[Union[Default,bool]]  =D,
             deeper_width    :Optional[Union[Default,int]]   =D,
             verbose_grad    :Optional[Union[Default,bool]]  =D,
             plt_seed        :Optional[Union[Default,int]]   =D,
             fig_close       :Optional[Union[Default,bool]]  =D,
-            fig_show        :Optional[Union[Default,bool]]  =D
+            fig_show        :Optional[Union[Default,bool]]  =D,
+            show_histogram  :Optional[Union[Default,bool]]  =D,
             ):
 
 

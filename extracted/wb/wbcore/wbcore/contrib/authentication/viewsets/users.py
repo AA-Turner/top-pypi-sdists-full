@@ -125,7 +125,9 @@ def register_user(request):
             url = f"{reverse('wbcore:authentication:activate', args=[user.uuid, token], request=request)}?{urlencode(query_params)}"
 
             # Construct registration mail and send
-            rendered_message = render_to_string("user_registration_email.html", {"user": user, "url": url})
+            rendered_message = render_to_string(
+                "authentication/email/user_registration_email.html", {"user": user, "url": url}
+            )
             email = EmailMultiAlternatives(
                 _("Activate your account."),
                 convert_html2text(rendered_message),

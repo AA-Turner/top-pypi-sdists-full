@@ -45,7 +45,6 @@ from ..models.tools import (
     Scroll,
     Tap,
 )
-from ..util.warnings import warn
 
 #-----------------------------------------------------------------------------
 # Globals and constants
@@ -148,6 +147,8 @@ def process_tools_arg(plot: Plot, tools: str | Sequence[Tool | str],
 
     repeated_tools = [ str(obj) for obj in _collect_repeated_tools(tool_objs) ]
     if repeated_tools:
+        from ..util.warnings import warn
+
         warn(f"{','.join(repeated_tools)} are being repeated")
 
     if tooltips is not None:
@@ -190,12 +191,12 @@ def _resolve_tools(tools: str | Sequence[Tool | str]) -> tuple[list[Tool], dict[
 
     return tool_objs, tool_map
 
-def _collect_repeated_tools(tool_objs: list[Tool]) -> Iterator[Tool]:
-    @dataclass(frozen=True)
-    class Item:
-        obj: Tool
-        properties: dict[str, Any]
+@dataclass(frozen=True)
+class Item:
+    obj: Tool
+    properties: dict[str, Any]
 
+def _collect_repeated_tools(tool_objs: list[Tool]) -> Iterator[Tool]:
     key: Callable[[Tool], str] = lambda obj: obj.__class__.__name__
 
     for _, group in itertools.groupby(sorted(tool_objs, key=key), key=key):

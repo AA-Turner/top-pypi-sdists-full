@@ -1,4 +1,4 @@
-# Copyright (c) 2023-2025 Arista Networks, Inc.
+# Copyright (c) 2023-2026 Arista Networks, Inc.
 # Use of this source code is governed by the Apache License 2.0
 # that can be found in the LICENSE file.
 """Markdown report generator for ANTA test results."""
@@ -373,7 +373,7 @@ class RunOverview(MDReportBase):
         data = self.extra_data or {}
 
         # Storing everything from extra_data except _report_options which is used in other sections
-        self.section_data = {key: value for key, value in data.items() if key not in {"_report_options"}}
+        self.section_data = {key: value for key, value in data.items() if key != "_report_options"}
 
     def generate_rows(self) -> Generator[str, None, None]:
         """Generate the rows for the run overview table."""

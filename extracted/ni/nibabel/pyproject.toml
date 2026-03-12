@@ -59,15 +59,7 @@ minc2 = ["h5py >=3.8"]
 spm = ["scipy >=1.11"]
 viewers = ["matplotlib >=3.7"]
 zstd = ["backports.zstd >=1.1; python_version<'3.14'"]
-# For doc and test, make easy to use outside of tox
-# tox should use these with extras instead of duplicating
-doc = [
-  "sphinx >=7.4",
-  "matplotlib>=3.5",
-  "numpydoc >=1.9",
-  "texext >=0.6.8",
-  "tomli >=2.3; python_version < '3.11'",
-]
+# Test dependencies, to allow testing an installed package
 test = [
   "pytest >=8",
   "pytest-doctestplus >=1.4",
@@ -76,19 +68,37 @@ test = [
   "pytest-xdist >=3.5",
   "coverage[toml]>=7.2",
 ]
-# Remaining: Simpler to centralize in tox
+# Development dependencies; transferred to dependency-groups, here to avoid
+# breaking existing users of these extras.
+doc = []
 dev = []
 doctest = []
 style = []
 typing = []
 
 [dependency-groups]
-style = [
-  "ruff >=0.14.0",
+dev = [
+  "pre-commit>=4.5.1",
+  "pre-commit-uv>=4.2.1",
+  "tox>=4.48.1",
+  "tox-uv>=1.33.1",
+]
+doc = [
+  "sphinx >=7.4",
+  "matplotlib>=3.5",
+  "numpydoc >=1.9",
+  "texext >=0.6.8",
+  "tomli >=2.3; python_version < '3.11'",
 ]
 typecheck = [
   "mypy >=1.15",
+  "nibabel[all]",
+  # Easier than including a bunch of unnecessary deps
+  "pytest >=8",
+  "types-pillow>=10.2.0.20240822",
 ]
+# Replaced by pre-commit
+style = []
 
 [tool.hatch.build.targets.sdist]
 exclude = [
@@ -156,21 +166,30 @@ ignore = [
     "B023",   # TODO: enable
     "B028",
     "B904",
+    "B905",  # Consider: add explicit strict kwarg to zip calls
     "C401",
     "C408",
     "C416",
     "PERF203",
     "PIE790",
     "PT007",
+    "PT010",  # Consider: Set expected exception in pytest.raises
     "PT011",
     "PT012",
     "PT017",
     "PT018",
+    "PT028",  # Consider: Test function parameter has default argument
+    "PT030",  # Consider: pytest.warns(UserWarning) is too broad
+    "PT031",  # Consider: pytest.warns(UserWarning) block should contain 1 statement
     "PYI024",
     "RUF005",
+    "RUF007", # Consider: itertools.pairwise(x) over zip(x[:-1], x[1:])
     "RUF012", # TODO: enable
     "RUF015",
     "RUF017", # TODO: enable
+    "RUF059", # Consider: Unpacked variables never used
+    "RUF061", # Consider: Use context-manager form of pytest.raises
+    "TC003",  # Consider: Move import into type-checking block
     # https://docs.astral.sh/ruff/formatter/#conflicting-lint-rules
     "W191",
     "E111",

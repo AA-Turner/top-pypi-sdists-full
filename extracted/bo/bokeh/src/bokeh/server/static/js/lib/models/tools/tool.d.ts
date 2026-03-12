@@ -54,6 +54,7 @@ export type ToolAliases = {
     ybox_select: BoxSelectTool;
     poly_select: PolySelectTool;
     lasso_select: LassoSelectTool;
+    auto_box_zoom: BoxZoomTool;
     box_zoom: BoxZoomTool;
     xbox_zoom: BoxZoomTool;
     ybox_zoom: BoxZoomTool;
@@ -121,6 +122,7 @@ export declare abstract class Tool extends Model {
     get menu(): MenuItemLike[] | null;
     supports_auto(): boolean;
     _get_dim_limits([sx0, sy0]: [number, number], [sx1, sy1]: [number, number], frame: CartesianFrameView, dims: Dimensions): [[number, number], [number, number]];
+    _compute_overlay_limits(sxlim: [number, number], sylim: [number, number], dims: Dimensions, line_width: number): [[number, number], [number, number]];
     protected _get_dim_tooltip(dims: Dimensions | "auto"): string;
     /** @prototype */
     private _known_aliases;

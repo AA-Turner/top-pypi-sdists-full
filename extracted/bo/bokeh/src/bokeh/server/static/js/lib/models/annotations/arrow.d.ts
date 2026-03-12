@@ -8,7 +8,7 @@ import type * as visuals from "../../core/visuals";
 import { CoordinateUnits } from "../../core/enums";
 import type { FloatArray } from "../../core/types";
 import { ScreenArray } from "../../core/types";
-import type { IterViews } from "../../core/build_views";
+import type { View } from "../../core/build_views";
 import * as p from "../../core/properties";
 export declare class ArrowView extends DataAnnotationView {
     model: Arrow;
@@ -24,7 +24,7 @@ export declare class ArrowView extends DataAnnotationView {
     protected _sx_end: ScreenArray;
     protected _sy_end: ScreenArray;
     protected _angles: ScreenArray;
-    children(): IterViews;
+    children_views(): View[];
     lazy_initialize(): Promise<void>;
     set_data(source: ColumnarDataSource): void;
     remove(): void;

@@ -22,6 +22,8 @@ use pyrefly_util::display::DisplayWith;
 use pyrefly_util::display::DisplayWithCtx;
 use pyrefly_util::lock::Mutex;
 use pyrefly_util::uniques::UniqueFactory;
+use pyrefly_util::visit::Visit;
+use pyrefly_util::visit::VisitMut;
 use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
@@ -86,9 +88,9 @@ pub struct Index {
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct OverloadTrace {
-    callable: Callable,
-    tparams: Option<Arc<TParams>>,
+pub struct OverloadTrace {
+    pub(crate) callable: Callable,
+    pub(crate) tparams: Option<Arc<TParams>>,
 }
 
 impl OverloadTrace {
@@ -107,8 +109,8 @@ impl OverloadTrace {
     }
 }
 
-#[derive(Debug)]
-enum OverloadedCallee {
+#[derive(Debug, Clone)]
+pub enum OverloadedCallee {
     Resolved {
         callable: OverloadTrace,
     },
@@ -126,6 +128,126 @@ pub struct Traces {
     overloaded_callees: SmallMap<TextRange, OverloadedCallee>,
     /// A map of text ranges that correspond to 'b' portion in expressions a.b where b is a property access -> getter type
     invoked_properties: SmallMap<TextRange, Arc<Type>>,
+}
+
+impl Traces {
+    /// Merge accumulated side effects into the persisted trace store.
+    pub(crate) fn merge(&mut self, side_effects: TraceSideEffects) {
+        for (k, v) in side_effects.types {
+            self.types.insert(k, v);
+        }
+        for (k, v) in side_effects.overloaded_callees {
+            self.overloaded_callees.insert(k, v);
+        }
+        for (k, v) in side_effects.invoked_properties {
+            self.invoked_properties.insert(k, v);
+        }
+    }
+}
+
+/// Accumulates trace events during a single calculation.
+/// Published to `Traces` only when the calculation result is committed.
+#[derive(Debug, Default, Clone)]
+pub struct TraceSideEffects {
+    pub types: SmallMap<TextRange, Arc<Type>>,
+    pub overloaded_callees: SmallMap<TextRange, OverloadedCallee>,
+    pub invoked_properties: SmallMap<TextRange, Arc<Type>>,
+}
+
+impl TraceSideEffects {
+    /// Deep-force all embedded types, resolving any remaining `Type::Var`
+    /// references using the given solver. Must be called before publishing
+    /// to the persisted `Traces` store so that read APIs can return
+    /// fully-resolved types without touching the solver.
+    pub(crate) fn finalize(&mut self, solver: &Solver) {
+        for ty in self.types.values_mut() {
+            let mut t = ty.as_ref().clone();
+            solver.deep_force_mut(&mut t);
+            *ty = Arc::new(t);
+        }
+        for callee in self.overloaded_callees.values_mut() {
+            match callee {
+                OverloadedCallee::Resolved { callable } => {
+                    callable
+                        .callable
+                        .visit_mut(&mut |t: &mut Type| solver.deep_force_mut(t));
+                }
+                OverloadedCallee::Candidates { all, closest, .. } => {
+                    for trace in all.iter_mut() {
+                        trace
+                            .callable
+                            .visit_mut(&mut |t: &mut Type| solver.deep_force_mut(t));
+                    }
+                    closest
+                        .callable
+                        .visit_mut(&mut |t: &mut Type| solver.deep_force_mut(t));
+                }
+            }
+        }
+        for ty in self.invoked_properties.values_mut() {
+            let mut t = ty.as_ref().clone();
+            solver.deep_force_mut(&mut t);
+            *ty = Arc::new(t);
+        }
+    }
+
+    /// Assert that no trace payload contains unresolved `Type::Var`.
+    /// Only runs in debug builds to avoid production overhead.
+    /// Panics if any Var is found, indicating a bug in finalization.
+    #[cfg(debug_assertions)]
+    pub(crate) fn debug_assert_var_free(&self) {
+        fn has_var(ty: &Type) -> bool {
+            let mut found = false;
+            ty.visit(&mut |t: &Type| {
+                if matches!(t, Type::Var(_)) {
+                    found = true;
+                }
+            });
+            found
+        }
+
+        for (range, ty) in &self.types {
+            assert!(
+                !has_var(ty),
+                "Type trace at {range:?} contains unresolved Var after finalization: {ty}"
+            );
+        }
+        for (range, ty) in &self.invoked_properties {
+            assert!(
+                !has_var(ty),
+                "Property getter trace at {range:?} contains unresolved Var after finalization: {ty}"
+            );
+        }
+        for (range, callee) in &self.overloaded_callees {
+            match callee {
+                OverloadedCallee::Resolved { callable } => {
+                    let ty = callable.as_type();
+                    assert!(
+                        !has_var(&ty),
+                        "Resolved callee trace at {range:?} contains unresolved Var: {ty}"
+                    );
+                }
+                OverloadedCallee::Candidates { all, closest, .. } => {
+                    for trace in all {
+                        let ty = trace.as_type();
+                        assert!(
+                            !has_var(&ty),
+                            "Overload candidate trace at {range:?} contains unresolved Var: {ty}"
+                        );
+                    }
+                    let ty = closest.as_type();
+                    assert!(
+                        !has_var(&ty),
+                        "Closest overload trace at {range:?} contains unresolved Var: {ty}"
+                    );
+                }
+            }
+        }
+    }
+
+    /// No-op in release builds.
+    #[cfg(not(debug_assertions))]
+    pub(crate) fn debug_assert_var_free(&self) {}
 }
 
 /// Invariants:
@@ -149,6 +271,36 @@ table!(
     #[derive(Debug, Default)]
     pub struct AnswerTable(pub AnswerEntry)
 );
+
+/// Prepare an answer for writing into shared `Calculation` state.
+///
+/// Invariants:
+/// - Producers are responsible for deep-forcing embedded `Type`s before
+///   crossing this boundary.
+/// - At this boundary, we enforce that no unresolved `Type::Var` remains.
+pub(crate) fn prepare_answer_for_calculation_write<K: Keyed>(
+    answer: Arc<K::Answer>,
+    write_context: &str,
+) -> Arc<K::Answer> {
+    assert_answer_has_no_var_for_calculation::<K>(&answer, write_context);
+    answer
+}
+
+fn assert_answer_has_no_var_for_calculation<K: Keyed>(
+    answer: &Arc<K::Answer>,
+    write_context: &str,
+) {
+    let mut checked = Arc::unwrap_or_clone(answer.dupe());
+    checked.visit_mut(&mut |ty| {
+        if let Type::Var(var) = ty {
+            panic!(
+                "{write_context}: unresolved Type::Var({var:?}) in answer \
+                 crossing thread boundary via Calculation (K = {})",
+                std::any::type_name::<K>(),
+            );
+        }
+    });
+}
 
 impl DisplayWith<Bindings> for Answers {
     fn fmt(&self, f: &mut fmt::Formatter<'_>, bindings: &Bindings) -> fmt::Result {
@@ -535,6 +687,51 @@ pub trait LookupAnswer: Sized {
     ) -> bool {
         false
     }
+
+    /// Drive a cross-module iteration member by calling `get_idx` in the
+    /// target module's context.
+    ///
+    /// Used during iterative SCC solving when a member belongs to a different
+    /// module than the current solver. The answer from `get_idx` is stored in
+    /// iteration state on the shared `CalcStack` (via the shared `ThreadState`),
+    /// so no return value is needed.
+    ///
+    /// Returns true if the driving was performed, false if the implementation
+    /// does not support cross-module driving.
+    ///
+    /// Default implementation returns false (not supported).
+    fn solve_idx_erased(&self, _calc_id: &CalcId, _thread_state: &ThreadState) -> bool {
+        false
+    }
+
+    /// Acquire a write lock on a cross-module Calculation cell for SCC
+    /// batch commit. Returns true if the lock was acquired.
+    ///
+    /// Default implementation returns false (not supported).
+    fn write_lock_in_module(&self, _calc_id: &CalcId) -> bool {
+        false
+    }
+
+    /// Write a value to a write-locked cross-module Calculation cell and
+    /// release the lock. Also extends errors and publishes traces if the
+    /// write wins.
+    ///
+    /// Default implementation is a no-op.
+    fn write_unlock_in_module(
+        &self,
+        _calc_id: CalcId,
+        _answer: Arc<dyn Any + Send + Sync>,
+        _errors: Option<Arc<ErrorCollector>>,
+        _traces: Option<TraceSideEffects>,
+    ) -> bool {
+        false
+    }
+
+    /// Release a write lock on a cross-module Calculation cell without
+    /// writing a value. Used for panic cleanup.
+    ///
+    /// Default implementation is a no-op.
+    fn write_unlock_empty_in_module(&self, _calc_id: &CalcId) {}
 }
 
 impl Answers {
@@ -641,7 +838,7 @@ impl Answers {
             recurser,
             stdlib,
             thread_state,
-            self.heap(),
+            bindings.heap(),
         );
         table_mut_for_each!(&mut res, |items| pre_solve(
             items,
@@ -732,7 +929,7 @@ impl Answers {
             recurser,
             stdlib,
             thread_state,
-            self.heap(),
+            bindings.heap(),
         );
         solver.get_hashed_opt(key)
     }
@@ -751,6 +948,39 @@ impl Answers {
         dispatch_anyidx!(any_idx, self, commit_typed, answer)
     }
 
+    /// Drive a cross-module iteration member by constructing a temporary
+    /// `AnswersSolver` for this module and calling `get_idx` on the member.
+    ///
+    /// Target-side entry point for cross-module iterative driving. The answer
+    /// is stored in SCC iteration state on the shared `CalcStack` (via
+    /// `thread_state`), so the `get_idx` result is discarded.
+    pub fn solve_idx_erased<Ans: LookupAnswer>(
+        &self,
+        any_idx: &AnyIdx,
+        answers: &Ans,
+        bindings: &Bindings,
+        exports: &dyn LookupExport,
+        errors: &ErrorCollector,
+        stdlib: &Stdlib,
+        uniques: &UniqueFactory,
+        thread_state: &ThreadState,
+    ) {
+        let recurser = &VarRecurser::new();
+        let solver = AnswersSolver::new(
+            answers,
+            self,
+            errors,
+            bindings,
+            exports,
+            uniques,
+            recurser,
+            stdlib,
+            thread_state,
+            bindings.heap(),
+        );
+        dispatch_anyidx!(any_idx, solver, solve_idx_erased_typed);
+    }
+
     /// Typed commit for a specific key type. Downcasts the answer and writes
     /// to the Calculation cell. Returns true if this write won the first-write-wins
     /// race (i.e., the answer was actually stored).
@@ -763,6 +993,7 @@ impl Answers {
                 .downcast::<Arc<K::Answer>>()
                 .expect("Answers::commit_typed: type mismatch in cross-module batch commit"),
         );
+        let typed_answer = prepare_answer_for_calculation_write::<K>(typed_answer, "commit_typed");
         // Get the calculation cell from the answer table
         if let Some(calculation) = self.table.get::<K>().get(idx) {
             // No recursive placeholder can exist in the Calculation cell because
@@ -774,6 +1005,67 @@ impl Answers {
         }
     }
 
+    /// Acquire a write lock on a cell for SCC batch commit.
+    /// Returns true if the lock was acquired, false if the cell is already
+    /// `Calculated` (no lock needed since writes would be no-ops).
+    pub fn write_lock_preliminary(&self, any_idx: &AnyIdx) -> bool {
+        dispatch_anyidx!(any_idx, self, write_lock_typed)
+    }
+
+    /// Write a value to a write-locked cell and release the lock.
+    /// Returns true if this write stored the value (first-write-wins).
+    pub fn write_unlock_preliminary(
+        &self,
+        any_idx: &AnyIdx,
+        answer: Arc<dyn Any + Send + Sync>,
+    ) -> bool {
+        dispatch_anyidx!(any_idx, self, write_unlock_typed, answer)
+    }
+
+    /// Release a write lock without writing a value (panic cleanup).
+    pub fn write_unlock_empty_preliminary(&self, any_idx: &AnyIdx) {
+        dispatch_anyidx!(any_idx, self, write_unlock_empty_typed)
+    }
+
+    fn write_lock_typed<K: Keyed>(&self, idx: Idx<K>) -> bool
+    where
+        AnswerTable: TableKeyed<K, Value = AnswerEntry<K>>,
+    {
+        if let Some(calculation) = self.table.get::<K>().get(idx) {
+            calculation.write_lock()
+        } else {
+            false
+        }
+    }
+
+    fn write_unlock_typed<K: Keyed>(&self, idx: Idx<K>, answer: Arc<dyn Any + Send + Sync>) -> bool
+    where
+        AnswerTable: TableKeyed<K, Value = AnswerEntry<K>>,
+    {
+        let typed_answer: Arc<K::Answer> = Arc::unwrap_or_clone(
+            answer
+                .downcast::<Arc<K::Answer>>()
+                .expect("Answers::write_unlock_typed: type mismatch"),
+        );
+        let typed_answer =
+            prepare_answer_for_calculation_write::<K>(typed_answer, "write_unlock_typed");
+        if let Some(calculation) = self.table.get::<K>().get(idx) {
+            let (_answer, did_write) = calculation.write_unlock(typed_answer);
+            did_write
+        } else {
+            false
+        }
+    }
+
+    fn write_unlock_empty_typed<K: Keyed>(&self, idx: Idx<K>)
+    where
+        AnswerTable: TableKeyed<K, Value = AnswerEntry<K>>,
+    {
+        if let Some(calculation) = self.table.get::<K>().get(idx) {
+            calculation.write_unlock_empty();
+        }
+    }
+
     fn deep_force(&self, t: Type) -> Type {
         self.solver.deep_force(t)
     }
@@ -782,29 +1074,42 @@ impl Answers {
         &self.solver
     }
 
+    /// Returns `true` if tracing is enabled for this module.
+    pub(crate) fn tracing_enabled(&self) -> bool {
+        self.trace.is_some()
+    }
+
+    /// Merge accumulated trace side effects into the persisted trace store.
+    /// No-op if tracing is not enabled.
+    pub(crate) fn merge_trace_side_effects(&self, side_effects: TraceSideEffects) {
+        if let Some(trace_store) = &self.trace {
+            trace_store.lock().merge(side_effects);
+        }
+    }
+
     pub fn get_type_at(&self, idx: Idx<Key>) -> Option<Type> {
         Some(self.deep_force(self.get_idx(idx)?.arc_clone_ty()))
     }
 
     pub fn get_type_trace(&self, range: TextRange) -> Option<Type> {
         let lock = self.trace.as_ref()?.lock();
-        Some(self.deep_force(lock.types.get(&range)?.as_ref().clone()))
+        Some(lock.types.get(&range)?.as_ref().clone())
     }
 
     pub fn try_get_getter_for_range(&self, range: TextRange) -> Option<Type> {
         let lock = self.trace.as_ref()?.lock();
-        Some(self.deep_force(lock.invoked_properties.get(&range)?.as_ref().clone()))
+        Some(lock.invoked_properties.get(&range)?.as_ref().clone())
     }
 
     pub fn get_chosen_overload_trace(&self, range: TextRange) -> Option<Type> {
         let lock = self.trace.as_ref()?.lock();
         match lock.overloaded_callees.get(&range)? {
-            OverloadedCallee::Resolved { callable } => Some(self.deep_force(callable.as_type())),
+            OverloadedCallee::Resolved { callable } => Some(callable.as_type()),
             OverloadedCallee::Candidates {
                 closest,
                 is_closest_chosen,
                 ..
-            } if *is_closest_chosen => Some(self.deep_force(closest.as_type())),
+            } if *is_closest_chosen => Some(closest.as_type()),
             _ => None,
         }
     }
@@ -868,11 +1173,32 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self.current().solver
     }
 
+    /// Prepare an answer for writing into shared `Calculation` state.
+    ///
+    /// This helper centralizes solve-time finalization for answer producers:
+    /// deep-force all embedded types using the current thread-local solver
+    /// state, then assert that no unresolved `Type::Var` crosses the
+    /// Calculation boundary.
+    pub fn finalize_answer_for_calculation_write<K: Keyed>(
+        &self,
+        answer: Arc<K::Answer>,
+        write_context: &str,
+    ) -> Arc<K::Answer>
+    where
+        AnswerTable: TableKeyed<K, Value = AnswerEntry<K>>,
+        BindingTable: TableKeyed<K, Value = BindingEntry<K>>,
+    {
+        let mut forced = Arc::unwrap_or_clone(answer);
+        forced.visit_mut(&mut |ty| self.solver().deep_force_mut(ty));
+        let forced = Arc::new(forced);
+        prepare_answer_for_calculation_write::<K>(forced, write_context)
+    }
+
     pub fn record_resolved_trace(&self, loc: TextRange, ty: Type) {
-        if let Some(trace) = &self.current().trace
+        if self.current().trace.is_some()
             && let Some(callable) = ty.to_callable()
         {
-            trace.lock().overloaded_callees.insert(
+            self.trace_state().record_resolved_trace(
                 loc,
                 OverloadedCallee::Resolved {
                     callable: OverloadTrace::new(callable, None),
@@ -890,8 +1216,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         closest_overload: OverloadTrace,
         is_closest_overload_chosen: bool,
     ) {
-        if let Some(trace) = &self.current().trace {
-            trace.lock().overloaded_callees.insert(
+        if self.current().trace.is_some() {
+            self.trace_state().record_overload_trace(
                 loc,
                 OverloadedCallee::Candidates {
                     all: all_overloads,
@@ -958,19 +1284,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     pub fn record_property_getter(&self, loc: TextRange, getter_ty: &Type) {
-        if let Some(trace) = &self.current().trace {
-            trace
-                .lock()
-                .invoked_properties
-                .insert(loc, Arc::new(getter_ty.clone()));
+        if self.current().trace.is_some() {
+            self.trace_state()
+                .record_property_getter_trace(loc, Arc::new(getter_ty.clone()));
         }
     }
 
     pub fn record_type_trace(&self, loc: TextRange, ty: &Type) {
-        if let Some(trace) = &self.current().trace
-            && !loc.is_empty()
-        {
-            trace.lock().types.insert(loc, Arc::new(ty.clone()));
+        if self.current().trace.is_some() && !loc.is_empty() {
+            self.trace_state()
+                .record_type_trace(loc, Arc::new(ty.clone()));
         }
     }
 }

@@ -7,7 +7,7 @@ import type { Context2d } from "../../core/util/canvas";
 import { DOMComponentView } from "../../core/dom_view";
 import { Model } from "../../model";
 import type { Anchor, WindowAxis } from "../../core/enums";
-import type { ViewStorage, IterViews } from "../../core/build_views";
+import type { ViewStorage, View } from "../../core/build_views";
 import type { Arrayable, Rect, FloatArray } from "../../core/types";
 import { ScreenArray, Indices } from "../../core/types";
 import { RaggedArray } from "../../core/util/ragged_array";
@@ -41,7 +41,7 @@ export declare abstract class GlyphView extends DOMComponentView {
     get data_size(): number;
     initialize(): void;
     readonly decorations: ViewStorage<Decoration>;
-    children(): IterViews;
+    children_views(): View[];
     lazy_initialize(): Promise<void>;
     request_paint(): void;
     get canvas(): import("../canvas/canvas").CanvasView;

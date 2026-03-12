@@ -131,8 +131,8 @@ class User(AbstractBaseUser, PermissionsMixin):
         if reset_password_form.is_valid():
             reset_password_form.save(
                 request=request,
-                email_template_name="password_reset_email.html",
-                html_email_template_name="password_reset_email_html.html",
+                email_template_name="authentication/email/password_reset_email.html",
+                html_email_template_name="authentication/email/password_reset_email_html.html",
             )
 
     def generate_temporary_token(self):

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datarobot-genai
-Version: 0.6.14
+Version: 0.6.15
 Summary: Generic helpers for GenAI
 Author: DataRobot, Inc.
 License: Apache-2.0
@@ -187,6 +187,7 @@ Requires-Dist: opentelemetry-instrumentation-threading<1.0.0,>=0.43b0; extra == 
 Requires-Dist: ag-ui-protocol<0.2.0,>=0.1.9; extra == "dragent"
 Requires-Dist: pyarrow==21.0.0; extra == "dragent"
 Requires-Dist: nvidia-nat==1.4.1; python_version >= "3.11" and extra == "dragent"
+Requires-Dist: nvidia-nat-a2a==1.4.1; python_version >= "3.11" and extra == "dragent"
 Requires-Dist: nvidia-nat-opentelemetry==1.4.1; python_version >= "3.11" and extra == "dragent"
 Provides-Extra: memory
 Requires-Dist: mem0ai<2.0.0,>=1.0.4; python_version < "3.13" and extra == "memory"

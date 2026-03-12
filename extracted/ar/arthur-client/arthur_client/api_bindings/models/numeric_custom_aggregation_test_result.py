@@ -17,8 +17,8 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr, field_validator
-from typing import Any, ClassVar, Dict, List, Optional
+from pydantic import BaseModel, ConfigDict, Field, StrictFloat, StrictInt, StrictStr, field_validator
+from typing import Any, ClassVar, Dict, List, Optional, Union
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -27,7 +27,7 @@ class NumericCustomAggregationTestResult(BaseModel):
     NumericCustomAggregationTestResult
     """ # noqa: E501
     metric_kind: Optional[StrictStr] = 'numeric'
-    value: StrictInt = Field(description="Value of the time series metric.")
+    value: Union[StrictFloat, StrictInt] = Field(description="Value of the time series metric.")
     __properties: ClassVar[List[str]] = ["metric_kind", "value"]
 
     @field_validator('metric_kind')

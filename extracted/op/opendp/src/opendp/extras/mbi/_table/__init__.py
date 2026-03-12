@@ -153,7 +153,7 @@ class ContingencyTable:
         Under the central limit theorem, the distribution will tend towards gaussian.
 
         If the estimate is gaussian-distributed,
-        use :py:func:`opendp.accuracy.gaussian_scale_to_accuracy`
+        use :py:func:`~opendp.accuracy.gaussian_scale_to_accuracy`
         to construct a confidence interval.
 
         :param attrs: attributes to preserve in uncertainty estimate
@@ -345,6 +345,7 @@ def make_contingency_table(
                 .clip(0, len(stable_keys[c]) - 1)
                 for c in input_domain.columns
             ),
+            MO="FrameDistance<SymmetricDistance>"
         )
 
         m_marginals = algorithm.make_marginals(

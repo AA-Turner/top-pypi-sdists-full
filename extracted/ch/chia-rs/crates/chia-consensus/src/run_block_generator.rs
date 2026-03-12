@@ -83,12 +83,11 @@ where
 /// SpendBundleConditions. Some conditions are validated, and if invalid may
 /// cause the function to return an error.
 ///
-/// the only reason we need to pass in the allocator is because the returned
-/// SpendBundleConditions contains NodePtr fields. If that's changed, we could
-/// create the allocator inside this functions as well.
+/// Creates an allocator internally based on the consensus flags (using
+/// `make_allocator(flags)`). Returns `(Allocator, SpendBundleConditions)` since
+/// the conditions contain NodePtr references into the allocator.
 #[allow(clippy::too_many_arguments)]
 pub fn run_block_generator<GenBuf: AsRef<[u8]>, I: IntoIterator<Item = GenBuf>>(
-    a: &mut Allocator,
     program: &[u8],
     block_refs: I,
     max_cost: u64,
@@ -96,19 +95,20 @@ pub fn run_block_generator<GenBuf: AsRef<[u8]>, I: IntoIterator<Item = GenBuf>>(
     signature: &Signature,
     bls_cache: Option<&BlsCache>,
     constants: &ConsensusConstants,
-) -> Result<SpendBundleConditions, ValidationErr>
+) -> Result<(Allocator, SpendBundleConditions), ValidationErr>
 where
     <I as IntoIterator>::IntoIter: DoubleEndedIterator,
 {
-    check_generator_quote(a, program, flags)?;
+    check_generator_quote(program, flags)?;
+    let mut a = make_allocator(flags);
     let mut cost_left = max_cost;
     let byte_cost = program.len() as u64 * constants.cost_per_byte;
 
-    subtract_cost(a, &mut cost_left, byte_cost)?;
+    subtract_cost(&a, &mut cost_left, byte_cost)?;
 
-    let rom_generator = node_from_bytes(a, &ROM_BOOTSTRAP_GENERATOR)?;
-    let program = node_from_bytes_backrefs(a, program)?;
-    check_generator_node(a, program, flags)?;
+    let rom_generator = node_from_bytes(&mut a, &ROM_BOOTSTRAP_GENERATOR)?;
+    let program = node_from_bytes_backrefs(&mut a, program)?;
+    check_generator_node(&a, program, flags)?;
 
     // this is setting up the arguments to be passed to the generator ROM,
     // not the actual generator (the ROM does that).
@@ -126,14 +126,14 @@ where
 
     let dialect = ChiaDialect::new(flags.to_clvm_flags());
     let Reduction(clvm_cost, generator_output) =
-        run_program(a, &dialect, rom_generator, args, cost_left)?;
+        run_program(&mut a, &dialect, rom_generator, args, cost_left)?;
 
-    subtract_cost(a, &mut cost_left, clvm_cost)?;
+    subtract_cost(&a, &mut cost_left, clvm_cost)?;
 
     // we pass in what's left of max_cost here, to fail early in case the
     // cost of a condition brings us over the cost limit
     let mut result = parse_spends::<EmptyVisitor>(
-        a,
+        &a,
         generator_output,
         cost_left,
         0, // clvm_cost is not known per puzzle pre-hard fork
@@ -144,7 +144,7 @@ where
     )?;
     result.cost += max_cost - cost_left;
     result.execution_cost = clvm_cost;
-    Ok(result)
+    Ok((a, result))
 }
 
 fn extract_n<const N: usize>(
@@ -173,15 +173,14 @@ fn extract_n<const N: usize>(
 // this function checks if the generator start with a quote
 // this is required after the SIMPLE_GENERATOR fork is active
 #[inline]
-pub fn check_generator_quote(
-    a: &Allocator,
-    program: &[u8],
-    flags: ConsensusFlags,
-) -> Result<(), ValidationErr> {
+pub fn check_generator_quote(program: &[u8], flags: ConsensusFlags) -> Result<(), ValidationErr> {
     if !flags.contains(ConsensusFlags::SIMPLE_GENERATOR) || program.starts_with(&[0xff, 0x01]) {
         Ok(())
     } else {
-        Err(ValidationErr(a.nil(), ErrorCode::ComplexGeneratorReceived))
+        Err(ValidationErr(
+            NodePtr::NIL,
+            ErrorCode::ComplexGeneratorReceived,
+        ))
     }
 }
 
@@ -198,7 +197,10 @@ pub fn check_generator_node(
     }
     // this expects an atom with a single byte value of 1 as the first value in the list
     match <(MatchByte<1>, NodePtr)>::from_clvm(a, program) {
-        Err(..) => Err(ValidationErr(a.nil(), ErrorCode::ComplexGeneratorReceived)),
+        Err(..) => Err(ValidationErr(
+            NodePtr::NIL,
+            ErrorCode::ComplexGeneratorReceived,
+        )),
         _ => Ok(()),
     }
 }
@@ -209,9 +211,12 @@ pub fn check_generator_node(
 /// you only pay cost for the generator, the puzzles and the conditions).
 /// it also does not apply the stack depth or object allocation limits the same,
 /// as each puzzle run in its own environment.
+///
+/// Creates an allocator internally based on the consensus flags (using
+/// `make_allocator(flags)`). Returns `(Allocator, SpendBundleConditions)` since
+/// the conditions contain NodePtr references into the allocator.
 #[allow(clippy::too_many_arguments)]
 pub fn run_block_generator2<GenBuf: AsRef<[u8]>, I: IntoIterator<Item = GenBuf>>(
-    a: &mut Allocator,
     program: &[u8],
     block_refs: I,
     max_cost: u64,
@@ -219,29 +224,30 @@ pub fn run_block_generator2<GenBuf: AsRef<[u8]>, I: IntoIterator<Item = GenBuf>>
     signature: &Signature,
     bls_cache: Option<&BlsCache>,
     constants: &ConsensusConstants,
-) -> Result<SpendBundleConditions, ValidationErr>
+) -> Result<(Allocator, SpendBundleConditions), ValidationErr>
 where
     <I as IntoIterator>::IntoIter: DoubleEndedIterator,
 {
-    check_generator_quote(a, program, flags)?;
+    check_generator_quote(program, flags)?;
+    let mut a = make_allocator(flags);
     let byte_cost = program.len() as u64 * constants.cost_per_byte;
 
     let mut cost_left = max_cost;
-    subtract_cost(a, &mut cost_left, byte_cost)?;
+    subtract_cost(&a, &mut cost_left, byte_cost)?;
 
-    let program = node_from_bytes_backrefs(a, program)?;
-    check_generator_node(a, program, flags)?;
+    let program = node_from_bytes_backrefs(&mut a, program)?;
+    check_generator_node(&a, program, flags)?;
 
-    let args = setup_generator_args(a, block_refs, flags)?;
+    let args = setup_generator_args(&mut a, block_refs, flags)?;
     let dialect = ChiaDialect::new(flags.to_clvm_flags());
 
-    let Reduction(clvm_cost, all_spends) = run_program(a, &dialect, program, args, cost_left)?;
+    let Reduction(clvm_cost, all_spends) = run_program(&mut a, &dialect, program, args, cost_left)?;
 
-    subtract_cost(a, &mut cost_left, clvm_cost)?;
+    subtract_cost(&a, &mut cost_left, clvm_cost)?;
 
     let mut ret = SpendBundleConditions::default();
 
-    let all_spends = first(a, all_spends)?;
+    let all_spends = first(&a, all_spends)?;
     ret.execution_cost += clvm_cost;
 
     // at this point all_spends is a list of:
@@ -257,8 +263,8 @@ where
     let mut iter = all_spends;
     while let Some((spend, rest)) = a.next(iter) {
         iter = rest;
-        let [_, puzzle, _] = extract_n::<3>(a, spend, ErrorCode::InvalidCondition)?;
-        cache.visit_tree(a, puzzle);
+        let [_, puzzle, _] = extract_n::<3>(&a, spend, ErrorCode::InvalidCondition)?;
+        cache.visit_tree(&a, puzzle);
     }
 
     let mut iter = all_spends;
@@ -266,19 +272,19 @@ where
         iter = rest;
         // process the spend
         let [parent_id, puzzle, amount, solution, _spend_level_extra] =
-            extract_n::<5>(a, spend, ErrorCode::InvalidCondition)?;
+            extract_n::<5>(&a, spend, ErrorCode::InvalidCondition)?;
 
         let Reduction(clvm_cost, conditions) =
-            run_program(a, &dialect, puzzle, solution, cost_left)?;
+            run_program(&mut a, &dialect, puzzle, solution, cost_left)?;
 
-        subtract_cost(a, &mut cost_left, clvm_cost)?;
+        subtract_cost(&a, &mut cost_left, clvm_cost)?;
         ret.execution_cost += clvm_cost;
 
-        let buf = tree_hash_cached(a, puzzle, &mut cache);
+        let buf = tree_hash_cached(&a, puzzle, &mut cache);
         let puzzle_hash = a.new_atom(&buf)?;
 
         process_single_spend::<EmptyVisitor>(
-            a,
+            &a,
             &mut ret,
             &mut state,
             parent_id,
@@ -295,12 +301,12 @@ where
         return Err(ValidationErr(iter, ErrorCode::GeneratorRuntimeError));
     }
 
-    validate_conditions(a, &ret, &state, a.nil(), flags)?;
+    validate_conditions(&a, &ret, &state, a.nil(), flags)?;
     validate_signature(&state, signature, flags, bls_cache)?;
     ret.validated_signature = !flags.contains(ConsensusFlags::DONT_VALIDATE_SIGNATURE);
 
     ret.cost = max_cost - cost_left;
-    Ok(ret)
+    Ok((a, ret))
 }
 
 // this function is less capable of handling problematic generators as they are
@@ -315,7 +321,7 @@ where
     <I as IntoIterator>::IntoIter: DoubleEndedIterator,
 {
     let mut a = make_allocator(flags);
-    check_generator_quote(&a, generator.as_ref(), flags)?;
+    check_generator_quote(generator.as_ref(), flags)?;
     let mut output = Vec::<CoinSpend>::new();
 
     let program = node_from_bytes_backrefs(&mut a, generator)?;
@@ -414,7 +420,7 @@ where
     <I as IntoIterator>::IntoIter: DoubleEndedIterator,
 {
     let mut a = make_allocator(flags);
-    check_generator_quote(&a, generator.as_ref(), flags)?;
+    check_generator_quote(generator.as_ref(), flags)?;
     let mut output = Vec::<(CoinSpend, Vec<(u32, Vec<Vec<u8>>)>)>::new();
 
     let program = node_from_bytes_backrefs(&mut a, generator)?;
@@ -456,8 +462,7 @@ where
         let coin = Coin::new(
             parent_id,
             puzhash.into(),
-            u64::from_clvm(&a, amount)
-                .map_err(|_| ValidationErr(first, ErrorCode::InvalidCoinAmount))?,
+            parse_amount(&a, amount, ErrorCode::InvalidCoinAmount)?,
         );
         let puzzle_program = Program::from_clvm(&a, puzzle).unwrap_or_default();
         let solution_program = Program::from_clvm(&a, solution).unwrap_or_default();

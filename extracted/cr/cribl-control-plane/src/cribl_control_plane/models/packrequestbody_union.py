@@ -76,7 +76,7 @@ class PackRequestBody2(BaseModel):
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
-            val = serialized.get(k)
+            val = serialized.get(k, serialized.get(n))
 
             if val != UNSET_SENTINEL:
                 if val is not None or k not in optional_fields:
@@ -149,7 +149,7 @@ class PackRequestBody1(BaseModel):
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
-            val = serialized.get(k)
+            val = serialized.get(k, serialized.get(n))
 
             if val != UNSET_SENTINEL:
                 if val is not None or k not in optional_fields:
@@ -167,3 +167,13 @@ PackRequestBodyUnionTypedDict = TypeAliasType(
 PackRequestBodyUnion = TypeAliasType(
     "PackRequestBodyUnion", Union[PackRequestBody1, PackRequestBody2]
 )
+
+
+try:
+    PackRequestBody2.model_rebuild()
+except NameError:
+    pass
+try:
+    PackRequestBody1.model_rebuild()
+except NameError:
+    pass

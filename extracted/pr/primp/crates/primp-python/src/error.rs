@@ -45,8 +45,6 @@ create_exception!(primp, UpgradeError, PrimpError);
 // =============================================================================
 
 /// Simple wrapper struct for converting ::primp::Error to Python exceptions.
-///
-/// This follows the impit pattern for error propagation.
 pub(crate) struct PrimpPyError(pub ::primp::Error);
 
 impl From<::primp::Error> for PrimpPyError {

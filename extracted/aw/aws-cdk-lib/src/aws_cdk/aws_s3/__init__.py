@@ -5024,19 +5024,15 @@ class CfnBucket(
 
     Example::
 
-        # child_template: cfn_inc.CfnInclude
+        # cfn_template: cfn_inc.CfnInclude
         
+        cfn_bucket = cfn_template.get_resource("Bucket")
         
-        cfn_bucket = child_template.get_resource("MyBucket")
-        cfn_bucket.bucket_name = "amzn-s3-demo-bucket1"
-        
-        role = iam.Role(self, "MyRole",
-            assumed_by=iam.AccountRootPrincipal()
+        role = iam.Role(self, "Role",
+            assumed_by=iam.AnyPrincipal()
         )
-        
         role.add_to_policy(iam.PolicyStatement(
-            actions=["s3:GetObject*", "s3:GetBucket*", "s3:List*"
-            ],
+            actions=["s3:*"],
             resources=[cfn_bucket.attr_arn]
         ))
     '''

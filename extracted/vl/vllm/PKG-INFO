@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vllm
-Version: 0.17.0
+Version: 0.17.1
 Summary: A high-throughput and memory-efficient inference and serving engine for LLMs
 Author: vLLM Team
 License-Expression: Apache-2.0
@@ -84,6 +84,7 @@ Requires-Dist: torch==2.10.0
 Requires-Dist: torchaudio==2.10.0
 Requires-Dist: torchvision==0.25.0
 Requires-Dist: flashinfer-python==0.6.4
+Requires-Dist: nvidia-cudnn-frontend<1.19.0,>=1.13.0
 Requires-Dist: nvidia-cutlass-dsl>=4.4.0.dev1
 Requires-Dist: quack-kernels>=0.2.7
 Provides-Extra: bench

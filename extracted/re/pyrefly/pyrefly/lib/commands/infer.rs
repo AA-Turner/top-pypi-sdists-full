@@ -10,6 +10,7 @@ use std::path::Path;
 use clap::Parser;
 use dupe::Dupe;
 use pyrefly_config::args::ConfigOverrideArgs;
+use pyrefly_config::base::UntypedDefBehavior;
 use pyrefly_config::finder::ConfigFinder;
 use pyrefly_types::types::Union;
 use pyrefly_util::forgetter::Forgetter;
@@ -212,10 +213,15 @@ fn hint_to_string(
 
 impl InferArgs {
     pub fn run(
-        self,
+        mut self,
         wrapper: Option<ConfigConfigurerWrapper>,
     ) -> anyhow::Result<CommandExitStatus> {
         self.config_override.validate()?;
+        // The infer command must analyze function bodies to produce meaningful
+        // return type annotations. Override untyped_def_behavior to
+        // CheckAndInferReturnType unless the user explicitly set it via CLI.
+        self.config_override
+            .set_untyped_def_behavior_if_unset(UntypedDefBehavior::CheckAndInferReturnType);
         let (files_to_check, config_finder) = self.files.resolve(self.config_override, wrapper)?;
         Self::run_inner(files_to_check, config_finder, self.flags)
     }
@@ -245,7 +251,7 @@ impl InferArgs {
             return Err(anyhow::anyhow!("Failed to query sourcedb."));
         }
         for handle in handles {
-            transaction.run(&[handle.dupe()], Require::Everything);
+            transaction.run(&[handle.dupe()], Require::Everything, None);
             let stdlib = transaction.get_stdlib(&handle);
             let inferred_types: Option<Vec<(ruff_text_size::TextSize, Type, AnnotationKind)>> =
                 transaction.inferred_types(&handle, flags.return_types(), flags.containers());
@@ -308,7 +314,8 @@ impl InferArgs {
                                 let error_range = error.range();
                                 let unknown_name = module_info.code_at(error_range);
                                 let imports: Vec<(TextSize, String, String)> = transaction
-                                    .search_exports_exact(unknown_name)
+                                    .search_exports_exact(unknown_name, None)
+                                    .unwrap_or_default()
                                     .into_iter()
                                     .map(|(handle_to_import_from, _)| {
                                         insert_import_edit_with_forced_import_format(

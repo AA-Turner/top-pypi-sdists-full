@@ -1,6 +1,6 @@
 [package]
 name = "primp"
-version = "1.1.2" # upstream "0.13.1"
+version = "1.1.3" # upstream "0.12.x"
 description = "higher level HTTP client library"
 keywords = ["http", "request", "client"]
 categories = ["web-programming::http-client", "wasm"]

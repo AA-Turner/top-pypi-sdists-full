@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "keep-skill"
-version = "0.90.0"
+version = "0.93.2"
 description = "Reflective memory - remember and search documents by meaning"
 readme = "README.md"
 requires-python = ">=3.11,<3.14"
@@ -132,4 +132,23 @@ markers = [
 ]
 filterwarnings = [
     "ignore::DeprecationWarning:importlib._bootstrap",
+]
+
+[tool.coverage.run]
+source = ["keep"]
+omit = [
+    "keep/providers/mlx*.py",
+    "keep/providers/whisper*.py",
+    "keep/setup_wizard.py",
+    "keep/data/*",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "if __name__",
+    "raise NotImplementedError",
 ]

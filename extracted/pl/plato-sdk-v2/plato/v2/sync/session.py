@@ -50,7 +50,7 @@ from plato._generated.models import (
     CreateDiskSnapshotRequest,
     CreateDiskSnapshotResponse,
     CreateSessionFromEnvs,
-    CreateSessionFromTask,
+    CreateSessionFromTestCase,
     EnvironmentContext,
     Envs,
     ExecuteCommandRequest,
@@ -275,14 +275,14 @@ class Session:
             TimeoutError: If environments don't become ready within timeout.
         """
         # Build request using generated model
-        request_body = CreateSessionFromTask(
-            task_id=task_id,
+        request_body = CreateSessionFromTestCase(
+            testcase_id=task_id,
             timeout=timeout,
             source=RunSessionSource.SDK,
         )
 
         # Use generated API function
-        # Note: API supports both CreateSessionFromEnvs and CreateSessionFromTask via discriminator
+        # Note: API supports both env-based and testcase-based session creation via discriminator
         response = sessions_make.sync(
             client=http_client,
             body=request_body,  # type: ignore[arg-type]

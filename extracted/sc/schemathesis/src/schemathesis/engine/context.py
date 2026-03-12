@@ -15,6 +15,7 @@ from schemathesis.schemas import APIOperation, BaseSchema
 if TYPE_CHECKING:
     import requests
 
+    from schemathesis.engine import StopReason
     from schemathesis.engine.recorder import ScenarioRecorder
     from schemathesis.resources import ExtraDataSource
 
@@ -49,9 +50,14 @@ class EngineContext:
         observations: Observations | None = None,
     ) -> None:
         self.schema = schema
-        self.control = ExecutionControl(stop_event=stop_event, max_failures=schema.config.max_failures)
-        self.outcome_cache = {}
         self.start_time = time.monotonic()
+        self.control = ExecutionControl(
+            stop_event=stop_event,
+            max_failures=schema.config.max_failures,
+            max_time=schema.config.fuzz.max_time,
+            start_time=self.start_time,
+        )
+        self.outcome_cache = {}
         self.observations = observations
         self._thread_local = threading.local()
         self._transport_kwargs_cache: dict[str | None, dict[str, Any]] = {}
@@ -69,6 +75,10 @@ class EngineContext:
         return time.monotonic() - self.start_time
 
     @property
+    def has_reached_time_limit(self) -> bool:
+        return self.control.has_reached_time_limit
+
+    @property
     def has_to_stop(self) -> bool:
         """Check if execution should stop."""
         return self.control.is_stopped
@@ -80,6 +90,10 @@ class EngineContext:
     @property
     def has_reached_the_failure_limit(self) -> bool:
         return self.control.has_reached_the_failure_limit
+
+    @property
+    def stop_reason(self) -> StopReason:
+        return self.control.stop_reason
 
     def record_observations(self, recorder: ScenarioRecorder) -> None:
         """Add new observations from a scenario."""

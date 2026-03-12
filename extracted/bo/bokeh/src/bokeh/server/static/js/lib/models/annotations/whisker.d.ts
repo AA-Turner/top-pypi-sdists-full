@@ -3,7 +3,7 @@ import type { ArrowHeadView } from "./arrow_head";
 import { ArrowHead } from "./arrow_head";
 import type { ColumnarDataSource } from "../sources/columnar_data_source";
 import type { Context2d } from "../../core/util/canvas";
-import type { IterViews } from "../../core/build_views";
+import type { View } from "../../core/build_views";
 import { LineVector } from "../../core/property_mixins";
 import type * as visuals from "../../core/visuals";
 import type * as p from "../../core/properties";
@@ -12,7 +12,7 @@ export declare class WhiskerView extends UpperLowerView {
     visuals: Whisker.Visuals;
     protected lower_head: ArrowHeadView | null;
     protected upper_head: ArrowHeadView | null;
-    children(): IterViews;
+    children_views(): View[];
     lazy_initialize(): Promise<void>;
     set_data(source: ColumnarDataSource): void;
     _paint_data(ctx: Context2d): void;

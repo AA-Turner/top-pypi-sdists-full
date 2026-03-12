@@ -320,6 +320,50 @@ except x2 as e7:
 );
 
 testcase!(
+    test_exception_handler_dynamic_tuple,
+    r#"
+from typing import assert_type
+
+class Exception1(Exception): pass
+class Exception2(Exception): pass
+
+# Dynamic tuple from tuple() constructor call
+error_list = [Exception1, Exception2]
+dynamic_errors = tuple(error_list)
+try:
+    pass
+except dynamic_errors as e1:
+    assert_type(e1, Exception1 | Exception2)
+
+# Union-typed parameter: single exception class or tuple of exception classes
+def handle(
+    errors: type[Exception] | tuple[type[Exception], ...],
+    value: str,
+) -> int:
+    try:
+        return int(value)
+    except errors as e2:
+        assert_type(e2, Exception)
+        return 0
+"#,
+);
+
+testcase!(
+    test_exception_handler_star_unpacking,
+    r#"
+import sys
+from typing import assert_type
+
+EXTRA_ERRORS: tuple[type[Exception], ...] = (RuntimeError,) if sys.version_info < (3, 13) else ()
+
+try:
+    pass
+except (ValueError, *EXTRA_ERRORS) as e:
+    assert_type(e, ValueError | Exception)
+"#,
+);
+
+testcase!(
     test_exception_group_handler,
     r#"
 from typing import reveal_type
@@ -994,7 +1038,6 @@ except as r: # E: Parse error: Expected one or more exception types
 );
 
 testcase!(
-    bug = "We unsoundly merge narrows dropping missing flow. See the incorrect reveal_type(y) result.",
     test_narrows_in_flow_merge_when_not_in_base_flow,
     r#"
 from typing import reveal_type
@@ -1010,10 +1053,8 @@ def f():
     elif isinstance(x, C):
         assert isinstance(y, C)
         pass
-    # We get this case right, but for a brittle reason: we negate the tests in the base flow.
-    reveal_type(x)  # E: revealed type: A | B | C
-    # The negation trick doesn't work here, and we get an incorrect narrow.
-    reveal_type(y)  # E: revealed type: B | C
+    reveal_type(x)  # E: revealed type: A
+    reveal_type(y)  # E: revealed type: A
 "#,
 );
 
@@ -1794,4 +1835,87 @@ def main(resolve: bool) -> None:
             foo()
     print(node)
 "#,
+);
+
+// for https://github.com/facebook/pyrefly/issues/1840
+testcase!(
+    test_exhaustive_flow_no_fall_through,
+    r#"
+import types
+from dataclasses import dataclass
+from typing import Any, TypeIs, assert_never
+
+
+def is_instance_union_aware[T](
+    value: Any, target_type: type[T] | tuple[type[T], ...]
+) -> TypeIs[T]: ...
+
+def test_is_instance_union_aware():
+    @dataclass
+    class C0:
+        f_common: int
+        f_0: int
+
+    @dataclass
+    class C1:
+        f_common: int
+        f_1: int
+
+    @dataclass
+    class C2:
+        f_common: int
+        f_2: int
+
+    def compute_1(obj: C0 | C1 | C2) -> int:
+        if is_instance_union_aware(obj, C0 | C1):
+            return obj.f_common
+        return obj.f_2 + obj.f_common
+
+    def compute_2(obj: C0 | C1 | C2) -> int:
+        if is_instance_union_aware(obj, C0 | C1):
+            return obj.f_common
+        if is_instance_union_aware(obj, C2):
+            return obj.f_2 + obj.f_common
+        assert_never(obj)
+
+    assert compute_1(C1(f_common=1, f_1=2)) == 3
+    assert compute_2(C1(f_common=4, f_1=5)) == 9
+    "#,
+);
+
+// https://github.com/facebook/pyrefly/issues/1896
+testcase!(
+    test_exhaustive_flow_no_early_return_narrow,
+    r#"
+import dataclasses as dc
+from typing import assert_type
+
+@dc.dataclass(frozen=True)
+class Success:
+    value: int
+
+@dc.dataclass(frozen=True)
+class Error:
+    message: str
+
+Result = Success | Error | None
+
+def get_result() -> Result:
+    return Success(value=42)
+
+def use_success(s: Success) -> int:
+    return s.value
+
+def demo_pyre_narrowing_failure() -> int:
+    result = get_result()
+    match result:
+        case Error() as err:
+            return -1
+        case None:
+            return 0
+        case _:
+            success = result
+    assert_type(success, Success)
+    return use_success(success)
+    "#,
 );

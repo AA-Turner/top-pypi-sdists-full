@@ -71,13 +71,13 @@ class Artifact:
     pass
 
 class ScriptRef(Artifact):
-    def __init__(self, url: str, type: str = "text/javascript") -> None:
+    def __init__(self, url: str, type: str | None = None) -> None:
         self.url = URL(url)
         self.type = type
 
 
 class Script(Artifact):
-    def __init__(self, content: str, type: str = "text/javascript") -> None:
+    def __init__(self, content: str, type: str | None = None) -> None:
         self.content = content
         self.type = type
 
@@ -445,7 +445,7 @@ def _use_mathjax(all_objs: set[HasProps]) -> bool:
     from ..models.glyphs import MathTextGlyph
     from ..models.text import MathText
 
-    return _any(all_objs, lambda obj: isinstance(obj, MathTextGlyph | MathText) or _model_requires_mathjax(obj)) or _ext_use_mathjax(all_objs)
+    return _any(all_objs, lambda obj: isinstance(obj, (MathTextGlyph, MathText)) or _model_requires_mathjax(obj)) or _ext_use_mathjax(all_objs)
 
 def _use_gl(all_objs: set[HasProps]) -> bool:
     ''' Whether a collection of Bokeh objects contains a plot requesting WebGL

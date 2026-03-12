@@ -111,9 +111,11 @@ impl<'a> BindingsBuilder<'a> {
         key: Key,
     ) -> (CurrentIdx, ClassIndices) {
         let def_index = self.def_index();
+        let class_object = self.declare_current_idx(key);
         let class_indices = ClassIndices {
             def_index,
             class_idx: self.idx_for_promise(KeyClass(ShortIdentifier::new(class_name))),
+            class_object_idx: class_object.idx(),
             base_type_idx: self.idx_for_promise(KeyClassBaseType(def_index)),
             metadata_idx: self.idx_for_promise(KeyClassMetadata(def_index)),
             mro_idx: self.idx_for_promise(KeyClassMro(def_index)),
@@ -124,7 +126,6 @@ impl<'a> BindingsBuilder<'a> {
                 .idx_for_promise(KeyConsistentOverrideCheck(def_index)),
             abstract_class_check_idx: self.idx_for_promise(KeyAbstractClassCheck(def_index)),
         };
-        let class_object = self.declare_current_idx(key);
         (class_object, class_indices)
     }
 
@@ -835,7 +836,10 @@ impl<'a> BindingsBuilder<'a> {
                     alias_of: None,
                 },
                 (None, false) => match annotation {
-                    Some(annotation) => ClassFieldDefinition::DeclaredByAnnotation { annotation },
+                    Some(annotation) => ClassFieldDefinition::DeclaredByAnnotation {
+                        annotation,
+                        initialized_in_recognized_method: false,
+                    },
                     None => ClassFieldDefinition::DeclaredWithoutAnnotation,
                 },
             };
@@ -1217,11 +1221,13 @@ impl<'a> BindingsBuilder<'a> {
         &mut self,
         name: &ExprName,
         parent: &NestingContext,
+        func: &mut Expr,
         new_type_name: &mut Expr,
         base: &mut Expr,
     ) {
         let class_name = Ast::expr_name_identifier(name.clone());
         let (mut class_object, class_indices) = self.class_object_and_indices(&class_name);
+        self.ensure_expr(func, class_object.usage());
         self.ensure_expr(new_type_name, class_object.usage());
         self.check_functional_definition_name(&name.id, new_type_name);
         self.ensure_type(base, &mut None);

@@ -1070,6 +1070,16 @@ class LicensePlateMonitorUseCase(BaseProcessor):
                             db_index = data.get("db", 0)
                             conn_timeout = data.get("connection_timeout", 120)
 
+                            # Sentinel HA support
+                            sentinel_hosts = None
+                            master_name = None
+                            sentinel_cfg = data.get("sentinelConfig") or {}
+                            if sentinel_cfg.get("sentinelHosts"):
+                                sentinel_hosts = [(h, 26379) for h in sentinel_cfg["sentinelHosts"]]
+                                master_name = sentinel_cfg.get("masterName")
+
+                            sentinel_str = f"yes, master={master_name}, nodes={len(sentinel_hosts)}" if sentinel_hosts else "no"
+
                             print("----- REDIS SERVER PARAMS -----")
                             print(f"server_type: {server_type}")
                             print(f"instance_id: {instance_id}")
@@ -1079,20 +1089,24 @@ class LicensePlateMonitorUseCase(BaseProcessor):
                             print(f"password: {password}")
                             print(f"db: {db_index}")
                             print(f"connection_timeout: {conn_timeout}")
+                            print(f"sentinel: {sentinel_str}")
                             print("--------------------------------")
 
-                            self.logger.info(f"[ALERT] Redis server params | instance_id={instance_id}, host={host}, port={port}, user={username}, db={db_index}")
+                            self.logger.info(f"[ALERT] Redis server params | instance_id={instance_id}, host={host}, port={port}, user={username}, db={db_index}, sentinel={sentinel_str}")
 
-                            # Initialize without gating on status
-                            redis_client = MatriceStream(
-                                StreamType.REDIS,
+                            # Initialize with Sentinel support
+                            stream_kwargs = dict(
                                 host=host,
                                 port=int(port),
                                 password=password,
                                 username=username,
                                 db=db_index,
-                                connection_timeout=conn_timeout
+                                connection_timeout=conn_timeout,
                             )
+                            if sentinel_hosts and master_name:
+                                stream_kwargs["sentinel_hosts"] = sentinel_hosts
+                                stream_kwargs["master_name"] = master_name
+                            redis_client = MatriceStream(StreamType.REDIS, **stream_kwargs)
                             redis_client.setup("alert_instant_config_request")
                             self.logger.info("[ALERT] Redis client initialized successfully")
                         else:

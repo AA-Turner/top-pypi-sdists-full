@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: edx_event_bus_redis
-Version: 0.6.1
+Version: 1.0.0
 Summary: Redis Streams implementation for the Open edX event bus.
 Home-page: https://github.com/openedx/event-bus-redis
 Author: edX
@@ -14,9 +14,8 @@ Classifier: Framework :: Django :: 5.2
 Classifier: Intended Audience :: Developers
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Python: >=3.11
+Requires-Python: >=3.12
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
 Requires-Dist: Django

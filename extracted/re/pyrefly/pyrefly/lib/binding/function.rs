@@ -42,6 +42,7 @@ use crate::binding::binding::BindingUndecoratedFunctionRange;
 use crate::binding::binding::BindingYield;
 use crate::binding::binding::BindingYieldFrom;
 use crate::binding::binding::ExhaustivenessKind;
+use crate::binding::binding::ExprOrBinding;
 use crate::binding::binding::FunctionDefData;
 use crate::binding::binding::FunctionStubOrImpl;
 use crate::binding::binding::IsAsync;
@@ -171,7 +172,7 @@ impl<'a> SelfAttrNames<'a> {
                 (
                     n,
                     InstanceAttribute(
-                        super::binding::ExprOrBinding::Binding(Binding::Any(AnyStyle::Implicit)),
+                        ExprOrBinding::Binding(Binding::Any(AnyStyle::Implicit)),
                         None,
                         r,
                         MethodSelfKind::Instance,
@@ -310,6 +311,19 @@ impl<'a> BindingsBuilder<'a> {
             .push_function_scope(range, func_name, class_key.is_some(), is_async);
         self.parameters(parameters, undecorated_idx, class_key, method_self_kind);
         self.init_static_scope(&body, false);
+        self.seed_captured_variables();
+        if class_key.is_some() && !self.scopes.current_static_contains(&dunder::CLASS) {
+            let implicit_range = TextRange::empty(range.start());
+            let dunder_class_identifier = Identifier::new(dunder::CLASS.clone(), implicit_range);
+            self.scopes
+                .add_name_to_current_static(&dunder_class_identifier);
+            let class_object_idx = self.scopes.enclosing_class_object_idx().unwrap();
+            let idx = self.insert_binding(
+                Key::Definition(ShortIdentifier::new(&dunder_class_identifier)),
+                Binding::Forward(class_object_idx),
+            );
+            self.bind_name(&dunder_class_identifier.id, idx, FlowStyle::Other);
+        }
         self.stmts(
             body,
             &NestingContext::function(ShortIdentifier::new(func_name), parent.dupe()),
@@ -380,8 +394,7 @@ impl<'a> BindingsBuilder<'a> {
         should_infer_return_type: bool,
         stub_or_impl: FunctionStubOrImpl,
     ) {
-        let is_generator =
-            !(yields_and_returns.yields.is_empty() && yields_and_returns.yield_froms.is_empty());
+        let is_generator = yields_and_returns.is_generator;
         let return_ann = return_ann_with_range.as_ref().map(|(_, key)| *key);
 
         // Collect the keys of explicit returns.
@@ -438,7 +451,7 @@ impl<'a> BindingsBuilder<'a> {
                         range,
                         annotation,
                         implicit_return,
-                        is_generator: !(yield_keys.is_empty() && yield_from_keys.is_empty()),
+                        is_generator,
                         has_explicit_return: !return_keys.is_empty(),
                     }
                 }
@@ -449,7 +462,7 @@ impl<'a> BindingsBuilder<'a> {
                     ReturnTypeKind::ShouldTrustAnnotation {
                         annotation,
                         range,
-                        is_generator: !(yield_keys.is_empty() && yield_from_keys.is_empty()),
+                        is_generator,
                     }
                 }
                 (None, Some(implicit_return), _) if should_infer_return_type => {
@@ -465,7 +478,7 @@ impl<'a> BindingsBuilder<'a> {
                     // We don't have an explicit return annotation, or we don't want to infer return type.
                     // Just treat the return type as `Any`.
                     ReturnTypeKind::ShouldReturnAny {
-                        is_generator: !(yield_keys.is_empty() && yield_from_keys.is_empty()),
+                        is_generator,
                     }
                 }
             };
@@ -799,9 +812,9 @@ impl<'a> BindingsBuilder<'a> {
 /// * Return Some(xs) to say this set might be the last expression.
 fn function_last_expressions<'a>(
     x: &'a [Stmt],
-    sys_info: &SysInfo,
+    sys_info: SysInfo,
 ) -> Option<Vec<(LastStmt, &'a Expr)>> {
-    fn f<'a>(sys_info: &SysInfo, x: &'a [Stmt], res: &mut Vec<(LastStmt, &'a Expr)>) -> Option<()> {
+    fn f<'a>(sys_info: SysInfo, x: &'a [Stmt], res: &mut Vec<(LastStmt, &'a Expr)>) -> Option<()> {
         fn loop_body_has_break_statement(statement: &Stmt, has_break: &mut bool) {
             match statement {
                 Stmt::Break(_) => {

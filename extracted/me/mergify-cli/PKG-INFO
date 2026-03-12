@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mergify_cli
-Version: 2026.3.10.1
+Version: 2026.3.11.1
 Summary: Mergify CLI is a tool that automates the creation and management of stacked pull requests on GitHub and handles CI results upload
 Project-URL: Homepage, https://mergify.com
 Project-URL: Documentation, https://docs.mergify.com
@@ -23,6 +23,7 @@ Requires-Python: >=3.13
 Requires-Dist: aiofiles==25.1.0
 Requires-Dist: click==8.3.1
 Requires-Dist: httpx==0.28.1
+Requires-Dist: jsonschema==4.26.0
 Requires-Dist: opentelemetry-exporter-otlp-proto-http==1.40.0
 Requires-Dist: opentelemetry-sdk==1.40.0
 Requires-Dist: pydantic==2.12.5

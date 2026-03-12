@@ -4,7 +4,7 @@ import { Coordinate } from "../coordinates/coordinate";
 import { Selector } from "../selectors/selector";
 import { Anchor, TooltipAttachment } from "../../core/enums";
 import type { StyleSheetLike } from "../../core/dom";
-import type { IterViews, ViewOf } from "../../core/build_views";
+import type { View, ViewOf } from "../../core/build_views";
 import type * as p from "../../core/properties";
 declare const NativeNode: {
     new (): Node;
@@ -40,7 +40,7 @@ export declare class TooltipView extends UIElementView {
     protected _init_target(): void;
     initialize(): void;
     protected _element_view: ViewOf<DOMNode | UIElement> | null;
-    children(): IterViews;
+    children_views(): View[];
     lazy_initialize(): Promise<void>;
     protected _build_content(): Promise<void>;
     private _scroll_listener?;

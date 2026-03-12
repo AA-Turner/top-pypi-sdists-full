@@ -6,11 +6,10 @@ Mixin classes for log context and payload introspection.
 Public API of this module is defined by __all__.
 """
 
-from __future__ import annotations
-
 from collections.abc import Mapping
 from typing import Any
 
+from aiohomematic._payload_protocol import PayloadProtocol
 from aiohomematic.property_decorators import Kind, get_hm_property_by_kind, get_hm_property_by_log_context, hm_property
 
 __all__ = [
@@ -32,7 +31,7 @@ class LogContextMixin:
         }
 
 
-class PayloadMixin:
+class PayloadMixin(PayloadProtocol):
     """Mixin to add payload methods to class."""
 
     __slots__ = ()
@@ -42,7 +41,7 @@ class PayloadMixin:
         """Return the config payload."""
         return {
             key: value
-            for key, value in get_hm_property_by_kind(data_object=self, kind=Kind.CONFIG).items()
+            for key, value in get_hm_property_by_kind(data_object=self, kind=Kind.CONFIG, use_alt_names=True).items()
             if value is not None
         }
 
@@ -51,7 +50,7 @@ class PayloadMixin:
         """Return the info payload."""
         return {
             key: value
-            for key, value in get_hm_property_by_kind(data_object=self, kind=Kind.INFO).items()
+            for key, value in get_hm_property_by_kind(data_object=self, kind=Kind.INFO, use_alt_names=True).items()
             if value is not None
         }
 
@@ -60,6 +59,6 @@ class PayloadMixin:
         """Return the state payload."""
         return {
             key: value
-            for key, value in get_hm_property_by_kind(data_object=self, kind=Kind.STATE).items()
+            for key, value in get_hm_property_by_kind(data_object=self, kind=Kind.STATE, use_alt_names=True).items()
             if value is not None
         }

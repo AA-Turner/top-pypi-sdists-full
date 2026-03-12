@@ -1,6 +1,5 @@
 use chia_bls::{BlsCache, Signature};
 use chia_consensus::additions_and_removals::additions_and_removals as native_additions_and_removals;
-use chia_consensus::allocator::make_allocator;
 use chia_consensus::consensus_constants::ConsensusConstants;
 use chia_consensus::flags::ConsensusFlags;
 use chia_consensus::owned_conditions::OwnedSpendBundleConditions;
@@ -34,8 +33,6 @@ pub fn run_block_generator<'a>(
     bls_cache: Option<&BlsCache>,
     constants: &ConsensusConstants,
 ) -> (Option<u32>, Option<OwnedSpendBundleConditions>) {
-    let mut allocator = make_allocator(flags);
-
     let refs = block_refs
         .into_iter()
         .map(|b| {
@@ -49,16 +46,9 @@ pub fn run_block_generator<'a>(
 
     py.detach(|| {
         match native_run_block_generator(
-            &mut allocator,
-            program,
-            refs,
-            max_cost,
-            flags,
-            signature,
-            bls_cache,
-            constants,
+            program, refs, max_cost, flags, signature, bls_cache, constants,
         ) {
-            Ok(spend_bundle_conds) => (
+            Ok((allocator, spend_bundle_conds)) => (
                 None,
                 Some(OwnedSpendBundleConditions::from(
                     &allocator,
@@ -86,8 +76,6 @@ pub fn run_block_generator2<'a>(
     bls_cache: Option<&BlsCache>,
     constants: &ConsensusConstants,
 ) -> (Option<u32>, Option<OwnedSpendBundleConditions>) {
-    let mut allocator = make_allocator(flags);
-
     let refs = block_refs
         .into_iter()
         .map(|b| {
@@ -102,16 +90,9 @@ pub fn run_block_generator2<'a>(
 
     py.detach(|| {
         match native_run_block_generator2(
-            &mut allocator,
-            program,
-            refs,
-            max_cost,
-            flags,
-            signature,
-            bls_cache,
-            constants,
+            program, refs, max_cost, flags, signature, bls_cache, constants,
         ) {
-            Ok(spend_bundle_conds) => (
+            Ok((allocator, spend_bundle_conds)) => (
                 None,
                 Some(OwnedSpendBundleConditions::from(
                     &allocator,

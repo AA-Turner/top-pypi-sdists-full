@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: spherical_geometry
-Version: 1.3.5
+Version: 1.4.0
 Summary: Python based tools for spherical geometry
 Author: STScI
 License: BSD-3-Clause
@@ -22,14 +22,17 @@ Description-Content-Type: text/x-rst
 License-File: licenses/LICENSE.rst
 License-File: licenses/QD_LIBRARY_LICENSE.rst
 Requires-Dist: numpy>=1.25
-Requires-Dist: astropy>=5.2.0
 Provides-Extra: test
+Requires-Dist: astropy>=5.2.0; extra == "test"
 Requires-Dist: pytest>=9.0; extra == "test"
 Requires-Dist: pytest-astropy-header; extra == "test"
 Requires-Dist: gwcs; extra == "test"
 Provides-Extra: docs
+Requires-Dist: astropy>=5.2.0; extra == "docs"
 Requires-Dist: sphinx-automodapi; extra == "docs"
 Requires-Dist: numpydoc; extra == "docs"
+Provides-Extra: wcs
+Requires-Dist: astropy>=5.2.0; extra == "wcs"
 Dynamic: license-file
 
 User documentation

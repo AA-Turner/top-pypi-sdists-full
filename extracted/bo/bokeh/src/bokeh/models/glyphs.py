@@ -48,33 +48,32 @@ from ..core.enums import (
     StepMode,
 )
 from ..core.has_props import abstract
-from ..core.properties import (
+from ..core.property.container import Dict, Tuple
+from ..core.property.dataspec import (
     AngleSpec,
-    Bool,
     DataSpec,
-    Dict,
     DistanceSpec,
-    Either,
-    Enum,
-    Float,
     FloatSpec,
-    Include,
-    Instance,
-    InstanceDefault,
-    Int,
     MarkerSpec,
     NullDistanceSpec,
     NumberSpec,
-    Override,
-    Regex,
-    Size,
     SizeSpec,
-    String,
     StringSpec,
-    Tuple,
-    field,
-    value,
 )
+from ..core.property.either import Either
+from ..core.property.enum import Enum
+from ..core.property.include import Include
+from ..core.property.instance import Instance, InstanceDefault
+from ..core.property.numeric import NonNegative, Size
+from ..core.property.override import Override
+from ..core.property.primitive import (
+    Bool,
+    Float,
+    Int,
+    String,
+)
+from ..core.property.string import Regex
+from ..core.property.vectorization import field, value
 from ..core.property_aliases import (
     Anchor,
     BorderRadius,
@@ -165,12 +164,14 @@ class Marker(XYGlyph, LineGlyph, FillGlyph, HatchGlyph):
     fill properties, located at an (x, y) location with a specified
     size.
 
+    See :class:`~bokeh.models.glyphs.Scatter` for an overview
+    of all the builtin marker types.
+
     .. note::
         For simplicity, all markers have both line and fill properties
         declared, however some marker types (`asterisk`, `cross`, `x`)
         only draw lines. For these markers, the fill values are simply
         ignored.
-
     '''
 
     # explicit __init__ to support Init signatures
@@ -418,7 +419,7 @@ class Bezier(Glyph, LineGlyph):
     """)
 
 class Block(LRTBGlyph):
-    ''' Render rectangular regions, given a lower-left corner coordinate, width, and height.
+    ''' Render rectangular regions, given an origin (x,y), width, and height.
 
     '''
 
@@ -431,11 +432,11 @@ class Block(LRTBGlyph):
     _args = ('x', 'y', 'width', 'height')
 
     x = NumberSpec(default=field("x"), help="""
-    The x-coordinates of each block's lower-left corner.
+    The x-coordinates of each block's origin.
     """)
 
     y = NumberSpec(default=field("y"), help="""
-    The y-coordinates of each block's lower-left corner.
+    The y-coordinates of each block's origin.
     """)
 
     width = DistanceSpec(default=1, help="""
@@ -1592,9 +1593,17 @@ class Step(XYGlyph, LineGlyph):
     Where the step "level" should be drawn in relation to the x and y
     coordinates. The parameter can assume one of three values:
 
-    * ``before``: (default) Draw step levels before each x-coordinate (no step before the first point)
-    * ``after``:  Draw step levels after each x-coordinate (no step after the last point)
+    * ``before``: (default) Draw step levels before each x-coordinate (no step before the first point unless pad_before is set)
+    * ``after``:  Draw step levels after each x-coordinate (no step after the last point unless pad_after is set)
     * ``center``: Draw step levels centered on each x-coordinate
+    """)
+
+    pad_before = NonNegative(Float, default=0, help="""
+    Extends the step plot by this amount before the first x-coordinate.
+    """)
+
+    pad_after = NonNegative(Float, default=0, help="""
+    Extends the step plot by this amount after the last x-coordinate.
     """)
 
 class Text(XYGlyph, TextGlyph):

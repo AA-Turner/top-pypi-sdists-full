@@ -1,22 +1,22 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.20.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-03-09T17:10:37.851699                                                            #
+# MF version: 2.19.21.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-03-12T00:19:49.933789                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
 import typing
 if typing.TYPE_CHECKING:
-    import metaflow.events
-    import metaflow.plugins.cards.component_serializer
     import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.hf_hub.decorator
     import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.modeling_utils.core
-    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.checkpoints.decorator
     import metaflow.metaflow_current
-    import metaflow.mf_extensions.outerbounds.plugins.apps.core.app_deploy_decorator
-    import metaflow
     import typing
+    import metaflow
+    import metaflow.events
+    import metaflow.plugins.cards.component_serializer
+    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.checkpoints.decorator
+    import metaflow.mf_extensions.outerbounds.plugins.apps.core.app_deploy_decorator
 
 
 TYPE_CHECKING: bool
@@ -250,48 +250,21 @@ class Current(object, metaclass=type):
         """
         ...
     @property
-    def model(self) -> "metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.modeling_utils.core.ModelSerializer":
+    def card(self) -> "metaflow.plugins.cards.component_serializer.CardComponentCollector":
         """
-        (only in the presence of the @model decorator)
+        (only in the presence of the @card decorator)
         
-        The object used for loading / saving models.
-        `current.model` exposes a `save` method to save models and a `load` method to load models.
-        `current.model.loaded` exposes the paths to the models loaded via the `load` argument in the @model decorator
-        or models loaded via `current.model.load`.
+        The `@card` decorator makes the cards available through the `current.card`
+        object. If multiple `@card` decorators are present, you can add an `ID` to
+        distinguish between them using `@card(id=ID)` as the decorator. You will then
+        be able to access that specific card using `current.card[ID].
         
-        Returns
-        ----------
-        ModelSerializer
-            The object used for loading / saving models.
-        """
-        ...
-    @property
-    def parallel(self) -> "metaflow.metaflow_current.Parallel":
-        """
-        (only in the presence of the @parallel decorator)
-        
-        Returns a namedtuple with relevant information about the parallel task.
+        Methods available are `append` and `extend`
         
         Returns
         -------
-        Parallel
-            `namedtuple` with the following fields:
-                - main_ip (`str`)
-                    The IP address of the control task.
-                - num_nodes (`int`)
-                    The total number of tasks created by @parallel
-                - node_index (`int`)
-                    The index of the current task in all the @parallel tasks.
-                - control_task_id (`Optional[str]`)
-                    The task ID of the control task. Available to all tasks.
-        """
-        ...
-    @property
-    def is_parallel(self) -> bool:
-        """
-        (only in the presence of the @parallel decorator)
-        
-        True if the current step is a @parallel step.
+        CardComponentCollector
+            The or one of the cards attached to this step.
         """
         ...
     @property
@@ -345,21 +318,48 @@ class Current(object, metaclass=type):
         """
         ...
     @property
-    def card(self) -> "metaflow.plugins.cards.component_serializer.CardComponentCollector":
+    def parallel(self) -> "metaflow.metaflow_current.Parallel":
         """
-        (only in the presence of the @card decorator)
+        (only in the presence of the @parallel decorator)
         
-        The `@card` decorator makes the cards available through the `current.card`
-        object. If multiple `@card` decorators are present, you can add an `ID` to
-        distinguish between them using `@card(id=ID)` as the decorator. You will then
-        be able to access that specific card using `current.card[ID].
-        
-        Methods available are `append` and `extend`
+        Returns a namedtuple with relevant information about the parallel task.
         
         Returns
         -------
-        CardComponentCollector
-            The or one of the cards attached to this step.
+        Parallel
+            `namedtuple` with the following fields:
+                - main_ip (`str`)
+                    The IP address of the control task.
+                - num_nodes (`int`)
+                    The total number of tasks created by @parallel
+                - node_index (`int`)
+                    The index of the current task in all the @parallel tasks.
+                - control_task_id (`Optional[str]`)
+                    The task ID of the control task. Available to all tasks.
+        """
+        ...
+    @property
+    def is_parallel(self) -> bool:
+        """
+        (only in the presence of the @parallel decorator)
+        
+        True if the current step is a @parallel step.
+        """
+        ...
+    @property
+    def model(self) -> "metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.modeling_utils.core.ModelSerializer":
+        """
+        (only in the presence of the @model decorator)
+        
+        The object used for loading / saving models.
+        `current.model` exposes a `save` method to save models and a `load` method to load models.
+        `current.model.loaded` exposes the paths to the models loaded via the `load` argument in the @model decorator
+        or models loaded via `current.model.load`.
+        
+        Returns
+        ----------
+        ModelSerializer
+            The object used for loading / saving models.
         """
         ...
     @property
@@ -371,6 +371,19 @@ class Current(object, metaclass=type):
         Returns
         ----------
         FlowAppManager
+        """
+        ...
+    @property
+    def trigger(self) -> "metaflow.events.Trigger":
+        """
+        (only in the presence of the @trigger_on_finish, or @trigger decorators)
+        
+        Returns `Trigger` if the current run is triggered by an event
+        
+        Returns
+        -------
+        Trigger
+            `Trigger` if triggered by an event
         """
         ...
     @property
@@ -438,19 +451,6 @@ class Current(object, metaclass=type):
         -------
         bool
             True if the flow is deployed with `--production`.
-        """
-        ...
-    @property
-    def trigger(self) -> "metaflow.events.Trigger":
-        """
-        (only in the presence of the @trigger_on_finish, or @trigger decorators)
-        
-        Returns `Trigger` if the current run is triggered by an event
-        
-        Returns
-        -------
-        Trigger
-            `Trigger` if triggered by an event
         """
         ...
     ...

@@ -3,7 +3,7 @@ import { Action } from "./action";
 import type { Formatters } from "./placeholder";
 import type { ColumnarDataSource } from "../sources/columnar_data_source";
 import type { Index } from "../../core/util/templating";
-import type { ViewStorage, IterViews, ViewOf } from "../../core/build_views";
+import type { ViewStorage, View, ViewOf } from "../../core/build_views";
 import type { PlainObject } from "../../core/types";
 import type * as p from "../../core/properties";
 export declare class TemplateView extends DOMElementView {
@@ -12,7 +12,7 @@ export declare class TemplateView extends DOMElementView {
     get actions(): Action[];
     get action_views(): ViewOf<Action>[];
     protected _update_actions(): Promise<void>;
-    children(): IterViews;
+    children_views(): View[];
     lazy_initialize(): Promise<void>;
     remove(): void;
     update(source: ColumnarDataSource, i: Index | null, vars: PlainObject, formatters?: Formatters): void;

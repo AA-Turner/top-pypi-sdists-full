@@ -33,9 +33,9 @@ import constructs._jsii
 
 __jsii_assembly__ = jsii.JSIIAssembly.load(
     "cdk-docker-image-deployment",
-    "0.0.970",
+    "0.0.971",
     __name__[0:-6],
-    "cdk-docker-image-deployment@0.0.970.jsii.tgz",
+    "cdk-docker-image-deployment@0.0.971.jsii.tgz",
 )
 
 __all__ = [

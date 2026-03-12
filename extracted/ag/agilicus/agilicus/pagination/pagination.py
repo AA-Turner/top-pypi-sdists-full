@@ -18,6 +18,8 @@ def get_many_entries(
     maximum=None,
     page_callback=None,
     page_key="page_at_id",
+    resp_page_key="page_at_id",
+    resp_page_val_non_empty=False,
     **kwargs,
 ):
     """Implements the generic pagination strategy
@@ -57,12 +59,17 @@ def get_many_entries(
     while len(list_resp.get(response_list_key, [])) >= page_size and _list_at_max_size(
         len(retval), maximum
     ):
-        page_at_id = list_resp.get(page_key, None)
-        if page_at_id is None:
+        page_at_val = list_resp.get(resp_page_key, None)
+        if resp_page_val_non_empty and page_at_val is not None and not str(page_at_val):
+            # this handles a special case where some apis are finished when
+            # the resp_page_key is empty (""), rather than None, and the result
+            # is exactly a page size.
+            break
+        if page_at_val is None:
             raise Exception(
                 f"{page_key} cannot be None for pagination to continue processing"
             )
-        kwargs[page_key] = list_resp.get(page_key, None)
+        kwargs[page_key] = page_at_val
         list_resp = api_func(**kwargs)
         page_items = list_resp.get(response_list_key, [])
         apply_page(page_items)

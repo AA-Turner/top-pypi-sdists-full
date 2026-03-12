@@ -11,6 +11,7 @@ from . import (
     pypi,
     releases,
     sessions,
+    testcases,
     user,
     work_orders,
 )
@@ -26,6 +27,7 @@ __all__ = [
     "pypi",
     "releases",
     "sessions",
+    "testcases",
     "user",
     "work_orders",
 ]

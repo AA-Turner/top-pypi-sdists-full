@@ -6,7 +6,7 @@ import { GridBox } from "../layouts/grid_box";
 import { TracksSizing } from "../common/kinds";
 import type { ToolbarView } from "../tools/toolbar";
 import { Toolbar } from "../tools/toolbar";
-import type { IterViews } from "../../core/build_views";
+import type { View } from "../../core/build_views";
 import { Location } from "../../core/enums";
 import type * as p from "../../core/properties";
 export declare class GridPlotView extends LayoutDOMView {
@@ -21,7 +21,7 @@ export declare class GridPlotView extends LayoutDOMView {
     remove(): void;
     private readonly _tool_views;
     build_tool_views(): Promise<void>;
-    children(): IterViews;
+    children_views(): View[];
     get child_models(): UIElement[];
     protected _intrinsic_display(): FullDisplay;
     _update_layout(): void;

@@ -152,6 +152,10 @@ def _materialize_method_segment(
     kwargs: dict[str, Any],
 ) -> Segment:
     if not chain.segments:
+        # Pre-checks here are strict-independent and validate fluent-DSL
+        # *shape* (e.g. call-vs-attribute intent) before we patch anything.
+        # Strict/spec validation remains in StubbedInvocation.__call__
+        # (`ensure_mocked_object_has_method` + signature checks).
         _ensure_target_is_callable(chain.theMock, name)
 
         invoc = invocation.StubbedInvocation(chain.theMock, name, **chain.options)
@@ -176,6 +180,10 @@ def _materialize_property_segment(
     name: str,
 ) -> Segment:
     if not chain.segments:
+        # Same rationale as method materialization above: these pre-checks are
+        # strict-independent API-shape guards for property-style stubbing.
+        # Strict/spec checks for property stubs live in
+        # StubbedPropertyAccess.__call__ (`ensure_mocked_object_has_attribute`).
         _ensure_target_is_not_callable(chain.theMock, name)
 
         if not inspect.isclass(chain.theMock.mocked_obj):
@@ -399,16 +407,45 @@ class Mock:
     def _sameish_invocations(
         self, same: invocation.StubbedInvocation
     ) -> list[invocation.StubbedInvocation]:
-        return [
-            invoc
-            for invoc in self.stubbed_invocations
-            if (
-                invoc is not same
-                and invoc.method_name == same.method_name
-                and invoc.matches(same)
-                and same.matches(invoc)
-            )
-        ]
+        """Find prior stubs that are *mutually* signature-compatible.
+
+        This is used only for continuation bookkeeping (value-vs-chain mode),
+        not for runtime call dispatch. We intentionally do a symmetric check
+        (`a.matches(b)` and `b.matches(a)`) to approximate "same signature"
+        despite one-way matchers like `any()`.
+
+        Why this exists: repeated selectors such as
+
+            when(cat).meow().purr()
+            when(cat).meow().roll()
+
+        should share the same root continuation for `meow()`.
+        """
+        sameish: list[invocation.StubbedInvocation] = []
+        for invoc in self.stubbed_invocations:
+            if invoc is same:
+                continue
+
+            if invoc.method_name != same.method_name:
+                continue
+
+            if self._invocations_are_sameish(invoc, same):
+                sameish.append(invoc)
+
+        return sameish
+
+    def _invocations_are_sameish(
+        self,
+        left: invocation.StubbedInvocation,
+        right: invocation.StubbedInvocation,
+    ) -> bool:
+        # Be conservative in internal equivalence probing: user predicates from
+        # `arg_that` can throw when evaluated against matcher/sentinel objects.
+        # In this phase, exceptions should mean "not equivalent", not failure.
+        try:
+            return left.matches(right) and right.matches(left)
+        except Exception:
+            return False
 
     def get_original_method(self, method_name: str) -> object | None:
         return self._original_methods.get(method_name, None)

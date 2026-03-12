@@ -2,7 +2,7 @@
 name = "arize-phoenix-client"
 description = "LLM Observability"
 readme = "README.md"
-requires-python = ">=3.9, <3.14"
+requires-python = ">=3.10, <3.14"
 license = {text="Apache-2.0"}
 license-files = { paths = ["LICENSE", "IP_NOTICE"] }
 keywords = [
@@ -15,13 +15,12 @@ authors = [
 ]
 classifiers = [
   "Programming Language :: Python",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
 ]
-version = "1.31.0"
+version = "2.0.0"
 dependencies = [
   "httpx",
   "tqdm",
@@ -47,29 +46,13 @@ packages = ["src/phoenix"]
 [tool.hatch.build]
 only-packages = true
 
-[tool.hatch.envs.publish]
-dependencies = [
-  "check-wheel-contents",
-  "twine",
-]
-
-[tool.hatch.envs.publish.scripts]
-testpypi = [
-  "check-wheel-contents dist/",
-  "twine upload --verbose --repository testpypi dist/*",
-]
-pypi = [
-  "check-wheel-contents dist/",
-  "twine upload --verbose dist/*",
-]
-
 [tool.ruff]
 exclude = [
   "dist",
 ]
 extend-include = ["*.ipynb"]
 line-length = 100
-target-version = "py39"
+target-version = "py310"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I"]
@@ -99,7 +82,7 @@ exclude = [
 
 [tool.pyright]
 typeCheckingMode = "strict"
-pythonVersion = "3.9"
+pythonVersion = "3.10"
 reportUnusedFunction = false
 exclude = [
   "dist/",

@@ -15,7 +15,7 @@ class GatingNetwork(nn.Module):
 
     def __init__(self, input_dim: int, hidden_dim: int, *, shrink_factor: int):
         super().__init__()
-        shrunk_dim = hidden_dim // shrink_factor
+        shrunk_dim = max(SS_MLP_MIN_HIDDEN_DIM, hidden_dim // shrink_factor)
         self.shrink_factor = shrink_factor
         self.net = nn.Sequential(
             nn.Linear(input_dim, hidden_dim),

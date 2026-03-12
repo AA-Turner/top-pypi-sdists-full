@@ -57,6 +57,7 @@ use crate::alt::callable::CallArg;
 use crate::alt::expr::TypeOrExpr;
 use crate::alt::types::class_bases::ClassBases;
 use crate::alt::types::class_metadata::ClassMetadata;
+use crate::alt::types::class_metadata::DataclassMetadata;
 use crate::binding::binding::Binding;
 use crate::binding::binding::ClassFieldDefinition;
 use crate::binding::binding::ExprOrBinding;
@@ -1459,7 +1460,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             is_inherited,
             direct_annotation,
         ) = match field_definition {
-            ClassFieldDefinition::DeclaredByAnnotation { annotation: annot } => {
+            ClassFieldDefinition::DeclaredByAnnotation {
+                annotation: annot,
+                initialized_in_recognized_method,
+            } => {
                 let direct_annotation = Some(self.get_idx(*annot).annotation.clone());
 
                 // Check if there's an inherited descriptor from a parent class.
@@ -1512,6 +1516,25 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 } else {
                     ClassFieldInitialization::Uninitialized
                 };
+                // A Final field declared in the class body must be initialized either there
+                // or in a recognized attribute-defining method like `__init__`.
+                // Dataclasses and NamedTuples are excluded because their synthesized `__init__`
+                // initializes fields that have no default value. Protocols are excluded because
+                // protocol members are abstract declarations that don't need initialization.
+                let is_uninit_final = !initialized_in_recognized_method
+                    && direct_annotation.as_ref().is_some_and(|a| a.is_final())
+                    && matches!(initialization, ClassFieldInitialization::Uninitialized);
+                let is_special_class = metadata.dataclass_metadata().is_some()
+                    || metadata.named_tuple_metadata().is_some()
+                    || metadata.is_protocol();
+                if is_uninit_final && !is_special_class {
+                    self.error(
+                        errors,
+                        range,
+                        ErrorInfo::Kind(ErrorKind::InvalidAnnotation),
+                        "Final attribute declared in class body must be initialized with a value or in `__init__`".to_owned(),
+                    );
+                }
                 let value =
                     value_storage.push(ExprOrBinding::Binding(Binding::Any(AnyStyle::Implicit)));
                 let (value_ty, annotation, is_inherited) = self.analyze_class_field_value(
@@ -2017,24 +2040,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         range: TextRange,
         errors: &ErrorCollector,
     ) -> Option<Type> {
-        let is_initialized_on_class_body = matches!(
-            field_definition,
-            ClassFieldDefinition::AssignedInBody { .. }
-                | ClassFieldDefinition::MethodLike { .. }
-                | ClassFieldDefinition::DefinedWithoutAssign { .. }
-        );
-        // Extract alias_of from field_definition for enum alias detection
-        let alias_of = match field_definition {
-            ClassFieldDefinition::AssignedInBody { alias_of, .. } => alias_of.as_ref(),
-            _ => None,
-        };
         self.get_enum_class_field_type(
             class,
             name,
             direct_annotation,
             ty,
-            alias_of,
-            is_initialized_on_class_body,
+            field_definition,
             is_descriptor,
             range,
             errors,
@@ -2217,7 +2228,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // Otherwise, analyze the value to determine the type
         let (inherited_ty, inherited_annotation) =
             self.get_inherited_type_and_annotation(class, name);
-        let is_inherited = if inherited_ty.is_none() {
+        let mut is_inherited = if inherited_ty.is_none() {
             IsInherited::No
         } else {
             IsInherited::Maybe
@@ -2246,15 +2257,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             &errors2,
                         );
                         if errors2.is_empty() {
-                            // The new type is compatible with the inherited one; use the inherited type to
-                            // avoid spurious errors about changing the type of a read-write attribute.
-                            // However, we need to clear the is_abstract_method flag since assigning
-                            // a concrete implementation makes this field non-abstract.
-                            let mut ty = inherited_ty;
-                            ty.transform_toplevel_func_metadata(|meta| {
-                                meta.flags.is_abstract_method = false;
-                            });
-                            ty
+                            // The new type is compatible with the inherited one; use the child's
+                            // inferred type to preserve type precision. Skip the override check
+                            // since we've already validated compatibility above.
+                            is_inherited = IsInherited::No;
+                            self.attribute_expr_infer(e, None, name, errors)
                         } else {
                             // The hint was no good; infer the type without it.
                             self.attribute_expr_infer(e, None, name, errors)
@@ -2305,7 +2312,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn compute_dataclass_field_initialization(
         &self,
         call: &ExprCall,
-        dm: &crate::alt::types::class_metadata::DataclassMetadata,
+        dm: &DataclassMetadata,
     ) -> Option<DataclassFieldKeywords> {
         let ExprCall {
             node_index: _,
@@ -2424,10 +2431,37 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             return ty;
         }
         let class_tparams = self.get_class_tparams(class);
+        // Exclude quantifieds bound by Forall nodes within the type
+        // (e.g. generic functions assigned to attributes have their own
+        // type parameters that should not trigger invalid-type-var errors).
+        let mut forall_bound: SmallSet<&Quantified> = SmallSet::new();
+        fn collect_forall_tparams<'a>(ty: &'a Type, acc: &mut SmallSet<&'a Quantified>) {
+            match ty {
+                Type::Forall(forall) => {
+                    for q in forall.tparams.iter() {
+                        acc.insert(q);
+                    }
+                }
+                Type::BoundMethod(bm) => {
+                    if let BoundMethodType::Forall(forall) = &bm.func {
+                        for q in forall.tparams.iter() {
+                            acc.insert(q);
+                        }
+                    }
+                }
+                _ => {}
+            }
+            ty.recurse(&mut |inner| collect_forall_tparams(inner, acc));
+        }
+        collect_forall_tparams(&ty, &mut forall_bound);
+        let allowed: SmallSet<&Quantified> = class_tparams
+            .iter()
+            .chain(forall_bound.iter().copied())
+            .collect();
         let qs_owner = Owner::new();
         let ts = Owner::new();
         let gradual_fallbacks = qs
-            .difference(&class_tparams.iter().collect())
+            .difference(&allowed)
             .map(|q| {
                 self.error(
                     errors,
@@ -2444,6 +2478,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             })
             .collect::<SmallMap<_, _>>();
         drop(qs);
+        drop(allowed);
+        drop(forall_bound);
         ty.subst(&gradual_fallbacks)
     }
 
@@ -3675,7 +3711,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             })
     }
 
-    /// This function is for getting non-field attributes of a TypedDict
+    /// Get a non-field attribute of a TypedDict instance. TypedDict fields are dict key
+    /// declarations and are not accessible as attributes. However, if a field name shadows
+    /// a dict method (e.g. `values`, `items`, `keys`), the method should still be accessible.
     pub fn get_typed_dict_attribute(
         &self,
         td: &TypedDictInner,
@@ -3686,31 +3724,40 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .typed_dict_metadata()
             && meta.fields.contains_key(name)
         {
-            // TypedDict fields are dictionary key declarations, not real fields.
-            return None;
+            // TypedDict fields are dictionary key declarations, not real attributes.
+            // But they may shadow dict methods which should still be accessible.
+            // Walk the MRO, but at each TypedDict class skip its field declarations
+            // and only check synthesized methods. This finds both TypedDict-synthesized
+            // methods (e.g. `values`, `items`) and methods inherited from dict (e.g. `keys`).
+            return self
+                .get_field_from_mro(td.class_object(), name, &|cls, name| {
+                    if let Some(cls_meta) = self.get_metadata_for_class(cls).typed_dict_metadata()
+                        && cls_meta.fields.contains_key(name)
+                    {
+                        self.get_synthesized_field_from_current_class_only(cls, name)
+                    } else {
+                        self.get_field_from_current_class_only(cls, name)
+                    }
+                })
+                .map(|member| {
+                    self.as_instance_attribute(name, &member.value, &Instance::of_typed_dict(td))
+                });
         }
         self.get_class_member(td.class_object(), name)
             .map(|field| self.as_instance_attribute(name, &field, &Instance::of_typed_dict(td)))
     }
 
-    /// Get the type of a TypedDict's field, using the given instance's type arguments
-    /// if the TypedDict is generic. Note that this type does not encode requiredness information,
-    /// since that is stored as qualifiers.
-    pub(in crate::alt::class) fn get_instantiated_typed_dict_field_type(
+    /// Compute the instantiated type of a TypedDict field from an already-resolved class member,
+    /// handling generic TypedDicts by substituting type arguments from the instance.
+    /// The returned type does not encode requiredness information (that is stored as qualifiers).
+    pub(in crate::alt::class) fn instantiate_typed_dict_field_type(
         &self,
         td: &TypedDictInner,
         name: &Name,
+        member: &ClassField,
     ) -> Option<Type> {
-        if let Some(meta) = self
-            .get_metadata_for_class(td.class_object())
-            .typed_dict_metadata()
-            && !meta.fields.contains_key(name)
-        {
-            return None;
-        }
-        self.get_class_member(td.class_object(), name)
-            .map(|field| self.as_instance_attribute(name, &field, &Instance::of_typed_dict(td)))
-            .and_then(|attr| attr.as_instance_method())
+        self.as_instance_attribute(name, member, &Instance::of_typed_dict(td))
+            .as_instance_method()
     }
 
     pub fn get_super_class_member(
@@ -4160,9 +4207,19 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             (ClassAttribute::NoAccess(_), _) => return Err(Box::new(AttrSubsetError::NoAccess)),
             _ => {}
         }
-        let got_is_classvar = matches!(got, ClassAttribute::ReadOnly(_, ReadOnlyReason::ClassVar));
-        let want_is_classvar =
-            matches!(want, ClassAttribute::ReadOnly(_, ReadOnlyReason::ClassVar));
+        // Both ClassVar and ClassObjectInitializedOnBody represent class-level read-only
+        // attributes, so they are compatible for override purposes.
+        let is_classvar_compatible = |attr: &ClassAttribute| {
+            matches!(
+                attr,
+                ClassAttribute::ReadOnly(
+                    _,
+                    ReadOnlyReason::ClassVar | ReadOnlyReason::ClassObjectInitializedOnBody
+                )
+            )
+        };
+        let got_is_classvar = is_classvar_compatible(got);
+        let want_is_classvar = is_classvar_compatible(want);
         if got_is_classvar != want_is_classvar {
             return Err(Box::new(AttrSubsetError::ClassVarMismatch {
                 got_is_classvar,

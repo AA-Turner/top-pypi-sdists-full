@@ -37,18 +37,18 @@ class TestSketchCustomAggregationTestResult(unittest.TestCase):
             return SketchCustomAggregationTestResult(
                 metric_kind = 'sketch',
                 row_count = 56,
-                min = 56,
-                max = 56,
-                q1 = 56,
-                q3 = 56
+                min = 1.337,
+                max = 1.337,
+                q1 = 1.337,
+                q3 = 1.337
             )
         else:
             return SketchCustomAggregationTestResult(
                 row_count = 56,
-                min = 56,
-                max = 56,
-                q1 = 56,
-                q3 = 56,
+                min = 1.337,
+                max = 1.337,
+                q1 = 1.337,
+                q3 = 1.337,
         )
         """
 

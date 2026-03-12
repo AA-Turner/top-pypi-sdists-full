@@ -19,14 +19,16 @@ import socket
 import time
 import uuid
 from datetime import datetime
-from typing import Any, Awaitable, Callable, Dict, List, Optional, Sequence, Text, Union
+from typing import Any, Awaitable, Callable, Dict, List, Optional, Sequence, Text, Tuple, Union
 from urllib.parse import urlencode
 from warnings import warn
 
 import grpc.aio  # type: ignore
 from google.protobuf.any_pb2 import Any as GrpcAny
+from google.protobuf.duration_pb2 import Duration as GrpcDuration
 from google.protobuf.empty_pb2 import Empty as GrpcEmpty
 from google.protobuf.message import Message as GrpcMessage
+from google.protobuf.struct_pb2 import Struct as GrpcStruct
 from grpc import StatusCode  # type: ignore
 from grpc.aio import (  # type: ignore
     AioRpcError,
@@ -154,7 +156,7 @@ class DaprGrpcClientAsync:
 
         useragent = f'dapr-sdk-python/{__version__}'
         if not max_grpc_message_length:
-            options = [
+            options: List[Tuple[str, Any]] = [
                 ('grpc.primary_user_agent', useragent),
             ]
         else:
@@ -205,7 +207,7 @@ class DaprGrpcClientAsync:
 
     @staticmethod
     def get_credentials():
-        return grpc.ssl_channel_credentials()
+        return grpc.ssl_channel_credentials()  # type: ignore[attr-defined]
 
     async def close(self):
         """Closes Dapr runtime gRPC channel."""
@@ -604,7 +606,7 @@ class DaprGrpcClientAsync:
         self,
         pubsub_name: str,
         topic: str,
-        handler_fn: Callable[..., TopicEventResponse],
+        handler_fn: Callable[..., Awaitable[TopicEventResponse]],
         metadata: Optional[dict] = None,
         dead_letter_topic: Optional[str] = None,
     ) -> Callable[[], Awaitable[None]]:
@@ -1020,7 +1022,7 @@ class DaprGrpcClientAsync:
                 operationType=o.operation_type.value,
                 request=common_v1.StateItem(
                     key=o.key,
-                    value=to_bytes(o.data),
+                    value=to_bytes(o.data) if o.data is not None else to_bytes(''),
                     etag=common_v1.Etag(value=o.etag) if o.etag is not None else None,
                 ),
             )
@@ -1360,7 +1362,7 @@ class DaprGrpcClientAsync:
         response = await call
         return TryLockResponse(
             success=response.success,
-            client=self,
+            client=self,  # type: ignore[arg-type]
             store_name=store_name,
             resource_id=resource_id,
             lock_owner=lock_owner,
@@ -1697,7 +1699,7 @@ class DaprGrpcClientAsync:
             else:
                 encoded_data = bytes([])
         # Actual workflow raise event invocation
-        req = api_v1.raise_workflow_event(
+        req = api_v1.RaiseEventWorkflowRequest(
             instance_id=instance_id,
             workflow_component=workflow_component,
             event_name=event_name,
@@ -1883,6 +1885,8 @@ class DaprGrpcClientAsync:
         temperature: Optional[float] = None,
         tools: Optional[List[conversation.ConversationTools]] = None,
         tool_choice: Optional[str] = None,
+        response_format: Optional[GrpcStruct] = None,
+        prompt_cache_retention: Optional[GrpcDuration] = None,
     ) -> conversation.ConversationResponseAlpha2:
         """Invoke an LLM using the conversation API (Alpha2) with tool calling support.
 
@@ -1896,6 +1900,8 @@ class DaprGrpcClientAsync:
             temperature: Optional temperature setting for the LLM to optimize for creativity or predictability
             tools: Optional list of tools available for the LLM to call
             tool_choice: Optional control over which tools can be called ('none', 'auto', 'required', or specific tool name)
+            response_format: Optional response format (google.protobuf.struct_pb2.Struct, ex: json_schema for structured output)
+            prompt_cache_retention: Optional retention for prompt cache (google.protobuf.duration_pb2.Duration)
 
         Returns:
             ConversationResponseAlpha2 containing the conversation results with choices and tool calls
@@ -1951,6 +1957,10 @@ class DaprGrpcClientAsync:
             request.temperature = temperature
         if tool_choice is not None:
             request.tool_choice = tool_choice
+        if response_format is not None and hasattr(request, 'response_format'):
+            request.response_format.CopyFrom(response_format)
+        if prompt_cache_retention is not None and hasattr(request, 'prompt_cache_retention'):
+            request.prompt_cache_retention.CopyFrom(prompt_cache_retention)
 
         try:
             response, call = await self.retry_policy.run_rpc_async(

@@ -3,7 +3,7 @@ import type * as visuals from "../../core/visuals";
 import type * as p from "../../core/properties";
 import type { BaseTextView } from "../text/base_text";
 import { BaseText } from "../text/base_text";
-import type { IterViews } from "../../core/build_views";
+import type { View } from "../../core/build_views";
 import type { GraphicsBox } from "../../core/graphics";
 import { Padding, BorderRadius } from "../common/kinds";
 import type { LRTB, XY, SXY, Corners } from "../../core/util/bbox";
@@ -14,7 +14,7 @@ export declare abstract class TextAnnotationView extends AnnotationView {
     model: TextAnnotation;
     visuals: TextAnnotation.Visuals;
     protected _text_view: BaseTextView;
-    children(): IterViews;
+    children_views(): View[];
     lazy_initialize(): Promise<void>;
     protected _init_text(): Promise<void>;
     update_layout(): void;

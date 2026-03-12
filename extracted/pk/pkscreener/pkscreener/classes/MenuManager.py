@@ -1513,7 +1513,8 @@ class TelegramNotifier:
             user: User identifier
             message: Message content
         """
-        if user is not None and message is not None and "|" in str(message):
+        is_subscription_enabled = bool(int(PKEnvironment().SUBSCRIPTION_ENABLED))
+        if is_subscription_enabled and user is not None and message is not None and "|" in str(message):
             if int(user) > 0:
                 scan_id = message.split("|")[0].replace("*b>", "").strip()
                 from PKDevTools.classes.DBManager import DBManager

@@ -34,12 +34,7 @@ def sync(
     body: LaunchJobRequest,
     x_api_key: str | None = None,
 ) -> LaunchJobResponse:
-    """Launch a job with runtime package installation.
-
-    This endpoint creates a VM from a base image and installs the world package
-    at runtime via uv. The base image comes from the world's schema.json.
-
-    World and agent code is NOT baked into the image - it's installed at boot time."""
+    """Launch Job"""
 
     request_args = _build_request_args(
         body=body,
@@ -56,12 +51,7 @@ async def asyncio(
     body: LaunchJobRequest,
     x_api_key: str | None = None,
 ) -> LaunchJobResponse:
-    """Launch a job with runtime package installation.
-
-    This endpoint creates a VM from a base image and installs the world package
-    at runtime via uv. The base image comes from the world's schema.json.
-
-    World and agent code is NOT baked into the image - it's installed at boot time."""
+    """Launch Job"""
 
     request_args = _build_request_args(
         body=body,

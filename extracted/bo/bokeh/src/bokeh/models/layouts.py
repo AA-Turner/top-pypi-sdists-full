@@ -35,23 +35,21 @@ from ..core.enums import (
     SizingPolicy,
 )
 from ..core.has_props import HasProps, abstract
-from ..core.properties import (
-    Auto,
+from ..core.property.auto import Auto
+from ..core.property.container import List, Tuple
+from ..core.property.either import Either
+from ..core.property.enum import Enum
+from ..core.property.instance import Instance
+from ..core.property.nullable import Nullable
+from ..core.property.numeric import NonNegative
+from ..core.property.primitive import (
     Bool,
-    Either,
-    Enum,
     Float,
-    Instance,
     Int,
-    List,
-    NonNegative,
     Null,
-    Nullable,
     String,
-    Struct,
-    Tuple,
 )
-from ..core.property.struct import Optional
+from ..core.property.struct import Optional, Struct
 from ..core.property_aliases import GridSpacing, Pixels, TracksSizing
 from ..core.validation import error, warning
 from ..core.validation.errors import (
@@ -594,6 +592,14 @@ class Tabs(LayoutDOM):
 
     active = Int(0, help="""
     The index of the active tab.
+    """)
+
+    link_layouts = Bool(default=False, help="""
+    Configures whether layouts across panels are linked together.
+
+    Linking layouts allows for example to align plot axes between different
+    tabs. Note that this can negatively impact UI performance if many
+    complex layouts are involved.
     """)
 
 class GroupBox(LayoutDOM):

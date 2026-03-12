@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: albert
-Version: 1.20.0
+Version: 1.21.0
 Summary: The official Python SDK for the Albert Invent platform.
 Project-URL: Homepage, https://www.albertinvent.com/
 Project-URL: Documentation, https://docs.developer.albertinvent.com/albert-python

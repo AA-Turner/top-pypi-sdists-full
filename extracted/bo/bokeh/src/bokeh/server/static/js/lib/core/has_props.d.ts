@@ -20,7 +20,7 @@ import type { PatchSet } from "./patching";
 type AttrsLike = Dict<unknown>;
 export declare namespace HasProps {
     type Attrs = p.AttrsOf<Props>;
-    type Props = {};
+    type Props = object;
     type SetOptions = {
         check_eq?: boolean;
         silent?: boolean;
@@ -47,6 +47,7 @@ export declare abstract class HasProps extends HasProps_base implements Equatabl
     readonly id: string;
     get is_syncable(): boolean;
     get type(): string;
+    get is_root(): boolean;
     static __name__: string;
     static __module__?: string;
     static get __qualified__(): string;

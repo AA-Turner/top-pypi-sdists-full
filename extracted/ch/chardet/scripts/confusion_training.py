@@ -11,43 +11,8 @@ import struct
 import unicodedata
 from pathlib import Path
 
-from chardet.pipeline.confusion import DistinguishingMaps
+from chardet.pipeline.confusion import _CATEGORY_TO_INT, DistinguishingMaps
 from chardet.registry import REGISTRY
-
-# Unicode general category -> uint8 encoding for struct serialization.
-# Must stay in sync with _INT_TO_CATEGORY in chardet.pipeline.confusion.
-_CATEGORY_TO_INT: dict[str, int] = {
-    "Lu": 0,
-    "Ll": 1,
-    "Lt": 2,
-    "Lm": 3,
-    "Lo": 4,  # Letters
-    "Mn": 5,
-    "Mc": 6,
-    "Me": 7,  # Marks
-    "Nd": 8,
-    "Nl": 9,
-    "No": 10,  # Numbers
-    "Pc": 11,
-    "Pd": 12,
-    "Ps": 13,
-    "Pe": 14,  # Punctuation
-    "Pi": 15,
-    "Pf": 16,
-    "Po": 17,
-    "Sm": 18,
-    "Sc": 19,
-    "Sk": 20,
-    "So": 21,  # Symbols
-    "Zs": 22,
-    "Zl": 23,
-    "Zp": 24,  # Separators
-    "Cc": 25,
-    "Cf": 26,
-    "Cs": 27,
-    "Co": 28,
-    "Cn": 29,  # Other
-}
 
 
 def _decode_byte_table(codec_name: str) -> list[str | None]:
@@ -99,7 +64,7 @@ def compute_confusion_groups(
         if enc.is_multibyte:
             continue
         try:
-            codecs.lookup(enc.python_codec)
+            codecs.lookup(enc.name)
             single_byte.append(enc)
         except LookupError:
             continue
@@ -107,7 +72,7 @@ def compute_confusion_groups(
     # Compute byte tables
     tables: dict[str, list[str | None]] = {}
     for enc in single_byte:
-        tables[enc.name] = _decode_byte_table(enc.python_codec)
+        tables[enc.name] = _decode_byte_table(enc.name)
 
     # Build adjacency: which encodings are similar
     adjacency: dict[str, set[str]] = {enc.name: set() for enc in single_byte}
@@ -159,7 +124,7 @@ def compute_distinguishing_maps(
         if enc.is_multibyte:
             continue
         try:
-            codecs.lookup(enc.python_codec)
+            codecs.lookup(enc.name)
             single_byte.append(enc)
         except LookupError:
             continue
@@ -167,7 +132,7 @@ def compute_distinguishing_maps(
     # Compute byte tables
     tables: dict[str, list[str | None]] = {}
     for enc in single_byte:
-        tables[enc.name] = _decode_byte_table(enc.python_codec)
+        tables[enc.name] = _decode_byte_table(enc.name)
 
     names = [enc.name for enc in single_byte]
     result: DistinguishingMaps = {}
@@ -192,7 +157,7 @@ def compute_distinguishing_maps(
     return result
 
 
-def serialize_confusion_data(maps: DistinguishingMaps, output_path: str) -> int:
+def serialize_confusion_data(maps: DistinguishingMaps, output_path: Path) -> int:
     """Serialize confusion group data to binary format.
 
     Format:
@@ -210,9 +175,8 @@ def serialize_confusion_data(maps: DistinguishingMaps, output_path: str) -> int:
 
     Returns file size in bytes.
     """
-    out = Path(output_path)
-    out.parent.mkdir(parents=True, exist_ok=True)
-    with out.open("wb") as f:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with output_path.open("wb") as f:
         f.write(struct.pack("!H", len(maps)))
         for (name_a, name_b), (diff_bytes, categories) in sorted(maps.items()):
             a_bytes = name_a.encode("utf-8")
@@ -233,13 +197,12 @@ def serialize_confusion_data(maps: DistinguishingMaps, output_path: str) -> int:
                         _CATEGORY_TO_INT.get(cat_b, 29),
                     )
                 )
-    return out.stat().st_size
+    return output_path.stat().st_size
 
 
-def deserialize_confusion_data(input_path: str) -> DistinguishingMaps:
+def deserialize_confusion_data(input_path: Path) -> DistinguishingMaps:
     """Load confusion group data from binary format."""
     from chardet.pipeline.confusion import deserialize_confusion_data_from_bytes
 
-    with Path(input_path).open("rb") as f:
-        data = f.read()
+    data = input_path.read_bytes()
     return deserialize_confusion_data_from_bytes(data)

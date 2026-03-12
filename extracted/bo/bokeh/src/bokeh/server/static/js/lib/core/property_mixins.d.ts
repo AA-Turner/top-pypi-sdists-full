@@ -32,6 +32,7 @@ export type Hatch = {
 export type Text = {
     text_color: p.Property<Color | null>;
     text_outline_color: p.Property<Color | null>;
+    text_outline_width: p.Property<number>;
     text_alpha: p.Property<number>;
     text_font: p.Property<string>;
     text_font_size: p.Property<string>;
@@ -72,6 +73,7 @@ export type HatchScalar = {
 export type TextScalar = {
     text_color: p.ScalarSpec<Color | null>;
     text_outline_color: p.ScalarSpec<Color | null>;
+    text_outline_width: p.ScalarSpec<number>;
     text_alpha: p.ScalarSpec<number>;
     text_font: p.ScalarSpec<string>;
     text_font_size: p.ScalarSpec<string>;
@@ -112,6 +114,7 @@ export type HatchVector = {
 export type TextVector = {
     text_color: p.ColorSpec;
     text_outline_color: p.ColorSpec;
+    text_outline_width: p.VectorSpec<number>;
     text_alpha: p.VectorSpec<number>;
     text_font: p.VectorSpec<string>;
     text_font_size: p.VectorSpec<string>;

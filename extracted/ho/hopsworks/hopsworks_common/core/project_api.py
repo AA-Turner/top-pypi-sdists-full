@@ -18,10 +18,14 @@ from __future__ import annotations
 
 import json
 
+from hopsworks_apigen import also_available_as
 from hopsworks_common import client, constants, project
 from hopsworks_common.client.exceptions import RestAPIError
 
 
+@also_available_as(
+    "hopsworks.core.project_api.ProjectApi", "hsfs.core.project_api.ProjectApi"
+)
 class ProjectApi:
     def _exists(self, name: str) -> bool:
         """Check if a project exists.
@@ -51,7 +55,7 @@ class ProjectApi:
         projects = []
         if project_team_json:
             # This information can be retrieved calling the /users/profile endpoint but is avoided as that
-            # requires an API key to have the USER scope which is not guaranteed on serverless
+            # requires an API key to have the USER scope which is not guaranteed on saas
             # Until there is a better solution this code is used to get the current user_id to check project ownership
             current_user_uid = project_team_json[0]["user"]["uid"]
             for project_team in project_team_json:

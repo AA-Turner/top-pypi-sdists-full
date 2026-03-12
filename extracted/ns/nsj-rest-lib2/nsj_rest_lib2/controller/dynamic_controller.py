@@ -4,7 +4,7 @@ from typing import Any, Callable
 
 from flask import Flask, request
 
-from nsj_rest_lib.settings import APP_NAME
+from nsj_rest_lib.settings import APP_NAME, get_logger
 
 from nsj_gcf_utils.rest_error_util import format_json_error
 
@@ -18,18 +18,33 @@ from nsj_rest_lib.controller.patch_route import PatchRoute
 from nsj_rest_lib.controller.post_route import PostRoute
 from nsj_rest_lib.controller.put_route import PutRoute
 
-from nsj_rest_lib2.exception import MissingEntityConfigException
+from nsj_rest_lib2.exception import (
+    MissingDependencyConfigException,
+    MissingEntityConfigException,
+)
 from nsj_rest_lib2.service.entity_loader import EntityLoader
+from nsj_rest_lib2.util.entity_name_util import format_entity_name
+
+logger = get_logger()
 
 
-def _get_query_args() -> tuple[str, str, bool]:
+def _get_query_args() -> tuple[str | None, str | None, bool]:
+    """
+    Le tenant/grupo_empresarial/force_reload da query string e do body.
+
+    Returns:
+        Tupla com:
+            - tenant (str | None)
+            - grupo_empresarial (str | None)
+            - force_reload (bool)
+    """
     # Tentando ler do query args
     query_args = request.args
     tenant = query_args.get("tenant")
     grupo_empresarial = query_args.get("grupo_empresarial")
     force_reload = query_args.get("force_reload", "false").lower() == "true"
 
-    # Tentando ler do corpo da requisição
+    # Tenta ler do corpo da requisicao quando nao vier por query string.
     try:
         body_str = request.data.decode("utf-8")
         body_json = json.loads(body_str)
@@ -41,12 +56,21 @@ def _get_query_args() -> tuple[str, str, bool]:
     except:
         pass
 
-    return (str(tenant), str(grupo_empresarial), force_reload)
+    # Preserva None quando nao houver dado para evitar "None" como string.
+    tenant_value = str(tenant) if tenant is not None else None
+    grupo_value = str(grupo_empresarial) if grupo_empresarial is not None else None
+    return (tenant_value, grupo_value, force_reload)
 
 
 def _endpoint_name(func: Any, multidb: bool, root: str) -> str:
     suffix = "_mb" if multidb else ""
     return f"{root}_{func.__name__}{suffix}"
+
+
+def _route_handle(route: Any, *args: Any, **kwargs: Any) -> Any:
+    if hasattr(route, "internal_handle_request"):
+        return route.internal_handle_request(*args, **kwargs)
+    return route.handle_request(*args, **kwargs)
 
 
 def setup_dynamic_routes(
@@ -56,7 +80,31 @@ def setup_dynamic_routes(
     injector_factory: Any = None,
     escopo_in_url: bool = False,
     edls_path: str | None = None,
+    on_missing_entity_config: (
+        Callable[[str, str, str | None, str | None], bool] | None
+    ) = None,
+    before_dynamic_request: (
+        Callable[[dict[str, Any]], tuple[Any, int, dict[str, Any]] | None] | None
+    ) = None,
 ) -> None:
+    """
+    Registra rotas dinamicas (GET/POST/PUT/PATCH/DELETE) para EDLs carregados.
+
+    Args:
+        flask_app: Instancia Flask onde as rotas serao registradas.
+        multidb: Define se aplicara decorator de multi database por service account.
+        dynamic_root_path: Prefixo de rota dinamica.
+        injector_factory: Fabrica de injecao usada pelas rotas.
+        escopo_in_url: Quando True, exige escopo na URL dinamica.
+        edls_path: Caminho local de EDLs (fallback/disco).
+        on_missing_entity_config: Callback para tentativa de recuperar/compilar
+            config quando nao encontrada em cache/redis.
+        before_dynamic_request: Callback executado antes da carga dinamica.
+            Se retornar resposta HTTP, interrompe o fluxo da rota.
+
+    Returns:
+        None.
+    """
 
     if not escopo_in_url:
         COLLECTION_DYNAMIC_ROUTE = f"/{APP_NAME}/{dynamic_root_path}/<entity_resource>"
@@ -77,13 +125,32 @@ def setup_dynamic_routes(
     ) -> Callable[..., Any]:
         def wrapper(*args: Any, **kwargs: Any) -> Any:
             if "entity_resource" not in kwargs:
-                msg = "Faltando parâmetro identificador da entidade na URL."
+                msg = "Faltando parametro identificador da entidade na URL."
                 return (format_json_error(msg), 400, {**DEFAULT_RESP_HEADERS})
             entity_resource = kwargs.pop("entity_resource")
 
             entity_escopo = kwargs.pop("entity_escopo", "")
 
             tenant, grupo_empresarial, force_reload = _get_query_args()
+            entity_id = kwargs.get("id")
+
+            if before_dynamic_request:
+                # Permite bloquear o request dinamico antes do load/execucao da rota.
+                guard_response = before_dynamic_request(
+                    {
+                        "method": request.method,
+                        "path": request.path,
+                        "host_url": request.host_url,
+                        "entity_escopo": entity_escopo,
+                        "entity_resource": entity_resource,
+                        "entity_id": entity_id,
+                        "tenant": tenant,
+                        "grupo_empresarial": grupo_empresarial,
+                        "force_reload": force_reload,
+                    }
+                )
+                if guard_response is not None:
+                    return guard_response
 
             try:
                 entity_config = entity_loader.load_entity_source(
@@ -94,7 +161,55 @@ def setup_dynamic_routes(
                     force_reload=force_reload,
                 )
             except MissingEntityConfigException:
-                msg = f"Entity configuration for {entity_resource} not found."
+                recovered = False
+                if on_missing_entity_config:
+                    try:
+                        recovered = bool(
+                            on_missing_entity_config(
+                                entity_resource,
+                                entity_escopo,
+                                tenant,
+                                grupo_empresarial,
+                            )
+                        )
+                    except Exception as exc:
+                        logger.warning(
+                            "Falha ao executar fallback de compilacao da entidade "
+                            f"'{entity_escopo}/{entity_resource}': {exc}",
+                            exc_info=True,
+                        )
+                if recovered:
+                    try:
+                        entity_config = entity_loader.load_entity_source(
+                            entity_resource,
+                            tenant,
+                            grupo_empresarial,
+                            escopo=entity_escopo,
+                            force_reload=True,
+                        )
+                    except MissingEntityConfigException:
+                        msg = (
+                            f"Configuracao da entidade '{entity_resource}' nao encontrada."
+                        )
+                        return (
+                            format_json_error(msg),
+                            412,
+                            {**DEFAULT_RESP_HEADERS},
+                        )
+                else:
+                    msg = (
+                        f"Configuracao da entidade '{entity_resource}' nao encontrada."
+                    )
+                    return (format_json_error(msg), 412, {**DEFAULT_RESP_HEADERS})
+            except MissingDependencyConfigException as exc:
+                # Mensagem funcional para diferenciar falta da entidade raiz
+                # de falta de uma dependencia transitiva.
+                entity_name = format_entity_name(exc.entity_resource)
+                dependency_name = exc.dependency_key
+                msg = (
+                    f'Ocorreu um erro ao processar a entidade "{entity_name}" '
+                    f'devido a ausencia de uma dependencia: "{dependency_name}"'
+                )
                 return (format_json_error(msg), 412, {**DEFAULT_RESP_HEADERS})
 
             (
@@ -158,7 +273,7 @@ def setup_dynamic_routes(
                 custom_json_response=bool(custom_json_list_response),
             )
 
-            return route.internal_handle_request(*args, **kwargs)
+            return _route_handle(route, *args, **kwargs)
 
         return list_dynamic
 
@@ -201,7 +316,7 @@ def setup_dynamic_routes(
                 custom_json_response=bool(custom_json_get_response),
             )
 
-            return route.internal_handle_request(*args, **kwargs)
+            return _route_handle(route, *args, **kwargs)
 
         return get_dynamic
 
@@ -266,7 +381,7 @@ def setup_dynamic_routes(
                 custom_json_response=bool(custom_json_post_response),
             )
 
-            return route.internal_handle_request(*args, **kwargs)
+            return _route_handle(route, *args, **kwargs)
 
         return post_dynamic
 
@@ -331,7 +446,7 @@ def setup_dynamic_routes(
                 custom_json_response=bool(custom_json_put_response),
             )
 
-            return route.internal_handle_request(*args, **kwargs)
+            return _route_handle(route, *args, **kwargs)
 
         return put_dynamic
 
@@ -388,7 +503,7 @@ def setup_dynamic_routes(
                 custom_json_response=bool(custom_json_patch_response),
             )
 
-            return route.internal_handle_request(*args, **kwargs)
+            return _route_handle(route, *args, **kwargs)
 
         return patch_dynamic
 
@@ -433,7 +548,7 @@ def setup_dynamic_routes(
                 custom_json_response=bool(custom_json_delete_response),
             )
 
-            return route.internal_handle_request(*args, **kwargs)
+            return _route_handle(route, *args, **kwargs)
 
         return delete_dynamic
 

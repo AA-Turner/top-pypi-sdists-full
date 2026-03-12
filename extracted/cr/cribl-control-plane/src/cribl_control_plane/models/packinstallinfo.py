@@ -16,6 +16,7 @@ class PackInstallInfoTypedDict(TypedDict):
     id: str
     source: str
     author: NotRequired[str]
+    collectors: NotRequired[float]
     dependencies: NotRequired[Dict[str, str]]
     description: NotRequired[str]
     display_name: NotRequired[str]
@@ -37,6 +38,8 @@ class PackInstallInfo(BaseModel):
     source: str
 
     author: Optional[str] = None
+
+    collectors: Optional[float] = None
 
     dependencies: Optional[Dict[str, str]] = None
 
@@ -71,6 +74,7 @@ class PackInstallInfo(BaseModel):
         optional_fields = set(
             [
                 "author",
+                "collectors",
                 "dependencies",
                 "description",
                 "displayName",
@@ -91,10 +95,16 @@ class PackInstallInfo(BaseModel):
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
-            val = serialized.get(k)
+            val = serialized.get(k, serialized.get(n))
 
             if val != UNSET_SENTINEL:
                 if val is not None or k not in optional_fields:
                     m[k] = val
 
         return m
+
+
+try:
+    PackInstallInfo.model_rebuild()
+except NameError:
+    pass

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: geocif
-Version: 0.4.178
+Version: 0.4.180
 Summary: Models to visualize and forecast crop conditions and yields
 Author-email: Ritvik Sahajpal <ritvik@umd.edu>
 License: MIT
@@ -142,6 +142,10 @@ analysis.run(cfg_geocif)
 
 from geocif import experiments
 experiments.run(cfg_geocif, n_trials=30)
+
+from geocif import yield_outlook
+yield_outlook.run(cfg_geocif)  # uses config defaults (10 years, mean)
+# yield_outlook.run(cfg_geocif, current_year=2026, n_years=10, aggregation="median")
 ```
 
 ### ML models
@@ -210,6 +214,20 @@ The experiments runner writes to a dedicated DB and analysis folder under `dir_o
                 ├── optimization_history.png
                 ├── param_importances.png
                 └── parallel_coordinate.png
+```
+
+### Outlook output
+
+The yield outlook runner produces a diverging choropleth map showing current forecast yield as a percentage of the historical mean/median prediction per region, plus a combined CSV.
+
+```
+{dir_output}/
+└── ml/
+    └── analysis/
+        └── {MMMM_DD_YYYY}/
+            └── outlook/
+                ├── yield_outlook_{country}_{crop}_{model}_{year}.png
+                └── yield_outlook_{year}.csv
 ```
 
 ## Config file documentation
@@ -366,6 +384,8 @@ median_years = 5
 include_lat_lon_as_feature = False
 panel_model = True
 cat_features = ["Harvest Year", "Region_ID", "Region"]
+outlook_n_years = 10        ; Number of historical years for yield outlook comparison
+outlook_aggregation = mean  ; mean or median
 
 [LOGGING]
 log_level = INFO

@@ -22,7 +22,7 @@ def _normalize_tag_value(value: Any) -> str | list[str] | None:
     return text or None
 
 
-@action
+@action(id="tag", priority=5)
 class Tag:
     """Classify an item against `.tag/*` specs and emit tag mutations."""
 
@@ -51,7 +51,7 @@ class Tag:
                 {
                     "op": "set_tags",
                     "target": item_id,
-                    "tags": "$output.tags",
+                    "tags": tags,
                 }
             ]
         return out

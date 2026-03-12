@@ -15,7 +15,7 @@ export declare abstract class RowAggregator extends Model {
     constructor(attrs?: Partial<RowAggregator.Attrs>);
     abstract init(): void;
     abstract accumulate(item: {
-        [key: string]: any;
+        [key: string]: unknown;
     }): void;
     abstract storeResult(totals: GroupTotals<number>): void;
 }

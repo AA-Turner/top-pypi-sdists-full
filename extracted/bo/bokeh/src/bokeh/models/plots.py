@@ -23,14 +23,12 @@ log = logging.getLogger(__name__)
 # Standard library imports
 from contextlib import contextmanager
 from typing import (
+    TYPE_CHECKING,
     Any,
     Generator,
     Literal,
     overload,
 )
-
-# External imports
-import xyzservices
 
 # Bokeh imports
 from ..core.enums import (
@@ -41,26 +39,22 @@ from ..core.enums import (
     ResetPolicy,
     WindowAxis,
 )
-from ..core.properties import (
+from ..core.property.container import Dict, List, Tuple
+from ..core.property.either import Either
+from ..core.property.enum import Enum
+from ..core.property.include import Include
+from ..core.property.instance import Instance, InstanceDefault
+from ..core.property.nullable import Nullable
+from ..core.property.override import Override
+from ..core.property.primitive import (
     Bool,
-    Dict,
-    Either,
-    Enum,
     Float,
-    Include,
-    Instance,
-    InstanceDefault,
     Int,
-    List,
     Null,
-    Nullable,
-    Override,
-    Readonly,
     String,
-    Struct,
-    Tuple,
 )
-from ..core.property.struct import Optional
+from ..core.property.readonly import Readonly
+from ..core.property.struct import Optional, Struct
 from ..core.property_mixins import ScalarFillProps, ScalarHatchProps, ScalarLineProps
 from ..core.query import find
 from ..core.validation import error, warning
@@ -73,12 +67,10 @@ from ..core.validation.errors import (
 )
 from ..core.validation.warnings import MISSING_RENDERERS
 from ..model import Model
-from ..util.strings import nice_join
-from ..util.warnings import warn
 from .annotations import Annotation, Legend, Title
 from .axes import Axis
 from .dom import HTML
-from .glyphs import Glyph
+from .glyph import Glyph
 from .grids import Grid
 from .layouts import GridCommon, LayoutDOM
 from .ranges import (
@@ -98,6 +90,9 @@ from .sources import ColumnarDataSource, ColumnDataSource, DataSource
 from .tiles import TileSource, WMTSTileSource
 from .tools import HoverTool, Tool, Toolbar
 from .ui import StyledElement
+
+if TYPE_CHECKING:
+    import xyzservices
 
 #-----------------------------------------------------------------------------
 # Globals and constants
@@ -303,6 +298,8 @@ class Plot(LayoutDOM):
 
         '''
         if place not in Place:
+            from ..util.strings import nice_join
+
             raise ValueError(
                 f"Invalid place '{place}' specified. Valid place values are: {nice_join(Place)}",
             )
@@ -348,6 +345,8 @@ class Plot(LayoutDOM):
             if not isinstance(tool, Tool):
                 raise ValueError("All arguments to remove_tool must be Tool subclasses.")
             elif tool not in self.toolbar.tools:
+                from ..util.strings import nice_join
+
                 raise ValueError(f"Invalid tool {tool} specified. Available tools are {nice_join(self.toolbar.tools)}")
             self.toolbar.tools.remove(tool)
 
@@ -408,6 +407,7 @@ class Plot(LayoutDOM):
 
         '''
         if not isinstance(tile_source, TileSource):
+            import xyzservices
 
             if isinstance(tile_source, xyzservices.TileProvider):
                 selected_provider = tile_source
@@ -481,14 +481,14 @@ class Plot(LayoutDOM):
 
         if self.x_scale is not None:
             for rng in x_ranges:
-                if isinstance(rng, DataRange1d | Range1d) and not isinstance(self.x_scale, LinearScale | LogScale):
+                if isinstance(rng, (DataRange1d, Range1d)) and not isinstance(self.x_scale, (LinearScale, LogScale)):
                     incompatible.append(f"incompatibility on x-dimension: {rng}, {self.x_scale}")
                 elif isinstance(rng, FactorRange) and not isinstance(self.x_scale, CategoricalScale):
                     incompatible.append(f"incompatibility on x-dimension: {rng}, {self.x_scale}")
 
         if self.y_scale is not None:
             for rng in y_ranges:
-                if isinstance(rng, DataRange1d | Range1d) and not isinstance(self.y_scale, LinearScale | LogScale):
+                if isinstance(rng, (DataRange1d, Range1d)) and not isinstance(self.y_scale, (LinearScale, LogScale)):
                     incompatible.append(f"incompatibility on y-dimension: {rng}, {self.y_scale}")
                 elif isinstance(rng, FactorRange) and not isinstance(self.y_scale, CategoricalScale):
                     incompatible.append(f"incompatibility on y-dimension: {rng}, {self.y_scale}")
@@ -992,6 +992,8 @@ Before legend properties can be set, you must add a Legend explicitly, or call a
 class _legend_attr_splat(_list_attr_splat):
     def __setattr__(self, attr, value):
         if not len(self):
+            from ..util.warnings import warn
+
             warn(_LEGEND_EMPTY_WARNING % attr)
         return super().__setattr__(attr, value)
 

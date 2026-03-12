@@ -70,7 +70,7 @@ def make_adaptive_composition(
 
     Required features: `contrib`
 
-    [make_adaptive_composition in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/combinators/fn.make_adaptive_composition.html)
+    [make_adaptive_composition in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/combinators/fn.make_adaptive_composition.html)
 
     **Supporting Elements:**
 
@@ -128,12 +128,12 @@ def then_adaptive_composition(
     d_in,
     d_mids
 ):  
-    r"""partial constructor of make_adaptive_composition
+    r"""Partial constructor of `make_adaptive_composition`.
 
     .. end-markdown
 
     .. seealso:: 
-      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.combinators.make_adaptive_composition`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`~opendp.combinators.make_adaptive_composition`
 
     :param output_measure: how privacy is measured
     :type output_measure: Measure
@@ -166,7 +166,7 @@ def make_approximate(
 
     Required features: `contrib`
 
-    [make_approximate in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/combinators/fn.make_approximate.html)
+    [make_approximate in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/combinators/fn.make_approximate.html)
 
     .. end-markdown
 
@@ -201,7 +201,7 @@ def make_approximate(
     return output
 
 
-@deprecated(version="0.14.0", reason="This function has been renamed, use `make_composition` instead.")
+@deprecated(version="0.14.0", reason="This function has been renamed: use :py:func:`~opendp.combinators.make_composition` instead.")
 def make_basic_composition(
     measurements
 ) -> Measurement:
@@ -262,7 +262,7 @@ def make_chain_mt(
 
     Required features: `contrib`
 
-    [make_chain_mt in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/combinators/fn.make_chain_mt.html)
+    [make_chain_mt in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/combinators/fn.make_chain_mt.html)
 
     .. end-markdown
 
@@ -311,7 +311,7 @@ def make_chain_pm(
 
     Required features: `contrib`
 
-    [make_chain_pm in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/combinators/fn.make_chain_pm.html)
+    [make_chain_pm in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/combinators/fn.make_chain_pm.html)
 
     .. end-markdown
 
@@ -359,7 +359,7 @@ def make_chain_tt(
 
     Required features: `contrib`
 
-    [make_chain_tt in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/combinators/fn.make_chain_tt.html)
+    [make_chain_tt in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/combinators/fn.make_chain_tt.html)
 
     .. end-markdown
 
@@ -456,7 +456,7 @@ def make_fix_delta(
 
     Required features: `contrib`
 
-    [make_fix_delta in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/combinators/fn.make_fix_delta.html)
+    [make_fix_delta in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/combinators/fn.make_fix_delta.html)
 
     .. end-markdown
 
@@ -503,7 +503,7 @@ def make_fixed_approxDP_to_approxDP(
 
     Required features: `contrib`
 
-    [make_fixed_approxDP_to_approxDP in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/combinators/fn.make_fixed_approxDP_to_approxDP.html)
+    [make_fixed_approxDP_to_approxDP in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/combinators/fn.make_fixed_approxDP_to_approxDP.html)
 
     .. end-markdown
 
@@ -548,7 +548,7 @@ def make_fully_adaptive_composition(
 
     Required features: `contrib`
 
-    [make_fully_adaptive_composition in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/combinators/fn.make_fully_adaptive_composition.html)
+    [make_fully_adaptive_composition in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/combinators/fn.make_fully_adaptive_composition.html)
 
     **Supporting Elements:**
 
@@ -560,7 +560,7 @@ def make_fully_adaptive_composition(
 
     **Proof Definition:**
 
-    [(Proof Document)](https://docs.opendp.org/en/v0.14.1/proofs/rust/src/combinators/sequential_composition/fully_adaptive/make_fully_adaptive_composition.pdf)
+    [(Proof Document)](https://docs.opendp.org/en/v0.14.2/proofs/rust/src/combinators/sequential_composition/fully_adaptive/make_fully_adaptive_composition.pdf)
 
     .. end-markdown
 
@@ -603,12 +603,12 @@ def make_fully_adaptive_composition(
 def then_fully_adaptive_composition(
     output_measure: Measure
 ):  
-    r"""partial constructor of make_fully_adaptive_composition
+    r"""Partial constructor of `make_fully_adaptive_composition`.
 
     .. end-markdown
 
     .. seealso:: 
-      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.combinators.make_fully_adaptive_composition`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`~opendp.combinators.make_fully_adaptive_composition`
 
     :param output_measure: how privacy is measured
     :type output_measure: Measure
@@ -641,7 +641,7 @@ def make_population_amplification(
 
     Required features: `contrib`, `honest-but-curious`
 
-    [make_population_amplification in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/combinators/fn.make_population_amplification.html)
+    [make_population_amplification in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/combinators/fn.make_population_amplification.html)
 
     **Why honest-but-curious?:**
 
@@ -697,7 +697,7 @@ def make_privacy_filter(
 
     Required features: `contrib`
 
-    [make_privacy_filter in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/combinators/fn.make_privacy_filter.html)
+    [make_privacy_filter in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/combinators/fn.make_privacy_filter.html)
 
     **Supporting Elements:**
 
@@ -708,7 +708,7 @@ def make_privacy_filter(
 
     **Proof Definition:**
 
-    [(Proof Document)](https://docs.opendp.org/en/v0.14.1/proofs/rust/src/combinators/privacy_filter/make_privacy_filter.pdf)
+    [(Proof Document)](https://docs.opendp.org/en/v0.14.2/proofs/rust/src/combinators/privacy_filter/make_privacy_filter.pdf)
 
     .. end-markdown
 
@@ -756,7 +756,7 @@ def make_pureDP_to_zCDP(
 
     Required features: `contrib`
 
-    [make_pureDP_to_zCDP in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/combinators/fn.make_pureDP_to_zCDP.html)
+    [make_pureDP_to_zCDP in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/combinators/fn.make_pureDP_to_zCDP.html)
 
     **Citations:**
 
@@ -819,7 +819,7 @@ def make_select_private_candidate(
 
     Required features: `contrib`
 
-    [make_select_private_candidate in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/combinators/fn.make_select_private_candidate.html)
+    [make_select_private_candidate in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/combinators/fn.make_select_private_candidate.html)
 
     **Supporting Elements:**
 
@@ -830,7 +830,7 @@ def make_select_private_candidate(
 
     **Proof Definition:**
 
-    [(Proof Document)](https://docs.opendp.org/en/v0.14.1/proofs/rust/src/combinators/select_private_candidate/make_select_private_candidate.pdf)
+    [(Proof Document)](https://docs.opendp.org/en/v0.14.2/proofs/rust/src/combinators/select_private_candidate/make_select_private_candidate.pdf)
 
     .. end-markdown
 
@@ -847,31 +847,31 @@ def make_select_private_candidate(
 
     :example:
 
-    >>> import opendp.prelude as dp
-    >>> dp.enable_features("contrib")
-    >>> threshold = 23
-    >>> space = dp.atom_domain(T=float, nan=False), dp.absolute_distance(T=float)
-    ...
-    >>> # For demonstration purposes-- construct a measurement that releases
-    >>> # a tuple with a differentially private score and value.
-    >>> # The tuple released must satisfy the privacy guarantee from the map.
-    >>> import numpy as np
-    >>> m_mock = space >> dp.m.then_user_measurement(
-    ...     dp.max_divergence(),
-    ...     lambda x: (np.random.laplace(loc=x), "arbitrary candidate"),
-    ...     lambda d_in: d_in,
-    ...     TO="(f64, ExtrinsicObject)"
-    ... )
-    ...
-    >>> m_private_selection = dp.c.make_select_private_candidate(
-    ...     m_mock, threshold=threshold, stop_probability=0
-    ... )
-    ...
-    >>> score, candidate = m_private_selection(20)
-    ...
-    >>> assert score >= threshold
-    >>> assert m_private_selection.map(1) == 2 * m_mock.map(1)
-    >>> assert isinstance(candidate, str)
+        >>> import opendp.prelude as dp
+        >>> dp.enable_features("contrib")
+        >>> threshold = 23
+        >>> space = dp.atom_domain(T=float, nan=False), dp.absolute_distance(T=float)
+        ...
+        >>> # For demonstration purposes-- construct a measurement that releases
+        >>> # a tuple with a differentially private score and value.
+        >>> # The tuple released must satisfy the privacy guarantee from the map.
+        >>> import numpy as np
+        >>> m_mock = space >> dp.m.then_user_measurement(
+        ...     dp.max_divergence(),
+        ...     lambda x: (np.random.laplace(loc=x), "arbitrary candidate"),
+        ...     lambda d_in: d_in,
+        ...     TO="(f64, ExtrinsicObject)"
+        ... )
+        ...
+        >>> m_private_selection = dp.c.make_select_private_candidate(
+        ...     m_mock, threshold=threshold, stop_probability=0
+        ... )
+        ...
+        >>> score, candidate = m_private_selection(20)
+        ...
+        >>> assert score >= threshold
+        >>> assert m_private_selection.map(1) == 2 * m_mock.map(1)
+        >>> assert isinstance(candidate, str)
 
 
     """
@@ -902,7 +902,7 @@ def make_select_private_candidate(
     return output
 
 
-@deprecated(version="0.14.0", reason="This function has been renamed, use `make_adaptive_composition` instead.")
+@deprecated(version="0.14.0", reason="This function has been renamed: use :py:func:`~opendp.combinators.make_adaptive_composition` instead.")
 def make_sequential_composition(
     input_domain: Domain,
     input_metric: Metric,
@@ -927,7 +927,7 @@ def make_sequential_composition(
 
     Required features: `contrib`
 
-    [make_sequential_composition in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/combinators/fn.make_sequential_composition.html)
+    [make_sequential_composition in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/combinators/fn.make_sequential_composition.html)
 
     **Supporting Elements:**
 
@@ -985,12 +985,12 @@ def then_sequential_composition(
     d_in,
     d_mids
 ):  
-    r"""partial constructor of make_sequential_composition
+    r"""Partial constructor of `make_sequential_composition`.
 
     .. end-markdown
 
     .. seealso:: 
-      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.combinators.make_sequential_composition`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`~opendp.combinators.make_sequential_composition`
 
     :param output_measure: how privacy is measured
     :type output_measure: Measure
@@ -1023,7 +1023,7 @@ def make_zCDP_to_approxDP(
 
     Required features: `contrib`
 
-    [make_zCDP_to_approxDP in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/combinators/fn.make_zCDP_to_approxDP.html)
+    [make_zCDP_to_approxDP in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/combinators/fn.make_zCDP_to_approxDP.html)
 
     .. end-markdown
 

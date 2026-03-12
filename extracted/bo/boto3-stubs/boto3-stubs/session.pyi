@@ -398,6 +398,7 @@ from mypy_boto3_shield.client import ShieldClient
 from mypy_boto3_signer.client import SignerClient
 from mypy_boto3_signer_data.client import SignerDataPlaneClient
 from mypy_boto3_signin.client import SignInServiceClient
+from mypy_boto3_simpledbv2.client import SimpleDBv2Client
 from mypy_boto3_simspaceweaver.client import SimSpaceWeaverClient
 from mypy_boto3_snow_device_management.client import SnowDeviceManagementClient
 from mypy_boto3_snowball.client import SnowballClient
@@ -7425,6 +7426,25 @@ class Session:
     ) -> SignInServiceClient:
         """
         Create client for SignInService service.
+        """
+
+    @overload
+    def client(
+        self,
+        service_name: Literal["simpledbv2"],
+        region_name: str | None = ...,
+        api_version: str | None = ...,
+        use_ssl: bool | None = ...,
+        verify: bool | str | None = ...,
+        endpoint_url: str | None = ...,
+        aws_access_key_id: str | None = ...,
+        aws_secret_access_key: str | None = ...,
+        aws_session_token: str | None = ...,
+        config: Config | None = ...,
+        aws_account_id: str | None = ...,
+    ) -> SimpleDBv2Client:
+        """
+        Create client for SimpleDBv2 service.
         """
 
     @overload

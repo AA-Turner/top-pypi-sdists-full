@@ -99,7 +99,11 @@ class MigrationCompiler:
             table_name, column_specs, pk_columns, fk_specs
         )
         alter_block_sql = self._alter_table_compiler.compile(
-            table_name, column_specs, pk_columns, rename_operations, fk_specs
+            table_name,
+            column_specs,
+            pk_columns,
+            rename_operations,
+            fk_specs,
         )
 
         block_lines = [
@@ -382,7 +386,9 @@ class MigrationCompiler:
         for property_name, property_model in properties_structure.properties.items():
             if not isinstance(property_model.type, PrimitiveTypes):
                 relation_ref = RelationRefParser.parse(property_model.type)
-                target_model = relation_ref.resolve_model(entity_models) if relation_ref else None
+                target_model = (
+                    relation_ref.resolve_model(entity_models) if relation_ref else None
+                )
                 # Tenta identificar FK local a partir do relation_column
                 entity_mapping = properties_structure.entity_properties.get(
                     property_name
@@ -391,8 +397,10 @@ class MigrationCompiler:
                     entity_mapping.relation_column if entity_mapping else None
                 )
                 if relation_column:
-                    relation_column_ref, column_name = self._extract_relation_column_target(
-                        relation_column, entity_model
+                    relation_column_ref, column_name = (
+                        self._extract_relation_column_target(
+                            relation_column, entity_model
+                        )
                     )
                     # len >= 3 => <escopo>/<entidade>(/ ...)/<coluna>
                     if relation_column_ref and column_name:
@@ -453,7 +461,10 @@ class MigrationCompiler:
 
         # Verifica relacionamentos definidos em outras entidades que apontam colunas para a tabela atual
         for other_id, other_entity in entity_models.items():
-            if other_id == f"{entity_model.escopo}/{entity_model.id}" or other_id == entity_model.id:
+            if (
+                other_id == f"{entity_model.escopo}/{entity_model.id}"
+                or other_id == entity_model.id
+            ):
                 continue
             for other_prop_name, other_prop_model in other_entity.properties.items():
                 if isinstance(other_prop_model.type, PrimitiveTypes):
@@ -462,7 +473,9 @@ class MigrationCompiler:
                     other_prop_name
                 )
                 relation_column = (
-                    other_entity_mapping.relation_column if other_entity_mapping else None
+                    other_entity_mapping.relation_column
+                    if other_entity_mapping
+                    else None
                 )
                 if not relation_column:
                     continue
@@ -516,7 +529,11 @@ class MigrationCompiler:
 
         relation_ref = RelationRefParser.parse(relation_path)
         if relation_ref:
-            if not relation_ref.scope and base_model and getattr(base_model, "escopo", None):
+            if (
+                not relation_ref.scope
+                and base_model
+                and getattr(base_model, "escopo", None)
+            ):
                 relation_ref.scope = base_model.escopo  # type: ignore
             return relation_ref, column_name
 
@@ -672,3 +689,74 @@ class MigrationCompiler:
                 rename_ops.append((old_column, new_column))
 
         return rename_ops
+
+
+def get_files_from_directory(directory):
+    files = []
+    for file in os.listdir(directory):
+        if file.endswith(".json") or file.endswith(".yml") or file.endswith(".yaml"):
+            files.append(os.path.join(directory, file))
+    return files
+
+
+if __name__ == "__main__":
+    import argparse
+    import json
+    import os
+    import yaml
+
+    from nsj_rest_lib2.compiler.edl_model.entity_model_root import EntityModelRoot
+    from nsj_rest_lib2.dto.escopo_dto import EscopoDTO
+
+    # parser = argparse.ArgumentParser(
+    #     description="Compila arquivos EDL para classes Python"
+    # )
+    # parser.add_argument(
+    #     "-d",
+    #     "--directory",
+    #     help="Diretório com arquivos .json para compilar",
+    #     type=str,
+    #     required=True,
+    # )
+    # args = parser.parse_args()
+
+    files = get_files_from_directory("/home/sergio/@work/nsj_rest_lib2/@schemas_test")
+
+    entities = {}
+    for file in files:
+        with open(file, "r") as f:
+            if file.endswith(".json"):
+                edl = json.load(f)
+            else:
+                edl = yaml.safe_load(f)
+
+        # Instanciando o objeto de modelo de entidade a partir do JSON,
+        # e já realizando as validações básicas de tipo e estrutura.
+        print(f"Validando arquivo: {file}")
+        if edl.get("mixin", False):
+            entity_model = EntityModelRoot(**edl)
+        else:
+            entity_model = EntityModel(**edl)
+
+        complete_entity_id = f"{entity_model.escopo}/{entity_model.id}"
+        entities[complete_entity_id] = entity_model
+
+    compiler = EDLCompiler()
+    mc = MigrationCompiler(compiler)
+
+    escopos = {}
+    for entity_model in entities.values():
+        if entity_model.escopo not in escopos:
+            escopos[entity_model.escopo] = EscopoDTO(
+                codigo=entity_model.escopo,
+                service_account=None,
+            )
+
+        compilado = mc.compile(entity_model, entities)
+
+        with open("output_migracoes_local.sql", "a") as f:
+            f.write(
+                f"-- Migração para entidade: {entity_model.escopo}/{entity_model.id}\n"
+            )
+            f.write(compilado)
+            f.write("\n\n")

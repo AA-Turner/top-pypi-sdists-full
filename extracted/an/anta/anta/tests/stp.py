@@ -1,4 +1,4 @@
-# Copyright (c) 2023-2025 Arista Networks, Inc.
+# Copyright (c) 2023-2026 Arista Networks, Inc.
 # Use of this source code is governed by the Apache License 2.0
 # that can be found in the LICENSE file.
 """Module related to various Spanning Tree Protocol (STP) tests."""
@@ -139,7 +139,7 @@ class VerifySTPCounters(AntaTest):
         """Main test function for VerifySTPCounters."""
         self.result.is_success()
         command_output = self.instance_commands[0].json_output
-        interfaces = self.inputs.interfaces if self.inputs.interfaces else command_output["interfaces"].keys()
+        interfaces = self.inputs.interfaces or command_output["interfaces"].keys()
 
         for interface in interfaces:
             # Verification is skipped if the interface is in the ignored interfaces list.

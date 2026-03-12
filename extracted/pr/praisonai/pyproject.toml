@@ -12,7 +12,7 @@ dependencies = [
     "rich>=13.7",
     "markdown>=3.5",
     "pyparsing>=3.0.0",
-    "praisonaiagents>=1.5.39",
+    "praisonaiagents>=1.5.43",
     "python-dotenv>=0.19.0",
     "litellm>=1.81.0",
     "PyYAML>=6.0",
@@ -137,6 +137,34 @@ bot-whatsapp-web = [
     "neonize>=0.3.14",
     "qrcode>=7.0",
 ]
+claw = [
+    # PraisonAI 🦞 — Full dashboard + bots + memory + knowledge + gateway
+    # Install: pip install "praisonai[claw]"
+    "aiui[all]>=0.3.60",
+    "praisonaiagents[all]>=1.5.40",
+    # UI + persistence
+    "chainlit>=2.8.5,<=2.9.4",
+    "sqlalchemy>=2.0.36",
+    "aiosqlite>=0.20.0",
+    "greenlet>=3.0.3",
+    "flask>=3.0.0",
+    # Gateway
+    "fastapi>=0.115.0",
+    "uvicorn>=0.34.0",
+    "sse-starlette>=1.6.0",
+    # Search + browsing
+    "tavily-python==0.5.0",
+    "crawl4ai>=0.7.0",
+    "websockets>=12.0",
+    "ddgs>=8.0.0",
+    # Bot channels (Telegram, Discord, Slack)
+    "python-telegram-bot>=20.0",
+    "discord.py>=2.0.0",
+    "slack_sdk>=3.0.0",
+    "slack-bolt>=1.18.0",
+    "brotlicffi>=1.0.0",
+    "aiohttp>=3.8.0",
+]
 dev = [
     "textual-dev>=1.0.0",
     "pytest>=7.0.0",
@@ -148,8 +176,16 @@ Homepage = "https://docs.praison.ai"
 Repository = "https://github.com/mervinpraison/PraisonAI"
 
 [tool.uv]
-# Exclude neonize from lock resolution; it conflicts with autogen-core (protobuf version)
-override-dependencies = ["neonize ; sys_platform == 'never'"]
+# Exclude from lock resolution — these cause cross-extra conflicts that
+# never occur at install time (nobody installs [claw]+[autogen]+[crewai] together):
+#   neonize:        conflicts with autogen-core (protobuf version)
+#   magika:         numpy>=2.1 (via markitdown) vs pyautogen numpy<2
+#   neo4j-graphrag: json-repair tight pins vs crewai transitive deps
+override-dependencies = [
+    "neonize ; sys_platform == 'never'",
+    "magika ; sys_platform == 'never'",
+    "neo4j-graphrag ; sys_platform == 'never'",
+]
 
 [build-system]
 requires = ["setuptools>=64"]

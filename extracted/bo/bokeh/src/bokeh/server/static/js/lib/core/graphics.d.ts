@@ -60,6 +60,7 @@ export declare class TextBox extends GraphicsBox {
     text: string;
     color: string;
     outline_color: string;
+    outline_width: number;
     font: string;
     line_height: number;
     private _visual_align;

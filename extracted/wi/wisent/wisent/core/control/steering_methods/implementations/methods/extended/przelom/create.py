@@ -74,38 +74,39 @@ def _create_przelom_steering_object(
         neg = torch.stack([t.detach().float().reshape(-1) for t in neg_list], dim=0)
         q_data = layer_activations[layer_str].get("q_proj_activations")
         k_data = layer_activations[layer_str].get("k_proj_activations")
-        if q_data is None or k_data is None:
-            raise ValueError(f"Layer {layer_str}: Q/K projections required for PRZELOM")
-        q_neg = torch.stack([t.detach().float().reshape(-1) for t in q_data], dim=0)
-        k_pos = torch.stack([t.detach().float().reshape(-1) for t in k_data], dim=0)
-        C = compute_attention_affinity_cost(q_neg, k_pos, num_heads=num_heads, num_kv_heads=num_kv_heads)
-        T_current = torch.softmax(-C / epsilon, dim=1)
-        T_target = _compute_target_transport(neg, pos, target_mode)
-        log_target = torch.log(T_target.clamp(min=LOG_EPS))
-        log_current = torch.log(T_current.clamp(min=LOG_EPS))
-        delta_C = epsilon * (log_target - log_current)
-        # GQA-aware inversion: map delta_C back to delta_q in full Q-dim
-        q_dim = q_neg.shape[-1]
-        k_dim = k_pos.shape[-1]
-        if q_dim == k_dim:
-            # Non-GQA: flat pseudoinverse (Q and K same dimensionality)
-            k_pos_pinv = _regularized_pinv(k_pos, regularization)
-            delta_q = -math.sqrt(q_dim) * (delta_C @ k_pos_pinv.T)
+        if q_data is not None and k_data is not None:
+            q_neg = torch.stack([t.detach().float().reshape(-1) for t in q_data], dim=0)
+            k_pos = torch.stack([t.detach().float().reshape(-1) for t in k_data], dim=0)
+            C = compute_attention_affinity_cost(q_neg, k_pos, num_heads=num_heads, num_kv_heads=num_kv_heads)
+            T_current = torch.softmax(-C / epsilon, dim=1)
+            T_target = _compute_target_transport(neg, pos, target_mode)
+            log_target = torch.log(T_target.clamp(min=LOG_EPS))
+            log_current = torch.log(T_current.clamp(min=LOG_EPS))
+            delta_C = epsilon * (log_target - log_current)
+            q_dim = q_neg.shape[-1]
+            k_dim = k_pos.shape[-1]
+            if q_dim == k_dim:
+                k_pos_pinv = _regularized_pinv(k_pos, regularization)
+                delta_q = -math.sqrt(q_dim) * (delta_C @ k_pos_pinv.T)
+            else:
+                head_dim = q_dim // num_heads
+                groups = num_heads // num_kv_heads
+                k_by_head = k_pos.reshape(-1, num_kv_heads, head_dim)
+                delta_q_parts = []
+                for g in range(num_kv_heads):
+                    k_g = k_by_head[:, g, :]
+                    k_g_pinv = _regularized_pinv(k_g, regularization)
+                    dq_g = -math.sqrt(head_dim) * (delta_C @ k_g_pinv.T)
+                    for _ in range(groups):
+                        delta_q_parts.append(dq_g)
+                delta_q = torch.cat(delta_q_parts, dim=-1)
+            delta_h = delta_q
         else:
-            # GQA: per-KV-head pseudoinverse, expand to full Q-dim
-            # Each KV head serves `groups` Q heads; invert per-head then repeat
-            head_dim = q_dim // num_heads
-            groups = num_heads // num_kv_heads
-            k_by_head = k_pos.reshape(-1, num_kv_heads, head_dim)
-            delta_q_parts = []
-            for g in range(num_kv_heads):
-                k_g = k_by_head[:, g, :]  # [N_pos, head_dim]
-                k_g_pinv = _regularized_pinv(k_g, regularization)
-                dq_g = -math.sqrt(head_dim) * (delta_C @ k_g_pinv.T)
-                for _ in range(groups):
-                    delta_q_parts.append(dq_g)
-            delta_q = torch.cat(delta_q_parts, dim=-1)  # [N_neg, q_dim]
-        delta_h = delta_q
+            print(f"   Layer {layer_str}: Q/K absent, using residual transport")
+            T_target = _compute_target_transport(neg, pos, target_mode)
+            row_sums = T_target.sum(dim=1, keepdim=True).clamp(min=LOG_EPS)
+            T_norm = T_target / row_sums
+            delta_h = (T_norm @ pos) - neg
         layer_int = int(layer_str)
         source_points[layer_int] = neg.detach()
         disps[layer_int] = delta_h.detach()

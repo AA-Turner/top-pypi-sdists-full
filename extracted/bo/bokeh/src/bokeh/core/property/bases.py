@@ -39,8 +39,6 @@ from typing import (
 
 # Bokeh imports
 from ...util.dependencies import uses_pandas
-from ...util.strings import nice_join
-from ..has_props import HasProps
 from ._sphinx import property_link, register_type_link, type_link
 from .descriptor_factory import PropertyDescriptorFactory
 from .descriptors import PropertyDescriptor
@@ -53,6 +51,7 @@ from .singletons import (
 
 if TYPE_CHECKING:
     from ...document.events import DocumentPatchedEvent
+    from ..has_props import HasProps
 
 #-----------------------------------------------------------------------------
 # Globals and constants
@@ -250,10 +249,10 @@ class Property(PropertyDescriptorFactory[T]):
 
         if uses_pandas(new) or uses_pandas(old):
             import pandas as pd
+            from pandas.api.extensions import ExtensionArray
 
-            if isinstance(new, pd.Series) or isinstance(old, pd.Series):
-                return np.array_equal(new, old)
-            if isinstance(new, pd.Index) or isinstance(old, pd.Index):
+            pandas_types = (pd.Index, pd.Series, ExtensionArray)
+            if isinstance(new, pandas_types) or isinstance(old, pandas_types):
                 return np.array_equal(new, old)
 
         try:
@@ -355,6 +354,8 @@ class Property(PropertyDescriptorFactory[T]):
                     break
             else:
                 error = e
+
+        from ..has_props import HasProps
 
         if error is None:
             value = self.transform(value)
@@ -552,6 +553,8 @@ class PrimitiveProperty(Property[T]):
 
         if not detail:
             raise ValueError("")
+
+        from ...util.strings import nice_join
 
         expected_type = nice_join([ cls.__name__ for cls in self._underlying_type ])
         msg = f"expected a value of type {expected_type}, got {value} of type {type(value).__name__}"

@@ -9,9 +9,9 @@ Build-time computation (``compute_confusion_groups``, ``compute_distinguishing_m
 
 from __future__ import annotations
 
+import functools
 import importlib.resources
 import struct
-import threading
 import warnings
 
 from chardet.models import (
@@ -21,6 +21,7 @@ from chardet.models import (
     score_with_profile,
 )
 from chardet.pipeline import DetectionResult
+from chardet.registry import lookup_encoding
 
 # Type alias for the distinguishing map structure:
 # Maps (enc_a, enc_b) -> (distinguishing_byte_set, {byte_val: (cat_a, cat_b)})
@@ -64,8 +65,8 @@ _INT_TO_CATEGORY: dict[int, str] = {
     29: "Cn",
 }
 
-_CONFUSION_CACHE: DistinguishingMaps | None = None
-_CONFUSION_CACHE_LOCK = threading.Lock()
+# Inverse mapping for serialization — used by scripts/confusion_training.py.
+_CATEGORY_TO_INT: dict[str, int] = {v: k for k, v in _INT_TO_CATEGORY.items()}
 
 
 def deserialize_confusion_data_from_bytes(data: bytes) -> DistinguishingMaps:
@@ -108,34 +109,34 @@ def deserialize_confusion_data_from_bytes(data: bytes) -> DistinguishingMaps:
     return result
 
 
+@functools.cache
 def load_confusion_data() -> DistinguishingMaps:
     """Load confusion group data from the bundled confusion.bin file.
 
     :returns: A :data:`DistinguishingMaps` dictionary keyed by encoding pairs.
     """
-    global _CONFUSION_CACHE  # noqa: PLW0603
-    if _CONFUSION_CACHE is not None:
-        return _CONFUSION_CACHE
-    with _CONFUSION_CACHE_LOCK:
-        if _CONFUSION_CACHE is not None:  # pragma: no cover - double-checked locking
-            return _CONFUSION_CACHE
-        ref = importlib.resources.files("chardet.models").joinpath("confusion.bin")
-        raw = ref.read_bytes()
-        if not raw:
-            warnings.warn(
-                "chardet confusion.bin is empty — confusion resolution disabled; "
-                "reinstall chardet to fix",
-                RuntimeWarning,
-                stacklevel=2,
-            )
-            _CONFUSION_CACHE = {}
-            return _CONFUSION_CACHE
-        try:
-            _CONFUSION_CACHE = deserialize_confusion_data_from_bytes(raw)
-        except (struct.error, UnicodeDecodeError) as e:
-            msg = f"corrupt confusion.bin: {e}"
-            raise ValueError(msg) from e
-        return _CONFUSION_CACHE
+    ref = importlib.resources.files("chardet.models").joinpath("confusion.bin")
+    raw = ref.read_bytes()
+    if not raw:
+        warnings.warn(
+            "chardet confusion.bin is empty — confusion resolution disabled; "
+            "reinstall chardet to fix",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+        return {}
+    try:
+        raw_maps = deserialize_confusion_data_from_bytes(raw)
+    except (struct.error, UnicodeDecodeError) as e:
+        msg = f"corrupt confusion.bin: {e}"
+        raise ValueError(msg) from e
+    # Normalize keys to canonical codec names so pipeline output matches.
+    normalized: DistinguishingMaps = {}
+    for (a, b), value in raw_maps.items():
+        norm_a = lookup_encoding(a) or a
+        norm_b = lookup_encoding(b) or b
+        normalized[(norm_a, norm_b)] = value
+    return normalized
 
 
 # Unicode general category preference scores for voting resolution.
@@ -216,6 +217,21 @@ def resolve_by_category_voting(
     return None
 
 
+def _best_variant_score(
+    profile: BigramProfile,
+    index: dict[str, list[tuple[str | None, bytearray, str]]],
+    enc: str,
+) -> float:
+    """Return the best bigram score across all language variants for *enc*."""
+    variants = index.get(enc)
+    if not variants:
+        return 0.0
+    return max(
+        score_with_profile(profile, model, model_key)
+        for _, model, model_key in variants
+    )
+
+
 def resolve_by_bigram_rescore(
     data: bytes,
     enc_a: str,
@@ -253,20 +269,8 @@ def resolve_by_bigram_rescore(
     profile = BigramProfile.from_weighted_freq(freq)
 
     index = get_enc_index()
-
-    best_a = 0.0
-    variants_a = index.get(enc_a)
-    if variants_a:
-        for _, model, model_key in variants_a:
-            s = score_with_profile(profile, model, model_key)
-            best_a = max(best_a, s)
-
-    best_b = 0.0
-    variants_b = index.get(enc_b)
-    if variants_b:
-        for _, model, model_key in variants_b:
-            s = score_with_profile(profile, model, model_key)
-            best_b = max(best_b, s)
+    best_a = _best_variant_score(profile, index, enc_a)
+    best_b = _best_variant_score(profile, index, enc_b)
 
     if best_a > best_b:
         return enc_a

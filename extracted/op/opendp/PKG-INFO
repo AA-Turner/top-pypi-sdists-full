@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: opendp
-Version: 0.14.1
+Version: 0.14.2
 Summary: Python bindings for the OpenDP Library
 Home-page: https://opendp.org
 Author: The OpenDP Project
@@ -57,7 +57,7 @@ It can be used to build applications of privacy-preserving computations, using a
 OpenDP is implemented in Rust, with bindings for easy use from Python and R.
 
 The architecture of the OpenDP Library is based on a conceptual framework for expressing privacy-aware computations.
-This framework is described in the paper [A Programming Framework for OpenDP](https://projects.iq.harvard.edu/files/opendp/files/opendp_programming_framework_11may2020_1_01.pdf).
+This framework is described in the paper [A Programming Framework for OpenDP](https://opendp.org/files/2025/11/opendp_programming_framework_11may2020_1_01.pdf).
 
 The OpenDP Library is part of the larger [OpenDP Project](https://opendp.org), a community effort to build trustworthy,
 open source software tools for analysis of private data.
@@ -112,8 +112,7 @@ If you're having problems using OpenDP, or want to submit feedback, please reach
 
 * Report a bug or request a feature on [Github](https://github.com/opendp/opendp/issues).
 * Send general queries to [info@opendp.org](mailto:info@opendp.org), or email [security@opendp.org](mailto:security@opendp.org) if it is related to security.
-* Join the conversation on [Slack](https://join.slack.com/t/opendp/shared_invite/zt-zw7o1k2s-dHg8NQE8WTfAGFnN_cwomA), or the [mailing list](https://groups.google.com/a/g.harvard.edu/g/opendp-community).
-* Office hours are M/T/Th at 11am Eastern on [Zoom](https://harvard.zoom.us/j/98058847683).
+* Join the conversation on [Slack](https://join.slack.com/t/opendp/shared_invite/zt-1t8rrbqhd-z8LiZiP06vVE422HJd6ciQ), or the [mailing list](https://groups.google.com/a/g.harvard.edu/g/opendp-community).
 
 ## Contributing
 

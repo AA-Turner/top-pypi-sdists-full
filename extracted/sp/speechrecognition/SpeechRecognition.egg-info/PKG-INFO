@@ -1,21 +1,10 @@
 Metadata-Version: 2.4
 Name: SpeechRecognition
-Version: 3.15.0
+Version: 3.15.1
 Summary: Library for performing speech recognition, with support for several engines and APIs, online and offline.
 Author-email: "Anthony Zhang (Uberi)" <azhang9@gmail.com>
 Maintainer-email: nikkie <takuyafjp+develop@gmail.com>
-License: Copyright (c) 2014-, Anthony Zhang <azhang9@gmail.com>
-        All rights reserved.
-        
-        Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
-        
-        1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
-        
-        2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
-        
-        3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
-        
-        THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+License-Expression: BSD-3-Clause
 Project-URL: Homepage, https://github.com/Uberi/speech_recognition#readme
 Keywords: speech,recognition,voice,sphinx,google,wit,bing,api,houndify,ibm,snowboy
 Classifier: Development Status :: 5 - Production/Stable
@@ -35,8 +24,8 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Multimedia :: Sound/Audio :: Speech
 Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
-License-File: LICENSE-FLAC.txt
 License-File: LICENSE.txt
+License-File: LICENSE-FLAC.txt
 Requires-Dist: typing-extensions
 Requires-Dist: standard-aifc; python_version >= "3.13"
 Requires-Dist: audioop-lts; python_version >= "3.13"
@@ -98,6 +87,11 @@ SpeechRecognition
 .. image:: https://deepwiki.com/badge.svg
     :target: https://deepwiki.com/Uberi/speech_recognition
     :alt: Ask DeepWiki
+
+.. image:: https://www.gstatic.com/_/boq-sdlc-agents-ui/_/r/Mvosg4klCA4.svg
+    :target: https://codewiki.google/github.com/Uberi/speech_recognition
+    :alt: Ask Code Wiki
+    :height: 20px
 
 .. image:: https://img.shields.io/badge/docs-Mintlify-0ea5e9?logo=mintlify&logoColor=white
     :target: https://mintlify.com/Uberi/speech_recognition

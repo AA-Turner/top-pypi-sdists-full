@@ -335,8 +335,8 @@ int_timer = None
 _updater = None
 QR_CODE_PAYMENT_LINK="upi://pay?pa=PKSCREENER@APL&pn=PKSCREENER&tn=undefined&am=undefined"
 
-TOP_LEVEL_SCANNER_MENUS = ["X", "B", "MI","DV", "P"] # 
-TOP_LEVEL_SCANNER_SKIP_MENUS = ["M", "S", "F", "G", "C", "T", "D", "I", "E", "U", "L", "Z", "P"] # Last item will be skipped.
+TOP_LEVEL_SCANNER_MENUS = ["X", "B","DV", "P"] # 
+TOP_LEVEL_SCANNER_SKIP_MENUS = ["M", "MI", "S", "F", "G", "C", "T", "D", "I", "E", "U", "L", "Z", "P"] # Last item will be skipped.
 TOP_LEVEL_MARKUP_SKIP_MENUS = TOP_LEVEL_SCANNER_SKIP_MENUS[:len(TOP_LEVEL_SCANNER_SKIP_MENUS)-1]
 TOP_LEVEL_MARKUP_SKIP_MENUS.extend(["X","P","B"])
 INDEX_SKIP_MENUS_1_To_4 = ["W","E","M","Z","0","5","6","7","8","9","10","11","12","13","14","S","15"]
@@ -385,6 +385,9 @@ def isInMarketHours():
     return not PKDateUtilities.isTodayHoliday()[0] and now >= marketStartTime and now <= marketCloseTime
 
 def initializeIntradayTimer():
+    is_subscription_enabled = bool(int(PKEnvironment().SUBSCRIPTION_ENABLED))
+    if not is_subscription_enabled:
+        return
     try:
         if (not PKDateUtilities.isTodayHoliday()[0]):
             now = PKDateUtilities.currentDateTime()
@@ -537,8 +540,9 @@ def start(update: Update, context: CallbackContext, updatedResults=None, monitor
     else:
         reply_markup = None
 
+    is_subscription_enabled = bool(int(PKEnvironment().SUBSCRIPTION_ENABLED))
     if updatedResults is None:
-        cmdText = "\n/otp : To generate an OTP to login to PKScreener desktop console\n/check UPI_UTR_HERE_After_Making_Payment : To share transaction reference number to automatically enable subscription after making payment via UPI\n"
+        cmdText = f"\n/otp : To generate an OTP to login to PKScreener desktop console\n{'' if not is_subscription_enabled else '/check UPI_UTR_HERE_After_Making_Payment : To share transaction reference number to automatically enable subscription after making payment via UPI\n'}"
         for cmd in cmds:
             if cmd.menuKey not in TOP_LEVEL_MARKUP_SKIP_MENUS:
                 cmdText = f"{cmdText}\n{cmd.commandTextKey()} : {cmd.commandTextLabel()}"
@@ -553,7 +557,7 @@ def start(update: Update, context: CallbackContext, updatedResults=None, monitor
         menuText = f"{menuText}\nClick /start if you want to restart the session."
     else:
         if not isUserSubscribed(user):
-            updatedResults = f"Thank you for choosing Intraday Monitor!\nThis scan request is, however, protected and is only available to premium subscribers. It seems like you are not subscribed to the paid/premium subscription to PKScreener.\nPlease checkout all premium options by sending out a request:\n/OTP\nFor basic/unpaid users, you can try out the following:\n/X_0 StockCode1,StockCode2,etc.\n/X_N\n/X_1"
+            updatedResults = f"Thank you for choosing Intraday Monitor!\n{'' if not is_subscription_enabled else 'This scan request is, however, protected and is only available to premium subscribers. It seems like you are not subscribed to the paid/premium subscription to PKScreener.\nPlease checkout all premium options by sending out a request:\n/OTP\nFor basic/unpaid users, you can try out the following:\n/X_0 StockCode1,StockCode2,etc.\n/X_N\n/X_1'}"
             updatedResults = f"{updatedResults}\nClick /start if you want to restart the session."
         chosenBotMenuOption = f"{chosenBotMenuOption}\nInt. Monitor. MonitorIndex:{monitorIndex}\n{updatedResults}"
         menuText = updatedResults
@@ -596,6 +600,9 @@ def launchIntradayMonitor():
     global int_timer
     if int_timer is not None:
         int_timer.cancel()
+    is_subscription_enabled = bool(int(PKEnvironment().SUBSCRIPTION_ENABLED))
+    if not is_subscription_enabled:
+        return None, None
     filePath = os.path.join(Archiver.get_user_data_dir(), "monitor_outputs")
     result_outputs = ""
     if (PKDateUtilities.isTradingTime() and not PKDateUtilities.isTodayHoliday()[0]) or ("PKDevTools_Default_Log_Level" in os.environ.keys() or sys.argv[0].endswith(".py")):
@@ -842,33 +849,40 @@ def viewSubscriptionOptions(update:Update,context:CallbackContext,sendOTP=False)
     alertUser = None
     subscriptionModelName = PKSubscriptionModel.No_Subscription.name
     subscriptionModelNames = ""
-    
+    is_subscription_enabled = bool(int(PKEnvironment().SUBSCRIPTION_ENABLED))
     if bot_available:
         try:
             otpValue = 0
             alertUser = None
             dbManager = DBManager()
             otpValue, subsModel,subsValidity,alertUser = registerUser(user,forceFetch=True)
-            if alertUser is not None and len(alertUser.scannerJobs) > 0:
-                scannerJobsSubscribed = ", ".join(alertUser.scannerJobs)
-                if len(scannerJobsSubscribed) > 0:
-                    scannerJobsSubscribed = f"Subscribed to [{scannerJobsSubscribed}]"
+            if is_subscription_enabled:
+                if alertUser is not None and len(alertUser.scannerJobs) > 0:
+                    scannerJobsSubscribed = ", ".join(alertUser.scannerJobs)
+                    if len(scannerJobsSubscribed) > 0:
+                        scannerJobsSubscribed = f"Subscribed to [{scannerJobsSubscribed}]"
+            else:
+                scannerJobsSubscribed = "Alert subscription is currently unavailable. Please check back later."
         except Exception as e: # pragma: no cover
             logger.error(e)
             pass
         userText = f"<b>UserID</b> : <code>{user.id}</code>"
         try:
-            subscriptionModelNames = "\n<pre>Following basic and premium subscription models are available. Premium subscription allows for unlimited premium scans:\n"
-            for name,value in PKUserSusbscriptions().subscriptionKeyValuePairs.items():
-                if name == PKSubscriptionModel.No_Subscription.name:
-                    subscriptionModelNames = f"{subscriptionModelNames}\n₹ {str(value).ljust(6)}: {name} (Only Basic Scans are free)\n"
-                else:
-                    subscriptionModelNames = f"{subscriptionModelNames}\n₹ {str(value).ljust(6)}: {name}"
-            subscriptionModelNames = f"{subscriptionModelNames}</pre>\nPlease pay to subscribe:\n1. Using UPI(India) to <a href='https://tinyurl.com/v7h3t233'>PKScreener@APL</a> or\n2. Proudly <a href='https://github.com/sponsors/pkjmesra?frequency=recurring&sponsor=pkjmesra'><b>sponsor</b></a>\nPlease send\n/check UPI_UTR_HERE_After_Making_Payment to share transaction reference number to automatically enable subscription after making payment via UPI\n. If it is not auto-enabled, please drop a message to @ItsOnlyPK on Telegram after paying to enable subscription manually."
+            if is_subscription_enabled:
+                subscriptionModelNames = "\n<pre>Following basic and premium subscription models are available. Premium subscription allows for unlimited premium scans:\n"
+                for name,value in PKUserSusbscriptions().subscriptionKeyValuePairs.items():
+                    if name == PKSubscriptionModel.No_Subscription.name:
+                        subscriptionModelNames = f"{subscriptionModelNames}\n₹ {str(value).ljust(6)}: {name} (Only Basic Scans are free)\n"
+                    else:
+                        subscriptionModelNames = f"{subscriptionModelNames}\n₹ {str(value).ljust(6)}: {name}"
+                subscriptionModelNames = f"{subscriptionModelNames}</pre>\nPlease pay to subscribe:\n1. Using UPI(India) to <a href='https://tinyurl.com/v7h3t233'>PKScreener@APL</a> or\n2. Proudly <a href='https://github.com/sponsors/pkjmesra?frequency=recurring&sponsor=pkjmesra'><b>sponsor</b></a>\nPlease send\n/check UPI_UTR_HERE_After_Making_Payment to share transaction reference number to automatically enable subscription after making payment via UPI\n. If it is not auto-enabled, please drop a message to @ItsOnlyPK on Telegram after paying to enable subscription manually."
 
-            subscriptionModelName = PKUserSusbscriptions().subscriptionValueKeyPairs[subsModel]
-            if subscriptionModelName != PKSubscriptionModel.No_Subscription.name:
-                subscriptionModelName = f"{subscriptionModelName} (Expires on: {subsValidity})"
+                subscriptionModelName = PKUserSusbscriptions().subscriptionValueKeyPairs[subsModel]
+                if subscriptionModelName != PKSubscriptionModel.No_Subscription.name:
+                    subscriptionModelName = f"{subscriptionModelName} (Expires on: {subsValidity})"
+            else:
+                subscriptionModelName = PKSubscriptionModel.No_Subscription.name
+                subscriptionModelNames = ""
         except Exception as e:
             logger.error(e)
             subscriptionModelName = PKSubscriptionModel.No_Subscription.name
@@ -882,7 +896,7 @@ def viewSubscriptionOptions(update:Update,context:CallbackContext,sendOTP=False)
             updatedResults = f"Current subscription: <b>{subscriptionModelName}</b>.\nCurrent alerts balance: <b>₹ {alertUser.balance if alertUser is not None else 0}</b> {scannerJobsSubscribed}. {subscriptionModelNames}"
         
         #Add new buttons with alert subscription options to cancel
-        if alertUser is not None and len(alertUser.scannerJobs) > 0:
+        if is_subscription_enabled and alertUser is not None and len(alertUser.scannerJobs) > 0:
             buttonDict = {}
             for scannerJob in alertUser.scannerJobs:
                 if len(scannerJob) > 0:
@@ -930,6 +944,12 @@ def subscribeToScannerAlerts(update: Update, context: CallbackContext) -> str:
     alertUser = dbManager.alertsForUser(int(user.id))
     query.answer()
     menuText = ""
+    is_subscription_enabled = bool(int(PKEnvironment().SUBSCRIPTION_ENABLED))
+    if not is_subscription_enabled:
+        menuText = "Alert subscription is currently unavailable. Please check back later."
+        editMessageText(query=query,editedText=sanitiseTexts(menuText),reply_markup=default_markup(user=user))
+        return START_ROUTES
+
     requiredBalance = 40 if str(scanId).upper().startswith("P") else 31
     # upi://pay?pa=PKScreener@APL&pn=PKScreener&cu=INR
     payWall = "Please pay to subscribe:\n1. Using UPI(India) to <a href='https://tinyurl.com/v7h3t233'>PKScreener@APL</a> or\n2. Proudly <a href='https://github.com/sponsors/pkjmesra?frequency=recurring&sponsor=pkjmesra'>sponsor</a>\nPlease use\n/check UPI_UTR_HERE_After_Making_Payment to share transaction reference number to automatically update your balance after making payment via UPI.\nAfter that you can try re-subscribing!\nIf you still face any problem, please drop a message to @ItsOnlyPK along with UTR and Scan details on Telegram after paying to enable subscription manually."
@@ -1016,12 +1036,13 @@ def XScanners(update: Update, context: CallbackContext) -> str:
     if data.startswith("MI"): # Intraday monitor
         monitorIndex = int(data.split("_")[1])
         result_outputs, filePath = launchIntradayMonitor()
-        filePath = f"{filePath}_{monitorIndex}.txt"
+        if filePath is not None:
+            filePath = f"{filePath}_{monitorIndex}.txt"
         monitorIndex += 1
         if monitorIndex >= configManager.maxDashboardWidgetsPerRow*configManager.maxNumResultRowsInMonitor:
             monitorIndex = 0
         try:
-            if os.path.exists(filePath):
+            if filePath is not None and os.path.exists(filePath):
                 f = open(filePath, "r")
                 result_outputs = f.read()
                 f.close()
@@ -1463,7 +1484,11 @@ def Level2(update: Update, context: CallbackContext) -> str:
             )
             optionChoices = f"{optionChoices}{f' > {selection[4]}' if len(selection) > 4 else ''}".replace(" > >","").strip()
             expectedTime = f"{'10 to 15' if '> 15' in optionChoices else '1 to 2'}"
-            menuText = f"Thank you for choosing {optionChoices.replace(' >  > ','')}. You will receive the notification/results in about {expectedTime} minutes. It generally takes 1-2 minutes for NSE (2000+) stocks and 10-15 minutes for NASDAQ (7300+).\nPKScreener had been free for a long time, but owing to cost/budgeting issues, only a basic set of features will always remain free for everyone. Consider donating to help cover the basic server costs or subscribe to premium, if not subscribed yet:\nUPI (India): <a href='https://tinyurl.com/v7h3t233'>PKScreener@APL</a>\nor <a href='https://github.com/sponsors/pkjmesra?frequency=recurring&sponsor=pkjmesra'>sponsor</a>"
+            is_subscription_enabled = bool(int(PKEnvironment().SUBSCRIPTION_ENABLED))
+            if is_subscription_enabled:
+                menuText = f"Thank you for choosing {optionChoices.replace(' >  > ','')}. You will receive the notification/results in about {expectedTime} minutes. It generally takes 1-2 minutes for NSE (2000+) stocks.\nPKScreener had been free for a long time, but owing to cost/budgeting issues, only a basic set of features will always remain free for everyone. Consider donating to help cover the basic server costs or subscribe to premium, if not subscribed yet:\nUPI (India): <a href='https://tinyurl.com/v7h3t233'>PKScreener@APL</a>\nor <a href='https://github.com/sponsors/pkjmesra?frequency=recurring&sponsor=pkjmesra'>sponsor</a>"
+            else:
+                menuText = f"Thank you for choosing {optionChoices.replace(' >  > ','')}. You will receive the notification/results in about {expectedTime} minutes. It generally takes 1-2 minutes for NSE (2000+) stocks.\nPKScreener is being made available for free for a long time. We incur costs to maintain the service. Consider donating to help cover the basic server and maintenance costs:\nUPI (India): <a href='https://tinyurl.com/v7h3t233'>PKScreener@APL</a>\nor <a href='https://github.com/sponsors/pkjmesra?frequency=recurring&sponsor=pkjmesra'>sponsor</a>"
 
             reply_markup = default_markup(user=user)
             options = ":".join(selection)
@@ -1590,12 +1615,15 @@ def default_markup(user=None,monitorIndex=0):
             if rowIndex % 2 == 0:
                 keyboard.append(inlineMenus)
                 inlineMenus = []
-    lastRowMenus.append(
-        InlineKeyboardButton(
-            iconDict.get("VS") + "Subscriptions",
-            callback_data="VS_",
+
+    is_subscription_enabled = bool(int(PKEnvironment().SUBSCRIPTION_ENABLED))
+    if is_subscription_enabled:
+        lastRowMenus.append(
+            InlineKeyboardButton(
+                iconDict.get("VS") + "Subscriptions",
+                callback_data="VS_",
+            )
         )
-    )
     lastRowMenus.append(
         InlineKeyboardButton(
             iconDict.get("start") + "Start",
@@ -1652,7 +1680,8 @@ def launchScreener(options, user, context, optionChoices, update):
             PKAnalyticsService().send_event("bot_scan",{"bot_userid":str(user.id), "bot_username":str(user.username),"scan_id":str(scanRequest),"user_subscribed":userSubs})
         except Exception as e:
             pass
-        if not userSubs:
+        is_subscription_enabled = bool(int(PKEnvironment().SUBSCRIPTION_ENABLED))
+        if is_subscription_enabled and not userSubs:
             basicSubscriptions = ["X_0","X_N","X_1_"]
             isBasicScanRequest = False
             for basicSub in basicSubscriptions:
@@ -1660,7 +1689,7 @@ def launchScreener(options, user, context, optionChoices, update):
                     isBasicScanRequest = True
                     break
             if not isBasicScanRequest:
-                responseText = f"Thank you for choosing {scanRequest}!\nThis {'Backtest' if str(scanRequest).startswith('B') else 'Scan'} request is, however, protected and is only available to premium subscribers. It seems like you are not subscribed to the paid/premium subscription to PKScreener.\nPlease checkout all premium options by sending out a request:\n/OTP\nFor basic/unpaid users, you can try out the following:\n/X_0 StockCode1,StockCode2,etc.\n/X_N\n/X_1\n"
+                responseText = f"Thank you for choosing {scanRequest}!\n This {'Backtest' if str(scanRequest).startswith('B') else 'Scan'} request is, however, protected and is only available to premium subscribers. It seems like you are not subscribed to the paid/premium subscription to PKScreener.\nPlease checkout all premium options by sending out a request:\n/OTP\nFor basic/unpaid users, you can try out the following:\n/X_0 StockCode1,StockCode2,etc.\n/X_N\n/X_1\n"
                 if update is not None and update.message is not None:
                     update.message.reply_text(sanitiseTexts(responseText),reply_markup=default_markup(user=user),parse_mode="HTML")
                 else:
@@ -1774,12 +1803,14 @@ def sendSubscriptionOption(update:Update,context:CallbackContext,scanId):
             [{"text": f"Yes! Subscribe", "callback_data": f"SUB_{scanId}"}]
         ],
     }
-    message=f"🔴 <b>Please check your current alerts, balance and subscriptions using /OTP before subscribing for alerts</b>.🔴 If you are not already subscribed to this alert, would you like to subscribe to this (<b>{scanId}</b>) automated scan alert for a day during market hours (NSE - IST timezone)? You will need to pay ₹ {'40' if str(scanId).upper().startswith('P') else '31'} (One time) for automated alerts to <b>{scanId}</b> all day on the day of subscription. 🔴 If you say <b>Yes</b>, the corresponding charges will be deducted from your alerts balance!🔴"
-    if len(str(scanId).strip()) > 0 and not str(scanId).startswith("B"):
-        context.bot.send_message(
-            chat_id=user.id, text=message, reply_markup=reply_markup, parse_mode="HTML"
-        )
-    
+    is_subscription_enabled = bool(int(PKEnvironment().SUBSCRIPTION_ENABLED))
+    if is_subscription_enabled:
+        message=f"🔴 <b>Please check your current alerts, balance and subscriptions using /OTP before subscribing for alerts</b>.🔴 If you are not already subscribed to this alert, would you like to subscribe to this (<b>{scanId}</b>) automated scan alert for a day during market hours (NSE - IST timezone)? You will need to pay ₹ {'40' if str(scanId).upper().startswith('P') else '31'} (One time) for automated alerts to <b>{scanId}</b> all day on the day of subscription. 🔴 If you say <b>Yes</b>, the corresponding charges will be deducted from your alerts balance!🔴"
+        if len(str(scanId).strip()) > 0 and not str(scanId).startswith("B"):
+            context.bot.send_message(
+                chat_id=user.id, text=message, reply_markup=reply_markup, parse_mode="HTML"
+            )
+        
 def end(update: Update, context: CallbackContext) -> str:
     """Returns `ConversationHandler.END`, which tells the
     ConversationHandler that the conversation is over.
@@ -1824,23 +1855,31 @@ def error_handler(update: object, context: CallbackContext) -> None:
                 f"Stopping due to conflict after running for {timeSinceStarted.total_seconds()/60} minutes."
             )
             try:
-                global int_timer
+                global int_timer, _updater
                 if int_timer is not None:
                     int_timer.cancel()
+                if _updater is not None:
+                    _updater.stop() # This will unblock idle()
+                if monitor_proc is not None:
+                    monitor_proc.kill()
             except: # pragma: no cover
                 pass
                 #https://github.com/python-telegram-bot/python-telegram-bot/issues/209
                 # if _updater is not None:
                 #     _updater.stop() # Calling stop from within a handler will cause deadlock
-            try:
-                # context.dispatcher.stop()
-                thread.interrupt_main() # causes ctrl + c
-                # sys.exit(0)
-            except RuntimeError:
-                pass
-            except SystemExit:
-                thread.interrupt_main()
-            # sys.exit(0)
+            finally:
+                # Force exit after stopping
+                try:
+                    # context.dispatcher.stop()
+                    thread.interrupt_main() # causes ctrl + c
+                    os._exit(0)  # Force exit immediately
+                    # sys.exit(0)
+                except RuntimeError:
+                    pass
+                except SystemExit:
+                    thread.interrupt_main()
+                finally:
+                    sys.exit(0)
         else:
             print("Other instance running!")
             # context.application.run_polling(allowed_updates=Update.ALL_TYPES)
@@ -2245,7 +2284,7 @@ def sendRequestSubmitted(optionChoices, update, context):
             return
     # Get user that sent /start and log his name
     user = updateCarrier.from_user
-    menuText = f"Thank you for choosing {optionChoices}. You will receive the notification/results in about 1-2 minutes! \nConsider donating to help keep this project going:\nUPI: <a href='https://tinyurl.com/v7h3t233'>PKScreener@APL</a> \nor <a href='https://github.com/sponsors/pkjmesra?frequency=recurring&sponsor=pkjmesra'>sponsor</a>"
+    menuText = f"Thank you for choosing {optionChoices}. You will receive the notification/results in about 1-2 minutes! \nConsider donating to help cover the basic server and maintenance costs:\nUPI: <a href='https://tinyurl.com/v7h3t233'>PKScreener@APL</a> \nor <a href='https://github.com/sponsors/pkjmesra?frequency=recurring&sponsor=pkjmesra'>sponsor</a>"
     update.message.reply_text(sanitiseTexts(menuText),reply_markup=default_markup(user=user),parse_mode="HTML")
     # help_command(update=update, context=context)
     shareUpdateWithChannel(
@@ -2559,11 +2598,16 @@ def runpkscreenerbot(availability=True) -> None:
     # Start the Bot
     application.start_polling()
 
-    # Run the bot until you press Ctrl-C or the process receives SIGINT,
-    # SIGTERM or SIGABRT. This should be used most of the time, since
-    # start_polling() is non-blocking and will stop the bot gracefully.
-    application.idle()
-
+    try:
+        # Run the bot until you press Ctrl-C or the process receives SIGINT,
+        # SIGTERM or SIGABRT. This should be used most of the time, since
+        # start_polling() is non-blocking and will stop the bot gracefully.
+        application.idle()
+    except (KeyboardInterrupt, SystemExit):
+        sys.exit(0)
+    except Exception as e:
+        print(f"Exception in runpkscreenerbot: {e}")
+        sys.exit(1)
 
 if __name__ == "__main__":
     runpkscreenerbot()

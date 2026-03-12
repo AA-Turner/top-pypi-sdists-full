@@ -33,6 +33,7 @@ from .paginator import (
     ListEventStreamsPaginator,
     ListEventTriggersPaginator,
     ListObjectTypeAttributesPaginator,
+    ListRecommenderFiltersPaginator,
     ListRecommenderRecipesPaginator,
     ListRecommendersPaginator,
     ListRuleBasedMatchesPaginator,
@@ -60,6 +61,8 @@ from .type_defs import (
     CreateIntegrationWorkflowResponseTypeDef,
     CreateProfileRequestTypeDef,
     CreateProfileResponseTypeDef,
+    CreateRecommenderFilterRequestTypeDef,
+    CreateRecommenderFilterResponseTypeDef,
     CreateRecommenderRequestTypeDef,
     CreateRecommenderResponseTypeDef,
     CreateSegmentDefinitionRequestTypeDef,
@@ -89,6 +92,8 @@ from .type_defs import (
     DeleteProfileObjectTypeResponseTypeDef,
     DeleteProfileRequestTypeDef,
     DeleteProfileResponseTypeDef,
+    DeleteRecommenderFilterRequestTypeDef,
+    DeleteRecommenderFilterResponseTypeDef,
     DeleteRecommenderRequestTypeDef,
     DeleteSegmentDefinitionRequestTypeDef,
     DeleteSegmentDefinitionResponseTypeDef,
@@ -127,6 +132,8 @@ from .type_defs import (
     GetProfileObjectTypeTemplateResponseTypeDef,
     GetProfileRecommendationsRequestTypeDef,
     GetProfileRecommendationsResponseTypeDef,
+    GetRecommenderFilterRequestTypeDef,
+    GetRecommenderFilterResponseTypeDef,
     GetRecommenderRequestTypeDef,
     GetRecommenderResponseTypeDef,
     GetSegmentDefinitionRequestTypeDef,
@@ -179,6 +186,8 @@ from .type_defs import (
     ListProfileObjectTypesResponseTypeDef,
     ListProfileObjectTypeTemplatesRequestTypeDef,
     ListProfileObjectTypeTemplatesResponseTypeDef,
+    ListRecommenderFiltersRequestTypeDef,
+    ListRecommenderFiltersResponseTypeDef,
     ListRecommenderRecipesRequestTypeDef,
     ListRecommenderRecipesResponseTypeDef,
     ListRecommendersRequestTypeDef,
@@ -394,6 +403,16 @@ class CustomerProfilesClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_customer_profiles/client/#create_recommender)
         """
 
+    def create_recommender_filter(
+        self, **kwargs: Unpack[CreateRecommenderFilterRequestTypeDef]
+    ) -> CreateRecommenderFilterResponseTypeDef:
+        """
+        Creates a recommender filter.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/client/create_recommender_filter.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_customer_profiles/client/#create_recommender_filter)
+        """
+
     def create_segment_definition(
         self, **kwargs: Unpack[CreateSegmentDefinitionRequestTypeDef]
     ) -> CreateSegmentDefinitionResponseTypeDef:
@@ -554,6 +573,16 @@ class CustomerProfilesClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/client/delete_recommender.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_customer_profiles/client/#delete_recommender)
+        """
+
+    def delete_recommender_filter(
+        self, **kwargs: Unpack[DeleteRecommenderFilterRequestTypeDef]
+    ) -> DeleteRecommenderFilterResponseTypeDef:
+        """
+        Deletes a recommender filter from a domain.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/client/delete_recommender_filter.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_customer_profiles/client/#delete_recommender_filter)
         """
 
     def delete_segment_definition(
@@ -756,6 +785,16 @@ class CustomerProfilesClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/client/get_recommender.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_customer_profiles/client/#get_recommender)
+        """
+
+    def get_recommender_filter(
+        self, **kwargs: Unpack[GetRecommenderFilterRequestTypeDef]
+    ) -> GetRecommenderFilterResponseTypeDef:
+        """
+        Retrieves information about a specific recommender filter in a domain.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/client/get_recommender_filter.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_customer_profiles/client/#get_recommender_filter)
         """
 
     def get_segment_definition(
@@ -1021,6 +1060,16 @@ class CustomerProfilesClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/client/list_profile_objects.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_customer_profiles/client/#list_profile_objects)
+        """
+
+    def list_recommender_filters(
+        self, **kwargs: Unpack[ListRecommenderFiltersRequestTypeDef]
+    ) -> ListRecommenderFiltersResponseTypeDef:
+        """
+        Returns a list of recommender filters in the specified domain.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/client/list_recommender_filters.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_customer_profiles/client/#list_recommender_filters)
         """
 
     def list_recommender_recipes(
@@ -1328,6 +1377,17 @@ class CustomerProfilesClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_object_type_attributes"]
     ) -> ListObjectTypeAttributesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_customer_profiles/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_recommender_filters"]
+    ) -> ListRecommenderFiltersPaginator:
         """
         Create a paginator for an operation.
 

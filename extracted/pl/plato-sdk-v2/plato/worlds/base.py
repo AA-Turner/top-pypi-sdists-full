@@ -823,6 +823,68 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
             raise KeyError(f"No workspace '{name}'. Available: {list(self._workspaces.keys())}")
         return self._workspaces[name]
 
+    def create_workspace(
+        self,
+        *,
+        name: str,
+        path: Path,
+        mount_path: str,
+        parent: Workspace | str,
+        tracked: bool = False,
+        backup: bool = False,
+    ) -> Workspace:
+        """Create an ad-hoc workspace with transport derived from a parent workspace.
+
+        Use this for staging directories, narrowed views, or other temporary
+        workspaces that need NFS transport but aren't declared in config.
+
+        The parent workspace must already have transport assigned (i.e. the
+        Plato session must be connected). The new workspace's NFS export is
+        a subdirectory of the parent's export — NFS v3 with ``no_subtree_check``
+        allows mounting subdirectories without a separate export entry.
+
+        Args:
+            name: Logical name for the workspace.
+            path: Absolute path on the world VM.
+            mount_path: Where this workspace appears on agent VMs.
+            parent: Parent workspace (name or Workspace) whose transport to derive from.
+                The path must be under the parent workspace's path.
+            tracked: Whether to DVC-track this workspace.
+            backup: Whether to back up this workspace.
+
+        Returns:
+            A Workspace with transport assigned, ready for ``self.agent()``.
+
+        Raises:
+            ValueError: If path is not under the parent workspace's path.
+            RuntimeError: If the parent workspace has no transport.
+        """
+        parent_ws = self.workspace(parent) if isinstance(parent, str) else parent
+        if parent_ws.transport is None:
+            raise RuntimeError(f"Parent workspace '{parent_ws.name}' has no transport. Is the Plato session connected?")
+
+        resolved_parent = parent_ws.path.resolve()
+        resolved_child = path.resolve()
+        if not (str(resolved_child).startswith(str(resolved_parent) + "/") or resolved_child == resolved_parent):
+            raise ValueError(
+                f"Workspace path {resolved_child} is not under parent workspace "
+                f"path {resolved_parent}. Ad-hoc workspaces must be subdirectories "
+                f"of their parent."
+            )
+
+        ws = Workspace(
+            name=name,
+            path=path,
+            tracked=tracked,
+            mount_path=mount_path,
+            backup=backup,
+        )
+        # Use ws.path (not raw path) — tracked workspaces append /data
+        transport = parent_ws.transport.with_path(str(ws.path))
+        transport.mount_path = mount_path
+        ws.transport = transport
+        return ws
+
     async def checkpoint(self, label: str) -> None:
         """Save state and commit all tracked workspaces."""
         for name, workspace in self._workspaces.items():

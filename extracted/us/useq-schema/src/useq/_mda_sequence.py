@@ -12,6 +12,7 @@ from warnings import warn
 import numpy as np
 from pydantic import Field, PrivateAttr, field_validator, model_validator
 
+from useq._actions import AcquireImage, CustomAction
 from useq._base_model import UseqModel
 from useq._channel import Channel
 from useq._enums import AXES, Axis
@@ -19,7 +20,7 @@ from useq._grid import MultiPointPlan  # noqa: TC001
 from useq._hardware_autofocus import AnyAutofocusPlan, AxesBasedAF
 from useq._iter_sequence import iter_sequence
 from useq._plate import WellPlatePlan
-from useq._position import Position, PositionBase
+from useq._position import Position, PositionBase, RelativePosition
 from useq._time import AnyTimePlan  # noqa: TC001
 from useq._utils import TimeEstimate, estimate_sequence_duration
 from useq._z import AnyZPlan  # noqa: TC001
@@ -66,6 +67,11 @@ class MDASequence(UseqModel):
         generated, do not set.
     autofocus_plan : AxesBasedAF | None
         The hardware autofocus plan to follow. One of `AxesBasedAF` or `None`.
+    setup : MDAEvent | None
+        An optional setup event for the sequence. This event is **not** yielded
+        during iteration; it is intended to be handled separately by the engine.
+        It can be used to set hardware state (e.g. device properties, ROI)
+        before the main acquisition events. By default, `None`.
     keep_shutter_open_across : tuple[str, ...]
         A tuple of axes `str` across which the illumination shutter should be kept open.
         Resulting events will have `keep_shutter_open` set to `True` if and only if
@@ -174,6 +180,48 @@ class MDASequence(UseqModel):
        range: 3.0
        step: 1.0
     ```
+
+    Create a sequence with a setup event
+
+    >>> from useq import MDASequence, MDAEvent
+    >>> seq = MDASequence(
+    ...     setup=MDAEvent(
+    ...         properties=[("Camera", "Binning", "2")],
+    ...         roi=(0, 0, 512, 512),
+    ...     ),
+    ...     channels=["GFP"],
+    ...     time_plan={"interval": 1, "loops": 5},
+    ... )
+
+    The setup event is accessible via ``seq.setup`` but is not yielded
+    during iteration (it should be handled separately by implementing engines):
+
+    >>> seq.setup.action.name
+    'setup'
+    >>> seq.setup.roi
+    CameraROI(offset_x=0, offset_y=0, width=512, height=512)
+
+    Print setup sequence as yaml
+
+    >>> print(seq.yaml())
+    channels:
+    - config: GFP
+    setup:
+      action:
+        name: setup
+      properties:
+      - - Camera
+        - Binning
+        - '2'
+      roi:
+        height: 512
+        offset_x: 0
+        offset_y: 0
+        width: 512
+    time_plan:
+      interval: 1.0
+      loops: 5
+    <BLANKLINE>
     """
 
     metadata: dict[str, Any] = Field(default_factory=dict)
@@ -188,6 +236,7 @@ class MDASequence(UseqModel):
     time_plan: AnyTimePlan | None = None
     z_plan: AnyZPlan | None = None
     autofocus_plan: AnyAutofocusPlan | None = None
+    setup: MDAEvent | None = None
     keep_shutter_open_across: tuple[str, ...] = Field(default_factory=tuple)
 
     _uid: UUID = PrivateAttr(default_factory=uuid4)
@@ -204,6 +253,21 @@ class MDASequence(UseqModel):
     @field_validator("z_plan", mode="before")
     def _validate_zplan(cls, v: Any) -> dict | None:
         return v or None
+
+    @field_validator("setup", mode="after")
+    def _validate_setup(cls, v: MDAEvent | None) -> MDAEvent | None:
+        if v is None:
+            return v
+        if isinstance(v.action, AcquireImage):
+            if "action" in v.model_fields_set:
+                raise ValueError(
+                    "Setup event action cannot be 'AcquireImage'. "
+                    "Omit the action field to automatically use "
+                    "CustomAction(name='setup'), or use a different "
+                    "action type."
+                )
+            v = v.model_copy(update={"action": CustomAction(name="setup")})
+        return v
 
     @field_validator("keep_shutter_open_across", mode="before")
     def _validate_keep_shutter_open_across(cls, v: tuple[str, ...]) -> tuple[str, ...]:
@@ -255,6 +319,12 @@ class MDASequence(UseqModel):
 
         positions = []
         for v in value:
+            if isinstance(v, RelativePosition):
+                raise ValueError(
+                    "RelativePosition cannot be used in stage_positions. "
+                    "Use AbsolutePosition (Position)) instead. For z-only "
+                    "positions, use Position(z=<value>)."
+                )
             if isinstance(v, Position):
                 positions.append(v)
             elif isinstance(v, dict):
@@ -307,6 +377,31 @@ class MDASequence(UseqModel):
                         "keep_shutter_open_across cannot currently be set on a "
                         "Position sequence"
                     )
+
+            # warn and clear x/y on positions when using a global absolute grid
+            if self.grid_plan is not None and not self.grid_plan.is_relative:
+                new_positions = list(self.stage_positions)
+                for i, p in enumerate(new_positions):
+                    # skip positions with their own sub-sequence grid;
+                    # x/y serves as the origin for that grid
+                    if p.sequence is not None and p.sequence.grid_plan:
+                        continue
+                    if p.x is not None or p.y is not None:
+                        import warnings
+
+                        warnings.warn(
+                            f"Position x={p.x!r}, y={p.y!r} is ignored when "
+                            f"using a global absolute grid plan "
+                            f"({type(self.grid_plan).__name__}). "
+                            "Set x=None, y=None on the position to silence "
+                            "this warning. In a future version this will raise "
+                            "an error.",
+                            UserWarning,
+                            stacklevel=2,
+                        )
+                        new_positions[i] = p.model_copy(update={"x": None, "y": None})
+                object.__setattr__(self, "stage_positions", tuple(new_positions))
+
         return self
 
     def __eq__(self, other: Any) -> bool:

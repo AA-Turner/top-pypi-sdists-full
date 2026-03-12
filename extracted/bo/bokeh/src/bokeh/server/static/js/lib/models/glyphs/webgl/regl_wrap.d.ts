@@ -4,7 +4,7 @@ import type * as t from "./types";
 import type { GLMarkerType } from "./types";
 import type { DashReturn } from "./dash_cache";
 export declare function get_regl(gl: WebGLRenderingContext): ReglWrapper;
-type ReglRenderFunction<T = {}> = (props: T) => void;
+type ReglRenderFunction<T = object> = (props: T) => void;
 export declare class ReglWrapper {
     private _regl;
     private _regl_available;

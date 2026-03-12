@@ -31,23 +31,17 @@ from ....core.enums import (
     TextAlign,
     VerticalAlign,
 )
-from ....core.properties import (
-    Alpha,
-    Angle,
-    AngleSpec,
-    Color,
-    CoordinateLike,
-    Enum,
-    Float,
-    Include,
-    Nullable,
-    NullStringSpec,
-    NumberSpec,
-    Override,
-    Required,
-    String,
-    field,
-)
+from ....core.property.aliases import CoordinateLike
+from ....core.property.color import Alpha, Color
+from ....core.property.dataspec import AngleSpec, NullStringSpec, NumberSpec
+from ....core.property.enum import Enum
+from ....core.property.include import Include
+from ....core.property.nullable import Nullable
+from ....core.property.numeric import Angle
+from ....core.property.override import Override
+from ....core.property.primitive import Float, String
+from ....core.property.required import Required
+from ....core.property.vectorization import field
 from ....core.property_aliases import BorderRadius, Padding
 from ....core.property_mixins import (
     FillProps,
@@ -338,7 +332,11 @@ class HTMLTitle(HTMLTextAnnotation):
     """)
 
     text_outline_color = Nullable(Color, default=None, help="""
-    A color to use to fill text with.
+    A color to use for an outline stroke.
+    """)
+
+    text_outline_width = Float(default=1, help="""
+    A width for the outline stroke in pixels when an outline color is defined for the text.
     """)
 
     text_alpha = Alpha(help="""

@@ -22,19 +22,14 @@ log = logging.getLogger(__name__)
 from typing import Any
 
 # Bokeh imports
-from ...core.properties import (
-    Bool,
-    Either,
-    Instance,
-    List,
-    Null,
-    Nullable,
-    Required,
-    String,
-)
+from ...core.property.container import List
+from ...core.property.either import Either
+from ...core.property.instance import Instance
+from ...core.property.nullable import Nullable
+from ...core.property.primitive import Bool, Null, String
+from ...core.property.required import Required
 from ...core.property_aliases import IconLike
 from ...model import Model
-from ...util.deprecation import deprecated
 from ..callbacks import Callback
 from .ui_element import UIElement
 
@@ -110,6 +105,8 @@ class ActionItem(MenuItem):
 
     # explicit __init__ to support Init signatures
     def __init__(self, *args: Any, **kwargs: Any) -> None:
+        from ...util.deprecation import deprecated
+
         deprecated((3, 7, 0), "ActionItem", "MenuItem")
         super().__init__(*args, **kwargs)
 
@@ -118,6 +115,8 @@ class CheckableItem(MenuItem):
 
     # explicit __init__ to support Init signatures
     def __init__(self, *args: Any, **kwargs: Any) -> None:
+        from ...util.deprecation import deprecated
+
         deprecated((3, 7, 0), "CheckableItem", "ActionItem.checked")
         super().__init__(*args, **kwargs)
 

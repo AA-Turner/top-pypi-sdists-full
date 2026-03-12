@@ -1,10 +1,10 @@
-"""Encoding equivalences and legacy name remapping.
+"""Encoding equivalences and name remapping.
 
 This module defines:
 
 1. **Directional supersets** for accuracy evaluation: detecting a superset
    encoding when the expected encoding is a subset is correct (e.g., detecting
-   utf-8 when expected is ascii), but not the reverse.
+   UTF-8 when expected is ASCII), but not the reverse.
 
 2. **Bidirectional equivalents**: groups of encodings where detecting any
    member when another member was expected is considered correct.  This
@@ -12,30 +12,23 @@ This module defines:
    different byte order) and ISO-2022-JP branch variants (which are
    compatible extensions of the same base encoding).
 
-3. **Preferred superset mapping** for the ``should_rename_legacy`` API option:
+3. **Preferred superset mapping** for the ``prefer_superset`` API option:
    replaces detected ISO/subset encoding names with their Windows/CP superset
    equivalents that modern software actually uses.
+
+4. **Compatibility names** for the default ``compat_names=True`` mode: maps
+   internal Python codec names to the names chardet 5.x/6.x returned,
+   preserving backward compatibility for callers that compare encoding
+   strings directly.
 """
 
 from __future__ import annotations
 
-import codecs
 import unicodedata
+from collections.abc import Callable
 
 from chardet.pipeline import DetectionDict
-
-
-def normalize_encoding_name(name: str) -> str:
-    """Normalize encoding name for comparison.
-
-    :param name: The encoding name to normalize.
-    :returns: The canonical codec name, or a lowered/stripped fallback.
-    """
-    try:
-        return codecs.lookup(name).name
-    except LookupError:
-        return name.lower().replace("-", "").replace("_", "")
-
+from chardet.registry import lookup_encoding
 
 # Directional superset relationships: detecting any of the supersets
 # when the expected encoding is the subset counts as correct.
@@ -47,31 +40,35 @@ def normalize_encoding_name(name: str) -> str:
 # chardet test-suite expected values use these names, so the superset
 # mapping is needed for accuracy evaluation only.
 SUPERSETS: dict[str, frozenset[str]] = {
-    "ascii": frozenset({"utf-8", "windows-1252"}),
-    "tis-620": frozenset({"iso-8859-11", "cp874"}),
-    "iso-8859-11": frozenset({"cp874"}),
-    "gb2312": frozenset({"gb18030"}),
-    "gbk": frozenset({"gb18030"}),
-    "big5": frozenset({"big5hkscs", "cp950"}),
-    "shift_jis": frozenset({"cp932", "shift_jis_2004"}),
-    "shift-jisx0213": frozenset({"shift_jis_2004"}),
-    "euc-jp": frozenset({"euc-jis-2004"}),
-    "euc-jisx0213": frozenset({"euc-jis-2004"}),
-    "euc-kr": frozenset({"cp949"}),
-    "cp037": frozenset({"cp1140"}),
-    # ISO-2022-JP subsets: any branch variant is acceptable
-    "iso-2022-jp": frozenset({"iso2022-jp-2", "iso2022-jp-2004", "iso2022-jp-ext"}),
-    "iso2022-jp-1": frozenset({"iso2022-jp-2", "iso2022-jp-ext"}),
-    "iso2022-jp-3": frozenset({"iso2022-jp-2004"}),
+    "ASCII": frozenset({"utf-8", "cp1252"}),
+    "TIS-620": frozenset({"iso8859-11", "cp874"}),
+    "ISO-8859-11": frozenset({"cp874"}),
+    "GB2312": frozenset({"gb18030"}),
+    "GBK": frozenset({"gb18030"}),
+    "Big5": frozenset({"big5hkscs", "cp950"}),
+    "Shift_JIS": frozenset({"cp932", "shift_jis_2004"}),
+    "Shift-JISX0213": frozenset({"shift_jis_2004"}),
+    "EUC-JP": frozenset({"euc_jis_2004"}),
+    "EUC-JISX0213": frozenset({"euc_jis_2004"}),
+    "EUC-KR": frozenset({"cp949"}),
+    "CP037": frozenset({"cp1140"}),
+    # ISO-2022-JP subsets: any branch variant is acceptable.
+    # ISO2022-JP-1 and ISO2022-JP-3 use Python codec names (no hyphen between
+    # "ISO" and "2022") because they appear as expected values in the test suite,
+    # not as canonical chardet output.  They are consumed through
+    # _NORMALIZED_SUPERSETS which normalizes via codecs.lookup().
+    "ISO-2022-JP": frozenset({"iso2022_jp_2", "iso2022_jp_2004", "iso2022_jp_ext"}),
+    "ISO2022-JP-1": frozenset({"iso2022_jp_2", "iso2022_jp_ext"}),
+    "ISO2022-JP-3": frozenset({"iso2022_jp_2004"}),
     # ISO/Windows superset pairs
-    "iso-8859-1": frozenset({"windows-1252"}),
-    "iso-8859-2": frozenset({"windows-1250"}),
-    "iso-8859-5": frozenset({"windows-1251"}),
-    "iso-8859-6": frozenset({"windows-1256"}),
-    "iso-8859-7": frozenset({"windows-1253"}),
-    "iso-8859-8": frozenset({"windows-1255"}),
-    "iso-8859-9": frozenset({"windows-1254"}),
-    "iso-8859-13": frozenset({"windows-1257"}),
+    "ISO-8859-1": frozenset({"cp1252"}),
+    "ISO-8859-2": frozenset({"cp1250"}),
+    "ISO-8859-5": frozenset({"cp1251"}),
+    "ISO-8859-6": frozenset({"cp1256"}),
+    "ISO-8859-7": frozenset({"cp1253"}),
+    "ISO-8859-8": frozenset({"cp1255"}),
+    "ISO-8859-9": frozenset({"cp1254"}),
+    "ISO-8859-13": frozenset({"cp1257"}),
 }
 
 # Preferred superset name for each encoding, used by the ``should_rename_legacy``
@@ -80,22 +77,30 @@ SUPERSETS: dict[str, frozenset[str]] = {
 # etc. treat these ISO subsets as their Windows counterparts).
 # Values use display-cased names (e.g. "Windows-1252") to match chardet 6.x output.
 PREFERRED_SUPERSET: dict[str, str] = {
-    "ascii": "Windows-1252",
-    "euc-kr": "CP949",
-    "iso-8859-1": "Windows-1252",
-    "iso-8859-2": "Windows-1250",
-    "iso-8859-5": "Windows-1251",
-    "iso-8859-6": "Windows-1256",
-    "iso-8859-7": "Windows-1253",
-    "iso-8859-8": "Windows-1255",
-    "iso-8859-9": "Windows-1254",
-    "iso-8859-11": "CP874",
-    "iso-8859-13": "Windows-1257",
-    "tis-620": "CP874",
+    "ascii": "cp1252",
+    "euc_kr": "cp949",
+    "iso8859-1": "cp1252",
+    "iso8859-2": "cp1250",
+    "iso8859-5": "cp1251",
+    "iso8859-6": "cp1256",
+    "iso8859-7": "cp1253",
+    "iso8859-8": "cp1255",
+    "iso8859-9": "cp1254",
+    "iso8859-11": "cp874",
+    "iso8859-13": "cp1257",
+    "tis-620": "cp874",
 }
 
 
-def apply_legacy_rename(
+def _remap_encoding(result: DetectionDict, mapping: dict[str, str]) -> DetectionDict:
+    """Replace the encoding name using *mapping*, modifying *result* in-place."""
+    enc = result.get("encoding")
+    if isinstance(enc, str):
+        result["encoding"] = mapping.get(enc, enc)
+    return result
+
+
+def apply_preferred_superset(
     result: DetectionDict,
 ) -> DetectionDict:
     """Replace the encoding name with its preferred Windows/CP superset.
@@ -106,17 +111,79 @@ def apply_legacy_rename(
     :param result: A detection result dict containing an ``"encoding"`` key.
     :returns: The same *result* dict, modified in-place.
     """
-    enc = result.get("encoding")
-    if isinstance(enc, str):
-        result["encoding"] = PREFERRED_SUPERSET.get(enc.lower(), enc)
-    return result
+    return _remap_encoding(result, PREFERRED_SUPERSET)
+
+
+# Deprecated alias — kept for external consumers.
+apply_legacy_rename = apply_preferred_superset
+
+
+# Mapping from Python codec names to chardet 5.x/6.x compatible display names.
+# Only entries where codec name differs from the compat output are listed.
+# Encodings where codec name == compat name (e.g., "ascii", "utf-8") and
+# encodings new to v7 have no entry — the codec name passes through unchanged.
+_COMPAT_NAMES: dict[str, str] = {
+    # 5.x compat — these encodings existed in chardet 5.x with different names
+    "big5hkscs": "Big5",
+    "cp855": "IBM855",
+    "cp866": "IBM866",
+    "cp949": "CP949",
+    "euc_jis_2004": "EUC-JP",
+    "euc_kr": "EUC-KR",
+    "gb18030": "GB18030",
+    "hz": "HZ-GB-2312",
+    "iso2022_jp_2": "ISO-2022-JP",
+    "iso2022_kr": "ISO-2022-KR",
+    "iso8859-1": "ISO-8859-1",
+    "iso8859-5": "ISO-8859-5",
+    "iso8859-7": "ISO-8859-7",
+    "iso8859-8": "ISO-8859-8",
+    "iso8859-9": "ISO-8859-9",
+    "johab": "Johab",
+    "koi8-r": "KOI8-R",
+    "mac-cyrillic": "MacCyrillic",
+    "mac-roman": "MacRoman",
+    "shift_jis_2004": "SHIFT_JIS",
+    "tis-620": "TIS-620",
+    "utf-16": "UTF-16",
+    "utf-32": "UTF-32",
+    "utf-8-sig": "UTF-8-SIG",
+    "cp1251": "Windows-1251",
+    "cp1252": "Windows-1252",
+    "cp1253": "Windows-1253",
+    "cp1254": "Windows-1254",
+    "cp1255": "Windows-1255",
+    # 6.x compat — new in chardet 6.x with different names
+    "kz1048": "KZ1048",
+    "mac-greek": "MacGreek",
+    "mac-iceland": "MacIceland",
+    "mac-latin2": "MacLatin2",
+    "mac-turkish": "MacTurkish",
+}
+
+# Backward compat alias
+_LEGACY_NAMES = _COMPAT_NAMES
+
+
+def apply_compat_names(
+    result: DetectionDict,
+) -> DetectionDict:
+    """Convert internal codec names to chardet 5.x/6.x compatible names.
+
+    Modifies the ``"encoding"`` value in *result* in-place and returns *result*
+    for fluent chaining.
+
+    :param result: A detection result dict containing an ``"encoding"`` key.
+    :returns: The same *result* dict, modified in-place.
+    """
+    return _remap_encoding(result, _COMPAT_NAMES)
 
 
 # Bidirectional equivalents -- groups where any member is acceptable for any other.
 BIDIRECTIONAL_GROUPS: tuple[tuple[str, ...], ...] = (
     ("utf-16", "utf-16-le", "utf-16-be"),
     ("utf-32", "utf-32-le", "utf-32-be"),
-    ("iso2022-jp-2", "iso2022-jp-2004", "iso2022-jp-ext"),
+    ("iso2022_jp_2", "iso2022_jp_2004", "iso2022_jp_ext"),
 )
 
 # Bidirectional language equivalences — groups of ISO 639-1 codes for
@@ -140,17 +207,20 @@ LANGUAGE_EQUIVALENCES: tuple[tuple[str, ...], ...] = (
 )
 
 
-def _build_language_equiv_index() -> dict[str, frozenset[str]]:
-    """Build a lookup: ISO code -> frozenset of all equivalent ISO codes."""
+def _build_group_index(
+    groups: tuple[tuple[str, ...], ...],
+    normalize: Callable[[str], str] = lambda x: x,
+) -> dict[str, frozenset[str]]:
+    """Build a lookup: key -> frozenset of all equivalent keys in the same group."""
     result: dict[str, frozenset[str]] = {}
-    for group in LANGUAGE_EQUIVALENCES:
-        group_set = frozenset(group)
-        for code in group:
-            result[code] = group_set
+    for group in groups:
+        normed = frozenset(normalize(n) for n in group)
+        for name in group:
+            result[normalize(name)] = normed
     return result
 
 
-_LANGUAGE_EQUIV: dict[str, frozenset[str]] = _build_language_equiv_index()
+_LANGUAGE_EQUIV: dict[str, frozenset[str]] = _build_group_index(LANGUAGE_EQUIVALENCES)
 
 
 def is_language_equivalent(expected: str, detected: str) -> bool:
@@ -171,25 +241,19 @@ def is_language_equivalent(expected: str, detected: str) -> bool:
 
 
 # Pre-built normalized lookups for fast comparison.
-_NORMALIZED_SUPERSETS: dict[str, frozenset[str]] = {
-    normalize_encoding_name(subset): frozenset(
-        normalize_encoding_name(s) for s in supersets
-    )
-    for subset, supersets in SUPERSETS.items()
-}
+# Built iteratively because multiple SUPERSETS keys can normalize to the same
+# canonical name (e.g., Shift_JIS and Shift-JISX0213 both → shift_jis_2004).
+# Values are merged (unioned) when keys collide.
+_NORMALIZED_SUPERSETS: dict[str, frozenset[str]] = {}
+for _subset, _supersets in SUPERSETS.items():
+    _key = lookup_encoding(_subset) or _subset
+    _normed = frozenset(lookup_encoding(s) or s for s in _supersets)
+    _NORMALIZED_SUPERSETS[_key] = _NORMALIZED_SUPERSETS.get(_key, frozenset()) | _normed
 
 
-def _build_bidir_index() -> dict[str, frozenset[str]]:
-    """Build the bidirectional equivalence lookup index."""
-    result: dict[str, frozenset[str]] = {}
-    for group in BIDIRECTIONAL_GROUPS:
-        normed = frozenset(normalize_encoding_name(n) for n in group)
-        for name in group:
-            result[normalize_encoding_name(name)] = normed
-    return result
-
-
-_NORMALIZED_BIDIR: dict[str, frozenset[str]] = _build_bidir_index()
+_NORMALIZED_BIDIR: dict[str, frozenset[str]] = _build_group_index(
+    BIDIRECTIONAL_GROUPS, normalize=lambda n: lookup_encoding(n) or n
+)
 
 
 def is_correct(expected: str | None, detected: str | None) -> bool:
@@ -209,8 +273,8 @@ def is_correct(expected: str | None, detected: str | None) -> bool:
         return detected is None
     if detected is None:
         return False
-    norm_exp = normalize_encoding_name(expected)
-    norm_det = normalize_encoding_name(detected)
+    norm_exp = lookup_encoding(expected) or expected.lower()
+    norm_det = lookup_encoding(detected) or detected.lower()
 
     # 1. Exact match
     if norm_exp == norm_det:
@@ -287,8 +351,8 @@ def is_equivalent_detection(
     if detected is None:
         return False
 
-    norm_exp = normalize_encoding_name(expected)
-    norm_det = normalize_encoding_name(detected)
+    norm_exp = lookup_encoding(expected) or expected.lower()
+    norm_det = lookup_encoding(detected) or detected.lower()
 
     if norm_exp == norm_det:
         return True

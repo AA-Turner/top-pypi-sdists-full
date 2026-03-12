@@ -5,34 +5,104 @@ this module is compiled with mypyc, which does not support PEP 563 string
 annotations.
 """
 
+import functools
 import importlib.resources
 import math
 import struct
-import threading
 import warnings
 
-from chardet.registry import REGISTRY
+from chardet.registry import REGISTRY, lookup_encoding
+
+_unpack_uint32 = struct.Struct(">I").unpack_from
+_iter_3bytes = struct.Struct(">BBB").iter_unpack
 
 #: Weight applied to non-ASCII bigrams during profile construction.
 #: Imported by pipeline/confusion.py for focused bigram re-scoring.
 NON_ASCII_BIGRAM_WEIGHT: int = 8
-
-_MODEL_CACHE: dict[str, bytearray] | None = None
-_MODEL_CACHE_LOCK = threading.Lock()
-# Pre-grouped index: encoding name -> [(lang, model, model_key), ...]
-_ENC_INDEX: dict[str, list[tuple[str | None, bytearray, str]]] | None = None
-_ENC_INDEX_LOCK = threading.Lock()
-# Cached L2 norms for all models, keyed by model key string (e.g. "French/windows-1252")
-_MODEL_NORMS: dict[str, float] | None = None
-_MODEL_NORMS_LOCK = threading.Lock()
 # Encodings that map to exactly one language, derived from the registry.
-# Includes aliases so that e.g. "big5" resolves the same as "big5hkscs".
+# Keyed by canonical name only — callers always use canonical names.
 _SINGLE_LANG_MAP: dict[str, str] = {}
 for _enc in REGISTRY.values():
     if len(_enc.languages) == 1:
         _SINGLE_LANG_MAP[_enc.name] = _enc.languages[0]
-        for _alias in _enc.aliases:
-            _SINGLE_LANG_MAP[_alias] = _enc.languages[0]
+
+
+def _parse_models_bin(
+    data: bytes,
+) -> tuple[dict[str, bytearray], dict[str, float]]:
+    """Parse the binary models.bin format into model tables and L2 norms.
+
+    :param data: Raw bytes of models.bin (must be non-empty).
+    :returns: A ``(models, norms)`` tuple.
+    :raises ValueError: If the data is corrupt or truncated.
+    """
+    models: dict[str, bytearray] = {}
+    norms: dict[str, float] = {}
+    _sqrt = math.sqrt
+    _unpack_u32 = _unpack_uint32
+    _iter_bbb = _iter_3bytes
+    try:
+        offset = 0
+        (num_encodings,) = _unpack_u32(data, offset)
+        offset += 4
+
+        if num_encodings > 10_000:
+            msg = f"corrupt models.bin: num_encodings={num_encodings} exceeds limit"
+            raise ValueError(msg)
+
+        for _ in range(num_encodings):
+            (name_len,) = _unpack_u32(data, offset)
+            offset += 4
+            if name_len > 256:
+                msg = f"corrupt models.bin: name_len={name_len} exceeds 256"
+                raise ValueError(msg)
+            name = data[offset : offset + name_len].decode("utf-8")
+            offset += name_len
+            (num_entries,) = _unpack_u32(data, offset)
+            offset += 4
+            if num_entries > 65536:
+                msg = f"corrupt models.bin: num_entries={num_entries} exceeds 65536"
+                raise ValueError(msg)
+
+            table = bytearray(65536)
+            sq_sum = 0
+            expected_bytes = num_entries * 3
+            chunk = data[offset : offset + expected_bytes]
+            if len(chunk) != expected_bytes:
+                msg = f"corrupt models.bin: truncated entry data for {name!r}"
+                raise ValueError(msg)
+            offset += expected_bytes
+            for b1, b2, weight in _iter_bbb(chunk):
+                table[(b1 << 8) | b2] = weight
+                sq_sum += weight * weight
+            models[name] = table
+            norms[name] = _sqrt(sq_sum)
+    except (struct.error, UnicodeDecodeError) as e:
+        msg = f"corrupt models.bin: {e}"
+        raise ValueError(msg) from e
+
+    return models, norms
+
+
+@functools.cache
+def _load_models_data() -> tuple[dict[str, bytearray], dict[str, float]]:
+    """Load and parse models.bin, returning (models, norms).
+
+    Cached: only reads from disk on first call.
+    """
+    ref = importlib.resources.files("chardet.models").joinpath("models.bin")
+    data = ref.read_bytes()
+
+    if not data:
+        warnings.warn(
+            "chardet models.bin is empty — statistical detection disabled; "
+            "reinstall chardet to fix",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+        return {}, {}
+
+    return _parse_models_bin(data)
 
 
 def load_models() -> dict[str, bytearray]:
@@ -43,91 +113,36 @@ def load_models() -> dict[str, bytearray]:
 
     :returns: A dict mapping model key strings to 65536-byte lookup tables.
     """
-    global _MODEL_CACHE  # noqa: PLW0603
-    if _MODEL_CACHE is not None:
-        return _MODEL_CACHE
-
-    with _MODEL_CACHE_LOCK:
-        # No re-check: mypyc type-narrows _MODEL_CACHE to None after the
-        # outer check, so a re-read here would hit a TypeError under mypyc.
-        # Worst case two threads both build on first call (idempotent).
-        models: dict[str, bytearray] = {}
-        ref = importlib.resources.files("chardet.models").joinpath("models.bin")
-        data = ref.read_bytes()
-
-        if not data:
-            warnings.warn(
-                "chardet models.bin is empty — statistical detection disabled; "
-                "reinstall chardet to fix",
-                RuntimeWarning,
-                stacklevel=2,
-            )
-            _MODEL_CACHE = models
-            return models
-
-        try:
-            offset = 0
-            (num_encodings,) = struct.unpack_from("!I", data, offset)
-            offset += 4
-
-            if num_encodings > 10_000:
-                msg = f"corrupt models.bin: num_encodings={num_encodings} exceeds limit"
-                raise ValueError(msg)
-
-            for _ in range(num_encodings):
-                (name_len,) = struct.unpack_from("!I", data, offset)
-                offset += 4
-                if name_len > 256:
-                    msg = f"corrupt models.bin: name_len={name_len} exceeds 256"
-                    raise ValueError(msg)
-                name = data[offset : offset + name_len].decode("utf-8")
-                offset += name_len
-                (num_entries,) = struct.unpack_from("!I", data, offset)
-                offset += 4
-                if num_entries > 65536:
-                    msg = f"corrupt models.bin: num_entries={num_entries} exceeds 65536"
-                    raise ValueError(msg)
-
-                table = bytearray(65536)
-                for _ in range(num_entries):
-                    b1, b2, weight = struct.unpack_from("!BBB", data, offset)
-                    offset += 3
-                    table[(b1 << 8) | b2] = weight
-                models[name] = table
-        except (struct.error, UnicodeDecodeError) as e:
-            msg = f"corrupt models.bin: {e}"
-            raise ValueError(msg) from e
-
-        _MODEL_CACHE = models
-        return models
+    return _load_models_data()[0]
 
 
+def _build_enc_index(
+    models: dict[str, bytearray],
+) -> dict[str, list[tuple[str | None, bytearray, str]]]:
+    """Build a grouped index from a models dict.
+
+    :param models: Mapping of ``"lang/encoding"`` keys to 65536-byte tables.
+    :returns: Mapping of encoding name to ``[(lang, model, model_key), ...]``.
+    """
+    index: dict[str, list[tuple[str | None, bytearray, str]]] = {}
+    for key, model in models.items():
+        lang, enc = key.split("/", 1)
+        index.setdefault(enc, []).append((lang, model, key))
+
+    # Resolve aliases: if a model key uses a non-canonical name,
+    # copy the entry under the canonical name.
+    for enc_name in list(index):
+        canonical = lookup_encoding(enc_name)
+        if canonical is not None and canonical not in index:
+            index[canonical] = index[enc_name]
+
+    return index
+
+
+@functools.cache
 def get_enc_index() -> dict[str, list[tuple[str | None, bytearray, str]]]:
     """Return a pre-grouped index mapping encoding name -> [(lang, model, model_key), ...]."""
-    global _ENC_INDEX  # noqa: PLW0603
-    if _ENC_INDEX is not None:
-        return _ENC_INDEX
-    with _ENC_INDEX_LOCK:
-        # No re-check: mypyc type-narrows _ENC_INDEX to None after the
-        # outer check, so a re-read here would hit a TypeError under mypyc.
-        models = load_models()
-        index: dict[str, list[tuple[str | None, bytearray, str]]] = {}
-        for key, model in models.items():
-            lang, enc = key.split("/", 1)
-            index.setdefault(enc, []).append((lang, model, key))
-
-        # Resolve aliases: if a model key matches a registry alias but not
-        # the primary name, copy the entry under the primary name.
-        alias_to_primary: dict[str, str] = {}
-        for entry in REGISTRY.values():
-            for alias in entry.aliases:
-                alias_to_primary[alias] = entry.name
-        for alias, primary in alias_to_primary.items():
-            if alias in index and primary not in index:
-                index[primary] = index[alias]
-
-        _ENC_INDEX = index
-        return index
+    return _build_enc_index(load_models())
 
 
 def infer_language(encoding: str) -> str | None:
@@ -151,23 +166,7 @@ def has_model_variants(encoding: str) -> bool:
 
 def _get_model_norms() -> dict[str, float]:
     """Return cached L2 norms for all models, keyed by model key string."""
-    global _MODEL_NORMS  # noqa: PLW0603
-    if _MODEL_NORMS is not None:
-        return _MODEL_NORMS
-    with _MODEL_NORMS_LOCK:
-        # No re-check: mypyc type-narrows _MODEL_NORMS to None after the
-        # outer check, so a re-read here would hit a TypeError under mypyc.
-        models = load_models()
-        norms: dict[str, float] = {}
-        for key, model in models.items():
-            sq_sum = 0
-            for i in range(65536):
-                v = model[i]
-                if v:
-                    sq_sum += v * v
-            norms[key] = math.sqrt(sq_sum)
-        _MODEL_NORMS = norms
-        return norms
+    return _load_models_data()[1]
 
 
 class BigramProfile:

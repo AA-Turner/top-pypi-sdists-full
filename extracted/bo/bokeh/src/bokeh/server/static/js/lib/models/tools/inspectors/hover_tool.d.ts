@@ -1,9 +1,10 @@
-import type { ViewStorage, IterViews, ViewOf } from "../../../core/build_views";
+import type { ViewStorage, View, ViewOf } from "../../../core/build_views";
 import { Anchor, HoverMode, LinePolicy, MutedPolicy, PointPolicy, TooltipAttachment } from "../../../core/enums";
 import type { Geometry, GeometryData, PointGeometry, SpanGeometry } from "../../../core/geometry";
 import type * as p from "../../../core/properties";
 import type { Arrayable, Dict } from "../../../core/types";
 import type { MoveEvent } from "../../../core/ui_events";
+import type { BBox } from "../../../core/util/bbox";
 import type { CallbackLike1 } from "../../../core/util/callbacks";
 import type { Formatters, Index } from "../../../core/util/templating";
 import { Tooltip } from "../../ui/tooltip";
@@ -47,11 +48,12 @@ type InspectDims = "xy" | "x" | "y";
 export declare class HoverToolView extends InspectToolView {
     model: HoverTool;
     protected _current_sxy: [number, number, InspectDims] | null;
+    protected _current_bbox: BBox | null;
     readonly ttmodels: Map<GlyphRenderer, Tooltip>;
     protected readonly _ttviews: ViewStorage<Tooltip>;
     protected _template_el?: HTMLElement;
     protected _template_view?: ViewOf<DOMElement>;
-    children(): IterViews;
+    children_views(): View[];
     protected _update_filters(): Promise<void>;
     lazy_initialize(): Promise<void>;
     remove(): void;

@@ -4,15 +4,15 @@ requires = ["setuptools>=77.0.3"]
 
 [project]
 name = "types-WTForms"
-version = "3.2.1.20250809"
+version = "3.2.1.20260312"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for WTForms"
 readme = { text = """\
 ## Typing stubs for WTForms
 
-This is a [PEP 561](https://peps.python.org/pep-0561/) type stub package for
-the [`WTForms`](https://github.com/pallets-eco/wtforms) package. It can be used by type checkers
+This is a [type stub package](https://typing.python.org/en/latest/tutorials/external_libraries.html)
+for the [`WTForms`](https://github.com/pallets-eco/wtforms) package. It can be used by type checkers
 to check code that uses `WTForms`. This version of
 `types-WTForms` aims to provide accurate annotations for
 `WTForms~=3.2.1`.
@@ -25,17 +25,17 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 1.16.1
-* [pyright](https://github.com/microsoft/pyright) 1.1.403
+* [mypy](https://github.com/python/mypy/) 1.19.1
+* [pyright](https://github.com/microsoft/pyright) 1.1.408
 
 It was generated from typeshed commit
-[`91ba0da4aad754c912a82b9e052cb4f8191ce520`](https://github.com/python/typeshed/commit/91ba0da4aad754c912a82b9e052cb4f8191ce520).
+[`25438e5f21be7f0ac15fe305c7183d74dc2e6923`](https://github.com/python/typeshed/commit/25438e5f21be7f0ac15fe305c7183d74dc2e6923).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",
   "Typing :: Stubs Only",
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = ['MarkupSafe']
 
 [project.urls]
@@ -48,3 +48,6 @@ dependencies = ['MarkupSafe']
 [tool.setuptools]
 packages = ['wtforms-stubs']
 include-package-data = false
+
+[tool.setuptools.package-data]
+'wtforms-stubs' = ['__init__.pyi', 'csrf/__init__.pyi', 'csrf/core.pyi', 'csrf/session.pyi', 'fields/__init__.pyi', 'fields/choices.pyi', 'fields/core.pyi', 'fields/datetime.pyi', 'fields/form.pyi', 'fields/list.pyi', 'fields/numeric.pyi', 'fields/simple.pyi', 'form.pyi', 'i18n.pyi', 'meta.pyi', 'utils.pyi', 'validators.pyi', 'widgets/__init__.pyi', 'widgets/core.pyi', 'METADATA.toml', 'py.typed']

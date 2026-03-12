@@ -61,6 +61,7 @@ use crate::stdlib::Stdlib;
 use crate::tensor::TensorType;
 use crate::tuple::Tuple;
 use crate::type_alias::TypeAliasData;
+use crate::type_var::Restriction;
 use crate::type_var::TypeVar;
 use crate::type_var_tuple::TypeVarTuple;
 use crate::typed_dict::TypedDict;
@@ -165,6 +166,60 @@ impl TParams {
 
     pub fn extend(&mut self, other: &TParams) {
         self.0.extend(other.iter().cloned());
+    }
+
+    /// Truncate recursive TArgs nesting in Quantified restrictions.
+    ///
+    /// During iterative fixpoint solving, TParams can grow unboundedly when
+    /// classes reference each other in type parameter bounds (either self-referentially
+    /// like `class C[T: C]`, or mutually like Session ↔ DataFrame ↔ Catalog).
+    /// Each iteration embeds the previous iteration's TParams one level deeper
+    /// through the chain: TParams → Restriction → ClassType → TArgs → TParams → ...
+    ///
+    /// This method enforces a structural invariant: within a Quantified's restriction,
+    /// any ClassType whose TArgs embed TParams with their own non-trivial restrictions
+    /// (Bound or Constraints) has its TArgs stripped to empty. This prevents recursive
+    /// nesting while preserving TArgs for simple cases like `T: List[int]` where the
+    /// inner TParams have only unrestricted type variables.
+    pub fn truncate_recursive_targs(self) -> Self {
+        let quantifieds = self
+            .0
+            .into_iter()
+            .map(|q| {
+                let new_restriction = match q.restriction() {
+                    Restriction::Bound(ty) => {
+                        Restriction::Bound(Self::strip_recursive_class_targs(ty.clone()))
+                    }
+                    Restriction::Constraints(tys) => Restriction::Constraints(
+                        tys.iter()
+                            .map(|ty| Self::strip_recursive_class_targs(ty.clone()))
+                            .collect(),
+                    ),
+                    Restriction::Unrestricted => Restriction::Unrestricted,
+                };
+                q.with_restriction(new_restriction)
+            })
+            .collect();
+        Self(quantifieds)
+    }
+
+    /// Walk a type tree and strip TArgs from any ClassType whose TArgs' TParams
+    /// have non-trivial restrictions (Bound or Constraints). Such TParams can
+    /// participate in recursive nesting across fixpoint iterations.
+    fn strip_recursive_class_targs(ty: Type) -> Type {
+        ty.transform(&mut |t| {
+            if let Type::ClassType(ct) = t
+                && !ct.targs().is_empty()
+                && Self::tparams_have_restrictions(ct.targs().tparams())
+            {
+                *t = Type::ClassType(ClassType::new(ct.class_object().dupe(), TArgs::default()));
+            }
+        })
+    }
+
+    /// Check if any Quantified in the TParams has a non-trivial restriction.
+    fn tparams_have_restrictions(tparams: &TParams) -> bool {
+        tparams.iter().any(|q| q.restriction().is_restricted())
     }
 }
 
@@ -839,6 +894,14 @@ impl Type {
         matches!(self, Type::Union(_))
     }
 
+    /// Returns the number of top-level alternatives in a union, or 1 for non-union types.
+    pub fn union_width(&self) -> usize {
+        match self {
+            Type::Union(u) => u.members.len(),
+            _ => 1,
+        }
+    }
+
     pub fn is_never(&self) -> bool {
         matches!(self, Type::Never(_))
     }
@@ -940,6 +1003,7 @@ impl Type {
                     visit(targ, f);
                 }
             };
+            // IMPORTANT: keep this match in sync with `transform_types_in_type_variable_positions`
             match ty {
                 // In `A[X]`, we only check `X` for a couple reasons:
                 // * If we were to blindly visit the entire ClassType, we would find Quantifieds in
@@ -953,6 +1017,8 @@ impl Type {
                 // `Self` is a keyword, not a user-written type variable reference, so we don't
                 // recurse into it when looking for type variable references.
                 Type::SelfType(_) => {}
+                // Enum literals contain `ClassType`s that we shouldn't visit.
+                Type::Literal(_) => {}
                 _ => ty.recurse(&mut |ty| visit(ty, f)),
             }
         }
@@ -1007,29 +1073,37 @@ impl Type {
         self.visit_type_variables(&mut f)
     }
 
-    /// Transform unreplaced references to legacy type variables. Note that references to in-scope
-    /// legacy type variables in functions and classes are replaced with Quantified, so unreplaced
-    /// references only appear in cases like a TypeVar definition or an out-of-scope type variable.
-    pub fn transform_raw_legacy_type_variables(&mut self, f: &mut dyn FnMut(&mut Type)) {
+    fn transform_types_in_type_variable_positions(&mut self, f: &mut dyn FnMut(&mut Type)) {
         fn visit(ty: &mut Type, f: &mut dyn FnMut(&mut Type)) {
-            if ty.is_raw_legacy_type_variable() {
-                f(ty);
-                return;
-            }
+            f(ty);
             let mut recurse_targs = |targs: &mut TArgs| {
                 for targ in targs.as_mut().iter_mut() {
                     visit(targ, f);
                 }
             };
+            // IMPORTANT: keep this match in sync with `visit_type_variables`
             match ty {
                 Type::ClassType(cls) => recurse_targs(cls.targs_mut()),
                 Type::TypedDict(TypedDict::TypedDict(td)) => recurse_targs(td.targs_mut()),
                 // `Self` is a keyword, not a user-written type variable reference.
                 Type::SelfType(_) => {}
+                // Enum literals contain `ClassType`s that we shouldn't visit.
+                Type::Literal(_) => {}
                 _ => ty.recurse_mut(&mut |ty| visit(ty, f)),
             }
         }
         visit(self, f)
+    }
+
+    /// Transform unreplaced references to legacy type variables. Note that references to in-scope
+    /// legacy type variables in functions and classes are replaced with Quantified, so unreplaced
+    /// references only appear in cases like a TypeVar definition or an out-of-scope type variable.
+    pub fn transform_raw_legacy_type_variables(&mut self, f: &mut dyn FnMut(&mut Type)) {
+        self.transform_types_in_type_variable_positions(&mut |ty| {
+            if ty.is_raw_legacy_type_variable() {
+                f(ty);
+            }
+        })
     }
 
     /// Check if the type contains a Var that may have been instantiated from a Quantified.
@@ -1048,6 +1122,18 @@ impl Type {
             }
         });
         vs
+    }
+
+    pub fn collect_all_vars(&self) -> Vec<Var> {
+        fn f(t: &Type, vars: &mut Vec<Var>) {
+            match t {
+                Type::Var(v) => vars.push(*v),
+                _ => t.recurse(&mut |t| f(t, vars)),
+            }
+        }
+        let mut vars = vec![];
+        f(self, &mut vars);
+        vars
     }
 
     pub fn is_kind_param_spec(&self) -> bool {
@@ -1480,102 +1566,6 @@ impl Type {
         })
     }
 
-    pub fn noreturn_to_never(self) -> Self {
-        self.transform(&mut |ty| {
-            if let Type::Never(style) = ty {
-                *style = NeverStyle::Never;
-            }
-        })
-    }
-
-    pub fn nonetype_to_none(self) -> Self {
-        self.transform(&mut |ty| {
-            if let Type::ClassType(cls) = ty
-                && cls.has_qname("types", "NoneType")
-            {
-                *ty = Type::None;
-            }
-        })
-    }
-
-    /// type[a | b] -> type[a] | type[b]
-    pub fn distribute_type_over_union(self, heap: &TypeHeap) -> Self {
-        self.transform(&mut |ty| {
-            if let Type::Type(box Type::Union(box Union { members, .. })) = ty {
-                *ty = unions(members.drain(..).map(Type::type_form).collect(), heap);
-            }
-        })
-    }
-
-    pub fn anon_typed_dicts(self, stdlib: &Stdlib) -> Self {
-        self.transform(&mut |ty| {
-            if let Type::TypedDict(TypedDict::Anonymous(inner)) = ty {
-                *ty = stdlib
-                    .dict(stdlib.str().clone().to_type(), inner.value_type.clone())
-                    .to_type()
-            }
-        })
-    }
-
-    pub fn anon_callables(self) -> Self {
-        self.transform(&mut |mut ty| {
-            if let Type::Function(func) = ty {
-                *ty = Type::Callable(Box::new(func.signature.clone()));
-            }
-            // Anonymize posonly parameters in callables and paramspec values.
-            fn transform_params(params: &mut ParamList) {
-                for param in params.items_mut() {
-                    if let Param::PosOnly(Some(_), ty, req) = param {
-                        *param = Param::PosOnly(None, ty.clone(), req.clone());
-                    }
-                }
-            }
-            ty.transform_toplevel_callable(
-                &mut |callable: &mut Callable| match &mut callable.params {
-                    Params::List(params) => {
-                        transform_params(params);
-                    }
-                    _ => {}
-                },
-            );
-            if let Type::ParamSpecValue(params) = &mut ty {
-                transform_params(params);
-            }
-        })
-    }
-
-    pub fn promote_typevar_values(self, stdlib: &Stdlib) -> Self {
-        self.transform(&mut |ty| match &ty {
-            Type::TypeVar(_) => *ty = stdlib.type_var().clone().to_type(),
-            Type::ParamSpec(_) => *ty = stdlib.param_spec().clone().to_type(),
-            Type::TypeVarTuple(_) => *ty = stdlib.type_var_tuple().clone().to_type(),
-            Type::QuantifiedValue(q) => *ty = q.class_type(stdlib).clone().to_type(),
-            _ => {}
-        })
-    }
-
-    pub fn sort_unions_and_drop_names(self) -> Self {
-        self.transform(&mut |ty| {
-            if let Type::Union(box Union {
-                members: ts,
-                display_name,
-            }) = ty
-            {
-                ts.sort();
-                *display_name = None;
-            }
-        })
-    }
-
-    /// Simplify intersection types to their fallback type.
-    pub fn simplify_intersections(self) -> Self {
-        self.transform(&mut |ty| {
-            if let Type::Intersect(box (_, fallback)) = ty {
-                *ty = fallback.clone();
-            }
-        })
-    }
-
     /// Used prior to display to ensure unique variables don't leak out non-deterministically.
     pub fn deterministic_printing(self) -> Self {
         self.transform(&mut |ty| {
@@ -1718,7 +1708,8 @@ impl Type {
     }
 
     pub fn materialize(&self) -> Self {
-        self.clone().transform(&mut |ty| {
+        let mut ty = self.clone();
+        ty.transform_types_in_type_variable_positions(&mut |ty| {
             if ty.is_any() {
                 *ty = Type::Materialization;
             }
@@ -1726,8 +1717,9 @@ impl Type {
                 if matches!(callable.params, Params::Ellipsis) {
                     callable.params = Params::Materialization;
                 }
-            })
-        })
+            });
+        });
+        ty
     }
 
     /// Creates a union from the provided types without simplifying

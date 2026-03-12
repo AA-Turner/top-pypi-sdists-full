@@ -278,6 +278,14 @@ class Client(BaseClient):
                 description
               }
               blockSize
+              topUpCustomCurrencyId
+              customCurrency {
+                displayName
+                units {
+                  singular
+                  plural
+                }
+              }
             }
 
             fragment PriceTierFragment on PriceTier {
@@ -763,6 +771,14 @@ class Client(BaseClient):
                 description
               }
               blockSize
+              topUpCustomCurrencyId
+              customCurrency {
+                displayName
+                units {
+                  singular
+                  plural
+                }
+              }
             }
 
             fragment PriceTierFragment on PriceTier {
@@ -1266,6 +1282,14 @@ class Client(BaseClient):
                 description
               }
               blockSize
+              topUpCustomCurrencyId
+              customCurrency {
+                displayName
+                units {
+                  singular
+                  plural
+                }
+              }
             }
 
             fragment PriceTierFragment on PriceTier {
@@ -1581,6 +1605,14 @@ class Client(BaseClient):
                 description
               }
               blockSize
+              topUpCustomCurrencyId
+              customCurrency {
+                displayName
+                units {
+                  singular
+                  plural
+                }
+              }
             }
 
             fragment PriceTierFragment on PriceTier {
@@ -1735,6 +1767,14 @@ class Client(BaseClient):
                 description
               }
               blockSize
+              topUpCustomCurrencyId
+              customCurrency {
+                displayName
+                units {
+                  singular
+                  plural
+                }
+              }
             }
 
             fragment PriceTierFragment on PriceTier {
@@ -2272,6 +2312,14 @@ class Client(BaseClient):
                 description
               }
               blockSize
+              topUpCustomCurrencyId
+              customCurrency {
+                displayName
+                units {
+                  singular
+                  plural
+                }
+              }
             }
 
             fragment PriceTierFragment on PriceTier {
@@ -2555,6 +2603,14 @@ class Client(BaseClient):
                 description
               }
               blockSize
+              topUpCustomCurrencyId
+              customCurrency {
+                displayName
+                units {
+                  singular
+                  plural
+                }
+              }
             }
 
             fragment PriceTierFragment on PriceTier {
@@ -2785,6 +2841,14 @@ class Client(BaseClient):
                 description
               }
               blockSize
+              topUpCustomCurrencyId
+              customCurrency {
+                displayName
+                units {
+                  singular
+                  plural
+                }
+              }
             }
 
             fragment PriceTierFragment on PriceTier {
@@ -2939,6 +3003,14 @@ class Client(BaseClient):
                 description
               }
               blockSize
+              topUpCustomCurrencyId
+              customCurrency {
+                displayName
+                units {
+                  singular
+                  plural
+                }
+              }
             }
 
             fragment PriceTierFragment on PriceTier {
@@ -3093,6 +3165,14 @@ class Client(BaseClient):
                 description
               }
               blockSize
+              topUpCustomCurrencyId
+              customCurrency {
+                displayName
+                units {
+                  singular
+                  plural
+                }
+              }
             }
 
             fragment PriceTierFragment on PriceTier {
@@ -3887,6 +3967,14 @@ class Client(BaseClient):
                 description
               }
               blockSize
+              topUpCustomCurrencyId
+              customCurrency {
+                displayName
+                units {
+                  singular
+                  plural
+                }
+              }
             }
 
             fragment PriceTierFragment on PriceTier {
@@ -4422,6 +4510,14 @@ class Client(BaseClient):
                 description
               }
               blockSize
+              topUpCustomCurrencyId
+              customCurrency {
+                displayName
+                units {
+                  singular
+                  plural
+                }
+              }
             }
 
             fragment PriceTierFragment on PriceTier {
@@ -5073,6 +5169,14 @@ class Client(BaseClient):
                 description
               }
               blockSize
+              topUpCustomCurrencyId
+              customCurrency {
+                displayName
+                units {
+                  singular
+                  plural
+                }
+              }
             }
 
             fragment PriceTierFragment on PriceTier {
@@ -5730,6 +5834,14 @@ class Client(BaseClient):
                 description
               }
               blockSize
+              topUpCustomCurrencyId
+              customCurrency {
+                displayName
+                units {
+                  singular
+                  plural
+                }
+              }
             }
 
             fragment PriceTierFragment on PriceTier {
@@ -7212,6 +7324,14 @@ class Client(BaseClient):
                 description
               }
               blockSize
+              topUpCustomCurrencyId
+              customCurrency {
+                displayName
+                units {
+                  singular
+                  plural
+                }
+              }
             }
 
             fragment PriceTierFragment on PriceTier {
@@ -7637,6 +7757,7 @@ class Client(BaseClient):
             fragment MockPaywallPriceFragment on PaywallPrice {
               billingModel
               billingPeriod
+              billingCadence
               billingId
               minUnitQuantity
               maxUnitQuantity
@@ -7660,6 +7781,14 @@ class Client(BaseClient):
                 displayName
               }
               blockSize
+              topUpCustomCurrencyId
+              customCurrency {
+                displayName
+                units {
+                  singular
+                  plural
+                }
+              }
             }
 
             fragment PackageCreditEntitlementFragment on PackageCreditEntitlement {

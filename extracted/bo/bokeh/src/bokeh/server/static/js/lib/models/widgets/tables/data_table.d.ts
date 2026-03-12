@@ -10,7 +10,7 @@ import { TableWidget } from "./table_widget";
 import { TableColumn } from "./table_column";
 import type { ColumnarDataSource } from "../../sources/columnar_data_source";
 import type { CDSView, CDSViewView } from "../../sources/cds_view";
-import type { IterViews } from "../../../core/build_views";
+import type { View } from "../../../core/build_views";
 export declare const AutosizeModes: {
     fit_columns: "FCV";
     fit_viewport: "FVC";
@@ -43,7 +43,7 @@ export declare class DataTableView extends WidgetView {
     private _filtered_selection;
     get data_source(): p.Property<ColumnarDataSource>;
     protected wrapper_el: HTMLElement;
-    children(): IterViews;
+    children_views(): View[];
     lazy_initialize(): Promise<void>;
     remove(): void;
     connect_signals(): void;

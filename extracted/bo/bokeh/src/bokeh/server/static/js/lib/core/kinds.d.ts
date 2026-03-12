@@ -27,11 +27,20 @@ declare const DOMNode: {
     readonly DOCUMENT_POSITION_CONTAINED_BY: 16;
     readonly DOCUMENT_POSITION_IMPLEMENTATION_SPECIFIC: 32;
 };
+export interface Kind<T> {
+    constructor: Function & {
+        __name__: string;
+    };
+}
 export declare abstract class Kind<T> {
     __type__: T;
     coerce?(value: unknown): unknown;
     abstract valid(value: unknown): value is this["__type__"];
     abstract may_have_refs(): boolean;
+    static readonly __name__: string;
+    get kind_name(): string;
+    get kind_args(): unknown[];
+    toString(): string;
 }
 export type Constructor<T> = Function & {
     prototype: T;
@@ -42,41 +51,35 @@ export declare namespace Kinds {
     }
     class Any extends Primitive<any> {
         valid(value: unknown): value is any;
-        toString(): string;
         may_have_refs(): boolean;
     }
     class Unknown extends Primitive<unknown> {
         valid(value: unknown): value is unknown;
-        toString(): string;
         may_have_refs(): boolean;
     }
     class Bool extends Primitive<boolean> {
         valid(value: unknown): value is boolean;
-        toString(): string;
     }
     class Ref<ObjType extends object> extends Kind<ObjType> {
         readonly obj_type: Constructor<ObjType>;
         constructor(obj_type: Constructor<ObjType>);
         valid(value: unknown): value is ObjType;
+        get type_name(): string;
         toString(): string;
         may_have_refs(): boolean;
     }
     class AnyRef<ObjType extends object> extends Kind<ObjType> {
         valid(value: unknown): value is ObjType;
-        toString(): string;
         may_have_refs(): boolean;
     }
     class Float extends Primitive<number> {
         valid(value: unknown): value is number;
-        toString(): string;
     }
     class Int extends Float {
         valid(value: unknown): value is number;
-        toString(): string;
     }
     class Percent extends Float {
         valid(value: unknown): value is number;
-        toString(): string;
     }
     type TupleKind<T extends unknown[]> = {
         [K in keyof T]: Kind<T[K]>;
@@ -90,21 +93,21 @@ export declare namespace Kinds {
         readonly types: TupleKind<T>;
         constructor(types: TupleKind<T>);
         valid(value: unknown): value is T[number];
-        toString(): string;
+        get kind_args(): unknown[];
         may_have_refs(): boolean;
     }
     class And<T0, T1> extends Kind<T0 & T1> {
         readonly types: [Kind<T0>, Kind<T1>];
         constructor(type0: Kind<T0>, type1: Kind<T1>);
         valid(value: unknown): value is T0 & T1;
-        toString(): string;
+        get kind_args(): unknown[];
         may_have_refs(): boolean;
     }
     class Tuple<T extends [unknown, ...unknown[]]> extends Kind<T> {
         readonly types: TupleKind<T>;
         constructor(types: TupleKind<T>);
         valid(value: unknown): value is T;
-        toString(): string;
+        get kind_args(): unknown[];
         may_have_refs(): boolean;
     }
     class Struct<T extends {
@@ -129,78 +132,75 @@ export declare namespace Kinds {
         readonly item_type: Kind<ItemType>;
         constructor(item_type: Kind<ItemType>);
         valid(value: unknown): value is ESIterable<ItemType>;
-        toString(): string;
+        get kind_args(): unknown[];
         may_have_refs(): boolean;
     }
     class Arrayable<ItemType> extends Kind<types.Arrayable<ItemType>> {
         readonly item_type: Kind<ItemType>;
         constructor(item_type: Kind<ItemType>);
         valid(value: unknown): value is types.Arrayable<ItemType>;
-        toString(): string;
+        get kind_args(): unknown[];
         may_have_refs(): boolean;
     }
     class List<ItemType> extends Kind<ItemType[]> {
         readonly item_type: Kind<ItemType>;
         constructor(item_type: Kind<ItemType>);
         valid(value: unknown): value is ItemType[];
-        toString(): string;
+        get kind_args(): unknown[];
         may_have_refs(): boolean;
     }
     class NonEmptyList<ItemType> extends List<ItemType> {
         valid(value: unknown): value is ItemType[];
-        toString(): string;
+        get kind_args(): unknown[];
     }
     class Null extends Primitive<null> {
         valid(value: unknown): value is null;
-        toString(): string;
     }
     class Nullable<BaseType> extends Kind<BaseType | null> {
         readonly base_type: Kind<BaseType>;
         constructor(base_type: Kind<BaseType>);
         valid(value: unknown): value is BaseType | null;
-        toString(): string;
+        get kind_args(): unknown[];
         may_have_refs(): boolean;
     }
     class Opt<BaseType> extends Kind<BaseType | undefined> {
         readonly base_type: Kind<BaseType>;
         constructor(base_type: Kind<BaseType>);
         valid(value: unknown): value is BaseType | undefined;
-        toString(): string;
+        get kind_args(): unknown[];
         may_have_refs(): boolean;
     }
     class Bytes extends Kind<ArrayBuffer> {
         valid(value: unknown): value is ArrayBuffer;
-        toString(): string;
         may_have_refs(): boolean;
     }
     class Str extends Primitive<string> {
         valid(value: unknown): value is string;
-        toString(): string;
     }
     class PrefixedStr<P extends string> extends Primitive<`${P}${string}`> {
         readonly prefix: P;
         constructor(prefix: P);
         valid(value: unknown): value is this["__type__"];
-        toString(): string;
+        get kind_args(): unknown[];
     }
     class Regex extends Str {
         readonly regex: RegExp;
         constructor(regex: RegExp);
         valid(value: unknown): value is string;
-        toString(): string;
+        get kind_args(): unknown[];
     }
     class Enum<T extends string | number> extends Primitive<T> {
         readonly values: ESSet<T>;
         constructor(values: ESIterable<T>);
         valid(value: unknown): value is T;
         [Symbol.iterator](): Generator<T, void, undefined>;
-        toString(): string;
+        get kind_args(): unknown[];
     }
     class Dict<ItemType> extends Kind<types.Dict<ItemType>> {
         readonly item_type: Kind<ItemType>;
         constructor(item_type: Kind<ItemType>);
         valid(value: unknown): value is this["__type__"];
-        toString(): string;
+        get kind_args(): unknown[];
         may_have_refs(): boolean;
     }
     class KeyVal<KeyType extends string, ItemType> extends Kind<types.KeyVal<KeyType, ItemType>> {
@@ -208,7 +208,7 @@ export declare namespace Kinds {
         readonly item_type: Kind<ItemType>;
         constructor(key_type: Kind<KeyType>, item_type: Kind<ItemType>);
         valid(value: unknown): value is this["__type__"];
-        toString(): string;
+        get kind_args(): unknown[];
         may_have_refs(): boolean;
     }
     class Mapping<KeyType, ItemType> extends Kind<ESMap<KeyType, ItemType>> {
@@ -217,23 +217,21 @@ export declare namespace Kinds {
         constructor(key_type: Kind<KeyType>, item_type: Kind<ItemType>);
         coerce(value: unknown): unknown;
         valid(value: unknown): value is this["__type__"];
-        toString(): string;
+        get kind_args(): unknown[];
         may_have_refs(): boolean;
     }
     class Set<ItemType> extends Kind<ESSet<ItemType>> {
         readonly item_type: Kind<ItemType>;
         constructor(item_type: Kind<ItemType>);
         valid(value: unknown): value is this["__type__"];
-        toString(): string;
+        get kind_args(): unknown[];
         may_have_refs(): boolean;
     }
     class Color extends Kind<types.Color> {
         valid(value: unknown): value is types.Color;
-        toString(): string;
         may_have_refs(): boolean;
     }
     class CSSLength extends Str {
-        toString(): string;
     }
     class Func<Args extends unknown[], Ret> extends Kind<(...args: Args) => Ret> {
         readonly args_types?: TupleKind<Args> | undefined;
@@ -247,19 +245,18 @@ export declare namespace Kinds {
         readonly base_type: Kind<BaseType>;
         constructor(base_type: Kind<BaseType>);
         valid(value: unknown): value is BaseType;
-        toString(): string;
+        get kind_args(): unknown[];
         may_have_refs(): boolean;
     }
     class Positive<BaseType extends number> extends Kind<BaseType> {
         readonly base_type: Kind<BaseType>;
         constructor(base_type: Kind<BaseType>);
         valid(value: unknown): value is BaseType;
-        toString(): string;
+        get kind_args(): unknown[];
         may_have_refs(): boolean;
     }
     class Node extends Kind<DOMNode> {
         valid(value: unknown): value is DOMNode;
-        toString(): string;
         may_have_refs(): boolean;
     }
 }

@@ -24,7 +24,6 @@ log = logging.getLogger(__name__)
 from typing import Any, overload
 
 # Bokeh imports
-from ...util.strings import nice_join
 from .. import enums
 from ._sphinx import model_link, property_link, register_type_link
 from .bases import Init, Property
@@ -66,7 +65,7 @@ class Enum(Either):
     def __init__(self, enum: int, *values: int, default: Init[int] = ..., help: str | None = ...) -> None: ...
 
     def __init__(self, enum: str | int | enums.Enumeration, *values: str | int, default: Init[str | int] = Intrinsic, help: str | None = None) -> None:
-        if isinstance(enum, str | int):
+        if isinstance(enum, (str, int)):
             self._enum = enums.enumeration(enum, *values)
         elif values:
             raise ValueError("unexpected enum values")
@@ -99,6 +98,8 @@ class Enum(Either):
 
         if value in self._enum:
             return
+
+        from ...util.strings import nice_join
 
         msg = "" if not detail else f"invalid value: {value!r}; allowed values are {nice_join(self.allowed_values)}"
         raise ValueError(msg)

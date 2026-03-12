@@ -29,6 +29,5 @@ dynamic = ["version"]
 [tool.maturin]
 features = ["pyo3/extension-module"]
 module-name = "obstore._obstore"
-strip = true
 manifest-path = "obstore/Cargo.toml"
 python-source = "python"

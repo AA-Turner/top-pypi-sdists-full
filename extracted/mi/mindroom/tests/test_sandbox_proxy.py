@@ -10,8 +10,10 @@ import pytest
 
 import mindroom.tool_system.sandbox_proxy as sandbox_proxy_module
 import mindroom.tools  # noqa: F401
-from mindroom.tool_system.metadata import get_tool_by_name
+from mindroom.tool_system.metadata import ToolInitOverrideError, get_tool_by_name
 from mindroom.tool_system.worker_routing import ToolExecutionIdentity, resolve_worker_key, tool_execution_identity
+from mindroom.workers import runtime as workers_runtime_module
+from mindroom.workers.backend import WorkerBackendError
 from mindroom.workers.backends.static_runner import StaticSandboxRunnerBackend
 from mindroom.workers.models import WorkerSpec
 from tests.conftest import FakeCredentialsManager
@@ -146,6 +148,18 @@ def test_proxy_requests_credential_lease_when_policy_matches(monkeypatch: pytest
     execute_url, execute_payload = captured_calls[1]
     assert execute_url.endswith("/api/sandbox-runner/execute")
     assert execute_payload["lease_id"] == "lease-123"
+
+
+def test_get_tool_by_name_rejects_unsafe_tool_init_overrides() -> None:
+    """Tool init overrides should allow only the explicit safe whitelist."""
+    with pytest.raises(ToolInitOverrideError, match="api_key"):
+        get_tool_by_name("openai", tool_init_overrides={"api_key": "sk-test"})
+
+
+def test_get_tool_by_name_rejects_invalid_base_dir_override_type() -> None:
+    """base_dir overrides should be validated before toolkit construction."""
+    with pytest.raises(ToolInitOverrideError, match="base_dir"):
+        get_tool_by_name("coding", tool_init_overrides={"base_dir": {"bad": "value"}})
 
 
 def test_proxy_requires_shared_token(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -365,10 +379,10 @@ def test_static_sandbox_runner_backend_marks_idle_workers() -> None:
 
 def test_get_worker_manager_singleton_creation_is_thread_safe(monkeypatch: pytest.MonkeyPatch) -> None:
     """Concurrent proxy requests should not build multiple static worker managers for one config."""
-    monkeypatch.setattr(sandbox_proxy_module, "_WORKER_MANAGER", None)
-    monkeypatch.setattr(sandbox_proxy_module, "_WORKER_MANAGER_CONFIG", None)
+    workers_runtime_module._reset_primary_worker_manager()
     monkeypatch.setattr(sandbox_proxy_module, "_PROXY_URL", "http://sandbox-runner:8765")
     monkeypatch.setattr(sandbox_proxy_module, "_PROXY_TOKEN", "test-token")
+    monkeypatch.delenv("MINDROOM_WORKER_BACKEND", raising=False)
 
     first_init_started = threading.Event()
     allow_first_init_to_finish = threading.Event()
@@ -397,7 +411,7 @@ def test_get_worker_manager_singleton_creation_is_thread_safe(monkeypatch: pytes
         except Exception as exc:  # pragma: no cover - surfaced by assertion below
             exceptions.append(exc)
 
-    monkeypatch.setattr(sandbox_proxy_module, "StaticSandboxRunnerBackend", FakeBackend)
+    monkeypatch.setattr(workers_runtime_module, "StaticSandboxRunnerBackend", FakeBackend)
 
     first_thread = threading.Thread(target=load_manager)
     second_thread = threading.Thread(target=load_manager)
@@ -414,6 +428,108 @@ def test_get_worker_manager_singleton_creation_is_thread_safe(monkeypatch: pytes
     assert init_count == 1
     assert len(managers) == 2
     assert managers[0] is managers[1]
+    workers_runtime_module._reset_primary_worker_manager()
+
+
+def test_worker_tools_override_can_use_kubernetes_backend_without_proxy_url(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Worker-routed tools should stay proxy-enabled when the Kubernetes backend provides worker handles directly."""
+    monkeypatch.setattr(sandbox_proxy_module, "_SANDBOX_RUNNER_MODE", False)
+    monkeypatch.setattr(sandbox_proxy_module, "_PROXY_URL", None)
+    monkeypatch.setattr(sandbox_proxy_module, "_PROXY_TOKEN", "test-token")
+    monkeypatch.setattr(sandbox_proxy_module, "_EXECUTION_MODE", "off")
+    monkeypatch.setenv("MINDROOM_WORKER_BACKEND", "kubernetes")
+    monkeypatch.setenv("MINDROOM_KUBERNETES_WORKER_IMAGE", "ghcr.io/mindroom-ai/mindroom:latest")
+    monkeypatch.setenv("MINDROOM_KUBERNETES_WORKER_STORAGE_PVC_NAME", "mindroom-storage")
+
+    assert (
+        sandbox_proxy_module._sandbox_proxy_enabled_for_tool(
+            "shell",
+            worker_tools_override=["shell"],
+            worker_scope="shared",
+        )
+        is True
+    )
+    assert sandbox_proxy_module._sandbox_proxy_enabled_for_tool("shell", worker_tools_override=None) is False
+
+
+def test_kubernetes_backend_keeps_unscoped_env_routing_enabled_without_proxy_url(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Unscoped agents should still route through dedicated workers on the Kubernetes backend."""
+    monkeypatch.setattr(sandbox_proxy_module, "_SANDBOX_RUNNER_MODE", False)
+    monkeypatch.setattr(sandbox_proxy_module, "_PROXY_URL", None)
+    monkeypatch.setattr(sandbox_proxy_module, "_PROXY_TOKEN", "test-token")
+    monkeypatch.setattr(sandbox_proxy_module, "_EXECUTION_MODE", "selective")
+    monkeypatch.setattr(sandbox_proxy_module, "_PROXY_TOOLS", {"shell"})
+    monkeypatch.setenv("MINDROOM_WORKER_BACKEND", "kubernetes")
+    monkeypatch.setenv("MINDROOM_KUBERNETES_WORKER_IMAGE", "ghcr.io/mindroom-ai/mindroom:latest")
+    monkeypatch.setenv("MINDROOM_KUBERNETES_WORKER_STORAGE_PVC_NAME", "mindroom-storage")
+
+    assert sandbox_proxy_module._sandbox_proxy_enabled_for_tool("shell", worker_scope=None) is True
+    assert sandbox_proxy_module._sandbox_proxy_enabled_for_tool("calculator", worker_scope=None) is False
+
+
+def test_kubernetes_backend_uses_env_routing_for_worker_scoped_agents_without_proxy_url(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Worker-scoped agents should still honor env-based routing on the Kubernetes backend."""
+    monkeypatch.setattr(sandbox_proxy_module, "_SANDBOX_RUNNER_MODE", False)
+    monkeypatch.setattr(sandbox_proxy_module, "_PROXY_URL", None)
+    monkeypatch.setattr(sandbox_proxy_module, "_PROXY_TOKEN", "test-token")
+    monkeypatch.setattr(sandbox_proxy_module, "_EXECUTION_MODE", "selective")
+    monkeypatch.setattr(sandbox_proxy_module, "_PROXY_TOOLS", {"shell"})
+    monkeypatch.setenv("MINDROOM_WORKER_BACKEND", "kubernetes")
+    monkeypatch.setenv("MINDROOM_KUBERNETES_WORKER_IMAGE", "ghcr.io/mindroom-ai/mindroom:latest")
+    monkeypatch.setenv("MINDROOM_KUBERNETES_WORKER_STORAGE_PVC_NAME", "mindroom-storage")
+
+    assert sandbox_proxy_module._sandbox_proxy_enabled_for_tool("shell", worker_scope="user") is True
+    assert sandbox_proxy_module._sandbox_proxy_enabled_for_tool("calculator", worker_scope="user") is False
+
+
+def test_kubernetes_backend_keeps_wrapping_when_required_config_is_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Kubernetes routing should stay enabled so misconfiguration fails closed at call time."""
+    monkeypatch.setattr(sandbox_proxy_module, "_SANDBOX_RUNNER_MODE", False)
+    monkeypatch.setattr(sandbox_proxy_module, "_PROXY_URL", None)
+    monkeypatch.setattr(sandbox_proxy_module, "_PROXY_TOKEN", "test-token")
+    monkeypatch.setenv("MINDROOM_WORKER_BACKEND", "kubernetes")
+    monkeypatch.delenv("MINDROOM_KUBERNETES_WORKER_IMAGE", raising=False)
+    monkeypatch.delenv("MINDROOM_KUBERNETES_WORKER_STORAGE_PVC_NAME", raising=False)
+
+    assert sandbox_proxy_module._sandbox_proxy_enabled_for_tool("shell", worker_tools_override=["shell"]) is True
+
+
+def test_kubernetes_backend_keeps_wrapping_when_proxy_token_is_missing(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Kubernetes routing should stay enabled so missing auth fails closed at call time."""
+    monkeypatch.setattr(sandbox_proxy_module, "_SANDBOX_RUNNER_MODE", False)
+    monkeypatch.setattr(sandbox_proxy_module, "_PROXY_URL", None)
+    monkeypatch.setattr(sandbox_proxy_module, "_PROXY_TOKEN", None)
+    monkeypatch.setenv("MINDROOM_WORKER_BACKEND", "kubernetes")
+    monkeypatch.setenv("MINDROOM_KUBERNETES_WORKER_IMAGE", "ghcr.io/mindroom-ai/mindroom:latest")
+    monkeypatch.setenv("MINDROOM_KUBERNETES_WORKER_STORAGE_PVC_NAME", "mindroom-storage")
+
+    assert sandbox_proxy_module._sandbox_proxy_enabled_for_tool("shell", worker_tools_override=["shell"]) is True
+
+
+def test_kubernetes_backend_misconfiguration_raises_instead_of_running_locally(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Misconfigured Kubernetes worker routing should raise rather than executing in the primary runtime."""
+    monkeypatch.setattr(sandbox_proxy_module, "_SANDBOX_RUNNER_MODE", False)
+    monkeypatch.setattr(sandbox_proxy_module, "_PROXY_URL", None)
+    monkeypatch.setattr(sandbox_proxy_module, "_PROXY_TOKEN", "test-token")
+    monkeypatch.setattr(sandbox_proxy_module, "_EXECUTION_MODE", "off")
+    monkeypatch.setenv("MINDROOM_WORKER_BACKEND", "kubernetes")
+    monkeypatch.delenv("MINDROOM_KUBERNETES_WORKER_IMAGE", raising=False)
+    monkeypatch.delenv("MINDROOM_KUBERNETES_WORKER_STORAGE_PVC_NAME", raising=False)
+
+    tool = get_tool_by_name("shell", worker_tools_override=["shell"], worker_scope=None, routing_agent_name="code")
+    entrypoint = tool.functions["run_shell_command"].entrypoint
+    assert entrypoint is not None
+
+    with pytest.raises(WorkerBackendError, match="MINDROOM_KUBERNETES_WORKER_IMAGE"):
+        entrypoint("pwd")
 
 
 class TestWorkerToolsOverride:
@@ -564,3 +680,50 @@ class TestWorkerToolsOverride:
         result = entrypoint(1, 2)
         assert result == "sandbox-result"
         assert captured["url"] == "http://sandbox:8765/api/sandbox-runner/execute"
+
+    def test_get_tool_by_name_passes_tool_init_overrides_to_proxy(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Proxy execution should preserve non-secret tool init overrides like base_dir."""
+        captured: dict[str, Any] = {}
+
+        class _FakeResponse:
+            def raise_for_status(self) -> None:
+                return
+
+            def json(self) -> dict[str, object]:
+                return {"ok": True, "result": "sandbox-result"}
+
+        class _FakeClient:
+            def __init__(self, *, timeout: float) -> None:
+                pass
+
+            def __enter__(self) -> Self:
+                return self
+
+            def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
+                return
+
+            def post(self, url: str, *, json: dict[str, Any], headers: dict[str, str]) -> _FakeResponse:  # noqa: ARG002
+                captured["url"] = url
+                captured["json"] = json
+                return _FakeResponse()
+
+        monkeypatch.setattr(sandbox_proxy_module, "_PROXY_URL", "http://sandbox:8765")
+        monkeypatch.setattr(sandbox_proxy_module, "_PROXY_TOKEN", "test-token")
+        monkeypatch.setattr(sandbox_proxy_module, "_EXECUTION_MODE", "off")
+        monkeypatch.setattr(sandbox_proxy_module, "_SANDBOX_RUNNER_MODE", False)
+        monkeypatch.setattr(sandbox_proxy_module, "_CREDENTIAL_POLICY", {})
+        monkeypatch.setattr("mindroom.tool_system.sandbox_proxy.httpx.Client", _FakeClient)
+
+        tool = get_tool_by_name(
+            "coding",
+            tool_init_overrides={"base_dir": "/workspace/demo"},
+            worker_tools_override=["coding"],
+        )
+        entrypoint = tool.functions["ls"].entrypoint
+        assert entrypoint is not None
+
+        result = entrypoint(path=".")
+
+        assert result == "sandbox-result"
+        assert captured["url"] == "http://sandbox:8765/api/sandbox-runner/execute"
+        assert captured["json"]["tool_init_overrides"] == {"base_dir": "/workspace/demo"}

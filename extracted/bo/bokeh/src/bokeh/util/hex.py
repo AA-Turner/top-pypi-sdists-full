@@ -25,18 +25,18 @@ log = logging.getLogger(__name__)
 #-----------------------------------------------------------------------------
 
 # Standard library imports
-from typing import TYPE_CHECKING, Any
+import math
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any, Literal
 
 # External imports
 import numpy as np
 
 # Bokeh imports
 from ..core.enums import HexTileOrientationType
-from .dependencies import import_required
 
 if TYPE_CHECKING:
     import numpy.typing as npt
-    import pandas as pd
 
 #-----------------------------------------------------------------------------
 # Globals and constants
@@ -46,11 +46,27 @@ __all__ = (
     'axial_to_cartesian',
     'cartesian_to_axial',
     'hexbin',
+    'HexBinResult',
 )
 
 #-----------------------------------------------------------------------------
 # General API
 #-----------------------------------------------------------------------------
+
+@dataclass
+class HexBinResult:
+    q: npt.NDArray[np.integer]
+    r: npt.NDArray[np.integer]
+    counts: npt.NDArray[np.integer]
+
+    def __getitem__(self, key: Literal["q", "r", "counts"]) -> npt.NDArray[np.integer]:
+        if key not in ("q", "r", "counts"):
+            raise KeyError(f"Invalid key {key!r}, must be one of 'q', 'r', or 'counts'")
+        from .warnings import BokehUserWarning, warn
+
+        warn(f"Use obj.{key} instead of obj['{key}']", BokehUserWarning)
+        return getattr(self, key)
+
 
 def axial_to_cartesian(q: Any, r: Any, size: float, orientation: str, aspect_scale: float = 1) -> tuple[Any, Any]:
     ''' Map axial *(q,r)* coordinates to cartesian *(x,y)* coordinates of
@@ -95,11 +111,11 @@ def axial_to_cartesian(q: Any, r: Any, size: float, orientation: str, aspect_sca
 
     '''
     if orientation == "pointytop":
-        x = size * np.sqrt(3) * (q + r/2.0) / aspect_scale
+        x = size * math.sqrt(3) * (q + r/2.0) / aspect_scale
         y = -size * 3/2.0 * r
     else:
         x = size * 3/2.0 * q
-        y = -size * np.sqrt(3) * (r + q/2.0) * aspect_scale
+        y = -size * math.sqrt(3) * (r + q/2.0) * aspect_scale
 
     return (x, y)
 
@@ -142,8 +158,8 @@ def cartesian_to_axial(x: Any, y: Any, size: float, orientation: str, aspect_sca
         (array[int], array[int])
 
     '''
-    HEX_FLAT = [2.0/3.0, 0.0, -1.0/3.0, np.sqrt(3.0)/3.0]
-    HEX_POINTY = [np.sqrt(3.0)/3.0, -1.0/3.0, 0.0, 2.0/3.0]
+    HEX_FLAT = [2.0/3.0, 0.0, -1.0/3.0, math.sqrt(3.0)/3.0]
+    HEX_POINTY = [math.sqrt(3.0)/3.0, -1.0/3.0, 0.0, 2.0/3.0]
 
     coords = HEX_FLAT if orientation == 'flattop' else HEX_POINTY
 
@@ -161,7 +177,7 @@ def hexbin(
     size: float,
     orientation: HexTileOrientationType = "pointytop",
     aspect_scale: float = 1,
-) -> pd.DataFrame:
+) -> HexBinResult:
     ''' Perform an equal-weight binning of data points into hexagonal tiles.
 
     For more sophisticated use cases, e.g. weighted binning or scaling
@@ -208,13 +224,15 @@ def hexbin(
         Hex binning only functions on linear scales, i.e. not on log plots.
 
     '''
-    pd: Any = import_required('pandas','hexbin requires pandas to be installed')
-
     q, r = cartesian_to_axial(x, y, size, orientation, aspect_scale=aspect_scale)
 
-    df = pd.DataFrame(dict(r=r, q=q))
+    dtype = [("q", q.dtype), ("r", r.dtype)]
+    qr = np.empty(q.shape[0], dtype=dtype)
+    qr["q"], qr["r"] = q, r
 
-    return df.groupby(['q', 'r']).size().reset_index(name='counts')
+    unique_qr, counts = np.unique(qr.view(np.void), return_counts=True)
+    unique_qr = unique_qr.view(dtype)
+    return HexBinResult(q=unique_qr["q"], r=unique_qr["r"], counts=counts)
 
 #-----------------------------------------------------------------------------
 # Dev API

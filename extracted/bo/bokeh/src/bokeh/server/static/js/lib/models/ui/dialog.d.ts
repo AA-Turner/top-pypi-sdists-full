@@ -3,7 +3,7 @@ import { DOMNode } from "../dom/dom_node";
 import { Signal } from "../../core/signaling";
 import type { StyleSheetLike } from "../../core/dom";
 import { InlineStyleSheet } from "../../core/dom";
-import type { IterViews, ViewOf } from "../../core/build_views";
+import type { View, ViewOf } from "../../core/build_views";
 import type * as p from "../../core/properties";
 import type { LRTB } from "../../core/util/bbox";
 import { BBox } from "../../core/util/bbox";
@@ -39,7 +39,7 @@ export declare class DialogView extends UIElementView {
     model: Dialog;
     protected _title: ViewOf<UIElementLike>;
     protected _content: ViewOf<UIElementLike>;
-    children(): IterViews;
+    children_views(): View[];
     protected readonly _position: InlineStyleSheet;
     protected readonly _stacking: InlineStyleSheet;
     stylesheets(): StyleSheetLike[];

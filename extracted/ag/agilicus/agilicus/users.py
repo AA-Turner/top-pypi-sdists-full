@@ -90,7 +90,14 @@ def _construct_query(
 
 
 def query_raw(
-    ctx, org_id=None, type=None, email=None, previous_email=None, limit=None, **kwargs
+    ctx,
+    org_id=None,
+    type=None,
+    email=None,
+    previous_email=None,
+    limit=None,
+    page_size=None,
+    **kwargs,
 ):
     apiclient = context.get_apiclient_from_ctx(ctx)
     params = _construct_query(
@@ -99,10 +106,18 @@ def query_raw(
         type=type,
         email=email,
         previous_email=previous_email,
-        limit=limit,
         **kwargs,
     )
-    return apiclient.user_api.list_users(**params)
+    return get_many_entries(
+        apiclient.user_api.list_users,
+        "users",
+        page_size=page_size,
+        maximum=limit,
+        page_key="previous_email",
+        resp_page_key="next_page_email",
+        resp_page_val_non_empty=True,
+        **params,
+    )
 
 
 def get_user(ctx, user_id, org_id=None, **kwargs):
@@ -140,7 +155,14 @@ def format_users_for_garbage_collection(ctx, users):
 
 
 def query_groups(
-    ctx, org_id=None, type=None, email=None, previous_email=None, limit=None, **kwargs
+    ctx,
+    org_id=None,
+    type=None,
+    email=None,
+    previous_email=None,
+    limit=None,
+    page_size=None,
+    **kwargs,
 ):
     apiclient = context.get_apiclient_from_ctx(ctx)
     params = _construct_query(
@@ -149,10 +171,18 @@ def query_groups(
         type=type,
         email=email,
         previous_email=previous_email,
-        limit=limit,
         **kwargs,
     )
-    return apiclient.groups_api.list_groups(**params).to_dict()
+    return get_many_entries(
+        apiclient.groups_api.list_groups,
+        "groups",
+        page_size=page_size,
+        maximum=limit,
+        page_key="previous_email",
+        resp_page_key="next_page_email",
+        resp_page_val_non_empty=True,
+        **params,
+    )
 
 
 def get_group(ctx, group_id, **kwargs):

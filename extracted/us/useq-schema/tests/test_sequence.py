@@ -8,13 +8,15 @@ import pytest
 from pydantic import BaseModel, ValidationError
 
 from useq import (
+    CameraROI,
     MDAEvent,
     MDASequence,
+    Position,
     TIntervalDuration,
     ZAboveBelow,
     ZRangeAround,
 )
-from useq._actions import CustomAction, HardwareAutofocus
+from useq._actions import AcquireImage, CustomAction, HardwareAutofocus
 from useq._mda_event import SLMImage
 
 _T = list[tuple[Any, Sequence[float]]]
@@ -71,7 +73,7 @@ def test_axis_order_errors() -> None:
 
     with pytest.warns(UserWarning, match="Global grid plan will override"):
         MDASequence(
-            stage_positions=[(0, 0, 0), (10, 10, 10)],
+            stage_positions=[{"z": 0}, {"z": 10}],
             grid_plan={"top": 1, "bottom": -1, "left": 0, "right": 0},
         )
 
@@ -84,7 +86,7 @@ def test_axis_order_errors() -> None:
     # if all but one sub-position has a grid plan , is ok
     MDASequence(
         stage_positions=[
-            (0, 0, 0),
+            {"z": 0},
             {"sequence": {"grid_plan": {"rows": 2, "columns": 2}}},
             {
                 "sequence": {
@@ -102,6 +104,50 @@ def test_axis_order_errors() -> None:
                 {"sequence": {"stage_positions": [(10, 10, 10), (20, 20, 20)]}}
             ]
         )
+
+    # x/y on a position is ignored with a global absolute grid
+    # --- GridFromEdges ---
+    with pytest.warns(
+        UserWarning, match="is ignored when using a global absolute grid plan"
+    ):
+        seq = MDASequence(
+            stage_positions=[{"x": 10, "y": 20}],
+            grid_plan={"top": 1, "bottom": -1, "left": 0, "right": 0},
+        )
+    pos = seq.stage_positions[0]
+    assert isinstance(pos, Position)
+    assert pos.x is None
+    assert pos.y is None
+    # --- GridFromPolygon ---
+    with pytest.warns(
+        UserWarning, match="is ignored when using a global absolute grid plan"
+    ):
+        seq = MDASequence(
+            stage_positions=[{"x": 10, "y": 20}],
+            grid_plan={
+                "vertices": [(0, 0), (4, 0), (2, 4)],
+                "fov_width": 2,
+                "fov_height": 2,
+            },
+        )
+    pos = seq.stage_positions[0]
+    assert isinstance(pos, Position)
+    assert pos.x is None
+    assert pos.y is None
+
+    # no warning when x/y are None with absolute grids
+    MDASequence(
+        stage_positions=[{}],
+        grid_plan={"top": 1, "bottom": -1, "left": 0, "right": 0},
+    )
+    MDASequence(
+        stage_positions=[{}],
+        grid_plan={
+            "vertices": [(0, 0), (4, 0), (2, 4)],
+            "fov_width": 2,
+            "fov_height": 2,
+        },
+    )
 
 
 @pytest.mark.parametrize("cls", [MDASequence, MDAEvent])
@@ -226,3 +272,111 @@ def test_slm_image() -> None:
     print(repr(event3))
 
     assert event3 != event2
+
+
+def test_mda_event_roi() -> None:
+    # bare tuple is cast to CameraROI
+    event = MDAEvent(roi=(0, 12, 256, 512))
+    assert isinstance(event.roi, CameraROI)
+    assert event.roi.offset_x == 0
+    assert event.roi.offset_y == 12
+    assert event.roi.width == 256
+    assert event.roi.height == 512
+
+    d = event.model_dump()
+    roundtripped = MDAEvent(**d)
+    assert roundtripped.roi == event.roi
+
+    # CameraROI with keyword args
+    event2 = MDAEvent(roi=CameraROI(offset_x=12, offset_y=0, width=512, height=256))
+    assert event2.roi is not None
+    assert event2.roi.offset_x == 12
+    assert event2.roi.offset_y == 0
+    assert event2.roi.width == 512
+    assert event2.roi.height == 256
+
+    event_no_roi = MDAEvent()
+    assert event_no_roi.roi is None
+
+
+def test_mda_sequence_setup() -> None:
+    # action of setup_event defaults to CustomAction(name="setup") when omitted
+    setup_event = MDAEvent(
+        properties=[("Camera", "Mode", "12bit")],
+        roi=(0, 12, 128, 256),
+    )
+    seq = MDASequence(
+        setup=setup_event,
+        channels=["DAPI"],
+        time_plan={"interval": 1, "loops": 2},
+    )
+
+    assert seq.setup is not None
+    assert isinstance(seq.setup.action, CustomAction)
+    assert seq.setup.action.name == "setup"
+    assert isinstance(seq.setup.roi, CameraROI)
+    assert seq.setup.roi.offset_x == 0
+    assert seq.setup.roi.offset_y == 12
+    assert seq.setup.roi.width == 128
+    assert seq.setup.roi.height == 256
+    assert seq.setup.properties is not None
+
+    # setup event is not yielded during iteration
+    events = list(seq)
+    assert len(events) > 0
+    for ev in events:
+        assert not isinstance(ev.action, CustomAction)
+
+
+def test_mda_sequence_setup_explicit_custom_action() -> None:
+    # explicitly setting a CustomAction should be preserved
+    setup_event = MDAEvent(
+        properties=[("Camera", "Mode", "12bit")],
+        action=CustomAction(name="my_setup"),
+    )
+    seq = MDASequence(setup=setup_event)
+    assert seq.setup is not None
+    assert isinstance(seq.setup.action, CustomAction)
+    assert seq.setup.action.name == "my_setup"
+
+
+def test_mda_sequence_setup_acquire_image_raises() -> None:
+    # explicitly setting AcquireImage via dict should raise ValueError
+    with pytest.raises(ValidationError):
+        MDASequence(
+            setup={"action": {"type": "acquire_image"}},
+        )
+
+    # explicitly setting AcquireImage on an MDAEvent should also raise
+    with pytest.raises(ValidationError):
+        MDASequence(
+            setup=MDAEvent(action=AcquireImage()),
+        )
+
+
+def test_mda_sequence_setup_serialization() -> None:
+    setup_event = MDAEvent(
+        properties=[("Camera", "Mode", "12bit")],
+    )
+    seq = MDASequence(setup=setup_event)
+
+    d = seq.model_dump()
+    assert "setup" in d
+    assert d["setup"]["action"]["name"] == "setup"
+
+    roundtripped = MDASequence(**d)
+    assert roundtripped.setup is not None
+    assert isinstance(roundtripped.setup.action, CustomAction)
+
+    j = seq.model_dump_json()
+    roundtripped2 = MDASequence.model_validate_json(j)
+    assert roundtripped2.setup is not None
+
+
+def test_mda_sequence_no_setup() -> None:
+    seq = MDASequence(time_plan={"interval": 1, "loops": 2})
+    assert seq.setup is None
+    events = list(seq)
+    # no setup event should be prepended
+    for ev in events:
+        assert not isinstance(ev.action, CustomAction)

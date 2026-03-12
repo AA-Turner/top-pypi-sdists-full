@@ -2,16 +2,13 @@
 A Sphinx extension to add markdown generation support.
 """
 
-from sphinx.util.typing import ExtensionMetadata
-
 from sphinx_markdown_builder.builder import MarkdownBuilder
 
-
-__version__ = "0.6.9"
+__version__ = "0.6.10"
 __docformat__ = "reStructuredText"
 
 
-def setup(app) -> ExtensionMetadata:
+def setup(app):
     app.add_builder(MarkdownBuilder)
     app.add_config_value("markdown_http_base", "", "html", str)
     app.add_config_value("markdown_uri_doc_suffix", ".md", "html", str)

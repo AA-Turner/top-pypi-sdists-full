@@ -1,8 +1,9 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: requests-sse
-Version: 0.5.2
+Version: 0.5.3
 Summary: server-sent events python client library based on requests
 License: Apache-2.0
+License-File: LICENSE
 Keywords: server-sent events,sse,stream,requests
 Author: overcat
 Author-email: 4catcode@gmail.com
@@ -23,6 +24,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
@@ -49,7 +51,7 @@ requests-sse
     :alt: Python - Version
     :target: https://pypi.python.org/pypi/stellar-sdk
 
-A Server-Sent Events python client based on requests, provides a simple interface to process `Server-Sent Events <https://www.w3.org/TR/eventsource>`_.
+A Server-Sent Events python client based on requests, provides a simple interface to process `Server-Sent Events <https://html.spec.whatwg.org/multipage/server-sent-events.html#server-sent-events>`_.
 
 Installation
 ------------
@@ -80,3 +82,4 @@ Credits
 
 This project was inspired by `aiohttp-sse-client <https://github.com/rtfol/aiohttp-sse-client>`_, `aiosseclient <https://github.com/ebraminio/aiosseclient>`_,
 `sseclient <https://github.com/btubbs/sseclient>`_, and `sseclient-py <https://github.com/mpetazzoni/sseclient>`_.
+

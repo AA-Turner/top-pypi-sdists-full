@@ -1,3 +1,4 @@
+import copy
 import datetime as dt
 import decimal
 import enum
@@ -227,7 +228,8 @@ def test_encode_dict_conversion():
 
 
 @pytest.mark.skipif(
-    hasattr(sys, "pypy_version_info"), reason="PyPy uses incompatible GC"
+    sys.implementation.name in ("pypy", "graalpy"),
+    reason="PyPy & GraalPy use incompatible GC",
 )
 def test_encode_dict_values_ref_counting():
     import gc
@@ -241,7 +243,8 @@ def test_encode_dict_values_ref_counting():
 
 
 @pytest.mark.skipif(
-    hasattr(sys, "pypy_version_info"), reason="PyPy uses incompatible GC"
+    sys.implementation.name in ("pypy", "graalpy"),
+    reason="PyPy & GraalPy use incompatible GC",
 )
 @pytest.mark.parametrize("key", ["key", b"key", 1, True, False, None])
 @pytest.mark.parametrize("sort_keys", [False, True])
@@ -287,22 +290,18 @@ def test_decode_from_unicode():
     assert dec1 == dec2
 
 
+class O1:
+    member = 0
+
+    def toDict(self):
+        return {"member": self.member}
+
+
+@pytest.mark.skip_leak_test  # Known memory leak
 def test_encode_recursion_max():
     # 8 is the max recursion depth
-    class O2:
-        member = 0
-
-        def toDict(self):
-            return {"member": self.member}
-
-    class O1:
-        member = 0
-
-        def toDict(self):
-            return {"member": self.member}
-
     test_input = O1()
-    test_input.member = O2()
+    test_input.member = O1()
     test_input.member.member = test_input
     with pytest.raises((OverflowError, RecursionError)):
         ujson.encode(test_input)
@@ -350,15 +349,16 @@ def test_dump_to_file():
     assert "[1,2,3]" == f.getvalue()
 
 
+class WritableFileLike:
+    def __init__(self):
+        self.bytes = ""
+
+    def write(self, bytes):
+        self.bytes += bytes
+
+
 def test_dump_to_file_like_object():
-    class FileLike:
-        def __init__(self):
-            self.bytes = ""
-
-        def write(self, bytes):
-            self.bytes += bytes
-
-    f = FileLike()
+    f = WritableFileLike()
     ujson.dump([1, 2, 3], f)
     assert "[1,2,3]" == f.bytes
 
@@ -373,16 +373,17 @@ def test_load_file():
     assert [1, 2, 3, 4] == ujson.load(f)
 
 
-def test_load_file_like_object():
-    class FileLike:
-        def read(self):
-            try:
-                self.end
-            except AttributeError:
-                self.end = True
-                return "[1,2,3,4]"
+class ReadableFileLike:
+    def read(self):
+        try:
+            self.end
+        except AttributeError:
+            self.end = True
+            return "[1,2,3,4]"
 
-    f = FileLike()
+
+def test_load_file_like_object():
+    f = ReadableFileLike()
     assert [1, 2, 3, 4] == ujson.load(f)
 
 
@@ -426,47 +427,43 @@ def test_decode_big_escape():
         ujson.decode(test_input)
 
 
+class DictTest:
+    def toDict(self):
+        return dict(key=31337)
+
+    def __json__(self):
+        return '"json defined"'  # Fallback and shouldn't be called.
+
+
 def test_to_dict():
-    d = {"key": 31337}
-
-    class DictTest:
-        def toDict(self):
-            return d
-
-        def __json__(self):
-            return '"json defined"'  # Fallback and shouldn't be called.
-
     o = DictTest()
     output = ujson.encode(o)
     dec = ujson.decode(output)
-    assert dec == d
+    assert dec == {"key": 31337}
+
+
+class JSONTest:
+    def __init__(self, output):
+        self.output = output
+
+    def __json__(self):
+        return copy.deepcopy(self.output)
 
 
 def test_object_with_json():
     # If __json__ returns a string, then that string
     # will be used as a raw JSON snippet in the object.
-    output_text = "this is the correct output"
-
-    class JSONTest:
-        def __json__(self):
-            return '"' + output_text + '"'
-
-    d = {"key": JSONTest()}
+    d = {"key": JSONTest('"this is the correct output"')}
     output = ujson.encode(d)
     dec = ujson.decode(output)
-    assert dec == {"key": output_text}
+    assert dec == {"key": "this is the correct output"}
 
 
 def test_object_with_complex_json():
     # If __json__ returns a string, then that string
     # will be used as a raw JSON snippet in the object.
     obj = {"foo": ["bar", "baz"]}
-
-    class JSONTest:
-        def __json__(self):
-            return ujson.encode(obj)
-
-    d = {"key": JSONTest()}
+    d = {"key": JSONTest(ujson.dumps(obj))}
     output = ujson.encode(d)
     dec = ujson.decode(output)
     assert dec == {"key": obj}
@@ -475,47 +472,47 @@ def test_object_with_complex_json():
 def test_object_with_json_type_error():
     # __json__ must return a string, otherwise it should raise an error.
     for return_value in (None, 1234, 12.34, True, {}):
-
-        class JSONTest:
-            def __json__(self):
-                return return_value
-
-        d = {"key": JSONTest()}
+        d = {"key": JSONTest(return_value)}
         with pytest.raises(TypeError):
             ujson.encode(d)
 
 
+class JSONTestAttributeError:
+    def __json__(self):
+        raise AttributeError
+
+
 def test_object_with_json_attribute_error():
     # If __json__ raises an error, make sure python actually raises it.
-    class JSONTest:
-        def __json__(self):
-            raise AttributeError
-
-    d = {"key": JSONTest()}
+    d = {"key": JSONTestAttributeError()}
     with pytest.raises(AttributeError):
         ujson.encode(d)
+
+
+class JSONtoDict:
+    def __init__(self, value):
+        self.value = value
+
+    def toDict(self):
+        return copy.deepcopy(self.value)
 
 
 def test_object_with_to_dict_type_error():
     # toDict must return a dict, otherwise it should raise an error.
     for return_value in (None, 1234, 12.34, True, "json"):
-
-        class JSONTest:
-            def toDict(self):
-                return return_value
-
-        d = {"key": JSONTest()}
+        d = {"key": JSONtoDict(return_value)}
         with pytest.raises(TypeError):
             ujson.encode(d)
 
 
+class JSONtoDictAttributeError:
+    def toDict(self):
+        raise AttributeError
+
+
 def test_object_with_to_dict_attribute_error():
     # If toDict raises an error, make sure python actually raises it.
-    class JSONTest:
-        def toDict(self):
-            raise AttributeError
-
-    d = {"key": JSONTest()}
+    d = {"key": JSONTestAttributeError()}
     with pytest.raises(AttributeError):
         ujson.encode(d)
 
@@ -540,6 +537,10 @@ def test_encode_surrogate_characters():
     assert ujson.dumps({"\ud800": "\udfff"}, ensure_ascii=False, sort_keys=True) == out2
 
 
+@pytest.mark.xfail(
+    sys.implementation.name == "graalpy",
+    reason="GraalPy bug, it fails the last example.",
+)
 @pytest.mark.parametrize(
     "test_input, expected",
     [
@@ -639,6 +640,7 @@ def test_decode_numeric_int_exp(test_input):
     ],
 )
 @pytest.mark.parametrize("mode", ["encode", "decode"])
+@pytest.mark.skip_leak_test  # To be fixed separately
 def test_encode_decode_big_int(i, mode):
     # Test ints that are too large to be represented by a C integer type
     for python_object in (i, [i], {"i": i}):
@@ -652,6 +654,20 @@ def test_encode_decode_big_int(i, mode):
                 assert ujson.encode(python_object, sort_keys=True) == json_string
         else:
             assert ujson.decode(json_string) == python_object
+
+
+@pytest.mark.xfail(
+    sys.implementation.name == "pypy",
+    reason="PyPy's PyNumber_ToBase ignores sys.get_int_max_str_digits()",
+)
+def test_encode_too_big_int_error():
+    with pytest.raises(ValueError, match="integer string conversion"):
+        ujson.dumps(pow(10, 10_000))
+
+
+def test_decode_too_big_int_error():
+    with pytest.raises(ValueError, match="integer string conversion"):
+        ujson.loads("9" * 10_000)
 
 
 @pytest.mark.parametrize(
@@ -1016,7 +1032,7 @@ def test_encode_special_keys():
     assert ujson.dumps(data, sort_keys=True) == '{"false":2,"true":1}'
 
 
-def test_default_function():
+class TestDefaultFunction:
     iso8601_time_format = "%Y-%m-%dT%H:%M:%S.%f"
 
     class CustomObject:
@@ -1025,35 +1041,57 @@ def test_default_function():
     class UnjsonableObject:
         pass
 
-    def default(value):
+    @classmethod
+    def default(cls, value):
         if isinstance(value, dt.datetime):
-            return value.strftime(iso8601_time_format)
+            return value.strftime(cls.iso8601_time_format)
         elif isinstance(value, uuid.UUID):
             return value.hex
-        elif isinstance(value, CustomObject):
+        elif isinstance(value, cls.CustomObject):
             raise ValueError("invalid value")
         return value
 
-    now = dt.datetime.now()
-    expected_output = '"%s"' % now.strftime(iso8601_time_format)
-    assert ujson.dumps(now, default=default) == expected_output
+    def test_datetime(self):
+        now = dt.datetime.now()
+        expected_output = '"%s"' % now.strftime(self.iso8601_time_format)
+        assert ujson.dumps(now, default=self.default) == expected_output
 
-    uuid4 = uuid.uuid4()
-    expected_output = '"%s"' % uuid4.hex
-    assert ujson.dumps(uuid4, default=default) == expected_output
+    def test_uuid(self):
+        uuid4 = uuid.uuid4()
+        expected_output = '"%s"' % uuid4.hex
+        assert ujson.dumps(uuid4, default=self.default) == expected_output
 
-    custom_obj = CustomObject()
-    with pytest.raises(ValueError, match="invalid value"):
-        ujson.dumps(custom_obj, default=default)
+    def test_exception_in_default(self):
+        custom_obj = self.CustomObject()
+        with pytest.raises(ValueError, match="invalid value"):
+            ujson.dumps(custom_obj, default=self.default)
 
-    unjsonable_obj = UnjsonableObject()
-    with pytest.raises(TypeError, match="maximum recursion depth exceeded"):
-        ujson.dumps(unjsonable_obj, default=default)
+    @pytest.mark.skip_leak_test  # Known memory leak
+    def test_recursive_default(self):
+        unjsonable_obj = self.UnjsonableObject()
+        with pytest.raises(TypeError, match="maximum recursion depth exceeded"):
+            ujson.dumps(unjsonable_obj, default=self.default)
 
 
-@pytest.mark.parametrize("indent", list(range(65537, 65542)))
+@pytest.mark.parametrize("indent", [999, 1000, 1001, 1 << 30, 1 << 63, 1 << 128])
 def test_dump_huge_indent(indent):
-    ujson.encode({"a": True}, indent=indent)
+    obj = {"list": [1, [2, 3], 4], "nested": {"key": "value", "a": True}}
+    if indent <= 1000:
+        assert ujson.loads(ujson.encode(obj, indent=indent)) == obj
+    else:
+        with pytest.raises((ValueError, OverflowError)):
+            ujson.encode(obj, indent=indent)
+
+
+def test_negative_indent():
+    obj = {"a": [1, 2], "b": "c"}
+    assert ujson.dumps(obj) == '{"a":[1,2],"b":"c"}'
+    assert ujson.dumps(obj, 0) == '{"a":[1,2],"b":"c"}'
+    assert ujson.dumps(obj, indent=-1) == '{"a": [1,2],"b": "c"}'
+    assert ujson.dumps(obj, indent=-1000000) == '{"a": [1,2],"b": "c"}'
+    assert (
+        ujson.dumps(obj, indent=2) == '{\n  "a": [\n    1,\n    2\n  ],\n  "b": "c"\n}'
+    )
 
 
 @pytest.mark.parametrize("first_length", list(range(2, 7)))
@@ -1078,8 +1116,10 @@ def test_issue_334(indent):
 
 
 @pytest.mark.skipif(
-    hasattr(sys, "pypy_version_info"), reason="PyPy uses incompatible GC"
+    sys.implementation.name in ("pypy", "graalpy"),
+    reason="PyPy & GraalPy use incompatible GC",
 )
+@pytest.mark.skip_leak_test  # Does its own leak checking
 def test_default_ref_counting():
     class DefaultRefCountingClass:
         def __init__(self, value):
@@ -1099,7 +1139,12 @@ def test_default_ref_counting():
     )
 
 
+@pytest.mark.skipif(
+    sys.implementation.name == "graalpy",
+    reason="GraalPy has an incompatible stub implementation of getrefcount",
+)
 @pytest.mark.parametrize("sort_keys", [False, True])
+@pytest.mark.skip_leak_test  # Does its own leak detection
 def test_obj_str_exception(sort_keys):
     class Obj:
         def __str__(self):
@@ -1113,6 +1158,9 @@ def test_obj_str_exception(sort_keys):
     assert getrefcount(key) == old
 
 
+@pytest.mark.skipif(
+    sys.implementation.name == "graalpy", reason="GraalPy does not support tracemalloc"
+)
 def no_memory_leak(func_code, n=None):
     code = f"import functools, ujson; func = {func_code}"
     path = os.path.join(os.path.dirname(__file__), "memory.py")
@@ -1122,7 +1170,8 @@ def no_memory_leak(func_code, n=None):
 
 
 @pytest.mark.skipif(
-    hasattr(sys, "pypy_version_info"), reason="PyPy uses incompatible GC"
+    sys.implementation.name in ("pypy", "graalpy"),
+    reason="PyPy & GraalPy use incompatible GC",
 )
 @pytest.mark.parametrize("input", ['["a" * 11000, b""]'])
 def test_no_memory_leak_encoding_errors(input):
@@ -1177,7 +1226,8 @@ def test_loads_bytes_like():
 
 
 @pytest.mark.skipif(
-    hasattr(sys, "pypy_version_info"), reason="PyPy uses incompatible GC"
+    sys.implementation.name in ("pypy", "graalpy"),
+    reason="PyPy & GraalPy use incompatible GC",
 )
 def test_loads_bytes_like_refcounting():
     import gc
@@ -1195,6 +1245,10 @@ def test_loads_bytes_like_refcounting():
     assert sys.getrefcount(buffer) == old
 
 
+@pytest.mark.skipif(
+    sys.implementation.name == "graalpy",
+    reason="GraalPy does not support buffer protocol for non C-contiguous buffers",
+)
 def test_loads_non_c_contiguous():
     buffer = memoryview(b"".join(bytes([i]) + b"_" for i in b"[1, 2, 3]"))[::2]
     assert not buffer.c_contiguous
@@ -1203,18 +1257,20 @@ def test_loads_non_c_contiguous():
         ujson.loads(buffer)
 
 
-@pytest.mark.parametrize(
-    "enum_classes, value, expected",
-    [
-        ((enum.IntEnum,), 42, "42"),
-        ((float, enum.Enum), 3.1416, "3.1416"),
-    ],
-)
-def test_enum(enum_classes, value, expected):
-    class MyEnum(*enum_classes):
-        FOO = value
+class ExampleIntEnum(enum.IntEnum):
+    FOO = 42
 
-    assert ujson.dumps(MyEnum.FOO) == expected
+
+class ExampleFloatEnum(float, enum.Enum):
+    FOO = 3.1416
+
+
+@pytest.mark.parametrize(
+    "enum_class, expected",
+    [(ExampleIntEnum, "42"), (ExampleFloatEnum, "3.1416")],
+)
+def test_enum(enum_class, expected):
+    assert ujson.dumps(enum_class.FOO) == expected
 
 
 def test_nested_json_decode_error():

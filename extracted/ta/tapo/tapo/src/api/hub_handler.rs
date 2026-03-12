@@ -1,15 +1,10 @@
-use async_trait::async_trait;
-use std::sync::Arc;
-use tokio::sync::{RwLock, RwLockReadGuard};
-
 use crate::error::Error;
 use crate::requests::{AlarmDuration, AlarmRingtone, AlarmVolume, PlayAlarmParams};
+#[cfg(feature = "debug")]
+use crate::responses::ChildDeviceComponentList;
 use crate::responses::{ChildDeviceHubResult, ChildDeviceListHubResult, DeviceInfoHubResult};
 
-use super::{
-    ApiClient, ApiClientExt, DeviceManagementExt, HandlerExt, KE100Handler, S200Handler,
-    T31XHandler, T100Handler, T110Handler, T300Handler,
-};
+use super::{KE100Handler, S200Handler, T31XHandler, T100Handler, T110Handler, T300Handler};
 
 macro_rules! get_device_id {
     ($self:expr, $identifier:expr, $($value:path),+) => {{
@@ -36,37 +31,14 @@ macro_rules! get_device_id {
     }};
 }
 
-/// Handler for the [H100](https://www.tapo.com/en/search/?q=H100) devices.
-#[derive(Debug)]
-pub struct HubHandler {
-    client: Arc<RwLock<ApiClient>>,
+tapo_handler! {
+    /// Handler for the [H100](https://www.tapo.com/en/search/?q=H100) devices.
+    HubHandler(DeviceInfoHubResult),
+    device_management,
 }
 
 /// Hub handler methods.
 impl HubHandler {
-    pub(crate) fn new(client: Arc<RwLock<ApiClient>>) -> Self {
-        Self { client }
-    }
-
-    /// Refreshes the authentication session.
-    pub async fn refresh_session(&mut self) -> Result<&mut Self, Error> {
-        self.client.write().await.refresh_session().await?;
-        Ok(self)
-    }
-
-    /// Returns *device info* as [`DeviceInfoHubResult`].
-    /// It is not guaranteed to contain all the properties returned from the Tapo API.
-    /// If the deserialization fails, or if a property that you care about it's not present, try [`HubHandler::get_device_info_json`].
-    pub async fn get_device_info(&self) -> Result<DeviceInfoHubResult, Error> {
-        self.client.read().await.get_device_info().await
-    }
-
-    /// Returns *device info* as [`serde_json::Value`].
-    /// It contains all the properties returned from the Tapo API.
-    pub async fn get_device_info_json(&self) -> Result<serde_json::Value, Error> {
-        self.client.read().await.get_device_info().await
-    }
-
     /// Returns *child device list* as [`ChildDeviceHubResult`].
     /// It is not guaranteed to contain all the properties returned from the Tapo API
     /// or to support all the possible devices connected to the hub.
@@ -100,6 +72,7 @@ impl HubHandler {
     ///
     /// * `start_index` - the index to start fetching the child device list.
     ///   It should be `0` for the first page, `10` for the second, and so on.
+    #[cfg(feature = "debug")]
     pub async fn get_child_device_list_json(
         &self,
         start_index: u64,
@@ -111,9 +84,12 @@ impl HubHandler {
             .await
     }
 
-    /// Returns *child device component list* as [`serde_json::Value`].
+    /// Returns *child device component list* as [`Vec<ChildDeviceComponentList>`].
     /// This information is useful in debugging or when investigating new functionality to add.
-    pub async fn get_child_device_component_list_json(&self) -> Result<serde_json::Value, Error> {
+    #[cfg(feature = "debug")]
+    pub async fn get_child_device_component_list(
+        &self,
+    ) -> Result<Vec<ChildDeviceComponentList>, Error> {
         self.client
             .read()
             .await
@@ -123,6 +99,7 @@ impl HubHandler {
 
     /// Returns a list of ringtones (alarm types) supported by the hub.
     /// Used for debugging only.
+    #[cfg(feature = "debug")]
     pub async fn get_supported_ringtone_list(&self) -> Result<Vec<String>, Error> {
         self.client
             .read()
@@ -328,18 +305,6 @@ impl HubHandler {
         Ok(T31XHandler::new(self.client.clone(), device_id))
     }
 }
-
-#[async_trait]
-impl HandlerExt for HubHandler {
-    async fn get_client(&self) -> RwLockReadGuard<'_, dyn ApiClientExt> {
-        RwLockReadGuard::map(
-            self.client.read().await,
-            |client: &ApiClient| -> &dyn ApiClientExt { client },
-        )
-    }
-}
-
-impl DeviceManagementExt for HubHandler {}
 
 /// Hub Device.
 pub enum HubDevice {

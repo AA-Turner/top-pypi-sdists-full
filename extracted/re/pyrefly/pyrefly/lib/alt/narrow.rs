@@ -5,6 +5,8 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use std::sync::Arc;
+
 use num_traits::ToPrimitive;
 use pyrefly_config::error_kind::ErrorKind;
 use pyrefly_graph::index::Idx;
@@ -26,9 +28,11 @@ use ruff_python_ast::AtomicNodeIndex;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprBinOp;
 use ruff_python_ast::ExprNumberLiteral;
+use ruff_python_ast::ExprUnaryOp;
 use ruff_python_ast::Int;
 use ruff_python_ast::Number;
 use ruff_python_ast::Operator;
+use ruff_python_ast::UnaryOp;
 use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
@@ -60,6 +64,31 @@ use crate::types::tuple::Tuple;
 use crate::types::type_info::TypeInfo;
 use crate::types::types::CalleeKind;
 use crate::types::types::Type;
+
+/// Synthesize an `Expr` for an integer index, producing a `NumberLiteral` for
+/// non-negative values and `UnaryOp(USub, NumberLiteral)` for negative values.
+fn synthesize_int_slice(idx: i64) -> Expr {
+    let fake_range = TextRange::empty(TextSize::from(0));
+    let node_index = AtomicNodeIndex::default();
+    if idx >= 0 {
+        Expr::NumberLiteral(ExprNumberLiteral {
+            node_index,
+            range: fake_range,
+            value: Number::Int(Int::from(idx as u64)),
+        })
+    } else {
+        Expr::UnaryOp(ExprUnaryOp {
+            node_index,
+            range: fake_range,
+            op: UnaryOp::USub,
+            operand: Box::new(Expr::NumberLiteral(ExprNumberLiteral {
+                node_index: AtomicNodeIndex::default(),
+                range: fake_range,
+                value: Number::Int(Int::from(idx.unsigned_abs())),
+            })),
+        })
+    }
+}
 
 /// Beyond this size, don't try and narrow an enum.
 ///
@@ -95,17 +124,32 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         )
     }
 
-    pub fn disjoint_base<'b>(&'b self, t: &'b Type) -> &'b Class {
-        // TODO: Implement the full disjoint base spec: https://peps.python.org/pep-0800/#specification.
+    /// Return the most specific disjoint base for a type per PEP 800.
+    /// Walks the MRO to find the first ancestor marked `@disjoint_base`.
+    /// TODO: handle multiple incompatible disjoint bases
+    pub fn disjoint_base(&self, t: &Type) -> Class {
         match t {
-            Type::ClassType(cls)
-                if let cls = cls.class_object()
-                    && self.get_metadata_for_class(cls).is_disjoint_base() =>
-            {
-                cls
+            Type::ClassType(cls) => {
+                let class = cls.class_object();
+                // Check the class itself first.
+                if self.get_metadata_for_class(class).is_disjoint_base() {
+                    return class.clone();
+                }
+                // Walk the MRO to find the most specific disjoint base ancestor.
+                let mro = self.get_mro_for_class(class);
+                for ancestor in mro.ancestors_no_object() {
+                    if self
+                        .get_metadata_for_class(ancestor.class_object())
+                        .is_disjoint_base()
+                    {
+                        return ancestor.class_object().clone();
+                    }
+                }
+                // Fall back to object (which is never disjoint with anything).
+                self.stdlib.object().class_object().clone()
             }
-            Type::Tuple(_) => self.stdlib.tuple_object(),
-            _ => self.stdlib.object().class_object(),
+            Type::Tuple(_) => self.stdlib.tuple_object().clone(),
+            _ => self.stdlib.object().class_object().clone(),
         }
     }
 
@@ -155,8 +199,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             } else {
                 let left_base = self.disjoint_base(left);
                 let right_base = self.disjoint_base(right);
-                if self.has_superclass(left_base, right_base)
-                    || self.has_superclass(right_base, left_base)
+                if self.has_superclass(&left_base, &right_base)
+                    || self.has_superclass(&right_base, &left_base)
                 {
                     intersect(vec![left.clone(), right.clone()], fallback, self.heap)
                 } else {
@@ -276,11 +320,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         left: &Type,
         right_expr: &Expr,
+        source: NarrowSource,
         errors: &ErrorCollector,
     ) -> Type {
+        let force_allow_negative = matches!(source, NarrowSource::Pattern);
         let mut res = Vec::new();
         for (right, allows_negative_narrow) in self.expr_as_class_info(right_expr, errors) {
             res.push(self.distribute_over_union(left, |l| {
+                let allows_negative_narrow = allows_negative_narrow || force_allow_negative;
                 if allows_negative_narrow
                     && let Some((tparams, right)) = self.unwrap_class_object_silently(&right)
                 {
@@ -896,7 +943,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     return self.intersect(ty, &self.unions(key_types));
                 }
 
-                ty.clone()
+                // Check if the right operand is a mapping (e.g. dict[str, int]).
+                // If so, we can narrow the left operand to the mapping's key type.
+                if !self.behaves_like_any(&right_ty)
+                    && let Some((key_ty, _)) = self.unwrap_mapping(&right_ty)
+                {
+                    self.intersect(ty, &key_ty)
+                } else {
+                    ty.clone()
+                }
             }
             AtomicNarrowOp::NotIn(v) => {
                 // First, check for List, Tuple, and Set literal expressions (syntactic check,
@@ -1052,7 +1107,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
                 self.narrow_isinstance(ty, &right)
             }
-            AtomicNarrowOp::IsNotInstance(v, _source) => self.narrow_is_not_instance(ty, v, errors),
+            AtomicNarrowOp::IsNotInstance(v, source) => {
+                self.narrow_is_not_instance(ty, v, *source, errors)
+            }
             AtomicNarrowOp::TypeEq(v) => {
                 // If type(X) == Y then X has to be exactly Y, not a subclass of Y
                 // We can't model that, so we narrow it exactly like isinstance(X, Y)
@@ -1307,13 +1364,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             },
             FacetKind::Index(idx) => {
-                // We synthesize a slice expression for the subscript here
-                // Use a synthesized fake range to avoid overwriting typing traces
-                let synthesized_slice = Expr::NumberLiteral(ExprNumberLiteral {
-                    node_index: AtomicNodeIndex::default(),
-                    range: TextRange::empty(TextSize::from(0)),
-                    value: Number::Int(Int::from(*idx as u64)),
-                });
+                // We synthesize a slice expression for the subscript here.
+                // For negative indices, we must produce `UnaryOp(USub, NumberLiteral(abs))`
+                // to match what the parser generates for e.g. `xs[-1]`.
+                // Use a synthesized fake range to avoid overwriting typing traces.
+                let synthesized_slice = synthesize_int_slice(*idx);
                 match remaining_facets.split_first() {
                     None => match base.type_at_facet(first_facet) {
                         Some(ty) => self.force_for_narrowing(ty, range, errors),
@@ -1639,11 +1694,21 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .is_some_and(|meta| meta.is_flag)
     }
 
+    pub(crate) fn with_type_for_exhaustiveness_check(&self, info: Arc<TypeInfo>) -> TypeInfo {
+        info.arc_clone().map_ty(|mut ty| {
+            self.expand_vars_mut(&mut ty);
+            match ty {
+                Type::SelfType(cls) => Type::ClassType(cls),
+                ty => ty,
+            }
+        })
+    }
+
     /// Determines if a type should be checked for match exhaustiveness.
     /// We check exhaustiveness when the type has a finite, known set of possible values.
     pub(crate) fn should_check_exhaustiveness(&self, ty: &Type) -> bool {
         match ty {
-            Type::ClassType(cls) | Type::SelfType(cls) => {
+            Type::ClassType(cls) => {
                 // Final classes can't have subclasses, so they are exhaustible, with the exception
                 // of Flag enums, whose members can be combined into new members via bitwise ops
                 !self.is_flag_enum(cls) && self.is_final(cls.class_object())
@@ -1701,11 +1766,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
     ) {
         let (op, narrow_range) = narrow_ops_for_fall_through;
-        let subject_info = self.get_idx(*subject_idx);
-        let mut subject_ty = subject_info.ty().clone();
-        self.expand_vars_mut(&mut subject_ty);
+        let subject_info = self.with_type_for_exhaustiveness_check(self.get_idx(*subject_idx));
         // We only check match exhaustiveness if the subject is an enum or a union of enum literals
-        if !self.should_check_exhaustiveness(&subject_ty) {
+        if !self.should_check_exhaustiveness(subject_info.ty()) {
             return;
         }
         let ignore_errors = self.error_swallower();
@@ -1723,7 +1786,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 // We need to make a `TypeInfo` rooted at `x` using the type of `x.foo`
                 let type_info = TypeInfo::of_ty(self.heap.mk_any_implicit());
                 let narrowing_subject_info =
-                    type_info.with_narrow(resolved_chain.facets(), subject_ty.clone());
+                    type_info.with_narrow(resolved_chain.facets(), subject_info.ty().clone());
                 let narrowed = self.narrow(
                     &narrowing_subject_info,
                     op.as_ref(),
@@ -1738,7 +1801,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         if remaining_ty.is_never() || remaining_ty.is_any() {
             return;
         }
-        let subject_display = self.for_display(subject_ty);
+        let subject_display = self.for_display(subject_info.into_ty());
         let remaining_display = self.for_display(remaining_ty.clone());
         let ctx = TypeDisplayContext::new(&[&subject_display, &remaining_display]);
         let mut msg = vec1![format!(
@@ -1773,10 +1836,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 let suppress_errors = self.error_swallower();
                 let ty = self.expr_infer(&Expr::Name(expr_name), &suppress_errors);
                 match &ty {
-                    Type::Literal(lit) if let Lit::Int(lit_int) = &lit.value => lit_int
-                        .as_i64()
-                        .and_then(|i| i.to_usize())
-                        .map(FacetKind::Index),
+                    Type::Literal(lit) if let Lit::Int(lit_int) = &lit.value => {
+                        lit_int.as_i64().map(FacetKind::Index)
+                    }
                     Type::Literal(lit) if let Lit::Str(s) = &lit.value => {
                         Some(FacetKind::Key(s.to_string()))
                     }

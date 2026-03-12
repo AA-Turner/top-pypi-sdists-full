@@ -278,6 +278,14 @@ class AsyncClient(AsyncBaseClient):
                 description
               }
               blockSize
+              topUpCustomCurrencyId
+              customCurrency {
+                displayName
+                units {
+                  singular
+                  plural
+                }
+              }
             }
 
             fragment PriceTierFragment on PriceTier {
@@ -763,6 +771,14 @@ class AsyncClient(AsyncBaseClient):
                 description
               }
               blockSize
+              topUpCustomCurrencyId
+              customCurrency {
+                displayName
+                units {
+                  singular
+                  plural
+                }
+              }
             }
 
             fragment PriceTierFragment on PriceTier {
@@ -1266,6 +1282,14 @@ class AsyncClient(AsyncBaseClient):
                 description
               }
               blockSize
+              topUpCustomCurrencyId
+              customCurrency {
+                displayName
+                units {
+                  singular
+                  plural
+                }
+              }
             }
 
             fragment PriceTierFragment on PriceTier {
@@ -1581,6 +1605,14 @@ class AsyncClient(AsyncBaseClient):
                 description
               }
               blockSize
+              topUpCustomCurrencyId
+              customCurrency {
+                displayName
+                units {
+                  singular
+                  plural
+                }
+              }
             }
 
             fragment PriceTierFragment on PriceTier {
@@ -1735,6 +1767,14 @@ class AsyncClient(AsyncBaseClient):
                 description
               }
               blockSize
+              topUpCustomCurrencyId
+              customCurrency {
+                displayName
+                units {
+                  singular
+                  plural
+                }
+              }
             }
 
             fragment PriceTierFragment on PriceTier {
@@ -2272,6 +2312,14 @@ class AsyncClient(AsyncBaseClient):
                 description
               }
               blockSize
+              topUpCustomCurrencyId
+              customCurrency {
+                displayName
+                units {
+                  singular
+                  plural
+                }
+              }
             }
 
             fragment PriceTierFragment on PriceTier {
@@ -2557,6 +2605,14 @@ class AsyncClient(AsyncBaseClient):
                 description
               }
               blockSize
+              topUpCustomCurrencyId
+              customCurrency {
+                displayName
+                units {
+                  singular
+                  plural
+                }
+              }
             }
 
             fragment PriceTierFragment on PriceTier {
@@ -2787,6 +2843,14 @@ class AsyncClient(AsyncBaseClient):
                 description
               }
               blockSize
+              topUpCustomCurrencyId
+              customCurrency {
+                displayName
+                units {
+                  singular
+                  plural
+                }
+              }
             }
 
             fragment PriceTierFragment on PriceTier {
@@ -2941,6 +3005,14 @@ class AsyncClient(AsyncBaseClient):
                 description
               }
               blockSize
+              topUpCustomCurrencyId
+              customCurrency {
+                displayName
+                units {
+                  singular
+                  plural
+                }
+              }
             }
 
             fragment PriceTierFragment on PriceTier {
@@ -3095,6 +3167,14 @@ class AsyncClient(AsyncBaseClient):
                 description
               }
               blockSize
+              topUpCustomCurrencyId
+              customCurrency {
+                displayName
+                units {
+                  singular
+                  plural
+                }
+              }
             }
 
             fragment PriceTierFragment on PriceTier {
@@ -3893,6 +3973,14 @@ class AsyncClient(AsyncBaseClient):
                 description
               }
               blockSize
+              topUpCustomCurrencyId
+              customCurrency {
+                displayName
+                units {
+                  singular
+                  plural
+                }
+              }
             }
 
             fragment PriceTierFragment on PriceTier {
@@ -4428,6 +4516,14 @@ class AsyncClient(AsyncBaseClient):
                 description
               }
               blockSize
+              topUpCustomCurrencyId
+              customCurrency {
+                displayName
+                units {
+                  singular
+                  plural
+                }
+              }
             }
 
             fragment PriceTierFragment on PriceTier {
@@ -5079,6 +5175,14 @@ class AsyncClient(AsyncBaseClient):
                 description
               }
               blockSize
+              topUpCustomCurrencyId
+              customCurrency {
+                displayName
+                units {
+                  singular
+                  plural
+                }
+              }
             }
 
             fragment PriceTierFragment on PriceTier {
@@ -5736,6 +5840,14 @@ class AsyncClient(AsyncBaseClient):
                 description
               }
               blockSize
+              topUpCustomCurrencyId
+              customCurrency {
+                displayName
+                units {
+                  singular
+                  plural
+                }
+              }
             }
 
             fragment PriceTierFragment on PriceTier {
@@ -7218,6 +7330,14 @@ class AsyncClient(AsyncBaseClient):
                 description
               }
               blockSize
+              topUpCustomCurrencyId
+              customCurrency {
+                displayName
+                units {
+                  singular
+                  plural
+                }
+              }
             }
 
             fragment PriceTierFragment on PriceTier {
@@ -7645,6 +7765,7 @@ class AsyncClient(AsyncBaseClient):
             fragment MockPaywallPriceFragment on PaywallPrice {
               billingModel
               billingPeriod
+              billingCadence
               billingId
               minUnitQuantity
               maxUnitQuantity
@@ -7668,6 +7789,14 @@ class AsyncClient(AsyncBaseClient):
                 displayName
               }
               blockSize
+              topUpCustomCurrencyId
+              customCurrency {
+                displayName
+                units {
+                  singular
+                  plural
+                }
+              }
             }
 
             fragment PackageCreditEntitlementFragment on PackageCreditEntitlement {

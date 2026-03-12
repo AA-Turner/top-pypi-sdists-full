@@ -145,6 +145,8 @@ class Tabs(LayoutDOM):
 
     active: int = ...
 
+    link_layouts: bool = ...
+
 @dataclass
 class GroupBox(LayoutDOM):
 

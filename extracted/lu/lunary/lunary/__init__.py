@@ -864,8 +864,14 @@ try:
         """
         return UserContextManager(user_id, user_props)
 
+    # Sentinel used to distinguish:
+    # 1. LangChain did not provide `kwargs["inputs"]` at all
+    # 2. LangChain did provide it, but the parsed value is `None`
+    # We only backfill the chain end input in case (2).
+    _MISSING = object()
+
     def _serialize(data: Any):
-        if not data:
+        if data is None:
             return None
 
         if hasattr(data, "messages"):
@@ -899,6 +905,12 @@ try:
                 return serialized["output"]
 
         return serialized
+
+    def _parse_end_inputs(kwargs: Dict[str, Any]) -> Any:
+        if "inputs" not in kwargs:
+            return _MISSING
+
+        return _parse_input(kwargs.get("inputs"))
 
     def _parse_lc_role(
         role: str,
@@ -1541,16 +1553,27 @@ try:
                 run_id = run_manager.end_run(run_id)
 
                 output = _parse_output(outputs)
+                # For `astream_events(version="v2")`, LangChain can call
+                # `on_chain_start` with a placeholder input and later pass the
+                # real input as `kwargs["inputs"]` on `on_chain_end`.
+                input = _parse_end_inputs(kwargs)
+
+                event_payload = {
+                    "run_id": run_id,
+                    "output": output,
+                    "app_id": self.__app_id,
+                    "api_url": self.__api_url,
+                    "callback_queue": self.queue,
+                    "runtime": "langchain-py",
+                }
+
+                if input is not _MISSING:
+                    event_payload["input"] = input
 
                 self.__track_event(
                     "chain",
                     "end",
-                    run_id=run_id,
-                    output=output,
-                    app_id=self.__app_id,
-                    api_url=self.__api_url,
-                    callback_queue=self.queue,
-                    runtime="langchain-py",
+                    **event_payload,
                 )
             except Exception as e:
                 logger.exception(f"An error occurred in `on_chain_end`: {e}")

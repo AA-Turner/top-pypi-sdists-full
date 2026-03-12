@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any
 from splink.internals.accuracy import _select_found_by_blocking_rules
 from splink.internals.blocking import (
     BlockingRule,
+    _columns_needed_for_blocking,
     block_using_rules_sqls,
     materialise_exploded_id_tables,
 )
@@ -36,7 +37,7 @@ from splink.internals.unique_id_concat import _composite_unique_id_from_edges_sq
 from splink.internals.vertically_concatenate import (
     compute_df_concat_with_tf,
     enqueue_df_concat_with_tf,
-    split_df_concat_with_tf_into_two_tables_sqls,
+    select_two_dataset_link_only_input_tables_sqls,
 )
 
 if TYPE_CHECKING:
@@ -100,11 +101,18 @@ class LinkerInference:
             len(self._linker._input_tables_dict) == 2
             and self._linker._settings_obj._link_type == "link_only"
         ):
-            sqls = split_df_concat_with_tf_into_two_tables_sqls(
-                "__splink__df_concat_with_tf",
-                self._linker._settings_obj.column_info_settings.source_dataset_column_name,
+            input_columns = _columns_needed_for_blocking(
+                self._linker._settings_obj._blocking_rules_to_generate_predictions,
+                source_dataset_input_column=self._linker._settings_obj.column_info_settings.source_dataset_input_column,
+                unique_id_input_column=self._linker._settings_obj.column_info_settings.unique_id_input_column,
             )
-            pipeline.enqueue_list_of_sqls(sqls)
+            left_sql, right_sql = select_two_dataset_link_only_input_tables_sqls(
+                self._linker._input_tables_dict,
+                input_columns=input_columns,
+                source_dataset_input_column=self._linker._settings_obj.column_info_settings.source_dataset_input_column,
+            )
+            pipeline.enqueue_sql(left_sql, "__splink__df_concat_with_tf_left")
+            pipeline.enqueue_sql(right_sql, "__splink__df_concat_with_tf_right")
 
             blocking_input_tablename_l = "__splink__df_concat_with_tf_left"
             blocking_input_tablename_r = "__splink__df_concat_with_tf_right"
@@ -220,11 +228,18 @@ class LinkerInference:
             len(self._linker._input_tables_dict) == 2
             and self._linker._settings_obj._link_type == "link_only"
         ):
-            sqls = split_df_concat_with_tf_into_two_tables_sqls(
-                "__splink__df_concat_with_tf",
-                self._linker._settings_obj.column_info_settings.source_dataset_column_name,
+            input_columns = _columns_needed_for_blocking(
+                self._linker._settings_obj._blocking_rules_to_generate_predictions,
+                source_dataset_input_column=self._linker._settings_obj.column_info_settings.source_dataset_input_column,
+                unique_id_input_column=self._linker._settings_obj.column_info_settings.unique_id_input_column,
             )
-            pipeline.enqueue_list_of_sqls(sqls)
+            left_sql, right_sql = select_two_dataset_link_only_input_tables_sqls(
+                self._linker._input_tables_dict,
+                input_columns=input_columns,
+                source_dataset_input_column=self._linker._settings_obj.column_info_settings.source_dataset_input_column,
+            )
+            pipeline.enqueue_sql(left_sql, "__splink__df_concat_with_tf_left")
+            pipeline.enqueue_sql(right_sql, "__splink__df_concat_with_tf_right")
 
             blocking_input_tablename_l = "__splink__df_concat_with_tf_left"
             blocking_input_tablename_r = "__splink__df_concat_with_tf_right"

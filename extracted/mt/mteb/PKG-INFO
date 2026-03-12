@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mteb
-Version: 2.10.9
+Version: 2.10.11
 Summary: Massive Text Embedding Benchmark
 Author-email: MTEB Contributors <niklas@huggingface.co>, Kenneth Enevoldsen <kenneth.enevoldsen@cas.au.dk>, Nouamane Tazi <nouamane@huggingface.co>, Nils Reimers <info@nils-reimers.de>
 Maintainer-email: Kenneth Enevoldsen <kenneth.enevoldsen@cas.au.dk>, Roman Solomatin <risolomatin@gmail.com>, Isaac Chung <chungisaac1217@gmail.com>
@@ -146,6 +146,9 @@ Provides-Extra: vllm
 Requires-Dist: vllm>=0.11.1; extra == "vllm"
 Provides-Extra: mctct
 Requires-Dist: transformers<5; extra == "mctct"
+Provides-Extra: siglip
+Requires-Dist: sentencepiece>=0.2.0; extra == "siglip"
+Requires-Dist: protobuf>=3.0.0; extra == "siglip"
 Provides-Extra: qwen-vl
 Requires-Dist: transformers>=4.57.0; extra == "qwen-vl"
 Requires-Dist: qwen-vl-utils>=0.0.14; extra == "qwen-vl"

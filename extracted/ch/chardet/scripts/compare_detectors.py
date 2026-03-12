@@ -26,6 +26,7 @@ import subprocess
 import sys
 import tempfile
 from collections import defaultdict
+from dataclasses import dataclass
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -39,6 +40,21 @@ from chardet.equivalences import (
     is_correct,
     is_equivalent_detection,
 )
+
+# Per-file detection result: (expected_enc, expected_lang, path, detected_enc, detected_lang)
+_DetectionRow = tuple[str, str, str, str | None, str | None]
+
+
+@dataclass(slots=True)
+class _TimingResult:
+    """Aggregated timing data from a single or multi-run benchmark."""
+
+    results: list[_DetectionRow]
+    elapsed: float
+    file_times: list[float]
+    import_time: float
+    first_detect_time: float
+
 
 # ---------------------------------------------------------------------------
 # Cache infrastructure
@@ -77,14 +93,20 @@ def _cache_filename(  # noqa: PLR0913
     python_tag: str,
     build_tag: str,
     kind: str,
+    *,
+    threads: int = 1,
 ) -> str:
     """Build a cache filename like ``chardet_7.0.1_a1b2c3_cpython3.11_mypyc_time.json``.
+
+    When *threads* > 1, a ``{N}threads`` segment is inserted before *kind*:
+    ``chardet_7.0.1_a1b2c3_cpython3.11_mypyc_4threads_time.json``.
 
     *detector_name* should be the package name (e.g. ``"chardet"``,
     ``"charset-normalizer"``), **not** the display label.
     """
     safe_name = detector_name.replace(" ", "-").replace("/", "-")
-    return f"{safe_name}_{detector_version}_{benchmark_hash}_{python_tag}_{build_tag}_{kind}.json"
+    threads_seg = f"_{threads}threads" if threads > 1 else ""
+    return f"{safe_name}_{detector_version}_{benchmark_hash}_{python_tag}_{build_tag}{threads_seg}_{kind}.json"
 
 
 def _load_cached(cache_dir: Path, filename: str) -> dict | None:
@@ -137,8 +159,10 @@ def _get_detector_version(python_executable: str, detector_type: str) -> str:
 def _get_python_tag(python_executable: str) -> str:
     """Return a tag like ``cpython3.11`` or ``pypy3.10`` from the venv Python."""
     script = (
-        "import platform, sys; "
-        "print(f'{platform.python_implementation().lower()}{sys.version_info.major}.{sys.version_info.minor}')"
+        "import platform, sys, sysconfig; "
+        "abi = sysconfig.get_config_var('ABIFLAGS') or ''; "
+        "t = 't' if 't' in abi else ''; "
+        "print(f'{platform.python_implementation().lower()}{sys.version_info.major}.{sys.version_info.minor}{t}')"
     )
     fd, tmp_path = tempfile.mkstemp(suffix=".py")
     tmp = Path(tmp_path)
@@ -311,11 +335,24 @@ def _has_full_cache(  # noqa: PLR0913
     benchmark_hash: str,
     python_tag: str,
     build_tag: str,
+    *,
+    skip_memory: bool = False,
+    threads: int = 1,
 ) -> bool:
-    """Return ``True`` if both time and memory cache files exist."""
-    for kind in ("time", "memory"):
+    """Return ``True`` if all required cache files exist."""
+    kinds = ("time",) if skip_memory else ("time", "memory")
+    for kind in kinds:
+        # Memory benchmarks are always single-threaded; only timing caches
+        # include the thread count.
+        t = threads if kind == "time" else 1
         fname = _cache_filename(
-            detector_type, version, benchmark_hash, python_tag, build_tag, kind
+            detector_type,
+            version,
+            benchmark_hash,
+            python_tag,
+            build_tag,
+            kind,
+            threads=t,
         )
         if not (cache_dir / fname).is_file():
             return False
@@ -387,16 +424,15 @@ def _cleanup_venv(venv_dir: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _run_timing_subprocess(
+def _run_timing_subprocess(  # noqa: PLR0913
     python_executable: str,
     data_dir: str,
     *,
     detector_type: str = "chardet",
     encoding_era: str = "all",
     pure: bool = False,
-) -> tuple[
-    list[tuple[str, str, str, str | None, str | None]], float, list[float], float
-]:
+    threads: int = 1,
+) -> _TimingResult:
     """Run detection timing in an isolated subprocess via ``benchmark_time.py``.
 
     Parameters
@@ -411,14 +447,14 @@ def _run_timing_subprocess(
         For ``"chardet"`` only -- ``"all"``, ``"modern_web"``, or ``"none"``.
     pure : bool
         Abort if mypyc .so/.pyd files are found (chardet only).
+    threads : int
+        Number of detection threads to pass to ``benchmark_time.py``.
 
     Returns
     -------
-    tuple
-        ``(results, elapsed, file_times, import_time)`` where *results* is a
-        list of ``(expected_encoding, expected_language, filepath_str,
-        detected_encoding, detected_language)`` tuples, *file_times* is a list of per-file
-        durations in seconds, and *import_time* is the detector import time.
+    _TimingResult
+        Aggregated timing data including per-file results, elapsed time,
+        per-file durations, import time, and first-detect time.
 
     """
     benchmark_script = str(Path(__file__).resolve().parent / "benchmark_time.py")
@@ -434,6 +470,8 @@ def _run_timing_subprocess(
     cmd.extend(["--encoding-era", encoding_era])
     if pure:
         cmd.append("--pure")
+    if threads > 1:
+        cmd.extend(["--threads", str(threads)])
 
     result = subprocess.run(cmd, capture_output=True, text=True, check=False)
     if result.returncode != 0:
@@ -441,12 +479,13 @@ def _run_timing_subprocess(
             f"  WARNING: subprocess detection failed:\n  {result.stderr.strip()}",
             file=sys.stderr,
         )
-        return [], 0.0, [], 0.0
+        return _TimingResult([], 0.0, [], 0.0, 0.0)
 
-    results: list[tuple[str, str, str, str | None, str | None]] = []
+    results: list[_DetectionRow] = []
     file_times: list[float] = []
     timing = 0.0
     import_time = 0.0
+    first_detect_time = 0.0
     for line in result.stdout.strip().split("\n"):
         if not line:
             continue
@@ -454,6 +493,7 @@ def _run_timing_subprocess(
         if "__timing__" in obj:
             timing = obj["__timing__"]
             import_time = obj["import_time"]
+            first_detect_time = obj.get("first_detect_time", 0.0)
         else:
             results.append(
                 (
@@ -465,7 +505,7 @@ def _run_timing_subprocess(
                 )
             )
             file_times.append(obj["elapsed"])
-    return results, timing, file_times, import_time
+    return _TimingResult(results, timing, file_times, import_time, first_detect_time)
 
 
 # ---------------------------------------------------------------------------
@@ -481,38 +521,42 @@ def _run_timing_with_median(  # noqa: PLR0913
     encoding_era: str = "all",
     pure: bool = False,
     num_runs: int = 3,
-) -> tuple[
-    list[tuple[str, str, str, str | None, str | None]], float, list[float], float
-]:
+    threads: int = 1,
+) -> _TimingResult:
     """Run timing ``num_runs`` times and return median-aggregated results.
 
     Detection results (accuracy data) come from the first run.
-    Total time, import time, and per-file times are the element-wise medians.
+    Total time, import time, first-detect time, and per-file times are the
+    element-wise medians.
     """
     all_totals: list[float] = []
     all_import_times: list[float] = []
+    all_first_detect_times: list[float] = []
     all_file_times: list[list[float]] = []
-    first_results: list[tuple[str, str, str, str | None, str | None]] = []
+    first_results: list[_DetectionRow] = []
 
     for i in range(num_runs):
-        results, elapsed, file_times, import_time = _run_timing_subprocess(
+        run = _run_timing_subprocess(
             python_executable,
             data_dir,
             detector_type=detector_type,
             encoding_era=encoding_era,
             pure=pure,
+            threads=threads,
         )
         if i == 0:
-            first_results = results
-        all_totals.append(elapsed)
-        all_import_times.append(import_time)
-        all_file_times.append(file_times)
+            first_results = run.results
+        all_totals.append(run.elapsed)
+        all_import_times.append(run.import_time)
+        all_first_detect_times.append(run.first_detect_time)
+        all_file_times.append(run.file_times)
 
     if not all_totals:
-        return [], 0.0, [], 0.0
+        return _TimingResult([], 0.0, [], 0.0, 0.0)
 
     median_total = statistics.median(all_totals)
     median_import = statistics.median(all_import_times)
+    median_first_detect = statistics.median(all_first_detect_times)
 
     # Element-wise median of per-file times
     if all_file_times and all_file_times[0]:
@@ -524,7 +568,13 @@ def _run_timing_with_median(  # noqa: PLR0913
     else:
         median_file_times = []
 
-    return first_results, median_total, median_file_times, median_import
+    return _TimingResult(
+        first_results,
+        median_total,
+        median_file_times,
+        median_import,
+        median_first_detect,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -628,6 +678,8 @@ def run_comparison(  # noqa: PLR0913
     build_tags: dict[str, str] | None = None,
     use_cache: bool = True,
     benchmark_hash: str = "",
+    no_memory: bool = False,
+    threads: int = 1,
 ) -> None:
     """Run accuracy and performance comparison across detectors.
 
@@ -649,6 +701,10 @@ def run_comparison(  # noqa: PLR0913
         Whether to use cached results.
     benchmark_hash : str
         Hash of benchmark source files for cache invalidation.
+    no_memory : bool
+        Skip memory benchmarks when ``True``.
+    threads : int
+        Number of detection threads to pass to ``benchmark_time.py``.
 
     """
     if detector_versions is None:
@@ -667,6 +723,8 @@ def run_comparison(  # noqa: PLR0913
 
     print(f"Found {len(test_files)} test files")
     print(f"Detectors: {', '.join(detector_labels)}")
+    if threads > 1:
+        print(f"Threads: {threads}")
     print()
     print("Equivalences used:")
     print("  Superset relationships (detected superset of expected is correct):")
@@ -706,16 +764,11 @@ def run_comparison(  # noqa: PLR0913
 
     # --- Parallel timing benchmarks ---
     import_times: dict[str, float] = {}
+    first_detect_times: dict[str, float] = {}
 
     def _run_timing_for_detector(
         label: str, detector_type: str, python_exe: str, era: str
-    ) -> tuple[
-        str,
-        list[tuple[str, str, str, str | None, str | None]],
-        float,
-        list[float],
-        float,
-    ]:
+    ) -> tuple[str, _TimingResult]:
         version = detector_versions.get(label, "unknown")
         py_tag = python_tags.get(label, "unknown")
         b_tag = build_tags.get(label, "unknown")
@@ -723,17 +776,23 @@ def run_comparison(  # noqa: PLR0913
         # Check cache
         if cache_dir is not None:
             fname = _cache_filename(
-                detector_type, version, benchmark_hash, py_tag, b_tag, "time"
+                detector_type,
+                version,
+                benchmark_hash,
+                py_tag,
+                b_tag,
+                "time",
+                threads=threads,
             )
             cached = _load_cached(cache_dir, fname)
             if cached is not None:
                 print(f"  Using cached timing results for {label}")
-                return (
-                    label,
-                    [tuple(r) for r in cached["results"]],
-                    cached["total"],
-                    cached["file_times"],
-                    cached["import_time"],
+                return label, _TimingResult(
+                    results=[tuple(r) for r in cached["results"]],
+                    elapsed=cached["total"],
+                    file_times=cached["file_times"],
+                    import_time=cached["import_time"],
+                    first_detect_time=cached.get("first_detect_time", 0.0),
                 )
 
         # Old chardet (major < 7) gets 1 run (too slow for 3x)
@@ -747,32 +806,40 @@ def run_comparison(  # noqa: PLR0913
 
         is_pure = pure and detector_type == "chardet"
         print(f"  Running {num_runs}x timing for {label} ...")
-        results, elapsed, file_times, import_time = _run_timing_with_median(
+        timing = _run_timing_with_median(
             python_exe,
             data_dir_str,
             detector_type=detector_type,
             encoding_era=era,
             pure=is_pure,
             num_runs=num_runs,
+            threads=threads,
         )
 
         # Save to cache
         if cache_dir is not None:
             fname = _cache_filename(
-                detector_type, version, benchmark_hash, py_tag, b_tag, "time"
+                detector_type,
+                version,
+                benchmark_hash,
+                py_tag,
+                b_tag,
+                "time",
+                threads=threads,
             )
             _save_cache(
                 cache_dir,
                 fname,
                 {
-                    "results": results,
-                    "total": elapsed,
-                    "file_times": file_times,
-                    "import_time": import_time,
+                    "results": timing.results,
+                    "total": timing.elapsed,
+                    "file_times": timing.file_times,
+                    "import_time": timing.import_time,
+                    "first_detect_time": timing.first_detect_time,
                 },
             )
 
-        return label, results, elapsed, file_times, import_time
+        return label, timing
 
     max_workers = max(1, (os.cpu_count() or 2) // 2)
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -783,11 +850,12 @@ def run_comparison(  # noqa: PLR0913
             for label, detector_type, python_exe, era in detectors
         }
         for future in concurrent.futures.as_completed(futures):
-            label, results, elapsed, file_times, import_time = future.result()
-            stats[label]["time"] = elapsed
-            stats[label]["file_times"] = file_times
-            import_times[label] = import_time
-            for expected, exp_lang, path_str, detected, det_lang in results:
+            label, timing = future.result()
+            stats[label]["time"] = timing.elapsed
+            stats[label]["file_times"] = timing.file_times
+            import_times[label] = timing.import_time
+            first_detect_times[label] = timing.first_detect_time
+            for expected, exp_lang, path_str, detected, det_lang in timing.results:
                 _record_result(
                     stats[label],
                     expected,
@@ -800,9 +868,14 @@ def run_comparison(  # noqa: PLR0913
     total = stats[detectors[0][0]]["total"]
 
     # --- Sequential memory benchmarks (with caching) ---
-    print("Measuring memory (isolated subprocesses)...")
     memory: dict[str, dict] = {}
+    if no_memory:
+        print("Skipping memory benchmarks (--no-memory)")
+    else:
+        print("Measuring memory (isolated subprocesses)...")
     for label, detector_type, python_exe, era in detectors:
+        if no_memory:
+            continue
         version = detector_versions.get(label, "unknown")
         py_tag = python_tags.get(label, "unknown")
         b_tag = build_tags.get(label, "unknown")
@@ -862,11 +935,11 @@ def run_comparison(  # noqa: PLR0913
     print("=" * 100)
     print(
         f"  {'':>{max_label}}  {'total':>10}  {'mean':>10}  "
-        f"{'median':>10}  {'p90':>10}  {'p95':>10}"
+        f"{'median':>10}  {'p90':>10}  {'p95':>10}  {'max':>10}"
     )
     print(
         f"  {'-' * max_label}  {'-' * 10}  {'-' * 10}  "
-        f"{'-' * 10}  {'-' * 10}  {'-' * 10}"
+        f"{'-' * 10}  {'-' * 10}  {'-' * 10}  {'-' * 10}"
     )
     for label in detector_labels:
         ft = stats[label]["file_times"]
@@ -874,6 +947,7 @@ def run_comparison(  # noqa: PLR0913
             total_ms = sum(ft) * 1000
             mean_ms = statistics.mean(ft) * 1000
             median_ms = statistics.median(ft) * 1000
+            max_ms = max(ft) * 1000
             if len(ft) >= 20:
                 q = statistics.quantiles(ft, n=20)
                 p90_ms = q[17] * 1000  # 18/20 = 90th percentile
@@ -881,44 +955,62 @@ def run_comparison(  # noqa: PLR0913
             else:
                 p90_ms = p95_ms = 0.0
         else:
-            total_ms = mean_ms = median_ms = p90_ms = p95_ms = 0.0
+            total_ms = mean_ms = median_ms = p90_ms = p95_ms = max_ms = 0.0
         print(
             f"  {label:<{max_label}} "
             f"{total_ms:>9.0f}ms "
             f"{mean_ms:>9.2f}ms "
             f"{median_ms:>9.2f}ms "
             f"{p90_ms:>9.2f}ms "
-            f"{p95_ms:>9.2f}ms"
+            f"{p95_ms:>9.2f}ms "
+            f"{max_ms:>9.2f}ms"
         )
 
     # -- Startup & memory --
+    section_title = "STARTUP" if no_memory else "STARTUP & MEMORY"
     print()
     print("=" * 100)
-    print("STARTUP & MEMORY (isolated subprocesses)")
+    print(f"{section_title} (isolated subprocesses)")
     print("=" * 100)
-    print(
-        f"  {'':>{max_label}}  {'import time':>12}  "
-        f"{'traced import':>14} {'traced peak':>14}  "
-        f"{'RSS before':>12} {'RSS after':>12}"
+    header = (
+        f"  {'':>{max_label}}  {'import (ms)':>12}  {'1st detect (ms)':>16}  "
+        f"{'time to 1st result (ms)':>24}"
     )
-    print(
-        f"  {'-' * max_label}  {'-' * 12}  {'-' * 14} {'-' * 14}  {'-' * 12} {'-' * 12}"
-    )
-    for label in detector_labels:
-        sub = memory[label]
-        print(
-            f"  {label:<{max_label}} "
-            f"{import_times[label]:>11.3f}s  "
-            f"{_format_bytes(sub['traced_import']):>14} "
-            f"{_format_bytes(sub['traced_peak']):>14}  "
-            f"{_format_bytes(sub['rss_before']):>12} "
-            f"{_format_bytes(sub['rss_after']):>12}"
+    sep = f"  {'-' * max_label}  {'-' * 12}  {'-' * 16}  {'-' * 24}"
+    if not no_memory:
+        header += (
+            f"  {'traced import':>14} {'traced peak':>14}  "
+            f"{'RSS before':>12} {'RSS after':>12}"
         )
+        sep += f"  {'-' * 14} {'-' * 14}  {'-' * 12} {'-' * 12}"
+    print(header)
+    print(sep)
+    for label in detector_labels:
+        first_detect = first_detect_times.get(label, 0.0)
+        row = (
+            f"  {label:<{max_label}} "
+            f"{import_times[label] * 1000:>11.1f}ms  "
+            f"{first_detect * 1000:>15.1f}ms  "
+            f"{(import_times[label] + first_detect) * 1000:>23.1f}ms"
+        )
+        if not no_memory:
+            sub = memory[label]
+            row += (
+                f"  {_format_bytes(sub['traced_import']):>14} "
+                f"{_format_bytes(sub['traced_peak']):>14}  "
+                f"{_format_bytes(sub['rss_before']):>12} "
+                f"{_format_bytes(sub['rss_after']):>12}"
+            )
+        print(row)
     print()
-    print("  traced = tracemalloc (CPython allocations only)")
-    print(
-        "  RSS    = resident set size (all memory incl. C extensions; shared baseline)"
-    )
+    if not no_memory:
+        print("  traced = tracemalloc (CPython allocations only)")
+        print(
+            "  RSS    = resident set size"
+            " (all memory incl. C extensions; shared baseline)"
+        )
+    print("  1st detect = time for first file detection (includes lazy initialization)")
+    print("  time to 1st result = import + 1st detect")
     print()
 
     # -- Per-encoding table --
@@ -1131,6 +1223,12 @@ if __name__ == "__main__":
         help="Force re-run, ignoring cached results",
     )
     parser.add_argument(
+        "--no-memory",
+        action="store_true",
+        default=False,
+        help="Skip memory benchmarks (much faster runs)",
+    )
+    parser.add_argument(
         "--pure",
         action="store_true",
         default=False,
@@ -1148,10 +1246,19 @@ if __name__ == "__main__":
             " (sets HATCH_BUILD_HOOK_ENABLE_MYPYC=true)"
         ),
     )
+    parser.add_argument(
+        "--threads",
+        type=int,
+        default=1,
+        metavar="N",
+        help="Number of detection threads for benchmark_time.py (default: 1)",
+    )
     args = parser.parse_args()
 
     if args.pure and args.mypyc:
         parser.error("--pure and --mypyc are mutually exclusive")
+    if args.threads < 1:
+        parser.error("--threads must be >= 1")
 
     # Force line-buffered stdout so progress is visible when piped (e.g. tee).
     sys.stdout.reconfigure(line_buffering=True)
@@ -1167,20 +1274,46 @@ if __name__ == "__main__":
 
     # --pure: strip the mypyc build hook env var so the chardet venv is
     # guaranteed to be pure Python even if the caller has it set.
-    # --mypyc: force HATCH_BUILD_HOOK_ENABLE_MYPYC=true so mypyc extensions
-    # are compiled even if the caller hasn't set the env var.
+    # --mypyc: build a mypyc wheel locally first, then install it.
     install_env: dict[str, str] | None = None
+    mypyc_wheel_dir: Path | None = None
+    chardet_pip_args: list[str] = [project_root]
     if args.pure:
         install_env = {
             k: v for k, v in os.environ.items() if k != "HATCH_BUILD_HOOK_ENABLE_MYPYC"
         }
     elif args.mypyc:
-        install_env = {**os.environ, "HATCH_BUILD_HOOK_ENABLE_MYPYC": "true"}
+        # Build a mypyc-compiled wheel so the venv gets compiled extensions.
+        # Passing HATCH_BUILD_HOOK_ENABLE_MYPYC via env to `uv pip install`
+        # doesn't reliably trigger the build hook, so we build explicitly.
+        mypyc_wheel_dir = Path(tempfile.mkdtemp(prefix="chardet-mypyc-wheel-"))
+        print("Building mypyc wheel for local chardet ...")
+        build_cmd = [
+            "uv",
+            "build",
+            "--wheel",
+            "--out-dir",
+            str(mypyc_wheel_dir),
+            project_root,
+        ]
+        if args.python:
+            build_cmd.extend(["--python", args.python])
+        subprocess.run(
+            build_cmd,
+            check=True,
+            env={**os.environ, "HATCH_BUILD_HOOK_ENABLE_MYPYC": "true"},
+        )
+        wheels = list(mypyc_wheel_dir.glob("*.whl"))
+        if not wheels:
+            print("ERROR: mypyc wheel build produced no .whl file", file=sys.stderr)
+            sys.exit(1)
+        chardet_pip_args = [str(wheels[0])]
+        print(f"  Built: {wheels[0].name}")
 
     # Build venv specs: (label, pip_args, env, detector_type, python_version)
     VenvSpec = tuple[str, list[str], dict[str, str] | None, str, str | None]
     venv_specs: list[VenvSpec] = [
-        ("chardet", [project_root], install_env, "chardet", args.python),
+        ("chardet", chardet_pip_args, install_env, "chardet", args.python),
     ]
 
     venv_specs.extend(
@@ -1249,6 +1382,8 @@ if __name__ == "__main__":
             benchmark_hash,
             python_tags[label],
             build_tags[label],
+            skip_memory=args.no_memory,
+            threads=args.threads,
         ):
             print(f"  {label}: full cache hit, skipping venv creation")
         else:
@@ -1351,8 +1486,12 @@ if __name__ == "__main__":
             build_tags=build_tags,
             use_cache=use_cache,
             benchmark_hash=benchmark_hash,
+            no_memory=args.no_memory,
+            threads=args.threads,
         )
     finally:
         for label, (venv_dir, _) in venvs.items():
             print(f"  Cleaning up venv for {label} ...")
             _cleanup_venv(venv_dir)
+        if mypyc_wheel_dir is not None:
+            shutil.rmtree(mypyc_wheel_dir, ignore_errors=True)

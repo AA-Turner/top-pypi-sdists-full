@@ -333,7 +333,7 @@ class A[T]:
         return cls(x)
 
 assert_type(A[int].m(0), A[int])
-assert_type(A.m(0), A[int]) # TODO # E: assert_type(A[Any], A[int]) failed
+assert_type(A.m(0), A[int]) # TODO # E: assert_type(A[Unknown], A[int]) failed
 
 def test_typevar_bounds[T: A[int]](x: type[T]):
     assert_type(x.m(0), A[int])
@@ -1104,6 +1104,33 @@ class C1(Generic[R]):
 class C2[R]:
     def __init__(self, field: R):
         self.field = field
+"#,
+);
+
+// https://github.com/facebook/pyrefly/issues/2204
+testcase!(
+    test_generic_function_assigned_to_attribute,
+    r#"
+from typing import reveal_type, assert_type
+def f[T](x: T) -> T:
+    return x
+
+class C:
+    def m[U](self, x: U) -> U:
+        return x
+
+class D:
+    def __init__(self, c: C):
+        self.f = f
+        self.g = c.m
+        self.h = C.m
+
+def test(o: D):
+    reveal_type(o.f) # E: [T](x: T) -> T
+    assert_type(o.f(1), int)
+
+    reveal_type(o.g) # E: [U](self: C, x: U) -> U
+    assert_type(o.g(1), int)
 "#,
 );
 
@@ -2329,5 +2356,17 @@ class Derived(Base):
     pass
 
 Derived.from_pretrained("model")
+"#,
+);
+
+testcase!(
+    test_classmethod_vararg_does_not_bind_self,
+    r#"
+class C:
+    @classmethod
+    def create(*args, **kwargs): ...
+
+C.create(42)
+C.create(a=42)
 "#,
 );

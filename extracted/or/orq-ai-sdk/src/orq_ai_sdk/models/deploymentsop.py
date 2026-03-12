@@ -8,9 +8,15 @@ from orq_ai_sdk.types import (
     UNSET,
     UNSET_SENTINEL,
 )
-from orq_ai_sdk.utils import FieldMetadata, QueryParamMetadata, get_discriminator
+from orq_ai_sdk.utils import (
+    FieldMetadata,
+    QueryParamMetadata,
+    get_discriminator,
+    validate_const,
+)
 import pydantic
 from pydantic import Discriminator, Tag, model_serializer
+from pydantic.functional_validators import AfterValidator
 from typing import Any, Dict, List, Literal, Optional, Union
 from typing_extensions import Annotated, NotRequired, TypeAliasType, TypedDict
 
@@ -51,7 +57,7 @@ class DeploymentsRequest(BaseModel):
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
-            val = serialized.get(k)
+            val = serialized.get(k, serialized.get(n))
 
             if val != UNSET_SENTINEL:
                 if val is not None or k not in optional_fields:
@@ -79,7 +85,7 @@ class DeploymentsParametersTypedDict(TypedDict):
     type: DeploymentsDeploymentsResponseType
     properties: Dict[str, Any]
     required: NotRequired[List[str]]
-    additional_properties: NotRequired[bool]
+    additional_properties: Literal[False]
 
 
 class DeploymentsParameters(BaseModel):
@@ -94,9 +100,10 @@ class DeploymentsParameters(BaseModel):
 
     required: Optional[List[str]] = None
 
-    additional_properties: Annotated[
-        Optional[bool], pydantic.Field(alias="additionalProperties")
-    ] = None
+    ADDITIONAL_PROPERTIES: Annotated[
+        Annotated[Optional[Literal[False]], AfterValidator(validate_const(False))],
+        pydantic.Field(alias="additionalProperties"),
+    ] = False
 
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
@@ -106,7 +113,7 @@ class DeploymentsParameters(BaseModel):
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
-            val = serialized.get(k)
+            val = serialized.get(k, serialized.get(n))
 
             if val != UNSET_SENTINEL:
                 if val is not None or k not in optional_fields:
@@ -151,7 +158,7 @@ class DeploymentsFunction(BaseModel):
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
-            val = serialized.get(k)
+            val = serialized.get(k, serialized.get(n))
 
             if val != UNSET_SENTINEL:
                 if val is not None or k not in optional_fields:
@@ -186,7 +193,7 @@ class DeploymentsTools(BaseModel):
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
-            val = serialized.get(k)
+            val = serialized.get(k, serialized.get(n))
 
             if val != UNSET_SENTINEL:
                 if val is not None or k not in optional_fields:
@@ -293,7 +300,7 @@ class DeploymentsResponseFormatJSONSchema(BaseModel):
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
-            val = serialized.get(k)
+            val = serialized.get(k, serialized.get(n))
 
             if val != UNSET_SENTINEL:
                 if val is not None or k not in optional_fields:
@@ -323,7 +330,7 @@ class DeploymentsResponseFormat1(BaseModel):
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
-            val = serialized.get(k)
+            val = serialized.get(k, serialized.get(n))
 
             if val != UNSET_SENTINEL:
                 if val is not None or k not in optional_fields:
@@ -579,7 +586,7 @@ class DeploymentsModelParameters(BaseModel):
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
-            val = serialized.get(k)
+            val = serialized.get(k, serialized.get(n))
             is_nullable_and_explicitly_set = (
                 k in nullable_fields
                 and (self.__pydantic_fields_set__.intersection({n}))  # pylint: disable=no-member
@@ -623,6 +630,7 @@ DeploymentsProvider = Literal[
     "moonshotai",
     "zai",
     "minimax",
+    "xai",
     "alibaba",
     "slack",
 ]
@@ -677,7 +685,7 @@ class Deployments2File(BaseModel):
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
-            val = serialized.get(k)
+            val = serialized.get(k, serialized.get(n))
 
             if val != UNSET_SENTINEL:
                 if val is not None or k not in optional_fields:
@@ -729,7 +737,7 @@ class Deployments2ImageURL(BaseModel):
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
-            val = serialized.get(k)
+            val = serialized.get(k, serialized.get(n))
 
             if val != UNSET_SENTINEL:
                 if val is not None or k not in optional_fields:
@@ -839,7 +847,7 @@ class DeploymentsToolCalls(BaseModel):
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
-            val = serialized.get(k)
+            val = serialized.get(k, serialized.get(n))
 
             if val != UNSET_SENTINEL:
                 if val is not None or k not in optional_fields:
@@ -877,7 +885,7 @@ class DeploymentsMessages(BaseModel):
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
-            val = serialized.get(k)
+            val = serialized.get(k, serialized.get(n))
             is_nullable_and_explicitly_set = (
                 k in nullable_fields
                 and (self.__pydantic_fields_set__.intersection({n}))  # pylint: disable=no-member

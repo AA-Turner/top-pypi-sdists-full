@@ -28,8 +28,9 @@ class PassthroughProtocol(TapoProtocol):
     ):
         super().__init__()
         self._url = url
+        self._owns_http_session = http_session is None
         self._http = AsyncHttp(
-            aiohttp.ClientSession() if http_session is None else http_session
+            aiohttp.ClientSession() if self._owns_http_session else http_session
         )
         self._passthrough = SecurePassthroughTransport(self._http)
         self._session: Optional[Session] = None
@@ -75,7 +76,8 @@ class PassthroughProtocol(TapoProtocol):
         return login_session
 
     async def close(self):
-        await self._http.close()
+        if self._owns_http_session:
+            await self._http.close()
         self._session = None
 
     async def _login_with_version(
@@ -105,3 +107,5 @@ class PassthroughProtocol(TapoProtocol):
                         "Detected handshake session timeout",
                     )
                 )
+
+

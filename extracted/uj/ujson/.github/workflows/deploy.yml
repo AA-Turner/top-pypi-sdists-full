@@ -37,17 +37,17 @@ jobs:
           - os: ubuntu-24.04-arm
             cibw_arch: aarch64
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - run: git fetch --prune --unshallow
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.x"
 
       # https://github.com/pypa/cibuildwheel
       - name: Build wheels
-        uses: pypa/cibuildwheel@v3.1.4
+        uses: pypa/cibuildwheel@v3.3
         with:
           output-dir: dist
         # Options are supplied via environment variables:
@@ -55,15 +55,17 @@ jobs:
           # Build wheels for the currently selected architecture.
           CIBW_ARCHS: ${{ matrix.cibw_arch }}
           # Include latest Python beta.
-          CIBW_ENABLE: cpython-prerelease pypy
-          # Skip EOL Python versions.
-          CIBW_SKIP: "pp310*"
+          CIBW_ENABLE: cpython-prerelease pypy graalpy
+          # Skip EOL Python versions
+          CIBW_SKIP: "gp311*"
           # Run the test suite after each build.
           CIBW_TEST_REQUIRES: "pytest"
           CIBW_TEST_COMMAND: pytest {package}/tests
+          # GraalPy has a bug with progress bar rendering in pip
+          PIP_PROGRESS_BAR: "off"
 
       - name: Upload as build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: wheels-${{ matrix.os }}
           path: dist/*.whl
@@ -76,12 +78,12 @@ jobs:
       id-token: write
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - run: |
             git fetch --prune --unshallow
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.x"
 
@@ -91,7 +93,7 @@ jobs:
           python -m pip install -U build twine
 
       - name: Download wheels from build artifacts
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           pattern: wheels-*
           merge-multiple: true

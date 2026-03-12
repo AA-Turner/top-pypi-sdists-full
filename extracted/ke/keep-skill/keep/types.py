@@ -25,6 +25,16 @@ INTERNAL_TAGS = frozenset({
 })
 
 
+def user_agent() -> str:
+    """Return the User-Agent string for outbound HTTP requests."""
+    try:
+        from importlib.metadata import version
+        ver = version("keep-skill")
+    except Exception:
+        ver = "dev"
+    return f"keepnotes-ai/keep {ver}"
+
+
 def utc_now() -> str:
     """Current UTC timestamp in canonical format: YYYY-MM-DDTHH:MM:SS.
 
@@ -87,6 +97,16 @@ _PART_ID_RE = re.compile(r'@[pP]\{?\d+\}?$')
 def is_part_id(id: str) -> bool:
     """Check if an ID looks like a part reference (e.g. 'doc@p3' or 'doc@P{3}')."""
     return bool(_PART_ID_RE.search(id))
+
+
+def parse_part_id(id: str) -> tuple[str, int]:
+    """Parse a part ID into (base_id, part_num)."""
+    m = _PART_ID_RE.search(id)
+    if not m:
+        raise ValueError(f"Not a part ID: {id!r}")
+    base = id[:m.start()]
+    digits = "".join(c for c in m.group() if c.isdigit())
+    return base, int(digits)
 
 
 def validate_tag_key(key: str) -> None:
@@ -193,6 +213,21 @@ def _normalize_http_uri(uri: str) -> str:
     fragment = _decode_unreserved(parsed.fragment)
 
     return urlunparse((scheme, netloc, path, parsed.params, query, fragment))
+
+
+def parse_ref(value: str) -> tuple[str, str | None]:
+    """Parse a reference value into (id, wikilink_alias).
+
+    Wikilink-resolved references carry an alias suffix:
+    ``file:///vault/Notes/Foo.md[[Foo]]``
+
+    Returns ``(id, alias)`` where alias is ``None`` if no suffix.
+    """
+    if value.endswith("]]"):
+        idx = value.rfind("[[")
+        if idx >= 0:
+            return value[:idx], value[idx + 2:-2]
+    return value, None
 
 
 def normalize_id(id: str) -> str:

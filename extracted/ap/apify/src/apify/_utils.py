@@ -1,13 +1,53 @@
 from __future__ import annotations
 
+import asyncio
 import builtins
+import inspect
 import sys
+from collections.abc import Callable
+from contextlib import asynccontextmanager
 from enum import Enum
+from functools import wraps
 from importlib import metadata
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, TypeVar, cast
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import AsyncIterator
+
+T = TypeVar('T', bound=Callable[..., Any])
+
+
+def ensure_context(attribute_name: str) -> Callable[[T], T]:
+    """Create a decorator that ensures the context manager is initialized before executing the method.
+
+    The decorator checks if the calling instance has the specified attribute and verifies that it is set to `True`.
+    If the instance is inactive, it raises a `RuntimeError`. Works for both synchronous and asynchronous methods.
+
+    Args:
+        attribute_name: The name of the boolean attribute to check on the instance.
+
+    Returns:
+        A decorator that wraps methods with context checking.
+    """
+
+    def decorator(method: T) -> T:
+        @wraps(method)
+        def sync_wrapper(self: Any, *args: Any, **kwargs: Any) -> Any:
+            if not getattr(self, attribute_name, False):
+                raise RuntimeError(f'The {self.__class__.__name__} is not active. Use it within the context.')
+
+            return method(self, *args, **kwargs)
+
+        @wraps(method)
+        async def async_wrapper(self: Any, *args: Any, **kwargs: Any) -> Any:
+            if not getattr(self, attribute_name, False):
+                raise RuntimeError(f'The {self.__class__.__name__} is not active. Use it within the async context.')
+
+            return await method(self, *args, **kwargs)
+
+        return cast('T', async_wrapper if inspect.iscoroutinefunction(method) else sync_wrapper)
+
+    return decorator
 
 
 def get_system_info() -> dict:
@@ -88,3 +128,25 @@ def maybe_extract_enum_member_value(maybe_enum_member: Any) -> Any:
     if isinstance(maybe_enum_member, Enum):
         return maybe_enum_member.value
     return maybe_enum_member
+
+
+class ReentrantLock:
+    """A reentrant lock implementation for asyncio using asyncio.Lock."""
+
+    def __init__(self) -> None:
+        self._lock = asyncio.Lock()
+        self._owner: asyncio.Task | None = None
+
+    @asynccontextmanager
+    async def __call__(self) -> AsyncIterator[None]:
+        """Acquire the lock if it's not already owned by the current task, otherwise proceed without acquiring."""
+        me = asyncio.current_task()
+        if self._owner is me:
+            yield
+            return
+        async with self._lock:
+            self._owner = me
+            try:
+                yield
+            finally:
+                self._owner = None

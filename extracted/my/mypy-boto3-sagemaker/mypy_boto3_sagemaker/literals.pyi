@@ -107,6 +107,7 @@ __all__ = (
     "DataDistributionTypeType",
     "DataSourceNameType",
     "DeepHealthCheckTypeType",
+    "DescribeTrainingPlanExtensionHistoryPaginatorName",
     "DetailedAlgorithmStatusType",
     "DetailedModelPackageStatusType",
     "DeviceDeploymentStatusType",
@@ -1013,6 +1014,9 @@ CustomizationTechniqueType = Literal["DPO", "RLAIF", "RLVR", "SFT"]
 DataDistributionTypeType = Literal["FullyReplicated", "ShardedByS3Key"]
 DataSourceNameType = Literal["SalesforceGenie", "Snowflake"]
 DeepHealthCheckTypeType = Literal["InstanceConnectivity", "InstanceStress"]
+DescribeTrainingPlanExtensionHistoryPaginatorName = Literal[
+    "describe_training_plan_extension_history"
+]
 DetailedAlgorithmStatusType = Literal["Completed", "Failed", "InProgress", "NotStarted"]
 DetailedModelPackageStatusType = Literal["Completed", "Failed", "InProgress", "NotStarted"]
 DeviceDeploymentStatusType = Literal[
@@ -2932,6 +2936,7 @@ ServiceName = Literal[
     "signer",
     "signer-data",
     "signin",
+    "simpledbv2",
     "simspaceweaver",
     "snow-device-management",
     "snowball",
@@ -2988,6 +2993,7 @@ ResourceServiceName = Literal[
 ]
 PaginatorName = Literal[
     "create_hub_content_presigned_urls",
+    "describe_training_plan_extension_history",
     "list_actions",
     "list_algorithms",
     "list_aliases",

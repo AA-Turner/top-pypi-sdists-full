@@ -124,7 +124,7 @@ def choose_branching_factor(
 
     Required features: `contrib`
 
-    [choose_branching_factor in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/transformations/fn.choose_branching_factor.html)
+    [choose_branching_factor in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/transformations/fn.choose_branching_factor.html)
 
     **Citations:**
 
@@ -174,7 +174,7 @@ def make_b_ary_tree(
 
     Required features: `contrib`
 
-    [make_b_ary_tree in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/transformations/fn.make_b_ary_tree.html)
+    [make_b_ary_tree in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/transformations/fn.make_b_ary_tree.html)
 
     **Supporting Elements:**
 
@@ -228,12 +228,12 @@ def then_b_ary_tree(
     leaf_count: int,
     branching_factor: int
 ):  
-    r"""partial constructor of make_b_ary_tree
+    r"""Partial constructor of `make_b_ary_tree`.
 
     .. end-markdown
 
     .. seealso:: 
-      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.transformations.make_b_ary_tree`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`~opendp.transformations.make_b_ary_tree`
 
     :param leaf_count: The number of leaf nodes in the b-ary tree.
     :type leaf_count: int
@@ -280,7 +280,7 @@ def make_bounded_float_checked_sum(
 
     Required features: `contrib`
 
-    [make_bounded_float_checked_sum in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/transformations/fn.make_bounded_float_checked_sum.html)
+    [make_bounded_float_checked_sum in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/transformations/fn.make_bounded_float_checked_sum.html)
 
     **Citations:**
 
@@ -362,7 +362,7 @@ def make_bounded_float_ordered_sum(
 
     Required features: `contrib`
 
-    [make_bounded_float_ordered_sum in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/transformations/fn.make_bounded_float_ordered_sum.html)
+    [make_bounded_float_ordered_sum in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/transformations/fn.make_bounded_float_ordered_sum.html)
 
     **Citations:**
 
@@ -429,7 +429,7 @@ def make_bounded_int_monotonic_sum(
 
     Required features: `contrib`
 
-    [make_bounded_int_monotonic_sum in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/transformations/fn.make_bounded_int_monotonic_sum.html)
+    [make_bounded_int_monotonic_sum in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/transformations/fn.make_bounded_int_monotonic_sum.html)
 
     **Citations:**
 
@@ -491,7 +491,7 @@ def make_bounded_int_ordered_sum(
 
     Required features: `contrib`
 
-    [make_bounded_int_ordered_sum in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/transformations/fn.make_bounded_int_ordered_sum.html)
+    [make_bounded_int_ordered_sum in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/transformations/fn.make_bounded_int_ordered_sum.html)
 
     **Citations:**
 
@@ -553,7 +553,7 @@ def make_bounded_int_split_sum(
 
     Required features: `contrib`
 
-    [make_bounded_int_split_sum in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/transformations/fn.make_bounded_int_split_sum.html)
+    [make_bounded_int_split_sum in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/transformations/fn.make_bounded_int_split_sum.html)
 
     **Citations:**
 
@@ -618,7 +618,7 @@ def make_cast(
 
     Required features: `contrib`
 
-    [make_cast in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/transformations/fn.make_cast.html)
+    [make_cast in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/transformations/fn.make_cast.html)
 
     **Supporting Elements:**
 
@@ -670,12 +670,12 @@ def make_cast(
 def then_cast(
     TOA: RuntimeTypeDescriptor
 ):  
-    r"""partial constructor of make_cast
+    r"""Partial constructor of `make_cast`.
 
     .. end-markdown
 
     .. seealso:: 
-      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.transformations.make_cast`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`~opendp.transformations.make_cast`
 
     :param TOA: Atomic Output Type to cast into
     :type TOA: :py:ref:`RuntimeTypeDescriptor`
@@ -714,7 +714,7 @@ def make_cast_default(
 
     Required features: `contrib`
 
-    [make_cast_default in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/transformations/fn.make_cast_default.html)
+    [make_cast_default in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/transformations/fn.make_cast_default.html)
 
     **Supporting Elements:**
 
@@ -769,12 +769,12 @@ def make_cast_default(
 def then_cast_default(
     TOA: RuntimeTypeDescriptor
 ):  
-    r"""partial constructor of make_cast_default
+    r"""Partial constructor of `make_cast_default`.
 
     .. end-markdown
 
     .. seealso:: 
-      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.transformations.make_cast_default`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`~opendp.transformations.make_cast_default`
 
     :param TOA: Atomic Output Type to cast into
     :type TOA: :py:ref:`RuntimeTypeDescriptor`
@@ -809,7 +809,7 @@ def make_cast_inherent(
 
     Required features: `contrib`
 
-    [make_cast_inherent in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/transformations/fn.make_cast_inherent.html)
+    [make_cast_inherent in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/transformations/fn.make_cast_inherent.html)
 
     **Supporting Elements:**
 
@@ -861,12 +861,12 @@ def make_cast_inherent(
 def then_cast_inherent(
     TOA: RuntimeTypeDescriptor
 ):  
-    r"""partial constructor of make_cast_inherent
+    r"""Partial constructor of `make_cast_inherent`.
 
     .. end-markdown
 
     .. seealso:: 
-      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.transformations.make_cast_inherent`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`~opendp.transformations.make_cast_inherent`
 
     :param TOA: Atomic Output Type to cast into
     :type TOA: :py:ref:`RuntimeTypeDescriptor`
@@ -894,7 +894,7 @@ def make_cdf(
 
     Required features: `contrib`
 
-    [make_cdf in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/transformations/fn.make_cdf.html)
+    [make_cdf in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/transformations/fn.make_cdf.html)
 
     **Supporting Elements:**
 
@@ -949,7 +949,7 @@ def make_clamp(
 
     Required features: `contrib`
 
-    [make_clamp in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/transformations/fn.make_clamp.html)
+    [make_clamp in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/transformations/fn.make_clamp.html)
 
     **Supporting Elements:**
 
@@ -960,7 +960,7 @@ def make_clamp(
 
     **Proof Definition:**
 
-    [(Proof Document)](https://docs.opendp.org/en/v0.14.1/proofs/rust/src/transformations/clamp/make_clamp.pdf)
+    [(Proof Document)](https://docs.opendp.org/en/v0.14.2/proofs/rust/src/transformations/clamp/make_clamp.pdf)
 
     .. end-markdown
 
@@ -1005,12 +1005,12 @@ def make_clamp(
 def then_clamp(
     bounds: tuple[Any, Any]
 ):  
-    r"""partial constructor of make_clamp
+    r"""Partial constructor of `make_clamp`.
 
     .. end-markdown
 
     .. seealso:: 
-      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.transformations.make_clamp`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`~opendp.transformations.make_clamp`
 
     :param bounds: Tuple of inclusive lower and upper bounds.
     :type bounds: tuple[Any, Any]
@@ -1047,7 +1047,7 @@ def make_consistent_b_ary_tree(
 
     Required features: `contrib`
 
-    [make_consistent_b_ary_tree in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/transformations/fn.make_consistent_b_ary_tree.html)
+    [make_consistent_b_ary_tree in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/transformations/fn.make_consistent_b_ary_tree.html)
 
     **Citations:**
 
@@ -1112,7 +1112,7 @@ def make_count(
 
     Required features: `contrib`
 
-    [make_count in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/transformations/fn.make_count.html)
+    [make_count in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/transformations/fn.make_count.html)
 
     **Citations:**
 
@@ -1127,7 +1127,7 @@ def make_count(
 
     **Proof Definition:**
 
-    [(Proof Document)](https://docs.opendp.org/en/v0.14.1/proofs/rust/src/transformations/count/make_count.pdf)
+    [(Proof Document)](https://docs.opendp.org/en/v0.14.2/proofs/rust/src/transformations/count/make_count.pdf)
 
     .. end-markdown
 
@@ -1172,12 +1172,12 @@ def make_count(
 def then_count(
     TO: RuntimeTypeDescriptor = "int"
 ):  
-    r"""partial constructor of make_count
+    r"""Partial constructor of `make_count`.
 
     .. end-markdown
 
     .. seealso:: 
-      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.transformations.make_count`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`~opendp.transformations.make_count`
 
     :param TO: Output Type. Must be numeric.
     :type TO: :py:ref:`RuntimeTypeDescriptor`
@@ -1208,7 +1208,7 @@ def make_count_by(
 
     Required features: `contrib`
 
-    [make_count_by in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/transformations/fn.make_count_by.html)
+    [make_count_by in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/transformations/fn.make_count_by.html)
 
     **Citations:**
 
@@ -1265,12 +1265,12 @@ def make_count_by(
 def then_count_by(
     TV: RuntimeTypeDescriptor = "int"
 ):  
-    r"""partial constructor of make_count_by
+    r"""Partial constructor of `make_count_by`.
 
     .. end-markdown
 
     .. seealso:: 
-      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.transformations.make_count_by`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`~opendp.transformations.make_count_by`
 
     :param TV: Type of Value. Express counts in terms of this integral type.
     :type TV: :py:ref:`RuntimeTypeDescriptor`
@@ -1304,7 +1304,7 @@ def make_count_by_categories(
 
     Required features: `contrib`
 
-    [make_count_by_categories in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/transformations/fn.make_count_by_categories.html)
+    [make_count_by_categories in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/transformations/fn.make_count_by_categories.html)
 
     **Citations:**
 
@@ -1377,12 +1377,12 @@ def then_count_by_categories(
     MO: RuntimeTypeDescriptor = "L1Distance<int>",
     TOA: RuntimeTypeDescriptor = "int"
 ):  
-    r"""partial constructor of make_count_by_categories
+    r"""Partial constructor of `make_count_by_categories`.
 
     .. end-markdown
 
     .. seealso:: 
-      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.transformations.make_count_by_categories`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`~opendp.transformations.make_count_by_categories`
 
     :param categories: The set of categories to compute counts for.
     :param null_category: Include a count of the number of elements that were not in the category set at the end of the vector.
@@ -1420,7 +1420,7 @@ def make_count_distinct(
 
     Required features: `contrib`
 
-    [make_count_distinct in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/transformations/fn.make_count_distinct.html)
+    [make_count_distinct in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/transformations/fn.make_count_distinct.html)
 
     **Citations:**
 
@@ -1476,12 +1476,12 @@ def make_count_distinct(
 def then_count_distinct(
     TO: RuntimeTypeDescriptor = "int"
 ):  
-    r"""partial constructor of make_count_distinct
+    r"""Partial constructor of `make_count_distinct`.
 
     .. end-markdown
 
     .. seealso:: 
-      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.transformations.make_count_distinct`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`~opendp.transformations.make_count_distinct`
 
     :param TO: Output Type. Must be numeric.
     :type TO: :py:ref:`RuntimeTypeDescriptor`
@@ -1501,7 +1501,7 @@ def then_count_distinct(
 
 
 
-@deprecated(version="0.12.0", reason="Use Polars instead")
+@deprecated(version="0.12.0", reason="Use Polars instead.")
 def make_create_dataframe(
     col_names,
     K: Optional[RuntimeTypeDescriptor] = None
@@ -1511,7 +1511,7 @@ def make_create_dataframe(
 
     Required features: `contrib`
 
-    [make_create_dataframe in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/transformations/fn.make_create_dataframe.html)
+    [make_create_dataframe in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/transformations/fn.make_create_dataframe.html)
 
     **Supporting Elements:**
 
@@ -1557,7 +1557,7 @@ def make_create_dataframe(
     return output
 
 
-@deprecated(version="0.12.0", reason="Use Polars instead")
+@deprecated(version="0.12.0", reason="Use Polars instead.")
 def make_df_cast_default(
     input_domain: Domain,
     input_metric: Metric,
@@ -1579,7 +1579,7 @@ def make_df_cast_default(
 
     Required features: `contrib`
 
-    [make_df_cast_default in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/transformations/fn.make_df_cast_default.html)
+    [make_df_cast_default in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/transformations/fn.make_df_cast_default.html)
 
     **Supporting Elements:**
 
@@ -1643,12 +1643,12 @@ def then_df_cast_default(
     TIA: RuntimeTypeDescriptor,
     TOA: RuntimeTypeDescriptor
 ):  
-    r"""partial constructor of make_df_cast_default
+    r"""Partial constructor of `make_df_cast_default`.
 
     .. end-markdown
 
     .. seealso:: 
-      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.transformations.make_df_cast_default`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`~opendp.transformations.make_df_cast_default`
 
     :param column_name: column name to be transformed
     :param TIA: Atomic Input Type to cast from
@@ -1673,7 +1673,7 @@ def then_df_cast_default(
 
 
 
-@deprecated(version="0.12.0", reason="Use Polars instead")
+@deprecated(version="0.12.0", reason="Use Polars instead.")
 def make_df_is_equal(
     input_domain: Domain,
     input_metric: Metric,
@@ -1686,7 +1686,7 @@ def make_df_is_equal(
 
     Required features: `contrib`
 
-    [make_df_is_equal in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/transformations/fn.make_df_is_equal.html)
+    [make_df_is_equal in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/transformations/fn.make_df_is_equal.html)
 
     **Supporting Elements:**
 
@@ -1747,12 +1747,12 @@ def then_df_is_equal(
     value,
     TIA: Optional[RuntimeTypeDescriptor] = None
 ):  
-    r"""partial constructor of make_df_is_equal
+    r"""Partial constructor of `make_df_is_equal`.
 
     .. end-markdown
 
     .. seealso:: 
-      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.transformations.make_df_is_equal`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`~opendp.transformations.make_df_is_equal`
 
     :param column_name: Column name to be transformed
     :param value: Value to check for equality
@@ -1791,7 +1791,7 @@ def make_drop_null(
 
     Required features: `contrib`
 
-    [make_drop_null in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/transformations/fn.make_drop_null.html)
+    [make_drop_null in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/transformations/fn.make_drop_null.html)
 
     **Supporting Elements:**
 
@@ -1838,12 +1838,12 @@ def make_drop_null(
 def then_drop_null(
 
 ):  
-    r"""partial constructor of make_drop_null
+    r"""Partial constructor of `make_drop_null`.
 
     .. end-markdown
 
     .. seealso:: 
-      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.transformations.make_drop_null`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`~opendp.transformations.make_drop_null`
 
 
     """
@@ -1875,7 +1875,7 @@ def make_find(
 
     Required features: `contrib`
 
-    [make_find in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/transformations/fn.make_find.html)
+    [make_find in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/transformations/fn.make_find.html)
 
     **Supporting Elements:**
 
@@ -1926,12 +1926,12 @@ def make_find(
 def then_find(
     categories
 ):  
-    r"""partial constructor of make_find
+    r"""Partial constructor of `make_find`.
 
     .. end-markdown
 
     .. seealso:: 
-      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.transformations.make_find`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`~opendp.transformations.make_find`
 
     :param categories: The set of categories to find indexes from.
     """
@@ -1968,7 +1968,7 @@ def make_find_bin(
 
     Required features: `contrib`
 
-    [make_find_bin in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/transformations/fn.make_find_bin.html)
+    [make_find_bin in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/transformations/fn.make_find_bin.html)
 
     **Supporting Elements:**
 
@@ -2019,12 +2019,12 @@ def make_find_bin(
 def then_find_bin(
     edges
 ):  
-    r"""partial constructor of make_find_bin
+    r"""Partial constructor of `make_find_bin`.
 
     .. end-markdown
 
     .. seealso:: 
-      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.transformations.make_find_bin`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`~opendp.transformations.make_find_bin`
 
     :param edges: The set of edges to split bins by.
     """
@@ -2057,7 +2057,7 @@ def make_identity(
 
     Required features: `contrib`, `honest-but-curious`
 
-    [make_identity in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/transformations/fn.make_identity.html)
+    [make_identity in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/transformations/fn.make_identity.html)
 
     **Why honest-but-curious?:**
 
@@ -2112,12 +2112,12 @@ def make_identity(
 def then_identity(
 
 ):  
-    r"""partial constructor of make_identity
+    r"""Partial constructor of `make_identity`.
 
     .. end-markdown
 
     .. seealso:: 
-      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.transformations.make_identity`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`~opendp.transformations.make_identity`
 
 
     """
@@ -2153,7 +2153,7 @@ def make_impute_constant(
 
     Required features: `contrib`
 
-    [make_impute_constant in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/transformations/fn.make_impute_constant.html)
+    [make_impute_constant in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/transformations/fn.make_impute_constant.html)
 
     **Supporting Elements:**
 
@@ -2202,12 +2202,12 @@ def make_impute_constant(
 def then_impute_constant(
     constant
 ):  
-    r"""partial constructor of make_impute_constant
+    r"""Partial constructor of `make_impute_constant`.
 
     .. end-markdown
 
     .. seealso:: 
-      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.transformations.make_impute_constant`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`~opendp.transformations.make_impute_constant`
 
     :param constant: Value to replace nulls with.
     """
@@ -2236,7 +2236,7 @@ def make_impute_uniform_float(
 
     Required features: `contrib`
 
-    [make_impute_uniform_float in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/transformations/fn.make_impute_uniform_float.html)
+    [make_impute_uniform_float in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/transformations/fn.make_impute_uniform_float.html)
 
     **Supporting Elements:**
 
@@ -2288,12 +2288,12 @@ def make_impute_uniform_float(
 def then_impute_uniform_float(
     bounds: tuple[Any, Any]
 ):  
-    r"""partial constructor of make_impute_uniform_float
+    r"""Partial constructor of `make_impute_uniform_float`.
 
     .. end-markdown
 
     .. seealso:: 
-      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.transformations.make_impute_uniform_float`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`~opendp.transformations.make_impute_uniform_float`
 
     :param bounds: Tuple of inclusive lower and upper bounds.
     :type bounds: tuple[Any, Any]
@@ -2325,7 +2325,7 @@ def make_index(
 
     Required features: `contrib`
 
-    [make_index in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/transformations/fn.make_index.html)
+    [make_index in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/transformations/fn.make_index.html)
 
     **Supporting Elements:**
 
@@ -2383,12 +2383,12 @@ def then_index(
     null,
     TOA: Optional[RuntimeTypeDescriptor] = None
 ):  
-    r"""partial constructor of make_index
+    r"""Partial constructor of `make_index`.
 
     .. end-markdown
 
     .. seealso:: 
-      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.transformations.make_index`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`~opendp.transformations.make_index`
 
     :param categories: The set of categories to index into.
     :param null: Category to return if the index is out-of-range of the category set.
@@ -2422,7 +2422,7 @@ def make_is_equal(
 
     Required features: `contrib`
 
-    [make_is_equal in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/transformations/fn.make_is_equal.html)
+    [make_is_equal in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/transformations/fn.make_is_equal.html)
 
     **Supporting Elements:**
 
@@ -2433,7 +2433,7 @@ def make_is_equal(
 
     **Proof Definition:**
 
-    [(Proof Document)](https://docs.opendp.org/en/v0.14.1/proofs/rust/src/transformations/manipulation/make_is_equal.pdf)
+    [(Proof Document)](https://docs.opendp.org/en/v0.14.2/proofs/rust/src/transformations/manipulation/make_is_equal.pdf)
 
     .. end-markdown
 
@@ -2478,12 +2478,12 @@ def make_is_equal(
 def then_is_equal(
     value
 ):  
-    r"""partial constructor of make_is_equal
+    r"""Partial constructor of `make_is_equal`.
 
     .. end-markdown
 
     .. seealso:: 
-      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.transformations.make_is_equal`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`~opendp.transformations.make_is_equal`
 
     :param value: value to check against
     """
@@ -2511,7 +2511,7 @@ def make_is_null(
 
     Required features: `contrib`
 
-    [make_is_null in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/transformations/fn.make_is_null.html)
+    [make_is_null in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/transformations/fn.make_is_null.html)
 
     **Supporting Elements:**
 
@@ -2558,12 +2558,12 @@ def make_is_null(
 def then_is_null(
 
 ):  
-    r"""partial constructor of make_is_null
+    r"""Partial constructor of `make_is_null`.
 
     .. end-markdown
 
     .. seealso:: 
-      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.transformations.make_is_null`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`~opendp.transformations.make_is_null`
 
 
     """
@@ -2594,7 +2594,7 @@ def make_lipschitz_float_mul(
 
     Required features: `contrib`
 
-    [make_lipschitz_float_mul in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/transformations/fn.make_lipschitz_float_mul.html)
+    [make_lipschitz_float_mul in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/transformations/fn.make_lipschitz_float_mul.html)
 
     **Supporting Elements:**
 
@@ -2649,12 +2649,12 @@ def then_lipschitz_float_mul(
     constant,
     bounds: tuple[Any, Any]
 ):  
-    r"""partial constructor of make_lipschitz_float_mul
+    r"""Partial constructor of `make_lipschitz_float_mul`.
 
     .. end-markdown
 
     .. seealso:: 
-      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.transformations.make_lipschitz_float_mul`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`~opendp.transformations.make_lipschitz_float_mul`
 
     :param constant: The constant to multiply aggregates by.
     :param bounds: Tuple of inclusive lower and upper bounds.
@@ -2688,7 +2688,7 @@ def make_mean(
 
     Required features: `contrib`
 
-    [make_mean in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/transformations/fn.make_mean.html)
+    [make_mean in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/transformations/fn.make_mean.html)
 
     **Supporting Elements:**
 
@@ -2735,12 +2735,12 @@ def make_mean(
 def then_mean(
 
 ):  
-    r"""partial constructor of make_mean
+    r"""Partial constructor of `make_mean`.
 
     .. end-markdown
 
     .. seealso:: 
-      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.transformations.make_mean`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`~opendp.transformations.make_mean`
 
 
     """
@@ -2776,7 +2776,7 @@ def make_metric_bounded(
 
     Required features: `contrib`
 
-    [make_metric_bounded in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/transformations/fn.make_metric_bounded.html)
+    [make_metric_bounded in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/transformations/fn.make_metric_bounded.html)
 
     **Supporting Elements:**
 
@@ -2823,12 +2823,12 @@ def make_metric_bounded(
 def then_metric_bounded(
 
 ):  
-    r"""partial constructor of make_metric_bounded
+    r"""Partial constructor of `make_metric_bounded`.
 
     .. end-markdown
 
     .. seealso:: 
-      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.transformations.make_metric_bounded`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`~opendp.transformations.make_metric_bounded`
 
 
     """
@@ -2861,7 +2861,7 @@ def make_metric_unbounded(
 
     Required features: `contrib`
 
-    [make_metric_unbounded in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/transformations/fn.make_metric_unbounded.html)
+    [make_metric_unbounded in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/transformations/fn.make_metric_unbounded.html)
 
     **Supporting Elements:**
 
@@ -2908,12 +2908,12 @@ def make_metric_unbounded(
 def then_metric_unbounded(
 
 ):  
-    r"""partial constructor of make_metric_unbounded
+    r"""Partial constructor of `make_metric_unbounded`.
 
     .. end-markdown
 
     .. seealso:: 
-      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.transformations.make_metric_unbounded`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`~opendp.transformations.make_metric_unbounded`
 
 
     """
@@ -2946,7 +2946,7 @@ def make_ordered_random(
 
     Required features: `contrib`
 
-    [make_ordered_random in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/transformations/fn.make_ordered_random.html)
+    [make_ordered_random in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/transformations/fn.make_ordered_random.html)
 
     **Supporting Elements:**
 
@@ -2993,12 +2993,12 @@ def make_ordered_random(
 def then_ordered_random(
 
 ):  
-    r"""partial constructor of make_ordered_random
+    r"""Partial constructor of `make_ordered_random`.
 
     .. end-markdown
 
     .. seealso:: 
-      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.transformations.make_ordered_random`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`~opendp.transformations.make_ordered_random`
 
 
     """
@@ -3027,7 +3027,7 @@ def make_quantile_score_candidates(
 
     Required features: `contrib`
 
-    [make_quantile_score_candidates in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/transformations/fn.make_quantile_score_candidates.html)
+    [make_quantile_score_candidates in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/transformations/fn.make_quantile_score_candidates.html)
 
     **Supporting Elements:**
 
@@ -3038,7 +3038,7 @@ def make_quantile_score_candidates(
 
     **Proof Definition:**
 
-    [(Proof Document)](https://docs.opendp.org/en/v0.14.1/proofs/rust/src/transformations/quantile_score_candidates/make_quantile_score_candidates.pdf)
+    [(Proof Document)](https://docs.opendp.org/en/v0.14.2/proofs/rust/src/transformations/quantile_score_candidates/make_quantile_score_candidates.pdf)
 
     .. end-markdown
 
@@ -3086,12 +3086,12 @@ def then_quantile_score_candidates(
     candidates,
     alpha: float
 ):  
-    r"""partial constructor of make_quantile_score_candidates
+    r"""Partial constructor of `make_quantile_score_candidates`.
 
     .. end-markdown
 
     .. seealso:: 
-      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.transformations.make_quantile_score_candidates`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`~opendp.transformations.make_quantile_score_candidates`
 
     :param candidates: Potential quantiles to score
     :param alpha: a value in $[0, 1]$. Choose 0.5 for median
@@ -3125,7 +3125,7 @@ def make_quantiles_from_counts(
 
     Required features: `contrib`
 
-    [make_quantiles_from_counts in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/transformations/fn.make_quantiles_from_counts.html)
+    [make_quantiles_from_counts in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/transformations/fn.make_quantiles_from_counts.html)
 
     **Supporting Elements:**
 
@@ -3193,7 +3193,7 @@ def make_resize(
 
     Required features: `contrib`
 
-    [make_resize in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/transformations/fn.make_resize.html)
+    [make_resize in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/transformations/fn.make_resize.html)
 
     **Supporting Elements:**
 
@@ -3253,12 +3253,12 @@ def then_resize(
     constant,
     MO: RuntimeTypeDescriptor = "SymmetricDistance"
 ):  
-    r"""partial constructor of make_resize
+    r"""Partial constructor of `make_resize`.
 
     .. end-markdown
 
     .. seealso:: 
-      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.transformations.make_resize`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`~opendp.transformations.make_resize`
 
     :param size: Number of records in output data.
     :type size: int
@@ -3283,7 +3283,7 @@ def then_resize(
 
 
 
-@deprecated(version="0.12.0", reason="Use Polars instead")
+@deprecated(version="0.12.0", reason="Use Polars instead.")
 def make_select_column(
     key,
     TOA: RuntimeTypeDescriptor,
@@ -3294,7 +3294,7 @@ def make_select_column(
 
     Required features: `contrib`
 
-    [make_select_column in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/transformations/fn.make_select_column.html)
+    [make_select_column in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/transformations/fn.make_select_column.html)
 
     **Supporting Elements:**
 
@@ -3369,7 +3369,7 @@ def make_sized_bounded_float_checked_sum(
 
     Required features: `contrib`
 
-    [make_sized_bounded_float_checked_sum in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/transformations/fn.make_sized_bounded_float_checked_sum.html)
+    [make_sized_bounded_float_checked_sum in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/transformations/fn.make_sized_bounded_float_checked_sum.html)
 
     **Citations:**
 
@@ -3451,7 +3451,7 @@ def make_sized_bounded_float_ordered_sum(
 
     Required features: `contrib`
 
-    [make_sized_bounded_float_ordered_sum in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/transformations/fn.make_sized_bounded_float_ordered_sum.html)
+    [make_sized_bounded_float_ordered_sum in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/transformations/fn.make_sized_bounded_float_ordered_sum.html)
 
     **Citations:**
 
@@ -3519,7 +3519,7 @@ def make_sized_bounded_int_checked_sum(
 
     Required features: `contrib`
 
-    [make_sized_bounded_int_checked_sum in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/transformations/fn.make_sized_bounded_int_checked_sum.html)
+    [make_sized_bounded_int_checked_sum in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/transformations/fn.make_sized_bounded_int_checked_sum.html)
 
     **Citations:**
 
@@ -3585,7 +3585,7 @@ def make_sized_bounded_int_monotonic_sum(
 
     Required features: `contrib`
 
-    [make_sized_bounded_int_monotonic_sum in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/transformations/fn.make_sized_bounded_int_monotonic_sum.html)
+    [make_sized_bounded_int_monotonic_sum in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/transformations/fn.make_sized_bounded_int_monotonic_sum.html)
 
     **Citations:**
 
@@ -3653,7 +3653,7 @@ def make_sized_bounded_int_ordered_sum(
 
     Required features: `contrib`
 
-    [make_sized_bounded_int_ordered_sum in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/transformations/fn.make_sized_bounded_int_ordered_sum.html)
+    [make_sized_bounded_int_ordered_sum in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/transformations/fn.make_sized_bounded_int_ordered_sum.html)
 
     **Citations:**
 
@@ -3721,7 +3721,7 @@ def make_sized_bounded_int_split_sum(
 
     Required features: `contrib`
 
-    [make_sized_bounded_int_split_sum in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/transformations/fn.make_sized_bounded_int_split_sum.html)
+    [make_sized_bounded_int_split_sum in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/transformations/fn.make_sized_bounded_int_split_sum.html)
 
     **Citations:**
 
@@ -3776,7 +3776,7 @@ def make_sized_bounded_int_split_sum(
     return output
 
 
-@deprecated(version="0.12.0", reason="Use Polars instead")
+@deprecated(version="0.12.0", reason="Use Polars instead.")
 def make_split_dataframe(
     separator: str,
     col_names,
@@ -3788,7 +3788,7 @@ def make_split_dataframe(
 
     Required features: `contrib`
 
-    [make_split_dataframe in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/transformations/fn.make_split_dataframe.html)
+    [make_split_dataframe in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/transformations/fn.make_split_dataframe.html)
 
     **Supporting Elements:**
 
@@ -3845,7 +3845,7 @@ def make_split_lines(
 
     Required features: `contrib`
 
-    [make_split_lines in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/transformations/fn.make_split_lines.html)
+    [make_split_lines in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/transformations/fn.make_split_lines.html)
 
     **Supporting Elements:**
 
@@ -3892,7 +3892,7 @@ def make_split_records(
 
     Required features: `contrib`
 
-    [make_split_records in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/transformations/fn.make_split_records.html)
+    [make_split_records in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/transformations/fn.make_split_records.html)
 
     **Supporting Elements:**
 
@@ -3944,7 +3944,7 @@ def make_stable_expr(
 
     Required features: `contrib`
 
-    [make_stable_expr in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/transformations/fn.make_stable_expr.html)
+    [make_stable_expr in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/transformations/fn.make_stable_expr.html)
 
     **Supporting Elements:**
 
@@ -3993,12 +3993,12 @@ def make_stable_expr(
 def then_stable_expr(
     expr
 ):  
-    r"""partial constructor of make_stable_expr
+    r"""Partial constructor of `make_stable_expr`.
 
     .. end-markdown
 
     .. seealso:: 
-      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.transformations.make_stable_expr`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`~opendp.transformations.make_stable_expr`
 
     :param expr: The expression to be analyzed for stability.
     """
@@ -4020,14 +4020,15 @@ def then_stable_expr(
 def make_stable_lazyframe(
     input_domain: Domain,
     input_metric: Metric,
-    lazyframe
+    lazyframe,
+    MO: RuntimeTypeDescriptor = "MI"
 ) -> Transformation:
     r"""Create a stable transformation from a [`LazyFrame`].
 
 
     Required features: `contrib`
 
-    [make_stable_lazyframe in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/transformations/fn.make_stable_lazyframe.html)
+    [make_stable_lazyframe in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/transformations/fn.make_stable_lazyframe.html)
 
     **Supporting Elements:**
 
@@ -4043,30 +4044,35 @@ def make_stable_lazyframe(
     :param input_metric: How to measure distances between neighboring input data sets.
     :type input_metric: Metric
     :param lazyframe: The [``LazyFrame``] to be analyzed.
+    :param MO: The type of the output metric.
+    :type MO: :py:ref:`RuntimeTypeDescriptor`
     :raises TypeError: if an argument's type differs from the expected type
     :raises UnknownTypeException: if a type argument fails to parse
     :raises OpenDPException: packaged error from the core OpenDP library
     """
     assert_features("contrib")
 
-    # No type arguments to standardize.
+    # Standardize type arguments.
+    MO = RuntimeType.parse(type_name=MO)
+
     # Convert arguments to c types.
     c_input_domain = py_to_c(input_domain, c_type=Domain, type_name=None)
     c_input_metric = py_to_c(input_metric, c_type=Metric, type_name=None)
     c_lazyframe = py_to_c(lazyframe, c_type=AnyObjectPtr, type_name="LazyFrame")
+    c_MO = py_to_c(MO, c_type=ctypes.c_char_p)
 
     # Call library function.
     lib_function = lib.opendp_transformations__make_stable_lazyframe
-    lib_function.argtypes = [Domain, Metric, AnyObjectPtr]
+    lib_function.argtypes = [Domain, Metric, AnyObjectPtr, ctypes.c_char_p]
     lib_function.restype = FfiResult
 
-    output = c_to_py(unwrap(lib_function(c_input_domain, c_input_metric, c_lazyframe), Transformation))
+    output = c_to_py(unwrap(lib_function(c_input_domain, c_input_metric, c_lazyframe, c_MO), Transformation))
     try:
         output.__opendp_dict__ = {
             '__function__': 'make_stable_lazyframe',
             '__module__': 'transformations',
             '__kwargs__': {
-                'input_domain': input_domain, 'input_metric': input_metric, 'lazyframe': lazyframe
+                'input_domain': input_domain, 'input_metric': input_metric, 'lazyframe': lazyframe, 'MO': MO
             },
         }
     except AttributeError:  # pragma: no cover
@@ -4074,33 +4080,37 @@ def make_stable_lazyframe(
     return output
 
 def then_stable_lazyframe(
-    lazyframe
+    lazyframe,
+    MO: RuntimeTypeDescriptor = "MI"
 ):  
-    r"""partial constructor of make_stable_lazyframe
+    r"""Partial constructor of `make_stable_lazyframe`.
 
     .. end-markdown
 
     .. seealso:: 
-      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.transformations.make_stable_lazyframe`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`~opendp.transformations.make_stable_lazyframe`
 
     :param lazyframe: The [``LazyFrame``] to be analyzed.
+    :param MO: The type of the output metric.
+    :type MO: :py:ref:`RuntimeTypeDescriptor`
     """
     output = _PartialConstructor(lambda input_domain, input_metric: make_stable_lazyframe(
         input_domain=input_domain,
         input_metric=input_metric,
-        lazyframe=lazyframe))
+        lazyframe=lazyframe,
+        MO=MO))
     output.__opendp_dict__ = {
             '__function__': 'then_stable_lazyframe',
             '__module__': 'transformations',
             '__kwargs__': {
-                'lazyframe': lazyframe
+                'lazyframe': lazyframe, 'MO': MO
             },
         }
     return output
 
 
 
-@deprecated(version="0.12.0", reason="Use Polars instead")
+@deprecated(version="0.12.0", reason="Use Polars instead.")
 def make_subset_by(
     indicator_column,
     keep_columns,
@@ -4111,7 +4121,7 @@ def make_subset_by(
 
     Required features: `contrib`
 
-    [make_subset_by in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/transformations/fn.make_subset_by.html)
+    [make_subset_by in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/transformations/fn.make_subset_by.html)
 
     **Supporting Elements:**
 
@@ -4171,7 +4181,7 @@ def make_sum(
 
     Required features: `contrib`
 
-    [make_sum in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/transformations/fn.make_sum.html)
+    [make_sum in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/transformations/fn.make_sum.html)
 
     **Citations:**
 
@@ -4223,12 +4233,12 @@ def make_sum(
 def then_sum(
 
 ):  
-    r"""partial constructor of make_sum
+    r"""Partial constructor of `make_sum`.
 
     .. end-markdown
 
     .. seealso:: 
-      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.transformations.make_sum`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`~opendp.transformations.make_sum`
 
 
     """
@@ -4270,7 +4280,7 @@ def make_sum_of_squared_deviations(
 
     Required features: `contrib`
 
-    [make_sum_of_squared_deviations in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/transformations/fn.make_sum_of_squared_deviations.html)
+    [make_sum_of_squared_deviations in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/transformations/fn.make_sum_of_squared_deviations.html)
 
     **Citations:**
 
@@ -4329,12 +4339,12 @@ def make_sum_of_squared_deviations(
 def then_sum_of_squared_deviations(
     S: RuntimeTypeDescriptor = "Pairwise<T>"
 ):  
-    r"""partial constructor of make_sum_of_squared_deviations
+    r"""Partial constructor of `make_sum_of_squared_deviations`.
 
     .. end-markdown
 
     .. seealso:: 
-      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.transformations.make_sum_of_squared_deviations`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`~opendp.transformations.make_sum_of_squared_deviations`
 
     :param S: Summation algorithm to use on data type ``T``. One of ``Sequential<T>`` or ``Pairwise<T>``.
     :type S: :py:ref:`RuntimeTypeDescriptor`
@@ -4369,7 +4379,7 @@ def make_unordered(
 
     Required features: `contrib`
 
-    [make_unordered in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/transformations/fn.make_unordered.html)
+    [make_unordered in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/transformations/fn.make_unordered.html)
 
     **Supporting Elements:**
 
@@ -4416,12 +4426,12 @@ def make_unordered(
 def then_unordered(
 
 ):  
-    r"""partial constructor of make_unordered
+    r"""Partial constructor of `make_unordered`.
 
     .. end-markdown
 
     .. seealso:: 
-      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.transformations.make_unordered`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`~opendp.transformations.make_unordered`
 
 
     """
@@ -4525,7 +4535,7 @@ def make_variance(
 
     Required features: `contrib`
 
-    [make_variance in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/transformations/fn.make_variance.html)
+    [make_variance in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/transformations/fn.make_variance.html)
 
     **Citations:**
 
@@ -4587,12 +4597,12 @@ def then_variance(
     ddof: int = 1,
     S: RuntimeTypeDescriptor = "Pairwise<T>"
 ):  
-    r"""partial constructor of make_variance
+    r"""Partial constructor of `make_variance`.
 
     .. end-markdown
 
     .. seealso:: 
-      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`opendp.transformations.make_variance`
+      Delays application of ``input_domain`` and ``input_metric`` in :py:func:`~opendp.transformations.make_variance`
 
     :param ddof: Delta degrees of freedom. Set to 0 if not a sample, 1 for sample estimate.
     :type ddof: int

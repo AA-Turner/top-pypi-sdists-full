@@ -33,12 +33,10 @@ from tornado.ioloop import IOLoop
 from tornado.websocket import WebSocketError, websocket_connect
 
 # Bokeh imports
-from ..core.types import ID
 from ..protocol import Protocol
 from ..protocol.exceptions import MessageError, ProtocolError, ValidationError
 from ..protocol.receiver import Receiver
 from ..util.strings import format_url_query_arguments
-from ..util.tornado import fixup_windows_event_loop_policy
 from .states import (
     CONNECTED_AFTER_ACK,
     CONNECTED_BEFORE_ACK,
@@ -51,6 +49,7 @@ from .states import (
 from .websocket import WebSocketClientConnectionWrapper
 
 if TYPE_CHECKING:
+    from ..core.types import ID
     from ..document import Document
     from ..document.events import DocumentChangedEvent
     from ..protocol.message import Message
@@ -154,7 +153,7 @@ class ClientConnection:
         def connected_or_closed() -> bool:
             # we should be looking at the same state here as the 'connected' property above, so connected
             # means both connected and that we did our initial message exchange
-            return isinstance(self._state, CONNECTED_AFTER_ACK | DISCONNECTED)
+            return isinstance(self._state, (CONNECTED_AFTER_ACK, DISCONNECTED))
         self._loop_until(connected_or_closed)
 
     def close(self, why: str = "closed") -> None:
@@ -419,5 +418,3 @@ class ClientConnection:
 #-----------------------------------------------------------------------------
 # Code
 #-----------------------------------------------------------------------------
-
-fixup_windows_event_loop_policy()

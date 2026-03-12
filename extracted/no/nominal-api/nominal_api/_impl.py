@@ -5680,6 +5680,89 @@ datasource_api_GetDataScopeBoundsResponse.__qualname__ = "GetDataScopeBoundsResp
 datasource_api_GetDataScopeBoundsResponse.__module__ = "nominal_api.datasource_api"
 
 
+class datasource_api_GetMatchingChannelsWithTagsRequest(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'dataset_rid': ConjureFieldDefinition('datasetRid', api_rids_DatasetRid),
+            'channel': ConjureFieldDefinition('channel', api_Channel),
+            'tags': ConjureFieldDefinition('tags', Dict[api_TagName, api_TagValue]),
+            'page_size': ConjureFieldDefinition('pageSize', OptionalTypeWrapper[int]),
+            'page_token': ConjureFieldDefinition('pageToken', OptionalTypeWrapper[str])
+        }
+
+    __slots__: List[str] = ['_dataset_rid', '_channel', '_tags', '_page_size', '_page_token']
+
+    def __init__(self, channel: str, dataset_rid: str, tags: Dict[str, str], page_size: Optional[int] = None, page_token: Optional[str] = None) -> None:
+        self._dataset_rid = dataset_rid
+        self._channel = channel
+        self._tags = tags
+        self._page_size = page_size
+        self._page_token = page_token
+
+    @builtins.property
+    def dataset_rid(self) -> str:
+        return self._dataset_rid
+
+    @builtins.property
+    def channel(self) -> str:
+        return self._channel
+
+    @builtins.property
+    def tags(self) -> Dict[str, str]:
+        """Tag key/value filters to apply with exact-match semantics per key. Empty map means no tag filtering.
+        """
+        return self._tags
+
+    @builtins.property
+    def page_size(self) -> Optional[int]:
+        """Optional page size for paginated responses. If omitted with pageToken, defaults to 1000.
+        """
+        return self._page_size
+
+    @builtins.property
+    def page_token(self) -> Optional[str]:
+        """Optional opaque token for fetching the next page. Use the `nextPageToken` returned from the prior
+response.
+        """
+        return self._page_token
+
+
+datasource_api_GetMatchingChannelsWithTagsRequest.__name__ = "GetMatchingChannelsWithTagsRequest"
+datasource_api_GetMatchingChannelsWithTagsRequest.__qualname__ = "GetMatchingChannelsWithTagsRequest"
+datasource_api_GetMatchingChannelsWithTagsRequest.__module__ = "nominal_api.datasource_api"
+
+
+class datasource_api_GetMatchingChannelsWithTagsResponse(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'channels_with_tags': ConjureFieldDefinition('channelsWithTags', List[datasource_api_MatchingChannelWithTags]),
+            'next_page_token': ConjureFieldDefinition('nextPageToken', OptionalTypeWrapper[str])
+        }
+
+    __slots__: List[str] = ['_channels_with_tags', '_next_page_token']
+
+    def __init__(self, channels_with_tags: List["datasource_api_MatchingChannelWithTags"], next_page_token: Optional[str] = None) -> None:
+        self._channels_with_tags = channels_with_tags
+        self._next_page_token = next_page_token
+
+    @builtins.property
+    def channels_with_tags(self) -> List["datasource_api_MatchingChannelWithTags"]:
+        return self._channels_with_tags
+
+    @builtins.property
+    def next_page_token(self) -> Optional[str]:
+        return self._next_page_token
+
+
+datasource_api_GetMatchingChannelsWithTagsResponse.__name__ = "GetMatchingChannelsWithTagsResponse"
+datasource_api_GetMatchingChannelsWithTagsResponse.__qualname__ = "GetMatchingChannelsWithTagsResponse"
+datasource_api_GetMatchingChannelsWithTagsResponse.__module__ = "nominal_api.datasource_api"
+
+
 class datasource_api_GetSeriesCountRequest(ConjureBeanType):
 
     @builtins.classmethod
@@ -5828,6 +5911,37 @@ class datasource_api_IndexChannelPrefixTreeRequest(ConjureBeanType):
 datasource_api_IndexChannelPrefixTreeRequest.__name__ = "IndexChannelPrefixTreeRequest"
 datasource_api_IndexChannelPrefixTreeRequest.__qualname__ = "IndexChannelPrefixTreeRequest"
 datasource_api_IndexChannelPrefixTreeRequest.__module__ = "nominal_api.datasource_api"
+
+
+class datasource_api_MatchingChannelWithTags(ConjureBeanType):
+    """Represents a channel identity by channel name and full tag map.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'channel': ConjureFieldDefinition('channel', api_Channel),
+            'tags': ConjureFieldDefinition('tags', Dict[api_TagName, api_TagValue])
+        }
+
+    __slots__: List[str] = ['_channel', '_tags']
+
+    def __init__(self, channel: str, tags: Dict[str, str]) -> None:
+        self._channel = channel
+        self._tags = tags
+
+    @builtins.property
+    def channel(self) -> str:
+        return self._channel
+
+    @builtins.property
+    def tags(self) -> Dict[str, str]:
+        return self._tags
+
+
+datasource_api_MatchingChannelWithTags.__name__ = "MatchingChannelWithTags"
+datasource_api_MatchingChannelWithTags.__qualname__ = "MatchingChannelWithTags"
+datasource_api_MatchingChannelWithTags.__module__ = "nominal_api.datasource_api"
 
 
 class datasource_api_SearchChannelsRequest(ConjureBeanType):
@@ -20240,6 +20354,39 @@ be used to organize workbooks.
         _decoder = ConjureDecoder()
         return _decoder.decode(_response.json(), scout_notebook_api_SearchNotebooksResponse, self._return_none_for_unknown_union_types)
 
+    def batch_edit_notebook_metadata(self, auth_header: str, request: "scout_notebook_api_BatchEditNotebookMetadataRequest") -> "scout_notebook_api_BatchEditNotebookMetadataResponse":
+        """Batch edits metadata across multiple workbooks. Supports rename/merge for labels and properties.
+If more than 1000 workbooks are targeted, this endpoint will throw a 400.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+        }
+
+        _json: Any = _conjure_encoder.default(request)
+
+        _path = '/scout/v2/notebook/metadata/batch-edit'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'POST',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return _decoder.decode(_response.json(), scout_notebook_api_BatchEditNotebookMetadataResponse, self._return_none_for_unknown_union_types)
+
     def lock(self, auth_header: str, rid: str) -> None:
         """Makes a workbook uneditable.
         """
@@ -20509,6 +20656,39 @@ Throws if start is equal to or after end.
 
         _decoder = ConjureDecoder()
         return _decoder.decode(_response.json(), scout_run_api_Run, self._return_none_for_unknown_union_types)
+
+    def batch_edit_run_metadata(self, auth_header: str, request: "scout_run_api_BatchEditRunMetadataRequest") -> "scout_run_api_BatchEditRunMetadataResponse":
+        """Batch edits metadata across multiple runs. Supports rename/merge for labels and properties.
+If more than 1000 runs are targeted, this endpoint will throw a 400.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+        }
+
+        _json: Any = _conjure_encoder.default(request)
+
+        _path = '/scout/v1/run/metadata/batch-edit'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'POST',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return _decoder.decode(_response.json(), scout_run_api_BatchEditRunMetadataResponse, self._return_none_for_unknown_union_types)
 
     def add_data_sources_to_run(self, auth_header: str, request: Dict[str, "scout_run_api_CreateRunDataSource"], run_rid: str) -> "scout_run_api_Run":
         """Adds datasources to the run in question.
@@ -22930,6 +23110,73 @@ scout_asset_api_AssetTypesFilter.__qualname__ = "AssetTypesFilter"
 scout_asset_api_AssetTypesFilter.__module__ = "nominal_api.scout_asset_api"
 
 
+class scout_asset_api_BatchEditAssetMetadataRequest(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'asset_search_query': ConjureFieldDefinition('assetSearchQuery', OptionalTypeWrapper[scout_asset_api_SearchAssetsQuery]),
+            'operation': ConjureFieldDefinition('operation', scout_metadata_MetadataChange)
+        }
+
+    __slots__: List[str] = ['_asset_search_query', '_operation']
+
+    def __init__(self, operation: "scout_metadata_MetadataChange", asset_search_query: Optional["scout_asset_api_SearchAssetsQuery"] = None) -> None:
+        self._asset_search_query = asset_search_query
+        self._operation = operation
+
+    @builtins.property
+    def asset_search_query(self) -> Optional["scout_asset_api_SearchAssetsQuery"]:
+        """Additional search query to filter which assets are targeted by the edit.
+Source labels/properties from the metadata change are automatically included as filters.
+        """
+        return self._asset_search_query
+
+    @builtins.property
+    def operation(self) -> "scout_metadata_MetadataChange":
+        return self._operation
+
+
+scout_asset_api_BatchEditAssetMetadataRequest.__name__ = "BatchEditAssetMetadataRequest"
+scout_asset_api_BatchEditAssetMetadataRequest.__qualname__ = "BatchEditAssetMetadataRequest"
+scout_asset_api_BatchEditAssetMetadataRequest.__module__ = "nominal_api.scout_asset_api"
+
+
+class scout_asset_api_BatchEditAssetMetadataResponse(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'modified_asset_rids': ConjureFieldDefinition('modifiedAssetRids', List[scout_rids_api_AssetRid]),
+            'conflicting_asset_rids': ConjureFieldDefinition('conflictingAssetRids', List[scout_rids_api_AssetRid])
+        }
+
+    __slots__: List[str] = ['_modified_asset_rids', '_conflicting_asset_rids']
+
+    def __init__(self, conflicting_asset_rids: List[str], modified_asset_rids: List[str]) -> None:
+        self._modified_asset_rids = modified_asset_rids
+        self._conflicting_asset_rids = conflicting_asset_rids
+
+    @builtins.property
+    def modified_asset_rids(self) -> List[str]:
+        """RIDs for assets that were modified by the batch edit.
+        """
+        return self._modified_asset_rids
+
+    @builtins.property
+    def conflicting_asset_rids(self) -> List[str]:
+        """RIDs for assets that matched the source filter but already had the target property key
+and were skipped (SkipOnConflict behavior). Empty for operations without conflict semantics
+or when using OverwriteOnConflict.
+        """
+        return self._conflicting_asset_rids
+
+
+scout_asset_api_BatchEditAssetMetadataResponse.__name__ = "BatchEditAssetMetadataResponse"
+scout_asset_api_BatchEditAssetMetadataResponse.__qualname__ = "BatchEditAssetMetadataResponse"
+scout_asset_api_BatchEditAssetMetadataResponse.__module__ = "nominal_api.scout_asset_api"
+
+
 class scout_asset_api_ChannelMetadata(ConjureBeanType):
 
     @builtins.classmethod
@@ -23340,6 +23587,7 @@ class scout_asset_api_SearchAssetsQuery(ConjureUnionType):
     _label: Optional[str] = None
     _labels: Optional["scout_rids_api_LabelsFilter"] = None
     _property: Optional["api_Property"] = None
+    _property_key: Optional[str] = None
     _properties: Optional["scout_rids_api_PropertiesFilter"] = None
     _type_rid: Optional[str] = None
     _asset_types: Optional["scout_asset_api_AssetTypesFilter"] = None
@@ -23347,6 +23595,7 @@ class scout_asset_api_SearchAssetsQuery(ConjureUnionType):
     _archived: Optional[bool] = None
     _and_: Optional[List["scout_asset_api_SearchAssetsQuery"]] = None
     _or_: Optional[List["scout_asset_api_SearchAssetsQuery"]] = None
+    _not_: Optional["scout_asset_api_SearchAssetsQuery"] = None
     _workspace: Optional[str] = None
 
     @builtins.classmethod
@@ -23357,6 +23606,7 @@ class scout_asset_api_SearchAssetsQuery(ConjureUnionType):
             'label': ConjureFieldDefinition('label', api_Label),
             'labels': ConjureFieldDefinition('labels', scout_rids_api_LabelsFilter),
             'property': ConjureFieldDefinition('property', api_Property),
+            'property_key': ConjureFieldDefinition('propertyKey', api_PropertyName),
             'properties': ConjureFieldDefinition('properties', scout_rids_api_PropertiesFilter),
             'type_rid': ConjureFieldDefinition('typeRid', scout_rids_api_TypeRid),
             'asset_types': ConjureFieldDefinition('assetTypes', scout_asset_api_AssetTypesFilter),
@@ -23364,6 +23614,7 @@ class scout_asset_api_SearchAssetsQuery(ConjureUnionType):
             'archived': ConjureFieldDefinition('archived', bool),
             'and_': ConjureFieldDefinition('and', List[scout_asset_api_SearchAssetsQuery]),
             'or_': ConjureFieldDefinition('or', List[scout_asset_api_SearchAssetsQuery]),
+            'not_': ConjureFieldDefinition('not', scout_asset_api_SearchAssetsQuery),
             'workspace': ConjureFieldDefinition('workspace', api_rids_WorkspaceRid)
         }
 
@@ -23374,6 +23625,7 @@ class scout_asset_api_SearchAssetsQuery(ConjureUnionType):
             label: Optional[str] = None,
             labels: Optional["scout_rids_api_LabelsFilter"] = None,
             property: Optional["api_Property"] = None,
+            property_key: Optional[str] = None,
             properties: Optional["scout_rids_api_PropertiesFilter"] = None,
             type_rid: Optional[str] = None,
             asset_types: Optional["scout_asset_api_AssetTypesFilter"] = None,
@@ -23381,11 +23633,12 @@ class scout_asset_api_SearchAssetsQuery(ConjureUnionType):
             archived: Optional[bool] = None,
             and_: Optional[List["scout_asset_api_SearchAssetsQuery"]] = None,
             or_: Optional[List["scout_asset_api_SearchAssetsQuery"]] = None,
+            not_: Optional["scout_asset_api_SearchAssetsQuery"] = None,
             workspace: Optional[str] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (search_text is not None) + (exact_substring is not None) + (label is not None) + (labels is not None) + (property is not None) + (properties is not None) + (type_rid is not None) + (asset_types is not None) + (is_staged is not None) + (archived is not None) + (and_ is not None) + (or_ is not None) + (workspace is not None) != 1:
+            if (search_text is not None) + (exact_substring is not None) + (label is not None) + (labels is not None) + (property is not None) + (property_key is not None) + (properties is not None) + (type_rid is not None) + (asset_types is not None) + (is_staged is not None) + (archived is not None) + (and_ is not None) + (or_ is not None) + (not_ is not None) + (workspace is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if search_text is not None:
@@ -23403,6 +23656,9 @@ class scout_asset_api_SearchAssetsQuery(ConjureUnionType):
             if property is not None:
                 self._property = property
                 self._type = 'property'
+            if property_key is not None:
+                self._property_key = property_key
+                self._type = 'propertyKey'
             if properties is not None:
                 self._properties = properties
                 self._type = 'properties'
@@ -23424,6 +23680,9 @@ class scout_asset_api_SearchAssetsQuery(ConjureUnionType):
             if or_ is not None:
                 self._or_ = or_
                 self._type = 'or'
+            if not_ is not None:
+                self._not_ = not_
+                self._type = 'not'
             if workspace is not None:
                 self._workspace = workspace
                 self._type = 'workspace'
@@ -23453,6 +23712,11 @@ class scout_asset_api_SearchAssetsQuery(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._property = property
             self._type = 'property'
+        elif type_of_union == 'propertyKey':
+            if property_key is None:
+                raise ValueError('a union value must not be None')
+            self._property_key = property_key
+            self._type = 'propertyKey'
         elif type_of_union == 'properties':
             if properties is None:
                 raise ValueError('a union value must not be None')
@@ -23488,6 +23752,11 @@ class scout_asset_api_SearchAssetsQuery(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._or_ = or_
             self._type = 'or'
+        elif type_of_union == 'not':
+            if not_ is None:
+                raise ValueError('a union value must not be None')
+            self._not_ = not_
+            self._type = 'not'
         elif type_of_union == 'workspace':
             if workspace is None:
                 raise ValueError('a union value must not be None')
@@ -23515,6 +23784,12 @@ class scout_asset_api_SearchAssetsQuery(ConjureUnionType):
     @builtins.property
     def property(self) -> Optional["api_Property"]:
         return self._property
+
+    @builtins.property
+    def property_key(self) -> Optional[str]:
+        """Matches assets that have a property with this key, regardless of value.
+        """
+        return self._property_key
 
     @builtins.property
     def properties(self) -> Optional["scout_rids_api_PropertiesFilter"]:
@@ -23545,6 +23820,10 @@ class scout_asset_api_SearchAssetsQuery(ConjureUnionType):
         return self._or_
 
     @builtins.property
+    def not_(self) -> Optional["scout_asset_api_SearchAssetsQuery"]:
+        return self._not_
+
+    @builtins.property
     def workspace(self) -> Optional[str]:
         return self._workspace
 
@@ -23561,6 +23840,8 @@ class scout_asset_api_SearchAssetsQuery(ConjureUnionType):
             return visitor._labels(self.labels)
         if self._type == 'property' and self.property is not None:
             return visitor._property(self.property)
+        if self._type == 'propertyKey' and self.property_key is not None:
+            return visitor._property_key(self.property_key)
         if self._type == 'properties' and self.properties is not None:
             return visitor._properties(self.properties)
         if self._type == 'typeRid' and self.type_rid is not None:
@@ -23575,6 +23856,8 @@ class scout_asset_api_SearchAssetsQuery(ConjureUnionType):
             return visitor._and(self.and_)
         if self._type == 'or' and self.or_ is not None:
             return visitor._or(self.or_)
+        if self._type == 'not' and self.not_ is not None:
+            return visitor._not(self.not_)
         if self._type == 'workspace' and self.workspace is not None:
             return visitor._workspace(self.workspace)
 
@@ -23607,6 +23890,10 @@ class scout_asset_api_SearchAssetsQueryVisitor:
         pass
 
     @abstractmethod
+    def _property_key(self, property_key: str) -> Any:
+        pass
+
+    @abstractmethod
     def _properties(self, properties: "scout_rids_api_PropertiesFilter") -> Any:
         pass
 
@@ -23632,6 +23919,10 @@ class scout_asset_api_SearchAssetsQueryVisitor:
 
     @abstractmethod
     def _or(self, or_: List["scout_asset_api_SearchAssetsQuery"]) -> Any:
+        pass
+
+    @abstractmethod
+    def _not(self, not_: "scout_asset_api_SearchAssetsQuery") -> Any:
         pass
 
     @abstractmethod
@@ -24734,6 +25025,39 @@ Throws if the asset already has data scopes with data scope names matching those
 
         _decoder = ConjureDecoder()
         return _decoder.decode(_response.json(), scout_asset_api_SearchAssetsResponse, self._return_none_for_unknown_union_types)
+
+    def batch_edit_asset_metadata(self, auth_header: str, request: "scout_asset_api_BatchEditAssetMetadataRequest") -> "scout_asset_api_BatchEditAssetMetadataResponse":
+        """Batch edits metadata across multiple assets. Supports rename/merge for labels and properties.
+If more than 1000 assets are targeted, this endpoint will throw a 400.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+        }
+
+        _json: Any = _conjure_encoder.default(request)
+
+        _path = '/scout/v1/asset/metadata/batch-edit'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'POST',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return _decoder.decode(_response.json(), scout_asset_api_BatchEditAssetMetadataResponse, self._return_none_for_unknown_union_types)
 
     def search_types(self, auth_header: str, search_types_request: "scout_asset_api_SearchTypesRequest") -> "scout_asset_api_SearchTypesResponse":
         _conjure_encoder = ConjureEncoder()
@@ -26188,6 +26512,40 @@ dataset can still be directly accessed by its UUID/rid.
             json=_json)
 
         return
+
+    def update_retention_policy(self, auth_header: str, dataset_rid: str, request: "scout_catalog_UpdateRetentionPolicyRequest") -> "scout_catalog_EnrichedDataset":
+        """Updates the retention policy for a dataset. If the retention policy is set, data that is older than the
+retention policy will be deleted.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+            'datasetRid': quote(str(_conjure_encoder.default(dataset_rid)), safe=''),
+        }
+
+        _json: Any = _conjure_encoder.default(request)
+
+        _path = '/catalog/v1/datasets/{datasetRid}/retention-policy'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'PUT',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return _decoder.decode(_response.json(), scout_catalog_EnrichedDataset, self._return_none_for_unknown_union_types)
 
     def get_all_properties_and_labels(self, auth_header: str, workspaces: List[str] = None) -> "scout_catalog_AllPropertiesAndLabelsResponse":
         workspaces = workspaces if workspaces is not None else []
@@ -28523,6 +28881,29 @@ scout_catalog_UpdateIngestStatusV2.__qualname__ = "UpdateIngestStatusV2"
 scout_catalog_UpdateIngestStatusV2.__module__ = "nominal_api.scout_catalog"
 
 
+class scout_catalog_UpdateRetentionPolicyRequest(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'retention_policy': ConjureFieldDefinition('retentionPolicy', OptionalTypeWrapper[scout_catalog_RetentionPolicy])
+        }
+
+    __slots__: List[str] = ['_retention_policy']
+
+    def __init__(self, retention_policy: Optional["scout_catalog_RetentionPolicy"] = None) -> None:
+        self._retention_policy = retention_policy
+
+    @builtins.property
+    def retention_policy(self) -> Optional["scout_catalog_RetentionPolicy"]:
+        return self._retention_policy
+
+
+scout_catalog_UpdateRetentionPolicyRequest.__name__ = "UpdateRetentionPolicyRequest"
+scout_catalog_UpdateRetentionPolicyRequest.__qualname__ = "UpdateRetentionPolicyRequest"
+scout_catalog_UpdateRetentionPolicyRequest.__module__ = "nominal_api.scout_catalog"
+
+
 class scout_catalog_UtcTimestamp(ConjureBeanType):
 
     @builtins.classmethod
@@ -28728,6 +29109,10 @@ class scout_channelvariables_api_ChannelVariableComputeExpressionInputDataType(C
     '''NUMERIC_SERIES'''
     ENUM_SERIES = 'ENUM_SERIES'
     '''ENUM_SERIES'''
+    RANGE_SERIES = 'RANGE_SERIES'
+    '''RANGE_SERIES'''
+    BOOLEAN_SERIES = 'BOOLEAN_SERIES'
+    '''BOOLEAN_SERIES'''
     UNKNOWN = 'UNKNOWN'
     '''UNKNOWN'''
 
@@ -39966,6 +40351,73 @@ scout_checks_api_ArchiveChecklistsRequest.__qualname__ = "ArchiveChecklistsReque
 scout_checks_api_ArchiveChecklistsRequest.__module__ = "nominal_api.scout_checks_api"
 
 
+class scout_checks_api_BatchEditChecklistMetadataRequest(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'checklist_search_query': ConjureFieldDefinition('checklistSearchQuery', OptionalTypeWrapper[scout_checks_api_ChecklistSearchQuery]),
+            'operation': ConjureFieldDefinition('operation', scout_metadata_MetadataChange)
+        }
+
+    __slots__: List[str] = ['_checklist_search_query', '_operation']
+
+    def __init__(self, operation: "scout_metadata_MetadataChange", checklist_search_query: Optional["scout_checks_api_ChecklistSearchQuery"] = None) -> None:
+        self._checklist_search_query = checklist_search_query
+        self._operation = operation
+
+    @builtins.property
+    def checklist_search_query(self) -> Optional["scout_checks_api_ChecklistSearchQuery"]:
+        """Additional search query to filter which checklists are targeted by the edit.
+Source labels/properties from the operation are automatically included as filters.
+        """
+        return self._checklist_search_query
+
+    @builtins.property
+    def operation(self) -> "scout_metadata_MetadataChange":
+        return self._operation
+
+
+scout_checks_api_BatchEditChecklistMetadataRequest.__name__ = "BatchEditChecklistMetadataRequest"
+scout_checks_api_BatchEditChecklistMetadataRequest.__qualname__ = "BatchEditChecklistMetadataRequest"
+scout_checks_api_BatchEditChecklistMetadataRequest.__module__ = "nominal_api.scout_checks_api"
+
+
+class scout_checks_api_BatchEditChecklistMetadataResponse(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'modified_checklist_rids': ConjureFieldDefinition('modifiedChecklistRids', List[scout_rids_api_ChecklistRid]),
+            'conflicting_checklist_rids': ConjureFieldDefinition('conflictingChecklistRids', List[scout_rids_api_ChecklistRid])
+        }
+
+    __slots__: List[str] = ['_modified_checklist_rids', '_conflicting_checklist_rids']
+
+    def __init__(self, conflicting_checklist_rids: List[str], modified_checklist_rids: List[str]) -> None:
+        self._modified_checklist_rids = modified_checklist_rids
+        self._conflicting_checklist_rids = conflicting_checklist_rids
+
+    @builtins.property
+    def modified_checklist_rids(self) -> List[str]:
+        """RIDs for checklists that were modified by the batch edit.
+        """
+        return self._modified_checklist_rids
+
+    @builtins.property
+    def conflicting_checklist_rids(self) -> List[str]:
+        """RIDs for checklists that matched the source filter but already had the target property key
+and were skipped (SkipOnConflict behavior). Empty for operations without conflict semantics
+or when using OverwriteOnConflict.
+        """
+        return self._conflicting_checklist_rids
+
+
+scout_checks_api_BatchEditChecklistMetadataResponse.__name__ = "BatchEditChecklistMetadataResponse"
+scout_checks_api_BatchEditChecklistMetadataResponse.__qualname__ = "BatchEditChecklistMetadataResponse"
+scout_checks_api_BatchEditChecklistMetadataResponse.__module__ = "nominal_api.scout_checks_api"
+
+
 class scout_checks_api_BatchGetChecklistMetadataRequest(ConjureBeanType):
 
     @builtins.classmethod
@@ -41427,6 +41879,39 @@ If neither is specified, branch = "main" is the default.
 
         _decoder = ConjureDecoder()
         return _decoder.decode(_response.json(), scout_checks_api_GetAllLabelsAndPropertiesResponse, self._return_none_for_unknown_union_types)
+
+    def batch_edit_checklist_metadata(self, auth_header: str, request: "scout_checks_api_BatchEditChecklistMetadataRequest") -> "scout_checks_api_BatchEditChecklistMetadataResponse":
+        """Batch edits metadata across multiple checklists. Supports rename/merge for labels and properties.
+If more than 1000 checklists are targeted, this endpoint will throw a 400.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+        }
+
+        _json: Any = _conjure_encoder.default(request)
+
+        _path = '/scout/v1/checklists/metadata/batch-edit'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'POST',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return _decoder.decode(_response.json(), scout_checks_api_BatchEditChecklistMetadataResponse, self._return_none_for_unknown_union_types)
 
 
 scout_checks_api_ChecklistService.__name__ = "ChecklistService"
@@ -81021,6 +81506,39 @@ Returns empty seriesCount for non-Nominal datasources.
         _decoder = ConjureDecoder()
         return _decoder.decode(_response.json(), datasource_api_BatchGetSeriesCountResponse, self._return_none_for_unknown_union_types)
 
+    def get_matching_channels_with_tags(self, auth_header: str, request: "datasource_api_GetMatchingChannelsWithTagsRequest") -> "datasource_api_GetMatchingChannelsWithTagsResponse":
+        """Returns (channel, full-tag-map) entries for a specific channel in a dataset.
+If tags are provided, each entry must match all provided key/value pairs; extra tags may still be present.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+        }
+
+        _json: Any = _conjure_encoder.default(request)
+
+        _path = '/data-source/v1/data-sources/get-matching-channels-with-tags'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'POST',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return _decoder.decode(_response.json(), datasource_api_GetMatchingChannelsWithTagsResponse, self._return_none_for_unknown_union_types)
+
 
 scout_datasource_DataSourceService.__name__ = "DataSourceService"
 scout_datasource_DataSourceService.__qualname__ = "DataSourceService"
@@ -86556,6 +87074,7 @@ class scout_internal_search_api_SearchQuery(ConjureUnionType):
     _search_text: Optional[str] = None
     _label: Optional[str] = None
     _property: Optional["api_Property"] = None
+    _property_key: Optional[str] = None
     _and_: Optional[List["scout_internal_search_api_SearchQuery"]] = None
     _or_: Optional[List["scout_internal_search_api_SearchQuery"]] = None
     _not_: Optional["scout_internal_search_api_SearchQuery"] = None
@@ -86578,6 +87097,7 @@ class scout_internal_search_api_SearchQuery(ConjureUnionType):
             'search_text': ConjureFieldDefinition('searchText', str),
             'label': ConjureFieldDefinition('label', api_Label),
             'property': ConjureFieldDefinition('property', api_Property),
+            'property_key': ConjureFieldDefinition('propertyKey', api_PropertyName),
             'and_': ConjureFieldDefinition('and', List[scout_internal_search_api_SearchQuery]),
             'or_': ConjureFieldDefinition('or', List[scout_internal_search_api_SearchQuery]),
             'not_': ConjureFieldDefinition('not', scout_internal_search_api_SearchQuery),
@@ -86600,6 +87120,7 @@ class scout_internal_search_api_SearchQuery(ConjureUnionType):
             search_text: Optional[str] = None,
             label: Optional[str] = None,
             property: Optional["api_Property"] = None,
+            property_key: Optional[str] = None,
             and_: Optional[List["scout_internal_search_api_SearchQuery"]] = None,
             or_: Optional[List["scout_internal_search_api_SearchQuery"]] = None,
             not_: Optional["scout_internal_search_api_SearchQuery"] = None,
@@ -86610,7 +87131,7 @@ class scout_internal_search_api_SearchQuery(ConjureUnionType):
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (date_time_field is not None) + (string_field is not None) + (timestamp_field is not None) + (long_field is not None) + (boolean_field is not None) + (exact_match is not None) + (string_array_exact_match is not None) + (string_array_length is not None) + (search_text is not None) + (label is not None) + (property is not None) + (and_ is not None) + (or_ is not None) + (not_ is not None) + (workspace is not None) + (created_at is not None) + (archived_status is not None) + (is_published is not None) != 1:
+            if (date_time_field is not None) + (string_field is not None) + (timestamp_field is not None) + (long_field is not None) + (boolean_field is not None) + (exact_match is not None) + (string_array_exact_match is not None) + (string_array_length is not None) + (search_text is not None) + (label is not None) + (property is not None) + (property_key is not None) + (and_ is not None) + (or_ is not None) + (not_ is not None) + (workspace is not None) + (created_at is not None) + (archived_status is not None) + (is_published is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if date_time_field is not None:
@@ -86646,6 +87167,9 @@ class scout_internal_search_api_SearchQuery(ConjureUnionType):
             if property is not None:
                 self._property = property
                 self._type = 'property'
+            if property_key is not None:
+                self._property_key = property_key
+                self._type = 'propertyKey'
             if and_ is not None:
                 self._and_ = and_
                 self._type = 'and'
@@ -86723,6 +87247,11 @@ class scout_internal_search_api_SearchQuery(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._property = property
             self._type = 'property'
+        elif type_of_union == 'propertyKey':
+            if property_key is None:
+                raise ValueError('a union value must not be None')
+            self._property_key = property_key
+            self._type = 'propertyKey'
         elif type_of_union == 'and':
             if and_ is None:
                 raise ValueError('a union value must not be None')
@@ -86809,6 +87338,12 @@ To do a partial match, use an "and" on StringField queries.
         return self._property
 
     @builtins.property
+    def property_key(self) -> Optional[str]:
+        """Matches documents that have a property with this key, regardless of value.
+        """
+        return self._property_key
+
+    @builtins.property
     def and_(self) -> Optional[List["scout_internal_search_api_SearchQuery"]]:
         return self._and_
 
@@ -86863,6 +87398,8 @@ To do a partial match, use an "and" on StringField queries.
             return visitor._label(self.label)
         if self._type == 'property' and self.property is not None:
             return visitor._property(self.property)
+        if self._type == 'propertyKey' and self.property_key is not None:
+            return visitor._property_key(self.property_key)
         if self._type == 'and' and self.and_ is not None:
             return visitor._and(self.and_)
         if self._type == 'or' and self.or_ is not None:
@@ -86928,6 +87465,10 @@ class scout_internal_search_api_SearchQueryVisitor:
 
     @abstractmethod
     def _property(self, property: "api_Property") -> Any:
+        pass
+
+    @abstractmethod
+    def _property_key(self, property_key: str) -> Any:
         pass
 
     @abstractmethod
@@ -87939,6 +88480,85 @@ scout_layout_api_WorkbookLayoutV1.__qualname__ = "WorkbookLayoutV1"
 scout_layout_api_WorkbookLayoutV1.__module__ = "nominal_api.scout_layout_api"
 
 
+class scout_metadata_ConflictBehavior(ConjureUnionType):
+    """Controls what happens when a rename target property key already exists on a document.
+    """
+    _skip: Optional["scout_metadata_SkipOnConflict"] = None
+    _overwrite: Optional["scout_metadata_OverwriteOnConflict"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'skip': ConjureFieldDefinition('skip', scout_metadata_SkipOnConflict),
+            'overwrite': ConjureFieldDefinition('overwrite', scout_metadata_OverwriteOnConflict)
+        }
+
+    def __init__(
+            self,
+            skip: Optional["scout_metadata_SkipOnConflict"] = None,
+            overwrite: Optional["scout_metadata_OverwriteOnConflict"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (skip is not None) + (overwrite is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if skip is not None:
+                self._skip = skip
+                self._type = 'skip'
+            if overwrite is not None:
+                self._overwrite = overwrite
+                self._type = 'overwrite'
+
+        elif type_of_union == 'skip':
+            if skip is None:
+                raise ValueError('a union value must not be None')
+            self._skip = skip
+            self._type = 'skip'
+        elif type_of_union == 'overwrite':
+            if overwrite is None:
+                raise ValueError('a union value must not be None')
+            self._overwrite = overwrite
+            self._type = 'overwrite'
+
+    @builtins.property
+    def skip(self) -> Optional["scout_metadata_SkipOnConflict"]:
+        return self._skip
+
+    @builtins.property
+    def overwrite(self) -> Optional["scout_metadata_OverwriteOnConflict"]:
+        return self._overwrite
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_metadata_ConflictBehaviorVisitor):
+            raise ValueError('{} is not an instance of scout_metadata_ConflictBehaviorVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'skip' and self.skip is not None:
+            return visitor._skip(self.skip)
+        if self._type == 'overwrite' and self.overwrite is not None:
+            return visitor._overwrite(self.overwrite)
+
+
+scout_metadata_ConflictBehavior.__name__ = "ConflictBehavior"
+scout_metadata_ConflictBehavior.__qualname__ = "ConflictBehavior"
+scout_metadata_ConflictBehavior.__module__ = "nominal_api.scout_metadata"
+
+
+class scout_metadata_ConflictBehaviorVisitor:
+
+    @abstractmethod
+    def _skip(self, skip: "scout_metadata_SkipOnConflict") -> Any:
+        pass
+
+    @abstractmethod
+    def _overwrite(self, overwrite: "scout_metadata_OverwriteOnConflict") -> Any:
+        pass
+
+
+scout_metadata_ConflictBehaviorVisitor.__name__ = "ConflictBehaviorVisitor"
+scout_metadata_ConflictBehaviorVisitor.__qualname__ = "ConflictBehaviorVisitor"
+scout_metadata_ConflictBehaviorVisitor.__module__ = "nominal_api.scout_metadata"
+
+
 class scout_metadata_CreatedAtQuery(ConjureBeanType):
 
     @builtins.classmethod
@@ -88030,6 +88650,35 @@ scout_metadata_GetMetadataUsageCountResponse.__qualname__ = "GetMetadataUsageCou
 scout_metadata_GetMetadataUsageCountResponse.__module__ = "nominal_api.scout_metadata"
 
 
+class scout_metadata_LabelWithCount(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'label': ConjureFieldDefinition('label', api_Label),
+            'document_count': ConjureFieldDefinition('documentCount', int)
+        }
+
+    __slots__: List[str] = ['_label', '_document_count']
+
+    def __init__(self, document_count: int, label: str) -> None:
+        self._label = label
+        self._document_count = document_count
+
+    @builtins.property
+    def label(self) -> str:
+        return self._label
+
+    @builtins.property
+    def document_count(self) -> int:
+        return self._document_count
+
+
+scout_metadata_LabelWithCount.__name__ = "LabelWithCount"
+scout_metadata_LabelWithCount.__qualname__ = "LabelWithCount"
+scout_metadata_LabelWithCount.__module__ = "nominal_api.scout_metadata"
+
+
 class scout_metadata_ListPropertiesAndLabelsRequest(ConjureBeanType):
 
     @builtins.classmethod
@@ -88090,6 +88739,161 @@ class scout_metadata_ListPropertiesAndLabelsResponse(ConjureBeanType):
 scout_metadata_ListPropertiesAndLabelsResponse.__name__ = "ListPropertiesAndLabelsResponse"
 scout_metadata_ListPropertiesAndLabelsResponse.__qualname__ = "ListPropertiesAndLabelsResponse"
 scout_metadata_ListPropertiesAndLabelsResponse.__module__ = "nominal_api.scout_metadata"
+
+
+class scout_metadata_MergePropertyValuesForKey(ConjureBeanType):
+    """Merge one or more values of a property key into a single target value.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'key': ConjureFieldDefinition('key', api_PropertyName),
+            'source': ConjureFieldDefinition('source', List[api_PropertyValue]),
+            'target': ConjureFieldDefinition('target', api_PropertyValue)
+        }
+
+    __slots__: List[str] = ['_key', '_source', '_target']
+
+    def __init__(self, key: str, source: List[str], target: str) -> None:
+        self._key = key
+        self._source = source
+        self._target = target
+
+    @builtins.property
+    def key(self) -> str:
+        return self._key
+
+    @builtins.property
+    def source(self) -> List[str]:
+        return self._source
+
+    @builtins.property
+    def target(self) -> str:
+        return self._target
+
+
+scout_metadata_MergePropertyValuesForKey.__name__ = "MergePropertyValuesForKey"
+scout_metadata_MergePropertyValuesForKey.__qualname__ = "MergePropertyValuesForKey"
+scout_metadata_MergePropertyValuesForKey.__module__ = "nominal_api.scout_metadata"
+
+
+class scout_metadata_MetadataChange(ConjureUnionType):
+    _rename_label: Optional["scout_metadata_RenameLabel"] = None
+    _rename_property_key: Optional["scout_metadata_RenamePropertyKey"] = None
+    _merge_property_values_for_key: Optional["scout_metadata_MergePropertyValuesForKey"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'rename_label': ConjureFieldDefinition('renameLabel', scout_metadata_RenameLabel),
+            'rename_property_key': ConjureFieldDefinition('renamePropertyKey', scout_metadata_RenamePropertyKey),
+            'merge_property_values_for_key': ConjureFieldDefinition('mergePropertyValuesForKey', scout_metadata_MergePropertyValuesForKey)
+        }
+
+    def __init__(
+            self,
+            rename_label: Optional["scout_metadata_RenameLabel"] = None,
+            rename_property_key: Optional["scout_metadata_RenamePropertyKey"] = None,
+            merge_property_values_for_key: Optional["scout_metadata_MergePropertyValuesForKey"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (rename_label is not None) + (rename_property_key is not None) + (merge_property_values_for_key is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if rename_label is not None:
+                self._rename_label = rename_label
+                self._type = 'renameLabel'
+            if rename_property_key is not None:
+                self._rename_property_key = rename_property_key
+                self._type = 'renamePropertyKey'
+            if merge_property_values_for_key is not None:
+                self._merge_property_values_for_key = merge_property_values_for_key
+                self._type = 'mergePropertyValuesForKey'
+
+        elif type_of_union == 'renameLabel':
+            if rename_label is None:
+                raise ValueError('a union value must not be None')
+            self._rename_label = rename_label
+            self._type = 'renameLabel'
+        elif type_of_union == 'renamePropertyKey':
+            if rename_property_key is None:
+                raise ValueError('a union value must not be None')
+            self._rename_property_key = rename_property_key
+            self._type = 'renamePropertyKey'
+        elif type_of_union == 'mergePropertyValuesForKey':
+            if merge_property_values_for_key is None:
+                raise ValueError('a union value must not be None')
+            self._merge_property_values_for_key = merge_property_values_for_key
+            self._type = 'mergePropertyValuesForKey'
+
+    @builtins.property
+    def rename_label(self) -> Optional["scout_metadata_RenameLabel"]:
+        return self._rename_label
+
+    @builtins.property
+    def rename_property_key(self) -> Optional["scout_metadata_RenamePropertyKey"]:
+        return self._rename_property_key
+
+    @builtins.property
+    def merge_property_values_for_key(self) -> Optional["scout_metadata_MergePropertyValuesForKey"]:
+        return self._merge_property_values_for_key
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_metadata_MetadataChangeVisitor):
+            raise ValueError('{} is not an instance of scout_metadata_MetadataChangeVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'renameLabel' and self.rename_label is not None:
+            return visitor._rename_label(self.rename_label)
+        if self._type == 'renamePropertyKey' and self.rename_property_key is not None:
+            return visitor._rename_property_key(self.rename_property_key)
+        if self._type == 'mergePropertyValuesForKey' and self.merge_property_values_for_key is not None:
+            return visitor._merge_property_values_for_key(self.merge_property_values_for_key)
+
+
+scout_metadata_MetadataChange.__name__ = "MetadataChange"
+scout_metadata_MetadataChange.__qualname__ = "MetadataChange"
+scout_metadata_MetadataChange.__module__ = "nominal_api.scout_metadata"
+
+
+class scout_metadata_MetadataChangeVisitor:
+
+    @abstractmethod
+    def _rename_label(self, rename_label: "scout_metadata_RenameLabel") -> Any:
+        pass
+
+    @abstractmethod
+    def _rename_property_key(self, rename_property_key: "scout_metadata_RenamePropertyKey") -> Any:
+        pass
+
+    @abstractmethod
+    def _merge_property_values_for_key(self, merge_property_values_for_key: "scout_metadata_MergePropertyValuesForKey") -> Any:
+        pass
+
+
+scout_metadata_MetadataChangeVisitor.__name__ = "MetadataChangeVisitor"
+scout_metadata_MetadataChangeVisitor.__qualname__ = "MetadataChangeVisitor"
+scout_metadata_MetadataChangeVisitor.__module__ = "nominal_api.scout_metadata"
+
+
+class scout_metadata_MetadataSortField(ConjureEnumType):
+
+    ALPHABETICAL = 'ALPHABETICAL'
+    '''ALPHABETICAL'''
+    USAGE_COUNT = 'USAGE_COUNT'
+    '''USAGE_COUNT'''
+    PROPERTY_VALUE_COUNT = 'PROPERTY_VALUE_COUNT'
+    '''PROPERTY_VALUE_COUNT'''
+    UNKNOWN = 'UNKNOWN'
+    '''UNKNOWN'''
+
+    def __reduce_ex__(self, proto):
+        return self.__class__, (self.name,)
+
+
+scout_metadata_MetadataSortField.__name__ = "MetadataSortField"
+scout_metadata_MetadataSortField.__qualname__ = "MetadataSortField"
+scout_metadata_MetadataSortField.__module__ = "nominal_api.scout_metadata"
 
 
 class scout_metadata_MetadataUsageQuery(ConjureUnionType):
@@ -88194,6 +88998,167 @@ scout_metadata_MetadataUsageQueryVisitor.__qualname__ = "MetadataUsageQueryVisit
 scout_metadata_MetadataUsageQueryVisitor.__module__ = "nominal_api.scout_metadata"
 
 
+class scout_metadata_OverwriteOnConflict(ConjureBeanType):
+    """Documents that already have the target property key are included in the rename.
+The priority list determines which value wins via ordered precedence.
+Must contain exactly the source keys + target key.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'priority': ConjureFieldDefinition('priority', List[api_PropertyName])
+        }
+
+    __slots__: List[str] = ['_priority']
+
+    def __init__(self, priority: List[str]) -> None:
+        self._priority = priority
+
+    @builtins.property
+    def priority(self) -> List[str]:
+        return self._priority
+
+
+scout_metadata_OverwriteOnConflict.__name__ = "OverwriteOnConflict"
+scout_metadata_OverwriteOnConflict.__qualname__ = "OverwriteOnConflict"
+scout_metadata_OverwriteOnConflict.__module__ = "nominal_api.scout_metadata"
+
+
+class scout_metadata_PropertyKeyWithCount(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'property_key': ConjureFieldDefinition('propertyKey', api_PropertyName),
+            'document_count': ConjureFieldDefinition('documentCount', int),
+            'value_count': ConjureFieldDefinition('valueCount', int)
+        }
+
+    __slots__: List[str] = ['_property_key', '_document_count', '_value_count']
+
+    def __init__(self, document_count: int, property_key: str, value_count: int) -> None:
+        self._property_key = property_key
+        self._document_count = document_count
+        self._value_count = value_count
+
+    @builtins.property
+    def property_key(self) -> str:
+        return self._property_key
+
+    @builtins.property
+    def document_count(self) -> int:
+        return self._document_count
+
+    @builtins.property
+    def value_count(self) -> int:
+        return self._value_count
+
+
+scout_metadata_PropertyKeyWithCount.__name__ = "PropertyKeyWithCount"
+scout_metadata_PropertyKeyWithCount.__qualname__ = "PropertyKeyWithCount"
+scout_metadata_PropertyKeyWithCount.__module__ = "nominal_api.scout_metadata"
+
+
+class scout_metadata_PropertyValueWithCount(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'property_value': ConjureFieldDefinition('propertyValue', api_PropertyValue),
+            'document_count': ConjureFieldDefinition('documentCount', int)
+        }
+
+    __slots__: List[str] = ['_property_value', '_document_count']
+
+    def __init__(self, document_count: int, property_value: str) -> None:
+        self._property_value = property_value
+        self._document_count = document_count
+
+    @builtins.property
+    def property_value(self) -> str:
+        return self._property_value
+
+    @builtins.property
+    def document_count(self) -> int:
+        return self._document_count
+
+
+scout_metadata_PropertyValueWithCount.__name__ = "PropertyValueWithCount"
+scout_metadata_PropertyValueWithCount.__qualname__ = "PropertyValueWithCount"
+scout_metadata_PropertyValueWithCount.__module__ = "nominal_api.scout_metadata"
+
+
+class scout_metadata_RenameLabel(ConjureBeanType):
+    """Rename or merge one or more source labels into a single target label.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'source': ConjureFieldDefinition('source', List[api_Label]),
+            'target': ConjureFieldDefinition('target', api_Label)
+        }
+
+    __slots__: List[str] = ['_source', '_target']
+
+    def __init__(self, source: List[str], target: str) -> None:
+        self._source = source
+        self._target = target
+
+    @builtins.property
+    def source(self) -> List[str]:
+        return self._source
+
+    @builtins.property
+    def target(self) -> str:
+        return self._target
+
+
+scout_metadata_RenameLabel.__name__ = "RenameLabel"
+scout_metadata_RenameLabel.__qualname__ = "RenameLabel"
+scout_metadata_RenameLabel.__module__ = "nominal_api.scout_metadata"
+
+
+class scout_metadata_RenamePropertyKey(ConjureBeanType):
+    """Rename one or more source property keys to a single target key.
+Existing values are preserved under the new key.
+The rename should be skipped in the service for resources w/ conflicting keys.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'source': ConjureFieldDefinition('source', List[api_PropertyName]),
+            'target': ConjureFieldDefinition('target', api_PropertyName),
+            'on_conflict': ConjureFieldDefinition('onConflict', scout_metadata_ConflictBehavior)
+        }
+
+    __slots__: List[str] = ['_source', '_target', '_on_conflict']
+
+    def __init__(self, on_conflict: "scout_metadata_ConflictBehavior", source: List[str], target: str) -> None:
+        self._source = source
+        self._target = target
+        self._on_conflict = on_conflict
+
+    @builtins.property
+    def source(self) -> List[str]:
+        return self._source
+
+    @builtins.property
+    def target(self) -> str:
+        return self._target
+
+    @builtins.property
+    def on_conflict(self) -> "scout_metadata_ConflictBehavior":
+        return self._on_conflict
+
+
+scout_metadata_RenamePropertyKey.__name__ = "RenamePropertyKey"
+scout_metadata_RenamePropertyKey.__qualname__ = "RenamePropertyKey"
+scout_metadata_RenamePropertyKey.__module__ = "nominal_api.scout_metadata"
+
+
 class scout_metadata_ResourceMetadataService(Service):
     """The Resource Metadata Service provides common metadata about resources.
     """
@@ -88266,6 +89231,105 @@ are provided.
         _decoder = ConjureDecoder()
         return _decoder.decode(_response.json(), scout_metadata_GetMetadataUsageCountResponse, self._return_none_for_unknown_union_types)
 
+    def search_labels(self, auth_header: str, request: "scout_metadata_SearchMetadataRequest") -> "scout_metadata_SearchLabelsResponse":
+        """Returns a paginated list of labels with document usage counts, filterable by
+resource type, workspace, and search text.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+        }
+
+        _json: Any = _conjure_encoder.default(request)
+
+        _path = '/scout/v1/metadata/search-labels'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'POST',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return _decoder.decode(_response.json(), scout_metadata_SearchLabelsResponse, self._return_none_for_unknown_union_types)
+
+    def search_property_keys(self, auth_header: str, request: "scout_metadata_SearchMetadataRequest") -> "scout_metadata_SearchPropertyKeysResponse":
+        """Returns a paginated list of property keys with document usage counts, filterable
+by resource type, workspace, and search text.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+        }
+
+        _json: Any = _conjure_encoder.default(request)
+
+        _path = '/scout/v1/metadata/search-property-keys'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'POST',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return _decoder.decode(_response.json(), scout_metadata_SearchPropertyKeysResponse, self._return_none_for_unknown_union_types)
+
+    def search_property_values(self, auth_header: str, request: "scout_metadata_SearchPropertyValuesRequest") -> "scout_metadata_SearchPropertyValuesResponse":
+        """Returns a paginated list of property values for a given property key with document
+usage counts, filterable by resource type, workspace, and search text.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+        }
+
+        _json: Any = _conjure_encoder.default(request)
+
+        _path = '/scout/v1/metadata/search-property-values'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'POST',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return _decoder.decode(_response.json(), scout_metadata_SearchPropertyValuesResponse, self._return_none_for_unknown_union_types)
+
 
 scout_metadata_ResourceMetadataService.__name__ = "ResourceMetadataService"
 scout_metadata_ResourceMetadataService.__qualname__ = "ResourceMetadataService"
@@ -88302,6 +89366,214 @@ class scout_metadata_ResourceType(ConjureEnumType):
 scout_metadata_ResourceType.__name__ = "ResourceType"
 scout_metadata_ResourceType.__qualname__ = "ResourceType"
 scout_metadata_ResourceType.__module__ = "nominal_api.scout_metadata"
+
+
+class scout_metadata_SearchLabelsResponse(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'labels': ConjureFieldDefinition('labels', List[scout_metadata_LabelWithCount]),
+            'next_page_token': ConjureFieldDefinition('nextPageToken', OptionalTypeWrapper[api_Token])
+        }
+
+    __slots__: List[str] = ['_labels', '_next_page_token']
+
+    def __init__(self, labels: List["scout_metadata_LabelWithCount"], next_page_token: Optional[str] = None) -> None:
+        self._labels = labels
+        self._next_page_token = next_page_token
+
+    @builtins.property
+    def labels(self) -> List["scout_metadata_LabelWithCount"]:
+        return self._labels
+
+    @builtins.property
+    def next_page_token(self) -> Optional[str]:
+        return self._next_page_token
+
+
+scout_metadata_SearchLabelsResponse.__name__ = "SearchLabelsResponse"
+scout_metadata_SearchLabelsResponse.__qualname__ = "SearchLabelsResponse"
+scout_metadata_SearchLabelsResponse.__module__ = "nominal_api.scout_metadata"
+
+
+class scout_metadata_SearchMetadataRequest(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'resource_types': ConjureFieldDefinition('resourceTypes', OptionalTypeWrapper[List[scout_metadata_ResourceType]]),
+            'workspaces': ConjureFieldDefinition('workspaces', OptionalTypeWrapper[List[api_rids_WorkspaceRid]]),
+            'search_text': ConjureFieldDefinition('searchText', OptionalTypeWrapper[str]),
+            'page_size': ConjureFieldDefinition('pageSize', OptionalTypeWrapper[int]),
+            'page_token': ConjureFieldDefinition('pageToken', OptionalTypeWrapper[api_Token]),
+            'sort_by': ConjureFieldDefinition('sortBy', scout_metadata_MetadataSortField),
+            'descending': ConjureFieldDefinition('descending', OptionalTypeWrapper[bool])
+        }
+
+    __slots__: List[str] = ['_resource_types', '_workspaces', '_search_text', '_page_size', '_page_token', '_sort_by', '_descending']
+
+    def __init__(self, sort_by: "scout_metadata_MetadataSortField", descending: Optional[bool] = None, page_size: Optional[int] = None, page_token: Optional[str] = None, resource_types: Optional[List["scout_metadata_ResourceType"]] = None, search_text: Optional[str] = None, workspaces: Optional[List[str]] = None) -> None:
+        self._resource_types = resource_types
+        self._workspaces = workspaces
+        self._search_text = search_text
+        self._page_size = page_size
+        self._page_token = page_token
+        self._sort_by = sort_by
+        self._descending = descending
+
+    @builtins.property
+    def resource_types(self) -> Optional[List["scout_metadata_ResourceType"]]:
+        """If omitted, all resource types are included.
+        """
+        return self._resource_types
+
+    @builtins.property
+    def workspaces(self) -> Optional[List[str]]:
+        """If omitted, results will come from all workspaces the user belongs to.
+        """
+        return self._workspaces
+
+    @builtins.property
+    def search_text(self) -> Optional[str]:
+        """Case-insensitive substring filter.
+        """
+        return self._search_text
+
+    @builtins.property
+    def page_size(self) -> Optional[int]:
+        """Maximum number of items per page. Defaults to 1000 if not specified.
+        """
+        return self._page_size
+
+    @builtins.property
+    def page_token(self) -> Optional[str]:
+        """Token for fetching the next page of results.
+        """
+        return self._page_token
+
+    @builtins.property
+    def sort_by(self) -> "scout_metadata_MetadataSortField":
+        return self._sort_by
+
+    @builtins.property
+    def descending(self) -> Optional[bool]:
+        """If true, sort in descending order. Defaults to false.
+        """
+        return self._descending
+
+
+scout_metadata_SearchMetadataRequest.__name__ = "SearchMetadataRequest"
+scout_metadata_SearchMetadataRequest.__qualname__ = "SearchMetadataRequest"
+scout_metadata_SearchMetadataRequest.__module__ = "nominal_api.scout_metadata"
+
+
+class scout_metadata_SearchPropertyKeysResponse(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'property_keys': ConjureFieldDefinition('propertyKeys', List[scout_metadata_PropertyKeyWithCount]),
+            'next_page_token': ConjureFieldDefinition('nextPageToken', OptionalTypeWrapper[api_Token])
+        }
+
+    __slots__: List[str] = ['_property_keys', '_next_page_token']
+
+    def __init__(self, property_keys: List["scout_metadata_PropertyKeyWithCount"], next_page_token: Optional[str] = None) -> None:
+        self._property_keys = property_keys
+        self._next_page_token = next_page_token
+
+    @builtins.property
+    def property_keys(self) -> List["scout_metadata_PropertyKeyWithCount"]:
+        return self._property_keys
+
+    @builtins.property
+    def next_page_token(self) -> Optional[str]:
+        return self._next_page_token
+
+
+scout_metadata_SearchPropertyKeysResponse.__name__ = "SearchPropertyKeysResponse"
+scout_metadata_SearchPropertyKeysResponse.__qualname__ = "SearchPropertyKeysResponse"
+scout_metadata_SearchPropertyKeysResponse.__module__ = "nominal_api.scout_metadata"
+
+
+class scout_metadata_SearchPropertyValuesRequest(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'search': ConjureFieldDefinition('search', scout_metadata_SearchMetadataRequest),
+            'property_key': ConjureFieldDefinition('propertyKey', api_PropertyName)
+        }
+
+    __slots__: List[str] = ['_search', '_property_key']
+
+    def __init__(self, property_key: str, search: "scout_metadata_SearchMetadataRequest") -> None:
+        self._search = search
+        self._property_key = property_key
+
+    @builtins.property
+    def search(self) -> "scout_metadata_SearchMetadataRequest":
+        return self._search
+
+    @builtins.property
+    def property_key(self) -> str:
+        return self._property_key
+
+
+scout_metadata_SearchPropertyValuesRequest.__name__ = "SearchPropertyValuesRequest"
+scout_metadata_SearchPropertyValuesRequest.__qualname__ = "SearchPropertyValuesRequest"
+scout_metadata_SearchPropertyValuesRequest.__module__ = "nominal_api.scout_metadata"
+
+
+class scout_metadata_SearchPropertyValuesResponse(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'property_values': ConjureFieldDefinition('propertyValues', List[scout_metadata_PropertyValueWithCount]),
+            'next_page_token': ConjureFieldDefinition('nextPageToken', OptionalTypeWrapper[api_Token])
+        }
+
+    __slots__: List[str] = ['_property_values', '_next_page_token']
+
+    def __init__(self, property_values: List["scout_metadata_PropertyValueWithCount"], next_page_token: Optional[str] = None) -> None:
+        self._property_values = property_values
+        self._next_page_token = next_page_token
+
+    @builtins.property
+    def property_values(self) -> List["scout_metadata_PropertyValueWithCount"]:
+        return self._property_values
+
+    @builtins.property
+    def next_page_token(self) -> Optional[str]:
+        return self._next_page_token
+
+
+scout_metadata_SearchPropertyValuesResponse.__name__ = "SearchPropertyValuesResponse"
+scout_metadata_SearchPropertyValuesResponse.__qualname__ = "SearchPropertyValuesResponse"
+scout_metadata_SearchPropertyValuesResponse.__module__ = "nominal_api.scout_metadata"
+
+
+class scout_metadata_SkipOnConflict(ConjureBeanType):
+    """Documents are skipped when:
+- The target property key already exists on the document, or
+- Multiple source property keys exist on the document (ambiguous merge).
+Conflicting document RIDs are returned in the response.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+        }
+
+    __slots__: List[str] = []
+
+
+
+scout_metadata_SkipOnConflict.__name__ = "SkipOnConflict"
+scout_metadata_SkipOnConflict.__qualname__ = "SkipOnConflict"
+scout_metadata_SkipOnConflict.__module__ = "nominal_api.scout_metadata"
 
 
 class scout_metadata_StringArrayLengthQuery(ConjureBeanType):
@@ -88368,6 +89640,73 @@ class scout_notebook_api_AssetsFilter(ConjureBeanType):
 scout_notebook_api_AssetsFilter.__name__ = "AssetsFilter"
 scout_notebook_api_AssetsFilter.__qualname__ = "AssetsFilter"
 scout_notebook_api_AssetsFilter.__module__ = "nominal_api.scout_notebook_api"
+
+
+class scout_notebook_api_BatchEditNotebookMetadataRequest(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'notebook_search_query': ConjureFieldDefinition('notebookSearchQuery', OptionalTypeWrapper[scout_notebook_api_SearchNotebooksQuery]),
+            'operation': ConjureFieldDefinition('operation', scout_metadata_MetadataChange)
+        }
+
+    __slots__: List[str] = ['_notebook_search_query', '_operation']
+
+    def __init__(self, operation: "scout_metadata_MetadataChange", notebook_search_query: Optional["scout_notebook_api_SearchNotebooksQuery"] = None) -> None:
+        self._notebook_search_query = notebook_search_query
+        self._operation = operation
+
+    @builtins.property
+    def notebook_search_query(self) -> Optional["scout_notebook_api_SearchNotebooksQuery"]:
+        """Additional search query to filter which workbooks are targeted by the edit.
+Source labels/properties from the operation are automatically included as filters.
+        """
+        return self._notebook_search_query
+
+    @builtins.property
+    def operation(self) -> "scout_metadata_MetadataChange":
+        return self._operation
+
+
+scout_notebook_api_BatchEditNotebookMetadataRequest.__name__ = "BatchEditNotebookMetadataRequest"
+scout_notebook_api_BatchEditNotebookMetadataRequest.__qualname__ = "BatchEditNotebookMetadataRequest"
+scout_notebook_api_BatchEditNotebookMetadataRequest.__module__ = "nominal_api.scout_notebook_api"
+
+
+class scout_notebook_api_BatchEditNotebookMetadataResponse(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'modified_notebook_rids': ConjureFieldDefinition('modifiedNotebookRids', List[scout_rids_api_NotebookRid]),
+            'conflicting_notebook_rids': ConjureFieldDefinition('conflictingNotebookRids', List[scout_rids_api_NotebookRid])
+        }
+
+    __slots__: List[str] = ['_modified_notebook_rids', '_conflicting_notebook_rids']
+
+    def __init__(self, conflicting_notebook_rids: List[str], modified_notebook_rids: List[str]) -> None:
+        self._modified_notebook_rids = modified_notebook_rids
+        self._conflicting_notebook_rids = conflicting_notebook_rids
+
+    @builtins.property
+    def modified_notebook_rids(self) -> List[str]:
+        """RIDs for workbooks that were modified by the batch edit.
+        """
+        return self._modified_notebook_rids
+
+    @builtins.property
+    def conflicting_notebook_rids(self) -> List[str]:
+        """RIDs for workbooks that matched the source filter but already had the target property key
+and were skipped (SkipOnConflict behavior). Empty for operations without conflict semantics
+or when using OverwriteOnConflict.
+        """
+        return self._conflicting_notebook_rids
+
+
+scout_notebook_api_BatchEditNotebookMetadataResponse.__name__ = "BatchEditNotebookMetadataResponse"
+scout_notebook_api_BatchEditNotebookMetadataResponse.__qualname__ = "BatchEditNotebookMetadataResponse"
+scout_notebook_api_BatchEditNotebookMetadataResponse.__module__ = "nominal_api.scout_notebook_api"
 
 
 class scout_notebook_api_ChartWithOverlays(ConjureBeanType):
@@ -90952,6 +92291,73 @@ scout_run_api_AssetsFilter.__qualname__ = "AssetsFilter"
 scout_run_api_AssetsFilter.__module__ = "nominal_api.scout_run_api"
 
 
+class scout_run_api_BatchEditRunMetadataRequest(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'run_search_query': ConjureFieldDefinition('runSearchQuery', OptionalTypeWrapper[scout_run_api_SearchQuery]),
+            'operation': ConjureFieldDefinition('operation', scout_metadata_MetadataChange)
+        }
+
+    __slots__: List[str] = ['_run_search_query', '_operation']
+
+    def __init__(self, operation: "scout_metadata_MetadataChange", run_search_query: Optional["scout_run_api_SearchQuery"] = None) -> None:
+        self._run_search_query = run_search_query
+        self._operation = operation
+
+    @builtins.property
+    def run_search_query(self) -> Optional["scout_run_api_SearchQuery"]:
+        """Additional search query to filter which runs are targeted by the edit.
+Source labels/properties from the metadata change are automatically included as filters.
+        """
+        return self._run_search_query
+
+    @builtins.property
+    def operation(self) -> "scout_metadata_MetadataChange":
+        return self._operation
+
+
+scout_run_api_BatchEditRunMetadataRequest.__name__ = "BatchEditRunMetadataRequest"
+scout_run_api_BatchEditRunMetadataRequest.__qualname__ = "BatchEditRunMetadataRequest"
+scout_run_api_BatchEditRunMetadataRequest.__module__ = "nominal_api.scout_run_api"
+
+
+class scout_run_api_BatchEditRunMetadataResponse(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'modified_run_rids': ConjureFieldDefinition('modifiedRunRids', List[scout_run_api_RunRid]),
+            'conflicting_run_rids': ConjureFieldDefinition('conflictingRunRids', List[scout_run_api_RunRid])
+        }
+
+    __slots__: List[str] = ['_modified_run_rids', '_conflicting_run_rids']
+
+    def __init__(self, conflicting_run_rids: List[str], modified_run_rids: List[str]) -> None:
+        self._modified_run_rids = modified_run_rids
+        self._conflicting_run_rids = conflicting_run_rids
+
+    @builtins.property
+    def modified_run_rids(self) -> List[str]:
+        """RIDs for runs that were modified by the batch edit.
+        """
+        return self._modified_run_rids
+
+    @builtins.property
+    def conflicting_run_rids(self) -> List[str]:
+        """RIDs for runs that matched the source filter but already had the target property key
+and were skipped (SkipOnConflict behavior). Empty for operations without conflict semantics
+or when using OverwriteOnConflict.
+        """
+        return self._conflicting_run_rids
+
+
+scout_run_api_BatchEditRunMetadataResponse.__name__ = "BatchEditRunMetadataResponse"
+scout_run_api_BatchEditRunMetadataResponse.__qualname__ = "BatchEditRunMetadataResponse"
+scout_run_api_BatchEditRunMetadataResponse.__module__ = "nominal_api.scout_run_api"
+
+
 class scout_run_api_ChannelMetadata(ConjureBeanType):
 
     @builtins.classmethod
@@ -92163,6 +93569,7 @@ class scout_run_api_SearchQuery(ConjureUnionType):
     _label: Optional[str] = None
     _labels: Optional["scout_rids_api_LabelsFilter"] = None
     _property: Optional["api_Property"] = None
+    _property_key: Optional[str] = None
     _properties: Optional["scout_rids_api_PropertiesFilter"] = None
     _data_source_series_tag: Optional["scout_run_api_DataSourceSeriesTag"] = None
     _data_source_ref_name: Optional[str] = None
@@ -92193,6 +93600,7 @@ class scout_run_api_SearchQuery(ConjureUnionType):
             'label': ConjureFieldDefinition('label', api_Label),
             'labels': ConjureFieldDefinition('labels', scout_rids_api_LabelsFilter),
             'property': ConjureFieldDefinition('property', api_Property),
+            'property_key': ConjureFieldDefinition('propertyKey', api_PropertyName),
             'properties': ConjureFieldDefinition('properties', scout_rids_api_PropertiesFilter),
             'data_source_series_tag': ConjureFieldDefinition('dataSourceSeriesTag', scout_run_api_DataSourceSeriesTag),
             'data_source_ref_name': ConjureFieldDefinition('dataSourceRefName', scout_api_DataSourceRefName),
@@ -92223,6 +93631,7 @@ class scout_run_api_SearchQuery(ConjureUnionType):
             label: Optional[str] = None,
             labels: Optional["scout_rids_api_LabelsFilter"] = None,
             property: Optional["api_Property"] = None,
+            property_key: Optional[str] = None,
             properties: Optional["scout_rids_api_PropertiesFilter"] = None,
             data_source_series_tag: Optional["scout_run_api_DataSourceSeriesTag"] = None,
             data_source_ref_name: Optional[str] = None,
@@ -92238,7 +93647,7 @@ class scout_run_api_SearchQuery(ConjureUnionType):
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (start_time_inclusive is not None) + (start_time is not None) + (end_time_inclusive is not None) + (end_time is not None) + (time_range is not None) + (created_at is not None) + (exact_match is not None) + (search_text is not None) + (asset is not None) + (assets is not None) + (is_single_asset is not None) + (label is not None) + (labels is not None) + (property is not None) + (properties is not None) + (data_source_series_tag is not None) + (data_source_ref_name is not None) + (data_source is not None) + (run_number is not None) + (run_prefix is not None) + (check_alert_states_filter is not None) + (archived is not None) + (and_ is not None) + (or_ is not None) + (not_ is not None) + (workspace is not None) != 1:
+            if (start_time_inclusive is not None) + (start_time is not None) + (end_time_inclusive is not None) + (end_time is not None) + (time_range is not None) + (created_at is not None) + (exact_match is not None) + (search_text is not None) + (asset is not None) + (assets is not None) + (is_single_asset is not None) + (label is not None) + (labels is not None) + (property is not None) + (property_key is not None) + (properties is not None) + (data_source_series_tag is not None) + (data_source_ref_name is not None) + (data_source is not None) + (run_number is not None) + (run_prefix is not None) + (check_alert_states_filter is not None) + (archived is not None) + (and_ is not None) + (or_ is not None) + (not_ is not None) + (workspace is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if start_time_inclusive is not None:
@@ -92283,6 +93692,9 @@ class scout_run_api_SearchQuery(ConjureUnionType):
             if property is not None:
                 self._property = property
                 self._type = 'property'
+            if property_key is not None:
+                self._property_key = property_key
+                self._type = 'propertyKey'
             if properties is not None:
                 self._properties = properties
                 self._type = 'properties'
@@ -92390,6 +93802,11 @@ class scout_run_api_SearchQuery(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._property = property
             self._type = 'property'
+        elif type_of_union == 'propertyKey':
+            if property_key is None:
+                raise ValueError('a union value must not be None')
+            self._property_key = property_key
+            self._type = 'propertyKey'
         elif type_of_union == 'properties':
             if properties is None:
                 raise ValueError('a union value must not be None')
@@ -92512,6 +93929,12 @@ class scout_run_api_SearchQuery(ConjureUnionType):
         return self._property
 
     @builtins.property
+    def property_key(self) -> Optional[str]:
+        """Matches runs that have a property with this key, regardless of value.
+        """
+        return self._property_key
+
+    @builtins.property
     def properties(self) -> Optional["scout_rids_api_PropertiesFilter"]:
         return self._properties
 
@@ -92592,6 +94015,8 @@ class scout_run_api_SearchQuery(ConjureUnionType):
             return visitor._labels(self.labels)
         if self._type == 'property' and self.property is not None:
             return visitor._property(self.property)
+        if self._type == 'propertyKey' and self.property_key is not None:
+            return visitor._property_key(self.property_key)
         if self._type == 'properties' and self.properties is not None:
             return visitor._properties(self.properties)
         if self._type == 'dataSourceSeriesTag' and self.data_source_series_tag is not None:
@@ -92679,6 +94104,10 @@ class scout_run_api_SearchQueryVisitor:
 
     @abstractmethod
     def _property(self, property: "api_Property") -> Any:
+        pass
+
+    @abstractmethod
+    def _property_key(self, property_key: str) -> Any:
         pass
 
     @abstractmethod

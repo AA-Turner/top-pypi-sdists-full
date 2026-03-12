@@ -19,6 +19,10 @@ class EntityModelBase(BaseModel):
         ...,
         description="Identificador único da entidade, dentro de um determinado escopo (podendo ser sobreescrito para um tenant ou grupo _empresarial).",
     )
+    lut: Optional[bool] = Field(
+        False,
+        description="Indica se a entidade representa uma lookup table (LUT).",
+    )
     mixin: Optional[bool] = Field(
         False,
         description="Indica se o modelo é um mixin (bloco reutilizável, que não gera contém tabela própria no banco).",

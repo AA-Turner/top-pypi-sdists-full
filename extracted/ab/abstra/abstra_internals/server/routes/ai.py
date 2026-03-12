@@ -70,6 +70,22 @@ def get_editor_bp(main_controller: MainController):
         controller.delete_thread(thread_id, user_jwt=_get_user_jwt())
         return {"success": True}
 
+    @bp.post("/compact")
+    @editor_usage
+    def _compact_conversation():
+        body = flask.request.json
+        if not body:
+            flask.abort(400)
+        conversation_id = body.get("conversationId")
+        if not conversation_id:
+            flask.abort(400)
+        result = controller.compact_conversation(
+            conversation_id, user_jwt=_get_user_jwt()
+        )
+        if result is None:
+            flask.abort(403)
+        return flask.jsonify(result)
+
     @bp.post("/start-conversation")
     def _start_conversation():
         """

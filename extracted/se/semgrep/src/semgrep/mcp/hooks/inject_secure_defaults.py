@@ -21,9 +21,13 @@ import httpx
 from opentelemetry import trace
 from pydantic import BaseModel
 
+from semgrep.mcp.utilities.tracing import attach_agent_info
 from semgrep.mcp.utilities.tracing import attach_git_info
 from semgrep.mcp.utilities.tracing import start_tracing
 from semgrep.mcp.utilities.tracing import with_hook_span
+from semgrep.mcp.utilities.utils import CURSOR_AGENT_STRING
+from semgrep.mcp.utilities.utils import suppress_exception
+from semgrep.mcp.utilities.utils import WINDSURF_AGENT_STRING
 
 CACHE_FILE = (
     Path(tempfile.gettempdir()) / "semgrep-mcp" / "claude-secure-defaults-cache.md"
@@ -33,6 +37,13 @@ CACHE_MAX_AGE = 86400  # 24 hours in seconds
 README_URL = (
     "https://raw.githubusercontent.com/tldrsec/awesome-secure-defaults/main/README.md"
 )
+
+
+class EmptyStdinError(Exception):
+    """Exception raised when the stdin is empty."""
+
+    def __init__(self) -> None:
+        super().__init__("The stdin is empty.")
 
 
 class HookSpecificOutput(BaseModel):
@@ -48,7 +59,10 @@ def get_hook_event_name() -> tuple[str, str]:
     """
     Returns the hook event name and the current working directory
     """
-    hook_data = json.load(sys.stdin)
+    buf = sys.stdin.read().strip()
+    if not buf:
+        raise EmptyStdinError()
+    hook_data = json.loads(buf)
     return (str(hook_data["hook_event_name"]), str(hook_data["cwd"]))
 
 
@@ -169,6 +183,10 @@ async def run_inject_secure_defaults_hook_async(
     )
 
 
+# It is reported in https://github.com/semgrep/mcp-marketplace/issues/10
+# that the hooks can sometimes be called without any input. If that's the case,
+# we exit gracefully without returning any error.
+@suppress_exception(EmptyStdinError)
 def run_inject_secure_defaults_hook(
     agent: str, inject_short_context: bool = False
 ) -> None:
@@ -178,13 +196,16 @@ def run_inject_secure_defaults_hook(
     from the README on the GitHub repo.
     """
     with start_tracing("mcp-hook") as span:
-        if agent == "cursor":
+        attach_agent_info(span, agent)
+        if agent == CURSOR_AGENT_STRING or agent == WINDSURF_AGENT_STRING:
             # This hook is not supported for Cursor yet because
             # Cursor's beforeSubmitPrompt does not support
             # injecting context. See: https://cursor.com/docs/agent/hooks#beforesubmitprompt
             #
             # There is also no way to inject context at the start of a Cursor session at the moment.
-            print("This hook is not supported for Cursor.", file=sys.stderr)
+
+            # TODO: implement this hook for Windsurf
+            print(f"This hook is not supported for {agent}.", file=sys.stderr)
             sys.exit(2)
 
         response = asyncio.run(

@@ -445,6 +445,7 @@ ServiceName = Literal[
     "signer",
     "signer-data",
     "signin",
+    "simpledbv2",
     "simspaceweaver",
     "snow-device-management",
     "snowball",

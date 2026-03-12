@@ -1,6 +1,7 @@
 from enum import Enum
+from tapo.to_dict_ext import ToDictExt
 
-class DefaultBrightnessState:
+class DefaultBrightnessState(ToDictExt):
     """Default brightness state."""
 
     type: DefaultStateType

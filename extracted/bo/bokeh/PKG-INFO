@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bokeh
-Version: 3.8.2
+Version: 3.9.0
 Summary: Interactive plots and applications in the browser from Python
 Author: Bokeh Team
 Author-email: info@bokeh.org
@@ -27,6 +27,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: JavaScript
 Classifier: Topic :: Office/Business
 Classifier: Topic :: Office/Business :: Financial
@@ -43,7 +44,6 @@ Requires-Dist: contourpy>=1.2
 Requires-Dist: narwhals>=1.13
 Requires-Dist: numpy>=1.16
 Requires-Dist: packaging>=16.8
-Requires-Dist: pandas>=1.2
 Requires-Dist: pillow>=7.1.0
 Requires-Dist: PyYAML>=3.10
 Requires-Dist: tornado>=6.2; sys_platform != "emscripten"
@@ -301,3 +301,4 @@ Non-monetary support can help with development, collaboration, infrastructure, s
 * [Slack](https://slack.com)
 * [QuestionScout](https://www.questionscout.com/)
 * [1Password](https://1password.com/)
+* [Digital Ocean](https://www.digitalocean.com)

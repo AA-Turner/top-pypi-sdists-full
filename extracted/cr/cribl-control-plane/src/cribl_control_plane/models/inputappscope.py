@@ -11,10 +11,7 @@ from .itemstypeconnectionsoptional import (
     ItemsTypeConnectionsOptional,
     ItemsTypeConnectionsOptionalTypedDict,
 )
-from .itemstypenotificationmetadata import (
-    ItemsTypeNotificationMetadata,
-    ItemsTypeNotificationMetadataTypedDict,
-)
+from .itemstypemetadata import ItemsTypeMetadata, ItemsTypeMetadataTypedDict
 from .pqtype import PqType, PqTypeTypedDict
 from .tlssettingsserversidetype import (
     TLSSettingsServerSideType,
@@ -60,7 +57,7 @@ class Allow(BaseModel):
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
-            val = serialized.get(k)
+            val = serialized.get(k, serialized.get(n))
 
             if val != UNSET_SENTINEL:
                 if val is not None or k not in optional_fields:
@@ -91,7 +88,7 @@ class InputAppscopeFilter(BaseModel):
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
-            val = serialized.get(k)
+            val = serialized.get(k, serialized.get(n))
 
             if val != UNSET_SENTINEL:
                 if val is not None or k not in optional_fields:
@@ -158,7 +155,7 @@ class InputAppscopePersistence(BaseModel):
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
-            val = serialized.get(k)
+            val = serialized.get(k, serialized.get(n))
 
             if val != UNSET_SENTINEL:
                 if val is not None or k not in optional_fields:
@@ -197,7 +194,7 @@ class InputAppscopeTypedDict(TypedDict):
     r"""The maximum duration a socket can remain open, even if active. This helps manage resources and mitigate issues caused by TCP pinning. Set to 0 to disable."""
     enable_proxy_header: NotRequired[bool]
     r"""Enable if the connection is proxied by a device that supports proxy protocol v1 or v2"""
-    metadata: NotRequired[List[ItemsTypeNotificationMetadataTypedDict]]
+    metadata: NotRequired[List[ItemsTypeMetadataTypedDict]]
     r"""Fields to add to events from this input"""
     breaker_rulesets: NotRequired[List[str]]
     r"""A list of event-breaking rulesets that will be applied, in order, to the input data stream"""
@@ -223,6 +220,10 @@ class InputAppscopeTypedDict(TypedDict):
     r"""Shared secret to be provided by any client (in authToken header field). If empty, unauthorized access is permitted."""
     text_secret: NotRequired[str]
     r"""Select or create a stored text secret"""
+    template_host: NotRequired[str]
+    r"""Binds 'host' to a variable for dynamic value resolution. Set to variable ID (pack-scoped) or 'cribl.'/'edge.' prefixed ID (group-scoped). Variable value overrides 'host' at runtime."""
+    template_port: NotRequired[str]
+    r"""Binds 'port' to a variable for dynamic value resolution. Set to variable ID (pack-scoped) or 'cribl.'/'edge.' prefixed ID (group-scoped). Variable value overrides 'port' at runtime."""
 
 
 class InputAppscope(BaseModel):
@@ -285,7 +286,7 @@ class InputAppscope(BaseModel):
     ] = None
     r"""Enable if the connection is proxied by a device that supports proxy protocol v1 or v2"""
 
-    metadata: Optional[List[ItemsTypeNotificationMetadata]] = None
+    metadata: Optional[List[ItemsTypeMetadata]] = None
     r"""Fields to add to events from this input"""
 
     breaker_rulesets: Annotated[
@@ -341,6 +342,16 @@ class InputAppscope(BaseModel):
     text_secret: Annotated[Optional[str], pydantic.Field(alias="textSecret")] = None
     r"""Select or create a stored text secret"""
 
+    template_host: Annotated[Optional[str], pydantic.Field(alias="__template_host")] = (
+        None
+    )
+    r"""Binds 'host' to a variable for dynamic value resolution. Set to variable ID (pack-scoped) or 'cribl.'/'edge.' prefixed ID (group-scoped). Variable value overrides 'host' at runtime."""
+
+    template_port: Annotated[Optional[str], pydantic.Field(alias="__template_port")] = (
+        None
+    )
+    r"""Binds 'port' to a variable for dynamic value resolution. Set to variable ID (pack-scoped) or 'cribl.'/'edge.' prefixed ID (group-scoped). Variable value overrides 'port' at runtime."""
+
     @field_serializer("auth_type")
     def serialize_auth_type(self, value):
         if isinstance(value, str):
@@ -384,6 +395,8 @@ class InputAppscope(BaseModel):
                 "unixSocketPerms",
                 "authToken",
                 "textSecret",
+                "__template_host",
+                "__template_port",
             ]
         )
         serialized = handler(self)
@@ -391,10 +404,24 @@ class InputAppscope(BaseModel):
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
-            val = serialized.get(k)
+            val = serialized.get(k, serialized.get(n))
 
             if val != UNSET_SENTINEL:
                 if val is not None or k not in optional_fields:
                     m[k] = val
 
         return m
+
+
+try:
+    InputAppscopeFilter.model_rebuild()
+except NameError:
+    pass
+try:
+    InputAppscopePersistence.model_rebuild()
+except NameError:
+    pass
+try:
+    InputAppscope.model_rebuild()
+except NameError:
+    pass

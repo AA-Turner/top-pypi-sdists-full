@@ -162,7 +162,7 @@ def approximate(
     The measurement's input metric defines the notion of adjacency,
     and the measurement's input domain defines the set of possible datasets.
 
-    [approximate in Rust documentation.](https://docs.rs/opendp/0.14.1/opendp/measures/struct.Approximate.html)
+    [approximate in Rust documentation.](https://docs.rs/opendp/0.14.2/opendp/measures/struct.Approximate.html)
 
     **Proof Definition:**
 
@@ -441,18 +441,18 @@ def new_privacy_profile(
 
     :example:
 
-    >>> dp.enable_features("contrib", "honest-but-curious")
-    >>> profile = dp.new_privacy_profile(lambda eps: 1.0 if eps < 0.5 else 1e-8)
-    ...
-    >>> # epsilon is not enough, so delta saturates to one
-    >>> profile.delta(epsilon=0.499)
-    1.0
-    >>> # invert it, find the suitable epsilon at this delta
-    >>> profile.epsilon(delta=1e-8)
-    0.5
-    >>> # insufficient delta results in infinite epsilon
-    >>> profile.epsilon(delta=1e-9)
-    inf
+        >>> dp.enable_features("contrib", "honest-but-curious")
+        >>> profile = dp.new_privacy_profile(lambda eps: 1.0 if eps < 0.5 else 1e-8)
+        ...
+        >>> # epsilon is not enough, so delta saturates to one
+        >>> profile.delta(epsilon=0.499)
+        1.0
+        >>> # invert it, find the suitable epsilon at this delta
+        >>> profile.epsilon(delta=1e-8)
+        0.5
+        >>> # insufficient delta results in infinite epsilon
+        >>> profile.epsilon(delta=1e-9)
+        inf
 
 
     """

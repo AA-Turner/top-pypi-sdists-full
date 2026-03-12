@@ -3,7 +3,6 @@ import { Marking } from "./marking";
 import type { RendererView } from "../renderers/renderer";
 import { Model } from "../../model";
 import { View } from "../../core/view";
-import type { IterViews } from "../../core/build_views";
 import type * as visuals from "../../core/visuals";
 import type * as p from "../../core/properties";
 export declare class DecorationView extends View {
@@ -11,7 +10,7 @@ export declare class DecorationView extends View {
     visuals: Decoration.Visuals;
     readonly parent: RendererView;
     marking: MarkingView;
-    children(): IterViews;
+    children_views(): View[];
     lazy_initialize(): Promise<void>;
 }
 export declare namespace Decoration {

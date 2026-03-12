@@ -3,27 +3,17 @@
 from __future__ import annotations
 from cribl_control_plane.types import BaseModel, UNSET_SENTINEL
 from cribl_control_plane.utils import FieldMetadata, QueryParamMetadata
-import pydantic
 from pydantic import model_serializer
 from typing import Optional
 from typing_extensions import Annotated, NotRequired, TypedDict
 
 
 class GetVersionCountRequestTypedDict(TypedDict):
-    group_id: NotRequired[str]
-    r"""The <code>id</code> of the Worker Group or Edge Fleet to get the count for."""
     commit: NotRequired[str]
     r"""The Git commit hash to use as the starting point for the count."""
 
 
 class GetVersionCountRequest(BaseModel):
-    group_id: Annotated[
-        Optional[str],
-        pydantic.Field(alias="groupId"),
-        FieldMetadata(query=QueryParamMetadata(style="form", explode=True)),
-    ] = None
-    r"""The <code>id</code> of the Worker Group or Edge Fleet to get the count for."""
-
     commit: Annotated[
         Optional[str],
         FieldMetadata(query=QueryParamMetadata(style="form", explode=True)),
@@ -32,13 +22,13 @@ class GetVersionCountRequest(BaseModel):
 
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
-        optional_fields = set(["groupId", "commit"])
+        optional_fields = set(["commit"])
         serialized = handler(self)
         m = {}
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
-            val = serialized.get(k)
+            val = serialized.get(k, serialized.get(n))
 
             if val != UNSET_SENTINEL:
                 if val is not None or k not in optional_fields:

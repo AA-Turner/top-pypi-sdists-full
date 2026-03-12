@@ -25,10 +25,14 @@ from llama_stack.providers.utils.vector_io.vector_utils import (
     sanitize_collection_name,
 )
 from llama_stack_api import (
+    ComparisonFilter,
+    CompoundFilter,
+    DeleteChunksRequest,
     EmbeddedChunk,
     Files,
     Inference,
-    InterleavedContent,
+    InsertChunksRequest,
+    QueryChunksRequest,
     QueryChunksResponse,
     VectorIO,
     VectorStore,
@@ -191,13 +195,8 @@ class PGVectorIndex(EmbeddingIndex):
                         "PGVector requires embedding dimensions are up to 2,000 to successfully create a vector index."
                     )
 
-                # Create GIN index for full-text search performance
-                cur.execute(
-                    f"""
-                    CREATE INDEX IF NOT EXISTS {self.table_name}_content_gin_idx
-                    ON {self.table_name} USING GIN(tokenized_content)
-                """
-                )
+                await self.create_gin_index(cur)
+
         except Exception as e:
             log.exception(f"Error creating PGVectorIndex for vector_store: {self.vector_store.identifier}")
             raise RuntimeError(f"Error creating PGVectorIndex for vector_store: {self.vector_store.identifier}") from e
@@ -240,7 +239,9 @@ class PGVectorIndex(EmbeddingIndex):
             ):
                 await self.create_ivfflat_vector_index(cur)
 
-    async def query_vector(self, embedding: NDArray, k: int, score_threshold: float) -> QueryChunksResponse:
+    async def query_vector(
+        self, embedding: NDArray, k: int, score_threshold: float, filters: Any = None
+    ) -> QueryChunksResponse:
         """
         Performs vector similarity search using PostgreSQL's search function. Default distance metric is COSINE.
 
@@ -248,10 +249,15 @@ class PGVectorIndex(EmbeddingIndex):
             embedding: The query embedding vector
             k: Number of results to return
             score_threshold: Minimum similarity score threshold
+            filters: Optional filters (not yet supported for PGVector provider)
 
         Returns:
             QueryChunksResponse with combined results
         """
+        # Filters are not yet implemented for PGVector provider
+        if filters is not None:
+            raise NotImplementedError("PGVector provider does not yet support native filtering")
+
         pgvector_search_function = self.get_pgvector_search_function()
 
         with self.conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
@@ -260,6 +266,14 @@ class PGVectorIndex(EmbeddingIndex):
                 cur.execute(
                     f"""
                     SET ivfflat.probes = {self.vector_index.probes};
+                """
+                )
+
+            # Specify the max size of max heap that holds best candidates when traversing the graph (https://github.com/pgvector/pgvector?tab=readme-ov-file#query-options)
+            elif self.vector_index.type == PGVectorIndexType.HNSW:
+                cur.execute(
+                    f"""
+                    SET hnsw.ef_search = {self.vector_index.ef_search};
                 """
                 )
 
@@ -285,7 +299,13 @@ class PGVectorIndex(EmbeddingIndex):
 
             return QueryChunksResponse(chunks=chunks, scores=scores)
 
-    async def query_keyword(self, query_string: str, k: int, score_threshold: float) -> QueryChunksResponse:
+    async def query_keyword(
+        self,
+        query_string: str,
+        k: int,
+        score_threshold: float,
+        filters: ComparisonFilter | CompoundFilter | None = None,
+    ) -> QueryChunksResponse:
         """
         Performs keyword-based search using PostgreSQL's full-text search with ts_rank scoring.
 
@@ -297,6 +317,10 @@ class PGVectorIndex(EmbeddingIndex):
         Returns:
             QueryChunksResponse with combined results
         """
+        # PGVector provider does not yet support native filtering
+        if filters is not None:
+            raise NotImplementedError("PGVector provider does not yet support native filtering")
+
         with self.conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             # Use plainto_tsquery to handle user input safely and ts_rank for relevance scoring
             cur.execute(
@@ -329,6 +353,7 @@ class PGVectorIndex(EmbeddingIndex):
         score_threshold: float,
         reranker_type: str,
         reranker_params: dict[str, Any] | None = None,
+        filters: ComparisonFilter | CompoundFilter | None = None,
     ) -> QueryChunksResponse:
         """
         Hybrid search combining vector similarity and keyword search using configurable reranking.
@@ -344,6 +369,10 @@ class PGVectorIndex(EmbeddingIndex):
         Returns:
             QueryChunksResponse with combined results
         """
+        # PGVector provider does not yet support native filtering
+        if filters is not None:
+            raise NotImplementedError("PGVector provider does not yet support native filtering")
+
         if reranker_params is None:
             reranker_params = {}
 
@@ -576,6 +605,30 @@ class PGVectorIndex(EmbeddingIndex):
         except psycopg2.Error as e:
             raise RuntimeError(f"Failed to check if vector store has records in PGVector: {e}") from e
 
+    async def create_gin_index(self, cur: cursor) -> None:
+        """Create GIN index for full-text search performance
+
+        Args:
+            cur: PostgreSQL cursor
+
+        Raises:
+            RuntimeError: If the error occurred when creating GIN index
+        """
+
+        try:
+            cur.execute(
+                f"""
+                CREATE INDEX IF NOT EXISTS {self.table_name}_content_gin_idx
+                ON {self.table_name} USING GIN(tokenized_content)
+            """
+            )
+            log.info(f"GIN index verified for vector_store: {self.vector_store.identifier}.")
+
+        except psycopg2.Error as e:
+            raise RuntimeError(
+                f"Failed to create GIN index for vector_store: {self.vector_store.identifier}: {e}"
+            ) from e
+
 
 class PGVectorVectorIOAdapter(OpenAIVectorStoreMixin, VectorIO, VectorStoresProtocolPrivate):
     def __init__(
@@ -687,17 +740,13 @@ class PGVectorVectorIOAdapter(OpenAIVectorStoreMixin, VectorIO, VectorStoresProt
         # Delete vector store metadata from PGVector metadata_store table
         remove_vector_store_metadata(self.conn, vector_store_id)
 
-    async def insert_chunks(
-        self, vector_store_id: str, chunks: list[EmbeddedChunk], ttl_seconds: int | None = None
-    ) -> None:
-        index = await self._get_and_cache_vector_store_index(vector_store_id)
-        await index.insert_chunks(chunks)
+    async def insert_chunks(self, request: InsertChunksRequest) -> None:
+        index = await self._get_and_cache_vector_store_index(request.vector_store_id)
+        await index.insert_chunks(request)
 
-    async def query_chunks(
-        self, vector_store_id: str, query: InterleavedContent, params: dict[str, Any] | None = None
-    ) -> QueryChunksResponse:
-        index = await self._get_and_cache_vector_store_index(vector_store_id)
-        return await index.query_chunks(query, params)
+    async def query_chunks(self, request: QueryChunksRequest) -> QueryChunksResponse:
+        index = await self._get_and_cache_vector_store_index(request.vector_store_id)
+        return await index.query_chunks(request)
 
     async def _get_and_cache_vector_store_index(self, vector_store_id: str) -> VectorStoreWithIndex:
         if vector_store_id in self.cache:
@@ -724,10 +773,10 @@ class PGVectorVectorIOAdapter(OpenAIVectorStoreMixin, VectorIO, VectorStoresProt
         self.cache[vector_store_id] = VectorStoreWithIndex(vector_store, index, self.inference_api)
         return self.cache[vector_store_id]
 
-    async def delete_chunks(self, store_id: str, chunks_for_deletion: list[ChunkForDeletion]) -> None:
+    async def delete_chunks(self, request: DeleteChunksRequest) -> None:
         """Delete a chunk from a PostgreSQL vector store."""
-        index = await self._get_and_cache_vector_store_index(store_id)
+        index = await self._get_and_cache_vector_store_index(request.vector_store_id)
         if not index:
-            raise VectorStoreNotFoundError(store_id)
+            raise VectorStoreNotFoundError(request.vector_store_id)
 
-        await index.index.delete_chunks(chunks_for_deletion)
+        await index.index.delete_chunks(request.chunks)

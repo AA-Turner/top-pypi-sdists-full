@@ -41,6 +41,7 @@ export declare class CanvasView extends UIElementView {
     protected _clear_webgl(): void;
     compose(): CanvasLayer;
     create_layer(): CanvasLayer;
+    create_layer_svg(): CanvasLayer;
     to_blob(): Promise<Blob>;
     plot_views: PlotView[];
 }

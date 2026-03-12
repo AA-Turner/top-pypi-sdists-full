@@ -19,12 +19,19 @@ class MigrationCompilerCreateTable:
             if spec["not_null"]:
                 col_def += " NOT NULL"
             if spec["default"] is not None:
-                col_def += f" DEFAULT {MigrationCompilerUtil.quote_literal(spec['default'])}"
+                # Mantém consistência de defaults entre CREATE e ALTER.
+                default_sql, _ = MigrationCompilerUtil.resolve_default_sql(
+                    spec["datatype"], spec["default"]
+                )
+                if default_sql is not None:
+                    col_def += f" DEFAULT {default_sql}"
             column_definitions.append(col_def)
 
         if pk_columns:
+            # Padroniza nome da PK sem pontos para evitar conflitos ao mover schema.
+            pk_name = MigrationCompilerUtil.primary_key_constraint_name(table_name)
             pk_constraint = (
-                f"CONSTRAINT {table_name}_pkey PRIMARY KEY ({', '.join(pk_columns)})"
+                f"CONSTRAINT {pk_name} PRIMARY KEY ({', '.join(pk_columns)})"
             )
             column_definitions.append(pk_constraint)
 

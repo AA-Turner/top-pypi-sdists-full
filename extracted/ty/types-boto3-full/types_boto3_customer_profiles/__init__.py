@@ -18,6 +18,7 @@ Usage::
         ListEventStreamsPaginator,
         ListEventTriggersPaginator,
         ListObjectTypeAttributesPaginator,
+        ListRecommenderFiltersPaginator,
         ListRecommenderRecipesPaginator,
         ListRecommendersPaginator,
         ListRuleBasedMatchesPaginator,
@@ -34,6 +35,7 @@ Usage::
     list_event_streams_paginator: ListEventStreamsPaginator = client.get_paginator("list_event_streams")
     list_event_triggers_paginator: ListEventTriggersPaginator = client.get_paginator("list_event_triggers")
     list_object_type_attributes_paginator: ListObjectTypeAttributesPaginator = client.get_paginator("list_object_type_attributes")
+    list_recommender_filters_paginator: ListRecommenderFiltersPaginator = client.get_paginator("list_recommender_filters")
     list_recommender_recipes_paginator: ListRecommenderRecipesPaginator = client.get_paginator("list_recommender_recipes")
     list_recommenders_paginator: ListRecommendersPaginator = client.get_paginator("list_recommenders")
     list_rule_based_matches_paginator: ListRuleBasedMatchesPaginator = client.get_paginator("list_rule_based_matches")
@@ -50,6 +52,7 @@ from .paginator import (
     ListEventStreamsPaginator,
     ListEventTriggersPaginator,
     ListObjectTypeAttributesPaginator,
+    ListRecommenderFiltersPaginator,
     ListRecommenderRecipesPaginator,
     ListRecommendersPaginator,
     ListRuleBasedMatchesPaginator,
@@ -69,6 +72,7 @@ __all__ = (
     "ListEventStreamsPaginator",
     "ListEventTriggersPaginator",
     "ListObjectTypeAttributesPaginator",
+    "ListRecommenderFiltersPaginator",
     "ListRecommenderRecipesPaginator",
     "ListRecommendersPaginator",
     "ListRuleBasedMatchesPaginator",

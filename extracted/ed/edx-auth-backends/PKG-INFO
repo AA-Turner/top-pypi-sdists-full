@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: edx-auth-backends
-Version: 4.6.2
+Version: 5.0.0
 Summary: Custom edX authentication backends and pipeline steps
 Home-page: https://github.com/openedx/auth-backends
 Author: edX
@@ -13,10 +13,8 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: GNU Affero General Public License v3
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Framework :: Django
-Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.2
 Classifier: Topic :: Internet
 License-File: LICENSE.txt
@@ -49,7 +47,7 @@ auth-backends  |CI|_ |Codecov|_
 
 This package contains custom authentication backends, views, and pipeline steps used by edX services for single sign-on.
 
-This package is compatible with Python 3.8, Django 2.2 and Django 3.0
+This package is compatible with Python 3.12 and Django 5.2
 
 We currently support OAuth 2.0 authentication. Support for OpenID Connect (OIDC) was removed as of version 3.0. Use version 2.x if you require OIDC and are not able to migrate to OAuth2.
 

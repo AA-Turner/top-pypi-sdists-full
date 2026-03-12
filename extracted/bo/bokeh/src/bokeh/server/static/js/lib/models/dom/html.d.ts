@@ -1,6 +1,6 @@
 import { DOMElement, DOMElementView } from "./dom_element";
 import { UIElement } from "../ui/ui_element";
-import type { ViewStorage, IterViews } from "../../core/build_views";
+import type { ViewStorage, View } from "../../core/build_views";
 import type * as p from "../../core/properties";
 declare const HTMLRef: import("../../core/kinds").Kinds.Or<[DOMElement, UIElement]>;
 type HTMLRef = typeof HTMLRef["__type__"];
@@ -12,7 +12,7 @@ export declare class HTMLView extends DOMElementView {
     protected readonly _refs: ViewStorage<HTMLRef>;
     get refs(): HTMLRef[];
     protected _update_refs(): Promise<void>;
-    children(): IterViews;
+    children_views(): View[];
     lazy_initialize(): Promise<void>;
     remove(): void;
     connect_signals(): void;

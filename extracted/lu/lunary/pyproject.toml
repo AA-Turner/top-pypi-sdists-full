@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "lunary"
-version = "1.4.37"
+version = "1.4.38"
 description = "Python SDK for Lunary, the open-source platform where GenAI teams manage and improve LLM chatbots."
 authors = ["lunary <hello@lunary.ai>"]
 readme = "README.md"
@@ -50,4 +50,4 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-python_files = "test_*.py"
+python_files = ["test_*.py", "*_test.py"]

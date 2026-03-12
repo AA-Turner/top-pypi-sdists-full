@@ -6,8 +6,14 @@ from pycarlo.features.ingestion.models import (
     AssetFreshness,
     AssetMetadata,
     AssetVolume,
+    ColumnLineageField,
+    ColumnLineageSourceField,
+    LineageAssetRef,
+    LineageEvent,
+    LineageEventType,
     RelationalAsset,
     Tag,
+    build_lineage_payload,
     build_metadata_payload,
 )
 
@@ -192,3 +198,186 @@ class TestBuildMetadataPayload(TestCase):
         assert len(payload["events"]) == 3
         for i, event in enumerate(payload["events"]):
             assert event["relational_asset"]["metadata"]["name"] == f"table_{i}"
+
+
+# ---------------------------------------------------------------
+# Lineage models
+# ---------------------------------------------------------------
+
+
+class TestLineageAssetRef(TestCase):
+    def test_to_dict_required_only(self):
+        ref = LineageAssetRef(type="TABLE", name="t", database="db", schema="s")
+        result = ref.to_dict()
+        assert result["type"] == "TABLE"
+        assert result["name"] == "t"
+        assert result["database"] == "db"
+        assert result["schema"] == "s"
+
+    def test_to_dict_omits_none_asset_id(self):
+        ref = LineageAssetRef(type="TABLE", name="t", database="db", schema="s")
+        assert "asset_id" not in ref.to_dict()
+
+    def test_to_dict_includes_asset_id_when_set(self):
+        ref = LineageAssetRef(type="TABLE", name="t", database="db", schema="s", asset_id="src1")
+        assert ref.to_dict()["asset_id"] == "src1"
+
+
+class TestColumnLineageSourceField(TestCase):
+    def test_to_dict(self):
+        f = ColumnLineageSourceField(asset_id="src1", field_name="amount")
+        assert f.to_dict() == {"asset_id": "src1", "field_name": "amount"}
+
+
+class TestColumnLineageField(TestCase):
+    def test_to_dict(self):
+        f = ColumnLineageField(
+            name="total",
+            source_fields=[
+                ColumnLineageSourceField(asset_id="src1", field_name="amount"),
+                ColumnLineageSourceField(asset_id="src2", field_name="price"),
+            ],
+        )
+        result: dict[str, Any] = f.to_dict()
+        assert result["name"] == "total"
+        assert len(result["source_fields"]) == 2
+        assert result["source_fields"][0] == {"asset_id": "src1", "field_name": "amount"}
+
+
+class TestLineageEvent(TestCase):
+    def test_to_dict_table_level(self):
+        event = LineageEvent(
+            destination=LineageAssetRef(
+                type="TABLE", database="analytics", schema="pub", name="out"
+            ),
+            sources=[
+                LineageAssetRef(type="TABLE", database="raw", schema="pub", name="in1"),
+            ],
+        )
+        result: dict[str, Any] = event.to_dict()
+        assert result["destination"]["name"] == "out"
+        assert len(result["sources"]) == 1
+        assert result["sources"][0]["name"] == "in1"
+
+    def test_to_dict_omits_empty_fields(self):
+        event = LineageEvent(
+            destination=LineageAssetRef(type="TABLE", database="db", schema="s", name="t"),
+            sources=[LineageAssetRef(type="TABLE", database="db", schema="s", name="s")],
+        )
+        assert "fields" not in event.to_dict()
+
+    def test_to_dict_includes_fields_when_set(self):
+        event = LineageEvent(
+            destination=LineageAssetRef(type="TABLE", database="db", schema="s", name="t"),
+            sources=[
+                LineageAssetRef(
+                    type="TABLE", database="db", schema="s", name="src", asset_id="src1"
+                ),
+            ],
+            fields=[
+                ColumnLineageField(
+                    name="total",
+                    source_fields=[
+                        ColumnLineageSourceField(asset_id="src1", field_name="amount"),
+                    ],
+                ),
+            ],
+        )
+        result: dict[str, Any] = event.to_dict()
+        assert len(result["fields"]) == 1
+        assert result["fields"][0]["name"] == "total"
+        assert result["sources"][0]["asset_id"] == "src1"
+
+
+class TestBuildLineagePayload(TestCase):
+    def _make_table_event(self) -> LineageEvent:
+        return LineageEvent(
+            destination=LineageAssetRef(
+                type="TABLE", database="analytics", schema="pub", name="out"
+            ),
+            sources=[
+                LineageAssetRef(type="TABLE", database="raw", schema="pub", name="orders"),
+                LineageAssetRef(type="TABLE", database="raw", schema="pub", name="customers"),
+            ],
+        )
+
+    def _make_column_event(self) -> LineageEvent:
+        return LineageEvent(
+            destination=LineageAssetRef(type="TABLE", database="db", schema="s", name="dst"),
+            sources=[
+                LineageAssetRef(
+                    type="TABLE", database="db", schema="s", name="src", asset_id="src1"
+                ),
+            ],
+            fields=[
+                ColumnLineageField(
+                    name="total",
+                    source_fields=[
+                        ColumnLineageSourceField(asset_id="src1", field_name="amount"),
+                    ],
+                ),
+            ],
+        )
+
+    def test_payload_structure_table_lineage(self):
+        payload = build_lineage_payload(
+            resource_uuid="res-123",
+            resource_type="snowflake",
+            events=[self._make_table_event()],
+        )
+        assert payload["event_type"] == "LINEAGE"
+        assert payload["resource"] == {
+            "uuid": "res-123",
+            "resource_type": "snowflake",
+        }
+        assert len(payload["events"]) == 1
+        assert payload["events"][0]["destination"]["name"] == "out"
+        assert len(payload["events"][0]["sources"]) == 2
+
+    def test_auto_detects_column_lineage(self):
+        payload = build_lineage_payload(
+            resource_uuid="res-123",
+            resource_type="snowflake",
+            events=[self._make_column_event()],
+        )
+        assert payload["event_type"] == "COLUMN_LINEAGE"
+        assert "fields" in payload["events"][0]
+
+    def test_auto_detects_column_lineage_with_mixed_events(self):
+        payload = build_lineage_payload(
+            resource_uuid="res-123",
+            resource_type="snowflake",
+            events=[self._make_table_event(), self._make_column_event()],
+        )
+        assert payload["event_type"] == "COLUMN_LINEAGE"
+
+    def test_explicit_event_type_enum_overrides_auto_detection(self):
+        payload = build_lineage_payload(
+            resource_uuid="res-123",
+            resource_type="snowflake",
+            events=[self._make_column_event()],
+            event_type=LineageEventType.LINEAGE,
+        )
+        assert payload["event_type"] == "LINEAGE"
+
+    def test_explicit_event_type_string_overrides_auto_detection(self):
+        payload = build_lineage_payload(
+            resource_uuid="res-123",
+            resource_type="snowflake",
+            events=[self._make_column_event()],
+            event_type="LINEAGE",
+        )
+        assert payload["event_type"] == "LINEAGE"
+
+    def test_lineage_event_type_enum_values(self):
+        assert LineageEventType.LINEAGE.value == "LINEAGE"
+        assert LineageEventType.COLUMN_LINEAGE.value == "COLUMN_LINEAGE"
+
+    def test_multiple_events(self):
+        events = [self._make_table_event() for _ in range(3)]
+        payload = build_lineage_payload(
+            resource_uuid="res-456",
+            resource_type="bigquery",
+            events=events,
+        )
+        assert len(payload["events"]) == 3

@@ -17,8 +17,8 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr, field_validator
-from typing import Any, ClassVar, Dict, List, Optional
+from pydantic import BaseModel, ConfigDict, Field, StrictFloat, StrictInt, StrictStr, field_validator
+from typing import Any, ClassVar, Dict, List, Optional, Union
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -28,10 +28,10 @@ class SketchCustomAggregationTestResult(BaseModel):
     """ # noqa: E501
     metric_kind: Optional[StrictStr] = 'sketch'
     row_count: StrictInt = Field(description="Count of rows the sketch saw.")
-    min: StrictInt = Field(description="Minimum value seen in the sketch metric.")
-    max: StrictInt = Field(description="Maximum value seen in the sketch metric.")
-    q1: StrictInt = Field(description="Q1 value of the sketch metric.")
-    q3: StrictInt = Field(description="Q3 value of the sketch metric.")
+    min: Union[StrictFloat, StrictInt] = Field(description="Minimum value seen in the sketch metric.")
+    max: Union[StrictFloat, StrictInt] = Field(description="Maximum value seen in the sketch metric.")
+    q1: Union[StrictFloat, StrictInt] = Field(description="Q1 value of the sketch metric.")
+    q3: Union[StrictFloat, StrictInt] = Field(description="Q3 value of the sketch metric.")
     __properties: ClassVar[List[str]] = ["metric_kind", "row_count", "min", "max", "q1", "q3"]
 
     @field_validator('metric_kind')

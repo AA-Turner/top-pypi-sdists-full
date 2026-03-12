@@ -12,6 +12,7 @@ Usage::
     from types_boto3_sagemaker import (
         Client,
         CreateHubContentPresignedUrlsPaginator,
+        DescribeTrainingPlanExtensionHistoryPaginator,
         EndpointDeletedWaiter,
         EndpointInServiceWaiter,
         ImageCreatedWaiter,
@@ -128,6 +129,7 @@ Usage::
     transform_job_completed_or_stopped_waiter: TransformJobCompletedOrStoppedWaiter = client.get_waiter("transform_job_completed_or_stopped")
 
     create_hub_content_presigned_urls_paginator: CreateHubContentPresignedUrlsPaginator = client.get_paginator("create_hub_content_presigned_urls")
+    describe_training_plan_extension_history_paginator: DescribeTrainingPlanExtensionHistoryPaginator = client.get_paginator("describe_training_plan_extension_history")
     list_actions_paginator: ListActionsPaginator = client.get_paginator("list_actions")
     list_algorithms_paginator: ListAlgorithmsPaginator = client.get_paginator("list_algorithms")
     list_aliases_paginator: ListAliasesPaginator = client.get_paginator("list_aliases")
@@ -216,6 +218,7 @@ Usage::
 from .client import SageMakerClient
 from .paginator import (
     CreateHubContentPresignedUrlsPaginator,
+    DescribeTrainingPlanExtensionHistoryPaginator,
     ListActionsPaginator,
     ListAlgorithmsPaginator,
     ListAliasesPaginator,
@@ -321,6 +324,7 @@ Client = SageMakerClient
 __all__ = (
     "Client",
     "CreateHubContentPresignedUrlsPaginator",
+    "DescribeTrainingPlanExtensionHistoryPaginator",
     "EndpointDeletedWaiter",
     "EndpointInServiceWaiter",
     "ImageCreatedWaiter",

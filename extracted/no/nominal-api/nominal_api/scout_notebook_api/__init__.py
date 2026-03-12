@@ -1,6 +1,8 @@
 # coding=utf-8
 from .._impl import (
     scout_notebook_api_AssetsFilter as AssetsFilter,
+    scout_notebook_api_BatchEditNotebookMetadataRequest as BatchEditNotebookMetadataRequest,
+    scout_notebook_api_BatchEditNotebookMetadataResponse as BatchEditNotebookMetadataResponse,
     scout_notebook_api_ChartWithOverlays as ChartWithOverlays,
     scout_notebook_api_CreateNotebookRequest as CreateNotebookRequest,
     scout_notebook_api_GetAllLabelsAndPropertiesResponse as GetAllLabelsAndPropertiesResponse,
@@ -29,6 +31,8 @@ from .._impl import (
 
 __all__ = [
     'AssetsFilter',
+    'BatchEditNotebookMetadataRequest',
+    'BatchEditNotebookMetadataResponse',
     'ChartWithOverlays',
     'CreateNotebookRequest',
     'GetAllLabelsAndPropertiesResponse',

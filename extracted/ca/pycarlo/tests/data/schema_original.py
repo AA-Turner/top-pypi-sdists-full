@@ -332,12 +332,13 @@ class AgentTraceFormatEnum(sgqlc.types.Enum):
 class AgentTraceTableModelSpanFormat(sgqlc.types.Enum):
     """Enumeration Choices:
 
+    * `NATIVE`: native
     * `STANDARD`: standard
     * `STRANDS`: strands
     """
 
     __schema__ = schema
-    __choices__ = ("STANDARD", "STRANDS")
+    __choices__ = ("NATIVE", "STANDARD", "STRANDS")
 
 
 class AgentTypeEnum(sgqlc.types.Enum):
@@ -1728,6 +1729,7 @@ class DataCollectorScheduleModelDeleteReason(sgqlc.types.Enum):
     * `MONITOR_DELETED`: monitor_deleted
     * `NO_AGENT`: no_agent
     * `NO_COLLECTOR`: no_collector
+    * `PLATFORM_AGENT_DELETED`: platform_agent_deletec
     * `RULE_DELETED`: rule_deleted
     * `SIZE_COLLECTION_DISABLED`: size_collection_disabled
     """
@@ -1740,6 +1742,7 @@ class DataCollectorScheduleModelDeleteReason(sgqlc.types.Enum):
         "MONITOR_DELETED",
         "NO_AGENT",
         "NO_COLLECTOR",
+        "PLATFORM_AGENT_DELETED",
         "RULE_DELETED",
         "SIZE_COLLECTION_DISABLED",
     )
@@ -7473,6 +7476,33 @@ class CreateOrUpdateAgentTraceTableInput(sgqlc.types.Input):
     """Format of spans in the table"""
 
 
+class CreateOrUpdatePlatformAgentInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = (
+        "warehouse_uuid",
+        "agent_name",
+        "agent_database",
+        "agent_schema",
+        "connection_uuid",
+    )
+    warehouse_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="warehouseUuid")
+    """Warehouse UUID"""
+
+    agent_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agentName")
+    """Agent name on the platform"""
+
+    agent_database = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agentDatabase")
+    """Platform database containing the agent"""
+
+    agent_schema = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agentSchema")
+    """Platform schema containing the agent"""
+
+    connection_uuid = sgqlc.types.Field(UUID, graphql_name="connectionUuid")
+    """Connection UUID (optional, defaults to the warehouse's SQL query
+    connection)
+    """
+
+
 class CreatedByFilters(sgqlc.types.Input):
     __schema__ = schema
     __field_names__ = ("created_by", "is_template_managed", "namespace", "rule_name")
@@ -8558,6 +8588,51 @@ class FreshnessExplicitAlertConditionInput(sgqlc.types.Input):
 
     threshold = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="threshold")
     """Explicit freshness threshold in minutes"""
+
+
+class GetConversationThreadInput(sgqlc.types.Input):
+    """Input for getConversationThread query."""
+
+    __schema__ = schema
+    __field_names__ = (
+        "agent_name",
+        "trace_table_mcon",
+        "conversation_id",
+        "start_time",
+        "end_time",
+        "first",
+        "after",
+        "last",
+        "before",
+    )
+    agent_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agentName")
+    """Agent name"""
+
+    trace_table_mcon = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="traceTableMcon"
+    )
+    """MCON of the trace table"""
+
+    conversation_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="conversationId")
+    """Conversation ID to fetch the thread for"""
+
+    start_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="startTime")
+    """Start of time range (inclusive)"""
+
+    end_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="endTime")
+    """End of time range (inclusive)"""
+
+    first = sgqlc.types.Field(Int, graphql_name="first")
+    """Number of spans for forward pagination"""
+
+    after = sgqlc.types.Field(String, graphql_name="after")
+    """Cursor for forward pagination"""
+
+    last = sgqlc.types.Field(Int, graphql_name="last")
+    """Number of spans for backward pagination"""
+
+    before = sgqlc.types.Field(String, graphql_name="before")
+    """Cursor for backward pagination"""
 
 
 class GetConversationsFiltersDataInput(sgqlc.types.Input):
@@ -13027,6 +13102,7 @@ class Account(sgqlc.types.Type):
         "opsgenie_integrations",
         "collibra_integrations",
         "agenttracetablemodel_set",
+        "platformagentmodel_set",
         "entitlements",
         "dashboards",
         "comparison_dashboards",
@@ -13514,6 +13590,28 @@ class Account(sgqlc.types.Type):
     agenttracetablemodel_set = sgqlc.types.Field(
         sgqlc.types.non_null("AgentTraceTableConnection"),
         graphql_name="agenttracetablemodelSet",
+        args=sgqlc.types.ArgDict(
+            (
+                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
+                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
+                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
+                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
+                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
+            )
+        ),
+    )
+    """Arguments:
+
+    * `offset` (`Int`)None
+    * `before` (`String`)None
+    * `after` (`String`)None
+    * `first` (`Int`)None
+    * `last` (`Int`)None
+    """
+
+    platformagentmodel_set = sgqlc.types.Field(
+        sgqlc.types.non_null("PlatformAgentConnection"),
+        graphql_name="platformagentmodelSet",
         args=sgqlc.types.ArgDict(
             (
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
@@ -14715,14 +14813,6 @@ class AgentTraceTableEdge(sgqlc.types.Type):
 
     cursor = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="cursor")
     """A cursor for use in pagination"""
-
-
-class AgentTraceTableValidationResult(sgqlc.types.Type):
-    """Result of validating an agent trace table."""
-
-    __schema__ = schema
-    __field_names__ = ("success",)
-    success = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="success")
 
 
 class AggregatedMetricDataType(sgqlc.types.Type):
@@ -18242,6 +18332,7 @@ class Connection(sgqlc.types.relay.Connection):
         "credentials_s3_key",
         "integration_gateway_credentials_key",
         "data",
+        "identifiers",
         "created_on",
         "updated_on",
         "is_active",
@@ -18303,6 +18394,8 @@ class Connection(sgqlc.types.relay.Connection):
     )
 
     data = sgqlc.types.Field(JSONString, graphql_name="data")
+
+    identifiers = sgqlc.types.Field(JSONString, graphql_name="identifiers")
 
     created_on = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdOn")
 
@@ -18522,6 +18615,107 @@ class ConversationFilterValue(sgqlc.types.Type):
 
     display_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="displayName")
     """Human-readable label"""
+
+
+class ConversationSpan(sgqlc.types.Type):
+    """A single LLM span in a conversation thread (has_prompts or
+    has_completions).
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "span_id",
+        "trace_id",
+        "name",
+        "model",
+        "start_time",
+        "end_time",
+        "duration_seconds",
+        "prompt_tokens",
+        "completion_tokens",
+        "total_tokens",
+        "is_tool_call",
+        "status",
+        "prompts",
+        "completions",
+    )
+    span_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="spanId")
+    """Span ID (hex-encoded)"""
+
+    trace_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="traceId")
+    """Trace ID (hex-encoded)"""
+
+    name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
+    """Span name"""
+
+    model = sgqlc.types.Field(String, graphql_name="model")
+    """LLM model used"""
+
+    start_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="startTime")
+    """Span start time"""
+
+    end_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="endTime")
+    """Span end time"""
+
+    duration_seconds = sgqlc.types.Field(
+        sgqlc.types.non_null(Float), graphql_name="durationSeconds"
+    )
+    """Span duration in seconds"""
+
+    prompt_tokens = sgqlc.types.Field(Int, graphql_name="promptTokens")
+    """Number of prompt tokens"""
+
+    completion_tokens = sgqlc.types.Field(Int, graphql_name="completionTokens")
+    """Number of completion tokens"""
+
+    total_tokens = sgqlc.types.Field(Int, graphql_name="totalTokens")
+    """Total tokens (prompt + completion)"""
+
+    is_tool_call = sgqlc.types.Field(Boolean, graphql_name="isToolCall")
+    """Whether span represents a tool call"""
+
+    status = sgqlc.types.Field(Int, graphql_name="status")
+    """OTel status code (NULL=unset, 2=error)"""
+
+    prompts = sgqlc.types.Field(GenericScalar, graphql_name="prompts")
+    """Raw prompt messages JSON string fetched from the warehouse"""
+
+    completions = sgqlc.types.Field(GenericScalar, graphql_name="completions")
+    """Raw completion messages JSON string fetched from the warehouse"""
+
+
+class ConversationSpanEdge(sgqlc.types.Type):
+    """Edge type for conversation thread pagination."""
+
+    __schema__ = schema
+    __field_names__ = ("node", "cursor")
+    node = sgqlc.types.Field(sgqlc.types.non_null(ConversationSpan), graphql_name="node")
+    """The span"""
+
+    cursor = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="cursor")
+    """Cursor for this edge"""
+
+
+class ConversationThreadResult(sgqlc.types.Type):
+    """Result of getConversationThread: LLM spans ordered as a
+    conversation thread.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("edges", "page_info", "warehouse_query")
+    edges = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(ConversationSpanEdge))),
+        graphql_name="edges",
+    )
+    """Ordered list of LLM spans in the conversation"""
+
+    page_info = sgqlc.types.Field(sgqlc.types.non_null("TracePageInfo"), graphql_name="pageInfo")
+    """Pagination metadata"""
+
+    warehouse_query = sgqlc.types.Field(String, graphql_name="warehouseQuery")
+    """SQL query sent to the warehouse to fetch prompts/completions (for
+    debugging)
+    """
 
 
 class ConversationsResult(sgqlc.types.Type):
@@ -19615,6 +19809,12 @@ class CreateOrUpdateObjectProperty(sgqlc.types.Type):
     """Property created or updated"""
 
 
+class CreateOrUpdatePlatformAgent(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("platform_agent",)
+    platform_agent = sgqlc.types.Field("PlatformAgent", graphql_name="platformAgent")
+
+
 class CreateOrUpdateQueryPerfRule(sgqlc.types.Type):
     """Create or update query performance rule/monitor.
     There must be exactly (3) comparisons, which follow this format:
@@ -20614,6 +20814,7 @@ class DataCollectorSchedule(sgqlc.types.Type):
         "bulk_monitors",
         "custom_rules",
         "agent_trace_tables",
+        "platform_agents",
     )
     id = sgqlc.types.Field(sgqlc.types.non_null(ID), graphql_name="id")
 
@@ -20790,6 +20991,28 @@ class DataCollectorSchedule(sgqlc.types.Type):
     agent_trace_tables = sgqlc.types.Field(
         sgqlc.types.non_null(AgentTraceTableConnection),
         graphql_name="agentTraceTables",
+        args=sgqlc.types.ArgDict(
+            (
+                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
+                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
+                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
+                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
+                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
+            )
+        ),
+    )
+    """Arguments:
+
+    * `offset` (`Int`)None
+    * `before` (`String`)None
+    * `after` (`String`)None
+    * `first` (`Int`)None
+    * `last` (`Int`)None
+    """
+
+    platform_agents = sgqlc.types.Field(
+        sgqlc.types.non_null("PlatformAgentConnection"),
+        graphql_name="platformAgents",
         args=sgqlc.types.ArgDict(
             (
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
@@ -22629,6 +22852,13 @@ class DeletePagerDutyServiceIntegration(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("deleted",)
     deleted = sgqlc.types.Field(Boolean, graphql_name="deleted")
+
+
+class DeletePlatformAgent(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("success",)
+    success = sgqlc.types.Field(Boolean, graphql_name="success")
+    """Whether the platform agent was successfully deleted"""
 
 
 class DeleteRecipientName(sgqlc.types.Type):
@@ -29534,6 +29764,8 @@ class Mutation(sgqlc.types.Type):
         "update_platform_service",
         "create_or_update_agent_trace_table",
         "delete_agent_trace_table",
+        "create_or_update_platform_agent",
+        "delete_platform_agent",
         "link_slack_app_installation",
         "create_logs_integration",
         "update_logs_integration",
@@ -30345,6 +30577,50 @@ class Mutation(sgqlc.types.Type):
     Arguments:
 
     * `input` (`DeleteAgentTraceTableInput!`)None
+    """
+
+    create_or_update_platform_agent = sgqlc.types.Field(
+        CreateOrUpdatePlatformAgent,
+        graphql_name="createOrUpdatePlatformAgent",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "input",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(CreateOrUpdatePlatformAgentInput),
+                        graphql_name="input",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Create or update a platform agent
+
+    Arguments:
+
+    * `input` (`CreateOrUpdatePlatformAgentInput!`)None
+    """
+
+    delete_platform_agent = sgqlc.types.Field(
+        DeletePlatformAgent,
+        graphql_name="deletePlatformAgent",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "agent_mcon",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="agentMcon", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Delete a platform agent
+
+    Arguments:
+
+    * `agent_mcon` (`String!`): MCON of the platform agent to delete
     """
 
     link_slack_app_installation = sgqlc.types.Field(
@@ -50355,6 +50631,30 @@ class PipelinesData(sgqlc.types.Type):
     )
 
 
+class PlatformAgentConnection(sgqlc.types.relay.Connection):
+    __schema__ = schema
+    __field_names__ = ("page_info", "edges")
+    page_info = sgqlc.types.Field(sgqlc.types.non_null(PageInfo), graphql_name="pageInfo")
+    """Pagination data for this connection."""
+
+    edges = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of("PlatformAgentEdge")), graphql_name="edges"
+    )
+    """Contains the nodes in this connection."""
+
+
+class PlatformAgentEdge(sgqlc.types.Type):
+    """A Relay edge containing a `PlatformAgent` and its cursor."""
+
+    __schema__ = schema
+    __field_names__ = ("node", "cursor")
+    node = sgqlc.types.Field("PlatformAgent", graphql_name="node")
+    """The item at the end of the edge"""
+
+    cursor = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="cursor")
+    """A cursor for use in pagination"""
+
+
 class PlatformMigrationStatusResponse(sgqlc.types.Type):
     """DC migration status"""
 
@@ -50876,7 +51176,7 @@ class Query(sgqlc.types.Type):
         "get_open_telemetry_data_stores",
         "get_agent_metadata",
         "get_agent_trace_tables",
-        "validate_agent_trace_table",
+        "get_platform_agents",
         "get_traces_filters",
         "get_traces_filters_data",
         "get_traces",
@@ -50886,6 +51186,7 @@ class Query(sgqlc.types.Type):
         "get_conversations_filters_data",
         "get_conversations",
         "get_agent_segments",
+        "get_conversation_thread",
         "get_table_monitor_metric",
         "get_tables_for_coverage_dashboard",
         "get_monitor_counts_by_creator",
@@ -51635,43 +51936,11 @@ class Query(sgqlc.types.Type):
     )
     """(experimental) Get all agent trace tables"""
 
-    validate_agent_trace_table = sgqlc.types.Field(
-        AgentTraceTableValidationResult,
-        graphql_name="validateAgentTraceTable",
-        args=sgqlc.types.ArgDict(
-            (
-                (
-                    "mcon",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(String), graphql_name="mcon", default=None
-                    ),
-                ),
-                (
-                    "connection_uuid",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(UUID), graphql_name="connectionUuid", default=None
-                    ),
-                ),
-                (
-                    "span_format",
-                    sgqlc.types.Arg(AgentTraceFormatEnum, graphql_name="spanFormat", default=None),
-                ),
-                ("lookback_days", sgqlc.types.Arg(Int, graphql_name="lookbackDays", default=1)),
-            )
-        ),
+    get_platform_agents = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("PlatformAgent"))),
+        graphql_name="getPlatformAgents",
     )
-    """(experimental) Validate that a table contains queryable agent
-    trace data
-
-    Arguments:
-
-    * `mcon` (`String!`): MCON of the table to validate
-    * `connection_uuid` (`UUID!`): Connection UUID to query the table
-    * `span_format` (`AgentTraceFormatEnum`): Format of spans in the
-      table
-    * `lookback_days` (`Int`): Number of days to look back for data
-      (default: 1) (default: `1`)
-    """
+    """(experimental) Get all platform agents"""
 
     get_traces_filters = sgqlc.types.Field(
         sgqlc.types.list_of("TraceFilter"), graphql_name="getTracesFilters"
@@ -51883,6 +52152,32 @@ class Query(sgqlc.types.Type):
     * `trace_table_mcon` (`String!`): MCON of the trace table to query
     * `segment_field` (`TraceSegmentField!`): Field to get distinct
       segment values for (WORKFLOW, TASK, MODEL)
+    """
+
+    get_conversation_thread = sgqlc.types.Field(
+        ConversationThreadResult,
+        graphql_name="getConversationThread",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "input",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(GetConversationThreadInput),
+                        graphql_name="input",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Get LLM spans for a conversation ordered
+    chronologically as a thread. Returns spans with has_prompts=true
+    or has_completions=true for the given conversation_id, enabling
+    inspection of the full prompt/completion exchange.
+
+    Arguments:
+
+    * `input` (`GetConversationThreadInput!`)None
     """
 
     get_table_monitor_metric = sgqlc.types.Field(
@@ -67389,6 +67684,11 @@ class Query(sgqlc.types.Type):
                     "data_provider",
                     sgqlc.types.Arg(String, graphql_name="dataProvider", default=None),
                 ),
+                ("ingest_type", sgqlc.types.Arg(String, graphql_name="ingestType", default=None)),
+                (
+                    "ingest_invocation_id",
+                    sgqlc.types.Arg(String, graphql_name="ingestInvocationId", default=None),
+                ),
                 ("mcon", sgqlc.types.Arg(String, graphql_name="mcon", default=None)),
                 (
                     "importance_score",
@@ -67483,6 +67783,8 @@ class Query(sgqlc.types.Type):
     * `is_excluded` (`Boolean`)None
     * `is_monitored` (`Boolean`)None
     * `data_provider` (`String`)None
+    * `ingest_type` (`String`)None
+    * `ingest_invocation_id` (`String`)None
     * `mcon` (`String`)None
     * `importance_score` (`Float`)None
     * `is_important` (`Boolean`)None
@@ -67735,6 +68037,11 @@ class Query(sgqlc.types.Type):
                     "data_provider",
                     sgqlc.types.Arg(String, graphql_name="dataProvider", default=None),
                 ),
+                ("ingest_type", sgqlc.types.Arg(String, graphql_name="ingestType", default=None)),
+                (
+                    "ingest_invocation_id",
+                    sgqlc.types.Arg(String, graphql_name="ingestInvocationId", default=None),
+                ),
                 ("mcon", sgqlc.types.Arg(String, graphql_name="mcon", default=None)),
                 (
                     "importance_score",
@@ -67878,6 +68185,8 @@ class Query(sgqlc.types.Type):
     * `is_excluded` (`Boolean`)None
     * `is_monitored` (`Boolean`)None
     * `data_provider` (`String`)None
+    * `ingest_type` (`String`)None
+    * `ingest_invocation_id` (`String`)None
     * `mcon` (`String`)None
     * `importance_score` (`Float`)None
     * `is_important` (`Boolean`)None
@@ -76077,6 +76386,7 @@ class Trace(sgqlc.types.Type):
         "models",
         "workflows",
         "tasks",
+        "conversation_id",
     )
     agent_uuid = sgqlc.types.Field(UUID, graphql_name="agentUuid")
     """Agent UUID (nullable for now, will be required in the future)"""
@@ -76139,6 +76449,9 @@ class Trace(sgqlc.types.Type):
         graphql_name="tasks",
     )
     """Unique tasks in trace"""
+
+    conversation_id = sgqlc.types.Field(String, graphql_name="conversationId")
+    """Conversation ID"""
 
 
 class TraceConnection(sgqlc.types.relay.Connection):
@@ -78301,6 +78614,7 @@ class Warehouse(sgqlc.types.Type):
         "projects",
         "datasets",
         "fivetran_destinations",
+        "platform_agents",
         "monitored_table_rules",
         "dashboards",
         "mute_rule",
@@ -78519,6 +78833,30 @@ class Warehouse(sgqlc.types.Type):
         ),
     )
     """Arguments:
+
+    * `offset` (`Int`)None
+    * `before` (`String`)None
+    * `after` (`String`)None
+    * `first` (`Int`)None
+    * `last` (`Int`)None
+    """
+
+    platform_agents = sgqlc.types.Field(
+        sgqlc.types.non_null(PlatformAgentConnection),
+        graphql_name="platformAgents",
+        args=sgqlc.types.ArgDict(
+            (
+                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
+                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
+                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
+                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
+                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
+            )
+        ),
+    )
+    """Warehouse where this agent is defined.
+
+    Arguments:
 
     * `offset` (`Int`)None
     * `before` (`String`)None
@@ -81924,6 +82262,7 @@ class ConnectionRestriction(sgqlc.types.Type, Node):
         "credentials_s3_key",
         "integration_gateway_credentials_key",
         "data",
+        "identifiers",
         "created_on",
         "updated_on",
         "is_active",
@@ -81977,6 +82316,8 @@ class ConnectionRestriction(sgqlc.types.Type, Node):
     )
 
     data = sgqlc.types.Field(JSONString, graphql_name="data")
+
+    identifiers = sgqlc.types.Field(JSONString, graphql_name="identifiers")
 
     created_on = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdOn")
 
@@ -86185,6 +86526,55 @@ class OpsgenieIncident(sgqlc.types.Type, NodeWithUUID):
     created_at = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdAt")
 
 
+class PlatformAgent(sgqlc.types.Type, Node):
+    __schema__ = schema
+    __field_names__ = (
+        "created_time",
+        "updated_time",
+        "uuid",
+        "account",
+        "warehouse",
+        "agent_type",
+        "agent_mcon",
+        "agent_name",
+        "agent_database",
+        "agent_schema",
+        "schedule",
+    )
+    created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
+
+    updated_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="updatedTime")
+
+    uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
+    """Unique identifier for this platform agent."""
+
+    account = sgqlc.types.Field(sgqlc.types.non_null(Account), graphql_name="account")
+
+    warehouse = sgqlc.types.Field(Warehouse, graphql_name="warehouse")
+    """Warehouse where this agent is defined."""
+
+    agent_type = sgqlc.types.Field(String, graphql_name="agentType")
+    """Platform type for this agent (e.g. snowflake)"""
+
+    agent_mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agentMcon")
+    """Agent MCON:
+    MCON++{account}++{warehouse}++agent++{db}:{schema}.{name}
+    """
+
+    agent_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agentName")
+    """Agent name on the platform."""
+
+    agent_database = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agentDatabase")
+    """Platform database containing the agent."""
+
+    agent_schema = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agentSchema")
+    """Platform schema containing the agent."""
+
+    schedule = sgqlc.types.Field(
+        sgqlc.types.non_null(DataCollectorSchedule), graphql_name="schedule"
+    )
+
+
 class Project(sgqlc.types.Type, Node):
     __schema__ = schema
     __field_names__ = (
@@ -88985,6 +89375,8 @@ class WarehouseTable(sgqlc.types.Type, Node):
         "is_excluded",
         "is_monitored",
         "data_provider",
+        "ingest_type",
+        "ingest_invocation_id",
         "mcon",
         "importance_score",
         "is_important",
@@ -89094,6 +89486,10 @@ class WarehouseTable(sgqlc.types.Type, Node):
     """Is table monitored? Source of truth for table-based pricing"""
 
     data_provider = sgqlc.types.Field(String, graphql_name="dataProvider")
+
+    ingest_type = sgqlc.types.Field(String, graphql_name="ingestType")
+
+    ingest_invocation_id = sgqlc.types.Field(String, graphql_name="ingestInvocationId")
 
     mcon = sgqlc.types.Field(String, graphql_name="mcon")
     """The table's MCON (MC Object Name)"""
@@ -89574,6 +89970,8 @@ class WarehouseTableHealth(sgqlc.types.Type, Node):
         "is_excluded",
         "is_monitored",
         "data_provider",
+        "ingest_type",
+        "ingest_invocation_id",
         "mcon",
         "importance_score",
         "is_important",
@@ -89657,6 +90055,10 @@ class WarehouseTableHealth(sgqlc.types.Type, Node):
     """Is table monitored? Source of truth for table-based pricing"""
 
     data_provider = sgqlc.types.Field(String, graphql_name="dataProvider")
+
+    ingest_type = sgqlc.types.Field(String, graphql_name="ingestType")
+
+    ingest_invocation_id = sgqlc.types.Field(String, graphql_name="ingestInvocationId")
 
     mcon = sgqlc.types.Field(String, graphql_name="mcon")
 

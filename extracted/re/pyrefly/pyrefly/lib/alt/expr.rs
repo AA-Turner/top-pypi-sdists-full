@@ -31,6 +31,7 @@ use pyrefly_types::typed_dict::AnonymousTypedDictInner;
 use pyrefly_types::typed_dict::ExtraItems;
 use pyrefly_types::typed_dict::TypedDict;
 use pyrefly_types::typed_dict::TypedDictField;
+use pyrefly_types::types::Forallable;
 use pyrefly_types::types::Union;
 use pyrefly_util::owner::Owner;
 use pyrefly_util::prelude::SliceExt;
@@ -73,6 +74,8 @@ use crate::alt::unwrap::HintRef;
 use crate::binding::binding::Key;
 use crate::binding::binding::KeyYield;
 use crate::binding::binding::KeyYieldFrom;
+use crate::binding::binding::LambdaParamId;
+use crate::binding::narrow::int_from_slice;
 use crate::config::error_kind::ErrorKind;
 use crate::error::collector::ErrorCollector;
 use crate::error::context::ErrorContext;
@@ -98,6 +101,7 @@ use crate::types::type_var::TypeVar;
 use crate::types::type_var_tuple::TypeVarTuple;
 use crate::types::types::AnyStyle;
 use crate::types::types::Type;
+use crate::types::types::Var;
 
 #[derive(Debug, Clone, Copy)]
 pub enum TypeOrExpr<'a> {
@@ -384,39 +388,52 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Expr::BinOp(x) => self.binop_infer(x, hint, errors),
             Expr::UnaryOp(x) => self.unop_infer(x, errors),
             Expr::Lambda(lambda) => {
-                let param_vars = if let Some(parameters) = &lambda.parameters {
+                let param_ids = if let Some(parameters) = &lambda.parameters {
                     parameters
                         .iter_non_variadic_params()
-                        .map(|x| (&x.name().id, self.bindings().get_lambda_param(x.name())))
+                        .map(|x| (&x.name().id, self.bindings().get_lambda_param_id(x.name())))
                         .collect()
                 } else {
                     Vec::new()
                 };
+                let param_vars = self.allocate_lambda_param_vars(&param_ids);
+
                 // Pass any contextual information to the parameter bindings used in the lambda body as a side
                 // effect, by setting an answer for the vars created at binding time.
                 let return_hint = hint.and_then(|hint| self.decompose_lambda(hint, &param_vars));
 
-                let mut params = param_vars.into_map(|(name, var)| {
-                    Param::Pos(
-                        name.clone(),
-                        self.solver().force_var(var),
-                        Required::Required,
-                    )
-                });
+                let mut params: Vec<Param> = if let Some(parameters) = &lambda.parameters {
+                    param_vars
+                        .into_iter()
+                        .zip(parameters.iter_non_variadic_params())
+                        .map(|((name, var), param)| {
+                            let required = if param.default.is_some() {
+                                Required::Optional(None)
+                            } else {
+                                Required::Required
+                            };
+                            Param::Pos(name.clone(), self.solver().force_var(var), required)
+                        })
+                        .collect()
+                } else {
+                    Vec::new()
+                };
                 if let Some(parameters) = &lambda.parameters {
                     params.extend(parameters.vararg.iter().map(|x| {
-                        Param::VarArg(
-                            Some(x.name.id.clone()),
-                            self.solver()
-                                .force_var(self.bindings().get_lambda_param(&x.name)),
-                        )
+                        let var = self.solver().fresh_unwrap(self.uniques);
+                        self.set_lambda_param_var(
+                            self.bindings().get_lambda_param_id(&x.name),
+                            var,
+                        );
+                        Param::VarArg(Some(x.name.id.clone()), self.solver().force_var(var))
                     }));
                     params.extend(parameters.kwarg.iter().map(|x| {
-                        Param::Kwargs(
-                            Some(x.name.id.clone()),
-                            self.solver()
-                                .force_var(self.bindings().get_lambda_param(&x.name)),
-                        )
+                        let var = self.solver().fresh_unwrap(self.uniques);
+                        self.set_lambda_param_var(
+                            self.bindings().get_lambda_param_id(&x.name),
+                            var,
+                        );
+                        Param::Kwargs(Some(x.name.id.clone()), self.solver().force_var(var))
                     }));
                 }
                 let params = Params::List(ParamList::new(params));
@@ -1332,12 +1349,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         range: TextRange,
         errors: &ErrorCollector,
     ) -> TypeInfo {
-        if let Expr::NumberLiteral(ExprNumberLiteral {
-            value: Number::Int(idx),
-            ..
-        }) = slice
-            && let Some(idx) = idx.as_usize()
-        {
+        if let Some(idx) = int_from_slice(slice) {
             TypeInfo::at_facet(base, &FacetKind::Index(idx), || {
                 self.subscript_infer_for_type(base.ty(), slice, range, errors)
             })
@@ -1400,6 +1412,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         .mk_type_form(self.heap.mk_type_form(self.heap.mk_any_implicit()));
                 } else if cls.has_toplevel_qname("typing", "Any") {
                     *ty = self.heap.mk_type_form(self.heap.mk_any_explicit())
+                } else if cls.has_toplevel_qname("typing", "NamedTuple") {
+                    // When `NamedTuple` is used as a type annotation (e.g. TypeVar bound),
+                    // resolve to `NamedTupleFallback` — the class that actually appears in
+                    // the MRO of user-defined NamedTuple subclasses.
+                    *ty = self.heap.mk_type_form(
+                        self.heap
+                            .mk_class_type(self.stdlib.named_tuple_fallback().clone()),
+                    );
                 } else {
                     // All other classes (including Tensor) get promoted and wrapped in type_form
                     *ty = self.heap.mk_type_form(self.promote(cls, range, errors));
@@ -1914,9 +1934,19 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             match base {
                 Type::Forall(forall) => {
-                    let tys =
-                        xs.map(|x| self.expr_untype(x, TypeFormContext::TypeArgument, errors));
-                    self.specialize_forall(*forall, tys, range, errors)
+                    if matches!(forall.body, Forallable::TypeAlias(_)) {
+                        let tys = xs
+                            .map(|x| self.expr_untype(x, TypeFormContext::TypeArgument, errors));
+                        self.specialize_forall(*forall, tys, range, errors)
+                    } else {
+                        let name = forall.body.name();
+                        self.error(
+                            errors,
+                            range,
+                            ErrorInfo::Kind(ErrorKind::UnsupportedOperation),
+                            format!("`{}` is not subscriptable", name.as_ref().as_str()),
+                        )
+                    }
                 }
                 // Note that we have to check for `builtins.type` by name here because this code runs
                 // when we're bootstrapping the stdlib and don't have access to class objects yet.
@@ -1958,6 +1988,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 // Tensor type parsing: Tensor[2, 3] syntax
                 Type::ClassDef(ref cls) if self.is_tensor_class(cls) => {
                     Type::type_form(self.parse_tensor_type(cls, xs, errors))
+                }
+                // Jaxtyping annotation parsing: Float[Tensor, "batch channels"] syntax
+                Type::ClassDef(ref cls)
+                    if self.is_jaxtyping_wrapper(cls)
+                        && self.solver().flags.tensor_shapes =>
+                {
+                    Type::type_form(self.parse_jaxtyping_annotation(xs, range, errors))
                 }
                 // Dim type parsing: Dim[3], Dim[N], Dim[N+1] syntax
                 Type::ClassDef(ref cls) if self.is_symint_class(cls) => {
@@ -2008,13 +2045,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         // TODO(stroxler): Add a new API, similar to `type_of_attr_get` but returning a
                         // LookupResult or an Optional type, that we could use here to avoid the double lookup.
                         if self.has_attr(&class_ty, &dunder::CLASS_GETITEM) {
-                            let cls_value = self.promote_silently(&cls);
-                            let call_args = [CallArg::ty(&cls_value, range), CallArg::expr(slice)];
                             Some(self.call_method_or_error(
                                 &class_ty,
                                 &dunder::CLASS_GETITEM,
                                 range,
-                                &call_args,
+                                &[CallArg::expr(slice)],
                                 &[],
                                 errors,
                                 Some(&|| ErrorContext::Index(self.for_display(class_ty.clone()))),
@@ -2782,5 +2817,21 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 format!("{reason}"),
             );
         }
+    }
+}
+
+impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
+    fn allocate_lambda_param_vars<'b>(
+        &self,
+        param_ids: &[(&'b Name, LambdaParamId)],
+    ) -> Vec<(&'b Name, Var)> {
+        param_ids
+            .iter()
+            .map(|(name, id)| {
+                let var = self.solver().fresh_unwrap(self.uniques);
+                self.set_lambda_param_var(*id, var);
+                (*name, var)
+            })
+            .collect()
     }
 }

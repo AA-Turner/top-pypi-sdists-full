@@ -1,0 +1,566 @@
+"""One-shot VM runner for `plato chronos test`."""
+
+from __future__ import annotations
+
+import asyncio
+import json
+import logging
+import os
+import shlex
+import sys
+from datetime import UTC, datetime
+from pathlib import Path
+
+import httpx
+from rich.console import Console
+
+from plato.chronos.api.sessions import complete_session, create_session
+from plato.chronos.models import CompleteSessionRequest, CreateSessionRequest, CreateSessionResponse
+from plato.cli.chronos.dev.paths import get_sdk_root
+from plato.cli.chronos.dev.ssh import SSHKeyPair, build_ssh_command, build_ssh_command_string
+from plato.cli.chronos.dev.sync import SyncManager
+from plato.cli.chronos.registry import get_world_schema, parse_package_string
+from plato.cli.chronos.settings import get_settings
+from plato.cli.chronos.test.config import TestConfig, TestPhaseConfig
+from plato.otel import get_tracer, init_tracing, shutdown_tracing
+from plato.runtime import VMRuntimeConfig
+from plato.v2 import AsyncPlato, Env
+from plato.v2.types import SimConfigCompute
+
+settings = get_settings()
+logger = logging.getLogger(__name__)
+console = Console()
+
+
+def _slug(value: str) -> str:
+    out = []
+    for char in value.lower():
+        if char.isalnum() or char in {"-", "_"}:
+            out.append(char)
+        elif char.isspace():
+            out.append("-")
+    return "".join(out).strip("-") or "phase"
+
+
+def select_test_phases(phases: list[TestPhaseConfig], phase_filter: str) -> list[TestPhaseConfig]:
+    """Return configured phases filtered by `unit|integration|all`."""
+    requested = phase_filter.strip().lower()
+    if requested == "all":
+        return phases
+
+    selected = [p for p in phases if p.name.strip().lower() == requested]
+    if not selected:
+        available = ", ".join(p.name for p in phases)
+        raise ValueError(f"No phase named '{phase_filter}'. Available phases: {available}")
+    return selected
+
+
+class TestRunner:
+    """Provision a VM, sync code, run test phases, and clean up."""
+
+    def __init__(
+        self,
+        *,
+        config: TestConfig,
+        config_path: Path,
+        api_key: str,
+        phase_filter: str,
+        pytest_args: str | None,
+        artifacts_dir: Path | None,
+        keep_vm_on_fail: bool,
+        verbose: bool,
+    ):
+        self.config = config
+        self.config_path = config_path
+        self.api_key = api_key
+        self.phase_filter = phase_filter
+        self.pytest_args = (pytest_args or "").strip()
+        self.keep_vm_on_fail = keep_vm_on_fail
+        self.verbose = verbose
+
+        self.plato: AsyncPlato | None = None
+        self.session = None
+        self.world_env = None
+        self.ssh_key: SSHKeyPair | None = None
+        self.sync_manager: SyncManager | None = None
+
+        run_stamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
+        base = artifacts_dir or Path.cwd() / ".chronos-test-artifacts" / run_stamp
+        self.artifacts_dir = base.resolve()
+        self.logs_dir = self.artifacts_dir / "logs"
+        self.junit_dir = self.artifacts_dir / "junit"
+        self.summary_path = self.artifacts_dir / "summary.json"
+
+        self.session_id: str = ""
+        self._phase_results: list[dict] = []
+        self._tracing_initialized = False
+
+    async def run(self) -> int:
+        """Run setup + selected test phases. Returns process exit code."""
+        exit_code = 1
+        error_message: str | None = None
+
+        self.logs_dir.mkdir(parents=True, exist_ok=True)
+        self.junit_dir.mkdir(parents=True, exist_ok=True)
+
+        try:
+            await self._setup_vm()
+            selected_phases = select_test_phases(self.config.test.phases, self.phase_filter)
+            exit_code = await self._run_phases(selected_phases)
+        except Exception as exc:  # noqa: BLE001
+            error_message = str(exc)
+            logger.exception("chronos test failed")
+            exit_code = 1
+        finally:
+            status = "completed" if exit_code == 0 else "failed"
+            if self.session_id:
+                await self._complete_chronos_session(status, exit_code, error_message)
+
+            self._write_summary(exit_code=exit_code, status=status, error_message=error_message)
+
+            keep_vm = self.keep_vm_on_fail and exit_code != 0
+            await self._cleanup(keep_vm=keep_vm)
+
+            if keep_vm and self.world_env:
+                console.print("\n[yellow]Keeping VM alive for debugging[/yellow]")
+                console.print(f"  Job ID: [bold]{self.world_env.job_id}[/bold]")
+                if self.session_id:
+                    console.print(f"  Chronos: [blue]{settings.chronos_url}/sessions/{self.session_id}[/blue]")
+
+            console.print(f"\n[dim]Artifacts:[/dim] {self.artifacts_dir}")
+
+        return exit_code
+
+    def _resolve_path(self, value: Path | None) -> Path | None:
+        if value is None:
+            return None
+        if value.is_absolute():
+            return value
+        return (self.config_path.parent / value).resolve()
+
+    async def _setup_vm(self) -> None:
+        world_package, world_version = parse_package_string(self.config.world.package)
+        world_image = self.config.world.image
+        if not world_image:
+            world_schema = await get_world_schema(world_package, world_version)
+            world_image = world_schema.get("image", "")
+            if not world_image:
+                raise RuntimeError(f"No world image found in schema for {self.config.world.package}")
+
+        chronos = await self._create_chronos_session()
+        self.session_id = chronos.public_id
+        otel_url = chronos.otel_url or f"{settings.chronos_url}/api/otel"
+        self.config = self.config.model_copy(
+            update={
+                "session": self.config.session.model_copy(
+                    update={
+                        "session_id": chronos.public_id,
+                        "otel_url": otel_url,
+                    }
+                )
+            }
+        )
+
+        # Initialize OTel tracing now that we have a session
+        try:
+            init_tracing(
+                service_name=f"chronos-test.{world_package}",
+                session_id=self.session_id,
+                otlp_endpoint=otel_url,
+            )
+            self._tracing_initialized = True
+        except Exception:  # noqa: BLE001
+            logger.warning("Failed to initialize OTel tracing", exc_info=True)
+
+        world_runtime = self.config.world.runtime
+        if world_runtime.type != "vm" or not isinstance(world_runtime, VMRuntimeConfig):
+            raise ValueError("World runtime must be VM for `plato chronos test`")
+
+        self.plato = AsyncPlato()
+        self.session = await self.plato.sessions.create(
+            envs=[
+                Env.resource(
+                    simulator=f"test-{world_package}",
+                    sim_config=SimConfigCompute(
+                        cpus=world_runtime.vm.cpus,
+                        memory=world_runtime.vm.memory,
+                        disk=world_runtime.vm.disk,
+                    ),
+                    alias="runtime",
+                    docker_image_url=world_image,
+                    upload_rootfs=False,
+                    rootfs_storage_backend="snapshot-store",
+                )
+            ],
+            timeout=world_runtime.vm.timeout or 7200,
+            connect_network=True,
+        )
+        await self.session.start_heartbeat()
+
+        self.world_env = self.session.envs[0]
+        self.ssh_key = SSHKeyPair.generate()
+        ssh_response = await self.session.add_ssh_key(self.ssh_key.public_key)
+        if not ssh_response.success:
+            raise RuntimeError(f"SSH setup failed: {ssh_response}")
+
+        await self._copy_ssh_key_to_vm()
+        await self._setup_sync_and_install()
+        await self._write_runtime_files()
+
+        console.print("[green]VM ready for test execution[/green]")
+        console.print(f"  Job ID: [bold]{self.world_env.job_id}[/bold]")
+        console.print(f"  Chronos: [blue]{settings.chronos_url}/sessions/{self.session_id}[/blue]")
+
+    async def _setup_sync_and_install(self) -> None:
+        if not self.world_env or not self.ssh_key:
+            raise RuntimeError("VM and SSH key must be initialized")
+
+        self.sync_manager = SyncManager(self.ssh_key.private_key_path, verbose=self.verbose)
+
+        world_path = self._resolve_path(self.config.dev.world)
+        if world_path:
+            self.sync_manager.add_target(
+                local_path=world_path,
+                remote_path="/world",
+                job_id=self.world_env.job_id,
+            )
+
+        for name, agent_path in self.config.dev.agents.items():
+            resolved = self._resolve_path(agent_path)
+            if resolved:
+                self.sync_manager.add_target(
+                    local_path=resolved,
+                    remote_path=f"/agents/{name}",
+                    job_id=self.world_env.job_id,
+                )
+
+        for name, extra_path in self.config.dev.extra_sync.items():
+            resolved = self._resolve_path(extra_path)
+            if resolved:
+                self.sync_manager.add_target(
+                    local_path=resolved,
+                    remote_path=f"/extra/{name}",
+                    job_id=self.world_env.job_id,
+                )
+
+        if self.config.dev.sync_sdk:
+            sdk_root = get_sdk_root()
+            if sdk_root and (sdk_root / "pyproject.toml").exists():
+                self.sync_manager.add_target(
+                    local_path=sdk_root,
+                    remote_path="/sdk",
+                    job_id=self.world_env.job_id,
+                )
+
+        if not self.sync_manager.targets:
+            raise RuntimeError("No sync targets configured. Provide `dev.world` and/or `dev.agents`.")
+
+        synced = await self.sync_manager.initial_sync()
+        if synced != len(self.sync_manager.targets):
+            raise RuntimeError(f"Sync failed for {len(self.sync_manager.targets) - synced} target(s)")
+
+        await self._install_editable_packages()
+
+    async def _install_editable_packages(self) -> None:
+        if not self.world_env:
+            raise RuntimeError("world_env must be initialized")
+
+        await self.world_env.execute(
+            "dpkg -s fuse3 > /dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq fuse3) > /dev/null 2>&1",
+            timeout=60,
+        )
+
+        # Remove published world package installs so editable installs take precedence.
+        if self.config.dev.world:
+            world_pkgs = await self.world_env.execute(
+                'python3 -c "import importlib.metadata; '
+                "eps = importlib.metadata.entry_points(group='plato.worlds'); "
+                "print(' '.join(set(ep.dist.name for ep in eps)))\" 2>/dev/null || true",
+                timeout=30,
+            )
+            if world_pkgs.stdout.strip():
+                await self.world_env.execute(
+                    f"uv pip uninstall --system {world_pkgs.stdout.strip()}",
+                    timeout=90,
+                )
+
+        if self.config.dev.sync_sdk:
+            await self.world_env.execute("uv pip uninstall --system plato-sdk-v2", timeout=60)
+
+        editables: list[str] = []
+        if self.config.dev.sync_sdk:
+            editables.append("-e '/sdk[worlds]'")
+
+        if self.config.dev.world:
+            await self.world_env.execute(
+                "rm -rf /world/dist /world/*.egg-info /world/src/*.egg-info /world/build",
+                timeout=20,
+            )
+            editables.append("-e /world")
+
+        for name in self.config.dev.agents:
+            editables.append(f"-e /agents/{name}")
+
+        if not editables:
+            return
+
+        install_cmd = f"uv pip install --system {' '.join(editables)}"
+        result = await self.world_env.execute(install_cmd, timeout=300)
+        if result.exit_code != 0:
+            raise RuntimeError(f"Editable install failed: {result.stderr}")
+
+    async def _run_phases(self, phases: list[TestPhaseConfig]) -> int:
+        if not phases:
+            raise RuntimeError("No test phases selected")
+
+        for index, phase in enumerate(phases, start=1):
+            slug = _slug(phase.name)
+            log_path = self.logs_dir / f"{index:02d}-{slug}.log"
+            remote_junit = phase.junit_path
+
+            cmd = phase.command
+            if remote_junit and "pytest" in cmd and "--junitxml" not in cmd:
+                cmd = f"{cmd} --junitxml={shlex.quote(remote_junit)}"
+            if self.pytest_args:
+                cmd = f"{cmd} {self.pytest_args}"
+
+            console.print(f"\n[bold]Phase {index}/{len(phases)}:[/bold] {phase.name}")
+
+            tracer = get_tracer("chronos-test")
+            with tracer.start_as_current_span(f"test.phase.{slug}") as span:
+                rc = await self._run_phase_command(cmd=cmd, phase_name=phase.name, log_path=log_path)
+                if rc != 0:
+                    span.set_attribute("error", True)
+                span.set_attribute("exit_code", rc)
+
+            junit_local = None
+            if remote_junit:
+                junit_local = self.junit_dir / f"{index:02d}-{slug}.xml"
+                fetched = await self._fetch_remote_file(remote_junit, junit_local)
+                if not fetched:
+                    junit_local = None
+
+            result = {
+                "name": phase.name,
+                "command": cmd,
+                "exit_code": rc,
+                "log": str(log_path),
+                "junit": str(junit_local) if junit_local else None,
+            }
+            self._phase_results.append(result)
+
+            if rc != 0:
+                console.print(f"[red]Phase failed:[/red] {phase.name} (exit {rc})")
+                return rc
+
+            console.print(f"[green]Phase passed:[/green] {phase.name}")
+
+        return 0
+
+    async def _run_phase_command(self, *, cmd: str, phase_name: str, log_path: Path) -> int:
+        if not self.world_env or not self.ssh_key:
+            raise RuntimeError("VM and SSH key must be initialized")
+
+        env_map = {"PLATO_API_KEY": self.api_key, **self.config.test.env}
+
+        for env_name in self.config.test.pass_env:
+            value = os.environ.get(env_name)
+            if value:
+                env_map[env_name] = value
+
+        export_parts = [f"export {key}={shlex.quote(value)};" for key, value in sorted(env_map.items())]
+        script = (
+            "set -euo pipefail; "
+            f"cd {shlex.quote(self.config.test.workdir)}; "
+            + " ".join(export_parts)
+            + f" echo {shlex.quote(f'>>> Running phase: {phase_name}')}; "
+            + cmd
+        )
+        remote_cmd = f"bash -lc {shlex.quote(script)}"
+
+        ssh_cmd = build_ssh_command(self.world_env.job_id, self.ssh_key.private_key_path)
+        ssh_cmd.append(remote_cmd)
+
+        proc = await asyncio.create_subprocess_exec(
+            *ssh_cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT,
+        )
+
+        stdout = proc.stdout
+        if stdout is None:
+            raise RuntimeError("Failed to capture SSH stdout")
+
+        line_buffer: list[str] = []
+        tracer = get_tracer("chronos-test")
+        span = tracer.start_span(f"test.phase.{_slug(phase_name)}.logs")
+
+        with log_path.open("w", encoding="utf-8") as log_file:
+            while True:
+                line = await stdout.readline()
+                if not line:
+                    break
+                text = line.decode(errors="replace")
+                sys.stdout.write(text)
+                sys.stdout.flush()
+                log_file.write(text)
+                line_buffer.append(text.rstrip())
+                if len(line_buffer) >= 50:
+                    span.add_event("logs", {"lines": "\n".join(line_buffer)})
+                    line_buffer.clear()
+
+        if line_buffer:
+            span.add_event("logs", {"lines": "\n".join(line_buffer)})
+        span.end()
+
+        await proc.wait()
+        return proc.returncode or 0
+
+    async def _fetch_remote_file(self, remote_path: str, local_path: Path) -> bool:
+        if not self.world_env or not self.ssh_key:
+            raise RuntimeError("VM and SSH key must be initialized")
+
+        exists = await self.world_env.execute(
+            f"test -f {shlex.quote(remote_path)}",
+            timeout=10,
+        )
+        if exists.exit_code != 0:
+            return False
+
+        local_path.parent.mkdir(parents=True, exist_ok=True)
+
+        ssh_str = build_ssh_command_string(self.world_env.job_id, self.ssh_key.private_key_path)
+        host = f"root@{self.world_env.job_id}.plato"
+        proc = await asyncio.create_subprocess_exec(
+            "rsync",
+            "-az",
+            "-e",
+            ssh_str,
+            f"{host}:{remote_path}",
+            str(local_path),
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        _, stderr = await proc.communicate()
+        if proc.returncode != 0:
+            logger.warning("Failed to fetch %s: %s", remote_path, stderr.decode(errors="replace"))
+            return False
+        return True
+
+    async def _copy_ssh_key_to_vm(self) -> None:
+        if not self.ssh_key or not self.world_env:
+            raise RuntimeError("SSH key and world env must be initialized")
+
+        private_key = self.ssh_key.private_key_path.read_text()
+        public_key = self.ssh_key.public_key
+        escaped_private = private_key.replace("'", "'\\''")
+        escaped_public = public_key.replace("'", "'\\''")
+
+        await self.world_env.execute(
+            f"mkdir -p /root/.ssh && "
+            f"echo '{escaped_private}' > /root/.ssh/agent_key && chmod 600 /root/.ssh/agent_key && "
+            f"echo '{escaped_public}' > /root/.ssh/agent_key.pub && chmod 644 /root/.ssh/agent_key.pub",
+            timeout=30,
+        )
+
+    async def _write_runtime_files(self) -> None:
+        if not self.world_env or not self.session:
+            raise RuntimeError("world_env and session must be initialized")
+
+        self.config = self.config.model_copy(
+            update={
+                "dev": self.config.dev.model_copy(update={"ssh_key_path": Path("/root/.ssh/agent_key")}),
+                "session": self.config.session.model_copy(update={"plato_session": self.session.dump()}),
+            }
+        )
+
+        config_json = json.dumps(self.config.model_dump(mode="json"))
+        escaped_config = config_json.replace("'", "'\\''")
+        result = await self.world_env.execute(f"echo '{escaped_config}' > /tmp/config.json", timeout=30)
+        if result.exit_code != 0:
+            raise RuntimeError(f"Failed to write /tmp/config.json: {result.stderr}")
+
+        if self.config.session.plato_session:
+            session_json = json.dumps(self.config.session.plato_session.model_dump(mode="json"))
+            escaped_session = session_json.replace("'", "'\\''")
+            result = await self.world_env.execute(
+                f"mkdir -p /etc/plato && echo '{escaped_session}' > /etc/plato/session.json",
+                timeout=30,
+            )
+            if result.exit_code != 0:
+                raise RuntimeError(f"Failed to write /etc/plato/session.json: {result.stderr}")
+
+    async def _create_chronos_session(self) -> CreateSessionResponse:
+        world_config = self.config.world.config or {}
+        tags = list({*self.config.tags, "test", "ci.test"})
+        body = CreateSessionRequest(
+            world_name=self.config.world.package,
+            world_config=world_config,
+            tags=tags,
+        )
+        async with httpx.AsyncClient(
+            base_url=settings.chronos_url.rstrip("/"),
+            timeout=30.0,
+        ) as client:
+            return await create_session.asyncio(client, body=body, x_api_key=self.api_key)
+
+    async def _complete_chronos_session(
+        self,
+        status: str,
+        exit_code: int,
+        error_message: str | None,
+    ) -> None:
+        if not self.session_id:
+            return
+
+        body = CompleteSessionRequest(
+            status=status,
+            exit_code=exit_code,
+            error_message=error_message[:500] if error_message else None,
+        )
+        try:
+            async with httpx.AsyncClient(
+                base_url=settings.chronos_url.rstrip("/"),
+                timeout=30.0,
+            ) as client:
+                await complete_session.asyncio(
+                    client,
+                    public_id=self.session_id,
+                    body=body,
+                    x_api_key=self.api_key,
+                )
+        except Exception:  # noqa: BLE001
+            logger.warning("Failed to complete Chronos session", exc_info=True)
+
+    def _write_summary(self, *, exit_code: int, status: str, error_message: str | None) -> None:
+        summary = {
+            "generated_at": datetime.now(UTC).isoformat(),
+            "session_id": self.session_id,
+            "world_job_id": self.world_env.job_id if self.world_env else None,
+            "status": status,
+            "exit_code": exit_code,
+            "error": error_message,
+            "phase_filter": self.phase_filter,
+            "phases": self._phase_results,
+        }
+        self.summary_path.write_text(json.dumps(summary, indent=2) + "\n")
+
+    async def _cleanup(self, *, keep_vm: bool) -> None:
+        if self._tracing_initialized:
+            shutdown_tracing()
+
+        if self.sync_manager:
+            self.sync_manager.stop()
+
+        if keep_vm:
+            return
+
+        if self.session:
+            await self.session.close()
+        if self.plato:
+            await self.plato.close()
+
+
+TestRunner.__test__ = False  # type: ignore[attr-defined]
+
+__all__ = ["TestRunner", "select_test_phases"]

@@ -14,6 +14,7 @@ export declare class Text extends VisualProperties {
     ComputedValues: {
         color: string;
         outline_color: string;
+        outline_width: number;
         font: string;
         text_align: TextAlign;
         text_baseline: TextBaseline;
@@ -25,6 +26,7 @@ export declare class Text extends VisualProperties {
     font_value(): string;
     get_text_color(): Color | null;
     get_text_outline_color(): Color | null;
+    get_text_outline_width(): number;
     get_text_alpha(): number;
     get_text_font(): string;
     get_text_font_size(): string;
@@ -36,6 +38,7 @@ export declare class Text extends VisualProperties {
 export declare class TextScalar extends VisualUniforms {
     readonly text_color: p.UniformScalar<uint32>;
     readonly text_outline_color: p.UniformScalar<uint32>;
+    readonly text_outline_width: p.UniformScalar<number>;
     readonly text_alpha: p.UniformScalar<number>;
     readonly text_font: p.UniformScalar<string>;
     readonly text_font_size: p.UniformScalar<string>;
@@ -53,6 +56,7 @@ export declare class TextScalar extends VisualUniforms {
 export declare class TextVector extends VisualUniforms {
     readonly text_color: p.Uniform<uint32>;
     readonly text_outline_color: p.Uniform<uint32>;
+    readonly text_outline_width: p.Uniform<number>;
     readonly text_alpha: p.Uniform<number>;
     readonly text_font: p.Uniform<string>;
     readonly text_font_size: p.Uniform<string>;

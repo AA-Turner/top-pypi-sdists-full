@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "trainy-policy-nightly"
-version = "0.1.0.dev20260310110806"
+version = "0.1.0.dev20260311110755"
 description = "Trainy Skypilot Policy"
 packages = [
     {include = "trainy"}

@@ -88,7 +88,7 @@ export declare const Place: import("./kinds").Kinds.Enum<"center" | "left" | "ri
 export type Place = typeof Place["__type__"];
 export declare const PointPolicy: import("./kinds").Kinds.Enum<"none" | "snap_to_data" | "follow_mouse">;
 export type PointPolicy = typeof PointPolicy["__type__"];
-export declare const RadiusDimension: import("./kinds").Kinds.Enum<"max" | "x" | "y" | "min">;
+export declare const RadiusDimension: import("./kinds").Kinds.Enum<"min" | "max" | "x" | "y">;
 export type RadiusDimension = typeof RadiusDimension["__type__"];
 export declare const RenderLevel: import("./kinds").Kinds.Enum<"image" | "underlay" | "glyph" | "guide" | "annotation" | "overlay">;
 export type RenderLevel = typeof RenderLevel["__type__"];
@@ -96,7 +96,7 @@ export declare const ResetPolicy: import("./kinds").Kinds.Enum<"standard" | "eve
 export type ResetPolicy = typeof ResetPolicy["__type__"];
 export declare const ResolutionType: import("./kinds").Kinds.Enum<"microseconds" | "milliseconds" | "seconds" | "minsec" | "minutes" | "hourmin" | "hours" | "days" | "months" | "years">;
 export type ResolutionType = typeof ResolutionType["__type__"];
-export declare const RoundingFunction: import("./kinds").Kinds.Enum<"round" | "ceil" | "floor" | "nearest" | "rounddown" | "roundup">;
+export declare const RoundingFunction: import("./kinds").Kinds.Enum<"round" | "floor" | "ceil" | "nearest" | "rounddown" | "roundup">;
 export type RoundingFunction = typeof RoundingFunction["__type__"];
 export declare const ScrollbarPolicy: import("./kinds").Kinds.Enum<"auto" | "visible" | "hidden">;
 export type ScrollbarPolicy = typeof ScrollbarPolicy["__type__"];

@@ -6,14 +6,30 @@ from nsj_rest_lib2.compiler.model import CompilerResult
 from nsj_rest_lib2.compiler.util.str_util import CompilerStrUtil
 
 
+def _sanitize_namespace_token(value: str | int | uuid.UUID | None) -> str:
+    raw = str(value) if value is not None else "none"
+    # Token de namespace também é usado como módulo Python dinâmico.
+    # Substitui qualquer caractere não alfanumérico por '_' para gerar
+    # identificadores válidos (ex.: UUID com '-').
+    return "".join(ch if ch.isalnum() else "_" for ch in raw)
+
+
 def compile_namespace_keys(
     tenant: str | int | None, grupo_empresarial: str | uuid.UUID | None
 ) -> tuple[str, str, str]:
-    grupo_key = f"tenant_{tenant}.ge_{grupo_empresarial}"
-    tenant_key = f"tenant_{tenant}"
+    tenant_token = _sanitize_namespace_token(tenant)
+    grupo_token = _sanitize_namespace_token(grupo_empresarial)
+
+    grupo_key = f"tenant_{tenant_token}.ge_{grupo_token}"
+    tenant_key = f"tenant_{tenant_token}"
     default_key = "default"
 
     return (grupo_key, tenant_key, default_key)
+
+
+def to_snake_case(value: str) -> str:
+    # Wrapper centralizado para manter convenção única de nomes no compiler.
+    return CompilerStrUtil.to_snake_case(value)
 
 
 def resolve_namespace_key(

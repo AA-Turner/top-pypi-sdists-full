@@ -8,10 +8,7 @@ from .itemstypeconnectionsoptional import (
     ItemsTypeConnectionsOptional,
     ItemsTypeConnectionsOptionalTypedDict,
 )
-from .itemstypenotificationmetadata import (
-    ItemsTypeNotificationMetadata,
-    ItemsTypeNotificationMetadataTypedDict,
-)
+from .itemstypemetadata import ItemsTypeMetadata, ItemsTypeMetadataTypedDict
 from .modeoptionshost import ModeOptionsHost
 from .pqtype import PqType, PqTypeTypedDict
 from .processtype import ProcessType, ProcessTypeTypedDict
@@ -72,7 +69,7 @@ class InputSystemMetricsSystem(BaseModel):
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
-            val = serialized.get(k)
+            val = serialized.get(k, serialized.get(n))
 
             if val != UNSET_SENTINEL:
                 if val is not None or k not in optional_fields:
@@ -135,7 +132,7 @@ class InputSystemMetricsCPU(BaseModel):
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
-            val = serialized.get(k)
+            val = serialized.get(k, serialized.get(n))
 
             if val != UNSET_SENTINEL:
                 if val is not None or k not in optional_fields:
@@ -188,7 +185,7 @@ class InputSystemMetricsMemory(BaseModel):
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
-            val = serialized.get(k)
+            val = serialized.get(k, serialized.get(n))
 
             if val != UNSET_SENTINEL:
                 if val is not None or k not in optional_fields:
@@ -260,7 +257,7 @@ class InputSystemMetricsNetwork(BaseModel):
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
-            val = serialized.get(k)
+            val = serialized.get(k, serialized.get(n))
 
             if val != UNSET_SENTINEL:
                 if val is not None or k not in optional_fields:
@@ -348,7 +345,7 @@ class InputSystemMetricsDisk(BaseModel):
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
-            val = serialized.get(k)
+            val = serialized.get(k, serialized.get(n))
 
             if val != UNSET_SENTINEL:
                 if val is not None or k not in optional_fields:
@@ -384,7 +381,7 @@ class InputSystemMetricsCustom(BaseModel):
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
-            val = serialized.get(k)
+            val = serialized.get(k, serialized.get(n))
 
             if val != UNSET_SENTINEL:
                 if val is not None or k not in optional_fields:
@@ -422,7 +419,7 @@ class InputSystemMetricsHost(BaseModel):
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
-            val = serialized.get(k)
+            val = serialized.get(k, serialized.get(n))
 
             if val != UNSET_SENTINEL:
                 if val is not None or k not in optional_fields:
@@ -524,7 +521,7 @@ class Container(BaseModel):
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
-            val = serialized.get(k)
+            val = serialized.get(k, serialized.get(n))
 
             if val != UNSET_SENTINEL:
                 if val is not None or k not in optional_fields:
@@ -591,7 +588,7 @@ class InputSystemMetricsPersistence(BaseModel):
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
-            val = serialized.get(k)
+            val = serialized.get(k, serialized.get(n))
 
             if val != UNSET_SENTINEL:
                 if val is not None or k not in optional_fields:
@@ -623,7 +620,7 @@ class InputSystemMetricsTypedDict(TypedDict):
     host: NotRequired[InputSystemMetricsHostTypedDict]
     process: NotRequired[ProcessTypeTypedDict]
     container: NotRequired[ContainerTypedDict]
-    metadata: NotRequired[List[ItemsTypeNotificationMetadataTypedDict]]
+    metadata: NotRequired[List[ItemsTypeMetadataTypedDict]]
     r"""Fields to add to events from this input"""
     persistence: NotRequired[InputSystemMetricsPersistenceTypedDict]
     description: NotRequired[str]
@@ -668,7 +665,7 @@ class InputSystemMetrics(BaseModel):
 
     container: Optional[Container] = None
 
-    metadata: Optional[List[ItemsTypeNotificationMetadata]] = None
+    metadata: Optional[List[ItemsTypeMetadata]] = None
     r"""Fields to add to events from this input"""
 
     persistence: Optional[InputSystemMetricsPersistence] = None
@@ -702,10 +699,36 @@ class InputSystemMetrics(BaseModel):
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
-            val = serialized.get(k)
+            val = serialized.get(k, serialized.get(n))
 
             if val != UNSET_SENTINEL:
                 if val is not None or k not in optional_fields:
                     m[k] = val
 
         return m
+
+
+try:
+    InputSystemMetricsCPU.model_rebuild()
+except NameError:
+    pass
+try:
+    InputSystemMetricsNetwork.model_rebuild()
+except NameError:
+    pass
+try:
+    InputSystemMetricsDisk.model_rebuild()
+except NameError:
+    pass
+try:
+    Container.model_rebuild()
+except NameError:
+    pass
+try:
+    InputSystemMetricsPersistence.model_rebuild()
+except NameError:
+    pass
+try:
+    InputSystemMetrics.model_rebuild()
+except NameError:
+    pass

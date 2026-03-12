@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: passagemath-flint
-Version: 10.8.1
+Version: 10.8.2
 Summary: passagemath: Fast computations with MPFI and FLINT
 Author-email: The Sage Developers <sage-support@googlegroups.com>
 Maintainer: Matthias Köppe, passagemath contributors
@@ -28,8 +28,8 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Scientific/Engineering :: Mathematics
 Requires-Python: <3.15,>=3.11
 Description-Content-Type: text/x-rst
-Requires-Dist: passagemath-categories~=10.8.1.0
-Requires-Dist: passagemath-ntl~=10.8.1.0
+Requires-Dist: passagemath-categories~=10.8.2.0
+Requires-Dist: passagemath-ntl~=10.8.2.0
 Requires-Dist: numpy>=1.25
 Requires-Dist: numpy>=2.2.4
 Provides-Extra: test

@@ -106,6 +106,10 @@ pub struct Definition {
     /// If the first statement in a definition (class, function) is a string literal, PEP 257 convention
     /// states that is the docstring.
     pub docstring_range: Option<TextRange>,
+    /// The range of the textually last assignment site. When there is only one
+    /// definition, this equals `range`. Used to determine if a variable is
+    /// reassigned after a given point (e.g. after a nested function definition).
+    pub last_range: TextRange,
 }
 
 impl Definition {
@@ -122,6 +126,10 @@ impl Definition {
         if other < self.style {
             self.style = other;
             self.range = range;
+        }
+        // Track the textually last assignment site.
+        if range.start() > self.last_range.start() {
+            self.last_range = range;
         }
         // If we've merged a Definition, then there are multiple definition sites.
         //
@@ -159,6 +167,9 @@ pub struct Definitions {
     pub final_names: SmallSet<Name>,
     /// Special exports defined in this module
     pub special_exports: SmallMap<Name, SpecialExport>,
+    /// Names that are read (not just defined) in this scope.
+    /// Used to compute implicit captures when entering nested function scopes.
+    pub name_reads: SmallSet<Name>,
 }
 
 /// Whether `__all__` was explicitly defined by the user or synthesized from module definitions.
@@ -256,10 +267,10 @@ impl DunderAllEntry {
     }
 }
 
-struct DefinitionsBuilder<'a> {
+struct DefinitionsBuilder {
     module_name: ModuleName,
     is_init: bool,
-    sys_info: &'a SysInfo,
+    sys_info: SysInfo,
     inner: Definitions,
 }
 
@@ -310,7 +321,7 @@ fn is_overload_decorator(decorator: &Decorator) -> bool {
 }
 
 impl Definitions {
-    pub fn new(x: &[Stmt], module_name: ModuleName, is_init: bool, sys_info: &SysInfo) -> Self {
+    pub fn new(x: &[Stmt], module_name: ModuleName, is_init: bool, sys_info: SysInfo) -> Self {
         let mut builder = DefinitionsBuilder {
             module_name,
             sys_info,
@@ -340,6 +351,7 @@ impl Definitions {
                     style: DefinitionStyle::ImplicitGlobal,
                     needs_anywhere: false,
                     docstring_range: None,
+                    last_range: TextRange::default(),
                 },
             );
         }
@@ -378,6 +390,16 @@ impl Definitions {
         }
     }
 
+    /// Names that are read but not locally defined in this scope.
+    /// These are implicit captures from enclosing scopes.
+    pub fn implicit_captures(&self) -> SmallSet<Name> {
+        self.name_reads
+            .iter()
+            .filter(|name| !self.definitions.contains_key(name.as_str()))
+            .cloned()
+            .collect()
+    }
+
     /// Add these names to `dunder_all`, if they are defined in the module.
     pub fn extend_dunder_all(&mut self, extra: &[Name]) {
         for name in extra {
@@ -390,7 +412,7 @@ impl Definitions {
     }
 }
 
-impl<'a> DefinitionsBuilder<'a> {
+impl DefinitionsBuilder {
     fn stmts(&mut self, xs: &[Stmt]) {
         for x in xs {
             self.stmt(x);
@@ -414,6 +436,7 @@ impl<'a> DefinitionsBuilder<'a> {
                     style,
                     needs_anywhere: false,
                     docstring_range: body.and_then(Docstring::range_from_stmts),
+                    last_range: range,
                 });
             }
         }
@@ -460,6 +483,38 @@ impl<'a> DefinitionsBuilder<'a> {
         Ast::pattern_lvalue(x, &mut |x| {
             self.add_identifier(x, DefinitionStyle::Unannotated(SymbolKind::Variable))
         });
+    }
+
+    /// Resolve bare module names in `DunderAllEntry::Module` entries to their
+    /// fully qualified names using import definitions in scope.
+    ///
+    /// When `as_list` sees `foo.__all__`, it creates `ModuleName::from_name("foo")`
+    /// which is a bare unqualified name. If `foo` was imported via a relative import
+    /// (e.g. `from . import foo`), the actual module is fully qualified (e.g. `pkg.foo`).
+    /// This method resolves such bare names using the definitions already collected.
+    fn resolve_module_entries(&self, entries: &mut [DunderAllEntry]) {
+        for entry in entries.iter_mut() {
+            if let DunderAllEntry::Module(_, module_name) = entry {
+                let key = Name::new(module_name.as_str());
+                if let Some(def) = self.inner.definitions.get(&key) {
+                    match &def.style {
+                        DefinitionStyle::Import(base) | DefinitionStyle::ImportAsEq(base) => {
+                            *module_name = base.append(&key);
+                        }
+                        DefinitionStyle::ImportAs(base, original) => {
+                            if ModuleName::from_name(original) == *base {
+                                // `import X as Y` — base is already the full module path
+                                *module_name = *base;
+                            } else {
+                                // `from X import Y as Z` — base is the source module
+                                *module_name = base.append(original);
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        }
     }
 
     fn stmt(&mut self, x: &Stmt) {
@@ -577,7 +632,8 @@ impl<'a> DefinitionsBuilder<'a> {
                     self.expr_lvalue(t);
                     if DunderAllEntry::is_all(t) {
                         match DunderAllEntry::as_list(&x.value) {
-                            Some(entries) => {
+                            Some(mut entries) => {
+                                self.resolve_module_entries(&mut entries);
                                 self.inner.dunder_all = DunderAll {
                                     kind: DunderAllKind::Specified,
                                     entries,
@@ -601,7 +657,8 @@ impl<'a> DefinitionsBuilder<'a> {
                     && DunderAllEntry::is_all(&x.target)
                 {
                     match DunderAllEntry::as_list(v.as_ref()) {
-                        Some(entries) => {
+                        Some(mut entries) => {
+                            self.resolve_module_entries(&mut entries);
                             self.inner.dunder_all = DunderAll {
                                 kind: DunderAllKind::Specified,
                                 entries,
@@ -636,11 +693,19 @@ impl<'a> DefinitionsBuilder<'a> {
             Stmt::AugAssign(x) => {
                 self.named_in_expr(&x.value);
                 if DunderAllEntry::is_all(&x.target) && x.op == Operator::Add {
-                    self.inner.dunder_all.kind = DunderAllKind::Specified;
-                    self.inner
-                        .dunder_all
-                        .entries
-                        .extend(DunderAllEntry::as_list(&x.value).unwrap_or_default());
+                    match DunderAllEntry::as_list(&x.value) {
+                        Some(mut entries) => {
+                            self.resolve_module_entries(&mut entries);
+                            self.inner.dunder_all.kind = DunderAllKind::Specified;
+                            self.inner.dunder_all.entries.extend(entries);
+                        }
+                        None => {
+                            self.inner.dunder_all = DunderAll {
+                                kind: DunderAllKind::Unresolvable(x.value.range()),
+                                entries: Vec::new(),
+                            };
+                        }
+                    }
                 }
                 if let Expr::Name(name) = &*x.target {
                     self.add_name(
@@ -673,14 +738,27 @@ impl<'a> DefinitionsBuilder<'a> {
                 {
                     self.inner.dunder_all.kind = DunderAllKind::Specified;
                     match attr.as_str() {
-                        "extend" => self.inner.dunder_all.entries.extend(
-                            DunderAllEntry::as_list(&arguments.args[0]).unwrap_or_default(),
-                        ),
-                        "append" => self
-                            .inner
-                            .dunder_all
-                            .entries
-                            .extend(DunderAllEntry::as_item(&arguments.args[0])),
+                        "extend" => match DunderAllEntry::as_list(&arguments.args[0]) {
+                            Some(mut entries) => {
+                                self.resolve_module_entries(&mut entries);
+                                self.inner.dunder_all.entries.extend(entries);
+                            }
+                            None => {
+                                self.inner.dunder_all = DunderAll {
+                                    kind: DunderAllKind::Unresolvable(arguments.args[0].range()),
+                                    entries: Vec::new(),
+                                };
+                            }
+                        },
+                        "append" => match DunderAllEntry::as_item(&arguments.args[0]) {
+                            Some(entry) => self.inner.dunder_all.entries.push(entry),
+                            None => {
+                                self.inner.dunder_all = DunderAll {
+                                    kind: DunderAllKind::Unresolvable(arguments.args[0].range()),
+                                    entries: Vec::new(),
+                                };
+                            }
+                        },
                         "remove" => {
                             if let Some(DunderAllEntry::Name(range, remove)) =
                                 DunderAllEntry::as_item(&arguments.args[0])
@@ -767,7 +845,8 @@ impl<'a> DefinitionsBuilder<'a> {
             }
             Stmt::If(x) => {
                 self.named_in_expr(&x.test);
-                for (_, body) in self.sys_info.pruned_if_branches(x) {
+                let sys_info = self.sys_info;
+                for (_, body) in sys_info.pruned_if_branches(x) {
                     self.stmts(body);
                 }
                 return; // We went through the relevant branches already
@@ -789,29 +868,35 @@ impl<'a> DefinitionsBuilder<'a> {
                     self.named_in_expr(c);
                 }
             }
-            Stmt::Return(..)
-            | Stmt::Pass(..)
-            | Stmt::Break(..)
-            | Stmt::Continue(..)
-            | Stmt::IpyEscapeCommand(..) => {}
+            Stmt::Return(x) => {
+                if let Some(value) = &x.value {
+                    self.named_in_expr(value);
+                }
+            }
+            Stmt::Pass(..) | Stmt::Break(..) | Stmt::Continue(..) | Stmt::IpyEscapeCommand(..) => {}
         }
         x.recurse(&mut |xs| self.stmt(xs))
     }
 
-    /// Accumulate names defined by walrus operators in an expression.
+    /// Accumulate names defined by walrus operators in an expression,
+    /// and collect all name reads for implicit capture analysis.
     fn named_in_expr(&mut self, x: &Expr) {
         match x {
             Expr::Named(expr_named) => {
                 self.expr_lvalue(&expr_named.target);
+                expr_named.value.recurse(&mut |x| self.named_in_expr(x));
             }
+            Expr::Name(name) => {
+                self.inner.name_reads.insert(name.id.clone());
+            }
+            // These expressions define a scope, so walrus operators only define a name
+            // within that scope, not in the surrounding statement's scope.
+            // Name reads inside them belong to that inner scope, not ours.
             Expr::Lambda(..)
             | Expr::SetComp(..)
             | Expr::DictComp(..)
             | Expr::ListComp(..)
-            | Expr::Generator(..) => {
-                // These expressions define a scope, so walrus operators only define a name
-                // within that scope, not in the surrounding statement's scope.
-            }
+            | Expr::Generator(..) => {}
             _ => x.recurse(&mut |x| self.named_in_expr(x)),
         }
     }
@@ -875,7 +960,7 @@ mod tests {
             &Ast::parse(contents, PySourceType::Python).0.body,
             module_name,
             is_init,
-            &SysInfo::default(),
+            SysInfo::default(),
         );
         res.dunder_all.entries.iter_mut().for_each(unrange);
         res

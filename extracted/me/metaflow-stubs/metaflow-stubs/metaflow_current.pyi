@@ -1,16 +1,16 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.20                                                                                #
-# Generated on 2026-02-26T21:59:51.363984                                                            #
+# MF version: 2.19.21                                                                                #
+# Generated on 2026-03-12T01:00:36.782925                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
 import typing
 if typing.TYPE_CHECKING:
-    import metaflow.events
-    import metaflow.metaflow_current
     import metaflow.plugins.cards.component_serializer
+    import metaflow.metaflow_current
+    import metaflow.events
 
 
 TYPE_CHECKING: bool
@@ -272,7 +272,7 @@ class Current(object, metaclass=type):
     @property
     def trigger(self) -> "metaflow.events.Trigger":
         """
-        (only in the presence of the @trigger_on_finish, or @trigger decorators)
+        (only in the presence of the @trigger, or @trigger_on_finish decorators)
         
         Returns `Trigger` if the current run is triggered by an event
         

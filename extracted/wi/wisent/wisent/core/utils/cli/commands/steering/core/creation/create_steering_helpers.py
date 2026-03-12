@@ -143,18 +143,19 @@ def _create_tetno_steering_object(
     
     # Optimize condition vector
     condition_vec = condition_vec.clone().requires_grad_(True)
+    condition_margin = _require_arg(args, 'tetno_condition_margin')
     optimizer = torch.optim.Adam([condition_vec], lr=_require_arg(args, 'tetno_learning_rate'))
-    
+
     for _ in range(_require_arg(args, 'tetno_optimization_steps')):
         optimizer.zero_grad()
         c_norm = torch.nn.functional.normalize(condition_vec, dim=0)
         pos_norm = torch.nn.functional.normalize(pos_sensor, dim=1)
         neg_norm = torch.nn.functional.normalize(neg_sensor, dim=1)
-        
+
         pos_sim = (pos_norm * c_norm).sum(dim=1)
         neg_sim = (neg_norm * c_norm).sum(dim=1)
-        
-        loss = torch.relu(_C.STEERING_LOSS_MARGIN - pos_sim).mean() + torch.relu(neg_sim + _C.STEERING_LOSS_MARGIN).mean()
+
+        loss = torch.relu(condition_margin - pos_sim).mean() + torch.relu(neg_sim + condition_margin).mean()
         loss.backward()
         optimizer.step()
     

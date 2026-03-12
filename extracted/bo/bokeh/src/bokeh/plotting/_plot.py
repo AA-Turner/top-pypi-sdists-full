@@ -30,7 +30,7 @@ from typing import (
 import numpy as np
 
 # Bokeh imports
-from ..core.properties import Datetime
+from ..core.property.datetime import Datetime
 from ..core.property.singletons import Intrinsic
 from ..models import (
     Axis,
@@ -51,9 +51,12 @@ from ..models import (
     Scale,
     TimedeltaAxis,
 )
+from ..util.dependencies import uses_pandas
 
 if TYPE_CHECKING:
+    import numpy.typing as npt
     import pandas as pd
+    from pandas.api.extensions import ExtensionArray
     from pandas.core.groupby import GroupBy
 
     from ..models.plots import Plot
@@ -77,19 +80,12 @@ __all__ = (
 # Dev API
 #-----------------------------------------------------------------------------
 
-def get_range(range_input: Range | tuple[float, float] | Sequence[str] | pd.Series[Any] | GroupBy | None) -> Range:
-    import pandas as pd
-    from pandas.core.groupby import GroupBy
-
+def get_range(range_input: Range | tuple[float, float] | npt.NDArray[Any] | Sequence[str] | pd.Series[Any] | ExtensionArray | GroupBy[Any] | None) -> Range:
     if range_input is None:
         return DataRange1d()
-    if isinstance(range_input, GroupBy):
-        return FactorRange(factors=sorted(list(range_input.groups.keys())))
-    if isinstance(range_input, Range):
+    elif isinstance(range_input, Range):
         return range_input
-    if isinstance(range_input, pd.Series):
-        range_input = range_input.values
-    if isinstance(range_input, Sequence | np.ndarray):
+    elif isinstance(range_input, (Sequence, np.ndarray)):
         if all(isinstance(x, str) for x in range_input):
             return FactorRange(factors=list(range_input))
         if len(range_input) == 2:
@@ -102,6 +98,18 @@ def get_range(range_input: Range | tuple[float, float] | Sequence[str] | pd.Seri
                 return Range1d(start=start, end=end)
             except ValueError:  # @mattpap suggests ValidationError instead
                 pass
+    elif uses_pandas(range_input):
+        from pandas import Series
+        from pandas.api.extensions import ExtensionArray
+        from pandas.core.groupby import GroupBy
+
+        if isinstance(range_input, Series):
+            return get_range(range_input.values)
+        elif isinstance(range_input, ExtensionArray):
+            return get_range(list(range_input))
+        elif isinstance(range_input, GroupBy):
+            return FactorRange(factors=sorted(range_input.groups.keys()))
+
     raise ValueError(f"Unrecognized range input: '{range_input}'")
 
 AxisType: TypeAlias = Literal["linear", "log", "datetime", "timedelta", "mercator", "auto"]
@@ -109,9 +117,9 @@ AxisLocation: TypeAlias = Literal["above", "below", "left", "right"]
 Dim: TypeAlias = Literal[0, 1]
 
 def get_scale(range_input: Range, axis_type: AxisType | None) -> Scale:
-    if isinstance(range_input, DataRange1d | Range1d) and axis_type in ["linear", "datetime", "timedelta", "mercator", "auto", None]:
+    if isinstance(range_input, (DataRange1d, Range1d)) and axis_type in ["linear", "datetime", "timedelta", "mercator", "auto", None]:
         return LinearScale()
-    elif isinstance(range_input, DataRange1d | Range1d) and axis_type == "log":
+    elif isinstance(range_input, (DataRange1d, Range1d)) and axis_type == "log":
         return LogScale()
     elif isinstance(range_input, FactorRange):
         return CategoricalScale()

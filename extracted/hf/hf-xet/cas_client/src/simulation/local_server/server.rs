@@ -28,29 +28,39 @@
 //! }
 //! ```
 
-use std::net::{SocketAddr, TcpListener as StdTcpListener};
+use std::net::SocketAddr;
+#[cfg(test)]
+use std::net::TcpListener as StdTcpListener;
 use std::path::PathBuf;
 use std::sync::Arc;
+#[cfg(test)]
 use std::time::Duration;
 
+#[cfg(test)]
 use async_trait::async_trait;
 use axum::Router;
 use axum::routing::{get, head, post};
-use http::header::{self, HeaderMap, HeaderValue};
+#[cfg(test)]
+use reqwest::header::{self, HeaderMap, HeaderValue};
 use tokio::net::TcpListener;
+#[cfg(test)]
 use tokio::sync::oneshot;
 use tower_http::cors::CorsLayer;
 
 use super::handlers;
+use super::latency_simulation::LatencySimulation;
+#[cfg(test)]
 use crate::RemoteClient;
 use crate::error::{CasClientError, Result};
+#[cfg(test)]
 use crate::interface::Client;
+#[cfg(test)]
 #[cfg(unix)]
-use crate::simulation::socket_proxy::UnixSocketProxy;
-use crate::simulation::{DirectAccessClient, LocalClient, MemoryClient};
+use crate::simulation::UnixSocketProxy;
+use crate::simulation::{DeletionControlableClient, DirectAccessClient, LocalClient, MemoryClient};
 
 /// Configuration for the local CAS server.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct LocalServerConfig {
     /// Directory where CAS data (XORBs, shards, indices) will be stored.
     /// Only used when `in_memory` is false.
@@ -85,6 +95,8 @@ impl Default for LocalServerConfig {
 pub struct LocalServer {
     config: LocalServerConfig,
     client: Arc<dyn DirectAccessClient>,
+    deletion_client: Option<Arc<dyn DeletionControlableClient>>,
+    latency_simulation: Arc<LatencySimulation>,
 }
 
 impl LocalServer {
@@ -93,12 +105,21 @@ impl LocalServer {
     /// If `in_memory` is false, creates a new `LocalClient` pointing to the configured data directory.
     /// If `in_memory` is true, creates a new `MemoryClient` (data directory is ignored).
     pub async fn new(config: LocalServerConfig) -> Result<Self> {
-        let client: Arc<dyn DirectAccessClient> = if config.in_memory {
-            MemoryClient::new()
-        } else {
-            LocalClient::new(&config.data_directory).await?
-        };
-        Ok(Self { config, client })
+        let (client, deletion_client): (Arc<dyn DirectAccessClient>, Option<Arc<dyn DeletionControlableClient>>) =
+            if config.in_memory {
+                (MemoryClient::new(), None)
+            } else {
+                let client = LocalClient::new(&config.data_directory).await?;
+                let deletion_client = client.clone() as Arc<dyn DeletionControlableClient>;
+                (client, Some(deletion_client))
+            };
+        let latency_simulation = LatencySimulation::new();
+        Ok(Self {
+            config,
+            client,
+            deletion_client,
+            latency_simulation,
+        })
     }
 
     /// Creates a server from an existing `DirectAccessClient`.
@@ -106,7 +127,13 @@ impl LocalServer {
     /// Useful when you want to share a client instance between the server
     /// and other code (e.g., for testing where you want to verify server behavior
     /// against direct client access).
-    pub fn from_client(client: Arc<dyn DirectAccessClient>, host: String, port: u16) -> Self {
+    pub fn from_client(
+        client: Arc<dyn DirectAccessClient>,
+        deletion_client: Option<Arc<dyn DeletionControlableClient>>,
+        host: String,
+        port: u16,
+    ) -> Self {
+        let latency_simulation = LatencySimulation::new();
         Self {
             config: LocalServerConfig {
                 data_directory: PathBuf::new(),
@@ -115,6 +142,8 @@ impl LocalServer {
                 in_memory: false,
             },
             client,
+            deletion_client,
+            latency_simulation,
         }
     }
 
@@ -133,6 +162,7 @@ impl LocalServer {
     /// Routes follow the pattern used by RemoteClient:
     /// - `/v1/` prefixed routes for chunks, xorbs, reconstructions, and files
     /// - Root-level `/reconstructions` for batch queries and `/shards` for uploads
+    /// - `/simulation/` prefixed routes for testing/simulation configuration and direct access
     fn create_router(&self) -> Router {
         Router::new()
             .route("/health", get(handlers::health_check))
@@ -147,11 +177,22 @@ impl LocalServer {
                     .route("/get_xorb/{prefix}/{hash}/", get(handlers::get_file_term_data))
                     .route("/fetch_term", get(handlers::fetch_term)),
             )
+            .nest(
+                "/simulation",
+                super::simulation_handlers::simulation_routes()
+                    .route("/ping", get(handlers::ping))
+                    .route("/set_config", post(handlers::set_config))
+                    .route("/dummy_upload", post(handlers::dummy_upload)),
+            )
             // Routes used by RemoteClient without /v1/ prefix
             .route("/reconstructions", get(handlers::batch_get_reconstruction))
             .route("/shards", post(handlers::post_shard))
             .layer(CorsLayer::very_permissive())
-            .with_state(self.client.clone())
+            .with_state(handlers::ServerState {
+                client: self.client.clone(),
+                latency_simulation: self.latency_simulation.clone(),
+                deletion_client: self.deletion_client.clone(),
+            })
     }
 
     /// Runs the server, listening for incoming HTTP requests.
@@ -209,42 +250,19 @@ async fn shutdown_signal() {
     std::future::pending::<()>().await
 }
 
-/// A test server that wraps `LocalServer` and provides easy access to both
-/// `RemoteClient` (for HTTP interactions) and `DirectAccessClient` (for direct state access).
-///
-/// This is useful for integration tests where you want to verify that operations
-/// through the HTTP API produce the same results as direct client access.
-///
-/// The server runs as a spawned tokio task and automatically shuts down when dropped
-/// (no explicit shutdown call needed).
-///
-/// # Example
-///
-/// ```ignore
-/// // Start with disk-backed storage
-/// let server = LocalTestServer::start(false).await;
-///
-/// // Start with in-memory storage
-/// let server = LocalTestServer::start(true).await;
-///
-/// // Upload via RemoteClient
-/// let file = server.remote_client().upload_random_file(&[(1, (0, 5))], 123).await?;
-///
-/// // Verify via DirectAccessClient
-/// let stored = server.client().get_file_data(&file.file_hash, None).await?;
-/// assert_eq!(file.data, stored);
-/// // Server automatically shuts down when dropped
-/// ```
+#[cfg(test)]
 pub struct LocalTestServer {
     endpoint: String,
     server_shutdown_tx: Option<oneshot::Sender<()>>,
     remote_client: Arc<RemoteClient>,
     client: Arc<dyn DirectAccessClient>,
+    deletion_client: Option<Arc<dyn DeletionControlableClient>>,
 
     #[cfg(unix)]
     _socket_proxy: Option<UnixSocketProxy>,
 }
 
+#[cfg(test)]
 impl LocalTestServer {
     /// Starts a new test server.
     ///
@@ -265,37 +283,43 @@ impl LocalTestServer {
     ///
     /// The server listens on a randomly assigned available port on localhost.
     pub async fn start_with_socket_proxy(in_memory: bool, socket_path: Option<PathBuf>) -> Self {
-        let client: Arc<dyn DirectAccessClient> = if in_memory {
-            MemoryClient::new()
+        if in_memory {
+            let client = MemoryClient::new();
+            Self::start_with_client_and_socket(client, None, socket_path).await
         } else {
-            LocalClient::temporary().await.unwrap()
-        };
-        Self::start_with_client_and_socket(client, socket_path).await
+            let client = LocalClient::temporary().await.unwrap();
+            let deletion_client: Arc<dyn DeletionControlableClient> = client.clone();
+            Self::start_with_client_and_socket(client, Some(deletion_client), socket_path).await
+        }
     }
 
     /// Starts a new test server using an existing `DirectAccessClient`.
     ///
     /// Useful when you need to pre-populate the client with data before starting the server.
     pub async fn start_with_client(client: Arc<dyn DirectAccessClient>) -> Self {
-        #[cfg(unix)]
-        {
-            Self::start_with_client_and_socket(client, None).await
-        }
-        #[cfg(not(unix))]
-        {
-            Self::start_with_client_and_socket(client, None).await
-        }
+        Self::start_with_client_and_socket(client, None, None).await
+    }
+
+    /// Starts a new test server using an existing `DirectAccessClient` and optional
+    /// deletion-capable client, with an optional socket proxy.
+    pub async fn start_with_client_and_deletion(
+        client: Arc<dyn DirectAccessClient>,
+        deletion_client: Option<Arc<dyn DeletionControlableClient>>,
+    ) -> Self {
+        Self::start_with_client_and_socket(client, deletion_client, None).await
     }
 
     /// Starts a new test server using an existing `DirectAccessClient` with an optional socket proxy.
-    ///
-    /// Useful when you need to pre-populate the client with data before starting the server.
-    async fn start_with_client_and_socket(client: Arc<dyn DirectAccessClient>, socket_path: Option<PathBuf>) -> Self {
+    async fn start_with_client_and_socket(
+        client: Arc<dyn DirectAccessClient>,
+        deletion_client: Option<Arc<dyn DeletionControlableClient>>,
+        socket_path: Option<PathBuf>,
+    ) -> Self {
         let port = Self::find_available_port();
         let host = "127.0.0.1".to_string();
         let tcp_endpoint = format!("http://{}:{}", host, port);
 
-        let server = LocalServer::from_client(client.clone(), host, port);
+        let server = LocalServer::from_client(client.clone(), deletion_client.clone(), host, port);
         let (shutdown_tx, shutdown_rx) = oneshot::channel();
 
         tokio::spawn(async move {
@@ -350,6 +374,7 @@ impl LocalTestServer {
             server_shutdown_tx: Some(shutdown_tx),
             remote_client,
             client,
+            deletion_client,
             #[cfg(unix)]
             _socket_proxy: socket_proxy,
         }
@@ -370,11 +395,18 @@ impl LocalTestServer {
         &self.client
     }
 
+    /// Returns the deletion-capable client if the server backend supports it.
+    #[allow(unused)]
+    pub fn deletion_client(&self) -> Option<&Arc<dyn DeletionControlableClient>> {
+        self.deletion_client.as_ref()
+    }
+
     fn find_available_port() -> u16 {
         StdTcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port()
     }
 }
 
+#[cfg(test)]
 #[async_trait]
 impl Client for LocalTestServer {
     async fn get_file_reconstruction_info(
@@ -438,16 +470,17 @@ impl Client for LocalTestServer {
     async fn upload_xorb(
         &self,
         prefix: &str,
-        serialized_cas_object: cas_object::SerializedCasObject,
+        serialized_xorb_object: xorb_object::SerializedXorbObject,
         progress_callback: Option<crate::ProgressCallback>,
         upload_permit: crate::adaptive_concurrency::ConnectionPermit,
     ) -> Result<u64> {
         self.remote_client
-            .upload_xorb(prefix, serialized_cas_object, progress_callback, upload_permit)
+            .upload_xorb(prefix, serialized_xorb_object, progress_callback, upload_permit)
             .await
     }
 }
 
+#[cfg(test)]
 #[async_trait]
 impl DirectAccessClient for LocalTestServer {
     fn set_fetch_term_url_expiration(&self, expiration: std::time::Duration) {
@@ -456,6 +489,10 @@ impl DirectAccessClient for LocalTestServer {
 
     fn set_api_delay_range(&self, delay_range: Option<std::ops::Range<std::time::Duration>>) {
         self.client.set_api_delay_range(delay_range);
+    }
+
+    async fn apply_api_delay(&self) {
+        self.client.apply_api_delay().await;
     }
 
     async fn list_xorbs(&self) -> Result<Vec<merklehash::MerkleHash>> {
@@ -486,7 +523,7 @@ impl DirectAccessClient for LocalTestServer {
         self.client.xorb_exists(hash).await
     }
 
-    async fn xorb_footer(&self, hash: &merklehash::MerkleHash) -> Result<cas_object::CasObject> {
+    async fn xorb_footer(&self, hash: &merklehash::MerkleHash) -> Result<xorb_object::XorbObject> {
         self.client.xorb_footer(hash).await
     }
 
@@ -517,12 +554,13 @@ impl DirectAccessClient for LocalTestServer {
     async fn fetch_term_data(
         &self,
         hash: merklehash::MerkleHash,
-        fetch_term: cas_types::CASReconstructionFetchInfo,
+        fetch_term: cas_types::XorbReconstructionFetchInfo,
     ) -> Result<(bytes::Bytes, Vec<u32>)> {
         self.client.fetch_term_data(hash, fetch_term).await
     }
 }
 
+#[cfg(test)]
 impl Drop for LocalTestServer {
     fn drop(&mut self) {
         if let Some(tx) = self.server_shutdown_tx.take() {
@@ -533,11 +571,15 @@ impl Drop for LocalTestServer {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashSet;
+
     use cas_types::FileRange;
+    use merklehash::MerkleHash;
 
     use super::super::super::ClientTestingUtils;
     use super::*;
     use crate::Client;
+    use crate::simulation::{DeletionControlableClient, DirectAccessClient, SimulationControlClient};
 
     const CHUNK_SIZE: usize = 123;
 
@@ -848,9 +890,9 @@ mod tests {
         // Verify chunk hashes match the RawXorbData cas_info (keyed by xorb hash)
         let xorb_hash = file.terms[0].xorb_hash;
         let raw_xorb = file.xorbs.get(&xorb_hash).unwrap();
-        assert_eq!(raw_xorb.cas_info.chunks.len(), 3);
+        assert_eq!(raw_xorb.xorb_info.chunks.len(), 3);
         for (i, chunk_hash) in file.terms[0].chunk_hashes.iter().enumerate() {
-            assert_eq!(*chunk_hash, raw_xorb.cas_info.chunks[i].chunk_hash);
+            assert_eq!(*chunk_hash, raw_xorb.xorb_info.chunks[i].chunk_hash);
         }
     }
 
@@ -863,6 +905,20 @@ mod tests {
         check_downloaded_terms_match_expected_data(server).await;
         check_complete_file_reconstruction(server).await;
         check_chunk_hashes_correctness(server).await;
+    }
+
+    async fn all_file_hashes(client: &LocalClient) -> HashSet<MerkleHash> {
+        client
+            .list_file_shard_entries()
+            .await
+            .unwrap()
+            .into_iter()
+            .map(|(fh, _)| fh)
+            .collect()
+    }
+
+    async fn all_xorb_hashes(client: &LocalClient) -> HashSet<MerkleHash> {
+        client.list_xorbs().await.unwrap().into_iter().collect()
     }
 
     /// Main test that runs all server checks with both in-memory and disk-backed storage.
@@ -883,5 +939,137 @@ mod tests {
             assert!(server.client().list_xorbs().await.unwrap().is_empty());
             run_all_server_checks(&server).await;
         }
+    }
+
+    /// Integration test: creates a LocalClient, wraps it in a LocalTestServer,
+    /// uploads via remote client, then uses the held LocalClient reference for
+    /// deletion controls.
+    #[tokio::test]
+    async fn test_deletion_lifecycle_via_server() {
+        let lc = LocalClient::temporary().await.unwrap();
+        let server = LocalTestServer::start_with_client(lc.clone()).await;
+
+        // Upload files via remote client (goes through HTTP server)
+        let file1 = server
+            .remote_client()
+            .upload_random_file(&[(10, (0, 3))], CHUNK_SIZE)
+            .await
+            .unwrap();
+        let file2 = server
+            .remote_client()
+            .upload_random_file(&[(20, (0, 2))], CHUNK_SIZE)
+            .await
+            .unwrap();
+
+        let all_files: HashSet<_> = [file1.file_hash, file2.file_hash].into();
+        let all_xorbs: HashSet<_> = [&file1, &file2]
+            .iter()
+            .flat_map(|f| f.terms.iter().map(|t| t.xorb_hash))
+            .collect();
+
+        // Verify everything is consistent
+        lc.verify_integrity().await.unwrap();
+
+        assert_eq!(all_file_hashes(&lc).await, all_files);
+        assert_eq!(all_xorb_hashes(&lc).await, all_xorbs);
+
+        // Verify files are retrievable
+        let data1 = server.client().get_file_data(&file1.file_hash, None).await.unwrap();
+        assert_eq!(data1, file1.data);
+
+        // Step 1: Delete file entries -- shards and xorbs remain
+        lc.delete_file_entry(&file1.file_hash).await.unwrap();
+
+        assert_eq!(all_file_hashes(&lc).await, HashSet::from([file2.file_hash]));
+
+        lc.delete_file_entry(&file2.file_hash).await.unwrap();
+        assert!(lc.list_file_shard_entries().await.unwrap().is_empty());
+        assert!(!lc.list_shard_entries().await.unwrap().is_empty());
+
+        assert_eq!(all_xorb_hashes(&lc).await, all_xorbs);
+
+        // Step 2: Delete shards -- xorbs remain
+        let shard_hashes = lc.list_shard_entries().await.unwrap();
+        for h in &shard_hashes {
+            lc.delete_shard_entry(h).await.unwrap();
+        }
+
+        assert!(lc.list_shard_entries().await.unwrap().is_empty());
+        assert_eq!(all_xorb_hashes(&lc).await, all_xorbs);
+
+        // Step 3: Delete xorbs -- everything gone
+        for h in &all_xorbs {
+            lc.delete_xorb(h).await;
+        }
+
+        assert!(lc.list_xorbs().await.unwrap().is_empty());
+    }
+
+    /// Keeps a LocalTestServer alive for the duration of the tokio runtime by
+    /// moving it into a spawned task. Returns the endpoint URL.
+    fn detach_server(server: LocalTestServer) -> String {
+        let endpoint = server.endpoint().to_string();
+        tokio::spawn(async move {
+            let _server = server;
+            futures::future::pending::<()>().await;
+        });
+        endpoint
+    }
+
+    /// Runs the common DirectAccessClient test suite via SimulationControlClient.
+    #[tokio::test]
+    async fn test_simulation_control_client_common_suite() {
+        crate::simulation::client_unit_testing::test_client_functionality(|| async {
+            let lc = LocalClient::temporary().await.unwrap();
+            let dc: Arc<dyn DeletionControlableClient> = lc.clone();
+            let server = LocalTestServer::start_with_client_and_deletion(lc, Some(dc)).await;
+            let endpoint = detach_server(server);
+            Arc::new(SimulationControlClient::new(&endpoint)) as Arc<dyn DirectAccessClient>
+        })
+        .await;
+    }
+
+    /// Runs the common DeletionControlableClient test suite via SimulationControlClient.
+    #[tokio::test]
+    async fn test_simulation_control_client_deletion_suite() {
+        crate::simulation::deletion_unit_testing::test_deletion_functionality(|| async {
+            let lc = LocalClient::temporary().await.unwrap();
+            let dc: Arc<dyn DeletionControlableClient> = lc.clone();
+            let server = LocalTestServer::start_with_client_and_deletion(lc, Some(dc)).await;
+            let endpoint = detach_server(server);
+            Arc::new(SimulationControlClient::new(&endpoint))
+        })
+        .await;
+    }
+
+    /// Tests that deletion routes return 501 when the backend is MemoryClient.
+    #[tokio::test]
+    async fn test_simulation_control_client_501_on_memory_backend() {
+        let server = LocalTestServer::start(true).await;
+        let sc = SimulationControlClient::new(server.endpoint());
+
+        // DirectAccessClient methods should still work
+        let xorbs = DirectAccessClient::list_xorbs(&sc).await.unwrap();
+        assert!(xorbs.is_empty());
+
+        // DeletionControlableClient methods should return errors (501)
+        assert!(DeletionControlableClient::list_shard_entries(&sc).await.is_err());
+        assert!(DeletionControlableClient::list_file_shard_entries(&sc).await.is_err());
+        assert!(DeletionControlableClient::verify_integrity(&sc).await.is_err());
+        assert!(
+            DeletionControlableClient::delete_shard_entry(&sc, &MerkleHash::default())
+                .await
+                .is_err()
+        );
+        assert!(
+            DeletionControlableClient::delete_file_entry(&sc, &MerkleHash::default())
+                .await
+                .is_err()
+        );
+        assert!(
+            DeletionControlableClient::get_shard_bytes(&sc, &MerkleHash::default())
+                .await
+                .is_err()
+        );
     }
 }

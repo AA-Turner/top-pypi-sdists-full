@@ -8,11 +8,18 @@ from pycarlo.common import get_logger
 from pycarlo.common.errors import InvalidSessionError
 from pycarlo.core import Client
 from pycarlo.features.ingestion.exceptions import IngestionError
-from pycarlo.features.ingestion.models import RelationalAsset, build_metadata_payload
+from pycarlo.features.ingestion.models import (
+    LineageEvent,
+    LineageEventType,
+    RelationalAsset,
+    build_lineage_payload,
+    build_metadata_payload,
+)
 
 logger = get_logger(__name__)
 
 _METADATA_PATH = "/ingest/v1/metadata"
+_LINEAGE_PATH = "/ingest/v1/lineage"
 
 
 class IngestionService:
@@ -96,6 +103,25 @@ class IngestionService:
         )
         return self._post_metadata(payload)
 
+    @staticmethod
+    def extract_invocation_id(response: dict | None) -> str | None:
+        """
+        Extract the invocation ID returned by the ingest API.
+
+        The Integration Gateway returns ``{"invocation_id": "<uuid>"}`` for
+        successful ingest metadata and lineage requests. This helper keeps SDK
+        callers from needing to reach into the raw response payload directly.
+
+        :param response: The JSON response returned by ``send_metadata``,
+            ``send_metadata_raw``, ``send_lineage``, or ``send_lineage_raw``.
+        :return: The invocation ID when present, otherwise ``None``.
+        """
+        if not isinstance(response, dict):
+            return None
+
+        invocation_id = response.get("invocation_id")
+        return invocation_id if isinstance(invocation_id, str) else None
+
     def send_metadata_raw(self, payload: dict) -> dict | None:
         """
         Send a raw metadata payload dictionary to the ingest API.
@@ -109,10 +135,79 @@ class IngestionService:
         """
         return self._post_metadata(payload)
 
+    # ------------------------------------------------------------------
+    # Lineage
+    # ------------------------------------------------------------------
+
+    def send_lineage(
+        self,
+        resource_uuid: str,
+        resource_type: str,
+        events: list[LineageEvent],
+        event_type: LineageEventType | str | None = None,
+    ) -> dict | None:
+        """
+        Send lineage data to Monte Carlo.
+
+        :param resource_uuid: UUID of the Monte Carlo resource (warehouse/lake).
+        :param resource_type: Resource type identifier, e.g. ``"snowflake"``,
+            ``"bigquery"`` (lowercase).
+        :param events: One or more :class:`LineageEvent` objects describing
+            the data-flow relationships to ingest.
+        :param event_type: Explicit event type (``"LINEAGE"`` or
+            ``"COLUMN_LINEAGE"``).  When *None* the type is auto-detected:
+            ``"COLUMN_LINEAGE"`` if any event contains ``fields``, otherwise
+            ``"LINEAGE"``.
+        :return: The JSON response from the API, or ``None`` if the response
+            body was empty.
+        :raises IngestionError: If the API returns an HTTP error.
+        """
+        if not events:
+            raise ValueError("At least one LineageEvent is required.")
+
+        payload = build_lineage_payload(
+            resource_uuid=resource_uuid,
+            resource_type=resource_type,
+            events=events,
+            event_type=event_type,
+        )
+        return self._post_lineage(payload)
+
+    def send_lineage_raw(self, payload: dict) -> dict | None:
+        """
+        Send a raw lineage payload dictionary to the ingest API.
+
+        Use this when you already have a pre-built payload that conforms to the
+        ``POST /ingest/v1/lineage`` schema.
+
+        :param payload: The full request body as a dictionary.
+        :return: The JSON response from the API, or ``None``.
+        :raises IngestionError: If the API returns an HTTP error.
+        """
+        return self._post_lineage(payload)
+
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+
     def _post_metadata(self, payload: dict) -> dict | None:
+        return self._post(
+            path=_METADATA_PATH,
+            payload=payload,
+            label="Metadata",
+        )
+
+    def _post_lineage(self, payload: dict) -> dict | None:
+        return self._post(
+            path=_LINEAGE_PATH,
+            payload=payload,
+            label="Lineage",
+        )
+
+    def _post(self, path: str, payload: dict, label: str) -> dict | None:
         try:
             return self._client.make_request(
-                path=_METADATA_PATH,
+                path=path,
                 method="POST",
                 body=payload,
             )
@@ -124,5 +219,5 @@ class IngestionService:
                 except Exception:
                     pass
             raise IngestionError(
-                f"Metadata ingestion request failed: {exc}. Response: {response_body}"
+                f"{label} ingestion request failed: {exc}. Response: {response_body}"
             ) from exc

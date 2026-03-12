@@ -11,7 +11,12 @@ export declare class StepView extends XYGlyphView {
     model: Step;
     visuals: Step.Visuals;
     load_glglyph(): Promise<typeof import("./webgl/step").StepGL>;
+    protected _bounds(bounds: Rect): Rect;
     protected _paint(ctx: Context2d, indices: number[], data?: Partial<Step.Data>): void;
+    protected _build_step_path(indices: number[], data?: Partial<Step.Data>): {
+        xs: number[];
+        ys: number[];
+    };
     protected _paint_consecutive(ctx: Context2d, indices: number[], data?: Partial<Step.Data>): void;
     protected _render_xy(ctx: Context2d, drawing: boolean, x: number, y: number): boolean;
     draw_legend_for_index(ctx: Context2d, bbox: Rect, _index: number): void;
@@ -20,6 +25,8 @@ export declare namespace Step {
     type Attrs = p.AttrsOf<Props>;
     type Props = XYGlyph.Props & {
         mode: p.Property<StepMode>;
+        pad_before: p.Property<number>;
+        pad_after: p.Property<number>;
     } & Mixins;
     type Mixins = mixins.LineScalar;
     type Visuals = XYGlyph.Visuals & {

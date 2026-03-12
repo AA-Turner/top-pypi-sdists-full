@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import struct
+from collections.abc import Callable
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -19,7 +20,7 @@ def test_enc_index_resolves_aliases() -> None:
     index = get_enc_index()
     # Models keyed by old names should be accessible under new primary names
     assert "big5hkscs" in index
-    assert "euc-jis-2004" in index
+    assert "euc_jis_2004" in index
     assert "shift_jis_2004" in index
     assert "cp1140" in index
 
@@ -43,7 +44,7 @@ def test_model_keys_are_strings() -> None:
 def test_score_best_language_returns_float() -> None:
     """score_best_language should work with plain encoding names (not lang/enc keys)."""
     load_models()
-    score, _ = score_best_language(b"Hello world this is a test", "windows-1252")
+    score, _ = score_best_language(b"Hello world this is a test", "Windows-1252")
     assert isinstance(score, float)
     assert 0.0 < score <= 1.0
 
@@ -122,11 +123,11 @@ def test_bigram_profile_high_byte_weight() -> None:
 
 
 @pytest.fixture
-def tmp_models_path(tmp_path: Path) -> str:
-    return str(tmp_path / "test_models.bin")
+def tmp_models_path(tmp_path: Path) -> Path:
+    return tmp_path / "test_models.bin"
 
 
-def test_roundtrip_single_encoding(tmp_models_path: str) -> None:
+def test_roundtrip_single_encoding(tmp_models_path: Path) -> None:
     """Serialize and deserialize a single encoding model."""
     original = {"utf-8": {(65, 66): 200, (0xC3, 0xA4): 150}}
     serialize_models(original, tmp_models_path)
@@ -134,7 +135,7 @@ def test_roundtrip_single_encoding(tmp_models_path: str) -> None:
     assert loaded == original
 
 
-def test_roundtrip_multiple_encodings(tmp_models_path: str) -> None:
+def test_roundtrip_multiple_encodings(tmp_models_path: Path) -> None:
     """Serialize and deserialize multiple encoding models."""
     original = {
         "utf-8": {(65, 66): 200, (67, 68): 100},
@@ -146,7 +147,7 @@ def test_roundtrip_multiple_encodings(tmp_models_path: str) -> None:
     assert loaded == original
 
 
-def test_roundtrip_empty_bigrams(tmp_models_path: str) -> None:
+def test_roundtrip_empty_bigrams(tmp_models_path: Path) -> None:
     """An encoding with zero bigrams should roundtrip correctly."""
     original = {"empty-enc": {}}
     serialize_models(original, tmp_models_path)
@@ -154,7 +155,7 @@ def test_roundtrip_empty_bigrams(tmp_models_path: str) -> None:
     assert loaded == original
 
 
-def test_roundtrip_zero_encodings(tmp_models_path: str) -> None:
+def test_roundtrip_zero_encodings(tmp_models_path: Path) -> None:
     """Zero encodings should roundtrip correctly."""
     original: dict[str, dict[tuple[int, int], int]] = {}
     serialize_models(original, tmp_models_path)
@@ -164,24 +165,23 @@ def test_roundtrip_zero_encodings(tmp_models_path: str) -> None:
 
 def test_deserialize_missing_file() -> None:
     """Missing file should return empty dict."""
-    result = deserialize_models("/nonexistent/path/models.bin")
+    result = deserialize_models(Path("/nonexistent/path/models.bin"))
     assert result == {}
 
 
-def test_deserialize_empty_file(tmp_models_path: str) -> None:
+def test_deserialize_empty_file(tmp_models_path: Path) -> None:
     """Empty file should return empty dict."""
-    Path(tmp_models_path).write_bytes(b"")
+    tmp_models_path.write_bytes(b"")
     result = deserialize_models(tmp_models_path)
     assert result == {}
 
 
-def test_deserialize_trailing_bytes_raises(tmp_models_path: str) -> None:
+def test_deserialize_trailing_bytes_raises(tmp_models_path: Path) -> None:
     """File with trailing bytes after valid data should raise ValueError."""
     original = {"utf-8": {(65, 66): 200}}
     serialize_models(original, tmp_models_path)
     # Append garbage bytes
-    p = Path(tmp_models_path)
-    p.write_bytes(p.read_bytes() + b"\xff\xff")
+    tmp_models_path.write_bytes(tmp_models_path.read_bytes() + b"\xff\xff")
     with pytest.raises(ValueError, match="trailing bytes"):
         deserialize_models(tmp_models_path)
 
@@ -197,133 +197,109 @@ def test_roundtrip_matches_load_models(tmp_path: Path) -> None:
             if table[idx] > 0:
                 bigrams[(idx >> 8, idx & 0xFF)] = table[idx]
         production_dicts[name] = bigrams
-    tmp_models = str(tmp_path / "roundtrip_models.bin")
+    tmp_models = tmp_path / "roundtrip_models.bin"
     serialize_models(production_dicts, tmp_models)
     loaded = deserialize_models(tmp_models)
     assert loaded == production_dicts
 
 
-def test_load_models_empty_file():
+@pytest.fixture
+def mock_models_bin():
+    """Clear the model cache and provide a helper to mock models.bin content.
+
+    Yields a callable ``set_data(raw_bytes)`` that configures the mock to
+    return *raw_bytes* from ``models.bin``.  The cache is cleared on teardown.
+    """
+    import chardet.models as mod
+
+    mod._load_models_data.cache_clear()
+    mock_ref = MagicMock()
+
+    def set_data(data: bytes) -> None:
+        mock_ref.read_bytes.return_value = data
+
+    with patch.object(
+        mod.importlib.resources,
+        "files",
+        return_value=MagicMock(joinpath=MagicMock(return_value=mock_ref)),
+    ):
+        yield set_data
+
+    mod._load_models_data.cache_clear()
+
+
+def test_load_models_empty_file(mock_models_bin: Callable[[bytes], None]) -> None:
     """Empty models.bin should emit RuntimeWarning and return empty dict."""
-    import chardet.models as mod
-
-    original = mod._MODEL_CACHE
-    try:
-        mod._MODEL_CACHE = None
-        mock_ref = MagicMock()
-        mock_ref.read_bytes.return_value = b""
-        with (
-            patch.object(
-                mod.importlib.resources,
-                "files",
-                return_value=MagicMock(joinpath=MagicMock(return_value=mock_ref)),
-            ),
-            pytest.warns(RuntimeWarning, match="models.bin is empty"),
-        ):
-            result = mod.load_models()
-        assert result == {}
-    finally:
-        mod._MODEL_CACHE = original
+    mock_models_bin(b"")
+    with pytest.warns(RuntimeWarning, match="models.bin is empty"):
+        result = load_models()
+    assert result == {}
 
 
-def test_load_models_num_encodings_exceeds_limit():
+def test_load_models_num_encodings_exceeds_limit(
+    mock_models_bin: Callable[[bytes], None],
+) -> None:
     """num_encodings > 10000 should raise ValueError."""
-    import chardet.models as mod
-
-    original = mod._MODEL_CACHE
-    try:
-        mod._MODEL_CACHE = None
-        mock_ref = MagicMock()
-        mock_ref.read_bytes.return_value = struct.pack("!I", 10001)
-        with (
-            patch.object(
-                mod.importlib.resources,
-                "files",
-                return_value=MagicMock(joinpath=MagicMock(return_value=mock_ref)),
-            ),
-            pytest.raises(ValueError, match="num_encodings=10001 exceeds limit"),
-        ):
-            mod.load_models()
-    finally:
-        mod._MODEL_CACHE = original
+    mock_models_bin(struct.pack("!I", 10001))
+    with pytest.raises(ValueError, match="num_encodings=10001 exceeds limit"):
+        load_models()
 
 
-def test_load_models_name_len_exceeds_limit():
+def test_load_models_name_len_exceeds_limit(
+    mock_models_bin: Callable[[bytes], None],
+) -> None:
     """name_len > 256 should raise ValueError."""
-    import chardet.models as mod
-
-    original = mod._MODEL_CACHE
-    try:
-        mod._MODEL_CACHE = None
-        data = struct.pack("!I", 1)  # num_encodings=1
-        data += struct.pack("!I", 300)  # name_len=300
-        mock_ref = MagicMock()
-        mock_ref.read_bytes.return_value = data
-        with (
-            patch.object(
-                mod.importlib.resources,
-                "files",
-                return_value=MagicMock(joinpath=MagicMock(return_value=mock_ref)),
-            ),
-            pytest.raises(ValueError, match="name_len=300 exceeds 256"),
-        ):
-            mod.load_models()
-    finally:
-        mod._MODEL_CACHE = original
+    data = struct.pack("!I", 1)  # num_encodings=1
+    data += struct.pack("!I", 300)  # name_len=300
+    mock_models_bin(data)
+    with pytest.raises(ValueError, match="name_len=300 exceeds 256"):
+        load_models()
 
 
-def test_load_models_num_entries_exceeds_limit():
+def test_load_models_num_entries_exceeds_limit(
+    mock_models_bin: Callable[[bytes], None],
+) -> None:
     """num_entries > 65536 should raise ValueError."""
-    import chardet.models as mod
-
-    original = mod._MODEL_CACHE
-    try:
-        mod._MODEL_CACHE = None
-        name = b"test/enc"
-        data = struct.pack("!I", 1)  # num_encodings=1
-        data += struct.pack("!I", len(name)) + name  # name
-        data += struct.pack("!I", 70000)  # num_entries=70000
-        mock_ref = MagicMock()
-        mock_ref.read_bytes.return_value = data
-        with (
-            patch.object(
-                mod.importlib.resources,
-                "files",
-                return_value=MagicMock(joinpath=MagicMock(return_value=mock_ref)),
-            ),
-            pytest.raises(ValueError, match="num_entries=70000 exceeds 65536"),
-        ):
-            mod.load_models()
-    finally:
-        mod._MODEL_CACHE = original
+    name = b"test/enc"
+    data = struct.pack("!I", 1)  # num_encodings=1
+    data += struct.pack("!I", len(name)) + name  # name
+    data += struct.pack("!I", 70000)  # num_entries=70000
+    mock_models_bin(data)
+    with pytest.raises(ValueError, match="num_entries=70000 exceeds 65536"):
+        load_models()
 
 
-def test_load_models_truncated_data():
-    """Truncated model data should raise ValueError (struct.error wrapped)."""
-    import chardet.models as mod
+def test_load_models_truncated_data(mock_models_bin: Callable[[bytes], None]) -> None:
+    """Truncated model data should raise ValueError."""
+    name = b"test/enc"
+    data = struct.pack("!I", 1)  # num_encodings=1
+    data += struct.pack("!I", len(name)) + name  # name
+    data += struct.pack("!I", 2)  # num_entries=2
+    data += struct.pack("!BBB", 65, 66, 200)  # entry 1 (valid)
+    # entry 2 is missing — truncated
+    mock_models_bin(data)
+    with pytest.raises(ValueError, match=r"corrupt models\.bin"):
+        load_models()
 
-    original = mod._MODEL_CACHE
-    try:
-        mod._MODEL_CACHE = None
-        name = b"test/enc"
-        data = struct.pack("!I", 1)  # num_encodings=1
-        data += struct.pack("!I", len(name)) + name  # name
-        data += struct.pack("!I", 2)  # num_entries=2
-        data += struct.pack("!BBB", 65, 66, 200)  # entry 1 (valid)
-        # entry 2 is missing — truncated
-        mock_ref = MagicMock()
-        mock_ref.read_bytes.return_value = data
-        with (
-            patch.object(
-                mod.importlib.resources,
-                "files",
-                return_value=MagicMock(joinpath=MagicMock(return_value=mock_ref)),
-            ),
-            pytest.raises(ValueError, match=r"corrupt models\.bin"),
-        ):
-            mod.load_models()
-    finally:
-        mod._MODEL_CACHE = original
+
+def test_load_models_truncated_header(mock_models_bin: Callable[[bytes], None]) -> None:
+    """Data truncated mid-header should raise ValueError (struct.error wrapped)."""
+    # num_encodings=1 but no more data — struct.unpack_from will fail
+    mock_models_bin(struct.pack("!I", 1))
+    with pytest.raises(ValueError, match=r"corrupt models\.bin"):
+        load_models()
+
+
+def test_load_models_invalid_utf8_name(
+    mock_models_bin: Callable[[bytes], None],
+) -> None:
+    """Invalid UTF-8 in model name should raise ValueError (UnicodeDecodeError wrapped)."""
+    invalid_name = b"\xff\xfe"  # not valid UTF-8
+    data = struct.pack("!I", 1)  # num_encodings=1
+    data += struct.pack("!I", len(invalid_name)) + invalid_name  # name
+    mock_models_bin(data)
+    with pytest.raises(ValueError, match=r"corrupt models\.bin"):
+        load_models()
 
 
 def test_score_with_profile_fallback_norm():
@@ -348,3 +324,27 @@ def test_score_with_profile_all_zeros_model():
     model = bytearray(65536)  # all zeros
     score = score_with_profile(profile, model, model_key="")
     assert score == 0.0
+
+
+def test_enc_index_alias_resolution() -> None:
+    """When a model key uses a non-canonical name, the canonical name is added.
+
+    The index should contain both the original key and the canonical name
+    pointing to the same entries.
+    """
+    from chardet.models import _build_enc_index
+
+    # Create a fake model dict with a non-canonical encoding name.
+    # "utf8" is a non-canonical alias for "utf-8".
+    fake_model = bytearray(65536)
+    fake_model[(0xC3 << 8) | 0xA9] = 100
+    fake_models = {"French/utf8": fake_model}
+
+    index = _build_enc_index(fake_models)
+
+    # The non-canonical key "utf8" should be in the index
+    assert "utf8" in index
+    # The canonical name "utf-8" should also be present via alias resolution
+    assert "utf-8" in index
+    # Both should point to the same entries
+    assert index["utf-8"] is index["utf8"]

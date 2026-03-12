@@ -18,9 +18,12 @@ log = logging.getLogger(__name__)
 #-----------------------------------------------------------------------------
 
 # Standard library imports
+import sys
+from dataclasses import asdict, is_dataclass
 from typing import (
     TYPE_CHECKING,
     Any,
+    Mapping,
     Sequence,
     TypeAlias,
     overload,
@@ -31,33 +34,27 @@ import numpy as np
 
 # Bokeh imports
 from ..core.has_props import abstract
-from ..core.properties import (
-    JSON,
-    Any as AnyVal,
-    AnyRef,
-    Bool,
-    ColumnData,
-    Dict,
-    Enum,
-    Instance,
-    InstanceDefault,
-    Int,
-    Nullable,
-    Readonly,
-    Required,
-    Seq,
-    String,
-)
+from ..core.property.any import Any as AnyVal, AnyRef
+from ..core.property.container import ColumnData, Dict, Seq
+from ..core.property.data_class import Dataclass
 from ..core.property.data_frame import EagerDataFrame, PandasGroupBy
+from ..core.property.enum import Enum
+from ..core.property.instance import Instance, InstanceDefault
+from ..core.property.json import JSON
+from ..core.property.nullable import Nullable
+from ..core.property.primitive import Bool, Int, String
+from ..core.property.readonly import Readonly
+from ..core.property.required import Required
 from ..model import Model
+from ..util.dependencies import uses_pandas
 from ..util.serialization import convert_datetime_array
-from ..util.warnings import BokehUserWarning, warn
 from .callbacks import CustomJS
 from .filters import AllIndices, Filter
 from .selections import Selection, SelectionPolicy, UnionRenderers
 
 if TYPE_CHECKING:
     import pandas as pd
+    from pandas.core.groupby import GroupBy
 
     from ..core.has_props import Setter
 
@@ -83,11 +80,13 @@ __all__ = (
 if TYPE_CHECKING:
     import numpy.typing as npt
 
-    DataDict: TypeAlias = dict[str, Sequence[Any] | npt.NDArray[Any] | pd.Series | pd.Index]
+    Value: TypeAlias = Any
+
+    DataDict: TypeAlias = dict[str, Sequence[Value] | npt.NDArray[Value] | pd.Series | pd.Index]
 
     Index: TypeAlias = int | slice | tuple[int | slice, ...]
 
-    Patches: TypeAlias = dict[str, list[tuple[Index, Any]]]
+    Patches: TypeAlias = Mapping[str, Sequence[tuple[Index, Value]]]
 
 @abstract
 class DataSource(Model):
@@ -128,6 +127,15 @@ class ColumnarDataSource(DataSource):
     selection_policy = Instance(SelectionPolicy, default=InstanceDefault(UnionRenderers), help="""
     An instance of a ``SelectionPolicy`` that determines how selections are set.
     """)
+
+def _cds_lengths_warning(_, __, data: dict[str, Any]) -> None:
+    from ..util.warnings import BokehUserWarning, warn
+
+    current_lengths = ', '.join(sorted(str((k, len(v))) for k, v in data.items()))
+    warn(
+        f"ColumnDataSource's columns must be of the same length. Current lengths: {current_lengths}",
+        BokehUserWarning,
+    )
 
 class ColumnDataSource(ColumnarDataSource):
     ''' Maps names of columns to sequences or arrays.
@@ -204,25 +212,24 @@ class ColumnDataSource(ColumnarDataSource):
     Mapping of column names to sequences of data. The columns can be, e.g,
     Python lists or tuples, NumPy arrays, etc.
 
-    The .data attribute can also be set from Pandas DataFrames or GroupBy
-    objects. In these cases, the behaviour is identical to passing the objects
-    to the ``ColumnDataSource`` initializer.
+    The .data attribute can also be set from dataclass, Pandas DataFrames, or
+    GroupBy objects. In these cases, the behaviour is identical to passing the
+    objects to the ``ColumnDataSource`` initializer.
     """).accepts(
         EagerDataFrame, lambda x: ColumnDataSource._data_from_df(x),
      ).accepts(
         PandasGroupBy, lambda x: ColumnDataSource._data_from_groupby(x),
-    ).asserts(lambda _, data: len({len(x) for x in data.values()}) <= 1,
-                 lambda obj, name, data: warn(
-                    "ColumnDataSource's columns must be of the same length. " +
-                    f"Current lengths: {', '.join(sorted(str((k, len(v))) for k, v in data.items()))}", BokehUserWarning))
+     ).accepts(
+        Dataclass, lambda x: ColumnDataSource(asdict(x)),
+    ).asserts(lambda _, data: len({len(x) for x in data.values()}) <= 1, _cds_lengths_warning)
 
     @overload
-    def __init__(self, data: DataDict | pd.DataFrame | pd.core.groupby.GroupBy, **kwargs: Any) -> None: ...
+    def __init__(self, data: DataDict | pd.DataFrame | GroupBy[Any], **kwargs: Any) -> None: ...
     @overload
     def __init__(self, **kwargs: Any) -> None: ...
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
-        ''' If called with a single argument that is a dict or
+        ''' If called with a single argument that is a dict, dataclass, or
         ``pandas.DataFrame``, treat that implicitly as the "data" attribute.
 
         '''
@@ -232,16 +239,22 @@ class ColumnDataSource(ColumnarDataSource):
         # TODO (bev) invalid to pass args and "data", check and raise exception
         raw_data: DataDict = kwargs.pop("data", {})
 
-        import narwhals.stable.v1 as nw
-        import pandas as pd
-
         if not isinstance(raw_data, dict):
+            import narwhals.stable.v1 as nw
+
+            if uses_pandas(raw_data):
+                import pandas as pd
+            else:
+                pd = None
+
             if nw.dependencies.is_into_dataframe(raw_data):
                 raw_data = self._data_from_df(raw_data)
-            elif isinstance(raw_data, pd.core.groupby.GroupBy):
+            elif pd and isinstance(raw_data, pd.core.groupby.GroupBy):
                 raw_data = self._data_from_groupby(raw_data)
+            elif is_dataclass(raw_data):
+                raw_data = asdict(raw_data)
             else:
-                raise ValueError(f"expected a dict or eager dataframe support by Narwhals, got {raw_data}")
+                raise ValueError(f"expected a dict, dataclass, or eager dataframe support by Narwhals, got {raw_data}")
         super().__init__(**kwargs)
         self.data.update(raw_data)
 
@@ -314,16 +327,19 @@ class ColumnDataSource(ColumnarDataSource):
             else:
                 _df = _df.with_row_index()
 
-        tmp_data = {c: v.to_numpy() for c, v in _df.to_dict(as_series=True).items()}
-
         new_data: DataDict = {}
-        for k, v in tmp_data.items():
-            new_data[k] = v
+        for column, series in _df.to_dict(as_series=True).items():
+            array = series.to_numpy()
+            try:
+                array.flags.writeable = True # override Pandas copy-on-write behavior
+            except ValueError:
+                array = array.copy() # some arrays aren't writable, so just copy them
+            new_data[column] = array
 
         return new_data
 
     @staticmethod
-    def _data_from_groupby(group: pd.core.groupby.GroupBy) -> DataDict:
+    def _data_from_groupby(group: GroupBy[Any]) -> DataDict:
         ''' Create a ``dict`` of columns from a Pandas ``GroupBy``,
         suitable for creating a ``ColumnDataSource``.
 
@@ -447,6 +463,8 @@ class ColumnDataSource(ColumnarDataSource):
         try:
             del self.data[name]
         except (ValueError, KeyError):
+            from ..util.warnings import warn
+
             warn(f"Unable to find column '{name}' in data source")
 
     def stream(self, new_data: DataDict, rollover: int | None = None) -> None:
@@ -507,8 +525,12 @@ class ColumnDataSource(ColumnarDataSource):
                 a pandas DataFrame, or a pandas Series in case of a single row -
                 in this case the Series index is used as column names
 
-                All columns of the data source must be present in ``new_data``,
-                with identical-length append data.
+                All columns in ``new_data`` must be the same length. In case
+                data source is not empty, the column names in ``new_data``
+                must match those of the data source exactly (otherwise an
+                exception is raised). If the data source is empty then
+                ``new_data`` replaces the empty ``.data`` dict of the
+                data source.
 
             rollover (int, optional) : A maximum column size, above which data
                 from the start of the column begins to be discarded. If None,
@@ -543,11 +565,11 @@ class ColumnDataSource(ColumnarDataSource):
             source.stream(new_data)
 
         '''
-        import pandas as pd
+        pd = sys.modules.get("pandas")
 
         needs_length_check = True
 
-        if isinstance(new_data, pd.Series | pd.DataFrame):
+        if pd and isinstance(new_data, (pd.Series, pd.DataFrame)):
             if isinstance(new_data, pd.Series):
                 new_data = new_data.to_frame().T
 
@@ -563,7 +585,10 @@ class ColumnDataSource(ColumnarDataSource):
 
         oldkeys = set(self.data.keys())
 
-        if newkeys != oldkeys:
+        # stream to empty source
+        if len(oldkeys) == 0:
+            self.data.update({k: [] for k in newkeys})
+        elif newkeys != oldkeys:
             missing = sorted(oldkeys - newkeys)
             extra = sorted(newkeys - oldkeys)
             if missing and extra:
@@ -575,7 +600,7 @@ class ColumnDataSource(ColumnarDataSource):
 
         if needs_length_check:
             lengths: set[int] = set()
-            arr_types = (np.ndarray, pd.Series)
+            arr_types = (np.ndarray, pd.Series) if pd else (np.ndarray,)
             for _, x in new_data.items():
                 if isinstance(x, arr_types):
                     if len(x.shape) != 1:
@@ -590,7 +615,7 @@ class ColumnDataSource(ColumnarDataSource):
         # slightly awkward that we have to call convert_datetime_array here ourselves
         # but the downstream code expects things to already be ms-since-epoch
         for key, values in new_data.items():
-            if pd and isinstance(values, pd.Series | pd.Index):
+            if pd and isinstance(values, (pd.Series, pd.Index)):
                 values = values.values
             old_values = self.data[key]
             # Apply the transformation if the new data contains datetimes
@@ -722,7 +747,7 @@ class ColumnDataSource(ColumnarDataSource):
                         raise ValueError(f"Out-of bounds slice index stop ({ind.stop}) in patch for column: {name}")
 
                 # multi-index, patch sub-regions of "n-d" column
-                elif isinstance(ind, list | tuple):
+                elif isinstance(ind, (list, tuple)):
                     if len(ind) == 0:
                         raise ValueError("Empty (length zero) patch multi-index")
 
@@ -749,7 +774,7 @@ class ColumnDataSource(ColumnarDataSource):
 
                     # Note: bounds of sub-indices after the first are not checked!
                     for subind in ind[1:]:
-                        if not isinstance(subind, int | slice):
+                        if not isinstance(subind, (int, slice)):
                             raise ValueError(f"Invalid patch sub-index: {subind}")
                         if isinstance(subind, slice):
                             _check_slice(subind)

@@ -39,6 +39,9 @@ def _create_nurt_steering_object(
     variance_threshold = _require_arg(args, "nurt_variance_threshold")
     training_epochs = _require_arg(args, "nurt_training_epochs")
     lr = _require_arg(args, "nurt_lr")
+    lr_min = _require_arg(args, "nurt_lr_min")
+    weight_decay = _require_arg(args, "nurt_weight_decay")
+    max_grad_norm = _require_arg(args, "nurt_max_grad_norm")
     num_integration_steps = _require_arg(args, "nurt_num_integration_steps")
     t_max = _require_arg(args, "nurt_t_max")
     flow_hidden_dim_raw = _require_arg(args, "nurt_hidden_dim")
@@ -50,6 +53,9 @@ def _create_nurt_steering_object(
         variance_threshold=variance_threshold,
         training_epochs=training_epochs,
         lr=lr,
+        lr_min=lr_min,
+        weight_decay=weight_decay,
+        max_grad_norm=max_grad_norm,
         num_integration_steps=num_integration_steps,
         t_max=t_max,
         flow_hidden_dim=flow_hidden_dim,

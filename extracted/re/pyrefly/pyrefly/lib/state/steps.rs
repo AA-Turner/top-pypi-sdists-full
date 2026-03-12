@@ -390,7 +390,7 @@ impl Step {
         load: Arc<Load>,
         ast: Arc<ModModule>,
     ) -> Arc<Exports> {
-        Arc::new(Exports::new(&ast.body, &load.module_info, ctx.sys_info))
+        Arc::new(Exports::new(&ast.body, &load.module_info, *ctx.sys_info))
     }
 
     #[inline(never)]
@@ -411,9 +411,9 @@ impl Step {
             Arc::unwrap_or_clone(ast),
             load.module_info.dupe(),
             &exports,
-            &solver,
+            solver.flags,
             ctx.lookup,
-            ctx.sys_info,
+            *ctx.sys_info,
             &load.errors,
             ctx.uniques,
             enable_trace,

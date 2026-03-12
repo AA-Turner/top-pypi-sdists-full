@@ -85,7 +85,13 @@ class Workspace:
                 import subprocess
 
                 logger.warning("Cleaning up stale FUSE mount at %s", path)
-                subprocess.run(["fusermount3", "-u", str(path)], check=False)
+                # Use lazy unmount to detach immediately even if busy
+                subprocess.run(["fusermount3", "-uz", str(path)], check=False)
+                # Remove the stale mount point so mkdir can recreate it
+                try:
+                    path.rmdir()
+                except OSError:
+                    pass
         except FileNotFoundError:
             pass
 
@@ -277,6 +283,7 @@ class Workspace:
                     f"(repo={self.repo_name}, dir={dir_name}): {e}"
                 ) from e
             mountpoint = self._repo_root / dir_name
+            self._cleanup_stale_mount(mountpoint)
             mountpoint.mkdir(parents=True, exist_ok=True)
             cache_dir = Path("/tmp/plato-lazy-cache") / self.name / dir_name
             cache_dir.mkdir(parents=True, exist_ok=True)

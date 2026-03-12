@@ -65,8 +65,8 @@ def configure_impl(
     except Exception:
         _handle_error("agentcore configure requires valid aws credentials to run successfully.")
 
-    if protocol and protocol.upper() not in ["HTTP", "MCP", "A2A"]:
-        _handle_error("Error: --protocol must be either HTTP or MCP or A2A")
+    if protocol and protocol.upper() not in ["HTTP", "MCP", "A2A", "AGUI"]:
+        _handle_error("Error: --protocol must be either HTTP or MCP or A2A, or AGUI")
 
     # Validate VPC configuration
     vpc_subnets = None
@@ -678,9 +678,6 @@ def configure_impl(
                 f"{agent_details_info}\n"
                 f"[bold]Configuration[/bold]\n"
                 f"Execution Role: [cyan]{execution_role_display}[/cyan]\n"
-                f"ECR Repository: [cyan]"
-                f"{'Auto-create' if result.auto_create_ecr else result.ecr_repository or 'N/A'}"
-                f"[/cyan]\n"
                 f"Network Mode: [cyan]{network_info}[/cyan]\n"
                 f"{config_info}"
                 f"Authorization: [cyan]{auth_info}[/cyan]\n\n"

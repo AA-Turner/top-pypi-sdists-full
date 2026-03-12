@@ -4,7 +4,8 @@ from urllib.parse import unquote, urlparse
 import jsonschema_rs
 import pytest
 import requests
-from flask import Flask, jsonify
+from _pytest.main import ExitCode
+from flask import jsonify
 from hypothesis import HealthCheck, given, seed, settings
 from hypothesis import strategies as st
 from hypothesis_jsonschema import from_schema
@@ -607,7 +608,7 @@ def test_non_default_styles(ctx, location, schema, style, explode):
 
 @pytest.mark.snapshot
 def test_bundled_references(ctx, app_runner, cli, snapshot_cli):
-    raw_schema = ctx.openapi.build_schema(
+    app, _ = ctx.openapi.make_flask_app(
         {
             "/api/groups/migrations": {
                 "post": {
@@ -633,12 +634,6 @@ def test_bundled_references(ctx, app_runner, cli, snapshot_cli):
             }
         },
     )
-
-    app = Flask(__name__)
-
-    @app.route("/openapi.json")
-    def schema():
-        return jsonify(raw_schema)
 
     @app.route("/api/groups/migrations", methods=["POST"])
     def create_migration():
@@ -919,7 +914,7 @@ def test_negative_path_parameters_reject_encoded_slash_for_explicit_slash_exampl
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
 def test_integer_path_parameter_no_false_positive(ctx, app_runner, cli, snapshot_cli):
-    raw_schema = ctx.openapi.build_schema(
+    app, _ = ctx.openapi.make_flask_app(
         {
             "/device/audio/sources/{idx}": {
                 "delete": {
@@ -945,12 +940,6 @@ def test_integer_path_parameter_no_false_positive(ctx, app_runner, cli, snapshot
         }
     )
 
-    app = Flask(__name__)
-
-    @app.route("/openapi.json")
-    def schema():
-        return jsonify(raw_schema)
-
     @app.route("/device/audio/sources/<idx>", methods=["DELETE"])
     def delete_source(idx):
         try:
@@ -970,6 +959,122 @@ def test_integer_path_parameter_no_false_positive(ctx, app_runner, cli, snapshot
             "--phases=coverage",
             "--max-examples=10",
             "--suppress-health-check=filter_too_much",
+        )
+        == snapshot_cli
+    )
+
+
+def test_negative_data_rejection_enum_path_params_no_false_positive(ctx, app_runner, cli):
+    # Enum path parameters in fuzzing mode: a validating server must not produce
+    # false positives for negative_data_rejection.
+    app, raw_schema = ctx.openapi.make_flask_app(
+        {
+            "/items/{kind}/{id}": {
+                "post": {
+                    "parameters": [
+                        {
+                            "name": "kind",
+                            "in": "path",
+                            "required": True,
+                            "schema": {"$ref": "#/components/schemas/ItemKind"},
+                        },
+                        {
+                            "name": "id",
+                            "in": "path",
+                            "required": True,
+                            "schema": {"$ref": "#/components/schemas/ItemId"},
+                        },
+                    ],
+                    "responses": {
+                        "200": {"description": "OK"},
+                        "400": {"description": "Bad request"},
+                    },
+                }
+            }
+        },
+        components={
+            "schemas": {
+                "ItemKind": {"type": "string", "enum": ["Foo", "Bar"]},
+                "ItemId": {"type": "integer", "format": "int64", "minimum": 0},
+            }
+        },
+    )
+
+    VALID_KINDS = {"Foo", "Bar"}
+
+    @app.route("/items/<kind>/<path:id>", methods=["POST"])
+    def items(kind, id):
+        if kind not in VALID_KINDS:
+            return jsonify({"error": "invalid kind"}), 400
+        try:
+            id_int = int(id)
+        except ValueError:
+            return jsonify({"error": "id must be an integer"}), 400
+        if id_int < 0:
+            return jsonify({"error": "id must be >= 0"}), 400
+        return jsonify({"ok": True}), 200
+
+    port = app_runner.run_flask_app(app)
+
+    cli.run_and_assert(
+        f"http://127.0.0.1:{port}/openapi.json",
+        "--checks=negative_data_rejection",
+        "--mode=negative",
+        "--phases=fuzzing",
+        "--max-examples=200",
+        exit_code=ExitCode.OK,
+    )
+
+
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_negative_data_rejection_enum_path_params_non_validating_server(ctx, app_runner, cli, snapshot_cli):
+    # A server that accepts everything. Mutations must fire and the check
+    # must report failures for enum + integer path parameters in fuzzing mode.
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/items/{kind}/{id}": {
+                "post": {
+                    "parameters": [
+                        {
+                            "name": "kind",
+                            "in": "path",
+                            "required": True,
+                            "schema": {"$ref": "#/components/schemas/ItemKind"},
+                        },
+                        {
+                            "name": "id",
+                            "in": "path",
+                            "required": True,
+                            "schema": {"$ref": "#/components/schemas/ItemId"},
+                        },
+                    ],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+        components={
+            "schemas": {
+                "ItemKind": {"type": "string", "enum": ["Foo", "Bar"]},
+                "ItemId": {"type": "integer", "format": "int64", "minimum": 0},
+            }
+        },
+    )
+
+    @app.route("/items/<kind>/<path:id>", methods=["POST"])
+    def items(kind, id):
+        # Accepts everything — intentionally does not validate
+        return jsonify({"ok": True}), 200
+
+    port = app_runner.run_flask_app(app)
+
+    assert (
+        cli.run(
+            f"http://127.0.0.1:{port}/openapi.json",
+            "--checks=negative_data_rejection",
+            "--mode=negative",
+            "--phases=fuzzing",
+            "--max-examples=200",
+            "--seed=42",
         )
         == snapshot_cli
     )

@@ -48,16 +48,7 @@ pub struct DeviceInfoRgbLightStripResult {
 }
 
 #[cfg(feature = "python")]
-#[pyo3::pymethods]
-impl DeviceInfoRgbLightStripResult {
-    /// Gets all the properties of this result as a dictionary.
-    pub fn to_dict(&self, py: pyo3::Python) -> pyo3::PyResult<pyo3::Py<pyo3::types::PyDict>> {
-        let value = serde_json::to_value(self)
-            .map_err(|e| pyo3::exceptions::PyException::new_err(e.to_string()))?;
-
-        crate::python::serde_object_to_py_dict(py, &value)
-    }
-}
+crate::impl_to_dict!(DeviceInfoRgbLightStripResult);
 
 impl TapoResponseExt for DeviceInfoRgbLightStripResult {}
 
@@ -79,6 +70,9 @@ pub struct DefaultRgbLightStripState {
     pub state: RgbLightStripState,
 }
 
+#[cfg(feature = "python")]
+crate::impl_to_dict!(DefaultRgbLightStripState);
+
 /// RGB Light Strip State.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "python", pyo3::prelude::pyclass(from_py_object, get_all))]
@@ -89,3 +83,6 @@ pub struct RgbLightStripState {
     pub saturation: Option<u16>,
     pub color_temp: Option<u16>,
 }
+
+#[cfg(feature = "python")]
+crate::impl_to_dict!(RgbLightStripState);

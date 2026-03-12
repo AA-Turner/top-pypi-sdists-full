@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from nsj_rest_lib2.compiler.migration_compiler_util import MigrationCompilerUtil
@@ -29,10 +30,9 @@ class MigrationCompilerAlterTable:
 
         for spec in column_specs:
             column_name = spec["column_name"]
-            default_literal = (
-                MigrationCompilerUtil.quote_literal(spec["default"])
-                if spec["default"] is not None
-                else None
+            # Converte default do EDL para SQL; identifica quando é expressão.
+            default_literal, default_is_expression = MigrationCompilerUtil.resolve_default_sql(
+                spec["datatype"], spec["default"]
             )
             default_literal_text = (
                 f"{default_literal}::text" if default_literal is not None else None
@@ -100,13 +100,20 @@ class MigrationCompilerAlterTable:
                 )
                 lines.append("            END IF;")
             else:
-                lines.append(
-                    f"            IF NOT column_default_equals('{table_name}', '{column_name}', {default_literal_text}) THEN"
-                )
-                lines.append(
-                    f"                ALTER TABLE {table_name} ALTER COLUMN {column_name} SET DEFAULT {default_literal};"
-                )
-                lines.append("            END IF;")
+                if default_is_expression:
+                    # Para defaults baseados em expressão, aplica diretamente para evitar
+                    # comparações textuais frágeis de expressão em SQL.
+                    lines.append(
+                        f"            ALTER TABLE {table_name} ALTER COLUMN {column_name} SET DEFAULT {default_literal};"
+                    )
+                else:
+                    lines.append(
+                        f"            IF NOT column_default_equals('{table_name}', '{column_name}', {default_literal_text}) THEN"
+                    )
+                    lines.append(
+                        f"                ALTER TABLE {table_name} ALTER COLUMN {column_name} SET DEFAULT {default_literal};"
+                    )
+                    lines.append("            END IF;")
 
             # Checks e comentários
             self._append_enum_and_max_checks(lines, table_name, column_name, spec, 12)
@@ -129,20 +136,11 @@ class MigrationCompilerAlterTable:
             )
             lines.append("        END IF;")
 
-        for fk in fk_specs:
-            lines.append(
-                f"        IF NOT fk_constraint_matches('{table_name}', '{fk['column_name']}', '{fk['ref_table']}', '{fk['ref_column']}') THEN"
-            )
-            fk_constraint_name = MigrationCompilerUtil.check_constraint_name(
-                table_name, fk["column_name"], "fk"
-            )
-            lines.append(
-                f"            {MigrationCompilerUtil.drop_constraint_if_exists(table_name, fk_constraint_name)};"
-            )
-            lines.append(
-                f"            ALTER TABLE {table_name} ADD CONSTRAINT {fk_constraint_name} FOREIGN KEY ({fk['column_name']}) REFERENCES {fk['ref_table']}({fk['ref_column']});"
-            )
-            lines.append("        END IF;")
+        # Reconcilia FKs com base no estado real da tabela.
+        fk_specs_json = json.dumps(fk_specs).replace("'", "''")
+        lines.append(
+            f"        PERFORM sync_fk_constraints('{table_name}', '{fk_specs_json}'::jsonb);"
+        )
 
         return lines
 
@@ -196,6 +194,10 @@ class MigrationCompilerAlterTable:
         if spec["not_null"]:
             clause += " NOT NULL"
         if spec["default"] is not None:
-            clause += f" DEFAULT {MigrationCompilerUtil.quote_literal(spec['default'])}"
+            default_sql, _ = MigrationCompilerUtil.resolve_default_sql(
+                spec["datatype"], spec["default"]
+            )
+            if default_sql is not None:
+                clause += f" DEFAULT {default_sql}"
         clause += ";"
         return clause

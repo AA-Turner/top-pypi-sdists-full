@@ -19,12 +19,36 @@ from nsj_rest_lib2.compiler.migration_compiler import MigrationCompiler
 from nsj_rest_lib2.dto.escopo_dto import EscopoDTO
 
 
+def _ensure_pk_required(edl_data: dict) -> dict:
+    """
+    Normaliza payload de teste para garantir PKs dentro de `required`.
+
+    Alguns fixtures legados nao declaram explicitamente `required`, mas a regra
+    atual do modelo exige essa consistencia para PK.
+    """
+    normalized = json.loads(json.dumps(edl_data))
+    properties = normalized.get("properties") or {}
+    required = normalized.get("required")
+    required_list = list(required) if isinstance(required, list) else []
+
+    for prop_name, prop_meta in properties.items():
+        if isinstance(prop_meta, dict) and prop_meta.get("pk") is True:
+            if prop_name not in required_list:
+                required_list.append(prop_name)
+
+    if required_list:
+        normalized["required"] = required_list
+
+    return normalized
+
+
 def _load_entity(path: Path) -> tuple[str, EntityModel]:
     with path.open("r") as fp:
         if path.suffix.lower() == ".json":
             edl_data = json.load(fp)
         else:
             edl_data = yaml.safe_load(fp)
+    edl_data = _ensure_pk_required(edl_data)
 
     model = (
         EntityModelRoot(**edl_data)
@@ -74,7 +98,7 @@ def test_migration_generation_for_pessoa():
     # Comentários de coluna (usa COMMENT ON)
     assert "COMMENT ON COLUMN ns.pessoas" in sql
     # Garantia de uso das funções auxiliares de coluna
-    assert "column_default_equals(" in sql
+    assert "column_default_expr(" in sql
     assert "column_is_not_null(" in sql
 
 
@@ -116,6 +140,9 @@ def test_migration_generation_with_fk():
     sql = migration_compiler.compile(pessoa_model, entity_models)
 
     assert "id_conta uuid" in sql
+    assert "PERFORM sync_fk_constraints('ns.pessoas'" in sql
+    assert '"column_name": "id_conta"' in sql
+    assert '"ref_table": "financas.contas"' in sql
     assert "FOREIGN KEY (id_conta)" in sql
     assert "financas.conta" in sql or "financas_conta" in sql
 
@@ -132,6 +159,9 @@ def test_migration_generation_with_remote_fk():
     sql = migration_compiler.compile(endereco_model, entity_models)
 
     assert "ALTER TABLE ns.enderecos" in sql
+    assert "PERFORM sync_fk_constraints('ns.enderecos'" in sql
+    assert '"column_name": "id_pessoa"' in sql
+    assert '"ref_table": "ns.pessoas"' in sql
     assert "FOREIGN KEY (id_pessoa)" in sql
     assert "REFERENCES ns.pessoas" in sql
 
@@ -174,7 +204,7 @@ def test_compile_external_component_relation():
         },
     }
 
-    pedido_model = EntityModel(**pedido_edl)
+    pedido_model = EntityModel(**_ensure_pk_required(pedido_edl))
 
     compiler = EDLCompiler()
     escopo = EscopoDTO(codigo=pedido_model.escopo, service_account=None)
@@ -306,8 +336,8 @@ def test_compile_deep_component_relation():
         },
     }
 
-    pessoa_model = EntityModel(**pessoa_nested)
-    followup_model = EntityModel(**followup_edl)
+    pessoa_model = EntityModel(**_ensure_pk_required(pessoa_nested))
+    followup_model = EntityModel(**_ensure_pk_required(followup_edl))
 
     entity_models = {
         "dados_mestre/pessoa": pessoa_model,
@@ -441,8 +471,8 @@ def test_compile_deep_component_relation_without_markers():
         },
     }
 
-    pessoa_model = EntityModel(**pessoa_nested)
-    followup_model = EntityModel(**followup_edl)
+    pessoa_model = EntityModel(**_ensure_pk_required(pessoa_nested))
+    followup_model = EntityModel(**_ensure_pk_required(followup_edl))
 
     entity_models = {
         "dados_mestre/pessoa": pessoa_model,

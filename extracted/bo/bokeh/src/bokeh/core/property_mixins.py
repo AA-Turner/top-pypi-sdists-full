@@ -90,35 +90,31 @@ from .enums import (
     TextBaseline,
 )
 from .has_props import HasProps
-from .properties import (
-    Alpha,
+from .property.color import Alpha, Color
+from .property.container import Dict
+from .property.dataspec import (
     AlphaSpec,
-    Color,
     ColorSpec,
-    DashPattern,
     DashPatternSpec,
-    Dict,
-    Enum,
-    Float,
     FloatSpec,
-    FontSize,
     FontSizeSpec,
     FontStyleSpec,
     HatchPatternSpec,
-    Instance,
-    Int,
     IntSpec,
     LineCapSpec,
     LineJoinSpec,
-    Nullable,
     NumberSpec,
-    Size,
-    String,
     StringSpec,
     TextAlignSpec,
     TextBaselineSpec,
-    value,
 )
+from .property.enum import Enum
+from .property.instance import Instance
+from .property.nullable import Nullable
+from .property.numeric import Size
+from .property.primitive import Float, Int, String
+from .property.vectorization import value
+from .property.visual import DashPattern, FontSize
 
 #-----------------------------------------------------------------------------
 # Globals and constants
@@ -354,6 +350,7 @@ class TextProps(HasProps):
 
     text_color = ColorSpec(default="#444444", help=_color_help % "fill text")
     text_outline_color = ColorSpec(default=None, help=_color_help % "outline text")
+    text_outline_width = FloatSpec(default=1, help=_line_width_help)
     text_alpha = AlphaSpec(help=_alpha_help % "fill text")
     text_font = StringSpec(default=value("helvetica"), help=_text_font_help)
     text_font_size = FontSizeSpec(default=value("16px"))
@@ -370,6 +367,7 @@ class ScalarTextProps(HasProps):
 
     text_color = Nullable(Color, default="#444444", help=_color_help % "fill text")
     text_outline_color = Nullable(Color, default=None, help=_color_help % "outline text")
+    text_outline_width = Float(default=1, help=_line_width_help)
     text_alpha = Alpha(help=_alpha_help % "fill text")
     text_font = String(default="helvetica", help=_text_font_help)
     text_font_size = FontSize("16px") # XXX not great XXX why?

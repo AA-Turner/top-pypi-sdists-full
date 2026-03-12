@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyUSPTO
-Version: 0.4.4
+Version: 0.4.5
 Summary: A Modern Python client for accessing the United States Patent and Trademark Office (USPTO) Open Data Portal (ODP) APIs.
 Author-email: Andrew Piechocki <apiechocki@dunlapcodding.com>
 License-Expression: MIT

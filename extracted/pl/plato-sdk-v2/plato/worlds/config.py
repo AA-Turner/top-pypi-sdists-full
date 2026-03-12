@@ -73,6 +73,10 @@ class DevConfig(BaseModel):
 
     world: Path | None = None
     agents: dict[str, Path] = Field(default_factory=dict)
+    extra_sync: dict[str, Path] = Field(
+        default_factory=dict,
+        description="Extra paths to sync to VM at /extra/{name}",
+    )
     sync_sdk: bool = True
     ssh_key_path: Path | None = None
 

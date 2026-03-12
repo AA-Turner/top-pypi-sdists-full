@@ -37,7 +37,13 @@ log = logging.getLogger(__name__)
 import gc
 import weakref
 from json import loads
-from typing import TYPE_CHECKING, Any, Iterable
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Iterable,
+    Literal,
+    overload,
+)
 
 # External imports
 from jinja2 import Template
@@ -53,13 +59,9 @@ from ..core.serialization import (
     UnknownReferenceError,
 )
 from ..core.templates import FILE
-from ..core.types import ID
 from ..core.validation import check_integrity, process_validation_issues
-from ..events import Event
-from ..model import Model
 from ..themes import Theme, built_in_themes, default as default_theme
 from ..util.serialization import make_id
-from ..util.strings import nice_join
 from ..util.version import __version__
 from .callbacks import (
     Callback,
@@ -75,7 +77,6 @@ from .events import (
     RootRemovedEvent,
     TitleChangedEvent,
 )
-from .json import DocJson, PatchJson
 from .models import DocumentModelManager
 from .modules import DocumentModuleManager
 
@@ -83,6 +84,9 @@ if TYPE_CHECKING:
     from ..application.application import SessionContext, SessionDestroyedCallback
     from ..core.has_props import Setter
     from ..core.query import SelectorType
+    from ..core.types import ID
+    from ..events import Event
+    from ..model import Model
     from ..server.callbacks import (
         NextTickCallback,
         PeriodicCallback,
@@ -90,6 +94,7 @@ if TYPE_CHECKING:
         TimeoutCallback,
     )
     from .events import DocumentChangeCallback
+    from .json import DocJson, PatchJson
 
 #-----------------------------------------------------------------------------
 # Globals and constants
@@ -197,7 +202,7 @@ class Document:
 
     @template.setter
     def template(self, template: Template) -> None:
-        if not isinstance(template, Template | str):
+        if not isinstance(template, (Template, str)):
             raise ValueError("document template must be Jinja2 template or a string")
         self._template = template
 
@@ -230,6 +235,8 @@ class Document:
             try:
                 theme = built_in_themes[theme]
             except KeyError:
+                from ..util.strings import nice_join
+
                 raise ValueError(f"{theme} is not a built-in theme; available themes are {nice_join(built_in_themes)}")
 
         if not isinstance(theme, Theme):
@@ -384,7 +391,7 @@ class Document:
             patch: PatchJson = deserializer.deserialize(patch_json)
         except UnknownReferenceError as error:
             if self.models.seen(error.id):
-                logging.warning(f"""\
+                logging.debug(f"""\
 Dropping a patch because it contains a previously known reference (id={error.id!r}). \
 Most of the time this is harmless and usually a result of updating a model on one \
 side of a communications channel while it was being removed on the other end.\
@@ -440,8 +447,10 @@ side of a communications channel while it was being removed on the other end.\
             Document :
 
         '''
-        # TODO: deserialize model definitions
-        if isinstance(doc_json, dict):
+        # TODO add support for deserialization of model definitions
+        if isinstance(doc_json, Serialized):
+            doc_json.content["defs"] = []
+        else:
             doc_json["defs"] = []
 
         deserializer = Deserializer()
@@ -671,7 +680,7 @@ side of a communications channel while it was being removed on the other end.\
         '''
         self.callbacks.remove_session_callback(callback_obj)
 
-    def replace_with_json(self, json: DocJson) -> None:
+    def replace_with_json(self, json: DocJson | Serialized[DocJson]) -> None:
         ''' Overwrite everything in this document with the JSON-encoded
         document.
 
@@ -735,6 +744,8 @@ side of a communications channel while it was being removed on the other end.\
             None
 
         '''
+        from ..model import Model
+
         if isinstance(selector, type) and issubclass(selector, Model):
             selector = dict(type=selector)
         for obj in self.select(selector):
@@ -751,20 +762,31 @@ side of a communications channel while it was being removed on the other end.\
             self._title = title
             self.callbacks.trigger_on_change(TitleChangedEvent(self, title, setter))
 
-    def to_json(self, *, deferred: bool = True) -> DocJson:
+    @overload
+    def to_json(self, *, deferred: Literal[True] = ...) -> Serialized[DocJson]: ...
+    @overload
+    def to_json(self, *, deferred: Literal[False]) -> DocJson: ...
+
+    def to_json(self, *, deferred: bool = True) -> DocJson | Serialized[DocJson]:
         ''' Convert this document to a JSON-serializable object.
 
+        Args:
+            deferred (bool) : encode buffers lazily as references or immediately as inline (base64)
+
         Return:
-            DocJson
+            Serialized[DocJson] | DocJson
 
         '''
+        from ..model import Model
+        from .json import DocJson
+
         data_models = [ model for model in Model.model_class_reverse_map.values() if is_DataModel(model) ]
 
         serializer = Serializer(deferred=deferred)
         defs = serializer.encode(data_models)
         config = serializer.encode(self._config)
         roots = serializer.encode(self._roots)
-        callbacks = serializer.encode(self.callbacks._js_event_callbacks)
+        callbacks = serializer.encode(self.callbacks.js_event_callbacks)
 
         doc_json = DocJson(
             version=__version__,
@@ -775,11 +797,15 @@ side of a communications channel while it was being removed on the other end.\
 
         if data_models:
             doc_json["defs"] = defs
-        if self.callbacks._js_event_callbacks:
+        if self.callbacks.js_event_callbacks:
             doc_json["callbacks"] = callbacks
 
         self.models.flush_synced()
-        return doc_json
+
+        if deferred:
+            return Serialized(doc_json, buffers=serializer.buffers)
+        else:
+            return doc_json
 
     def unhold(self) -> None:
         ''' Turn off any active document hold and apply any collected events.

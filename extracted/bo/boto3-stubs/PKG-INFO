@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: boto3-stubs
-Version: 1.42.65
-Summary: Type annotations for boto3 1.42.65 generated with mypy-boto3-builder 8.12.0
+Version: 1.42.66
+Summary: Type annotations for boto3 1.42.66 generated with mypy-boto3-builder 8.12.0
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
@@ -34,7 +34,7 @@ Requires-Dist: typing-extensions>=4.1.0; python_version < "3.12"
 Provides-Extra: full
 Requires-Dist: boto3-stubs-full<1.43.0,>=1.42.0; extra == "full"
 Provides-Extra: boto3
-Requires-Dist: boto3==1.42.65; extra == "boto3"
+Requires-Dist: boto3==1.42.66; extra == "boto3"
 Provides-Extra: all
 Requires-Dist: mypy-boto3-accessanalyzer<1.43.0,>=1.42.0; extra == "all"
 Requires-Dist: mypy-boto3-account<1.43.0,>=1.42.0; extra == "all"
@@ -401,6 +401,7 @@ Requires-Dist: mypy-boto3-shield<1.43.0,>=1.42.0; extra == "all"
 Requires-Dist: mypy-boto3-signer<1.43.0,>=1.42.0; extra == "all"
 Requires-Dist: mypy-boto3-signer-data<1.43.0,>=1.42.0; extra == "all"
 Requires-Dist: mypy-boto3-signin<1.43.0,>=1.42.0; extra == "all"
+Requires-Dist: mypy-boto3-simpledbv2<1.43.0,>=1.42.0; extra == "all"
 Requires-Dist: mypy-boto3-simspaceweaver<1.43.0,>=1.42.0; extra == "all"
 Requires-Dist: mypy-boto3-snow-device-management<1.43.0,>=1.42.0; extra == "all"
 Requires-Dist: mypy-boto3-snowball<1.43.0,>=1.42.0; extra == "all"
@@ -1189,6 +1190,8 @@ Provides-Extra: signer-data
 Requires-Dist: mypy-boto3-signer-data<1.43.0,>=1.42.0; extra == "signer-data"
 Provides-Extra: signin
 Requires-Dist: mypy-boto3-signin<1.43.0,>=1.42.0; extra == "signin"
+Provides-Extra: simpledbv2
+Requires-Dist: mypy-boto3-simpledbv2<1.43.0,>=1.42.0; extra == "simpledbv2"
 Provides-Extra: simspaceweaver
 Requires-Dist: mypy-boto3-simspaceweaver<1.43.0,>=1.42.0; extra == "simspaceweaver"
 Provides-Extra: snow-device-management
@@ -1302,7 +1305,7 @@ Dynamic: license-file
 
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
-Type annotations for [boto3 1.42.65](https://pypi.org/project/boto3/)
+Type annotations for [boto3 1.42.66](https://pypi.org/project/boto3/)
 compatible with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -1361,7 +1364,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.42.65' mypy-boto3-builder`
+   `uvx --with 'boto3==1.42.66' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Select services you use in the current project.
 4. Use provided commands to install generated packages.
@@ -1713,9 +1716,9 @@ repository.
 
 ## Submodules
 
-- `boto3-stubs[full]` - Type annotations for all 415 services in one package
+- `boto3-stubs[full]` - Type annotations for all 416 services in one package
   (recommended).
-- `boto3-stubs[all]` - Type annotations for all 415 services in separate
+- `boto3-stubs[all]` - Type annotations for all 416 services in separate
   packages.
 - `boto3-stubs[essential]` - Type annotations for
   [CloudFormation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudformation/),
@@ -2790,6 +2793,9 @@ repository.
   service.
 - `boto3-stubs[signin]` - Type annotations for
   [SignInService](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_signin/)
+  service.
+- `boto3-stubs[simpledbv2]` - Type annotations for
+  [SimpleDBv2](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_simpledbv2/)
   service.
 - `boto3-stubs[simspaceweaver]` - Type annotations for
   [SimSpaceWeaver](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_simspaceweaver/)

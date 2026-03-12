@@ -1,5 +1,4 @@
 mod api;
-mod errors;
 mod requests;
 mod responses;
 mod runtime;
@@ -8,12 +7,13 @@ use log::LevelFilter;
 use pyo3::prelude::*;
 use pyo3_log::{Caching, Logger};
 
+use tapo::DeviceType;
 use tapo::requests::{
     AlarmRingtone, AlarmVolume, Color, LightingEffectPreset, LightingEffectType,
     SegmentEffectPreset, SegmentEffectType,
 };
 use tapo::responses::{
-    AutoOffStatus, ColorLightState, CurrentPowerResult, DefaultBrightnessState,
+    AutoOffStatus, ColorLightState, Component, CurrentPowerResult, DefaultBrightnessState,
     DefaultColorLightState, DefaultLightState, DefaultPlugState, DefaultPowerType,
     DefaultRgbLightStripState, DefaultRgbicLightStripState, DefaultStateType,
     DeviceInfoColorLightResult, DeviceInfoGenericResult, DeviceInfoHubResult,
@@ -34,8 +34,8 @@ use api::{
     PyGenericDeviceHandler, PyHubHandler, PyKE100Handler, PyLightHandler, PyMaybeDiscoveryResult,
     PyPlugEnergyMonitoringHandler, PyPlugHandler, PyPowerStripEnergyMonitoringHandler,
     PyPowerStripHandler, PyPowerStripPlugEnergyMonitoringHandler, PyPowerStripPlugHandler,
-    PyRgbLightStripHandler, PyRgbicLightStripHandler, PyT31XHandler, PyT100Handler, PyT110Handler,
-    PyT300Handler,
+    PyRgbLightStripHandler, PyRgbicLightStripHandler, PyS200Handler, PyT31XHandler, PyT100Handler,
+    PyT110Handler, PyT300Handler,
 };
 use requests::{
     PyAlarmDuration, PyColorLightSetDeviceInfoParams, PyEnergyDataInterval, PyLightingEffect,
@@ -109,6 +109,7 @@ fn register_handlers(module: &Bound<'_, PyModule>) -> Result<(), PyErr> {
     module.add_class::<PyT100Handler>()?;
     module.add_class::<PyT110Handler>()?;
     module.add_class::<PyT300Handler>()?;
+    module.add_class::<PyS200Handler>()?;
     module.add_class::<PyT31XHandler>()?;
 
     module.add_class::<PyPowerStripHandler>()?;
@@ -116,6 +117,7 @@ fn register_handlers(module: &Bound<'_, PyModule>) -> Result<(), PyErr> {
     module.add_class::<PyPowerStripPlugHandler>()?;
     module.add_class::<PyPowerStripPlugEnergyMonitoringHandler>()?;
 
+    module.add_class::<DeviceType>()?;
     module.add_class::<PyDeviceDiscovery>()?;
     module.add_class::<PyDeviceDiscoveryIter>()?;
     module.add_class::<PyDiscoveryResult>()?;
@@ -125,6 +127,7 @@ fn register_handlers(module: &Bound<'_, PyModule>) -> Result<(), PyErr> {
 }
 
 fn register_responses(module: &Bound<'_, PyModule>) -> Result<(), PyErr> {
+    module.add_class::<Component>()?;
     module.add_class::<CurrentPowerResult>()?;
     module.add_class::<DefaultBrightnessState>()?;
     module.add_class::<DefaultPowerType>()?;

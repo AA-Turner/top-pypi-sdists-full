@@ -16,7 +16,7 @@ export declare function every<T>(iterable: Iterable<T>, predicate: (item: T) => 
 export declare function some<T>(iterable: Iterable<T>, predicate: (item: T) => boolean): boolean;
 export declare function combinations<T>(seq: T[], r: number): Iterable<T[]>;
 export declare function subsets<T>(seq: T[]): Iterable<T[]>;
+export declare function minmax(iterable: Iterable<number>): [number, number];
 export declare function min(iterable: Iterable<number>): number;
 export declare function max(iterable: Iterable<number>): number;
-export declare function minmax(iterable: Iterable<number>): [number, number];
 //# sourceMappingURL=iterator.d.ts.map

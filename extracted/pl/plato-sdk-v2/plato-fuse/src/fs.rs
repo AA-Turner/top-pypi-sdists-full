@@ -5,21 +5,45 @@ use fuser::{
     ReplyDirectory, ReplyEmpty, ReplyEntry, ReplyOpen, ReplyStatfs, ReplyWrite, Request, TimeOrNow,
 };
 use libc::{EBADF, EEXIST, EIO, EISDIR, ELOOP, ENOENT, ENOTDIR, ENOTEMPTY};
-use log::error;
+use log::{error, info};
+use serde::Serialize;
 use std::collections::{HashMap, HashSet};
 use std::ffi::OsStr;
 use std::os::unix::fs::PermissionsExt;
 use std::os::unix::io::RawFd;
 use std::path::PathBuf;
-use std::sync::{Mutex, RwLock};
+use std::sync::{Mutex, OnceLock, RwLock};
 use std::time::{Duration, SystemTime};
 
 const TTL: Duration = Duration::from_secs(5);
 const BLOCK_SIZE: u32 = 4096;
 
+fn fuse_debug_enabled() -> bool {
+    static ENABLED: OnceLock<bool> = OnceLock::new();
+    *ENABLED.get_or_init(|| {
+        std::env::var("PLATO_FUSE_DEBUG")
+            .map(|value| {
+                let lowered = value.to_ascii_lowercase();
+                !lowered.is_empty() && lowered != "0" && lowered != "false" && lowered != "no"
+            })
+            .unwrap_or(false)
+    })
+}
+
+fn overlay_entry_kind(path: &PathBuf) -> &'static str {
+    match path.symlink_metadata() {
+        Ok(meta) if meta.is_dir() => "dir",
+        Ok(meta) if meta.file_type().is_symlink() => "symlink",
+        Ok(meta) if meta.is_file() => "file",
+        Ok(_) => "other",
+        Err(_) => "missing",
+    }
+}
+
 struct OpenFile {
     fd: Option<RawFd>,
     access_mode: i32,
+    open_flags: i32,
     /// Snapshot of visible overlay path at open() time — stable across rename/unlink
     overlay_relpath: String,
     /// Snapshot of info at open() time for stable reads
@@ -37,6 +61,93 @@ struct OpenOutcome {
     flags_out: u32,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum NodeKind {
+    File,
+    Dir,
+    Symlink,
+}
+
+impl NodeKind {
+    fn from_info(info: &InodeInfo) -> Self {
+        if info.is_dir {
+            Self::Dir
+        } else if info.is_symlink {
+            Self::Symlink
+        } else {
+            Self::File
+        }
+    }
+
+    fn tracks_manifest_entry(self) -> bool {
+        !matches!(self, Self::Dir)
+    }
+}
+
+#[derive(Clone, Debug)]
+struct MutationCtx {
+    ino: u64,
+    kind: NodeKind,
+    relpath: String,
+    backing_relpath: String,
+    in_manifest: bool,
+    mode: u32,
+}
+
+impl MutationCtx {
+    fn new(info: &InodeInfo, relpath: String, in_manifest: bool) -> Self {
+        Self {
+            ino: info.ino,
+            kind: NodeKind::from_info(info),
+            relpath,
+            backing_relpath: info.backing_relpath.clone(),
+            in_manifest,
+            mode: info.mode,
+        }
+    }
+
+    fn track_write(&self) -> TrackOp {
+        if !self.kind.tracks_manifest_entry() {
+            return TrackOp::None;
+        }
+
+        if self.in_manifest {
+            TrackOp::Modified(self.backing_relpath.clone())
+        } else {
+            TrackOp::Created(self.relpath.clone())
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+enum TrackOp {
+    None,
+    Created(String),
+    Modified(String),
+    Deleted(String),
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+struct DirectorySnapshotEntry {
+    relpath: String,
+    mode: u32,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+struct DirectoryRenameEntry {
+    old_relpath: String,
+    new_relpath: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+struct MetadataSnapshot {
+    modified: Vec<String>,
+    deleted: Vec<String>,
+    created: Vec<String>,
+    directories: Vec<DirectorySnapshotEntry>,
+    dir_renames: Vec<DirectoryRenameEntry>,
+}
+
 pub struct LazyDvcFs {
     tree: RwLock<InodeTree>,
     overlay_dir: PathBuf,
@@ -49,9 +160,74 @@ pub struct LazyDvcFs {
     modified: Mutex<HashSet<String>>,
     deleted: Mutex<HashSet<String>>,
     created: Mutex<HashSet<String>>,
+    dir_renames: Mutex<HashMap<String, String>>,
 }
 
 impl LazyDvcFs {
+    fn sorted_dir_renames(&self) -> Vec<DirectoryRenameEntry> {
+        let mut dir_renames = self
+            .dir_renames
+            .lock()
+            .unwrap()
+            .iter()
+            .map(|(old_relpath, new_relpath)| DirectoryRenameEntry {
+                old_relpath: old_relpath.clone(),
+                new_relpath: new_relpath.clone(),
+            })
+            .collect::<Vec<_>>();
+        dir_renames.sort_by(|a, b| a.old_relpath.cmp(&b.old_relpath));
+        dir_renames
+    }
+
+    fn metadata_snapshot(&self) -> MetadataSnapshot {
+        let mut modified = self
+            .modified
+            .lock()
+            .unwrap()
+            .iter()
+            .cloned()
+            .collect::<Vec<_>>();
+        modified.sort();
+        let mut deleted = self
+            .deleted
+            .lock()
+            .unwrap()
+            .iter()
+            .cloned()
+            .collect::<Vec<_>>();
+        deleted.sort();
+        let mut created = self
+            .created
+            .lock()
+            .unwrap()
+            .iter()
+            .cloned()
+            .collect::<Vec<_>>();
+        created.sort();
+        let directories = self
+            .tree
+            .read()
+            .unwrap()
+            .active_directories_readonly()
+            .into_iter()
+            .map(|(relpath, mode)| DirectorySnapshotEntry { relpath, mode })
+            .collect::<Vec<_>>();
+        MetadataSnapshot {
+            modified,
+            deleted,
+            created,
+            directories,
+            dir_renames: self.sorted_dir_renames(),
+        }
+    }
+
+    fn write_metadata_path(&self, path: PathBuf) {
+        let meta = self.metadata_snapshot();
+        if let Err(e) = std::fs::write(&path, serde_json::to_string(&meta).unwrap()) {
+            error!("Failed to write {}: {}", path.display(), e);
+        }
+    }
+
     pub fn new(
         tree: InodeTree,
         overlay_dir: PathBuf,
@@ -68,6 +244,7 @@ impl LazyDvcFs {
             modified: Mutex::new(HashSet::new()),
             deleted: Mutex::new(HashSet::new()),
             created: Mutex::new(HashSet::new()),
+            dir_renames: Mutex::new(HashMap::new()),
         }
     }
 
@@ -84,6 +261,15 @@ impl LazyDvcFs {
             libc::O_RDWR => libc::O_RDWR,
             _ => libc::O_RDONLY,
         }
+    }
+
+    fn passthrough_open_flags(flags: i32) -> i32 {
+        Self::access_mode(flags)
+            | (flags & (libc::O_APPEND | libc::O_TRUNC | libc::O_SYNC | libc::O_DSYNC))
+    }
+
+    fn is_writable_access_mode(access_mode: i32) -> bool {
+        access_mode == libc::O_WRONLY || access_mode == libc::O_RDWR
     }
 
     fn make_attr(&self, info: &InodeInfo) -> FileAttr {
@@ -105,7 +291,9 @@ impl LazyDvcFs {
         let size = if info.is_dir {
             4096
         } else if info.is_symlink {
-            info.symlink_target.len() as u64
+            info.symlink_target
+                .as_ref()
+                .map_or(info.size, |target| target.len() as u64)
         } else {
             info.size
         };
@@ -131,10 +319,8 @@ impl LazyDvcFs {
         }
     }
 
-    fn visible_attr(&self, ino: u64, info: InodeInfo) -> FileAttr {
-        let mut hydrated = info;
-        let _ = self.hydrate_unknown_size(ino, &mut hydrated);
-        self.make_attr(&hydrated)
+    fn visible_attr(&self, _ino: u64, info: InodeInfo) -> FileAttr {
+        self.make_attr(&info)
     }
 
     fn overlay_path(&self, relpath: &str) -> PathBuf {
@@ -169,20 +355,120 @@ impl LazyDvcFs {
         perm & !umask
     }
 
+    fn apply_track_op(&self, op: TrackOp) {
+        match op {
+            TrackOp::None => {}
+            TrackOp::Created(path) => {
+                self.created.lock().unwrap().insert(path);
+            }
+            TrackOp::Modified(path) => {
+                self.modified.lock().unwrap().insert(path);
+            }
+            TrackOp::Deleted(path) => {
+                self.deleted.lock().unwrap().insert(path);
+                self.write_live_dir_renames();
+            }
+        }
+    }
+
+    fn ctx_for_ino(&self, tree: &mut InodeTree, ino: u64) -> Result<(MutationCtx, InodeInfo), i32> {
+        let info = match tree.get(ino) {
+            Some(info) if !info.deleted => info.clone(),
+            _ => return Err(ENOENT),
+        };
+        let relpath = tree.get_relpath(ino);
+        let in_manifest =
+            !info.backing_relpath.is_empty() && tree.is_in_manifest(&info.backing_relpath);
+        Ok((MutationCtx::new(&info, relpath, in_manifest), info))
+    }
+
+    fn ctx_for_open_handle(
+        &self,
+        tree: &InodeTree,
+        overlay_relpath: &str,
+        info: &InodeInfo,
+    ) -> MutationCtx {
+        let in_manifest =
+            !info.backing_relpath.is_empty() && tree.is_in_manifest(&info.backing_relpath);
+        MutationCtx::new(info, overlay_relpath.to_string(), in_manifest)
+    }
+
+    fn mark_overlay(&self, ino: u64) {
+        if let Some(info) = self.tree.write().unwrap().get_mut(ino) {
+            info.overlay = true;
+        }
+    }
+
     fn remap_tracked_paths(paths: &mut HashSet<String>, old_prefix: &str, new_prefix: &str) {
-        let old_dir_prefix = format!("{}/", old_prefix);
         let mut updates = Vec::new();
         for path in paths.iter() {
-            if path == old_prefix {
-                updates.push((path.clone(), new_prefix.to_string()));
-            } else if let Some(suffix) = path.strip_prefix(&old_dir_prefix) {
-                updates.push((path.clone(), format!("{}/{}", new_prefix, suffix)));
+            if let Some(remapped) = Self::remap_path_prefix(path, old_prefix, new_prefix) {
+                updates.push((path.clone(), remapped));
             }
         }
         for (old, new) in updates {
             paths.remove(&old);
             paths.insert(new);
         }
+    }
+
+    fn remap_path_prefix(path: &str, old_prefix: &str, new_prefix: &str) -> Option<String> {
+        if path == old_prefix {
+            return Some(new_prefix.to_string());
+        }
+
+        let old_dir_prefix = format!("{}/", old_prefix);
+        path.strip_prefix(&old_dir_prefix)
+            .map(|suffix| format!("{}/{}", new_prefix, suffix))
+    }
+
+    fn remap_dir_rename_values(
+        renames: &mut HashMap<String, String>,
+        old_prefix: &str,
+        new_prefix: &str,
+    ) {
+        for current in renames.values_mut() {
+            if let Some(remapped) = Self::remap_path_prefix(current, old_prefix, new_prefix) {
+                *current = remapped;
+            }
+        }
+    }
+
+    fn resolve_original_dir_rename_prefix(
+        renames: &HashMap<String, String>,
+        current_prefix: &str,
+    ) -> String {
+        let mut ordered = renames.iter().collect::<Vec<_>>();
+        ordered.sort_by_key(|(_, current)| std::cmp::Reverse(current.len()));
+
+        let mut resolved = current_prefix.to_string();
+        loop {
+            let mut changed = false;
+            for (original, current) in &ordered {
+                if let Some(remapped) = Self::remap_path_prefix(&resolved, current, original) {
+                    if remapped != resolved {
+                        resolved = remapped;
+                        changed = true;
+                        break;
+                    }
+                }
+            }
+            if !changed {
+                return resolved;
+            }
+        }
+    }
+
+    fn record_dir_rename(&self, old_prefix: &str, new_prefix: &str) {
+        let mut renames = self.dir_renames.lock().unwrap();
+        let original_old_prefix = Self::resolve_original_dir_rename_prefix(&renames, old_prefix);
+        Self::remap_dir_rename_values(&mut renames, old_prefix, new_prefix);
+        if original_old_prefix == new_prefix {
+            renames.remove(&original_old_prefix);
+        } else {
+            renames.insert(original_old_prefix, new_prefix.to_string());
+        }
+        renames.retain(|old, current| old != current);
     }
 
     fn materialize_overlay(
@@ -197,10 +483,10 @@ impl LazyDvcFs {
         }
         if overlay.symlink_metadata().is_err() {
             if info.is_symlink {
-                std::os::unix::fs::symlink(&info.symlink_target, &overlay)
-                    .map_err(|e| Self::io_errno(&e))?;
+                let target = self.resolve_symlink_target(info, source_relpath)?;
+                std::os::unix::fs::symlink(&target, &overlay).map_err(|e| Self::io_errno(&e))?;
             } else {
-                let data = if !info.md5.is_empty() {
+                let data = if info.md5.is_some() {
                     self.fetch_data(info, source_relpath)?
                 } else {
                     Vec::new()
@@ -213,17 +499,60 @@ impl LazyDvcFs {
         Ok(overlay)
     }
 
+    fn ensure_overlay_for_open(&self, ctx: &MutationCtx, info: &InodeInfo) -> Result<PathBuf, i32> {
+        let overlay = self.overlay_path(&ctx.relpath);
+        self.ensure_overlay_parent(&overlay)?;
+        if overlay.symlink_metadata().is_err() && info.md5.is_some() {
+            let data = self.fetch_data(info, &ctx.backing_relpath)?;
+            std::fs::write(&overlay, &data).map_err(|e| Self::io_errno(&e))?;
+            std::fs::set_permissions(&overlay, std::fs::Permissions::from_mode(ctx.mode))
+                .map_err(|e| Self::io_errno(&e))?;
+        }
+        Ok(overlay)
+    }
+
+    fn ensure_overlay_for_mode_change(
+        &self,
+        ctx: &MutationCtx,
+        info: &InodeInfo,
+    ) -> Result<PathBuf, i32> {
+        match ctx.kind {
+            NodeKind::Dir => {
+                let overlay = self.overlay_path(&ctx.relpath);
+                std::fs::create_dir_all(&overlay).map_err(|e| Self::io_errno(&e))?;
+                Ok(overlay)
+            }
+            NodeKind::File | NodeKind::Symlink => {
+                self.materialize_overlay(&ctx.relpath, &ctx.backing_relpath, info)
+            }
+        }
+    }
+
+    fn ensure_overlay_for_size_change(
+        &self,
+        ctx: &MutationCtx,
+        info: &InodeInfo,
+    ) -> Result<PathBuf, i32> {
+        match ctx.kind {
+            NodeKind::File => self.materialize_overlay(&ctx.relpath, &ctx.backing_relpath, info),
+            NodeKind::Dir => Err(EISDIR),
+            NodeKind::Symlink => Err(ELOOP),
+        }
+    }
+
     fn maybe_materialized_size(&self, relpath: &str, info: &InodeInfo) -> Option<u64> {
         let overlay = self.overlay_path(relpath);
         if let Ok(meta) = overlay.symlink_metadata() {
             return Some(if meta.file_type().is_symlink() {
-                info.symlink_target.len() as u64
+                info.symlink_target
+                    .as_ref()
+                    .map_or(info.size, |target| target.len() as u64)
             } else {
                 meta.len()
             });
         }
 
-        if !info.md5.is_empty() {
+        if info.md5.is_some() {
             let cache = self.cache_path(relpath);
             if let Ok(meta) = cache.metadata() {
                 return Some(meta.len());
@@ -234,7 +563,7 @@ impl LazyDvcFs {
     }
 
     fn hydrate_unknown_size(&self, ino: u64, info: &mut InodeInfo) -> Result<(), i32> {
-        if info.size != 0 || info.md5.is_empty() || info.is_symlink {
+        if info.size != 0 || info.md5.is_none() || info.is_symlink {
             return Ok(());
         }
 
@@ -253,8 +582,10 @@ impl LazyDvcFs {
     }
 
     fn fetch_data(&self, info: &InodeInfo, relpath: &str) -> Result<Vec<u8>, i32> {
-        if info.is_symlink && !info.symlink_target.is_empty() {
-            return Ok(info.symlink_target.as_bytes().to_vec());
+        if info.is_symlink {
+            if let Some(target) = info.symlink_target.as_ref() {
+                return Ok(target.as_bytes().to_vec());
+            }
         }
 
         // Check overlay
@@ -269,7 +600,7 @@ impl LazyDvcFs {
                     .map_err(|_| EIO)?
                     .to_string_lossy()
                     .to_string();
-                return Ok(target.into_bytes());
+                return Ok(target.as_bytes().to_vec());
             }
             return std::fs::read(&overlay).map_err(|_| EIO);
         }
@@ -281,9 +612,9 @@ impl LazyDvcFs {
         }
 
         // Download from S3
-        if !info.md5.is_empty() {
+        if let Some(md5) = info.md5.as_deref() {
             if let Some(s3) = &self.s3 {
-                match s3.download(&info.md5) {
+                match s3.download(md5) {
                     Ok(data) => {
                         if let Some(parent) = cache.parent() {
                             std::fs::create_dir_all(parent).map_err(|e| Self::io_errno(&e))?;
@@ -292,7 +623,7 @@ impl LazyDvcFs {
                         return Ok(data);
                     }
                     Err(e) => {
-                        error!("S3 download failed for {}: {}", info.md5, e);
+                        error!("S3 download failed for {}: {}", md5, e);
                         return Err(libc::EIO);
                     }
                 }
@@ -302,84 +633,41 @@ impl LazyDvcFs {
         Err(libc::EIO)
     }
 
-    fn ensure_overlay_fd(&self, fh: u64, ino: u64) -> Result<RawFd, i32> {
-        let mut files = self.open_files.lock().unwrap();
-        let file = files.get_mut(&fh).ok_or(EBADF)?;
-
-        if let Some(fd) = file.fd {
-            return Ok(fd);
+    fn resolve_symlink_target(&self, info: &InodeInfo, relpath: &str) -> Result<String, i32> {
+        if let Some(target) = info.symlink_target.as_ref() {
+            return Ok(target.clone());
         }
 
-        let relpath = file.overlay_relpath.clone();
-        let info = file.info_snapshot.clone();
-        let access_mode = file.access_mode;
+        let raw = self.fetch_data(info, relpath)?;
+        String::from_utf8(raw).map_err(|_| EIO)
+    }
 
-        let overlay = self.overlay_path(&relpath);
-        if let Some(parent) = overlay.parent() {
-            std::fs::create_dir_all(parent).map_err(|_| EIO)?;
-        }
-
-        // Copy-on-write for manifest files
-        if !overlay.exists() && !info.md5.is_empty() {
-            drop(files); // Release lock before I/O
-            let data = self.fetch_data(&info, &info.backing_relpath)?;
-            std::fs::write(&overlay, &data).map_err(|_| EIO)?;
-            std::fs::set_permissions(
-                &overlay,
-                std::os::unix::fs::PermissionsExt::from_mode(info.mode),
+    fn ensure_overlay_fd(&self, fh: u64, _ino: u64) -> Result<RawFd, i32> {
+        let (overlay_relpath, info, open_flags) = {
+            let files = self.open_files.lock().unwrap();
+            let file = files.get(&fh).ok_or(EBADF)?;
+            if let Some(fd) = file.fd {
+                return Ok(fd);
+            }
+            (
+                file.overlay_relpath.clone(),
+                file.info_snapshot.clone(),
+                file.open_flags,
             )
-            .map_err(|_| EIO)?;
+        };
 
-            let mut tree = self.tree.write().unwrap();
-            if let Some(i) = tree.get_mut(ino) {
-                i.overlay = true;
-            }
-            if tree.is_in_manifest(&info.backing_relpath) {
-                self.modified
-                    .lock()
-                    .unwrap()
-                    .insert(info.backing_relpath.clone());
-            } else {
-                self.created.lock().unwrap().insert(relpath.clone());
-            }
-            files = self.open_files.lock().unwrap();
-            let file = files.get_mut(&fh).ok_or(EBADF)?;
-
-            let flags = access_mode;
-            let fd = unsafe {
-                libc::open(
-                    std::ffi::CString::new(overlay.to_str().unwrap())
-                        .unwrap()
-                        .as_ptr(),
-                    flags,
-                    info.mode as libc::mode_t,
-                )
-            };
-            if fd < 0 {
-                return Err(std::io::Error::last_os_error()
-                    .raw_os_error()
-                    .unwrap_or(EIO));
-            }
-            file.fd = Some(fd);
-            return Ok(fd);
-        }
-
-        {
-            let mut tree = self.tree.write().unwrap();
-            if let Some(i) = tree.get_mut(ino) {
-                i.overlay = true;
-            }
-            if tree.is_in_manifest(&relpath) {
-                self.modified.lock().unwrap().insert(relpath.clone());
-            } else {
-                self.created.lock().unwrap().insert(relpath.clone());
-            }
-        }
+        let ctx = {
+            let tree = self.tree.read().unwrap();
+            self.ctx_for_open_handle(&tree, &overlay_relpath, &info)
+        };
+        let overlay = self.ensure_overlay_for_open(&ctx, &info)?;
+        self.mark_overlay(ctx.ino);
+        self.apply_track_op(ctx.track_write());
 
         let flags = if overlay.exists() {
-            access_mode
+            open_flags
         } else {
-            access_mode | libc::O_CREAT
+            open_flags | libc::O_CREAT
         };
         let fd = unsafe {
             libc::open(
@@ -395,6 +683,8 @@ impl LazyDvcFs {
                 .raw_os_error()
                 .unwrap_or(libc::EIO));
         }
+        let mut files = self.open_files.lock().unwrap();
+        let file = files.get_mut(&fh).ok_or(EBADF)?;
         file.fd = Some(fd);
         Ok(fd)
     }
@@ -415,14 +705,36 @@ impl LazyDvcFs {
     }
 
     pub fn write_metadata(&self) {
-        let meta = serde_json::json!({
-            "modified": self.modified.lock().unwrap().iter().collect::<Vec<_>>(),
-            "deleted": self.deleted.lock().unwrap().iter().collect::<Vec<_>>(),
-            "created": self.created.lock().unwrap().iter().collect::<Vec<_>>(),
-        });
-        let meta_path = self.cache_dir.join("meta.json");
-        if let Err(e) = std::fs::write(&meta_path, serde_json::to_string(&meta).unwrap()) {
-            error!("Failed to write meta.json: {}", e);
+        self.write_metadata_path(self.cache_dir.join("meta.json"));
+    }
+
+    fn write_live_dir_renames(&self) {
+        let path = self.cache_dir.join("live-dir-renames.json");
+        let dir_renames = self.sorted_dir_renames();
+        let deleted: Vec<String> = {
+            let mut d = self
+                .deleted
+                .lock()
+                .unwrap()
+                .iter()
+                .cloned()
+                .collect::<Vec<_>>();
+            d.sort();
+            d
+        };
+        if dir_renames.is_empty() && deleted.is_empty() {
+            let _ = std::fs::remove_file(path);
+            return;
+        }
+        if let Err(e) = std::fs::write(
+            &path,
+            serde_json::to_string(&serde_json::json!({
+                "dir_renames": dir_renames,
+                "deleted": deleted,
+            }))
+            .unwrap(),
+        ) {
+            error!("Failed to write {}: {}", path.display(), e);
         }
     }
 
@@ -462,7 +774,7 @@ impl LazyDvcFs {
         drop(tree);
 
         let data = self.fetch_data(&info, &relpath)?;
-        if info.size == 0 && !info.md5.is_empty() && !info.is_symlink {
+        if info.size == 0 && info.md5.is_some() && !info.is_symlink {
             if let Some(tree_info) = self.tree.write().unwrap().get_mut(ino) {
                 if tree_info.size == 0 {
                     tree_info.size = data.len() as u64;
@@ -493,16 +805,19 @@ impl LazyDvcFs {
 
         // Let the kernel cache immutable manifest-backed files when the true
         // size is known. Keep direct I/O only for the sentinel-size fallback.
-        let was_unknown_size = !info.overlay && !info.md5.is_empty() && info.size == 0;
+        let access_mode = Self::access_mode(flags);
+        let was_unknown_size = !info.overlay && info.md5.is_some() && info.size == 0;
         let mut info_snapshot = info.clone();
         drop(tree);
         let _ = self.hydrate_unknown_size(ino, &mut info_snapshot);
         // If the kernel may have already observed the sentinel size for this
         // open, keep direct I/O enabled so readers see EOF instead of zero-padded
         // reads from a stale oversized page-cache view.
-        let direct_io = was_unknown_size;
-        let keep_cache = info_snapshot.overlay
-            || (!was_unknown_size && !info_snapshot.md5.is_empty() && info_snapshot.size > 0);
+        let is_write_open = Self::is_writable_access_mode(access_mode);
+        let direct_io = was_unknown_size || is_write_open;
+        let keep_cache = !is_write_open
+            && (info_snapshot.overlay
+                || (!was_unknown_size && info_snapshot.md5.is_some() && info_snapshot.size > 0));
         let mut tree = self.tree.write().unwrap();
         let relpath = tree.get_relpath(ino);
         drop(tree);
@@ -511,14 +826,7 @@ impl LazyDvcFs {
         let fd = if info_snapshot.overlay {
             let overlay = self.overlay_path(&relpath);
             let c_path = std::ffi::CString::new(overlay.to_str().unwrap()).unwrap();
-            let access = Self::access_mode(flags);
-            let open_flags = if access == libc::O_WRONLY {
-                libc::O_WRONLY
-            } else if access == libc::O_RDWR {
-                libc::O_RDWR
-            } else {
-                libc::O_RDONLY
-            };
+            let open_flags = Self::passthrough_open_flags(flags);
             let raw = unsafe { libc::open(c_path.as_ptr(), open_flags) };
             if raw >= 0 {
                 Some(raw)
@@ -534,7 +842,8 @@ impl LazyDvcFs {
             fh,
             OpenFile {
                 fd,
-                access_mode: Self::access_mode(flags),
+                access_mode,
+                open_flags: Self::passthrough_open_flags(flags),
                 overlay_relpath: relpath,
                 info_snapshot,
             },
@@ -558,32 +867,25 @@ impl LazyDvcFs {
         size: Option<u64>,
     ) -> Result<FileAttr, i32> {
         let mut tree = self.tree.write().unwrap();
-        let info = match tree.get(ino) {
-            Some(i) if !i.deleted => i.clone(),
-            _ => return Err(ENOENT),
-        };
-
-        if info.is_symlink {
-            return Ok(self.make_attr(&info));
+        let (ctx, info) = self.ctx_for_ino(&mut tree, ino)?;
+        if fuse_debug_enabled() && (mode.is_some() || size.is_some()) {
+            info!(
+                "fuse.trace op=setattr relpath={} kind={:?} mode={:?} size={:?}",
+                ctx.relpath,
+                ctx.kind,
+                mode.map(|value| value & 0o777),
+                size,
+            );
         }
 
-        let relpath = info.backing_relpath.clone();
-        let path_rel = if info.is_dir {
-            tree.get_relpath(ino)
-        } else {
-            relpath.clone()
-        };
+        if matches!(ctx.kind, NodeKind::Symlink) {
+            return Ok(self.make_attr(&info));
+        }
 
         if let Some(new_mode) = mode {
             let perm = new_mode & 0o777;
             drop(tree);
-            let overlay = if info.is_dir {
-                let overlay = self.overlay_path(&path_rel);
-                std::fs::create_dir_all(&overlay).map_err(|e| Self::io_errno(&e))?;
-                overlay
-            } else {
-                self.materialize_overlay(&relpath, &info.backing_relpath, &info)?
-            };
+            let overlay = self.ensure_overlay_for_mode_change(&ctx, &info)?;
             std::fs::set_permissions(&overlay, std::fs::Permissions::from_mode(perm))
                 .map_err(|e| Self::io_errno(&e))?;
             tree = self.tree.write().unwrap();
@@ -591,20 +893,13 @@ impl LazyDvcFs {
                 i.mode = perm;
                 i.overlay = true;
             }
-            if !info.is_dir && tree.is_in_manifest(&info.backing_relpath) {
-                self.modified
-                    .lock()
-                    .unwrap()
-                    .insert(info.backing_relpath.clone());
-            } else if !info.is_dir {
-                self.created.lock().unwrap().insert(relpath.clone());
-            }
+            self.apply_track_op(ctx.track_write());
         }
 
-        if !info.is_dir {
-            if let Some(new_size) = size {
+        if let Some(new_size) = size {
+            if matches!(ctx.kind, NodeKind::File) {
                 drop(tree);
-                let overlay = self.materialize_overlay(&relpath, &info.backing_relpath, &info)?;
+                let overlay = self.ensure_overlay_for_size_change(&ctx, &info)?;
                 let file = std::fs::OpenOptions::new()
                     .write(true)
                     .open(&overlay)
@@ -615,22 +910,22 @@ impl LazyDvcFs {
                     i.size = new_size;
                     i.overlay = true;
                 }
-                if tree.is_in_manifest(&info.backing_relpath) {
-                    self.modified
-                        .lock()
-                        .unwrap()
-                        .insert(info.backing_relpath.clone());
-                } else {
-                    self.created.lock().unwrap().insert(relpath.clone());
-                }
+                self.apply_track_op(ctx.track_write());
             }
         }
 
-        let updated = tree.get(ino).unwrap();
-        Ok(self.make_attr(updated))
+        let updated = tree.get(ino).unwrap().clone();
+        drop(tree);
+        Ok(self.make_attr(&updated))
     }
 
-    fn create_impl(&self, parent: u64, name: &OsStr, mode: u32) -> Result<CreateOutcome, i32> {
+    fn create_impl(
+        &self,
+        parent: u64,
+        name: &OsStr,
+        mode: u32,
+        flags: i32,
+    ) -> Result<CreateOutcome, i32> {
         let name_str = Self::name_to_string(name)?;
         let mut tree = self.tree.write().unwrap();
 
@@ -646,16 +941,37 @@ impl LazyDvcFs {
 
         let perm = (mode & 0o777) as u32;
         let perm = if perm == 0 { 0o644 } else { perm };
+        let open_flags = Self::passthrough_open_flags(flags) | libc::O_CREAT | libc::O_TRUNC;
+        let access_mode = Self::access_mode(open_flags);
+        let access_mode = if access_mode == libc::O_RDONLY {
+            libc::O_WRONLY
+        } else {
+            access_mode
+        };
         let parent_relpath = tree.get_relpath(parent);
         let relpath = Self::child_relpath(&parent_relpath, &name_str);
         drop(tree);
 
         let overlay = self.overlay_path(&relpath);
+        if fuse_debug_enabled() {
+            info!(
+                "fuse.trace op=create relpath={} perm={:o} overlay_before={}",
+                relpath,
+                perm,
+                overlay_entry_kind(&overlay),
+            );
+        }
         if let Some(p) = overlay.parent() {
             std::fs::create_dir_all(p).map_err(|e| Self::io_errno(&e))?;
         }
         // Remove stale symlink/dir so open() with O_CREAT succeeds
         if let Ok(meta) = overlay.symlink_metadata() {
+            if fuse_debug_enabled() && meta.is_dir() {
+                info!(
+                    "fuse.trace op=create relpath={} removing_existing_dir_before_open=true",
+                    relpath,
+                );
+            }
             if meta.is_dir() {
                 let _ = std::fs::remove_dir_all(&overlay);
             } else if !meta.is_file() {
@@ -664,13 +980,7 @@ impl LazyDvcFs {
         }
 
         let c_path = std::ffi::CString::new(overlay.to_str().unwrap()).unwrap();
-        let fd = unsafe {
-            libc::open(
-                c_path.as_ptr(),
-                libc::O_WRONLY | libc::O_CREAT | libc::O_TRUNC,
-                perm as libc::mode_t,
-            )
-        };
+        let fd = unsafe { libc::open(c_path.as_ptr(), open_flags, perm as libc::mode_t) };
         if fd < 0 {
             return Err(std::io::Error::last_os_error()
                 .raw_os_error()
@@ -685,21 +995,28 @@ impl LazyDvcFs {
             fh,
             OpenFile {
                 fd: Some(fd),
-                access_mode: libc::O_RDWR,
+                access_mode,
+                open_flags,
                 overlay_relpath: relpath.clone(),
                 info_snapshot,
             },
         );
-        self.created.lock().unwrap().insert(relpath);
+        self.apply_track_op(TrackOp::Created(relpath));
 
         let info = tree.get(ino).unwrap();
         let attr = self.make_attr(info);
         drop(tree);
 
+        let flags_out = if Self::is_writable_access_mode(access_mode) {
+            fuser::consts::FOPEN_DIRECT_IO
+        } else {
+            fuser::consts::FOPEN_KEEP_CACHE
+        };
+
         Ok(CreateOutcome {
             attr,
             fh,
-            flags_out: fuser::consts::FOPEN_KEEP_CACHE,
+            flags_out,
         })
     }
 
@@ -746,7 +1063,7 @@ impl LazyDvcFs {
             return Err(EIO);
         }
 
-        self.created.lock().unwrap().insert(relpath);
+        self.apply_track_op(TrackOp::Created(relpath));
         let info = tree.get(ino).unwrap();
         Ok(self.make_attr(info))
     }
@@ -759,7 +1076,8 @@ impl LazyDvcFs {
 
         let ino = tree.lookup_child(parent, &name_str).ok_or(ENOENT)?;
         let info = tree.get(ino).cloned().ok_or(ENOENT)?;
-        if info.is_dir {
+        let kind = NodeKind::from_info(&info);
+        if matches!(kind, NodeKind::Dir) {
             return Err(EISDIR);
         }
         drop(tree);
@@ -773,8 +1091,10 @@ impl LazyDvcFs {
         let _ = tree
             .remove_file_link(parent, &name_str)
             .map_err(|_| ENOENT)?;
-        self.created.lock().unwrap().remove(&relpath);
-        self.deleted.lock().unwrap().insert(relpath);
+        let was_created = self.created.lock().unwrap().remove(&relpath);
+        if !was_created {
+            self.apply_track_op(TrackOp::Deleted(relpath));
+        }
 
         Ok(())
     }
@@ -802,8 +1122,23 @@ impl LazyDvcFs {
         drop(tree);
 
         let overlay = self.overlay_path(&relpath);
+        if fuse_debug_enabled() {
+            info!(
+                "fuse.trace op=mkdir relpath={} perm={:o} overlay_before={}",
+                relpath,
+                perm,
+                overlay_entry_kind(&overlay),
+            );
+        }
         if let Ok(meta) = overlay.symlink_metadata() {
             if !meta.is_dir() {
+                if fuse_debug_enabled() {
+                    info!(
+                        "fuse.trace op=mkdir relpath={} removing_non_dir_overlay_before_mkdir=true kind={}",
+                        relpath,
+                        overlay_entry_kind(&overlay),
+                    );
+                }
                 if meta.file_type().is_symlink() || meta.is_file() {
                     let _ = std::fs::remove_file(&overlay);
                 } else {
@@ -817,8 +1152,9 @@ impl LazyDvcFs {
 
         let mut tree = self.tree.write().unwrap();
         let ino = tree.add_dir_with_mode(parent, &name_str, perm);
-        let info = tree.get(ino).unwrap();
-        Ok(self.make_attr(info))
+        let info = tree.get(ino).unwrap().clone();
+        drop(tree);
+        Ok(self.make_attr(&info))
     }
 
     fn rename_impl(
@@ -861,7 +1197,9 @@ impl LazyDvcFs {
                 return Err(ENOTEMPTY);
             }
         }
-        let in_manifest = tree.is_in_manifest(&info.backing_relpath);
+        let in_manifest =
+            !info.backing_relpath.is_empty() && tree.is_in_manifest(&info.backing_relpath);
+        let ctx = MutationCtx::new(&info, old_relpath.clone(), in_manifest);
         let move_backing = info.nlink == 1 && info.parent == parent && info.name == old_name;
         let old_backing_relpath = info.backing_relpath.clone();
         drop(tree);
@@ -869,12 +1207,31 @@ impl LazyDvcFs {
         let old_overlay = self.overlay_path(&old_relpath);
         let new_overlay = self.overlay_path(&new_relpath);
         let had_old_overlay = old_overlay.symlink_metadata().is_ok();
+        if fuse_debug_enabled() {
+            info!(
+                "fuse.trace op=rename old_relpath={} new_relpath={} kind={:?} in_manifest={} had_old_overlay={} old_overlay_kind={} new_overlay_kind={}",
+                old_relpath,
+                new_relpath,
+                ctx.kind,
+                in_manifest,
+                had_old_overlay,
+                overlay_entry_kind(&old_overlay),
+                overlay_entry_kind(&new_overlay),
+            );
+        }
         if had_old_overlay {
             if let Some(p) = new_overlay.parent() {
                 std::fs::create_dir_all(p).map_err(|e| Self::io_errno(&e))?;
             }
             // Remove an existing empty target before the rename.
             if new_overlay.symlink_metadata().is_ok() {
+                if fuse_debug_enabled() {
+                    info!(
+                        "fuse.trace op=rename new_relpath={} removing_existing_target_before_rename=true kind={}",
+                        new_relpath,
+                        overlay_entry_kind(&new_overlay),
+                    );
+                }
                 if new_overlay.is_dir() {
                     let _ = std::fs::remove_dir_all(&new_overlay);
                 } else {
@@ -898,6 +1255,10 @@ impl LazyDvcFs {
         let mut tree = self.tree.write().unwrap();
         if let Some(target_ino) = target_ino {
             if target_ino != ino {
+                let target_kind = target_info
+                    .as_ref()
+                    .map(NodeKind::from_info)
+                    .unwrap_or(NodeKind::File);
                 if let Some(target_info) = target_info {
                     if target_info.is_dir {
                         if let Some(target) = tree.get_mut(target_ino) {
@@ -910,7 +1271,9 @@ impl LazyDvcFs {
                             .map_err(|_| ENOENT)?;
                     }
                 }
-                self.deleted.lock().unwrap().insert(new_relpath.clone());
+                if target_kind.tracks_manifest_entry() {
+                    self.apply_track_op(TrackOp::Deleted(new_relpath.clone()));
+                }
             }
         }
 
@@ -928,16 +1291,23 @@ impl LazyDvcFs {
                 Self::remap_tracked_paths(&mut modified, &old_backing_relpath, &new_relpath);
             }
         }
+        if matches!(ctx.kind, NodeKind::Dir) {
+            self.record_dir_rename(&old_relpath, &new_relpath);
+        }
 
-        if move_backing && in_manifest {
-            self.deleted.lock().unwrap().insert(old_backing_relpath);
-            self.created.lock().unwrap().insert(new_relpath.clone());
+        if move_backing && ctx.kind.tracks_manifest_entry() && in_manifest {
+            self.apply_track_op(TrackOp::Deleted(old_backing_relpath));
+            self.apply_track_op(TrackOp::Created(new_relpath.clone()));
         }
         if let Some(i) = tree.get_mut(ino) {
             i.overlay = info.overlay || in_manifest || had_old_overlay;
             if move_backing {
                 i.backing_relpath = new_relpath.clone();
             }
+        }
+        drop(tree);
+        if matches!(ctx.kind, NodeKind::Dir) {
+            self.write_live_dir_renames();
         }
 
         Ok(())
@@ -986,7 +1356,7 @@ impl LazyDvcFs {
         if let Some(info) = tree.get_mut(ino) {
             info.overlay = true;
         }
-        self.created.lock().unwrap().insert(new_relpath);
+        self.apply_track_op(TrackOp::Created(new_relpath));
         let info = tree.get(ino).unwrap();
         Ok(self.make_attr(info))
     }
@@ -1002,6 +1372,8 @@ impl Filesystem for LazyDvcFs {
 
     fn destroy(&mut self) {
         self.write_metadata();
+        let _ = std::fs::remove_file(self.cache_dir.join("live-dir-renames.json"));
+        let _ = std::fs::remove_file(self.cache_dir.join("live-meta.json"));
         let files = self.open_files.lock().unwrap();
         for (_, file) in files.iter() {
             if let Some(fd) = file.fd {
@@ -1043,7 +1415,7 @@ impl Filesystem for LazyDvcFs {
             return;
         }
 
-        match self.create_impl(parent, name, mode) {
+        match self.create_impl(parent, name, mode, libc::O_WRONLY) {
             Ok(outcome) => {
                 if let Some(open_file) = self.open_files.lock().unwrap().remove(&outcome.fh) {
                     if let Some(fd) = open_file.fd {
@@ -1199,8 +1571,23 @@ impl Filesystem for LazyDvcFs {
             }
         };
 
-        let written =
-            unsafe { libc::pwrite(fd, data.as_ptr() as *const libc::c_void, data.len(), offset) };
+        let (open_flags, overlay_relpath) = {
+            let files = self.open_files.lock().unwrap();
+            let file = match files.get(&fh) {
+                Some(file) => file,
+                None => {
+                    reply.error(EBADF);
+                    return;
+                }
+            };
+            (file.open_flags, file.overlay_relpath.clone())
+        };
+
+        let written = if open_flags & libc::O_APPEND != 0 {
+            unsafe { libc::write(fd, data.as_ptr() as *const libc::c_void, data.len()) }
+        } else {
+            unsafe { libc::pwrite(fd, data.as_ptr() as *const libc::c_void, data.len(), offset) }
+        };
         if written < 0 {
             reply.error(
                 std::io::Error::last_os_error()
@@ -1211,7 +1598,14 @@ impl Filesystem for LazyDvcFs {
         }
 
         let written = written as u32;
-        let new_size = offset as u64 + written as u64;
+        let new_size = if open_flags & libc::O_APPEND != 0 {
+            self.overlay_path(&overlay_relpath)
+                .metadata()
+                .map(|meta| meta.len())
+                .unwrap_or(offset as u64 + written as u64)
+        } else {
+            offset as u64 + written as u64
+        };
         let mut tree = self.tree.write().unwrap();
         if let Some(info) = tree.get_mut(ino) {
             if new_size > info.size {
@@ -1228,10 +1622,10 @@ impl Filesystem for LazyDvcFs {
         name: &OsStr,
         mode: u32,
         _umask: u32,
-        _flags: i32,
+        flags: i32,
         reply: ReplyCreate,
     ) {
-        match self.create_impl(parent, name, mode) {
+        match self.create_impl(parent, name, mode, flags) {
             Ok(outcome) => reply.created(&TTL, &outcome.attr, 0, outcome.fh, outcome.flags_out),
             Err(e) => reply.error(e),
         }
@@ -1273,13 +1667,33 @@ impl Filesystem for LazyDvcFs {
     }
 
     fn readlink(&mut self, _req: &Request, ino: u64, reply: ReplyData) {
-        let tree = self.tree.read().unwrap();
-        match tree.get(ino) {
-            Some(i) if !i.deleted && i.is_symlink => {
-                reply.data(i.symlink_target.as_bytes());
+        let info = {
+            let tree = self.tree.read().unwrap();
+            match tree.get(ino) {
+                Some(i) if !i.deleted && i.is_symlink => i.clone(),
+                _ => {
+                    reply.error(ENOENT);
+                    return;
+                }
             }
-            _ => {
-                reply.error(ENOENT);
+        };
+
+        // Use cached symlink_target only — never fetch from S3 in readlink
+        // to avoid blocking the single-threaded FUSE loop.
+        match info.symlink_target.as_ref() {
+            Some(target) => reply.data(target.as_bytes()),
+            None => {
+                // If the symlink has been materialized to the overlay (e.g. via rename),
+                // read the target from the overlay filesystem.
+                let relpath = {
+                    let mut tree = self.tree.write().unwrap();
+                    tree.get_relpath(ino)
+                };
+                let overlay = self.overlay_path(&relpath);
+                match std::fs::read_link(&overlay) {
+                    Ok(target) => reply.data(target.as_os_str().as_encoded_bytes()),
+                    Err(_) => reply.error(EIO),
+                }
             }
         }
     }
@@ -1325,6 +1739,7 @@ impl Filesystem for LazyDvcFs {
         if let Some(info) = tree.get_mut(ino) {
             info.deleted = true;
         }
+        drop(tree);
         reply.ok();
     }
 
@@ -1399,7 +1814,7 @@ mod tests {
     use serial_test::serial;
     use std::ffi::OsStr;
     use std::fs::{self, File};
-    use std::io::{Read, Seek, SeekFrom};
+    use std::io::{Read, Seek, SeekFrom, Write};
     use std::os::unix::ffi::OsStrExt;
     use std::os::unix::fs::MetadataExt;
     use std::path::Path;
@@ -1495,15 +1910,71 @@ mod tests {
         Path::new("/dev/fuse").exists()
     }
 
+    fn test_inode_info(backing_relpath: &str, is_dir: bool, is_symlink: bool) -> InodeInfo {
+        InodeInfo {
+            ino: 42,
+            name: "node".to_string(),
+            parent: ROOT_INODE,
+            backing_relpath: backing_relpath.to_string(),
+            is_dir,
+            md5: None,
+            size: 0,
+            mode: 0o644,
+            is_symlink,
+            symlink_target: None,
+            nlink: 1,
+            overlay: false,
+            deleted: false,
+        }
+    }
+
+    #[test]
+    fn mutation_ctx_should_track_manifest_files_as_modified() {
+        let ctx = MutationCtx::new(
+            &test_inode_info("runtime/data.txt", false, false),
+            "runtime/data.txt".to_string(),
+            true,
+        );
+        assert_eq!(
+            ctx.track_write(),
+            TrackOp::Modified("runtime/data.txt".to_string())
+        );
+    }
+
+    #[test]
+    fn mutation_ctx_should_track_new_files_by_visible_relpath() {
+        let ctx = MutationCtx::new(
+            &test_inode_info("runtime/data.txt", false, false),
+            "renamed/data.txt".to_string(),
+            false,
+        );
+        assert_eq!(
+            ctx.track_write(),
+            TrackOp::Created("renamed/data.txt".to_string())
+        );
+    }
+
+    #[test]
+    fn mutation_ctx_should_skip_directory_tracking() {
+        let ctx = MutationCtx::new(
+            &test_inode_info("runtime", true, false),
+            "runtime".to_string(),
+            true,
+        );
+        assert_eq!(ctx.track_write(), TrackOp::None);
+    }
+
     #[test]
     fn fetch_data_without_backing_source_should_error() {
         let entries = vec![FileEntry {
             relpath: "file.txt".to_string(),
-            md5: "abcdef".to_string(),
+            md5: Some("abcdef".to_string()),
             size: 5,
             isexec: false,
             islink: false,
-            symlink_target: String::new(),
+            symlink_target: None,
+            isdir: false,
+            mode: None,
         }];
         let (fs, _state_dir, inos) = build_fs(&entries, |_overlay, _cache| {});
         let mut tree = fs.tree.write().unwrap();
@@ -1519,11 +1990,13 @@ mod tests {
     fn ensure_overlay_fd_should_materialize_manifest_file_and_track_modified() {
         let entries = vec![FileEntry {
             relpath: "file.txt".to_string(),
-            md5: "abcdef".to_string(),
+            md5: Some("abcdef".to_string()),
             size: 5,
             isexec: false,
             islink: false,
-            symlink_target: String::new(),
+            symlink_target: None,
+            isdir: false,
+            mode: None,
         }];
         let (fs, _state_dir, inos) = build_fs(&entries, |_overlay, cache| {
             fs::write(cache.join("cache/file.txt"), b"hello").unwrap();
@@ -1546,11 +2019,13 @@ mod tests {
     fn read_impl_should_allow_read_after_write_on_materialized_rdwr_handle() {
         let entries = vec![FileEntry {
             relpath: "file.txt".to_string(),
-            md5: "abcdef".to_string(),
+            md5: Some("abcdef".to_string()),
             size: 5,
             isexec: false,
             islink: false,
-            symlink_target: String::new(),
+            symlink_target: None,
+            isdir: false,
+            mode: None,
         }];
         let (fs, _state_dir, inos) = build_fs(&entries, |_overlay, cache| {
             fs::write(cache.join("cache/file.txt"), b"hello").unwrap();
@@ -1571,11 +2046,13 @@ mod tests {
     fn read_impl_should_reject_write_only_materialized_handle() {
         let entries = vec![FileEntry {
             relpath: "file.txt".to_string(),
-            md5: "abcdef".to_string(),
+            md5: Some("abcdef".to_string()),
             size: 5,
             isexec: false,
             islink: false,
-            symlink_target: String::new(),
+            symlink_target: None,
+            isdir: false,
+            mode: None,
         }];
         let (fs, _state_dir, inos) = build_fs(&entries, |_overlay, cache| {
             fs::write(cache.join("cache/file.txt"), b"hello").unwrap();
@@ -1596,19 +2073,23 @@ mod tests {
         let entries = vec![
             FileEntry {
                 relpath: "known.txt".to_string(),
-                md5: "abcdef".to_string(),
+                md5: Some("abcdef".to_string()),
                 size: 5,
                 isexec: false,
                 islink: false,
-                symlink_target: String::new(),
+                symlink_target: None,
+                isdir: false,
+                mode: None,
             },
             FileEntry {
                 relpath: "unknown.txt".to_string(),
-                md5: "123456".to_string(),
+                md5: Some("123456".to_string()),
                 size: 0,
                 isexec: false,
                 islink: false,
-                symlink_target: String::new(),
+                symlink_target: None,
+                isdir: false,
+                mode: None,
             },
         ];
         let (fs, _state_dir, inos) = build_fs(&entries, |overlay, _cache| {
@@ -1639,8 +2120,8 @@ mod tests {
         close_handle(&fs, unknown.fh);
 
         let overlay = fs.open_impl(overlay_ino, libc::O_RDWR).unwrap();
-        assert_eq!(overlay.flags_out & fuser::consts::FOPEN_DIRECT_IO, 0);
-        assert_ne!(overlay.flags_out & fuser::consts::FOPEN_KEEP_CACHE, 0);
+        assert_ne!(overlay.flags_out & fuser::consts::FOPEN_DIRECT_IO, 0);
+        assert_eq!(overlay.flags_out & fuser::consts::FOPEN_KEEP_CACHE, 0);
         close_handle(&fs, overlay.fh);
 
         assert!(matches!(
@@ -1655,11 +2136,13 @@ mod tests {
     fn open_impl_should_hydrate_cached_unknown_size_manifest_file() {
         let entries = vec![FileEntry {
             relpath: "unknown.txt".to_string(),
-            md5: "abcdef".to_string(),
+            md5: Some("abcdef".to_string()),
             size: 0,
             isexec: false,
             islink: false,
-            symlink_target: String::new(),
+            symlink_target: None,
+            isdir: false,
+            mode: None,
         }];
         let (fs, _state_dir, inos) = build_fs(&entries, |_overlay, cache| {
             fs::write(cache.join("cache/unknown.txt"), b"hello world").unwrap();
@@ -1679,14 +2162,40 @@ mod tests {
     }
 
     #[test]
-    fn visible_attr_should_hydrate_unknown_size_manifest_file() {
+    fn open_impl_should_disable_kernel_cache_for_writable_manifest_files() {
+        let entries = vec![FileEntry {
+            relpath: "file.txt".to_string(),
+            md5: Some("abcdef".to_string()),
+            size: 5,
+            isexec: false,
+            islink: false,
+            symlink_target: None,
+            isdir: false,
+            mode: None,
+        }];
+        let (fs, _state_dir, inos) = build_fs(&entries, |_overlay, cache| {
+            fs::write(cache.join("cache/file.txt"), b"hello").unwrap();
+        });
+
+        let writable = fs
+            .open_impl(inos[0], libc::O_WRONLY | libc::O_APPEND)
+            .unwrap();
+        assert_ne!(writable.flags_out & fuser::consts::FOPEN_DIRECT_IO, 0);
+        assert_eq!(writable.flags_out & fuser::consts::FOPEN_KEEP_CACHE, 0);
+        close_handle(&fs, writable.fh);
+    }
+
+    #[test]
+    fn visible_attr_should_not_hydrate_unknown_size_manifest_file() {
         let entries = vec![FileEntry {
             relpath: "unknown.txt".to_string(),
-            md5: "abcdef".to_string(),
+            md5: Some("abcdef".to_string()),
             size: 0,
             isexec: false,
             islink: false,
-            symlink_target: String::new(),
+            symlink_target: None,
+            isdir: false,
+            mode: None,
         }];
         let (fs, _state_dir, inos) = build_fs(&entries, |_overlay, cache| {
             fs::write(cache.join("cache/unknown.txt"), b"hello world").unwrap();
@@ -1695,25 +2204,7 @@ mod tests {
         let info = fs.tree.read().unwrap().get(inos[0]).unwrap().clone();
         let attr = fs.visible_attr(inos[0], info);
 
-        assert_eq!(attr.size, 11);
-        assert_eq!(fs.tree.read().unwrap().get(inos[0]).unwrap().size, 11);
-    }
-
-    #[test]
-    fn visible_attr_should_return_zero_when_unknown_size_hydration_fails() {
-        let entries = vec![FileEntry {
-            relpath: "unknown.txt".to_string(),
-            md5: "abcdef".to_string(),
-            size: 0,
-            isexec: false,
-            islink: false,
-            symlink_target: String::new(),
-        }];
-        let (fs, _state_dir, inos) = build_fs(&entries, |_overlay, _cache| {});
-
-        let info = fs.tree.read().unwrap().get(inos[0]).unwrap().clone();
-        let attr = fs.visible_attr(inos[0], info);
-
+        // visible_attr must NOT block on S3 — size stays 0, hydration happens at open time
         assert_eq!(attr.size, 0);
         assert_eq!(fs.tree.read().unwrap().get(inos[0]).unwrap().size, 0);
     }
@@ -1732,7 +2223,7 @@ mod tests {
         let fs = LazyDvcFs::new(tree, overlay_dir, cache_dir, None);
 
         assert!(fs
-            .create_impl(blocked_ino, OsStr::new("new.txt"), 0o644)
+            .create_impl(blocked_ino, OsStr::new("new.txt"), 0o644, libc::O_WRONLY)
             .is_err());
     }
 
@@ -1802,11 +2293,13 @@ mod tests {
     fn read_should_follow_open_handle_after_rename() {
         let entries = vec![FileEntry {
             relpath: "file.txt".to_string(),
-            md5: "abcdef".to_string(),
+            md5: Some("abcdef".to_string()),
             size: 5,
             isexec: false,
             islink: false,
-            symlink_target: String::new(),
+            symlink_target: None,
+            isdir: false,
+            mode: None,
         }];
         let (fs, _state_dir, inos) = build_fs(&entries, |_overlay, cache| {
             fs::write(cache.join("cache/file.txt"), b"hello").unwrap();
@@ -1854,6 +2347,7 @@ mod tests {
             OpenFile {
                 fd: Some(fd),
                 access_mode: libc::O_RDONLY,
+                open_flags: libc::O_RDONLY,
                 overlay_relpath: "file.txt".to_string(),
                 info_snapshot: InodeInfo {
                     ino,
@@ -1861,11 +2355,11 @@ mod tests {
                     parent: ROOT_INODE,
                     backing_relpath: "file.txt".to_string(),
                     is_dir: false,
-                    md5: String::new(),
+                    md5: None,
                     size: 5,
                     mode: 0o644,
                     is_symlink: false,
-                    symlink_target: String::new(),
+                    symlink_target: None,
                     nlink: 1,
                     overlay: true,
                     deleted: false,
@@ -1927,6 +2421,195 @@ mod tests {
     }
 
     #[test]
+    fn write_metadata_should_include_directory_snapshot() {
+        let state_dir = TempDir::new().unwrap();
+        let overlay_dir = state_dir.path().join("overlay");
+        let cache_dir = state_dir.path().join("cache-root");
+        fs::create_dir_all(&overlay_dir).unwrap();
+        fs::create_dir_all(cache_dir.join("cache")).unwrap();
+
+        let mut tree = InodeTree::new();
+        let runtime_ino = tree.add_dir_with_mode(ROOT_INODE, "runtime", 0o750);
+        tree.add_dir_with_mode(runtime_ino, "postgres", 0o700);
+        let fs = LazyDvcFs::new(tree, overlay_dir, cache_dir.clone(), None);
+
+        fs.write_metadata();
+
+        let meta: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(cache_dir.join("meta.json")).unwrap())
+                .unwrap();
+        let directories = meta["directories"].as_array().unwrap();
+        assert!(directories
+            .iter()
+            .any(|entry| entry["relpath"] == "runtime" && entry["mode"] == 0o750));
+        assert!(directories
+            .iter()
+            .any(|entry| entry["relpath"] == "runtime/postgres" && entry["mode"] == 0o700));
+    }
+
+    #[test]
+    fn write_metadata_should_record_directory_renames() {
+        let state_dir = TempDir::new().unwrap();
+        let overlay_dir = state_dir.path().join("overlay");
+        let cache_dir = state_dir.path().join("cache-root");
+        fs::create_dir_all(overlay_dir.join("runtime/postgres")).unwrap();
+        fs::create_dir_all(cache_dir.join("cache")).unwrap();
+
+        let mut tree = InodeTree::new();
+        let runtime_ino = tree.add_dir_with_mode(ROOT_INODE, "runtime", 0o755);
+        tree.add_dir_with_mode(runtime_ino, "postgres", 0o700);
+        let fs = LazyDvcFs::new(tree, overlay_dir, cache_dir.clone(), None);
+
+        fs.rename_impl(
+            ROOT_INODE,
+            OsStr::new("runtime"),
+            ROOT_INODE,
+            OsStr::new("data"),
+        )
+        .unwrap();
+        fs.write_metadata();
+
+        let meta: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(cache_dir.join("meta.json")).unwrap())
+                .unwrap();
+        let renames = meta["dir_renames"].as_array().unwrap();
+        assert!(renames
+            .iter()
+            .any(|entry| entry["old_relpath"] == "runtime" && entry["new_relpath"] == "data"));
+        let directories = meta["directories"].as_array().unwrap();
+        assert!(directories
+            .iter()
+            .any(|entry| entry["relpath"] == "data" && entry["mode"] == 0o755));
+        assert!(directories
+            .iter()
+            .any(|entry| entry["relpath"] == "data/postgres" && entry["mode"] == 0o700));
+    }
+
+    #[test]
+    fn write_metadata_should_compose_parent_then_child_directory_renames() {
+        let state_dir = TempDir::new().unwrap();
+        let overlay_dir = state_dir.path().join("overlay");
+        let cache_dir = state_dir.path().join("cache-root");
+        fs::create_dir_all(overlay_dir.join("runtime/postgres")).unwrap();
+        fs::create_dir_all(cache_dir.join("cache")).unwrap();
+
+        let mut tree = InodeTree::new();
+        let runtime_ino = tree.add_dir_with_mode(ROOT_INODE, "runtime", 0o755);
+        tree.add_dir_with_mode(runtime_ino, "postgres", 0o700);
+        let fs = LazyDvcFs::new(tree, overlay_dir, cache_dir.clone(), None);
+
+        fs.rename_impl(
+            ROOT_INODE,
+            OsStr::new("runtime"),
+            ROOT_INODE,
+            OsStr::new("data"),
+        )
+        .unwrap();
+        let data_ino = lookup_path(&fs.tree.read().unwrap(), "data");
+        fs.rename_impl(
+            data_ino,
+            OsStr::new("postgres"),
+            data_ino,
+            OsStr::new("mysql"),
+        )
+        .unwrap();
+        fs.write_metadata();
+
+        let meta: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(cache_dir.join("meta.json")).unwrap())
+                .unwrap();
+        let renames = meta["dir_renames"].as_array().unwrap();
+        assert!(renames
+            .iter()
+            .any(|entry| entry["old_relpath"] == "runtime" && entry["new_relpath"] == "data"));
+        assert!(renames
+            .iter()
+            .any(|entry| entry["old_relpath"] == "runtime/postgres"
+                && entry["new_relpath"] == "data/mysql"));
+    }
+
+    #[test]
+    fn write_metadata_should_compose_child_then_parent_directory_renames() {
+        let state_dir = TempDir::new().unwrap();
+        let overlay_dir = state_dir.path().join("overlay");
+        let cache_dir = state_dir.path().join("cache-root");
+        fs::create_dir_all(overlay_dir.join("runtime/postgres")).unwrap();
+        fs::create_dir_all(cache_dir.join("cache")).unwrap();
+
+        let mut tree = InodeTree::new();
+        let runtime_ino = tree.add_dir_with_mode(ROOT_INODE, "runtime", 0o755);
+        tree.add_dir_with_mode(runtime_ino, "postgres", 0o700);
+        let fs = LazyDvcFs::new(tree, overlay_dir, cache_dir.clone(), None);
+
+        fs.rename_impl(
+            runtime_ino,
+            OsStr::new("postgres"),
+            runtime_ino,
+            OsStr::new("mysql"),
+        )
+        .unwrap();
+        fs.rename_impl(
+            ROOT_INODE,
+            OsStr::new("runtime"),
+            ROOT_INODE,
+            OsStr::new("data"),
+        )
+        .unwrap();
+        fs.write_metadata();
+
+        let meta: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(cache_dir.join("meta.json")).unwrap())
+                .unwrap();
+        let renames = meta["dir_renames"].as_array().unwrap();
+        assert!(renames
+            .iter()
+            .any(|entry| entry["old_relpath"] == "runtime" && entry["new_relpath"] == "data"));
+        assert!(renames
+            .iter()
+            .any(|entry| entry["old_relpath"] == "runtime/postgres"
+                && entry["new_relpath"] == "data/mysql"));
+    }
+
+    #[test]
+    fn write_metadata_should_drop_directory_rename_when_path_returns_to_original_name() {
+        let state_dir = TempDir::new().unwrap();
+        let overlay_dir = state_dir.path().join("overlay");
+        let cache_dir = state_dir.path().join("cache-root");
+        fs::create_dir_all(overlay_dir.join("runtime")).unwrap();
+        fs::create_dir_all(cache_dir.join("cache")).unwrap();
+
+        let mut tree = InodeTree::new();
+        tree.add_dir_with_mode(ROOT_INODE, "runtime", 0o755);
+        let fs = LazyDvcFs::new(tree, overlay_dir, cache_dir.clone(), None);
+
+        fs.rename_impl(
+            ROOT_INODE,
+            OsStr::new("runtime"),
+            ROOT_INODE,
+            OsStr::new("data"),
+        )
+        .unwrap();
+        fs.rename_impl(
+            ROOT_INODE,
+            OsStr::new("data"),
+            ROOT_INODE,
+            OsStr::new("runtime"),
+        )
+        .unwrap();
+        fs.write_metadata();
+
+        let meta: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(cache_dir.join("meta.json")).unwrap())
+                .unwrap();
+        let renames = meta["dir_renames"].as_array().unwrap();
+        assert!(renames.is_empty());
+        let directories = meta["directories"].as_array().unwrap();
+        assert!(directories
+            .iter()
+            .any(|entry| entry["relpath"] == "runtime" && entry["mode"] == 0o755));
+    }
+
+    #[test]
     fn create_should_reject_non_utf8_names() {
         let state_dir = TempDir::new().unwrap();
         let overlay_dir = state_dir.path().join("overlay");
@@ -1936,7 +2619,12 @@ mod tests {
         let fs = LazyDvcFs::new(InodeTree::new(), overlay_dir, cache_dir, None);
 
         assert!(fs
-            .create_impl(ROOT_INODE, OsStr::from_bytes(b"\xff"), 0o644)
+            .create_impl(
+                ROOT_INODE,
+                OsStr::from_bytes(b"\xff"),
+                0o644,
+                libc::O_WRONLY
+            )
             .is_err());
     }
 
@@ -1951,7 +2639,7 @@ mod tests {
 
         for _ in 0..5 {
             let created = fs
-                .create_impl(ROOT_INODE, OsStr::new("temp.txt"), 0o644)
+                .create_impl(ROOT_INODE, OsStr::new("temp.txt"), 0o644, libc::O_WRONLY)
                 .unwrap();
             close_handle(&fs, created.fh);
             fs.unlink_impl(ROOT_INODE, OsStr::new("temp.txt")).unwrap();
@@ -1967,11 +2655,13 @@ mod tests {
     fn cache_entries_should_not_be_left_stale_after_rename() {
         let entries = vec![FileEntry {
             relpath: "file.txt".to_string(),
-            md5: "abcdef".to_string(),
+            md5: Some("abcdef".to_string()),
             size: 5,
             isexec: false,
             islink: false,
-            symlink_target: String::new(),
+            symlink_target: None,
+            isdir: false,
+            mode: None,
         }];
         let (fs, _state_dir, _inos) = build_fs(&entries, |_overlay, cache| {
             fs::write(cache.join("cache/file.txt"), b"hello").unwrap();
@@ -2004,19 +2694,23 @@ mod tests {
         let entries = vec![
             FileEntry {
                 relpath: "old.txt".to_string(),
-                md5: "abcdef".to_string(),
+                md5: Some("abcdef".to_string()),
                 size: 5,
                 isexec: false,
                 islink: false,
-                symlink_target: String::new(),
+                symlink_target: None,
+                isdir: false,
+                mode: None,
             },
             FileEntry {
                 relpath: "new.txt".to_string(),
-                md5: "123456".to_string(),
+                md5: Some("123456".to_string()),
                 size: 6,
                 isexec: false,
                 islink: false,
-                symlink_target: String::new(),
+                symlink_target: None,
+                isdir: false,
+                mode: None,
             },
         ];
         let (fs, _state_dir, _inos) = build_fs(&entries, |_overlay, cache| {
@@ -2045,19 +2739,23 @@ mod tests {
         let entries = vec![
             FileEntry {
                 relpath: "old.txt".to_string(),
-                md5: "abcdef".to_string(),
+                md5: Some("abcdef".to_string()),
                 size: 5,
                 isexec: false,
                 islink: false,
-                symlink_target: String::new(),
+                symlink_target: None,
+                isdir: false,
+                mode: None,
             },
             FileEntry {
                 relpath: "new.txt".to_string(),
-                md5: "123456".to_string(),
+                md5: Some("123456".to_string()),
                 size: 6,
                 isexec: false,
                 islink: false,
-                symlink_target: String::new(),
+                symlink_target: None,
+                isdir: false,
+                mode: None,
             },
         ];
         let (fs, _state_dir, _inos) = build_fs(&entries, |overlay, _cache| {
@@ -2137,13 +2835,44 @@ mod tests {
     fn rename_manifest_symlink_should_preserve_symlink_type() {
         let entries = vec![FileEntry {
             relpath: "link.txt".to_string(),
-            md5: String::new(),
+            md5: None,
             size: "target.txt".len() as u64,
             isexec: false,
             islink: true,
-            symlink_target: "target.txt".to_string(),
+            symlink_target: Some("target.txt".to_string()),
+            isdir: false,
+            mode: None,
         }];
         let (fs, _state_dir, _inos) = build_fs(&entries, |_overlay, _cache| {});
+
+        fs.rename_impl(
+            ROOT_INODE,
+            OsStr::new("link.txt"),
+            ROOT_INODE,
+            OsStr::new("renamed.txt"),
+        )
+        .unwrap();
+
+        let renamed = fs.overlay_path("renamed.txt");
+        assert!(renamed.symlink_metadata().unwrap().file_type().is_symlink());
+        assert_eq!(fs::read_link(renamed).unwrap(), Path::new("target.txt"));
+    }
+
+    #[test]
+    fn rename_manifest_symlink_without_target_should_use_cached_bytes() {
+        let entries = vec![FileEntry {
+            relpath: "link.txt".to_string(),
+            md5: Some("abcdef".to_string()),
+            size: "target.txt".len() as u64,
+            isexec: false,
+            islink: true,
+            symlink_target: None,
+            isdir: false,
+            mode: None,
+        }];
+        let (fs, _state_dir, _inos) = build_fs(&entries, |_overlay, cache| {
+            fs::write(cache.join("cache/link.txt"), b"target.txt").unwrap();
+        });
 
         fs.rename_impl(
             ROOT_INODE,
@@ -2162,11 +2891,13 @@ mod tests {
     fn link_impl_should_reuse_inode_for_manifest_file() {
         let entries = vec![FileEntry {
             relpath: "file.txt".to_string(),
-            md5: "abcdef".to_string(),
+            md5: Some("abcdef".to_string()),
             size: 5,
             isexec: false,
             islink: false,
-            symlink_target: String::new(),
+            symlink_target: None,
+            isdir: false,
+            mode: None,
         }];
         let (fs, _state_dir, inos) = build_fs(&entries, |_overlay, cache| {
             fs::write(cache.join("cache/file.txt"), b"hello").unwrap();
@@ -2296,7 +3027,7 @@ mod tests {
         let fs = LazyDvcFs::new(InodeTree::new(), overlay_dir, cache_dir, None);
 
         let created = fs
-            .create_impl(ROOT_INODE, OsStr::new("new.txt"), 0o644)
+            .create_impl(ROOT_INODE, OsStr::new("new.txt"), 0o644, libc::O_WRONLY)
             .unwrap();
         close_handle(&fs, created.fh);
 
@@ -2304,7 +3035,30 @@ mod tests {
         fs.unlink_impl(ROOT_INODE, OsStr::new("new.txt")).unwrap();
 
         assert!(!fs.created.lock().unwrap().contains("new.txt"));
-        assert!(fs.deleted.lock().unwrap().contains("new.txt"));
+        assert!(!fs.deleted.lock().unwrap().contains("new.txt"));
+    }
+
+    #[test]
+    fn unlink_manifest_file_should_add_to_deleted_tracking() {
+        let entries = vec![FileEntry {
+            relpath: "manifest.txt".to_string(),
+            md5: Some("abc".to_string()),
+            size: 5,
+            isexec: false,
+            islink: false,
+            symlink_target: None,
+            isdir: false,
+            mode: None,
+        }];
+        let (fs, _state_dir, _inos) = build_fs(&entries, |_overlay, cache| {
+            fs::write(cache.join("cache/abc"), b"hello").unwrap();
+        });
+
+        fs.unlink_impl(ROOT_INODE, OsStr::new("manifest.txt"))
+            .unwrap();
+
+        assert!(!fs.created.lock().unwrap().contains("manifest.txt"));
+        assert!(fs.deleted.lock().unwrap().contains("manifest.txt"));
     }
 
     #[test]
@@ -2394,11 +3148,13 @@ mod tests {
         }
         let entries = vec![FileEntry {
             relpath: "unknown.txt".to_string(),
-            md5: "abcdef".to_string(),
+            md5: Some("abcdef".to_string()),
             size: 0,
             isexec: false,
             islink: false,
-            symlink_target: String::new(),
+            symlink_target: None,
+            isdir: false,
+            mode: None,
         }];
         let (fs, state_dir, _inos) = build_fs(&entries, |_overlay, cache| {
             fs::write(cache.join("cache/unknown.txt"), b"hello world").unwrap();
@@ -2433,11 +3189,13 @@ mod tests {
         }
         let entries = vec![FileEntry {
             relpath: "child.txt".to_string(),
-            md5: "abcdef".to_string(),
+            md5: Some("abcdef".to_string()),
             size: 5,
             isexec: false,
             islink: false,
-            symlink_target: String::new(),
+            symlink_target: None,
+            isdir: false,
+            mode: None,
         }];
         let (fs, state_dir, _inos) = build_fs(&entries, |_overlay, cache| {
             fs::write(cache.join("cache/child.txt"), b"hello").unwrap();
@@ -2473,11 +3231,13 @@ mod tests {
         }
         let entries = vec![FileEntry {
             relpath: "dir/child.txt".to_string(),
-            md5: "abcdef".to_string(),
+            md5: Some("abcdef".to_string()),
             size: 5,
             isexec: false,
             islink: false,
-            symlink_target: String::new(),
+            symlink_target: None,
+            isdir: false,
+            mode: None,
         }];
         let (fs, state_dir, _inos) = build_fs(&entries, |_overlay, cache| {
             fs::create_dir_all(cache.join("cache/dir")).unwrap();
@@ -2510,11 +3270,13 @@ mod tests {
     fn read_impl_should_slice_data_and_return_eof_past_end() {
         let entries = vec![FileEntry {
             relpath: "file.txt".to_string(),
-            md5: "abcdef".to_string(),
+            md5: Some("abcdef".to_string()),
             size: 5,
             isexec: false,
             islink: false,
-            symlink_target: String::new(),
+            symlink_target: None,
+            isdir: false,
+            mode: None,
         }];
         let (fs, _state_dir, inos) = build_fs(&entries, |_overlay, cache| {
             fs::write(cache.join("cache/file.txt"), b"hello").unwrap();
@@ -2531,11 +3293,13 @@ mod tests {
     fn read_impl_should_hydrate_unknown_size_after_first_fetch() {
         let entries = vec![FileEntry {
             relpath: "unknown.txt".to_string(),
-            md5: "abcdef".to_string(),
+            md5: Some("abcdef".to_string()),
             size: 0,
             isexec: false,
             islink: false,
-            symlink_target: String::new(),
+            symlink_target: None,
+            isdir: false,
+            mode: None,
         }];
         let (fs, _state_dir, inos) = build_fs(&entries, |_overlay, cache| {
             fs::write(cache.join("cache/unknown.txt"), b"hello world").unwrap();
@@ -2711,11 +3475,13 @@ mod tests {
         }
         let entries = vec![FileEntry {
             relpath: "file.txt".to_string(),
-            md5: "abcdef".to_string(),
+            md5: Some("abcdef".to_string()),
             size: 5,
             isexec: false,
             islink: false,
-            symlink_target: String::new(),
+            symlink_target: None,
+            isdir: false,
+            mode: None,
         }];
         let (fs, state_dir, _inos) = build_fs(&entries, |_overlay, cache| {
             fs::write(cache.join("cache/file.txt"), b"hello").unwrap();
@@ -2738,5 +3504,107 @@ mod tests {
         buf.clear();
         file.read_to_string(&mut buf).unwrap();
         assert_eq!(buf, "hello");
+    }
+
+    #[test]
+    #[serial]
+    fn mount_append_should_succeed_for_manifest_file() {
+        if !fuse_available() {
+            return;
+        }
+        let entries = vec![FileEntry {
+            relpath: "file.txt".to_string(),
+            md5: Some("abcdef".to_string()),
+            size: 5,
+            isexec: false,
+            islink: false,
+            symlink_target: None,
+            isdir: false,
+            mode: None,
+        }];
+        let (fs, state_dir, _inos) = build_fs(&entries, |_overlay, cache| {
+            fs::write(cache.join("cache/file.txt"), b"hello").unwrap();
+        });
+        let mounted = MountedFs::mount(fs, state_dir);
+        mounted.wait_for("file.txt");
+
+        let mut file = std::fs::OpenOptions::new()
+            .append(true)
+            .open(mounted.path().join("file.txt"))
+            .unwrap();
+        file.write_all(b"!!").unwrap();
+        drop(file);
+
+        assert_eq!(
+            fs::read(mounted.path().join("file.txt")).unwrap(),
+            b"hello!!"
+        );
+    }
+
+    #[test]
+    fn mode_change_after_rename_materializes_at_new_path() {
+        let entries = vec![FileEntry {
+            relpath: "old.txt".to_string(),
+            md5: Some("abc123".to_string()),
+            size: 5,
+            isexec: false,
+            islink: false,
+            symlink_target: None,
+            isdir: false,
+            mode: None,
+        }];
+        let (fs, _state_dir, inos) = build_fs(&entries, |_overlay, cache| {
+            // Cache is stored by relpath, rename will move it from old.txt to new.txt
+            fs::write(cache.join("cache/old.txt"), b"hello").unwrap();
+        });
+        let ino = inos[0];
+
+        fs.rename_impl(
+            ROOT_INODE,
+            OsStr::new("old.txt"),
+            ROOT_INODE,
+            OsStr::new("new.txt"),
+        )
+        .unwrap();
+
+        fs.setattr_impl(ino, Some(0o755), None).unwrap();
+
+        let overlay_dir = fs.overlay_dir.clone();
+        assert!(
+            overlay_dir.join("new.txt").exists(),
+            "overlay should exist at new.txt"
+        );
+        assert!(
+            !overlay_dir.join("old.txt").exists(),
+            "overlay should NOT exist at old.txt"
+        );
+    }
+
+    #[test]
+    fn write_live_dir_renames_includes_deleted() {
+        let entries = vec![FileEntry {
+            relpath: "file.txt".to_string(),
+            md5: Some("abc".to_string()),
+            size: 5,
+            isexec: false,
+            islink: false,
+            symlink_target: None,
+            isdir: false,
+            mode: None,
+        }];
+        let (fs, _state_dir, _inos) = build_fs(&entries, |_overlay, cache| {
+            fs::write(cache.join("cache/abc"), b"hello").unwrap();
+        });
+
+        fs.unlink_impl(ROOT_INODE, OsStr::new("file.txt")).unwrap();
+
+        let live_path = fs.cache_dir.join("live-dir-renames.json");
+        let content = fs::read_to_string(&live_path).unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&content).unwrap();
+        let deleted = parsed["deleted"].as_array().unwrap();
+        assert!(
+            deleted.iter().any(|v| v.as_str() == Some("file.txt")),
+            "deleted array should contain file.txt"
+        );
     }
 }

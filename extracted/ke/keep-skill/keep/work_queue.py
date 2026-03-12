@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import threading
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -42,6 +43,7 @@ class WorkQueue:
     def __init__(self, db_path: Path) -> None:
         self._db_path = db_path
         self._conn: Optional[sqlite3.Connection] = None
+        self._lock = threading.Lock()
         self._init_db()
 
     @staticmethod
@@ -118,6 +120,8 @@ class WorkQueue:
                 """)
             except sqlite3.OperationalError:
                 pass
+        if "priority" not in columns:
+            _add("priority", "INTEGER NOT NULL DEFAULT 5")
 
     # ------------------------------------------------------------------
     # Enqueue
@@ -129,25 +133,30 @@ class WorkQueue:
         input_data: dict[str, Any],
         *,
         supersede_key: Optional[str] = None,
+        priority: int = 5,
     ) -> str:
         """Insert a new work item with status 'requested'.
 
+        ``priority`` controls processing order (0 = first, 9 = last).
+        Thread-safe: serializes access to the shared SQLite connection.
         Returns the work_id.
         """
         work_id = f"w_{uuid.uuid4().hex[:10]}"
         now = self._now()
         input_json = json.dumps(input_data, ensure_ascii=False, default=str)
-        self._conn.execute(
-            """
-            INSERT INTO continue_work(
-                work_id, flow_id, kind, status, input_json, output_contract_json,
-                result_json, attempt, created_at, updated_at, supersede_key
-            ) VALUES (?, ?, ?, 'requested', ?, '{}', NULL, 1, ?, ?, ?)
-            """,
-            (work_id, _DIRECT_FLOW_ID, kind, input_json, now, now, supersede_key),
-        )
-        if supersede_key:
-            self._supersede_prior(supersede_key, work_id)
+        pri = max(0, min(9, int(priority)))
+        with self._lock:
+            self._conn.execute(
+                """
+                INSERT INTO continue_work(
+                    work_id, flow_id, kind, status, input_json, output_contract_json,
+                    result_json, attempt, created_at, updated_at, supersede_key, priority
+                ) VALUES (?, ?, ?, 'requested', ?, '{}', NULL, 1, ?, ?, ?, ?)
+                """,
+                (work_id, _DIRECT_FLOW_ID, kind, input_json, now, now, supersede_key, pri),
+            )
+            if supersede_key:
+                self._supersede_prior(supersede_key, work_id)
         return work_id
 
     def _supersede_prior(self, supersede_key: str, keep_work_id: str) -> int:
@@ -199,7 +208,7 @@ class WorkQueue:
                   AND dead_lettered_at IS NULL
                   AND (retry_after IS NULL OR retry_after <= ?)
                   AND (claimed_by IS NULL OR lease_until IS NULL OR lease_until <= ?)
-                ORDER BY created_at ASC
+                ORDER BY priority ASC, created_at ASC
                 LIMIT ?
                 """,
                 (now, now, max(int(limit), 1)),
@@ -371,6 +380,14 @@ class WorkQueue:
             (supersede_key, work_id, created_at),
         ).fetchone()
         return row is not None
+
+    def purge(self) -> int:
+        """Delete all requested (unclaimed) work items. Returns count deleted."""
+        cur = self._conn.execute(
+            "DELETE FROM continue_work WHERE status = 'requested'"
+        )
+        self._conn.commit()
+        return cur.rowcount
 
     # ------------------------------------------------------------------
     # Lifecycle

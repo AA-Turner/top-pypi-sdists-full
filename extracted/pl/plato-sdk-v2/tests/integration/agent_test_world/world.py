@@ -11,6 +11,7 @@ world reads that file and reports pass/fail.
 
 from __future__ import annotations
 
+import base64
 import json
 import logging
 from pathlib import Path
@@ -91,7 +92,8 @@ You have access to MCP tools. Complete these tasks:
 
 1. Call the `get_secret_value` tool with key="alpha" and note the returned value.
 2. Call the `add_numbers` tool with a=17 and b=25 and note the returned sum.
-3. Write a JSON file at /workspace/result.json with exactly this structure:
+3. Read the image file at /workspace/fixture.png using your file-reading tools.
+4. Write a JSON file at /workspace/result.json with exactly this structure:
 
 ```json
 {
@@ -102,7 +104,12 @@ You have access to MCP tools. Complete these tasks:
 ```
 
 Do NOT include any extra keys. Write ONLY valid JSON (no markdown fences) to the file.
+Do the steps in order and do not batch all tool calls into a single message.
 """
+
+FIXTURE_PNG_BASE64 = (
+    "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFElEQVR42mP4z8DAAMIM////ZwAAHu8E/HMcU8wAAAAASUVORK5CYII="
+)
 
 
 class AgentTestWorldConfig(RunConfig):
@@ -139,6 +146,8 @@ class AgentTestWorld(BaseWorld[AgentTestWorldConfig]):
 
             self.logger.info(f"Running agent with MCP URL: {mcp_url}")
             code_ws = self.workspace("code")
+            fixture_path = Path(code_ws.path) / "fixture.png"
+            fixture_path.write_bytes(base64.b64decode(FIXTURE_PNG_BASE64))
             await self.agent(agent_cfg, workspaces=[code_ws]).run(
                 AGENT_INSTRUCTION,
             )

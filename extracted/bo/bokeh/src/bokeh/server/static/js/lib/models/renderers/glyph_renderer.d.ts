@@ -9,7 +9,7 @@ import type * as p from "../../core/properties";
 import type { HitTestResult } from "../../core/hittest";
 import type { Geometry } from "../../core/geometry";
 import type { SelectionManager } from "../../core/selection_manager";
-import type { IterViews } from "../../core/build_views";
+import type { View } from "../../core/build_views";
 import type { Context2d } from "../../core/util/canvas";
 import type { BBox } from "../../core/util/bbox";
 import { Decoration } from "../graphics/decoration";
@@ -24,7 +24,7 @@ export declare class GlyphRendererView extends DataRendererView {
     muted_glyph: GlyphView;
     decimated_glyph: GlyphView;
     get glyph_view(): GlyphView;
-    children(): IterViews;
+    children_views(): View[];
     protected all_indices: Indices;
     protected decimated: Indices;
     protected last_dtrender: number;
@@ -43,6 +43,7 @@ export declare class GlyphRendererView extends DataRendererView {
     get has_webgl(): boolean;
     protected _paint(ctx: Context2d): void;
     get_reference_point(field: string | null, value?: unknown): number;
+    _get_reference_point(field: string | null, value?: unknown): number | undefined | null;
     draw_legend(ctx: Context2d, x0: number, x1: number, y0: number, y1: number, field: string | null, label: unknown, index: number | null): void;
     hit_test(geometry: Geometry): HitTestResult;
 }

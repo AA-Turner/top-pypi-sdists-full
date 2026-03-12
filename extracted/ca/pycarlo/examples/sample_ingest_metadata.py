@@ -30,7 +30,7 @@ from pycarlo.features.ingestion.models import (
     Tag,
 )
 
-DEFAULT_ENDPOINT = "https://integrations.dev.getmontecarlo.com"
+DEFAULT_ENDPOINT = "https://integrations.getmontecarlo.com"
 
 
 def build_sample_events() -> list[RelationalAsset]:
@@ -38,30 +38,74 @@ def build_sample_events() -> list[RelationalAsset]:
         RelationalAsset(
             type="TABLE",
             metadata=AssetMetadata(
-                name="fede",
+                name="fede_10",
                 database="manual_ingestion",
                 schema="test",
                 description="Test table",
-                created_on="2026-01-15T00:00:00Z",
+                created_on="2026-03-06T00:00:00Z",
             ),
             tags=[
                 Tag(key="team", value="data-eng"),
                 Tag(key="pii", value="false"),
             ],
             fields=[
-                AssetField(name="id", type="INTEGER", description="Primary key"),
-                AssetField(name="customer_id", type="INTEGER", description="FK to customers"),
-                AssetField(name="amount", type="DECIMAL(10,2)"),
-                AssetField(name="status", type="VARCHAR(50)"),
-                AssetField(name="created_at", type="TIMESTAMP_NTZ"),
+                AssetField(name="event_id", type="VARCHAR(36)", description="Primary key"),
+                AssetField(name="event_type", type="VARCHAR(100)", description="FK to customers"),
+                AssetField(name="payload", type="VARIANT"),
+                AssetField(name="ingested_at", type="TIMESTAMP_NTZ"),
             ],
             volume=AssetVolume(row_count=1_500_000, byte_count=524_288_000),
             freshness=AssetFreshness(last_update_time="2026-03-02T14:30:00Z"),
         ),
         RelationalAsset(
+            type="TABLE",
+            metadata=AssetMetadata(
+                name="fede_11",
+                database="manual_ingestion",
+                schema="test",
+                description="Test table",
+                created_on="2026-03-06T11:12:00Z",
+            ),
+            tags=[
+                Tag(key="team", value="data-eng"),
+                Tag(key="pii", value="false"),
+            ],
+            fields=[
+                AssetField(name="event_id", type="VARCHAR(36)", description="Primary key"),
+                AssetField(name="event_type", type="VARCHAR(100)", description="FK to customers"),
+                AssetField(name="payload", type="VARIANT"),
+                AssetField(name="ingested_at", type="TIMESTAMP_NTZ"),
+            ],
+            volume=AssetVolume(row_count=1_500_000, byte_count=524_288_000),
+            freshness=AssetFreshness(last_update_time="2026-03-02T15:30:00Z"),
+        ),
+        RelationalAsset(
+            type="TABLE",
+            metadata=AssetMetadata(
+                name="fede_12",
+                database="manual_ingestion",
+                schema="test",
+                description="Test table",
+                created_on="2026-03-06T10:15:00Z",
+            ),
+            tags=[
+                Tag(key="team", value="data-eng"),
+                Tag(key="pii", value="false"),
+            ],
+            fields=[
+                AssetField(name="id", type="INTEGER"),
+                AssetField(name="customer_id", type="INTEGER"),
+                AssetField(name="amount", type="DECIMAL(10,2)"),
+                AssetField(name="status", type="VARCHAR(50)"),
+                AssetField(name="created_at", type="TIMESTAMP_NTZ"),
+            ],
+            volume=AssetVolume(row_count=1_500_000, byte_count=524_288_000),
+            freshness=AssetFreshness(last_update_time="2026-03-06T15:30:00Z"),
+        ),
+        RelationalAsset(
             type="VIEW",
             metadata=AssetMetadata(
-                name="fede_view",
+                name="fede_view_11",
                 database="manual_ingestion",
                 schema="test",
                 description="Test view",
@@ -125,7 +169,10 @@ def main():
             events=events,
         )
 
+    invocation_id = service.extract_invocation_id(result)
     print(f"Response: {json.dumps(result, indent=2) if result else '(empty)'}")
+    if invocation_id:
+        print(f"Invocation ID: {invocation_id}")
     print("Done.")
 
 

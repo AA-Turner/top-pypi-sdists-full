@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: formulas
-Version: 1.3.3
+Version: 1.3.4
 Summary: Parse and compile Excel formulas and workbooks in python code.
 Home-page: https://github.com/vinci1it2000/formulas
-Download-URL: https://github.com/vinci1it2000/formulas/tarball/v1.3.3
+Download-URL: https://github.com/vinci1it2000/formulas/tarball/v1.3.4
 Author: Vincenzo Arcidiacono
 Author-email: vinci1it2000@gmail.com
 License: EUPL 1.1+
@@ -37,6 +37,7 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Utilities
 License-File: LICENSE.txt
 License-File: AUTHORS.rst
+Requires-Dist: click
 Requires-Dist: regex
 Requires-Dist: schedula>=1.4.1
 Requires-Dist: numpy>=1.15
@@ -56,8 +57,18 @@ Requires-Dist: flask; extra == "plot"
 Requires-Dist: Pygments; extra == "plot"
 Requires-Dist: jinja2; extra == "plot"
 Requires-Dist: docutils; extra == "plot"
+Provides-Extra: cli
+Requires-Dist: openpyxl; extra == "cli"
+Requires-Dist: dictdiffer; extra == "cli"
+Requires-Dist: ezodf; extra == "cli"
+Requires-Dist: lxml; extra == "cli"
+Requires-Dist: click; extra == "cli"
+Requires-Dist: click_log; extra == "cli"
+Requires-Dist: flask; extra == "cli"
 Provides-Extra: all
 Requires-Dist: Pygments; extra == "all"
+Requires-Dist: click; extra == "all"
+Requires-Dist: click_log; extra == "all"
 Requires-Dist: dictdiffer; extra == "all"
 Requires-Dist: docutils; extra == "all"
 Requires-Dist: ezodf; extra == "all"
@@ -69,6 +80,8 @@ Requires-Dist: openpyxl; extra == "all"
 Requires-Dist: regex; extra == "all"
 Provides-Extra: dev
 Requires-Dist: Pygments; extra == "dev"
+Requires-Dist: click; extra == "dev"
+Requires-Dist: click_log; extra == "dev"
 Requires-Dist: dictdiffer; extra == "dev"
 Requires-Dist: docutils; extra == "dev"
 Requires-Dist: ezodf; extra == "dev"
@@ -88,6 +101,7 @@ Requires-Dist: sphinxcontrib-restbuilder; extra == "dev"
 Requires-Dist: coveralls; extra == "dev"
 Requires-Dist: ddt; extra == "dev"
 Requires-Dist: twine; extra == "dev"
+Requires-Dist: sphinx_click; extra == "dev"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -158,6 +172,58 @@ install the development version:
 .. code:: console
 
    $ pip install https://github.com/vinci1it2000/formulas/archive/dev.zip
+
+
+CLI Quickstart
+**************
+
+The *formulas* command-line interface works with spreadsheet models
+and accepts *.xlsx*, *.ods*, and *.json* inputs.
+
+A typical workflow starts by calculating a workbook. You can override
+input values directly from the command line and request specific cells
+to be rendered in the output.
+
+.. code:: console
+
+   $ formulas calc test/test_files/excel.xlsx \
+       --overwrite "'[excel.xlsx]'!INPUT_A=3" \
+       --overwrite "'[excel.xlsx]DATA'!B3=1" \
+       --render "'[excel.xlsx]DATA'!C2=result" \
+       --output-format json
+
+Spreadsheet models can also be converted into a portable JSON
+representation. This is useful when the model needs to be versioned,
+inspected, or executed without the original workbook.
+
+.. code:: console
+
+   $ formulas build test/test_files/excel.xlsx \
+       --output-file model.json
+
+For validation purposes, a workbook can be tested directly from the
+CLI. The following command runs the tests and prints a short summary.
+
+.. code:: console
+
+   $ formulas test test/test_files/excel.xlsx --summary
+
+Finally, a model can be exposed as a lightweight HTTP API, allowing
+other applications to execute it remotely. The *serve* command
+requires the optional web dependencies (*pip install formulas[web]*).
+
+.. code:: console
+
+   $ formulas serve test/test_files/excel.xlsx \
+       --host 127.0.0.1 \
+       --port 5000
+
+Each command provides additional options and examples through the
+built-in help system:
+
+.. code:: console
+
+   $ formulas COMMAND --help
 
 .. _end-quick:
 
@@ -357,3 +423,164 @@ following:
 >>> func = formulas.Parser().ast('=MYFUNC(1, 2)')[1].compile()
 >>> func()
 4
+
+
+Advanced Examples
+*****************
+
+Formulas can also be embedded as a calculation engine inside
+lightweight applications and automated workflows, without requiring
+Excel or another spreadsheet GUI.
+
+
+Minimal Flask integration
+=========================
+
+This example loads a workbook once, exposes it through a Flask
+application, and calls the JSON API through a test client.
+
+.. code:: python
+
+   from formulas.app import create_app
+
+   app = create_app(files=('test/test_files/excel.xlsx',), circular=False)
+   client = app.test_client()
+   response = client.post('/api/calculate', json={
+       'inputs': {
+           "'[excel.xlsx]'!INPUT_A": 3,
+           "'[excel.xlsx]DATA'!B3": 1,
+       },
+       'renders': ["'[excel.xlsx]DATA'!C2=result"],
+   })
+
+   assert response.status_code == 200
+   assert response.get_json()['outputs'] == {'result': 10.0}
+
+
+Batch automation
+================
+
+This example creates a temporary batch file and runs *formulas calc*
+over two scenarios.
+
+.. code:: python
+
+   import json
+   import subprocess
+   import sys
+   import tempfile
+   from pathlib import Path
+
+   with tempfile.TemporaryDirectory() as tmp:
+       batch = Path(tmp) / 'batch.json'
+       batch.write_text(json.dumps([
+           {
+               'name': 'base',
+               'overwrite': {
+                   "'[excel.xlsx]'!INPUT_A": 3,
+                   "'[excel.xlsx]DATA'!B3": 1,
+               },
+               'renders': ["'[excel.xlsx]DATA'!C2=result"],
+           },
+           {
+               'name': 'stress',
+               'overwrite': {
+                   "'[excel.xlsx]'!INPUT_A": 4,
+                   "'[excel.xlsx]DATA'!B3": 1,
+               },
+               'renders': ["'[excel.xlsx]DATA'!C2=result"],
+           },
+       ], indent=2))
+
+       result = subprocess.run([
+           sys.executable, '-m', 'formulas.cli', 'calc',
+           'test/test_files/excel.xlsx',
+           '--batch', str(batch),
+           '--processes', '2',
+           '--output-format', 'json',
+           '--output-dir', tmp,
+       ], capture_output=True, text=True, check=False)
+
+       assert result.returncode == 0, result.stderr
+       summary = json.loads(result.stdout)
+       assert [item['name'] for item in summary] == ['base', 'stress']
+
+
+ETL transformer
+===============
+
+This example treats a workbook as a transformation step over
+structured input records.
+
+.. code:: python
+
+   import formulas
+
+   model = formulas.ExcelModel().loads('test/test_files/excel.xlsx').finish()
+   func = model.compile(
+       inputs=["'[excel.xlsx]'!INPUT_A", "'[excel.xlsx]DATA'!B3"],
+       outputs=["'[excel.xlsx]DATA'!C2"],
+   )
+   records = [
+       {'id': 'row-1', 'input_a': 3, 'b3': 1},
+       {'id': 'row-2', 'input_a': 4, 'b3': 1},
+   ]
+   results = []
+
+   for record in records:
+       result, = func(record['input_a'], record['b3'])
+       results.append({
+           'id': record['id'],
+           'result': result.value[0, 0],
+       })
+
+   assert results == [
+       {'id': 'row-1', 'result': 10.0},
+       {'id': 'row-2', 'result': 11.0},
+   ]
+
+
+Excel Function Coverage
+***********************
+
+The current Excel function coverage is tracked in the test workbook
+*test/test_files/test.xlsx*, sheet *COVERAGE*. The table below
+summarizes the current implementation status by category.
+
++------------------+---------------+---------+------------+
+| Category         | Implemented   | Total   | Coverage   |
++==================+===============+=========+============+
+| AUTOMATION       | 0             | 3       | 0.0%       |
++------------------+---------------+---------+------------+
+| COMPATIBILITY    | 40            | 40      | 100.0%     |
++------------------+---------------+---------+------------+
+| CUBE             | 0             | 7       | 0.0%       |
++------------------+---------------+---------+------------+
+| DATABASE         | 0             | 12      | 0.0%       |
++------------------+---------------+---------+------------+
+| DATE & TIME      | 25            | 25      | 100.0%     |
++------------------+---------------+---------+------------+
+| ENGINEERING      | 54            | 54      | 100.0%     |
++------------------+---------------+---------+------------+
+| FINANCIAL        | 55            | 55      | 100.0%     |
++------------------+---------------+---------+------------+
+| INFORMATION      | 16            | 22      | 72.7%      |
++------------------+---------------+---------+------------+
+| LOGICAL          | 19            | 19      | 100.0%     |
++------------------+---------------+---------+------------+
+| LOOKUP           | 33            | 40      | 82.5%      |
++------------------+---------------+---------+------------+
+| MATH & TRIG      | 71            | 80      | 88.8%      |
++------------------+---------------+---------+------------+
+| STATISTICAL      | 111           | 111     | 100.0%     |
++------------------+---------------+---------+------------+
+| TEXT             | 44            | 50      | 88.0%      |
++------------------+---------------+---------+------------+
+| WEB              | 0             | 3       | 0.0%       |
++------------------+---------------+---------+------------+
+| OPERATORS        | 15            | 15      | 100.0%     |
++------------------+---------------+---------+------------+
+| TOTAL            | 483           | 536     | 90.1%      |
++------------------+---------------+---------+------------+
+
+Overall coverage is currently 483 out of 536 functions (90.1%).

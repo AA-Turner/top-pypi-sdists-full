@@ -1,34 +1,32 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: azure-mgmt-datafactory
-Version: 9.2.0
-Summary: Microsoft Azure Data Factory Management Client Library for Python
-Home-page: https://github.com/Azure/azure-sdk-for-python
-Author: Microsoft Corporation
-Author-email: azpysdkhelp@microsoft.com
-License: MIT License
+Version: 9.3.0
+Summary: Microsoft Azure Datafactory Management Client Library for Python
+Author-email: Microsoft Corporation <azpysdkhelp@microsoft.com>
+License-Expression: MIT
+Project-URL: repository, https://github.com/Azure/azure-sdk-for-python
 Keywords: azure,azure sdk
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Classifier: License :: OSI Approved :: MIT License
-Requires-Python: >=3.8
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: isodate>=0.6.1
+Requires-Dist: azure-mgmt-core>=1.6.0
 Requires-Dist: typing-extensions>=4.6.0
-Requires-Dist: azure-common>=1.1
-Requires-Dist: azure-mgmt-core>=1.3.2
+Dynamic: license-file
 
 # Microsoft Azure SDK for Python
 
 This is the Microsoft Azure Data Factory Management Client Library.
-This package has been tested with Python 3.8+.
+This package has been tested with Python 3.9+.
 For a more complete view of Azure libraries, see the [azure sdk python release](https://aka.ms/azsdk/python/all).
 
 ## _Disclaimer_
@@ -39,7 +37,7 @@ _Azure SDK Python packages support for Python 2.7 has ended 01 January 2022. For
 
 ### Prerequisites
 
-- Python 3.8+ is required to use this package.
+- Python 3.9+ is required to use this package.
 - [Azure subscription](https://azure.microsoft.com/free/)
 
 ### Install the package
@@ -51,7 +49,7 @@ pip install azure-identity
 
 ### Authentication
 
-By default, [Azure Active Directory](https://aka.ms/awps/aad) token authentication depends on correct configure of following environment variables.
+By default, [Azure Active Directory](https://aka.ms/awps/aad) token authentication depends on correct configuration of the following environment variables.
 
 - `AZURE_CLIENT_ID` for Azure client ID.
 - `AZURE_TENANT_ID` for Azure tenant ID.
@@ -87,8 +85,76 @@ If you encounter any bugs or have suggestions, please file an issue in the
 [Issues](https://github.com/Azure/azure-sdk-for-python/issues)
 section of the project. 
 
-
 # Release History
+
+## 9.3.0 (2026-03-10)
+
+### Features Added
+
+  - Model `DataFactoryManagementClient` added parameter `cloud_setting` in method `__init__`
+  - Client `DataFactoryManagementClient` added operation group `integration_runtime`
+  - Model `AmazonRdsForOracleLinkedService` added property `server`
+  - Model `AmazonRdsForOracleLinkedService` added property `authentication_type`
+  - Model `AmazonRdsForOracleLinkedService` added property `username`
+  - Model `AmazonRdsForOracleLinkedService` added property `encryption_client`
+  - Model `AmazonRdsForOracleLinkedService` added property `encryption_types_client`
+  - Model `AmazonRdsForOracleLinkedService` added property `crypto_checksum_client`
+  - Model `AmazonRdsForOracleLinkedService` added property `crypto_checksum_types_client`
+  - Model `AmazonRdsForOracleLinkedService` added property `initial_lob_fetch_size`
+  - Model `AmazonRdsForOracleLinkedService` added property `fetch_size`
+  - Model `AmazonRdsForOracleLinkedService` added property `statement_cache_size`
+  - Model `AmazonRdsForOracleLinkedService` added property `initialization_string`
+  - Model `AmazonRdsForOracleLinkedService` added property `enable_bulk_load`
+  - Model `AmazonRdsForOracleLinkedService` added property `support_v1_data_types`
+  - Model `AmazonRdsForOracleLinkedService` added property `fetch_tswtz_as_timestamp`
+  - Model `AmazonRdsForOracleSource` added property `number_precision`
+  - Model `AmazonRdsForOracleSource` added property `number_scale`
+  - Model `AzureDatabricksLinkedService` added property `data_security_mode`
+  - Model `HDInsightLinkedService` added property `cluster_auth_type`
+  - Model `HDInsightLinkedService` added property `credential`
+  - Model `HDInsightOnDemandLinkedService` added property `cluster_resource_group_auth_type`
+  - Model `HiveLinkedService` added property `enable_server_certificate_validation`
+  - Model `ImpalaLinkedService` added property `thrift_transport_protocol`
+  - Model `ImpalaLinkedService` added property `enable_server_certificate_validation`
+  - Model `JiraObjectDataset` added property `schema_type_properties_schema`
+  - Model `JiraObjectDataset` added property `table`
+  - Model `LakeHouseLinkedService` added property `authentication_type`
+  - Model `LakeHouseLinkedService` added property `credential`
+  - Model `LookupActivity` added property `treat_decimal_as_string`
+  - Model `ManagedIntegrationRuntime` added property `interactive_query`
+  - Model `NetezzaLinkedService` added property `server`
+  - Model `NetezzaLinkedService` added property `port`
+  - Model `NetezzaLinkedService` added property `uid`
+  - Model `NetezzaLinkedService` added property `database`
+  - Model `NetezzaLinkedService` added property `security_level`
+  - Model `Office365LinkedService` added property `service_principal_credential_type`
+  - Model `Office365LinkedService` added property `service_principal_embedded_cert`
+  - Model `Office365LinkedService` added property `service_principal_embedded_cert_password`
+  - Model `OracleSource` added property `number_precision`
+  - Model `OracleSource` added property `number_scale`
+  - Model `QuickBooksLinkedService` added property `refresh_token`
+  - Model `SalesforceV2Source` added property `partition_option`
+  - Model `ScriptActivity` added property `treat_decimal_as_string`
+  - Model `SnowflakeV2LinkedService` added property `role`
+  - Model `SnowflakeV2LinkedService` added property `schema`
+  - Model `SnowflakeV2LinkedService` added property `use_utc_timestamps`
+  - Model `SparkLinkedService` added property `enable_server_certificate_validation`
+  - Model `WarehouseLinkedService` added property `authentication_type`
+  - Model `WarehouseLinkedService` added property `credential`
+  - Added enum `AmazonRdsForOracleAuthenticationType`
+  - Added model `DatabricksJobActivity`
+  - Added model `EnableInteractiveQueryRequest`
+  - Added model `ErrorAdditionalInfo`
+  - Added model `ErrorDetail`
+  - Added model `ErrorResponse`
+  - Added enum `HDInsightClusterAuthenticationType`
+  - Added enum `HDInsightOndemandClusterResourceGroupAuthenticationType`
+  - Added enum `ImpalaThriftTransportProtocol`
+  - Added enum `InteractiveCapabilityStatus`
+  - Added model `InteractiveQueryProperties`
+  - Added enum `LakehouseAuthenticationType`
+  - Added enum `NetezzaSecurityLevelType`
+  - Added enum `WarehouseAuthenticationType`
 
 ## 9.2.0 (2025-04-20)
 

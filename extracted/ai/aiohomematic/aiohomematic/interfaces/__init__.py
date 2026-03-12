@@ -165,9 +165,8 @@ For explicit imports, use the submodules:
 - ``aiohomematic.interfaces.coordinators``: Coordinator-specific protocols
 """
 
-from __future__ import annotations
-
 from aiohomematic._log_context_protocol import LogContextProtocol
+from aiohomematic._payload_protocol import PayloadProtocol
 from aiohomematic.interfaces.central import (
     BackupProviderProtocol,
     CentralInfoProtocol,
@@ -360,6 +359,8 @@ __all__ = [
     "ClimateWeekProfileDataPointProtocol",
     "WeekProfileDataPointProtocol",
     "WeekProfileProtocol",
+    # Payload
+    "PayloadProtocol",
     # Task scheduling
     "TaskSchedulerProtocol",
     # Utility protocols

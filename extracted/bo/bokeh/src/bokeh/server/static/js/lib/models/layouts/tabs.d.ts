@@ -11,7 +11,8 @@ export declare class TabsView extends LayoutDOMView {
     model: Tabs;
     protected tooltip_views: ViewStorage<Tooltip>;
     protected header_el: HTMLElement;
-    protected header_els: HTMLElement[];
+    headers_wrapper_el: HTMLElement;
+    header_els: HTMLElement[];
     connect_signals(): void;
     lazy_initialize(): Promise<void>;
     stylesheets(): StyleSheetLike[];
@@ -30,6 +31,7 @@ export declare namespace Tabs {
         tabs: p.Property<TabPanel[]>;
         tabs_location: p.Property<Location>;
         active: p.Property<number>;
+        link_layouts: p.Property<boolean>;
     };
 }
 export interface Tabs extends Tabs.Attrs {

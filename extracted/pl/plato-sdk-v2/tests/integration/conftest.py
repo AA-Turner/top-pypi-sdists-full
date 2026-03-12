@@ -13,12 +13,17 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
+from dotenv import load_dotenv
 
 if TYPE_CHECKING:
     from plato.storage import RolloutStorage
 
 SDK_ROOT = Path(__file__).resolve().parents[2]
 PLATO_FUSE_ROOT = SDK_ROOT / "plato-fuse"
+CI_SESSION_BASE_TAG = "ci.test"
+
+# Load the nearest .env discovered from the current working directory.
+load_dotenv()
 
 
 # Skip tests that require PLATO_API_KEY
@@ -130,7 +135,7 @@ def build_plato_fuse_binary(max_glibc_version: tuple[int, int]) -> Path:
     return binary_path
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def plato_fuse_binary_dir(tmp_path_factory: pytest.TempPathFactory) -> Path:
     """Stage a source-built plato-fuse binary in a rsync-friendly directory."""
     staged_dir = tmp_path_factory.mktemp("plato-fuse-bin")

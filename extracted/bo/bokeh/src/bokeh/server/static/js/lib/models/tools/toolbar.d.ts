@@ -1,5 +1,5 @@
 import type { StyleSheetLike } from "../../core/dom";
-import type { ViewStorage, IterViews, ViewOf } from "../../core/build_views";
+import type { ViewStorage, View, ViewOf } from "../../core/build_views";
 import type * as p from "../../core/properties";
 import { UIElement, UIElementView } from "../ui/ui_element";
 import { Logo, Location, ToolName } from "../../core/enums";
@@ -27,7 +27,7 @@ export declare class ToolbarView extends UIElementView {
     get overflow_el(): HTMLElement;
     private _visible;
     get visible(): boolean;
-    children(): IterViews;
+    children_views(): View[];
     has_finished(): boolean;
     initialize(): void;
     lazy_initialize(): Promise<void>;

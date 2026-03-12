@@ -18,6 +18,7 @@ log = logging.getLogger(__name__)
 #-----------------------------------------------------------------------------
 
 # Standard library imports
+from dataclasses import dataclass
 from typing import (
     TYPE_CHECKING,
     Sequence,
@@ -35,7 +36,7 @@ from ..models.renderers import ContourRenderer, GlyphRenderer
 from ..models.sources import ColumnDataSource
 from ..palettes import interp_palette
 from ..plotting._renderer import _process_sequence_literals
-from ..util.dataclasses import dataclass, entries
+from ..util.dataclasses import entries
 
 if TYPE_CHECKING:
     from contourpy._contourpy import FillReturn_OuterOffset, LineReturn_ChunkCombinedNan
@@ -303,7 +304,7 @@ def _color(color: ContourColorOrPalette, n: int) -> ContourColor:
     if isinstance(color, dict):
         return _palette_from_collection(color, n)
 
-    if isinstance(color, Sequence) and not isinstance(color, bytes | str) and len(color) != n:
+    if isinstance(color, Sequence) and not isinstance(color, (bytes, str)) and len(color) != n:
         return interp_palette(color, n)
 
     return color

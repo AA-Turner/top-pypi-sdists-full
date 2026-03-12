@@ -1,6 +1,6 @@
-from enum import Enum
 from typing import Optional, Union
 
+from tapo.responses.child_device_list_power_strip_result.auto_off_status import AutoOffStatus
 from tapo.responses.device_info_result.default_plug_state import Custom, LastStates
 from tapo.responses.device_info_result.power_status import (
     ChargingStatus,
@@ -8,8 +8,9 @@ from tapo.responses.device_info_result.power_status import (
     OverheatStatus,
     PowerProtectionStatus,
 )
+from tapo.to_dict_ext import ToDictExt
 
-class PowerStripPlugEnergyMonitoringResult:
+class PowerStripPlugEnergyMonitoringResult(ToDictExt):
     """P304M and P316M power strip child plugs.
 
     Specific properties: `auto_off_remain_time`, `auto_off_status`,
@@ -50,14 +51,3 @@ class PowerStripPlugEnergyMonitoringResult:
     slot_number: int
     status_follow_edge: bool
     type: str
-
-    def to_dict(self) -> dict:
-        """Gets all the properties of this result as a dictionary.
-
-        Returns:
-            dict: The result as a dictionary.
-        """
-
-class AutoOffStatus(str, Enum):
-    On = "on"
-    Off = "off"

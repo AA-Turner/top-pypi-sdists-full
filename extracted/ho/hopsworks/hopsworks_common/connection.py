@@ -24,6 +24,7 @@ import sys
 import warnings
 import weakref
 
+from hopsworks_apigen import also_available_as
 from hopsworks_common import client, constants, usage, util, version
 from hopsworks_common.client.exceptions import RestAPIError
 from hopsworks_common.core import (
@@ -57,6 +58,7 @@ _hsfs_engine_type = None
 _logger = logging.getLogger(__name__)
 
 
+@also_available_as("hopsworks.connection.Connection")
 class Connection:
     """A hopsworks connection object.
 
@@ -102,8 +104,8 @@ class Connection:
             Possible options are `spark`, `python`, `training`, `spark-no-metastore`, or `spark-delta`.
             The default value, `None`, automatically selects the engine based on the environment:
 
-            - `spark`: Used if Spark is available and the connection is not to serverless Hopsworks, such as in Hopsworks or Databricks environments.
-            - `python`: Used in local Python environments or AWS SageMaker when Spark is not available or the connection is done to serverless Hopsworks.
+            - `spark`: Used if Spark is available and the connection is not to Hopsworks SaaS, such as in Hopsworks or Databricks environments.
+            - `python`: Used in local Python environments or AWS SageMaker when Spark is not available or the connection is done to Hopsworks SaaS.
             - `training`: Used when only feature store metadata is needed, such as for obtaining training dataset locations and label information during Hopsworks training experiments.
             - `spark-no-metastore`: Functions like "spark" but does not rely on the Hive metastore.
             - `spark-delta`: Minimizes dependencies further by avoiding both Hive metastore and HopsFS.
@@ -333,12 +335,12 @@ class Connection:
         finalizer = weakref.finalize(self, self.close)
         try:
             external = client.base.Client.REST_ENDPOINT not in os.environ
-            serverless = self._host == constants.HOSTS.APP_HOST
+            saas = self._host == constants.HOSTS.SAAS_HOST
             # determine engine, needed to init client
             if (
                 self._engine is None
                 and importlib.util.find_spec("pyspark")
-                and (not external or not serverless)
+                and (not external or not saas)
             ):
                 self._engine = "spark"
             elif self._engine is None:
@@ -520,8 +522,8 @@ class Connection:
                 Possible options are `spark`, `python`, `training`, `spark-no-metastore`, or `spark-delta`.
                 The default value, `None`, automatically selects the engine based on the environment:
 
-                - `spark`: Used if Spark is available and the connection is not to serverless Hopsworks, such as in Hopsworks or Databricks environments.
-                - `python`: Used in local Python environments or AWS SageMaker when Spark is not available or the connection is done to serverless Hopsworks.
+                - `spark`: Used if Spark is available and the connection is not to Hopsworks SaaS, such as in Hopsworks or Databricks environments.
+                - `python`: Used in local Python environments or AWS SageMaker when Spark is not available or the connection is done to Hopsworks SaaS.
                 - `training`: Used when only feature store metadata is needed, such as for obtaining training dataset locations and label information during Hopsworks training experiments.
                 - `spark-no-metastore`: Functions like "spark" but does not rely on the Hive metastore.
                 - `spark-delta`: Minimizes dependencies further by avoiding both Hive metastore and HopsFS.

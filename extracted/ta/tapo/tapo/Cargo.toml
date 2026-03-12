@@ -1,6 +1,6 @@
 [package]
 name = "tapo"
-version = "0.8.11"
+version = "0.8.12"
 edition = "2024"
 rust-version = "1.88"
 license = "MIT"
@@ -13,6 +13,7 @@ repository = "https://github.com/mihai-dinculescu/tapo"
 
 [features]
 default = []
+debug = []
 python = ["dep:pyo3"]
 
 [dependencies]
@@ -27,10 +28,10 @@ reqwest = { version = "0.13", default-features = false, features = ["cookies", "
 serde = { workspace = true, features = ["derive", "serde_derive"] }
 serde_json = { workspace = true }
 serde_with = "3.17"
-thiserror = "2.0"
+thiserror = { workspace = true }
 tokio = { workspace = true, features = ["sync"] }
 tokio-stream = "0.1"
-uuid = { version = "1.21", features = ["serde", "v4"] }
+uuid = { version = "1.22", features = ["serde", "v4"] }
 
 # security
 aes = "0.8"
@@ -38,7 +39,7 @@ base16ct = { version = "1.0", features = ["alloc"] }
 base64 = "0.22"
 cbc = { version = "0.1", features = ["alloc"] }
 rand = "0.10"
-rsa = { version = "0.10.0-rc.15", features = ["getrandom"] }
+rsa = { version = "0.10.0-rc.17", features = ["getrandom"] }
 sha1 = "0.10"
 sha2 = "0.10"
 

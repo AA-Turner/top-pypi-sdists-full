@@ -1272,3 +1272,132 @@ assert_type(x, int)
 assert_type(y, str)
 "#,
 );
+
+fn env_all_augassign_unresolvable() -> TestEnv {
+    let mut t = TestEnv::new();
+    t.add_with_path(
+        "pkg",
+        "pkg/__init__.py",
+        r#"
+from .sub import *
+"#,
+    );
+    t.add_with_path(
+        "pkg.sub",
+        "pkg/sub/__init__.py",
+        r#"
+from ._impl import *
+
+_extra_names = ["x"]
+__all__ = ["Base"]
+__all__ += _extra_names  # E: `__all__` could not be statically analyzed
+"#,
+    );
+    t.add_with_path(
+        "pkg.sub._impl",
+        "pkg/sub/_impl.py",
+        r#"
+class Base: ...
+x: int = 1
+y: str = "hello"
+"#,
+    );
+    t
+}
+
+testcase!(
+    test_all_augassign_unresolvable,
+    env_all_augassign_unresolvable(),
+    r#"
+from typing import assert_type
+import pkg
+# Since __all__ += variable is unresolvable, falls back to all public names,
+# which includes names from `from ._impl import *`.
+assert_type(pkg.x, int)
+assert_type(pkg.y, str)
+"#,
+);
+
+fn env_all_append_unresolvable() -> TestEnv {
+    TestEnv::one(
+        "foo",
+        r#"
+x: int = 1
+y: str = "hello"
+_name = "x"
+__all__ = ["y"]
+__all__.append(_name)  # E: `__all__` could not be statically analyzed
+"#,
+    )
+}
+
+testcase!(
+    test_all_append_unresolvable,
+    env_all_append_unresolvable(),
+    r#"
+from typing import assert_type
+from foo import *
+# Since __all__.append(variable) is unresolvable, falls back to all public names.
+assert_type(x, int)
+assert_type(y, str)
+"#,
+);
+
+fn env_all_relative_module_ref() -> TestEnv {
+    let mut t = TestEnv::new();
+    t.add_with_path(
+        "pkg",
+        "pkg/__init__.py",
+        r#"
+from .sub import *
+"#,
+    );
+    t.add_with_path(
+        "pkg.sub",
+        "pkg/sub/__init__.py",
+        r#"
+from . import _api
+from ._api import *
+__all__ = _api.__all__
+"#,
+    );
+    t.add_with_path(
+        "pkg.sub._api",
+        "pkg/sub/_api.py",
+        r#"
+__all__ = ["convolve", "medfilt"]
+def convolve(x: list[float]) -> list[float]: return x
+def medfilt(x: list[float]) -> list[float]: return x
+"#,
+    );
+    t
+}
+
+testcase!(
+    test_all_relative_module_ref,
+    env_all_relative_module_ref(),
+    r#"
+from typing import assert_type
+import pkg
+# __all__ = _api.__all__ should resolve _api to pkg.sub._api
+assert_type(pkg.convolve([1.0]), list[float])
+assert_type(pkg.medfilt([1.0]), list[float])
+"#,
+);
+
+fn env_relative_import_in_subdirectory() -> TestEnv {
+    let mut t = TestEnv::new();
+    t.add_with_path("test.foo", "test/foo.py", "from .foo2 import bar");
+    t.add_with_path("test.foo2", "test/foo2.py", "bar: int = 100");
+    t
+}
+
+testcase!(
+    test_relative_import_in_subdirectory,
+    env_relative_import_in_subdirectory(),
+    r#"
+from typing import assert_type
+from test.foo import bar
+assert_type(bar, int)
+"#,
+);

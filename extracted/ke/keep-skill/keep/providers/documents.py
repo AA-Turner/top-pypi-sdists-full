@@ -1,5 +1,6 @@
 """Document providers for fetching content from various URI schemes."""
 
+import tempfile
 from pathlib import Path
 
 from .base import Document, DocumentProvider, get_registry
@@ -57,13 +58,13 @@ class FileDocumentProvider:
         ".py": "text/x-python",
         ".js": "text/javascript",
         ".ts": "text/typescript",
-        ".json": "application/json",
+        ".json": "text/json",
         ".yaml": "text/yaml",
         ".yml": "text/yaml",
         ".html": "text/html",
         ".htm": "text/html",
         ".css": "text/css",
-        ".xml": "application/xml",
+        ".xml": "text/xml",
         ".rst": "text/x-rst",
         ".pdf": "application/pdf",
         # Office documents
@@ -91,6 +92,17 @@ class FileDocumentProvider:
         ".tif": "image/tiff",
         ".webp": "image/webp",
         ".svg": "image/svg+xml",
+        # Archives / binary (skip text extraction)
+        ".zip": "application/zip",
+        ".gz": "application/gzip",
+        ".tar": "application/x-tar",
+        ".7z": "application/x-7z-compressed",
+        ".rar": "application/x-rar-compressed",
+        ".bz2": "application/x-bzip2",
+        ".dmg": "application/x-apple-diskimage",
+        ".iso": "application/x-iso9660-image",
+        ".xls": "application/vnd.ms-excel",
+        ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     }
     
     def supports(self, uri: str) -> bool:
@@ -164,6 +176,9 @@ class FileDocumentProvider:
                 content, extracted_tags = self._extract_image_metadata(path)
                 # Signal that this image should be OCR'd in background
                 ocr_pages = [0]
+            elif content_type and not content_type.startswith("text/"):
+                # Binary file without a dedicated extractor — use filename only
+                content = f"[{path.name}]"
             else:
                 # Read as plain text
                 content = path.read_text(encoding="utf-8")
@@ -814,8 +829,6 @@ def _extract_via_file_provider(
 
     Returns (extracted_content, content_type).
     """
-    import tempfile
-
     ext = _EXTRACTABLE_TYPES.get(content_type) or _EXTRACTABLE_SUFFIXES.get(url_suffix, "")
 
     # Write inside home dir to satisfy FileDocumentProvider's path guard.
@@ -905,7 +918,7 @@ class HttpDocumentProvider:
         except ImportError:
             raise RuntimeError("HTTP document fetching requires 'requests' library")
 
-        from keep import __version__
+        from keep.types import user_agent
 
         # Follow redirects manually so each hop is validated against SSRF
         target = uri
@@ -913,7 +926,7 @@ class HttpDocumentProvider:
             resp = requests.get(
                 target,
                 timeout=self.timeout,
-                headers={"User-Agent": f"keep/{__version__}"},
+                headers={"User-Agent": user_agent()},
                 stream=True,
                 allow_redirects=False,
             )

@@ -1,11 +1,11 @@
-"""Stage 1b: HTML/XML charset declaration extraction."""
+"""Stage 1b: charset declaration extraction (HTML/XML/PEP 263)."""
 
 from __future__ import annotations
 
-import codecs
 import re
 
 from chardet.pipeline import DETERMINISTIC_CONFIDENCE, DetectionResult
+from chardet.registry import lookup_encoding
 
 _SCAN_LIMIT = 4096
 
@@ -19,32 +19,50 @@ _HTML4_CONTENT_TYPE_RE = re.compile(
     rb"""<meta[^>]+content\s*=\s*['"][^'"]*charset=([^\s'">;]+)""", re.IGNORECASE
 )
 
+# PEP 263: encoding declaration in the first two lines of a Python file.
+# https://peps.python.org/pep-0263/
+_PEP263_RE = re.compile(rb"^[ \t\f]*#.*?coding[:=][ \t]*([-\w.]+)", re.MULTILINE)
 
-def _normalize_encoding(name: bytes) -> str | None:
-    """Validate encoding name via codecs and return the lowercased original name.
 
-    We use ``codecs.lookup()`` to verify the encoding is recognized by Python,
-    but return the original (lowercased) name rather than the codec's canonical
-    name so that common aliases like ``iso-8859-1`` and ``windows-1252`` are
-    preserved as-is.
+def _detect_pep263(data: bytes) -> DetectionResult | None:
+    """Check the first two lines of *data* for a PEP 263 encoding declaration.
+
+    PEP 263 declarations (e.g. ``# -*- coding: utf-8 -*-``) are only valid
+    on line 1 or line 2 of a Python source file.
+
+    :param data: The raw byte data to scan.
+    :returns: A :class:`DetectionResult` with confidence 0.95, or ``None``.
     """
-    try:
-        text = name.decode("ascii").strip().lower()
-        codecs.lookup(text)  # validate only
-    except (LookupError, UnicodeDecodeError, ValueError):
+    # PEP 263 requires a '#' comment marker on line 1 or 2.
+    if b"#" not in data[:200]:
         return None
-    else:
-        return text
+    # Extract first two lines only.
+    first_two_lines = b"\n".join(data.split(b"\n", 2)[:2])
+    match = _PEP263_RE.search(first_two_lines)
+    if match:
+        try:
+            raw_name = match.group(1).decode("ascii").strip()
+        except (UnicodeDecodeError, ValueError):
+            return None
+        encoding = lookup_encoding(raw_name)
+        if encoding is not None and _validate_bytes(data, encoding):
+            return DetectionResult(
+                encoding=encoding,
+                confidence=DETERMINISTIC_CONFIDENCE,
+                language=None,
+            )
+    return None
 
 
 def detect_markup_charset(data: bytes) -> DetectionResult | None:
-    """Scan the first bytes of *data* for an HTML/XML charset declaration.
+    """Scan the first bytes of *data* for a charset declaration.
 
     Checks for:
 
     1. ``<?xml ... encoding="..."?>``
     2. ``<meta charset="...">``
     3. ``<meta http-equiv="Content-Type" content="...; charset=...">``
+    4. PEP 263 ``# -*- coding: ... -*-`` (first two lines only)
 
     :param data: The raw byte data to scan.
     :returns: A :class:`DetectionResult` with confidence 0.95, or ``None``.
@@ -57,7 +75,11 @@ def detect_markup_charset(data: bytes) -> DetectionResult | None:
     for pattern in (_XML_ENCODING_RE, _HTML5_CHARSET_RE, _HTML4_CONTENT_TYPE_RE):
         match = pattern.search(head)
         if match:
-            encoding = _normalize_encoding(match.group(1))
+            try:
+                raw_name = match.group(1).decode("ascii").strip()
+            except (UnicodeDecodeError, ValueError):
+                continue
+            encoding = lookup_encoding(raw_name)
             if encoding is not None and _validate_bytes(data, encoding):
                 return DetectionResult(
                     encoding=encoding,
@@ -65,7 +87,7 @@ def detect_markup_charset(data: bytes) -> DetectionResult | None:
                     language=None,
                 )
 
-    return None
+    return _detect_pep263(data)
 
 
 def _validate_bytes(data: bytes, encoding: str) -> bool:

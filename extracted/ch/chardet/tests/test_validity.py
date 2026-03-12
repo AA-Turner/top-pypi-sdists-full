@@ -19,7 +19,7 @@ def test_latin1_text_invalid_under_strict_multibyte():
     candidates = get_candidates(EncodingEra.ALL)
     valid = filter_by_validity(data, candidates)
     valid_names = {e.name for e in valid}
-    assert "iso-8859-1" in valid_names
+    assert "iso8859-1" in valid_names
 
 
 def test_shift_jis_text_valid_under_shift_jis():

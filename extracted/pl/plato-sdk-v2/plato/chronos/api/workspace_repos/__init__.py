@@ -15,9 +15,11 @@ from . import (
     list_workspace_repos,
     promote_workspace_branch,
     resolve_workspace_repo,
+    search_workspace_refs,
 )
 
 __all__ = [
+    "search_workspace_refs",
     "resolve_workspace_repo",
     "get_workspace_repo_credentials",
     "list_workspace_refs",

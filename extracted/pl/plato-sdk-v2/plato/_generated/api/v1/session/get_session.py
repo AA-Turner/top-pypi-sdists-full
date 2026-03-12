@@ -11,16 +11,11 @@ from plato._generated.errors import raise_for_status
 
 def _build_request_args(
     session_id: str,
-    include_images: bool | None = False,
     authorization: str | None = None,
     x_api_key: str | None = None,
 ) -> dict[str, Any]:
     """Build request arguments."""
     url = f"/api/v1/session/{session_id}"
-
-    params: dict[str, Any] = {}
-    if include_images is not None:
-        params["include_images"] = include_images
 
     headers: dict[str, str] = {}
     if authorization is not None:
@@ -31,7 +26,6 @@ def _build_request_args(
     return {
         "method": "GET",
         "url": url,
-        "params": params,
         "headers": headers,
     }
 
@@ -39,7 +33,6 @@ def _build_request_args(
 def sync(
     client: httpx.Client,
     session_id: str,
-    include_images: bool | None = False,
     authorization: str | None = None,
     x_api_key: str | None = None,
 ) -> Any:
@@ -47,7 +40,6 @@ def sync(
 
     request_args = _build_request_args(
         session_id=session_id,
-        include_images=include_images,
         authorization=authorization,
         x_api_key=x_api_key,
     )
@@ -60,7 +52,6 @@ def sync(
 async def asyncio(
     client: httpx.AsyncClient,
     session_id: str,
-    include_images: bool | None = False,
     authorization: str | None = None,
     x_api_key: str | None = None,
 ) -> Any:
@@ -68,7 +59,6 @@ async def asyncio(
 
     request_args = _build_request_args(
         session_id=session_id,
-        include_images=include_images,
         authorization=authorization,
         x_api_key=x_api_key,
     )

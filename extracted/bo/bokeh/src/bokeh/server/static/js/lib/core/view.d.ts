@@ -49,7 +49,9 @@ export declare abstract class View implements ISignalable, Equatable {
     get is_destroyed(): boolean;
     toString(): string;
     [equals](that: this, _cmp: Comparator): boolean;
+    /** @deprecated use children_views */
     children(): IterViews;
+    children_views(): View[];
     protected _has_finished: boolean;
     mark_finished(): void;
     /**

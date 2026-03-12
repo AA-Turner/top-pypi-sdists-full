@@ -82,7 +82,7 @@ async def _get_or_guess_protocol(
 
 
 async def _guess_protocol(
-    config: DeviceConnectConfiguration, session: aiohttp.ClientSession
+    config: DeviceConnectConfiguration, session: Optional[aiohttp.ClientSession] = None
 ) -> TapoProtocol:
     protocols = [
         PassthroughProtocol(config.credentials, config.url, session),
@@ -118,3 +118,5 @@ def _get_device_class_from_model_type(device_type: str) -> Type[TapoDevice]:
     elif device_type == "SMART.IPCAMERA":
         raise Exception(f"Device of type {device_type} not supported!")
     return TapoDevice
+
+

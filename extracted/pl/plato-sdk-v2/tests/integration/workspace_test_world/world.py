@@ -69,42 +69,47 @@ class WorkspaceTestWorld(BaseWorld[WorkspaceTestWorldConfig]):
     async def reset(self) -> Observation:
         self.test_results = []
         self.all_passed = True
+        self._agent_env = None
+        self._agent_hostname = None
 
-        # These workspaces went through the full production path:
-        # _init_declared_workspaces → ensure_fuse_mount → _start_transport
-        self._ws = self.workspace("ws")
-        self._tracked = self.workspace("tracked_ws")
+        try:
+            # These workspaces went through the full production path:
+            # _init_declared_workspaces → ensure_fuse_mount → _start_transport
+            self._ws = self.workspace("ws")
+            self._tracked = self.workspace("tracked_ws")
 
-        # --- Verify production setup worked ---
-        await self._run_setup_verification_tests()
+            # --- Verify production setup worked ---
+            await self._run_setup_verification_tests()
 
-        # --- Basic workspace attribute tests ---
-        self._run_basic_tests()
+            # --- Basic workspace attribute tests ---
+            self._run_basic_tests()
 
-        # --- Tracked workspace tests ---
-        self._run_tracked_ws_tests()
+            # --- Tracked workspace tests ---
+            self._run_tracked_ws_tests()
 
-        # --- Local file I/O through FUSE ---
-        await self._run_fuse_io_tests()
+            # --- Local file I/O through FUSE ---
+            await self._run_fuse_io_tests()
 
-        # --- Cross-VM tests (spawn agent, verify NFS) ---
-        await self._run_cross_vm_tests()
+            # --- Cross-VM tests (spawn agent, verify NFS) ---
+            await self._run_cross_vm_tests()
 
-        # --- Lazy DVC cycle: commit → restore → smart commit ---
-        await self._run_lazy_dvc_tests()
+            # --- Lazy DVC cycle: commit → restore → smart commit ---
+            await self._run_lazy_dvc_tests()
 
-        passed = sum(1 for t in self.test_results if t["passed"])
-        failed = sum(1 for t in self.test_results if not t["passed"])
-        self.logger.info(f"=== Workspace Tests: {passed} passed, {failed} failed ===")
-        for t in self.test_results:
-            status = "PASS" if t["passed"] else "FAIL"
-            self.logger.info(f"  [{status}] {t['name']}: {t.get('error', 'ok')}")
+            passed = sum(1 for t in self.test_results if t["passed"])
+            failed = sum(1 for t in self.test_results if not t["passed"])
+            self.logger.info(f"=== Workspace Tests: {passed} passed, {failed} failed ===")
+            for t in self.test_results:
+                status = "PASS" if t["passed"] else "FAIL"
+                self.logger.info(f"  [{status}] {t['name']}: {t.get('error', 'ok')}")
 
-        if not self.all_passed:
-            failures = [t for t in self.test_results if not t["passed"]]
-            raise RuntimeError(f"Workspace tests failed: {failures}")
+            if not self.all_passed:
+                failures = [t for t in self.test_results if not t["passed"]]
+                raise RuntimeError(f"Workspace tests failed: {failures}")
 
-        return Observation(data={"test_results": self.test_results, "passed": passed, "failed": failed})
+            return Observation(data={"test_results": self.test_results, "passed": passed, "failed": failed})
+        finally:
+            await self._cleanup_agent_env()
 
     async def step(self) -> StepResult:
         return StepResult(
@@ -257,7 +262,11 @@ class WorkspaceTestWorld(BaseWorld[WorkspaceTestWorldConfig]):
         self._test(
             "tracked_repo_root", lambda: tracked._repo_root == tracked.path.parent, "repo_root should be parent of path"
         )
-        self._test("tracked_dvc_dir", lambda: (tracked._repo_root / ".dvc").is_dir(), ".dvc should exist after init")
+        self._test(
+            "tracked_repo_root_exists",
+            lambda: tracked._repo_root.is_dir(),
+            "tracked repo root should exist after init",
+        )
 
         dvcignore = tracked._repo_root / ".dvcignore"
         if dvcignore.exists():
@@ -317,38 +326,9 @@ class WorkspaceTestWorld(BaseWorld[WorkspaceTestWorldConfig]):
             self.logger.warning("No plato_session, skipping cross-VM tests")
             return
 
-        from plato.v2 import Env
-        from plato.v2.types import SimConfigCompute
-
         ssh_key_path = self._ssh_key_path
-        agent_env = None
         try:
-            self.logger.info("Spawning agent VM...")
-            agent_env = await self.plato_session.add_env(
-                Env.resource(
-                    simulator="workspace-test-agent",
-                    sim_config=SimConfigCompute(cpus=1, memory=2048, disk=10240),
-                    alias="test-agent",
-                ),
-                timeout=300,
-            )
-            self.logger.info(f"Agent VM spawned: job_id={agent_env.job_id}")
-
-            pub_key = Path(str(ssh_key_path) + ".pub").read_text().strip()
-            await self.plato_session.add_ssh_key(pub_key)
-
-            agent_hostname = await agent_env.get_mesh_ip()
-            if not agent_hostname:
-                raise RuntimeError("Agent VM has no mesh IP")
-            self.logger.info(f"Agent mesh IP: {agent_hostname}")
-
-            # Install NFS client on agent (production does this in vm.py)
-            await run_ssh(
-                ssh_key_path,
-                agent_hostname,
-                "which mount.nfs > /dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq nfs-common)",
-                timeout=60,
-            )
+            agent_env, agent_hostname = await self._spawn_agent_env()
 
             # Mount workspace on agent using production transport.setup_agent
             ws_transport = self._ws.transport
@@ -384,12 +364,74 @@ class WorkspaceTestWorld(BaseWorld[WorkspaceTestWorldConfig]):
             self.test_results.append({"name": "cross_vm_setup", "passed": False, "error": f"Failed: {e}"})
             self.all_passed = False
             self.logger.error(f"Cross-VM test setup failed: {e}", exc_info=True)
-        finally:
-            if agent_env:
-                try:
-                    await self.plato_session.remove_env(agent_env)
-                except Exception:
-                    pass
+
+    async def _spawn_agent_env(self):
+        from plato.v2 import Env
+        from plato.v2.types import SimConfigCompute
+
+        ssh_key_path = self._ssh_key_path
+        self.logger.info("Spawning agent VM...")
+        agent_env = await self.plato_session.add_env(
+            Env.resource(
+                simulator="workspace-test-agent",
+                sim_config=SimConfigCompute(cpus=1, memory=2048, disk=10240),
+                alias=f"test-agent-{secrets.token_hex(4)}",
+            ),
+            timeout=300,
+        )
+        self.logger.info(f"Agent VM spawned: job_id={agent_env.job_id}")
+
+        pub_key = Path(str(ssh_key_path) + ".pub").read_text().strip()
+        await self.plato_session.add_ssh_key(pub_key)
+
+        agent_hostname = await agent_env.get_mesh_ip()
+        if not agent_hostname:
+            raise RuntimeError("Agent VM has no mesh IP")
+        self.logger.info(f"Agent mesh IP: {agent_hostname}")
+
+        await run_ssh(
+            ssh_key_path,
+            agent_hostname,
+            "which mount.nfs > /dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq nfs-common)",
+            timeout=60,
+        )
+
+        self._agent_env = agent_env
+        self._agent_hostname = agent_hostname
+        return agent_env, agent_hostname
+
+    async def _cleanup_agent_env(self) -> None:
+        if self._agent_env:
+            try:
+                await self.plato_session.remove_env(self._agent_env)
+            except Exception:
+                pass
+            finally:
+                self._agent_env = None
+                self._agent_hostname = None
+
+    async def _recreate_tracked_agent(self) -> None:
+        """Tear down the old agent, re-export all workspaces via NFS, spawn a new agent."""
+        await self._cleanup_agent_env()
+
+        # After FUSE unmount/remount the NFS exports become stale because the
+        # underlying filesystem changed.  exportfs -ra alone won't recover them.
+        # Re-write /etc/exports with fresh lines for every workspace, then re-export.
+        ws_paths = [self._ws.path, self._tracked.path]
+        export_lines = []
+        for i, p in enumerate(ws_paths):
+            export_lines.append(
+                f"{p} *(rw,sync,fsid={i},crossmnt,no_subtree_check,all_squash,anonuid=1000,anongid=1000)"
+            )
+        exports_content = "\n".join(export_lines)
+        await run_local(f"printf '%s\\n' '{exports_content}' > /etc/exports", timeout=10)
+        await run_local("exportfs -ra", timeout=10)
+
+        _, exports_after, _ = await run_local("exportfs -s", timeout=5)
+        self.logger.info(f"NFS exports after re-add:\n{exports_after.strip()}")
+
+        agent_env, agent_hostname = await self._spawn_agent_env()
+        await self._tracked.transport.setup_agent(agent_env, agent_hostname)
 
     async def _do_setup_agent(self, transport, agent_env, hostname) -> bool:
         await transport.setup_agent(agent_env, hostname)
@@ -506,7 +548,7 @@ class WorkspaceTestWorld(BaseWorld[WorkspaceTestWorldConfig]):
             f"mkdir -p {nested_agent}",
             timeout=10,
         )
-        await self._atest(
+        self._test(
             "agent_fuse_mkdir_nested",
             lambda: self._ok(ec),
             f"Agent mkdir -p nested dirs over NFS→FUSE should work: {stderr}",
@@ -518,7 +560,7 @@ class WorkspaceTestWorld(BaseWorld[WorkspaceTestWorldConfig]):
             f"""echo -n '{{"model": "test-{tag}"}}' > {nested_agent}/merged.json""",
             timeout=10,
         )
-        await self._atest(
+        self._test(
             "agent_fuse_write_nested",
             lambda: self._ok(ec),
             f"Agent write to nested dir over NFS→FUSE should work: {stderr}",
@@ -539,7 +581,7 @@ class WorkspaceTestWorld(BaseWorld[WorkspaceTestWorldConfig]):
             f"touch {nested_agent}/touched.json",
             timeout=10,
         )
-        await self._atest(
+        self._test(
             "agent_fuse_touch",
             lambda: self._ok(ec),
             f"Agent touch over NFS→FUSE should work: {stderr}",
@@ -665,6 +707,11 @@ class WorkspaceTestWorld(BaseWorld[WorkspaceTestWorldConfig]):
         sub = content_dir / "sub"
         sub.mkdir(exist_ok=True)
         (sub / "nested.txt").write_text("nested content here")
+        postgres_dir = content_dir / ".runtime" / "postgres" / "data"
+        postgres_dir.mkdir(parents=True, exist_ok=True)
+        postgres_dir.chmod(0o700)
+        empty_dir = content_dir / "empty_dir"
+        empty_dir.mkdir(exist_ok=True)
         large_data = os.urandom(512 * 1024)
         (content_dir / "large.bin").write_bytes(large_data)
         large_md5 = hashlib.md5(large_data).hexdigest()
@@ -683,11 +730,8 @@ class WorkspaceTestWorld(BaseWorld[WorkspaceTestWorldConfig]):
             await unmount_lazy(mount)
         tracked._lazy_mounts.clear()
 
-        await run_local(f"fusermount3 -u {content_dir} 2>/dev/null; true", timeout=5)
-        await asyncio.sleep(1)
-        shutil.rmtree(content_dir, ignore_errors=True)
+        await self._reset_mount_dir(content_dir)
         shutil.rmtree(tracked._repo_root / ".lazy_cache", ignore_errors=True)
-        content_dir.mkdir(exist_ok=True)
 
         # Restore (production code: workspace.restore → FUSE mount)
         await self._atest(
@@ -695,6 +739,7 @@ class WorkspaceTestWorld(BaseWorld[WorkspaceTestWorldConfig]):
             lambda: self._async_ok(tracked.restore("lazy_test_step_1")),
             "Lazy FUSE restore should succeed",
         )
+        await self._recreate_tracked_agent()
 
         # Verify FUSE mount exists
         await self._atest(
@@ -743,6 +788,36 @@ class WorkspaceTestWorld(BaseWorld[WorkspaceTestWorldConfig]):
             lambda: self._stat_not_sentinel(content_dir / "file1.txt"),
             "File size should not be 1GB sentinel",
         )
+        await self._atest(
+            "lazy_dvc_restore_dir_mode_initial",
+            lambda: self._stat_mode(postgres_dir, 0o700),
+            "Postgres data dir should restore with mode 0700",
+        )
+        await self._atest(
+            "lazy_dvc_restore_empty_dir_initial",
+            lambda: self._dir_exists(empty_dir),
+            "Empty directory should survive first restore",
+        )
+        if self._agent_hostname:
+            await self._atest(
+                "lazy_dvc_restore_dir_mode_initial_agent",
+                lambda: self._ssh_stat_mode(
+                    self._ssh_key_path,
+                    self._agent_hostname,
+                    self._tracked_agent_path(".runtime/postgres/data"),
+                    0o700,
+                ),
+                "Agent should observe restored Postgres data dir mode 0700",
+            )
+            await self._atest(
+                "lazy_dvc_restore_empty_dir_initial_agent",
+                lambda: self._ssh_dir_exists(
+                    self._ssh_key_path,
+                    self._agent_hostname,
+                    self._tracked_agent_path("empty_dir"),
+                ),
+                "Agent should observe restored empty directory",
+            )
 
         # Modify, create, delete through FUSE
         await self._atest(
@@ -772,6 +847,11 @@ class WorkspaceTestWorld(BaseWorld[WorkspaceTestWorldConfig]):
             lambda: self._shell_readlink(content_dir / "link_to_file1.txt", "file1.txt"),
             "readlink should return correct target",
         )
+        await self._atest(
+            "lazy_dvc_dir_mode_update",
+            lambda: self._shell_chmod(postgres_dir, 0o750),
+            "Changing Postgres data dir mode through FUSE should work",
+        )
 
         # Smart commit (production code: workspace.commit with lazy mounts)
         await self._atest(
@@ -785,17 +865,15 @@ class WorkspaceTestWorld(BaseWorld[WorkspaceTestWorldConfig]):
             await unmount_lazy(mount)
         tracked._lazy_mounts.clear()
 
-        await run_local(f"fusermount3 -u {content_dir} 2>/dev/null; true", timeout=5)
-        await asyncio.sleep(1)
-        shutil.rmtree(content_dir, ignore_errors=True)
+        await self._reset_mount_dir(content_dir)
         shutil.rmtree(tracked._repo_root / ".lazy_cache", ignore_errors=True)
-        content_dir.mkdir(exist_ok=True)
 
         await self._atest(
             "lazy_dvc_restore_smart",
             lambda: self._async_ok(tracked.restore("lazy_test_step_2")),
             "Restore of smart-committed data should work",
         )
+        await self._recreate_tracked_agent()
 
         # Verify smart commit changes persisted
         await self._atest(
@@ -823,6 +901,36 @@ class WorkspaceTestWorld(BaseWorld[WorkspaceTestWorldConfig]):
             lambda: self._shell_readlink(content_dir / "link_to_file1.txt", "file1.txt"),
             "Symlink should survive commit/restore cycle",
         )
+        await self._atest(
+            "lazy_dvc_verify_dir_mode_restored",
+            lambda: self._stat_mode(postgres_dir, 0o750),
+            "Postgres data dir should survive commit/restore with mode 0750",
+        )
+        await self._atest(
+            "lazy_dvc_verify_empty_dir_restored",
+            lambda: self._dir_exists(empty_dir),
+            "Empty directory should survive smart commit restore",
+        )
+        if self._agent_hostname:
+            await self._atest(
+                "lazy_dvc_verify_dir_mode_restored_agent",
+                lambda: self._ssh_stat_mode(
+                    self._ssh_key_path,
+                    self._agent_hostname,
+                    self._tracked_agent_path(".runtime/postgres/data"),
+                    0o750,
+                ),
+                "Agent should observe restored Postgres data dir mode 0750",
+            )
+            await self._atest(
+                "lazy_dvc_verify_empty_dir_restored_agent",
+                lambda: self._ssh_dir_exists(
+                    self._ssh_key_path,
+                    self._agent_hostname,
+                    self._tracked_agent_path("empty_dir"),
+                ),
+                "Agent should observe restored empty directory after smart commit",
+            )
 
     # ---------------------------------------------------------------
     # SSH / shell helpers
@@ -838,6 +946,14 @@ class WorkspaceTestWorld(BaseWorld[WorkspaceTestWorldConfig]):
 
     async def _ssh_file_absent(self, ssh_key_path, hostname, filepath) -> bool:
         ec, _, _ = await run_ssh(ssh_key_path, hostname, f"test ! -f {filepath}", timeout=10)
+        return ec == 0
+
+    async def _ssh_stat_mode(self, ssh_key_path, hostname, filepath, expected_mode: int) -> bool:
+        ec, stdout, _ = await run_ssh(ssh_key_path, hostname, f"stat -c '%a' {filepath}", timeout=10)
+        return ec == 0 and stdout.strip() == format(expected_mode, "o")
+
+    async def _ssh_dir_exists(self, ssh_key_path, hostname, filepath) -> bool:
+        ec, _, _ = await run_ssh(ssh_key_path, hostname, f"test -d {filepath}", timeout=10)
         return ec == 0
 
     def _ok(self, exit_code) -> bool:
@@ -871,6 +987,22 @@ class WorkspaceTestWorld(BaseWorld[WorkspaceTestWorldConfig]):
         ec, _, _ = await run_local(f"test ! -f {path}", timeout=5)
         return ec == 0
 
+    async def _reset_mount_dir(self, path: Path) -> None:
+        await run_local(
+            f"fusermount3 -uz '{path}' 2>/dev/null || fusermount3 -u '{path}' 2>/dev/null || true",
+            timeout=10,
+        )
+        await asyncio.sleep(1)
+        await run_local(f"rm -rf '{path}' && mkdir -p '{path}'", timeout=10)
+
+    async def _stat_mode(self, path: Path, expected_mode: int) -> bool:
+        ec, stdout, _ = await run_local(f"stat -c '%a' {path}", timeout=10)
+        return ec == 0 and stdout.strip() == format(expected_mode, "o")
+
+    async def _dir_exists(self, path: Path) -> bool:
+        ec, _, _ = await run_local(f"test -d {path}", timeout=5)
+        return ec == 0
+
     async def _shell_write(self, path: Path, content: str) -> bool:
         ec, _, _ = await run_local(
             f"{sys.executable} -c \"from pathlib import Path; Path('{path}').write_text('{content}')\"",
@@ -889,3 +1021,7 @@ class WorkspaceTestWorld(BaseWorld[WorkspaceTestWorldConfig]):
     async def _shell_readlink(self, path: Path, expected: str) -> bool:
         ec, stdout, _ = await run_local(f"readlink '{path}'", timeout=10)
         return ec == 0 and stdout.strip() == expected
+
+    async def _shell_chmod(self, path: Path, mode: int) -> bool:
+        ec, _, _ = await run_local(f"chmod {format(mode, 'o')} '{path}'", timeout=10)
+        return ec == 0

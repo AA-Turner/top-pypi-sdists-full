@@ -81,6 +81,32 @@ class MigrationCompilerUtil:
         return f"{safe_table}_{column_name}_{suffix}"
 
     @staticmethod
+    def _safe_table_identifier(table_name: str) -> str:
+        # Constraint names não aceitam '.' como separador de schema.
+        return table_name.replace(".", "_")
+
+    @staticmethod
+    def primary_key_constraint_name(table_name: str) -> str:
+        return f"{MigrationCompilerUtil._safe_table_identifier(table_name)}_pkey"
+
+    @staticmethod
+    def resolve_default_sql(
+        datatype: PropertyType, default_value: Any
+    ) -> tuple[str | None, bool]:
+        if default_value is None:
+            return None, False
+
+        # EDL legado usa "uuid.uuid4" como expressão Python.
+        # No SQL, convertemos para expressão PostgreSQL sem depender de extensões extras.
+        if isinstance(datatype, PrimitiveTypes) and datatype == PrimitiveTypes.UUID:
+            if isinstance(default_value, str):
+                normalized = default_value.strip().lower()
+                if normalized in {"uuid.uuid4", "uuid4", "uuid.uuid1", "uuid1"}:
+                    return "(md5(random()::text || clock_timestamp()::text)::uuid)", True
+
+        return MigrationCompilerUtil.quote_literal(default_value), False
+
+    @staticmethod
     def add_enum_check_constraint(
         table_name: str, column_name: str, values: list[Any]
     ) -> list[str]:
@@ -126,7 +152,10 @@ class MigrationCompilerUtil:
     def add_primary_key(
         table_name: str, column_names: list[str], constraint_name: str | None = None
     ) -> str:
-        constraint = constraint_name or f"{table_name}_pkey"
+        constraint = (
+            constraint_name
+            or MigrationCompilerUtil.primary_key_constraint_name(table_name)
+        )
         columns = ", ".join(column_names)
         return (
             f"ALTER TABLE {table_name} "
@@ -135,7 +164,10 @@ class MigrationCompilerUtil:
 
     @staticmethod
     def drop_primary_key(table_name: str, constraint_name: str | None = None) -> str:
-        constraint = constraint_name or f"{table_name}_pkey"
+        constraint = (
+            constraint_name
+            or MigrationCompilerUtil.primary_key_constraint_name(table_name)
+        )
         return f"ALTER TABLE {table_name} DROP CONSTRAINT IF EXISTS {constraint}"
 
     @staticmethod

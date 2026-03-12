@@ -1,7 +1,7 @@
 import { Renderer, RendererView } from "./renderer";
 import { UIElement } from "../ui/ui_element";
 import { DOMNode } from "../dom/dom_node";
-import type { ViewStorage, BuildResult, IterViews, ViewOf } from "../../core/build_views";
+import type { ViewStorage, BuildResult, View, ViewOf } from "../../core/build_views";
 import type * as p from "../../core/properties";
 import type { Context2d } from "../../core/util/canvas";
 export declare const ElementLike: import("../../core/kinds").Kinds.Or<[UIElement, DOMNode]>;
@@ -12,7 +12,7 @@ export declare abstract class CompositeRendererView extends RendererView {
     get renderer_views(): ViewOf<Renderer>[];
     protected readonly _element_views: ViewStorage<ElementLike>;
     get element_views(): ViewOf<ElementLike>[];
-    children(): IterViews;
+    children_views(): View[];
     lazy_initialize(): Promise<void>;
     protected readonly _computed_renderers: Renderer[];
     get computed_renderers(): Renderer[];

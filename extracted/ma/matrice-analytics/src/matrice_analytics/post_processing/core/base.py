@@ -748,8 +748,23 @@ class ProcessorRegistry:
         return self._processors.get(name)
     
     def get_use_case(self, category: str, name: str) -> Optional[Type[BaseUseCase]]:
-        """Get use case class by category and name."""
-        return self._use_cases.get(category, {}).get(name)
+        """Get use case class by category and name.
+        
+        Falls back to searching all categories if the exact category/name
+        pair is not found (handles category mismatches like general/footfall
+        when footfall is registered under retail).
+        """
+        result = self._use_cases.get(category, {}).get(name)
+        if result is not None:
+            return result
+        for cat, use_cases in self._use_cases.items():
+            if name in use_cases:
+                logger.warning(
+                    f"Use case '{name}' not found under '{category}', "
+                    f"found under '{cat}' instead"
+                )
+                return use_cases[name]
+        return None
     
     def list_processors(self) -> List[str]:
         """List all registered processors."""

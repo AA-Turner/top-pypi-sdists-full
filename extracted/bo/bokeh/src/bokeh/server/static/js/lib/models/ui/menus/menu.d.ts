@@ -4,13 +4,13 @@ import { DividerItem } from "./divider_item";
 import type * as p from "../../../core/properties";
 import type { XY } from "../../../core/util/bbox";
 import type { StyleSheetLike } from "../../../core/dom";
-import type { ViewStorage, IterViews } from "../../../core/build_views";
+import type { ViewStorage, View } from "../../../core/build_views";
 export declare const MenuItemLike: import("../../../core/kinds").Kinds.Or<[MenuItem, DividerItem, null]>;
 export type MenuItemLike = typeof MenuItemLike["__type__"];
 export declare class MenuView extends UIElementView {
     model: Menu;
     protected _menu_views: ViewStorage<Menu>;
-    children(): IterViews;
+    children_views(): View[];
     private _menu_items;
     get menu_items(): MenuItemLike[];
     protected _compute_menu_items(): MenuItemLike[];

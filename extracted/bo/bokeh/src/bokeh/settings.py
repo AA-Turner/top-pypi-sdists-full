@@ -118,6 +118,7 @@ log = logging.getLogger(__name__)
 
 # Standard library imports
 import os
+from enum import Enum, auto
 from os.path import join
 from pathlib import Path
 from typing import (
@@ -136,7 +137,6 @@ from typing import (
 import yaml
 
 # Bokeh imports
-from .util.deprecation import deprecated
 from .util.paths import bokehjs_path, server_path
 
 if TYPE_CHECKING:
@@ -223,7 +223,7 @@ def convert_str_seq(value: list[str] | str) -> list[str]:
         list[str]
 
     '''
-    if isinstance(value, list | tuple):
+    if isinstance(value, (list, tuple)):
         return value
 
     try:
@@ -347,6 +347,18 @@ Unset: TypeAlias = T | type[_Unset]
 def is_dev() -> bool:
     return convert_bool(os.environ.get("BOKEH_DEV", False))
 
+class SettingProvenance(Enum):
+    IMMEDIATE = auto()
+    USER_SET = auto()
+    CONFIG_OVERRIDE = auto()
+    ENV_VAR = auto()
+    CONFIG_USER = auto()
+    CONFIG_SYSTEM = auto()
+    DEV_DEFAULT = auto()
+    DEFAULT = auto()
+    GLOBAL_DEFAULT = auto()
+    NONE = auto()
+
 class PrioritizedSetting(Generic[T]):
     ''' Return a value for a global setting according to configuration precedence.
 
@@ -390,6 +402,51 @@ class PrioritizedSetting(Generic[T]):
         self._parent = None
         self._user_value = _Unset
 
+    def get_value_with_provenance(
+        self,
+        value: T | str | None = None,
+        default: Unset[T] = _Unset,
+    ) -> tuple[T, SettingProvenance]:
+        """Return the setting value and where it came from."""
+
+        # 7. immediate values
+        if value is not None:
+            return self._convert(value), SettingProvenance.IMMEDIATE
+
+        # 6. previously user-set value
+        if self._user_value is not _Unset:
+            return self._convert(self._user_value), SettingProvenance.USER_SET
+
+        # 5. user-named config file
+        if self._parent and self._name in self._parent.config_override:
+            return self._convert(self._parent.config_override[self._name]), SettingProvenance.CONFIG_OVERRIDE
+
+        # 4. environment variable
+        if self._env_var and self._env_var in os.environ:
+            return self._convert(os.environ[self._env_var]), SettingProvenance.ENV_VAR
+
+        # 3. local config file
+        if self._parent and self._name in self._parent.config_user:
+            return self._convert(self._parent.config_user[self._name]), SettingProvenance.CONFIG_USER
+
+        # 2. global config file
+        if self._parent and self._name in self._parent.config_system:
+            return self._convert(self._parent.config_system[self._name]), SettingProvenance.CONFIG_SYSTEM
+
+        # 1.5 (undocumented) dev defaults take precedence over other defaults
+        if is_dev() and self._dev_default is not _Unset:
+            return self._convert(self._dev_default), SettingProvenance.DEV_DEFAULT
+
+        # 1. local defaults
+        if default is not _Unset:
+            return self._convert(default), SettingProvenance.DEFAULT
+
+        # 0. global defaults
+        if self._default is not _Unset:
+            return self._convert(self._default), SettingProvenance.GLOBAL_DEFAULT
+
+        raise RuntimeError(f"No configured value found for setting {self._name!r}")
+
     def __call__(self, value: T | str | None = None, default: Unset[T] = _Unset) -> T:
         '''Return the setting value according to the standard precedence.
 
@@ -409,43 +466,8 @@ class PrioritizedSetting(Generic[T]):
             RuntimeError
         '''
 
-        # 7. immediate values
-        if value is not None:
-            return self._convert(value)
-
-        # 6. previously user-set value
-        if self._user_value is not _Unset:
-            return self._convert(self._user_value)
-
-        # 5. user-named config file
-        if self._parent and self._name in self._parent.config_override:
-            return self._convert(self._parent.config_override[self._name])
-
-        # 4. environment variable
-        if self._env_var and self._env_var in os.environ:
-            return self._convert(os.environ[self._env_var])
-
-        # 3. local config file
-        if self._parent and self._name in self._parent.config_user:
-            return self._convert(self._parent.config_user[self._name])
-
-        # 2. global config file
-        if self._parent and self._name in self._parent.config_system:
-            return self._convert(self._parent.config_system[self._name])
-
-        # 1.5 (undocumented) dev defaults take precedence over other defaults
-        if is_dev() and self._dev_default is not _Unset:
-            return self._convert(self._dev_default)
-
-        # 1. local defaults
-        if default is not _Unset:
-            return self._convert(default)
-
-        # 0. global defaults
-        if self._default is not _Unset:
-            return self._convert(self._default)
-
-        raise RuntimeError(f"No configured value found for setting {self._name!r}")
+        val, _ = self.get_value_with_provenance(value=value, default=default)
+        return val
 
     def __get__(self, instance: Any, owner: type[Any]) -> PrioritizedSetting[T]:
         return self
@@ -473,7 +495,7 @@ class PrioritizedSetting(Generic[T]):
         # are shared among all instances, it is usually not avised to store any
         # data directly on them. But in our case we only ever have one single
         # instance of a Settings object.
-        self._user_value = value  # lgtm [py/mutable-descriptor]
+        self._user_value = value
 
     def unset_value(self) -> None:
         ''' Unset the previous user value such that the priority is reset.
@@ -524,6 +546,28 @@ class PrioritizedSetting(Generic[T]):
     @property
     def is_set(self) -> bool:
         return self._user_value is not _Unset and self._user_value != self._default
+
+    @property
+    def current_provenance(self) -> SettingProvenance:
+        """Return where the current value came from."""
+        _, provenance = self.get_value_with_provenance()
+        return provenance
+
+    @property
+    def provenance_display(self) -> str:
+        """Return a readable description of provenance."""
+        provenance_map = {
+            SettingProvenance.IMMEDIATE: "Immediate",
+            SettingProvenance.USER_SET: "User-set",
+            SettingProvenance.CONFIG_OVERRIDE: "Config override file",
+            SettingProvenance.ENV_VAR: "Environment variable",
+            SettingProvenance.CONFIG_USER: "User config file",
+            SettingProvenance.CONFIG_SYSTEM: "System config file",
+            SettingProvenance.DEV_DEFAULT: "Dev default",
+            SettingProvenance.DEFAULT: "Explicit default",
+            SettingProvenance.GLOBAL_DEFAULT: "Global default",
+        }
+        return provenance_map[self.current_provenance]
 
 _config_user_locations: Sequence[Path] = (
     Path.home() / ".bokeh" / "bokeh.yaml",
@@ -599,14 +643,17 @@ class Settings:
     by Snap package manager; see https://snapcraft.io/).
     """)
 
-    compression_level: PrioritizedSetting[int] = PrioritizedSetting("compression_level", "BOKEH_COMPRESSION_LEVEL", default=9, convert=convert_compression, help="""
+    compression_level: PrioritizedSetting[int] = PrioritizedSetting("compression_level", "BOKEH_COMPRESSION_LEVEL", default=2, convert=convert_compression, help="""
     In contexts where array buffers are base64-encoded (e.g. to embed inside
     an HTML file), the buffer will first be compressed to save space.
 
-    Valid values are the standard gzip compression levels 0-9. A setting of 9
-    (the default) will result in the highest compression. A setting of 1 will
-    result in the least compression, but be faster. A setting of 0 will result
-    in no compression.
+    Valid values are the standard gzip compression levels 0-9:
+
+    * Level 9 will result in the highest compression.
+    * Level 1 will result in the least compression, but be faster.
+    * Level 0 will result in no compression.
+
+    The default is level 2.
     """)
 
     cookie_secret: PrioritizedSetting[str | None] = PrioritizedSetting("cookie_secret", "BOKEH_COOKIE_SECRET", default=None, help="""
@@ -808,6 +855,8 @@ class Settings:
         .. deprecated:: 3.4.0
             Use ``bokehjs_path()`` method instead.
         '''
+        from .util.deprecation import deprecated
+
         deprecated((3, 4, 0), "bokehjsdir()", "bokehjs_path() method")
         return str(self.bokehjs_path())
 
@@ -879,9 +928,11 @@ settings = Settings()
 _secret_key = settings.secret_key()
 if _secret_key is not None and len(_secret_key) < 32:
     from .util.warnings import warn
+
     warn("BOKEH_SECRET_KEY is recommended to have at least 32 bytes of entropy chosen with a cryptographically-random algorithm")
 del _secret_key
 
 if settings.sign_sessions() and settings.secret_key() is None:
     from .util.warnings import warn
+
     warn("BOKEH_SECRET_KEY must be set if BOKEH_SIGN_SESSIONS is set to True")

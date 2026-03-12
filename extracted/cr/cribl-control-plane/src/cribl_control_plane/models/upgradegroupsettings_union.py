@@ -40,7 +40,7 @@ class UpgradeGroupSettings1(BaseModel):
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
-            val = serialized.get(k)
+            val = serialized.get(k, serialized.get(n))
 
             if val != UNSET_SENTINEL:
                 if val is not None or k not in optional_fields:
@@ -58,3 +58,9 @@ UpgradeGroupSettingsUnionTypedDict = TypeAliasType(
 UpgradeGroupSettingsUnion = TypeAliasType(
     "UpgradeGroupSettingsUnion", Union[UpgradeGroupSettings2, UpgradeGroupSettings1]
 )
+
+
+try:
+    UpgradeGroupSettings1.model_rebuild()
+except NameError:
+    pass

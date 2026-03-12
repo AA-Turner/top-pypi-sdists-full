@@ -52,6 +52,7 @@ __all__ = (
     "ListEventStreamsPaginatorName",
     "ListEventTriggersPaginatorName",
     "ListObjectTypeAttributesPaginatorName",
+    "ListRecommenderFiltersPaginatorName",
     "ListRecommenderRecipesPaginatorName",
     "ListRecommendersPaginatorName",
     "ListRuleBasedMatchesPaginatorName",
@@ -70,6 +71,7 @@ __all__ = (
     "QueryResultType",
     "RangeUnitType",
     "ReadinessStatusType",
+    "RecommenderFilterStatusType",
     "RecommenderRecipeNameType",
     "RecommenderStatusType",
     "RegionName",
@@ -197,6 +199,7 @@ ListDomainObjectTypesPaginatorName = Literal["list_domain_object_types"]
 ListEventStreamsPaginatorName = Literal["list_event_streams"]
 ListEventTriggersPaginatorName = Literal["list_event_triggers"]
 ListObjectTypeAttributesPaginatorName = Literal["list_object_type_attributes"]
+ListRecommenderFiltersPaginatorName = Literal["list_recommender_filters"]
 ListRecommenderRecipesPaginatorName = Literal["list_recommender_recipes"]
 ListRecommendersPaginatorName = Literal["list_recommenders"]
 ListRuleBasedMatchesPaginatorName = Literal["list_rule_based_matches"]
@@ -246,8 +249,10 @@ ProfileTypeType = Literal["ACCOUNT_PROFILE", "PROFILE"]
 QueryResultType = Literal["ABSENT", "PRESENT"]
 RangeUnitType = Literal["DAYS"]
 ReadinessStatusType = Literal["COMPLETED", "FAILED", "IN_PROGRESS", "PREPARING"]
+RecommenderFilterStatusType = Literal["ACTIVE", "DELETING", "FAILED", "IN_PROGRESS", "PENDING"]
 RecommenderRecipeNameType = Literal[
     "frequently-paired-items",
+    "personalized-ranking",
     "popular-items",
     "recommended-for-you",
     "similar-items",
@@ -760,6 +765,7 @@ ServiceName = Literal[
     "signer",
     "signer-data",
     "signin",
+    "simpledbv2",
     "simspaceweaver",
     "snow-device-management",
     "snowball",
@@ -821,6 +827,7 @@ PaginatorName = Literal[
     "list_event_streams",
     "list_event_triggers",
     "list_object_type_attributes",
+    "list_recommender_filters",
     "list_recommender_recipes",
     "list_recommenders",
     "list_rule_based_matches",

@@ -2,23 +2,32 @@
 
 import abc
 import logging
+import warnings
 from typing import Any
 
 import attr
+import numpy
 from morecantile import TileMatrixSet
 from pydantic import BaseModel, ConfigDict, Field
 from rasterio.crs import CRS
+from rasterio.errors import NotGeoreferencedWarning
 from rasterio.features import bounds as featureBounds
-from rasterio.features import geometry_mask
+from rasterio.features import rasterize
+from rasterio.warp import transform_geom
 
 from rio_tiler.constants import WEB_MERCATOR_TMS, WGS84_CRS
 from rio_tiler.errors import NoAssetFoundError, PointOutsideBounds
-from rio_tiler.io import BaseReader, MultiBandReader, MultiBaseReader, Reader
+from rio_tiler.io import BaseReader, MultiBaseReader, Reader
 from rio_tiler.models import BandStatistics, ImageData, PointData
 from rio_tiler.mosaic import mosaic_reader
 from rio_tiler.tasks import multi_values_list
 from rio_tiler.types import BBox
-from rio_tiler.utils import CRS_to_uri, Timer, _validate_shape_input
+from rio_tiler.utils import (
+    CRS_to_uri,
+    Timer,
+    _validate_shape_input,
+    inherit_rasterio_env,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -51,9 +60,7 @@ class BaseBackend(BaseReader):
     input: str = attr.ib()
     tms: TileMatrixSet = attr.ib(default=WEB_MERCATOR_TMS)
 
-    reader: type[BaseReader] | type[MultiBaseReader] | type[MultiBandReader] = attr.ib(
-        default=Reader
-    )
+    reader: type[BaseReader] | type[MultiBaseReader] = attr.ib(default=Reader)
     reader_options: dict = attr.ib(factory=dict)
 
     bounds: BBox = attr.ib(init=False)
@@ -115,6 +122,7 @@ class BaseBackend(BaseReader):
         if not mosaic_assets:
             raise NoAssetFoundError(f"No assets found for point ({lon},{lat})")
 
+        @inherit_rasterio_env
         def _reader(
             asset: Any, lon: float, lat: float, coord_crs: CRS, **kwargs
         ) -> PointData:
@@ -152,6 +160,7 @@ class BaseBackend(BaseReader):
         if not mosaic_assets:
             raise NoAssetFoundError(f"No assets found for tile {z}-{x}-{y}")
 
+        @inherit_rasterio_env
         def _reader(asset: Any, x: int, y: int, z: int, **kwargs: Any) -> ImageData:
             with self.reader(asset, tms=self.tms, **self.reader_options) as src_dst:
                 return src_dst.tile(x, y, z, **kwargs)
@@ -193,6 +202,7 @@ class BaseBackend(BaseReader):
         if not mosaic_assets:
             raise NoAssetFoundError("No assets found for bbox input")
 
+        @inherit_rasterio_env
         def _reader(asset: Any, bbox: BBox, bounds_crs: CRS, **kwargs: Any) -> ImageData:
             with self.reader(asset, **self.reader_options) as src_dst:
                 return src_dst.part(bbox, bounds_crs=bounds_crs, **kwargs)
@@ -214,20 +224,47 @@ class BaseBackend(BaseReader):
         self,
         shape: dict,
         shape_crs: CRS = WGS84_CRS,
+        dst_crs: CRS | None = None,
         search_options: dict | None = None,
         **kwargs: Any,
     ) -> tuple[ImageData, list[str]]:
         """Create an Image from multiple assets for a GeoJSON feature."""
         shape = _validate_shape_input(shape)
+
+        if not dst_crs:
+            dst_crs = shape_crs
+
         bbox = featureBounds(shape)
 
         img, asset_used = self.part(
             bbox,
             bounds_crs=shape_crs,
+            dst_crs=dst_crs,
             search_options=search_options,
             **kwargs,
         )
-        img.array.mask = geometry_mask([shape], (img.height, img.width), img.transform)
+
+        if dst_crs != shape_crs:
+            shape = transform_geom(shape_crs, dst_crs, shape)
+
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore",
+                category=NotGeoreferencedWarning,
+                module="rasterio",
+            )
+            cutline_mask = rasterize(
+                [shape],
+                out_shape=(img.height, img.width),
+                transform=img.transform,
+                all_touched=True,  # Mandatory for matching masks at different resolutions
+                default_value=0,
+                fill=1,
+                dtype="uint8",
+            ).astype("bool")
+
+        img.array.mask = numpy.where(~cutline_mask, img.array.mask, True)
+
         return img, asset_used
 
     ############################################################################

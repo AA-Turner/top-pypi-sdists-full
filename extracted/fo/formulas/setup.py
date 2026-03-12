@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: UTF-8 -*-
 #
-# Copyright 2016-2025 European Commission (JRC);
+# Copyright 2016-2026 European Commission (JRC);
 # Licensed under the EUPL (the 'Licence');
 # You may not use this work except in compliance with the Licence.
 # You may obtain a copy of the Licence at: http://ec.europa.eu/idabc/eupl
@@ -85,11 +85,12 @@ if __name__ == '__main__':
         'plot': ['graphviz', 'regex', 'flask', 'Pygments', 'jinja2', 'docutils']
     }
     # noinspection PyTypeChecker
+    extras['cli'] = extras['excel'] + ['click', 'click_log', 'flask']
     extras['all'] = sorted(functools.reduce(set.union, extras.values(), set()))
     extras['dev'] = extras['all'] + [
         'wheel', 'sphinx>=7.2', 'gitchangelog', 'mako', 'sphinx_rtd_theme',
         'setuptools>=36.0.1', 'sphinxcontrib-restbuilder', 'coveralls', 'ddt',
-        'twine'
+        'twine', 'sphinx_click'
     ]
 
     setup(
@@ -140,9 +141,11 @@ if __name__ == '__main__':
             "Topic :: Utilities",
         ],
         package_data={
-            'formulas.functions': ['*.json']
+            'formulas.functions': ['*.json'],
+            'formulas.gui': ['*']
         },
         install_requires=[
+            'click',
             'regex',
             'schedula>=1.4.1',
             'numpy>=1.15',
@@ -152,5 +155,8 @@ if __name__ == '__main__':
             'tqdm'
         ],
         extras_require=extras,
-        tests_require=['ddt', 'dill', 'openpyxl']
+        tests_require=['ddt', 'dill', 'openpyxl', 'click'],
+        entry_points={
+            'console_scripts': ['formulas=formulas.cli:cli']
+        }
     )

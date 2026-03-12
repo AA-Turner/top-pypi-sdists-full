@@ -3,13 +3,13 @@
 # sage_conf is needed for library name of the flint library.
 requires = [
     'setuptools >= 77.0.0',
-    'passagemath-setup ~= 10.8.1.0',
-    'passagemath-conf ~= 10.8.1.0 ; sys_platform != "win32"',
+    'passagemath-setup ~= 10.8.2.0',
+    'passagemath-conf ~= 10.8.2.0 ; sys_platform != "win32"',
     'numpy >=1.25', 'numpy >=2.2.4',
-    'passagemath-environment ~= 10.8.1.0',
-    'passagemath-categories ~= 10.8.1.0',
-    'passagemath-modules ~= 10.8.1.0',
-    'passagemath-ntl ~= 10.8.1.0',
+    'passagemath-environment ~= 10.8.2.0',
+    'passagemath-categories ~= 10.8.2.0',
+    'passagemath-modules ~= 10.8.2.0',
+    'passagemath-ntl ~= 10.8.2.0',
     'cython >=3.1.0,<3.3.0',
     'gmpy2 ~=2.1.b999', 'gmpy2 ~=2.3.b1; sys_platform == "win32"',
     'cysignals !=1.12.4; sys_platform == "win32"', 'cysignals >=1.11.2, != 1.12.0',
@@ -21,8 +21,8 @@ build-backend = "setuptools.build_meta"
 name = "passagemath-flint"
 description = "passagemath: Fast computations with MPFI and FLINT"
 dependencies = [
-    'passagemath-categories ~= 10.8.1.0',
-    'passagemath-ntl ~= 10.8.1.0',
+    'passagemath-categories ~= 10.8.2.0',
+    'passagemath-ntl ~= 10.8.2.0',
     'numpy >=1.25', 'numpy >=2.2.4',
 ]
 dynamic = ["version"]

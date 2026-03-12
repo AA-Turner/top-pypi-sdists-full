@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: arize-phoenix-client
-Version: 1.31.0
+Version: 2.0.0
 Summary: LLM Observability
 Project-URL: Documentation, https://arize.com/docs/phoenix/
 Project-URL: Issues, https://github.com/Arize-ai/phoenix/issues
@@ -11,12 +11,11 @@ License-File: IP_NOTICE
 License-File: LICENSE
 Keywords: Explainability,Monitoring,Observability
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: <3.14,>=3.9
+Requires-Python: <3.14,>=3.10
 Requires-Dist: httpx
 Requires-Dist: openinference-instrumentation>=0.1.20
 Requires-Dist: openinference-semantic-conventions
@@ -268,7 +267,7 @@ from phoenix.client import Client
 client = Client()
 
 # Add a single annotation with human feedback
-client.annotations.add_span_annotation(
+client.spans.add_span_annotation(
     span_id="span-123",
     annotation_name="helpfulness",
     annotator_kind="HUMAN",
@@ -292,7 +291,7 @@ annotations = [
         "result": {"label": "accurate", "score": 0.95}
     },
 ]
-client.annotations.log_span_annotations(span_annotations=annotations)
+client.spans.log_span_annotations(span_annotations=annotations)
 ```
 
 ### Projects

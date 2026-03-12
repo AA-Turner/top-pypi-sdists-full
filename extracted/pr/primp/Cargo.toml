@@ -3,7 +3,7 @@ resolver = "2"
 members = ["crates/primp", "crates/primp-python"]
 
 [workspace.package]
-version = "1.1.2"
+version = "1.1.3"
 edition = "2021"
 rust-version = "1.70"
 license = "MIT OR Apache-2.0"

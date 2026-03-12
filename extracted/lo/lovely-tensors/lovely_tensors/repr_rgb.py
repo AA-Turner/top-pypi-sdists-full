@@ -10,7 +10,7 @@ from matplotlib import axes, figure
 from PIL import Image
 import torch
 
-from lovely_numpy.utils.utils import cached_property
+from functools import cached_property
 from lovely_numpy.utils.pad import pad_frame_gutters
 from lovely_numpy.utils.tile2d import hypertile
 from lovely_numpy.repr_rgb import fig_rgb
@@ -29,6 +29,7 @@ from .utils.config import get_config
 
 class RGBProxy():
     """Flexible `PIL.Image.Image` wrapper"""
+    params: dict
 
     def __init__(self, t:torch.Tensor):
         assert t.ndim >= 3, f"Expecting at least 3 dimensions, got shape{t.shape}={t.dim()}"

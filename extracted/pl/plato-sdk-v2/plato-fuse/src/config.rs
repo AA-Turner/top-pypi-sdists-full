@@ -17,7 +17,8 @@ pub struct Manifest {
 #[derive(Debug, Clone, Deserialize)]
 pub struct FileEntry {
     pub relpath: String,
-    pub md5: String,
+    #[serde(default)]
+    pub md5: Option<String>,
     #[serde(default)]
     pub size: u64,
     #[serde(default)]
@@ -25,7 +26,27 @@ pub struct FileEntry {
     #[serde(default)]
     pub islink: bool,
     #[serde(default)]
-    pub symlink_target: String,
+    pub symlink_target: Option<String>,
+    #[serde(default)]
+    pub isdir: bool,
+    #[serde(default)]
+    pub mode: Option<u32>,
+}
+
+impl FileEntry {
+    pub fn is_dir(&self) -> bool {
+        self.isdir
+    }
+
+    pub fn manifest_mode(&self) -> u32 {
+        if self.is_dir() {
+            self.mode.unwrap_or(0o755) & 0o777
+        } else if self.isexec {
+            0o755
+        } else {
+            0o644
+        }
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -67,7 +88,8 @@ mod tests {
             "manifest": {
                 "entries": [
                     {"relpath": "foo/bar.txt", "md5": "abc123", "size": 100},
-                    {"relpath": "link.txt", "md5": "def456", "size": 50, "islink": true, "symlink_target": "../target"}
+                    {"relpath": "link.txt", "md5": "def456", "size": 50, "islink": true, "symlink_target": "../target"},
+                    {"relpath": "foo/runtime", "isdir": true, "mode": 448}
                 ],
                 "manifest_md5": "manifest123"
             },
@@ -80,10 +102,15 @@ mod tests {
             "cache_dir": "/tmp/cache"
         }"#;
         let config: Config = serde_json::from_str(json).unwrap();
-        assert_eq!(config.manifest.entries.len(), 2);
+        assert_eq!(config.manifest.entries.len(), 3);
         assert_eq!(config.manifest.entries[0].relpath, "foo/bar.txt");
         assert_eq!(config.manifest.entries[1].islink, true);
-        assert_eq!(config.manifest.entries[1].symlink_target, "../target");
+        assert_eq!(
+            config.manifest.entries[1].symlink_target.as_deref(),
+            Some("../target")
+        );
+        assert!(config.manifest.entries[2].is_dir());
+        assert_eq!(config.manifest.entries[2].manifest_mode(), 0o700);
         assert_eq!(
             config.s3_config.file_key("abcdef"),
             "workspace-repos/repo-1/dvc-cache/files/md5/ab/cdef"
@@ -112,5 +139,62 @@ mod tests {
         };
 
         let _ = s3.file_key("a");
+    }
+
+    #[test]
+    fn test_parse_legacy_file_entry_defaults() {
+        let json = r#"{
+            "manifest": {
+                "entries": [{"relpath": "foo.txt", "md5": "abc123", "size": 12}],
+                "manifest_md5": "manifest123"
+            },
+            "s3_config": {"bucket": "", "prefix": "", "credentials": {}},
+            "mountpoint": "/mnt/test",
+            "cache_dir": "/tmp/cache"
+        }"#;
+
+        let config: Config = serde_json::from_str(json).unwrap();
+        let entry = &config.manifest.entries[0];
+        assert!(!entry.is_dir());
+        assert_eq!(entry.manifest_mode(), 0o644);
+        assert_eq!(entry.md5.as_deref(), Some("abc123"));
+    }
+
+    #[test]
+    fn test_parse_directory_entry_without_mode_defaults_to_755() {
+        let json = r#"{
+            "manifest": {
+                "entries": [{"relpath": "foo", "isdir": true}],
+                "manifest_md5": "manifest123"
+            },
+            "s3_config": {"bucket": "", "prefix": "", "credentials": {}},
+            "mountpoint": "/mnt/test",
+            "cache_dir": "/tmp/cache"
+        }"#;
+
+        let config: Config = serde_json::from_str(json).unwrap();
+        let entry = &config.manifest.entries[0];
+        assert!(entry.is_dir());
+        assert_eq!(entry.manifest_mode(), 0o755);
+        assert_eq!(entry.md5, None);
+        assert_eq!(entry.symlink_target, None);
+    }
+
+    #[test]
+    fn test_parse_symlink_without_target_defaults_to_none() {
+        let json = r#"{
+            "manifest": {
+                "entries": [{"relpath": "link", "md5": "abc123", "islink": true}],
+                "manifest_md5": "manifest123"
+            },
+            "s3_config": {"bucket": "", "prefix": "", "credentials": {}},
+            "mountpoint": "/mnt/test",
+            "cache_dir": "/tmp/cache"
+        }"#;
+
+        let config: Config = serde_json::from_str(json).unwrap();
+        let entry = &config.manifest.entries[0];
+        assert!(entry.islink);
+        assert_eq!(entry.symlink_target, None);
     }
 }

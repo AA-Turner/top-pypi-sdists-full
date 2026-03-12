@@ -122,21 +122,6 @@ impl MD014CommandsShowOutput {
         None // All commands are no-output commands
     }
 
-    fn get_command_from_block(&self, block: &[&str]) -> String {
-        // Return the first command that should produce output
-        if let Some((_, cmd)) = self.get_first_output_command(block) {
-            return cmd;
-        }
-        // Fallback to first command (for backwards compatibility)
-        for line in block {
-            let trimmed = line.trim();
-            if self.is_command_line(line) {
-                return trimmed[1..].trim().to_string();
-            }
-        }
-        String::new()
-    }
-
     fn fix_command_block(&self, block: &[&str]) -> String {
         block
             .iter()
@@ -164,18 +149,19 @@ impl MD014CommandsShowOutput {
             .to_string()
     }
 
-    /// Find the first command line that should produce output.
-    /// Skips no-output commands (cd, mkdir, etc.) to report the correct position.
-    fn find_first_command_line<'a>(&self, block: &[&'a str]) -> Option<(usize, &'a str)> {
+    /// Find all command lines in the block that should produce output.
+    /// Skips no-output commands (cd, mkdir, etc.).
+    fn find_all_command_lines<'a>(&self, block: &[&'a str]) -> Vec<(usize, &'a str)> {
+        let mut results = Vec::new();
         for (i, line) in block.iter().enumerate() {
             if self.is_command_line(line) {
                 let cmd = line.trim()[1..].trim();
                 if !self.is_no_output_command(cmd) {
-                    return Some((i, line));
+                    results.push((i, *line));
                 }
             }
         }
-        None
+        results
     }
 }
 
@@ -207,8 +193,25 @@ impl Rule for MD014CommandsShowOutput {
                 if in_code_block {
                     // End of code block
                     if self.is_command_without_output(&current_block, &current_lang) {
-                        // Find the first command line to highlight the dollar sign
-                        if let Some((cmd_line_idx, cmd_line)) = self.find_first_command_line(&current_block) {
+                        // Find all command lines that should produce output
+                        let command_lines = self.find_all_command_lines(&current_block);
+                        let fix = Fix {
+                            range: {
+                                // Replace the content line(s) between the fences
+                                let content_start_line = block_start_line + 1; // Line after opening fence (0-indexed)
+                                let content_end_line = line_num - 1; // Line before closing fence (0-indexed)
+
+                                // Calculate byte range for the content lines including their newlines
+                                let start_byte = _line_index.get_line_start_byte(content_start_line + 1).unwrap_or(0); // +1 for 1-indexed
+                                let end_byte = _line_index
+                                    .get_line_start_byte(content_end_line + 2)
+                                    .unwrap_or(start_byte); // +2 to include newline after last content line
+                                start_byte..end_byte
+                            },
+                            replacement: format!("{}\n", self.fix_command_block(&current_block)),
+                        };
+
+                        for (cmd_line_idx, cmd_line) in &command_lines {
                             let cmd_line_num = block_start_line + 1 + cmd_line_idx + 1; // +1 for fence, +1 for 1-indexed
 
                             // Find and highlight the dollar sign or prompt
@@ -219,13 +222,13 @@ impl Rule for MD014CommandsShowOutput {
                                 let (start_line, start_col, end_line, end_col) =
                                     calculate_match_range(cmd_line_num, cmd_line, match_obj.start(), match_obj.len());
 
-                                // Get the command for a more helpful message
-                                let command = self.get_command_from_block(&current_block);
-                                let message = if command.is_empty() {
+                                // Extract command text from this specific line
+                                let cmd_text = cmd_line.trim()[1..].trim().to_string();
+                                let message = if cmd_text.is_empty() {
                                     "Command should show output (add example output or remove $ prompt)".to_string()
                                 } else {
                                     format!(
-                                        "Command '{command}' should show output (add example output or remove $ prompt)"
+                                        "Command '{cmd_text}' should show output (add example output or remove $ prompt)"
                                     )
                                 };
 
@@ -237,22 +240,7 @@ impl Rule for MD014CommandsShowOutput {
                                     end_column: end_col,
                                     message,
                                     severity: Severity::Warning,
-                                    fix: Some(Fix {
-                                        range: {
-                                            // Replace the content line(s) between the fences
-                                            let content_start_line = block_start_line + 1; // Line after opening fence (0-indexed)
-                                            let content_end_line = line_num - 1; // Line before closing fence (0-indexed)
-
-                                            // Calculate byte range for the content lines including their newlines
-                                            let start_byte =
-                                                _line_index.get_line_start_byte(content_start_line + 1).unwrap_or(0); // +1 for 1-indexed
-                                            let end_byte = _line_index
-                                                .get_line_start_byte(content_end_line + 2)
-                                                .unwrap_or(start_byte); // +2 to include newline after last content line
-                                            start_byte..end_byte
-                                        },
-                                        replacement: format!("{}\n", self.fix_command_block(&current_block)),
-                                    }),
+                                    fix: Some(fix.clone()),
                                 });
                             }
                         }
@@ -479,22 +467,6 @@ mod tests {
     }
 
     #[test]
-    fn test_get_command_from_block() {
-        let rule = MD014CommandsShowOutput::new();
-        let block = vec!["$ echo test", "output"];
-        assert_eq!(rule.get_command_from_block(&block), "echo test");
-
-        let block2 = vec!["  $ ls -la", "file1 file2"];
-        assert_eq!(rule.get_command_from_block(&block2), "ls -la");
-
-        let block3 = vec!["> pwd", "/home"];
-        assert_eq!(rule.get_command_from_block(&block3), "pwd");
-
-        let empty_block: Vec<&str> = vec![];
-        assert_eq!(rule.get_command_from_block(&empty_block), "");
-    }
-
-    #[test]
     fn test_fix_command_block() {
         let rule = MD014CommandsShowOutput::new();
         let block = vec!["$ echo test", "$ ls -la"];
@@ -523,14 +495,19 @@ mod tests {
     }
 
     #[test]
-    fn test_find_first_command_line() {
+    fn test_find_all_command_lines() {
         let rule = MD014CommandsShowOutput::new();
         let block = vec!["# comment", "$ echo test", "output"];
-        let result = rule.find_first_command_line(&block);
-        assert_eq!(result, Some((1, "$ echo test")));
+        let result = rule.find_all_command_lines(&block);
+        assert_eq!(result, vec![(1, "$ echo test")]);
 
         let no_commands = vec!["output1", "output2"];
-        assert_eq!(rule.find_first_command_line(&no_commands), None);
+        assert!(rule.find_all_command_lines(&no_commands).is_empty());
+
+        let multiple = vec!["$ echo one", "$ echo two", "$ cd /tmp"];
+        let result = rule.find_all_command_lines(&multiple);
+        // cd is a no-output command, so only echo commands are returned
+        assert_eq!(result, vec![(0, "$ echo one"), (1, "$ echo two")]);
     }
 
     #[test]
@@ -596,11 +573,11 @@ mod tests {
         );
 
         // Block with silent commands followed by output-producing command
-        // should flag with the OUTPUT-PRODUCING command in the message
+        // should flag the output-producing command only
         let mixed_silent_first = "```bash\n$ cd /home\n$ ls -la\n```";
         let ctx2 = LintContext::new(mixed_silent_first, crate::config::MarkdownFlavor::Standard, None);
         let result2 = rule.check(&ctx2).unwrap();
-        assert_eq!(result2.len(), 1, "Mixed block should be flagged once");
+        assert_eq!(result2.len(), 1, "Only output-producing commands should be flagged");
         assert!(
             result2[0].message.contains("ls -la"),
             "Message should mention 'ls -la', not 'cd /home'. Got: {}",
@@ -611,7 +588,7 @@ mod tests {
         let mixed_mkdir_cat = "```bash\n$ mkdir test\n$ cat file.txt\n```";
         let ctx3 = LintContext::new(mixed_mkdir_cat, crate::config::MarkdownFlavor::Standard, None);
         let result3 = rule.check(&ctx3).unwrap();
-        assert_eq!(result3.len(), 1, "Mixed block should be flagged once");
+        assert_eq!(result3.len(), 1, "Only output-producing commands should be flagged");
         assert!(
             result3[0].message.contains("cat file.txt"),
             "Message should mention 'cat file.txt', not 'mkdir'. Got: {}",
@@ -619,7 +596,6 @@ mod tests {
         );
 
         // Block with silent command followed by pip install (which produces output)
-        // pip install is NOT a silent command - it produces verbose output
         let mkdir_pip = "```bash\n$ mkdir test\n$ pip install something\n```";
         let ctx3b = LintContext::new(mkdir_pip, crate::config::MarkdownFlavor::Standard, None);
         let result3b = rule.check(&ctx3b).unwrap();
@@ -631,16 +607,72 @@ mod tests {
         );
 
         // Block with output-producing command followed by silent command
-        // should still flag with the FIRST output-producing command
         let mixed_output_first = "```bash\n$ echo hello\n$ cd /home\n```";
         let ctx4 = LintContext::new(mixed_output_first, crate::config::MarkdownFlavor::Standard, None);
         let result4 = rule.check(&ctx4).unwrap();
-        assert_eq!(result4.len(), 1, "Mixed block should be flagged once");
+        assert_eq!(result4.len(), 1, "Only output-producing commands should be flagged");
         assert!(
             result4[0].message.contains("echo hello"),
             "Message should mention 'echo hello'. Got: {}",
             result4[0].message
         );
+    }
+
+    #[test]
+    fn test_multiple_commands_without_output_all_flagged() {
+        let rule = MD014CommandsShowOutput::new();
+
+        // Two identical commands without output should produce two warnings
+        let content = "```shell\n# First invocation\n$ my_command\n\n# Second invocation\n$ my_command\n```";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+        assert_eq!(result.len(), 2, "Both commands should be flagged. Got: {result:?}");
+        assert!(result[0].message.contains("my_command"));
+        assert!(result[1].message.contains("my_command"));
+        // Verify they point to different lines
+        assert_ne!(result[0].line, result[1].line, "Warnings should be on different lines");
+
+        // Three different commands without output
+        let content2 = "```bash\n$ echo hello\n$ ls -la\n$ pwd\n```";
+        let ctx2 = LintContext::new(content2, crate::config::MarkdownFlavor::Standard, None);
+        let result2 = rule.check(&ctx2).unwrap();
+        assert_eq!(
+            result2.len(),
+            3,
+            "All three commands should be flagged. Got: {result2:?}"
+        );
+        assert!(result2[0].message.contains("echo hello"));
+        assert!(result2[1].message.contains("ls -la"));
+        assert!(result2[2].message.contains("pwd"));
+
+        // Two output-producing commands mixed with one silent command
+        let content3 = "```bash\n$ echo hello\n$ cd /tmp\n$ ls -la\n```";
+        let ctx3 = LintContext::new(content3, crate::config::MarkdownFlavor::Standard, None);
+        let result3 = rule.check(&ctx3).unwrap();
+        assert_eq!(
+            result3.len(),
+            2,
+            "Only output-producing commands should be flagged. Got: {result3:?}"
+        );
+        assert!(result3[0].message.contains("echo hello"));
+        assert!(result3[1].message.contains("ls -la"));
+    }
+
+    #[test]
+    fn test_issue_516_exact_case() {
+        let rule = MD014CommandsShowOutput::new();
+
+        // Exact test case from GitHub issue #516
+        let content = "---\ntitle: Heading\n---\n\nHere is a fenced code block:\n\n```shell\n# First invocation of my_command\n$ my_command\n\n# Second invocation of my_command\n$ my_command\n```\n";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+        assert_eq!(
+            result.len(),
+            2,
+            "Both $ my_command lines should be flagged. Got: {result:?}"
+        );
+        assert_eq!(result[0].line, 9, "First warning should be on line 9");
+        assert_eq!(result[1].line, 12, "Second warning should be on line 12");
     }
 
     #[test]

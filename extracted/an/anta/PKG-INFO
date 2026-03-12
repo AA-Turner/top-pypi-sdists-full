@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: anta
-Version: 1.7.0
+Version: 1.8.0
 Summary: Arista Network Test Automation (ANTA) Framework
 Author-email: Arista Networks ANTA maintainers <anta-dev@arista.com>
 Maintainer-email: Arista Networks ANTA maintainers <anta-dev@arista.com>, Khelil Sator <ksator@arista.com>, Matthieu Tâche <mtache@arista.com>, Thomas Grimonet <tgrimonet@arista.com>, Guillaume Mulocher <gmulocher@arista.com>, Carl Baillargeon <carl.baillargeon@arista.com>
@@ -44,7 +44,7 @@ Requires-Dist: click~=8.3; extra == "cli"
 Dynamic: license-file
 
 <!--
-  ~ Copyright (c) 2023-2025 Arista Networks, Inc.
+  ~ Copyright (c) 2023-2026 Arista Networks, Inc.
   ~ Use of this source code is governed by the Apache License 2.0
   ~ that can be found in the LICENSE file.
   -->

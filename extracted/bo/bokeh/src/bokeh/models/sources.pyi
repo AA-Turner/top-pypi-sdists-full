@@ -11,6 +11,7 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Literal,
+    Mapping,
     Sequence,
     TypeAlias,
     overload,
@@ -37,7 +38,7 @@ DataDictLike: TypeAlias = DataDict | pd.DataFrame | GroupBy[Any]
 
 Index: TypeAlias = int | slice | tuple[int | slice, ...]
 
-Patches: TypeAlias = dict[str, list[tuple[Index, Any]]]
+Patches: TypeAlias = Mapping[str, Sequence[tuple[Index, Any]]]
 
 @abstract
 @dataclass(init=False)
@@ -80,13 +81,13 @@ class ColumnDataSource(ColumnarDataSource):
 
     def to_df(self) -> pd.DataFrame: ...
 
-    def add(self, data: Sequence[Any], name: str | None) -> str: ...
+    def add(self, data: Sequence[Any], name: str | None = ...) -> str: ...
 
     def remove(self, name: str) -> None: ...
 
-    def stream(self, new_data: DataDict, rollover: int | None) -> None: ...
+    def stream(self, new_data: DataDict, rollover: int | None = ...) -> None: ...
 
-    def patch(self, patches: Patches, setter: Setter | None) -> None: ...
+    def patch(self, patches: Patches, setter: Setter | None = ...) -> None: ...
 
 @dataclass
 class CDSView(Model):

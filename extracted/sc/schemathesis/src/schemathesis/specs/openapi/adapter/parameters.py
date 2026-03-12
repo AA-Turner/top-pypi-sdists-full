@@ -14,7 +14,7 @@ from schemathesis.config import GenerationConfig
 from schemathesis.core import NOT_SET, NotSet
 from schemathesis.core.adapter import OperationParameter
 from schemathesis.core.errors import InvalidSchema
-from schemathesis.core.jsonschema import BundleError, Bundler
+from schemathesis.core.jsonschema import FANCY_REGEX_OPTIONS, BundleError, Bundler
 from schemathesis.core.jsonschema.bundler import BUNDLE_STORAGE_KEY, BundleCache
 from schemathesis.core.jsonschema.types import JsonSchema, JsonSchemaObject
 from schemathesis.core.parameters import HEADER_LOCATIONS, ParameterLocation
@@ -372,6 +372,39 @@ class OpenApiComponent(ABC):
 
         return examples
 
+    def _get_strategy_examples(self, operation: APIOperation) -> list[object]:
+        """Extract examples using proper OAS3 Example Object unpacking for the definition container.
+
+        Unlike `_extract_examples`, uses `extract_inner_examples` which correctly handles
+        both dict and list containers — extracting inner `value`/`externalValue` fields
+        and resolving `$ref`s via the operation schema.
+        """
+        from schemathesis.specs.openapi.examples import extract_inner_examples
+        from schemathesis.specs.openapi.schemas import OpenApiSchema
+
+        assert isinstance(operation.schema, OpenApiSchema)
+        examples: list[object] = []
+
+        container = self.definition.get(self.adapter.examples_container_keyword)
+        if container is not None:
+            examples.extend(extract_inner_examples(container, operation.schema))
+
+        example = self.definition.get(self.adapter.example_keyword, NOT_SET)
+        if example is not NOT_SET:
+            examples.append(example)
+
+        raw_schema = self.raw_schema
+        if isinstance(raw_schema, dict):
+            schema_example = raw_schema.get(self.adapter.example_keyword, NOT_SET)
+            if schema_example is not NOT_SET:
+                examples.append(schema_example)
+
+            schema_examples = raw_schema.get("examples")
+            if isinstance(schema_examples, list):
+                examples.extend(schema_examples)
+
+        return examples
+
 
 @dataclass
 class OpenApiParameter(OpenApiComponent):
@@ -567,8 +600,10 @@ class OpenApiBody(OpenApiComponent):
 
         # Mix in schema examples for positive mode (20% example, 80% generated)
         # Skip during EXAMPLES phase since examples are handled separately there
-        if mix_examples and generation_mode == GenerationMode.POSITIVE and self.examples:
-            strategy = build_example_aware_strategy(strategy, self.examples)
+        if mix_examples and generation_mode == GenerationMode.POSITIVE:
+            strategy_examples = self._get_strategy_examples(operation)
+            if strategy_examples:
+                strategy = build_example_aware_strategy(strategy, strategy_examples)
 
         # Apply hybrid approach when captured variants are available
         if captured_variants and usage_tracker is not None:
@@ -903,14 +938,29 @@ class OpenApiParameterSet(ParameterSet):
     items: list[OpenApiParameter]
     location: ParameterLocation
 
-    __slots__ = ("items", "location", "_schema", "_schema_cache", "_strategy_cache")
+    __slots__ = ("items", "location", "adapter", "_schema", "_schema_cache", "_strategy_cache", "_strict_validator")
 
-    def __init__(self, location: ParameterLocation, items: list[OpenApiParameter] | None = None) -> None:
+    def __init__(
+        self,
+        location: ParameterLocation,
+        items: list[OpenApiParameter] | None = None,
+        *,
+        adapter: SpecificationAdapter,
+    ) -> None:
         self.location = location
+        self.adapter = adapter
         self.items = items or []
         self._schema: dict | NotSet = NOT_SET
         self._schema_cache: dict[frozenset[str], dict[str, Any]] = {}
         self._strategy_cache: dict[tuple[frozenset[str], GenerationMode], st.SearchStrategy] = {}
+        self._strict_validator: jsonschema_rs.Validator | NotSet = NOT_SET
+
+    def get_strict_validator(self) -> jsonschema_rs.Validator:
+        if isinstance(self._strict_validator, NotSet):
+            self._strict_validator = self.adapter.jsonschema_validator_cls(
+                self.schema, validate_formats=True, pattern_options=FANCY_REGEX_OPTIONS
+            )
+        return self._strict_validator
 
     @property
     def schema(self) -> dict[str, Any]:

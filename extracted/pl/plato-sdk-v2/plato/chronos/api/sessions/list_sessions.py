@@ -13,6 +13,7 @@ from plato.chronos.models import SessionListResponse
 def _build_request_args(
     tag: str | None = None,
     tags: list[str] | None = None,
+    tags_mode: str | None = "or",
     exclude_tags: list[str] | None = None,
     created_by: str | None = None,
     limit: int | None = 50,
@@ -29,6 +30,8 @@ def _build_request_args(
         params["tag"] = tag
     if tags is not None:
         params["tags"] = tags
+    if tags_mode is not None:
+        params["tags_mode"] = tags_mode
     if exclude_tags is not None:
         params["exclude_tags"] = exclude_tags
     if created_by is not None:
@@ -58,6 +61,7 @@ def sync(
     client: httpx.Client,
     tag: str | None = None,
     tags: list[str] | None = None,
+    tags_mode: str | None = "or",
     exclude_tags: list[str] | None = None,
     created_by: str | None = None,
     limit: int | None = 50,
@@ -75,6 +79,7 @@ def sync(
     request_args = _build_request_args(
         tag=tag,
         tags=tags,
+        tags_mode=tags_mode,
         exclude_tags=exclude_tags,
         created_by=created_by,
         limit=limit,
@@ -93,6 +98,7 @@ async def asyncio(
     client: httpx.AsyncClient,
     tag: str | None = None,
     tags: list[str] | None = None,
+    tags_mode: str | None = "or",
     exclude_tags: list[str] | None = None,
     created_by: str | None = None,
     limit: int | None = 50,
@@ -110,6 +116,7 @@ async def asyncio(
     request_args = _build_request_args(
         tag=tag,
         tags=tags,
+        tags_mode=tags_mode,
         exclude_tags=exclude_tags,
         created_by=created_by,
         limit=limit,

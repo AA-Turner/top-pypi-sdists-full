@@ -1,17 +1,19 @@
 import { View } from "./view";
 import type { SerializableState } from "./view";
-import type { StyleSheet, StyleSheetLike } from "./dom";
+import type { StyleSheet, StyleSheetLike, ARIARole } from "./dom";
 import { InlineStyleSheet, ClassList } from "./dom";
 import type { BBox } from "./util/bbox";
 export type RenderingTarget = HTMLElement | ShadowRoot;
 export interface DOMView extends View {
     constructor: Function & {
         tag_name: keyof HTMLElementTagNameMap;
+        aria_role?: ARIARole;
     };
 }
 export declare abstract class DOMView extends View {
     parent: DOMView | null;
     static tag_name: keyof HTMLElementTagNameMap;
+    static aria_role?: ARIARole;
     el: ChildNode;
     shadow_el?: ShadowRoot;
     get bbox(): BBox | undefined;

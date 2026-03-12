@@ -6,6 +6,7 @@ import asyncio
 import json
 import logging
 import os
+import shlex
 import signal
 import subprocess
 import sys
@@ -137,6 +138,14 @@ class DevRunner:
         if path.is_absolute():
             return path
         return (self.config_path.parent / path).resolve()
+
+    def _forwarded_debug_env_assignments(self) -> str:
+        parts: list[str] = []
+        for key in ("PLATO_FUSE_DEBUG", "PLATO_SMART_COMMIT_DEBUG", "RUST_LOG"):
+            value = os.environ.get(key)
+            if value:
+                parts.append(f"{key}={shlex.quote(value)}")
+        return " ".join(parts)
 
     async def run(self) -> None:
         """Run the dev workflow."""
@@ -538,6 +547,15 @@ class DevRunner:
                     job_id=self.world_env.job_id,
                 )
 
+        for name, extra_path in self.config.dev.extra_sync.items():
+            resolved = self._resolve_path(extra_path)
+            if resolved:
+                self.sync_manager.add_target(
+                    local_path=resolved,
+                    remote_path=f"/extra/{name}",
+                    job_id=self.world_env.job_id,
+                )
+
         if self.config.dev.sync_sdk:
             sdk_root = get_sdk_root()
             if sdk_root and (sdk_root / "pyproject.toml").exists():
@@ -559,6 +577,30 @@ class DevRunner:
                 "(apt-get update -qq && apt-get install -y -qq fuse3) > /dev/null 2>&1",
                 timeout=60,
             )
+
+        # Sync local plato-fuse binary to VM if PLATO_FUSE_BINARY is set.
+        fuse_binary = os.environ.get("PLATO_FUSE_BINARY")
+        if fuse_binary and Path(fuse_binary).is_file():
+            with self._startup_profiler.time("setup.env.packages.sync_fuse_binary"):
+                console.print(f"  [dim]Syncing local plato-fuse binary: {fuse_binary}[/dim]")
+                from plato.cli.chronos.dev.ssh import build_ssh_command_string
+
+                ssh_cmd = build_ssh_command_string(self.world_env.job_id, self.sync_manager.ssh_key_path)
+                proc = await asyncio.create_subprocess_exec(
+                    "rsync",
+                    "-az",
+                    "-e",
+                    ssh_cmd,
+                    fuse_binary,
+                    f"root@{self.world_env.job_id}.plato:/usr/local/bin/plato-fuse",
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                )
+                _, stderr = await proc.communicate()
+                if proc.returncode != 0:
+                    raise RuntimeError(f"Failed to sync plato-fuse binary: {stderr.decode().strip()}")
+                await self.world_env.execute("chmod +x /usr/local/bin/plato-fuse", timeout=10)
+                console.print("  [dim]plato-fuse binary synced to VM[/dim]")
 
         # Uninstall existing world package from Docker image
         if self.config.dev.world:
@@ -831,9 +873,11 @@ class DevRunner:
                 if self.memray:
                     reinstall_cmd += "uv pip install --system memray -q 2>/dev/null; "
                     runner_cmd = f"memray run --output /tmp/memray.bin --force -m plato.worlds.runner -- run --world {world_name} --config /tmp/config.json"
+                debug_env = self._forwarded_debug_env_assignments()
+                debug_prefix = f"{debug_env} " if debug_env else ""
                 world_cmd = (
                     f"{write_config_cmd}{reinstall_cmd}"
-                    f"PLATO_API_KEY='{self.api_key}' PLATO_WORLD_DEV_MODE='1' {runner_cmd}"
+                    f"{debug_prefix}PLATO_API_KEY={shlex.quote(self.api_key)} PLATO_WORLD_DEV_MODE='1' {runner_cmd}"
                 )
 
                 exit_code = await self._run_world_command(world_cmd)

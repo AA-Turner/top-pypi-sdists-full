@@ -24,6 +24,7 @@ import datetime as dt
 import gzip
 import sys
 from array import array as TypedArray
+from dataclasses import dataclass, field
 from math import isinf, isnan
 from types import SimpleNamespace
 from typing import (
@@ -46,12 +47,7 @@ import numpy as np
 
 # Bokeh imports
 from ..settings import settings
-from ..util.dataclasses import (
-    Unspecified,
-    dataclass,
-    entries,
-    is_dataclass,
-)
+from ..util.dataclasses import Unspecified, entries, is_dataclass
 from ..util.dependencies import uses_pandas
 from ..util.serialization import (
     array_encoding_disabled,
@@ -63,7 +59,6 @@ from ..util.serialization import (
     transform_array,
     transform_series,
 )
-from ..util.warnings import BokehUserWarning, warn
 from .types import ID
 
 if TYPE_CHECKING:
@@ -192,7 +187,7 @@ T = TypeVar("T")
 @dataclass
 class Serialized(Generic[T]):
     content: T
-    buffers: list[Buffer] | None = None
+    buffers: list[Buffer] = field(default_factory=list[Buffer])
 
 Encoder: TypeAlias = Callable[[Any, "Serializer"], AnyRep]
 Decoder: TypeAlias = Callable[[AnyRep, "Deserializer"], Any]
@@ -321,6 +316,8 @@ class Serializer:
         if -_MAX_SAFE_INT < obj <= _MAX_SAFE_INT:
             return obj
         else:
+            from ..util.warnings import BokehUserWarning, warn
+
             warn("out of range integer may result in loss of precision", BokehUserWarning)
             return self._encode_float(float(obj))
 
@@ -436,7 +433,10 @@ class Serializer:
 
         data: ArrayRepLike | BytesRep
         dtype: NDDataType
-        if array_encoding_disabled(array):
+        if array.dtype.kind == 'U':
+            data = obj.flatten().tolist()
+            dtype = "object"
+        elif array_encoding_disabled(array):
             data = self._encode_list(array.flatten().tolist())
             dtype = "object"
         else:
@@ -473,7 +473,7 @@ class Serializer:
         # avoid importing pandas here unless it is actually in use
         if uses_pandas(obj):
             import pandas as pd
-            if isinstance(obj, pd.Series | pd.Index | pd.api.extensions.ExtensionArray):
+            if isinstance(obj, (pd.Series, pd.Index, pd.api.extensions.ExtensionArray)):
                 return self._encode_ndarray(transform_series(obj))
             elif obj is pd.NA:
                 return None
@@ -695,6 +695,8 @@ class Deserializer:
         id = obj["id"]
         instance = self._references.get(id)
         if instance is not None:
+            from ..util.warnings import BokehUserWarning, warn
+
             warn(f"reference already known '{id}'", BokehUserWarning)
             return instance
 

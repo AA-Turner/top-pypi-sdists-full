@@ -19,15 +19,14 @@ def test_detect_returns_dict():
 
 def test_detect_ascii():
     result = chardet.detect(b"Hello world")
-    # Default should_rename_legacy=True renames, so ascii is reported
-    # as its superset Windows-1252.
-    assert result["encoding"] == "Windows-1252"
+    # Default should_rename_legacy=False returns chardet 5.x compat names.
+    assert result["encoding"] == "ascii"
     assert result["confidence"] == 1.0
 
 
 def test_detect_utf8_bom():
     result = chardet.detect(b"\xef\xbb\xbfHello")
-    assert result["encoding"] == "utf-8-sig"
+    assert result["encoding"] == "UTF-8-SIG"
 
 
 def test_detect_utf8_multibyte():
@@ -63,7 +62,7 @@ def test_encoding_era_excludes_legacy():
         data, encoding_era=EncodingEra.ALL, should_rename_legacy=False
     )
     # With ALL, iso-8859-7 should be detected
-    assert legacy["encoding"] == "iso-8859-7"
+    assert legacy["encoding"] == "ISO-8859-7"
     # With MODERN_WEB only, iso-8859-7 is not a candidate so the result
     # must be a different encoding (windows-1253 is the modern Greek encoding)
     assert modern["encoding"] != "iso-8859-7"
@@ -109,13 +108,13 @@ def test_version_exists():
 
 
 def test_rename_legacy_default():
-    """Default (None) always renames ascii to Windows-1252."""
+    """Default (False) returns chardet 5.x compat name."""
     result = chardet.detect(b"Hello world")
-    assert result["encoding"] == "Windows-1252"
+    assert result["encoding"] == "ascii"
 
 
 def test_rename_legacy_false():
-    """Explicit False returns the raw encoding name."""
+    """Explicit False returns chardet 5.x compat name."""
     result = chardet.detect(b"Hello world", should_rename_legacy=False)
     assert result["encoding"] == "ascii"
 
@@ -131,9 +130,9 @@ def test_rename_legacy_true():
 
 
 def test_rename_legacy_default_with_all_era():
-    """Default (True) with ALL era renames."""
+    """Default (False) with ALL era returns compat name."""
     result = chardet.detect(b"Hello world", encoding_era=EncodingEra.ALL)
-    assert result["encoding"] == "Windows-1252"
+    assert result["encoding"] == "ascii"
 
 
 def test_rename_legacy_detect_all():
@@ -143,7 +142,7 @@ def test_rename_legacy_detect_all():
 
 
 def test_rename_legacy_detect_all_false():
-    """should_rename_legacy=False returns raw encoding names in detect_all."""
+    """should_rename_legacy=False returns chardet 5.x compat names in detect_all."""
     results = chardet.detect_all(b"Hello world", should_rename_legacy=False)
     assert results[0]["encoding"] == "ascii"
 
@@ -159,13 +158,23 @@ def test_rename_legacy_detector():
 
 
 def test_rename_legacy_detector_false():
-    """UniversalDetector with False returns raw name."""
+    """UniversalDetector with False returns chardet 5.x compat name."""
     from chardet.detector import UniversalDetector
 
     det = UniversalDetector(should_rename_legacy=False)
     det.feed(b"Hello world, this is enough ASCII data for detection. " * 2)
     det.close()
     assert det.result["encoding"] == "ascii"
+
+
+def test_compat_names_eucjp():
+    """Compat mode maps EUC-JIS-2004 back to EUC-JP."""
+    text = (
+        "東京は日本の首都です。人口は約1400万人で、世界最大の都市圏を形成しています。"
+    )
+    data = text.encode("euc_jp")
+    result = chardet.detect(data, should_rename_legacy=False)
+    assert result["encoding"] == "EUC-JP"
 
 
 # --- ignore_threshold tests ---
@@ -301,7 +310,7 @@ def test_detect_utf7_era_modern_web_skipped():
     """UTF-7 should NOT be detected with MODERN_WEB (disabled by browsers since ~2020)."""
     data = "Hello, 世界!".encode("utf-7")
     result = chardet.detect(data, encoding_era=EncodingEra.MODERN_WEB)
-    assert result["encoding"] != "utf-7"
+    assert result["encoding"] != "UTF-7"
 
 
 def test_detect_utf7_multi_paragraph():
@@ -325,7 +334,7 @@ def test_detect_hz_gb_2312_era_all():
     """hz-gb-2312 should be detected with EncodingEra.ALL."""
     data = b"Hello ~{CEDE~} World"
     result = chardet.detect(data, encoding_era=EncodingEra.ALL)
-    assert result["encoding"] == "hz-gb-2312"
+    assert result["encoding"] == "HZ-GB-2312"
 
 
 def test_detect_hz_gb_2312_era_modern_web_skipped():
@@ -339,7 +348,7 @@ def test_detect_iso_2022_kr_era_all():
     """iso-2022-kr should be detected with EncodingEra.ALL."""
     data = b"\x1b$)C\x0e\x21\x21\x0f"
     result = chardet.detect(data, encoding_era=EncodingEra.ALL)
-    assert result["encoding"] == "iso-2022-kr"
+    assert result["encoding"] == "ISO-2022-KR"
 
 
 def test_detect_iso_2022_kr_era_modern_web_skipped():
@@ -353,9 +362,11 @@ def test_detect_iso_2022_jp_era_modern_web_still_works():
     """ISO-2022-JP is NOT in WHATWG 'replacement' - should still be detected with MODERN_WEB."""
     data = b"Hello \x1b$B$3$s$K$A$O\x1b(B World"
     result = chardet.detect(data, encoding_era=EncodingEra.MODERN_WEB)
-    assert result["encoding"] is not None
-    assert "2022" in result["encoding"]
-    assert "jp" in result["encoding"]
+    assert result["encoding"] in {
+        "ISO-2022-JP",
+        "iso2022_jp_2004",
+        "iso2022_jp_ext",
+    }
 
 
 def test_detect_cp273():
@@ -363,7 +374,7 @@ def test_detect_cp273():
     result = chardet.detect(data, encoding_era=EncodingEra.ALL)
     assert result["encoding"] is not None
     # Should detect an EBCDIC encoding (cp273 or a close variant)
-    assert result["encoding"].startswith("cp")
+    assert result["encoding"].upper().startswith("CP")
 
 
 def test_detect_hp_roman8():
@@ -375,3 +386,154 @@ def test_detect_hp_roman8():
     ).encode("hp-roman8")
     result = chardet.detect(data, encoding_era=EncodingEra.ALL)
     assert result["encoding"] == "hp-roman8"
+
+
+# --- PEP 263 encoding declaration tests ---
+
+
+def test_detect_pep263_emacs_style():
+    """PEP 263 Emacs-style declaration on line 1."""
+    data = b"# -*- coding: iso-8859-1 -*-\nx = '\xe9l\xe8ve'\n"
+    result = chardet.detect(data, compat_names=False)
+    assert result["encoding"] == "iso8859-1"
+    assert result["confidence"] == 0.95
+
+
+def test_detect_pep263_bare_form():
+    """PEP 263 bare form: # coding=<encoding>."""
+    data = b"# coding=utf-8\nx = 'hello'\n"
+    result = chardet.detect(data, compat_names=False)
+    assert result["encoding"] == "utf-8"
+    assert result["confidence"] == 0.95
+
+
+def test_detect_pep263_line2_with_shebang():
+    """PEP 263 on line 2 after a shebang."""
+    data = b"#!/usr/bin/env python\n# -*- coding: iso-8859-1 -*-\nx = '\xe9'\n"
+    result = chardet.detect(data, compat_names=False)
+    assert result["encoding"] == "iso8859-1"
+    assert result["confidence"] == 0.95
+
+
+def test_detect_pep263_line3_ignored():
+    """PEP 263 on line 3 should be ignored (only lines 1-2 are valid)."""
+    data = b"#!/usr/bin/env python\n# a comment\n# -*- coding: iso-8859-1 -*-\n"
+    result = chardet.detect(data)
+    # Should NOT return iso-8859-1 from PEP 263 — line 3 is too late.
+    # The data is pure ASCII, so expect ascii.
+    assert result["encoding"] == "ascii"
+
+
+def test_detect_pep263_invalid_encoding_ignored():
+    """PEP 263 with an unknown encoding name should fall through."""
+    data = b"# -*- coding: not-a-real-encoding -*-\nhello world\n"
+    result = chardet.detect(data)
+    assert result["encoding"] == "ascii"
+
+
+# --- compat_names and prefer_superset tests ---
+
+
+def test_detect_compat_names_true_returns_display_names() -> None:
+    """compat_names=True (default) returns 5.x/6.x display names."""
+    result = chardet.detect(b"Hello world", compat_names=True)
+    assert result["encoding"] == "ascii"
+
+
+def test_detect_compat_names_false_returns_codec_names() -> None:
+    """compat_names=False returns raw internal names (currently display-cased)."""
+    result = chardet.detect(b"Hello world", compat_names=False)
+    # With compat_names=False, the internal name passes through.
+    # Currently internal name is "ASCII" (display-cased).
+    # After the full refactor it will be "ascii" (codec name).
+    assert result["encoding"] is not None
+
+
+def test_detect_prefer_superset_remaps() -> None:
+    """prefer_superset=True remaps ASCII to Windows-1252."""
+    result = chardet.detect(b"Hello world", prefer_superset=True)
+    assert result["encoding"] == "Windows-1252"
+
+
+def test_detect_prefer_superset_false_no_remap() -> None:
+    """prefer_superset=False (default) does not remap."""
+    result = chardet.detect(b"Hello world", prefer_superset=False)
+    assert result["encoding"] == "ascii"
+
+
+def test_detect_prefer_superset_with_raw_codec_names() -> None:
+    """prefer_superset=True with compat_names=False returns raw codec superset names."""
+    result = chardet.detect(b"Hello world", prefer_superset=True, compat_names=False)
+    assert result["encoding"] == "cp1252"
+
+
+def test_detect_should_rename_legacy_deprecation() -> None:
+    """should_rename_legacy emits DeprecationWarning."""
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        chardet.detect(b"Hello world", should_rename_legacy=True)
+        dep = [x for x in w if issubclass(x.category, DeprecationWarning)]
+        assert len(dep) == 1
+        assert "should_rename_legacy" in str(dep[0].message)
+
+
+def test_detect_all_compat_names() -> None:
+    """detect_all respects compat_names parameter."""
+    results = chardet.detect_all(b"Hello world", compat_names=True)
+    assert results[0]["encoding"] == "ascii"
+
+
+def test_detect_all_prefer_superset() -> None:
+    """detect_all respects prefer_superset parameter."""
+    results = chardet.detect_all(b"Hello world", prefer_superset=True)
+    assert results[0]["encoding"] == "Windows-1252"
+
+
+# --- UniversalDetector compat_names / prefer_superset tests ---
+
+
+def test_detector_compat_names() -> None:
+    """UniversalDetector respects compat_names parameter."""
+    from chardet.detector import UniversalDetector
+
+    det = UniversalDetector(compat_names=True)
+    det.feed(b"Hello world, this is enough ASCII data for detection. " * 2)
+    det.close()
+    assert det.result["encoding"] == "ascii"
+
+
+def test_detector_prefer_superset() -> None:
+    """UniversalDetector respects prefer_superset parameter."""
+    from chardet.detector import UniversalDetector
+
+    det = UniversalDetector(prefer_superset=True)
+    det.feed(b"Hello world, this is enough ASCII data for detection. " * 2)
+    det.close()
+    assert det.result["encoding"] == "Windows-1252"
+
+
+def test_detector_should_rename_legacy_deprecation() -> None:
+    """UniversalDetector's should_rename_legacy emits DeprecationWarning."""
+    from chardet.detector import UniversalDetector
+
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        UniversalDetector(should_rename_legacy=True)
+        dep = [x for x in w if issubclass(x.category, DeprecationWarning)]
+        assert len(dep) == 1
+        assert "should_rename_legacy" in str(dep[0].message)
+
+
+def test_universaldetector_compat_import() -> None:
+    """chardet.universaldetector re-exports UniversalDetector for 6.x compat."""
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        from chardet.universaldetector import UniversalDetector as CompatUD
+
+        dep = [x for x in w if issubclass(x.category, DeprecationWarning)]
+        assert len(dep) == 1
+        assert "universaldetector" in str(dep[0].message)
+
+    from chardet.detector import UniversalDetector
+
+    assert CompatUD is UniversalDetector

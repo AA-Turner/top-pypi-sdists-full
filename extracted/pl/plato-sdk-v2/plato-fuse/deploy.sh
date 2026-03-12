@@ -2,43 +2,19 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-IMAGE_NAME="plato-fuse-builder"
 S3_BUCKET="plato-public-static"
 S3_KEY="plato-fuse"
 AWS_REGION="us-west-1"
-TARGET_GLIBC="2.34"
-TARGET_TRIPLE="x86_64-unknown-linux-gnu.${TARGET_GLIBC}"
-TARGET_DIR="$SCRIPT_DIR/target"
-TARGET_BINARY_DIR="$TARGET_DIR/x86_64-unknown-linux-gnu/release"
+SKIP_UPLOAD="${SKIP_UPLOAD:-0}"
 
-echo "Building $IMAGE_NAME image..."
-docker build -t "$IMAGE_NAME" -f "$SCRIPT_DIR/Dockerfile.builder" "$SCRIPT_DIR"
+# Build the binary
+"$SCRIPT_DIR/build.sh"
 
-echo "Building plato-fuse binary..."
-docker run --rm \
-    -v "$SCRIPT_DIR":/src \
-    -v "$TARGET_DIR":/src/target \
-    -v plato-fuse-cargo-registry:/root/.cargo/registry \
-    -v plato-fuse-cargo-git:/root/.cargo/git \
-    -w /src \
-    "$IMAGE_NAME" cargo zigbuild --release --target "$TARGET_TRIPLE"
+BINARY="$SCRIPT_DIR/target/x86_64-unknown-linux-gnu/release/plato-fuse"
 
-BINARY="$TARGET_BINARY_DIR/plato-fuse"
-if [[ ! -f "$BINARY" ]]; then
-    echo "ERROR: Binary not found at $BINARY"
-    exit 1
-fi
-
-echo "Binary built: $BINARY ($(du -h "$BINARY" | cut -f1))"
-if command -v objdump &>/dev/null; then
-    MAX_GLIBC="$(
-        objdump -T "$BINARY" \
-        | grep -o 'GLIBC_[0-9]\+\.[0-9]\+' \
-        | sed 's/GLIBC_//' \
-        | sort -V \
-        | tail -n1
-    )"
-    echo "Binary max GLIBC requirement: ${MAX_GLIBC:-unknown}"
+if [[ "$SKIP_UPLOAD" == "1" ]]; then
+    echo "Skipping upload because SKIP_UPLOAD=1"
+    exit 0
 fi
 
 echo "Uploading to s3://$S3_BUCKET/$S3_KEY ..."

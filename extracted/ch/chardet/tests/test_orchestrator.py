@@ -103,7 +103,7 @@ def test_binary_content():
 def test_xml_charset_declaration():
     data = b'<?xml version="1.0" encoding="iso-8859-1"?><root>Hello</root>'
     result = run_pipeline(data, EncodingEra.ALL)
-    assert result[0].encoding == "iso-8859-1"
+    assert result[0].encoding == "iso8859-1"
 
 
 def test_max_bytes_truncation():
@@ -148,13 +148,13 @@ def test_demote_niche_latin():
     from chardet.pipeline.orchestrator import _demote_niche_latin
 
     results = [
-        DetectionResult("iso-8859-10", 0.90, None),
-        DetectionResult("windows-1252", 0.85, None),
+        DetectionResult("iso8859-10", 0.90, None),
+        DetectionResult("cp1252", 0.85, None),
     ]
     # Data with only bytes shared between iso-8859-10 and iso-8859-1
     data = bytes([0xE9, 0xF6, 0xFC])  # é ö ü in both encodings
     demoted = _demote_niche_latin(data, results)
-    assert demoted[0].encoding == "windows-1252"
+    assert demoted[0].encoding == "cp1252"
 
 
 def test_demote_niche_latin_no_demote_when_distinguishing():
@@ -162,13 +162,13 @@ def test_demote_niche_latin_no_demote_when_distinguishing():
     from chardet.pipeline.orchestrator import _demote_niche_latin
 
     results = [
-        DetectionResult("iso-8859-10", 0.90, None),
-        DetectionResult("windows-1252", 0.85, None),
+        DetectionResult("iso8859-10", 0.90, None),
+        DetectionResult("cp1252", 0.85, None),
     ]
     # 0xA1 differs between iso-8859-10 and iso-8859-1
     data = bytes([0xA1, 0xE9, 0xF6])
     demoted = _demote_niche_latin(data, results)
-    assert demoted[0].encoding == "iso-8859-10"
+    assert demoted[0].encoding == "iso8859-10"
 
 
 def test_promote_koi8t_with_tajik_bytes():
@@ -197,6 +197,20 @@ def test_promote_koi8t_no_promote_without_tajik_bytes():
     data = bytes([0xC0, 0xC1, 0xC2])
     promoted = _promote_koi8t(data, results)
     assert promoted[0].encoding == "koi8-r"
+
+
+def test_promote_koi8t_returns_early_when_koi8t_absent():
+    """When KOI8-R is first but KOI8-T is not in results, return unchanged."""
+    from chardet.pipeline.orchestrator import _promote_koi8t
+
+    results = [
+        DetectionResult("koi8-r", 0.90, "ru"),
+        DetectionResult("cp1251", 0.85, "ru"),
+    ]
+    data = bytes([0x80, 0xC0, 0xC1])  # 0x80 is Tajik-specific but KOI8-T absent
+    returned = _promote_koi8t(data, results)
+    assert returned is results  # same object, unchanged
+    assert returned[0].encoding == "koi8-r"
 
 
 def test_fill_language_produces_language():
@@ -241,12 +255,12 @@ def test_demote_niche_latin_iso_8859_14():
     from chardet.pipeline.orchestrator import _demote_niche_latin
 
     results = [
-        DetectionResult("iso-8859-14", 0.90, None),
-        DetectionResult("windows-1252", 0.85, None),
+        DetectionResult("iso8859-14", 0.90, None),
+        DetectionResult("cp1252", 0.85, None),
     ]
     data = bytes([0xC0, 0xC1, 0xC2])
     demoted = _demote_niche_latin(data, results)
-    assert demoted[0].encoding == "windows-1252"
+    assert demoted[0].encoding == "cp1252"
 
 
 def test_demote_niche_latin_windows_1254():
@@ -254,12 +268,12 @@ def test_demote_niche_latin_windows_1254():
     from chardet.pipeline.orchestrator import _demote_niche_latin
 
     results = [
-        DetectionResult("windows-1254", 0.90, None),
-        DetectionResult("windows-1252", 0.85, None),
+        DetectionResult("cp1254", 0.90, None),
+        DetectionResult("cp1252", 0.85, None),
     ]
     data = bytes([0xC0, 0xC1, 0xE9])
     demoted = _demote_niche_latin(data, results)
-    assert demoted[0].encoding == "windows-1252"
+    assert demoted[0].encoding == "cp1252"
 
 
 def test_fallback_when_no_valid_candidates(monkeypatch: pytest.MonkeyPatch):

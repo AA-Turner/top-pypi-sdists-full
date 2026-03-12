@@ -50,7 +50,9 @@ class MLPClassifier(nn.Module):
 
         last_layer_idx = num_layers - _C.COMBO_OFFSET
         for i in range(num_layers):
-            next_dim = hidden_dim if i < last_layer_idx else hidden_dim // gating_hidden_dim_divisor
+            next_dim = hidden_dim if i < last_layer_idx else max(
+                _C.SS_MLP_MIN_HIDDEN_DIM, hidden_dim // gating_hidden_dim_divisor,
+            )
             layers.extend([
                 nn.Linear(current_dim, next_dim),
                 nn.LayerNorm(next_dim),
@@ -114,7 +116,10 @@ class MLPMethod(PerLayerBaseSteeringMethod):
         # Get hyperparameters (all required — no silent defaults)
         mlp_hidden = int(_require("hidden_dim", self.kwargs))
         mlp_input_divisor = int(_require("mlp_input_divisor", self.kwargs))
-        mlp_hidden = min(mlp_hidden, hidden_dim // mlp_input_divisor)
+        mlp_hidden = max(
+            _C.SS_MLP_MIN_HIDDEN_DIM,
+            min(mlp_hidden, hidden_dim // mlp_input_divisor),
+        )
         mlp_layers = int(_require("num_layers", self.kwargs))
         dropout = float(_require("dropout", self.kwargs))
         epochs = int(_require("epochs", self.kwargs))

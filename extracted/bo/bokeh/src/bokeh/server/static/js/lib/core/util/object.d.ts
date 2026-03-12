@@ -15,15 +15,15 @@ export declare function to_object<T = any>(obj: PlainObject<T> | Iterable<readon
 export declare function keys<T = unknown>(obj: {
     [key: string]: T;
 } | Map<string, T>): string[];
-export declare function keys(obj: {}): string[];
+export declare function keys(obj: object): string[];
 export declare function values<T = unknown>(obj: {
     [key: string]: T;
 } | Map<string, T>): T[];
-export declare function values(obj: {}): unknown[];
+export declare function values(obj: object): unknown[];
 export declare function entries<T = unknown>(obj: {
     [key: string]: T;
 } | Map<string, T>): [string, T][];
-export declare function entries(obj: {}): [string, unknown][];
+export declare function entries(obj: object): [string, unknown][];
 export declare const typed_keys: <T extends object>(obj: T) => (keyof T)[];
 export declare const typed_values: <T extends object>(obj: T) => T[keyof T][];
 export declare const typed_entries: <T extends object>(obj: T) => [keyof T, T[keyof T]][];

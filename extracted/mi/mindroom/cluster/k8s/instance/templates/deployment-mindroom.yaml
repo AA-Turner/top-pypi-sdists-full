@@ -1,8 +1,19 @@
+{{- $workerBackend := .Values.workerBackend | default "static_runner" -}}
+{{- $instanceNamespace := "mindroom-instances" -}}
+{{- $workerManagerServiceAccountName := printf "mindroom-worker-manager-%s" .Values.customer -}}
+{{- $workerServiceAccountName := .Values.kubernetesWorkerServiceAccountName | default "default" -}}
+{{- $workerImage := .Values.kubernetesWorkerImage | default .Values.mindroom_image | default "ghcr.io/mindroom-ai/mindroom:latest" -}}
+{{- $workerImagePullPolicy := .Values.kubernetesWorkerImagePullPolicy | default .Values.mindroom_image_pull_policy | default "Always" -}}
+{{- $storageAccessMode := .Values.storageAccessMode | default "ReadWriteOnce" -}}
+{{- $controlPlaneNodeName := .Values.controlPlaneNodeName | default "" -}}
+{{- if and (eq $workerBackend "kubernetes") (ne $storageAccessMode "ReadWriteMany") (eq $controlPlaneNodeName "") -}}
+{{- fail "workerBackend=kubernetes with shared storage requires either storageAccessMode=ReadWriteMany or controlPlaneNodeName to keep the control plane and workers on one node" -}}
+{{- end -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: mindroom-{{ .Values.customer }}
-  namespace: mindroom-instances
+  namespace: {{ $instanceNamespace }}
   labels:
     app: mindroom
     customer: {{ .Values.customer | quote }}
@@ -20,6 +31,12 @@ spec:
         app: mindroom
         customer: {{ .Values.customer | quote }}
     spec:
+      {{- if $controlPlaneNodeName }}
+      nodeName: {{ $controlPlaneNodeName }}
+      {{- end }}
+      {{- if eq $workerBackend "kubernetes" }}
+      serviceAccountName: {{ $workerManagerServiceAccountName }}
+      {{- end }}
       initContainers:
       - name: wait-for-synapse
         image: {{ .Values.mindroom_image | default "ghcr.io/mindroom-ai/mindroom:latest" }}
@@ -70,8 +87,11 @@ spec:
           value: "/app/config.yaml"
         - name: LOG_LEVEL
           value: "INFO"
-        - name: MINDROOM_SANDBOX_PROXY_URL
-          value: "http://localhost:8766"
+        - name: MINDROOM_WORKER_BACKEND
+          value: {{ $workerBackend | quote }}
+        - name: MINDROOM_WORKER_CLEANUP_INTERVAL_SECONDS
+          value: {{ .Values.workerCleanupIntervalSeconds | quote }}
+{{ include "mindroom.workerBackendEnv" (dict "workerBackend" $workerBackend "instanceNamespace" $instanceNamespace "workerImage" $workerImage "workerImagePullPolicy" $workerImagePullPolicy "workerServiceAccountName" $workerServiceAccountName "controlPlaneNodeName" $controlPlaneNodeName "values" .Values) | nindent 8 }}
         - name: MINDROOM_SANDBOX_PROXY_TOKEN
           valueFrom:
             secretKeyRef:
@@ -143,49 +163,9 @@ spec:
           capabilities:
             drop:
               - ALL
-      - name: sandbox-runner
-        image: {{ .Values.mindroom_image | default "ghcr.io/mindroom-ai/mindroom:latest" }}
-        imagePullPolicy: {{ .Values.mindroom_image_pull_policy | default "Always" }}
-        command: ["/app/run-sandbox-runner.sh"]
-        ports:
-        - containerPort: 8766
-        env:
-        - name: MINDROOM_SANDBOX_RUNNER_MODE
-          value: "true"
-        - name: MINDROOM_SANDBOX_PROXY_TOKEN
-          valueFrom:
-            secretKeyRef:
-              name: mindroom-api-keys-{{ .Values.customer }}
-              key: sandbox_proxy_token
-        - name: MINDROOM_CONFIG_PATH
-          value: "/app/config.yaml"
-        - name: MINDROOM_STORAGE_PATH
-          value: {{ .Values.storagePath }}
-        - name: MINDROOM_SANDBOX_WORKER_ROOT
-          value: "{{ .Values.storagePath }}/workers"
-        - name: HOME
-          value: {{ .Values.storagePath }}
-        volumeMounts:
-        - name: config
-          mountPath: /app/config.yaml
-          subPath: config.yaml
-          readOnly: true
-        - name: storage
-          mountPath: {{ .Values.storagePath }}
-        - name: sandbox-workspace
-          mountPath: /app/workspace
-        resources:
-          requests:
-            memory: "256Mi"
-            cpu: "100m"
-          limits:
-            memory: "1Gi"
-            cpu: "500m"
-        securityContext:
-          allowPrivilegeEscalation: false
-          capabilities:
-            drop:
-              - ALL
+{{- if eq $workerBackend "static_runner" }}
+{{ include "mindroom.staticRunnerContainer" (dict "values" .Values) | nindent 6 }}
+      {{- end }}
       volumes:
       - name: storage
         persistentVolumeClaim:
@@ -197,5 +177,6 @@ spec:
         secret:
           secretName: mindroom-api-keys-{{ .Values.customer }}
           defaultMode: 0400
-      - name: sandbox-workspace
-        emptyDir: {}
+      {{- if eq $workerBackend "static_runner" }}
+{{ include "mindroom.staticRunnerVolume" . | nindent 6 }}
+      {{- end }}

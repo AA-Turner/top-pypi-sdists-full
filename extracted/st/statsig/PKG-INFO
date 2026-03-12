@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: statsig
-Version: 0.71.2
+Version: 0.71.4
 Summary: Statsig Python Server SDK
 Home-page: https://github.com/statsig-io/python-sdk
 Author: Tore Hanssen, Jiakan Wang
@@ -21,7 +21,6 @@ Requires-Dist: protobuf
 Requires-Dist: ijson
 Requires-Dist: typing-extensions
 Requires-Dist: brotli
-Requires-Dist: httpx[http2]
 Provides-Extra: test
 Requires-Dist: requests; extra == "test"
 Requires-Dist: user_agents; extra == "test"

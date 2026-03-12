@@ -20,10 +20,6 @@ use crate::{
     front::{Number, Object, ObjectId},
 };
 
-mod details;
-
-pub use details::KclErrorDetails;
-
 /// How did the KCL execution fail
 #[derive(thiserror::Error, Debug)]
 pub enum ExecError {
@@ -45,7 +41,8 @@ impl From<KclErrorWithOutputs> for ExecError {
 
 /// How did the KCL execution fail, with extra state.
 #[cfg_attr(target_arch = "wasm32", expect(dead_code))]
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
+#[error("{error}")]
 pub struct ExecErrorWithState {
     pub error: ExecError,
     pub exec_state: Option<crate::execution::ExecState>,
@@ -439,6 +436,18 @@ impl miette::Diagnostic for Report {
             .map(|span| miette::LabeledSpan::new_with_span(Some(self.filename.to_string()), span));
         Some(Box::new(iter))
     }
+}
+
+#[derive(Debug, Serialize, Deserialize, ts_rs::TS, Clone, PartialEq, Eq, thiserror::Error, miette::Diagnostic)]
+#[serde(rename_all = "camelCase")]
+#[error("{message}")]
+#[ts(export)]
+pub struct KclErrorDetails {
+    #[label(collection, "Errors")]
+    pub source_ranges: Vec<SourceRange>,
+    pub backtrace: Vec<super::BacktraceItem>,
+    #[serde(rename = "msg")]
+    pub message: String,
 }
 
 impl KclErrorDetails {

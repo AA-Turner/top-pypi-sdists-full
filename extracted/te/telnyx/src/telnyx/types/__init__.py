@@ -470,7 +470,7 @@ from .verified_number_data_wrapper import VerifiedNumberDataWrapper as VerifiedN
 from .verify_profile_create_params import VerifyProfileCreateParams as VerifyProfileCreateParams
 from .verify_profile_update_params import VerifyProfileUpdateParams as VerifyProfileUpdateParams
 from .webhook_delivery_list_params import WebhookDeliveryListParams as WebhookDeliveryListParams
-from .websocket_connection_options import WebsocketConnectionOptions as WebsocketConnectionOptions
+from .websocket_connection_options import WebSocketConnectionOptions as WebSocketConnectionOptions
 from .wireguard_peer_create_params import WireguardPeerCreateParams as WireguardPeerCreateParams
 from .wireguard_peer_list_response import WireguardPeerListResponse as WireguardPeerListResponse
 from .wireguard_peer_update_params import WireguardPeerUpdateParams as WireguardPeerUpdateParams
@@ -1036,6 +1036,9 @@ from .sub_number_order_regulatory_requirement import (
 from .virtual_cross_connect_retrieve_response import (
     VirtualCrossConnectRetrieveResponse as VirtualCrossConnectRetrieveResponse,
 )
+from .whatsapp_message_template_update_params import (
+    WhatsappMessageTemplateUpdateParams as WhatsappMessageTemplateUpdateParams,
+)
 from .wireguard_peer_retrieve_config_response import (
     WireguardPeerRetrieveConfigResponse as WireguardPeerRetrieveConfigResponse,
 )
@@ -1153,6 +1156,9 @@ from .public_internet_gateway_retrieve_response import (
 from .recording_transcription_retrieve_response import (
     RecordingTranscriptionRetrieveResponse as RecordingTranscriptionRetrieveResponse,
 )
+from .whatsapp_message_template_update_response import (
+    WhatsappMessageTemplateUpdateResponse as WhatsappMessageTemplateUpdateResponse,
+)
 from .available_phone_number_block_list_response import (
     AvailablePhoneNumberBlockListResponse as AvailablePhoneNumberBlockListResponse,
 )
@@ -1242,6 +1248,9 @@ from .seti_retrieve_black_box_test_results_params import (
 )
 from .virtual_cross_connects_coverage_list_params import (
     VirtualCrossConnectsCoverageListParams as VirtualCrossConnectsCoverageListParams,
+)
+from .whatsapp_message_template_retrieve_response import (
+    WhatsappMessageTemplateRetrieveResponse as WhatsappMessageTemplateRetrieveResponse,
 )
 from .bulk_messaging_settings_update_phone_numbers import (
     BulkMessagingSettingsUpdatePhoneNumbers as BulkMessagingSettingsUpdatePhoneNumbers,

@@ -7,11 +7,11 @@ from typing import Any
 import httpx
 
 from plato._generated.errors import raise_for_status
-from plato._generated.models import GenerateScoringConfigFromSessionsRequest
+from plato._generated.models import AppApiV1TestcaseRoutesGenerateScoringConfigFromSessionsRequest
 
 
 def _build_request_args(
-    body: GenerateScoringConfigFromSessionsRequest,
+    body: AppApiV1TestcaseRoutesGenerateScoringConfigFromSessionsRequest,
     authorization: str | None = None,
     x_api_key: str | None = None,
 ) -> dict[str, Any]:
@@ -34,7 +34,7 @@ def _build_request_args(
 
 def sync(
     client: httpx.Client,
-    body: GenerateScoringConfigFromSessionsRequest,
+    body: AppApiV1TestcaseRoutesGenerateScoringConfigFromSessionsRequest,
     authorization: str | None = None,
     x_api_key: str | None = None,
 ) -> Any:
@@ -53,7 +53,7 @@ def sync(
 
 async def asyncio(
     client: httpx.AsyncClient,
-    body: GenerateScoringConfigFromSessionsRequest,
+    body: AppApiV1TestcaseRoutesGenerateScoringConfigFromSessionsRequest,
     authorization: str | None = None,
     x_api_key: str | None = None,
 ) -> Any:

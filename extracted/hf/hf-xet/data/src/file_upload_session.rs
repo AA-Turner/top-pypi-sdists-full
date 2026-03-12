@@ -7,7 +7,6 @@ use std::sync::Arc;
 
 use bytes::Bytes;
 use cas_client::{Client, ProgressCallback};
-use cas_object::SerializedCasObject;
 use deduplication::constants::{MAX_XORB_BYTES, MAX_XORB_CHUNKS};
 use deduplication::{DataAggregator, DeduplicationMetrics, RawXorbData};
 use mdb_shard::Sha256;
@@ -23,10 +22,11 @@ use tokio::task::{JoinHandle, JoinSet};
 use tracing::{Instrument, Span, info_span, instrument};
 use ulid::Ulid;
 use xet_runtime::{XetRuntime, xet_config};
+use xorb_object::SerializedXorbObject;
 
 use crate::configurations::*;
 use crate::errors::*;
-use crate::file_cleaner::SingleFileCleaner;
+use crate::file_cleaner::{Sha256Policy, SingleFileCleaner};
 use crate::remote_client_interface::create_remote_client;
 use crate::shard_interface::SessionShardInterface;
 use crate::{XetFileInfo, prometheus_metrics};
@@ -142,11 +142,11 @@ impl FileUploadSession {
 
     pub async fn upload_files(
         self: &Arc<Self>,
-        files_and_sha256s: impl IntoIterator<Item = (impl AsRef<Path>, Option<Sha256>)> + Send,
+        files_sha256_and_tracking_ids: impl IntoIterator<Item = (impl AsRef<Path>, Option<Sha256>, Ulid)> + Send,
     ) -> Result<Vec<XetFileInfo>> {
         let mut cleaning_tasks: Vec<JoinHandle<_>> = vec![];
 
-        for (f, sha256) in files_and_sha256s.into_iter() {
+        for (f, sha256, tracking_id) in files_sha256_and_tracking_ids.into_iter() {
             let file_path = f.as_ref().to_owned();
             let file_name: Arc<str> = Arc::from(file_path.to_string_lossy());
 
@@ -158,7 +158,7 @@ impl FileUploadSession {
             // it will be discovered incrementally via increment_file_size in add_data_impl.
             let file_id = self
                 .completion_tracker
-                .register_new_file(file_name.clone(), Some(file_size))
+                .register_new_file(tracking_id, file_name.clone(), Some(file_size))
                 .await;
 
             // Now, spawn a task
@@ -185,7 +185,7 @@ impl FileUploadSession {
                     let mut reader = File::open(&file_path)?;
 
                     // Start the clean process for each file.
-                    let mut cleaner = SingleFileCleaner::new(Some(file_name), file_id, sha256, session);
+                    let mut cleaner = SingleFileCleaner::new(Some(file_name), file_id, sha256.into(), session);
                     let mut bytes_read = 0;
 
                     while bytes_read < file_size {
@@ -251,21 +251,23 @@ impl FileUploadSession {
     /// The caller is responsible for memory usage management, the parameter "buffer_size"
     /// indicates the maximum number of Vec<u8> in the internal buffer.
     ///
-    /// If a sha256 is provided, the value will be directly used in shard upload to
-    /// avoid redundant computation.
+    /// If a sha256 is provided via [`Sha256Policy::Provided`], the value will be directly
+    /// used in shard upload to avoid redundant computation. [`Sha256Policy::Skip`] skips
+    /// SHA-256 computation entirely and no metadata_ext is included in the shard.
     pub async fn start_clean(
         self: &Arc<Self>,
-        file_name: Option<Arc<str>>,
+        tracking_name: Option<Arc<str>>,
         size: u64,
-        sha256: Option<Sha256>,
+        sha256: Sha256Policy,
+        tracking_id: Ulid,
     ) -> SingleFileCleaner {
         // Get a new file id for the completion tracking
         let file_id = self
             .completion_tracker
-            .register_new_file(file_name.clone().unwrap_or_default(), Some(size))
+            .register_new_file(tracking_id, tracking_name.clone().unwrap_or_default(), Some(size))
             .await;
 
-        SingleFileCleaner::new(file_name, file_id, sha256, self.clone())
+        SingleFileCleaner::new(tracking_name, file_id, sha256, self.clone())
     }
 
     /// Registers a new xorb for upload, returning true if the xorb was added to the upload queue and false
@@ -314,22 +316,22 @@ impl FileUploadSession {
         // This xorb is in the session upload queue, so other threads can go ahead and dedup against it.
         // No session shard data gets uploaded until all the xorbs have been successfully uploaded, so
         // this is safe.
-        let xorb_cas_info = Arc::new(xorb.cas_info.clone());
-        self.shard_interface.add_cas_block(xorb_cas_info.clone()).await?;
+        let xorb_info = Arc::new(xorb.xorb_info.clone());
+        self.shard_interface.add_xorb_block(xorb_info.clone()).await?;
 
         // Serialize the object; this can be relatively expensive, so run it on a compute thread.
         // XORBs are sent without footer - the server/client reconstructs it from chunk data.
         let compression_scheme = self.config.data_config.compression;
-        let cas_object = XetRuntime::current()
-            .spawn_blocking(move || SerializedCasObject::from_xorb(xorb, compression_scheme, false))
+        let xorb_obj = XetRuntime::current()
+            .spawn_blocking(move || SerializedXorbObject::from_xorb(xorb, compression_scheme, false))
             .await??;
 
         let session = self.clone();
         let upload_permit = self.client.acquire_upload_permit().await?;
         let cas_prefix = session.config.data_config.prefix.clone();
         let completion_tracker = self.completion_tracker.clone();
-        let xorb_hash = cas_object.hash;
-        let raw_num_bytes = cas_object.raw_num_bytes;
+        let xorb_hash = xorb_obj.hash;
+        let raw_num_bytes = xorb_obj.raw_num_bytes;
         let progress_callback: ProgressCallback = Arc::new(move |delta, _completed, total| {
             let raw_delta = (delta * raw_num_bytes).checked_div(total).unwrap_or(0);
             if raw_delta > 0 {
@@ -343,7 +345,7 @@ impl FileUploadSession {
             async move {
                 let n_bytes_transmitted = session
                     .client
-                    .upload_xorb(&cas_prefix, cas_object, Some(progress_callback), upload_permit)
+                    .upload_xorb(&cas_prefix, xorb_obj, Some(progress_callback), upload_permit)
                     .await?;
 
                 // Register that the xorb has been uploaded.
@@ -353,7 +355,7 @@ impl FileUploadSession {
                 session.deduplication_metrics.lock().await.xorb_bytes_uploaded += n_bytes_transmitted;
 
                 // Add this as a completed cas block so that future sessions can resume quickly.
-                session.shard_interface.add_uploaded_cas_block(xorb_cas_info).await?;
+                session.shard_interface.add_uploaded_xorb_block(xorb_info).await?;
 
                 Ok(())
             }
@@ -575,7 +577,7 @@ mod tests {
             .unwrap();
 
         let mut cleaner = upload_session
-            .start_clean(Some("test".into()), read_data.len() as u64, None)
+            .start_clean(Some("test".into()), read_data.len() as u64, Sha256Policy::Compute, Ulid::new())
             .await;
 
         // Read blocks from the source file and hand them to the cleaning handle
@@ -604,7 +606,7 @@ mod tests {
         let config = TranslatorConfig::local_config(cas_path).unwrap();
         let session = FileDownloadSession::new(config.into(), None).await.unwrap();
 
-        session.download_file(&xet_file, output_path, None).await.unwrap();
+        session.download_file(&xet_file, output_path, Ulid::new()).await.unwrap();
     }
 
     use std::fs::{read, write};
@@ -640,6 +642,37 @@ mod tests {
                 // 4. Verify that the round-tripped file matches the original
                 let result_data = read(hydrated_path).unwrap();
                 assert_eq!(original_data.to_vec(), result_data);
+            })
+            .unwrap();
+    }
+
+    #[test]
+    fn test_clean_skip_sha256_no_metadata_ext() {
+        let temp = tempdir().unwrap();
+        let data = b"Hello, skip sha256!";
+
+        let runtime = get_threadpool();
+
+        runtime
+            .clone()
+            .external_run_async_task(async move {
+                let cas_path = temp.path().join("cas");
+
+                let upload_session =
+                    FileUploadSession::new(TranslatorConfig::local_config(&cas_path).unwrap().into(), None)
+                        .await
+                        .unwrap();
+
+                let mut cleaner = upload_session
+                    .start_clean(Some("test".into()), data.len() as u64, Sha256Policy::Skip, Ulid::new())
+                    .await;
+                cleaner.add_data(data).await.unwrap();
+                cleaner.finish().await.unwrap();
+
+                // Verify that the shard has no metadata_ext (no SHA-256).
+                let (_metrics, file_infos) = upload_session.finalize_with_file_info().await.unwrap();
+                assert_eq!(file_infos.len(), 1);
+                assert!(file_infos[0].metadata_ext.is_none(), "Skip should produce no metadata_ext");
             })
             .unwrap();
     }

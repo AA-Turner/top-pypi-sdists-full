@@ -141,6 +141,7 @@ class LocalExecutionRepository(ExecutionRepository):
                 and (not filter.stage_id or execution.stage_id == filter.stage_id)
                 and (not filter.status or execution.status == filter.status)
                 and (not filter.project_id or execution.stage_id == filter.project_id)
+                and (not filter.search or execution.id.startswith(filter.search))
                 and (
                     not filter.start_date
                     or execution.created_at

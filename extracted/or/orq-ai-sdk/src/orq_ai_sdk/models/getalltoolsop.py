@@ -45,7 +45,7 @@ class GetAllToolsRequest(BaseModel):
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
-            val = serialized.get(k)
+            val = serialized.get(k, serialized.get(n))
 
             if val != UNSET_SENTINEL:
                 if val is not None or k not in optional_fields:
@@ -138,7 +138,7 @@ class DataCodeTool(BaseModel):
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
-            val = serialized.get(k)
+            val = serialized.get(k, serialized.get(n))
 
             if val != UNSET_SENTINEL:
                 if val is not None or k not in optional_fields:
@@ -209,7 +209,7 @@ class DataCodeExecutionTool(BaseModel):
     code_tool: DataCodeTool
 
     id: Annotated[Optional[str], pydantic.Field(alias="_id")] = (
-        "tool_01KK1CZ6VHNWF1TRGFA3CTN4HP"
+        "tool_01KKFDJSA3J6PZBQ07A4C5VSV4"
     )
 
     display_name: Optional[str] = None
@@ -243,7 +243,7 @@ class DataCodeExecutionTool(BaseModel):
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
-            val = serialized.get(k)
+            val = serialized.get(k, serialized.get(n))
 
             if val != UNSET_SENTINEL:
                 if val is not None or k not in optional_fields:
@@ -282,7 +282,7 @@ class DataHeaders(BaseModel):
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
-            val = serialized.get(k)
+            val = serialized.get(k, serialized.get(n))
 
             if val != UNSET_SENTINEL:
                 if val is not None or k not in optional_fields:
@@ -315,7 +315,7 @@ class GetAllToolsDataSchema(BaseModel):
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
-            val = serialized.get(k)
+            val = serialized.get(k, serialized.get(n))
 
             if val != UNSET_SENTINEL:
                 if val is not None or k not in optional_fields:
@@ -336,7 +336,7 @@ class DataTools(BaseModel):
 
     schema_: Annotated[GetAllToolsDataSchema, pydantic.Field(alias="schema")]
 
-    id: Optional[str] = "01KK1CZ6VGTFEXAYB7FBEXMKFC"
+    id: Optional[str] = "01KKFDJSA22DXSTMYNY060GB5G"
 
     description: Optional[str] = None
 
@@ -348,7 +348,7 @@ class DataTools(BaseModel):
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
-            val = serialized.get(k)
+            val = serialized.get(k, serialized.get(n))
 
             if val != UNSET_SENTINEL:
                 if val is not None or k not in optional_fields:
@@ -396,7 +396,7 @@ class DataMcp(BaseModel):
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
-            val = serialized.get(k)
+            val = serialized.get(k, serialized.get(n))
 
             if val != UNSET_SENTINEL:
                 if val is not None or k not in optional_fields:
@@ -467,7 +467,7 @@ class DataMCPTool(BaseModel):
     mcp: DataMcp
 
     id: Annotated[Optional[str], pydantic.Field(alias="_id")] = (
-        "tool_01KK1CZ6VED5VQB1TV96P1FY2R"
+        "tool_01KKFDJSA0W1GBRQMKVMQENWW2"
     )
 
     display_name: Optional[str] = None
@@ -501,7 +501,7 @@ class DataMCPTool(BaseModel):
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
-            val = serialized.get(k)
+            val = serialized.get(k, serialized.get(n))
 
             if val != UNSET_SENTINEL:
                 if val is not None or k not in optional_fields:
@@ -549,7 +549,7 @@ class GetAllToolsHeaders2(BaseModel):
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
-            val = serialized.get(k)
+            val = serialized.get(k, serialized.get(n))
 
             if val != UNSET_SENTINEL:
                 if val is not None or k not in optional_fields:
@@ -604,7 +604,7 @@ class DataBlueprint(BaseModel):
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
-            val = serialized.get(k)
+            val = serialized.get(k, serialized.get(n))
 
             if val != UNSET_SENTINEL:
                 if val is not None or k not in optional_fields:
@@ -663,7 +663,7 @@ class DataArguments(BaseModel):
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
-            val = serialized.get(k)
+            val = serialized.get(k, serialized.get(n))
 
             if val != UNSET_SENTINEL:
                 if val is not None or k not in optional_fields:
@@ -694,7 +694,7 @@ class GetAllToolsDataHTTP(BaseModel):
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
-            val = serialized.get(k)
+            val = serialized.get(k, serialized.get(n))
 
             if val != UNSET_SENTINEL:
                 if val is not None or k not in optional_fields:
@@ -765,7 +765,7 @@ class DataHTTPTool(BaseModel):
     http: GetAllToolsDataHTTP
 
     id: Annotated[Optional[str], pydantic.Field(alias="_id")] = (
-        "tool_01KK1CZ6VBMPYYC8W128FCMK34"
+        "tool_01KKFDJS9XGRJAQ5RGC0KQXT86"
     )
 
     display_name: Optional[str] = None
@@ -799,7 +799,7 @@ class DataHTTPTool(BaseModel):
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
-            val = serialized.get(k)
+            val = serialized.get(k, serialized.get(n))
 
             if val != UNSET_SENTINEL:
                 if val is not None or k not in optional_fields:
@@ -889,7 +889,7 @@ class DataJSONSchema(BaseModel):
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
-            val = serialized.get(k)
+            val = serialized.get(k, serialized.get(n))
 
             if val != UNSET_SENTINEL:
                 if val is not None or k not in optional_fields:
@@ -960,7 +960,7 @@ class DataJSONSchemaTool(BaseModel):
     json_schema: DataJSONSchema
 
     id: Annotated[Optional[str], pydantic.Field(alias="_id")] = (
-        "tool_01KK1CZ6V87WYPEP3NPRH5WCY7"
+        "tool_01KKFDJS9VDCWG1ERH0VE7YDBM"
     )
 
     display_name: Optional[str] = None
@@ -994,7 +994,7 @@ class DataJSONSchemaTool(BaseModel):
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
-            val = serialized.get(k)
+            val = serialized.get(k, serialized.get(n))
 
             if val != UNSET_SENTINEL:
                 if val is not None or k not in optional_fields:
@@ -1088,7 +1088,7 @@ class GetAllToolsDataFunction(BaseModel):
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
-            val = serialized.get(k)
+            val = serialized.get(k, serialized.get(n))
 
             if val != UNSET_SENTINEL:
                 if val is not None or k not in optional_fields:
@@ -1159,7 +1159,7 @@ class DataFunctionTool(BaseModel):
     function: GetAllToolsDataFunction
 
     id: Annotated[Optional[str], pydantic.Field(alias="_id")] = (
-        "tool_01KK1CZ6V6PCBF8219AN8WBA0Q"
+        "tool_01KKFDJS9SH7MWD1MRKT4GJZNW"
     )
 
     display_name: Optional[str] = None
@@ -1193,7 +1193,7 @@ class DataFunctionTool(BaseModel):
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
-            val = serialized.get(k)
+            val = serialized.get(k, serialized.get(n))
 
             if val != UNSET_SENTINEL:
                 if val is not None or k not in optional_fields:

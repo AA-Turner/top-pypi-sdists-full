@@ -1,4 +1,4 @@
-# Copyright (c) 2023-2025 Arista Networks, Inc.
+# Copyright (c) 2023-2026 Arista Networks, Inc.
 # Use of this source code is governed by the Apache License 2.0
 # that can be found in the LICENSE file.
 """Constants used in ANTA."""
@@ -58,6 +58,7 @@ KNOWN_EOS_ERRORS = [
     r".*controller\snot\sready.*",
     r"could not run command",
     r"There seem to be no power supplies connected.",
+    r"IP Routing table for VRF .*",
 ]
 """List of known EOS errors.
 

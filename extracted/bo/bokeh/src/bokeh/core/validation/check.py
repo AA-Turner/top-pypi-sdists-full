@@ -22,6 +22,7 @@ log = logging.getLogger(__name__)
 
 # Standard library imports
 import contextlib
+from dataclasses import dataclass, field
 from typing import (
     Iterable,
     Iterator,
@@ -32,7 +33,6 @@ from typing import (
 # Bokeh imports
 from ...model import Model
 from ...settings import settings
-from ...util.dataclasses import dataclass, field
 from .issue import Warning
 
 #-----------------------------------------------------------------------------
@@ -43,6 +43,7 @@ __silencers__: set[Warning] = set()
 
 __all__ = (
     'check_integrity',
+    'is_silenced',
     'silence',
     'silenced',
 )

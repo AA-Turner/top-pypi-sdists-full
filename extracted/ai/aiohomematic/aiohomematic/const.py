@@ -6,8 +6,6 @@ Constants used by aiohomematic.
 Public API of this module is defined by __all__.
 """
 
-from __future__ import annotations
-
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -21,7 +19,7 @@ from typing import Any, Final, NamedTuple, Required, TypeAlias, TypedDict
 
 from pydantic import BaseModel, ConfigDict
 
-VERSION: Final = "2026.3.5"
+VERSION: Final = "2026.3.7"
 
 # Detect test speedup mode via environment
 _TEST_SPEEDUP: Final = (

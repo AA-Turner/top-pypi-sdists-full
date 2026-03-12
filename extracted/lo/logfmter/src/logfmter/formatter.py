@@ -1,15 +1,15 @@
 import logging
 import numbers
 from types import TracebackType
-from typing import Any, Dict, List, Optional, Tuple, Type, cast
+from typing import Any, cast
 
-ExcInfo = Tuple[Type[BaseException], BaseException, TracebackType]
+ExcInfo = tuple[type[BaseException], BaseException, TracebackType]
 
 # Reserved log record attributes cannot be overwritten. They
 # will not be included in the formatted log.
 #
 # https://docs.python.org/3/library/logging.html#logrecord-attributes
-RESERVED: Tuple[str, ...] = (
+RESERVED: tuple[str, ...] = (
     "args",
     "asctime",
     "created",
@@ -40,6 +40,9 @@ QUOTE_CHARS = str.maketrans(
 )
 REPLACEMENTS = {chr(c): f"\\u{c:04x}" for c in list(range(0x20)) + [0x7F]}
 REPLACEMENTS.update({"\n": "\\n", "\t": "\\t", "\r": "\\r"})
+KEY_REPLACEMENTS = str.maketrans(
+    {chr(c): "_" for c in list(range(0x21)) + [0x7F]} | {"\n": "\\n"}
+)
 
 
 class _DefaultFormatter(logging.Formatter):
@@ -124,7 +127,7 @@ class Logfmter(logging.Formatter):
         if not key:
             return "_"
 
-        return key.replace(" ", "_").replace("\n", "\\n")
+        return key.translate(KEY_REPLACEMENTS)
 
     @classmethod
     def get_extra(cls, record: logging.LogRecord) -> dict:
@@ -166,11 +169,11 @@ class Logfmter(logging.Formatter):
 
     def __init__(
         self,
-        keys: List[str] = ["at"],
-        mapping: Dict[str, str] = {"at": "levelname"},
-        datefmt: Optional[str] = None,
-        defaults: Optional[Dict[str, str]] = None,
-        ignored_keys: Optional[List[str]] = None,
+        keys: list[str] = ["at"],
+        mapping: dict[str, str] = {"at": "levelname"},
+        datefmt: str | None = None,
+        defaults: dict[str, str] | None = None,
+        ignored_keys: list[str] | None = None,
     ):
         super().__init__("%(message)s", datefmt)
         self.keys = [self.normalize_key(key) for key in keys]

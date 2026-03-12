@@ -13,11 +13,11 @@ pub struct InodeInfo {
     pub parent: u64,
     pub backing_relpath: String,
     pub is_dir: bool,
-    pub md5: String,
+    pub md5: Option<String>,
     pub size: u64,
     pub mode: u32,
     pub is_symlink: bool,
-    pub symlink_target: String,
+    pub symlink_target: Option<String>,
     pub nlink: u32,
     pub overlay: bool,
     pub deleted: bool,
@@ -46,11 +46,11 @@ impl InodeTree {
             parent: 0,
             backing_relpath: String::new(),
             is_dir: true,
-            md5: String::new(),
+            md5: None,
             size: 0,
             mode: 0o755,
             is_symlink: false,
-            symlink_target: String::new(),
+            symlink_target: None,
             nlink: 2,
             overlay: false,
             deleted: false,
@@ -69,77 +69,173 @@ impl InodeTree {
     pub fn build_from_manifest(&mut self, entries: &[FileEntry]) {
         for entry in entries {
             self.manifest_relpaths.insert(entry.relpath.clone());
-            let parts: Vec<&str> = entry.relpath.split('/').collect();
-            let mut parent_ino = ROOT_INODE;
+        }
 
-            // Create intermediate directories
-            for &part in &parts[..parts.len() - 1] {
-                if let Some(&existing) = self.children.entry(parent_ino).or_default().get(part) {
-                    parent_ino = existing;
+        let mut dir_entries = entries
+            .iter()
+            .filter(|entry| entry.is_dir())
+            .collect::<Vec<_>>();
+        dir_entries.sort_by_key(|entry| (entry.relpath.split('/').count(), entry.relpath.clone()));
+        for entry in dir_entries {
+            let _ = self.insert_manifest_dir_entry(entry);
+        }
+
+        let mut file_entries = entries
+            .iter()
+            .filter(|entry| !entry.is_dir())
+            .collect::<Vec<_>>();
+        file_entries.sort_by_key(|entry| (entry.relpath.split('/').count(), entry.relpath.clone()));
+        for entry in file_entries {
+            let _ = self.insert_manifest_file_entry(entry);
+        }
+    }
+
+    fn insert_manifest_dir_entry(&mut self, entry: &FileEntry) -> Option<u64> {
+        let parts = Self::path_parts(&entry.relpath)?;
+        let mut parent_ino = ROOT_INODE;
+        for &part in &parts[..parts.len() - 1] {
+            parent_ino = self.ensure_manifest_dir(parent_ino, part, None, 0o755)?;
+        }
+
+        self.ensure_manifest_dir(
+            parent_ino,
+            parts[parts.len() - 1],
+            Some(entry.relpath.clone()),
+            entry.manifest_mode(),
+        )
+    }
+
+    fn insert_manifest_file_entry(&mut self, entry: &FileEntry) -> Option<u64> {
+        let parts = Self::path_parts(&entry.relpath)?;
+        let mut parent_ino = ROOT_INODE;
+        for &part in &parts[..parts.len() - 1] {
+            parent_ino = self.ensure_manifest_dir(parent_ino, part, None, 0o755)?;
+        }
+
+        let name = parts[parts.len() - 1];
+        if let Some(&existing) = self.children.entry(parent_ino).or_default().get(name) {
+            if self
+                .inodes
+                .get(&existing)
+                .map(|info| info.is_dir)
+                .unwrap_or(false)
+            {
+                log::warn!(
+                    "ignoring manifest file entry {} because a directory already exists at that path",
+                    entry.relpath
+                );
+                return None;
+            }
+
+            if let Some(info) = self.inodes.get_mut(&existing) {
+                info.backing_relpath = entry.relpath.clone();
+                info.md5 = entry.md5.clone();
+                info.size = entry.size;
+                info.mode = entry.manifest_mode();
+                info.is_symlink = entry.islink;
+                info.symlink_target = if entry.islink {
+                    entry.symlink_target.clone()
                 } else {
-                    let ino = self.alloc_inode();
-                    let info = InodeInfo {
-                        ino,
-                        name: part.to_string(),
-                        parent: parent_ino,
-                        backing_relpath: String::new(),
-                        is_dir: true,
-                        md5: String::new(),
-                        size: 0,
-                        mode: 0o755,
-                        is_symlink: false,
-                        symlink_target: String::new(),
-                        nlink: 2,
-                        overlay: false,
-                        deleted: false,
-                    };
-                    self.inodes.insert(ino, info);
-                    self.children.insert(ino, HashMap::new());
-                    self.children
-                        .get_mut(&parent_ino)
-                        .unwrap()
-                        .insert(part.to_string(), ino);
-                    parent_ino = ino;
-                }
+                    None
+                };
+                info.overlay = false;
+                info.deleted = false;
             }
+            return Some(existing);
+        }
 
-            // Create file entry
-            let fname = parts[parts.len() - 1];
-            let mode = if entry.isexec { 0o755 } else { 0o644 };
-            if let Some(&existing) = self.children.entry(parent_ino).or_default().get(fname) {
-                if let Some(info) = self.inodes.get_mut(&existing) {
-                    info.md5 = entry.md5.clone();
-                    info.size = entry.size;
+        let ino = self.alloc_inode();
+        let info = InodeInfo {
+            ino,
+            name: name.to_string(),
+            parent: parent_ino,
+            backing_relpath: entry.relpath.clone(),
+            is_dir: false,
+            md5: entry.md5.clone(),
+            size: entry.size,
+            mode: entry.manifest_mode(),
+            is_symlink: entry.islink,
+            symlink_target: if entry.islink {
+                entry.symlink_target.clone()
+            } else {
+                None
+            },
+            nlink: 1,
+            overlay: false,
+            deleted: false,
+        };
+        self.inodes.insert(ino, info);
+        self.children
+            .entry(parent_ino)
+            .or_default()
+            .insert(name.to_string(), ino);
+        Some(ino)
+    }
+
+    fn ensure_manifest_dir(
+        &mut self,
+        parent_ino: u64,
+        name: &str,
+        backing_relpath: Option<String>,
+        mode: u32,
+    ) -> Option<u64> {
+        if let Some(&existing) = self.children.entry(parent_ino).or_default().get(name) {
+            if !self
+                .inodes
+                .get(&existing)
+                .map(|info| info.is_dir)
+                .unwrap_or(false)
+            {
+                log::warn!(
+                    "ignoring manifest directory entry {} because a file already exists at that path",
+                    backing_relpath.as_deref().unwrap_or(name)
+                );
+                return None;
+            }
+            if let Some(info) = self.inodes.get_mut(&existing) {
+                if let Some(relpath) = backing_relpath {
+                    info.backing_relpath = relpath;
                     info.mode = mode;
-                    info.is_symlink = entry.islink;
-                    info.symlink_target = entry.symlink_target.clone();
-                    info.overlay = false;
-                    info.deleted = false;
                 }
-                continue;
             }
+            return Some(existing);
+        }
 
-            let ino = self.alloc_inode();
-            let info = InodeInfo {
-                ino,
-                name: fname.to_string(),
-                parent: parent_ino,
-                backing_relpath: entry.relpath.clone(),
-                is_dir: false,
-                md5: entry.md5.clone(),
-                size: entry.size,
-                mode,
-                is_symlink: entry.islink,
-                symlink_target: entry.symlink_target.clone(),
-                nlink: 1,
-                overlay: false,
-                deleted: false,
-            };
-            self.inodes.insert(ino, info);
-            self.children
-                .entry(parent_ino)
-                .or_default()
-                .insert(fname.to_string(), ino);
+        let ino = self.alloc_inode();
+        let info = InodeInfo {
+            ino,
+            name: name.to_string(),
+            parent: parent_ino,
+            backing_relpath: backing_relpath.unwrap_or_default(),
+            is_dir: true,
+            md5: None,
+            size: 0,
+            mode,
+            is_symlink: false,
+            symlink_target: None,
+            nlink: 2,
+            overlay: false,
+            deleted: false,
+        };
+        self.inodes.insert(ino, info);
+        self.children.insert(ino, HashMap::new());
+        self.children
+            .get_mut(&parent_ino)
+            .unwrap()
+            .insert(name.to_string(), ino);
+        Some(ino)
+    }
+
+    fn path_parts(relpath: &str) -> Option<Vec<&str>> {
+        let parts = relpath
+            .split('/')
+            .filter(|part| !part.is_empty())
+            .collect::<Vec<_>>();
+        if parts.is_empty() {
+            log::warn!("ignoring empty manifest relpath");
+            None
+        } else {
+            Some(parts)
         }
     }
 
@@ -183,6 +279,10 @@ impl InodeTree {
                         .map(|info| info.is_dir)
                         .unwrap_or(false)
                     {
+                        log::warn!(
+                            "overlay scan skipping directory {} because a file already exists at that path",
+                            path.display()
+                        );
                         continue;
                     }
                     if let Some(info) = self.inodes.get_mut(&existing) {
@@ -199,11 +299,11 @@ impl InodeTree {
                         parent: parent_ino,
                         backing_relpath: String::new(),
                         is_dir: true,
-                        md5: String::new(),
+                        md5: None,
                         size: 0,
                         mode,
                         is_symlink: false,
-                        symlink_target: String::new(),
+                        symlink_target: None,
                         nlink: 2,
                         overlay: true,
                         deleted: false,
@@ -226,6 +326,10 @@ impl InodeTree {
                         .map(|info| info.is_dir)
                         .unwrap_or(false)
                     {
+                        log::warn!(
+                            "overlay scan skipping file {} because a directory already exists at that path",
+                            path.display()
+                        );
                         continue;
                     }
                     if let Some(info) = self.inodes.get_mut(&ino) {
@@ -255,11 +359,11 @@ impl InodeTree {
                     parent: parent_ino,
                     backing_relpath: rel.to_string_lossy().to_string(),
                     is_dir: false,
-                    md5: String::new(),
+                    md5: None,
                     size: meta.len(),
                     mode: (meta.mode() & 0o777) as u32,
                     is_symlink: is_sym,
-                    symlink_target: target,
+                    symlink_target: is_sym.then_some(target),
                     nlink: meta.nlink() as u32,
                     overlay: true,
                     deleted: false,
@@ -293,6 +397,12 @@ impl InodeTree {
         if let Some(cached) = self.relpath_cache.get(&ino) {
             return cached.clone();
         }
+        let result = self.compute_relpath(ino);
+        self.relpath_cache.insert(ino, result.clone());
+        result
+    }
+
+    fn compute_relpath(&self, ino: u64) -> String {
         let mut parts = Vec::new();
         let mut cur = ino;
         let mut depth = 0;
@@ -313,9 +423,7 @@ impl InodeTree {
             }
         }
         parts.reverse();
-        let result = parts.join("/");
-        self.relpath_cache.insert(ino, result.clone());
-        result
+        parts.join("/")
     }
 
     pub fn is_in_manifest(&self, relpath: &str) -> bool {
@@ -343,11 +451,11 @@ impl InodeTree {
             parent,
             backing_relpath,
             is_dir: false,
-            md5: String::new(),
+            md5: None,
             size: 0,
             mode,
             is_symlink,
-            symlink_target: symlink_target.to_string(),
+            symlink_target: is_symlink.then_some(symlink_target.to_string()),
             nlink: 1,
             overlay: true,
             deleted: false,
@@ -360,6 +468,7 @@ impl InodeTree {
         ino
     }
 
+    #[cfg(test)]
     pub fn add_dir(&mut self, parent: u64, name: &str) -> u64 {
         self.add_dir_with_mode(parent, name, 0o755)
     }
@@ -372,11 +481,11 @@ impl InodeTree {
             parent,
             backing_relpath: String::new(),
             is_dir: true,
-            md5: String::new(),
+            md5: None,
             size: 0,
             mode,
             is_symlink: false,
-            symlink_target: String::new(),
+            symlink_target: None,
             nlink: 2,
             overlay: true,
             deleted: false,
@@ -572,6 +681,22 @@ impl InodeTree {
             .unwrap_or(false)
     }
 
+    pub fn active_directories_readonly(&self) -> Vec<(String, u32)> {
+        let mut dirs = self
+            .inodes
+            .iter()
+            .filter_map(|(&ino, info)| {
+                if ino != ROOT_INODE && info.is_dir && !info.deleted {
+                    Some((self.compute_relpath(ino), info.mode))
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
+        dirs.sort_by(|a, b| a.0.cmp(&b.0));
+        dirs
+    }
+
     #[cfg(test)]
     pub fn inode_count(&self) -> usize {
         self.inodes.len()
@@ -586,26 +711,45 @@ mod tests {
     use std::os::unix::fs::PermissionsExt;
     use tempfile::TempDir;
 
+    fn regular_entry(relpath: &str, md5: &str, size: u64) -> FileEntry {
+        FileEntry {
+            relpath: relpath.to_string(),
+            md5: Some(md5.to_string()),
+            size,
+            isexec: false,
+            islink: false,
+            symlink_target: None,
+            isdir: false,
+            mode: None,
+        }
+    }
+
+    fn exec_entry(relpath: &str, md5: &str, size: u64) -> FileEntry {
+        FileEntry {
+            isexec: true,
+            ..regular_entry(relpath, md5, size)
+        }
+    }
+
+    fn dir_entry(relpath: &str, mode: u32) -> FileEntry {
+        FileEntry {
+            relpath: relpath.to_string(),
+            md5: None,
+            size: 0,
+            isexec: false,
+            islink: false,
+            symlink_target: None,
+            isdir: true,
+            mode: Some(mode),
+        }
+    }
+
     #[test]
     fn test_build_tree() {
         let mut tree = InodeTree::new();
         let entries = vec![
-            FileEntry {
-                relpath: "a/b/file.txt".to_string(),
-                md5: "abc".to_string(),
-                size: 100,
-                isexec: false,
-                islink: false,
-                symlink_target: String::new(),
-            },
-            FileEntry {
-                relpath: "a/other.txt".to_string(),
-                md5: "def".to_string(),
-                size: 50,
-                isexec: true,
-                islink: false,
-                symlink_target: String::new(),
-            },
+            regular_entry("a/b/file.txt", "abc", 100),
+            exec_entry("a/other.txt", "def", 50),
         ];
         tree.build_from_manifest(&entries);
 
@@ -626,16 +770,31 @@ mod tests {
     }
 
     #[test]
-    fn test_relpath() {
+    fn test_regular_manifest_entry_ignores_symlink_target_metadata() {
         let mut tree = InodeTree::new();
         let entries = vec![FileEntry {
-            relpath: "a/b/c.txt".to_string(),
-            md5: "x".to_string(),
-            size: 10,
+            relpath: "file.txt".to_string(),
+            md5: Some("abc123".to_string()),
+            size: 12,
             isexec: false,
             islink: false,
-            symlink_target: String::new(),
+            symlink_target: Some("wrong-target".to_string()),
+            isdir: false,
+            mode: None,
         }];
+
+        tree.build_from_manifest(&entries);
+
+        let ino = tree.lookup_child(ROOT_INODE, "file.txt").unwrap();
+        let info = tree.get(ino).unwrap();
+        assert!(!info.is_symlink);
+        assert_eq!(info.symlink_target, None);
+    }
+
+    #[test]
+    fn test_relpath() {
+        let mut tree = InodeTree::new();
+        let entries = vec![regular_entry("a/b/c.txt", "x", 10)];
         tree.build_from_manifest(&entries);
 
         let root_children = tree.get_children(ROOT_INODE).unwrap();
@@ -664,14 +823,7 @@ mod tests {
     #[test]
     fn test_manifest_lookup() {
         let mut tree = InodeTree::new();
-        let entries = vec![FileEntry {
-            relpath: "data/file.bin".to_string(),
-            md5: "hash".to_string(),
-            size: 1024,
-            isexec: false,
-            islink: false,
-            symlink_target: String::new(),
-        }];
+        let entries = vec![regular_entry("data/file.bin", "hash", 1024)];
         tree.build_from_manifest(&entries);
         assert!(tree.is_in_manifest("data/file.bin"));
         assert!(!tree.is_in_manifest("data/other.bin"));
@@ -681,22 +833,8 @@ mod tests {
     fn test_duplicate_manifest_paths_should_not_allocate_hidden_inodes() {
         let mut tree = InodeTree::new();
         let entries = vec![
-            FileEntry {
-                relpath: "dup.txt".to_string(),
-                md5: "hash-a".to_string(),
-                size: 1,
-                isexec: false,
-                islink: false,
-                symlink_target: String::new(),
-            },
-            FileEntry {
-                relpath: "dup.txt".to_string(),
-                md5: "hash-b".to_string(),
-                size: 2,
-                isexec: false,
-                islink: false,
-                symlink_target: String::new(),
-            },
+            regular_entry("dup.txt", "hash-a", 1),
+            regular_entry("dup.txt", "hash-b", 2),
         ];
 
         tree.build_from_manifest(&entries);
@@ -716,14 +854,7 @@ mod tests {
         fs::write(overlay_dir.join("foo").join("bar.txt"), b"hello").unwrap();
 
         let mut tree = InodeTree::new();
-        tree.build_from_manifest(&[FileEntry {
-            relpath: "foo".to_string(),
-            md5: "hash".to_string(),
-            size: 5,
-            isexec: false,
-            islink: false,
-            symlink_target: String::new(),
-        }]);
+        tree.build_from_manifest(&[regular_entry("foo", "hash", 5)]);
 
         let foo_ino = tree.lookup_child(ROOT_INODE, "foo").unwrap();
         tree.scan_overlay(overlay_dir);
@@ -778,5 +909,84 @@ mod tests {
 
         assert_eq!(tree.rename(a_ino, b_ino, "newa"), Err(EINVAL));
         assert_eq!(tree.get(a_ino).unwrap().parent, ROOT_INODE);
+    }
+
+    #[test]
+    fn test_build_tree_with_explicit_directory_entries_preserves_modes() {
+        let mut tree = InodeTree::new();
+        tree.build_from_manifest(&[
+            dir_entry("runtime", 0o750),
+            dir_entry("runtime/postgres", 0o700),
+            regular_entry("runtime/postgres/PG_VERSION", "hash", 2),
+        ]);
+
+        let runtime_ino = tree.lookup_child(ROOT_INODE, "runtime").unwrap();
+        let runtime = tree.get(runtime_ino).unwrap();
+        assert!(runtime.is_dir);
+        assert_eq!(runtime.mode, 0o750);
+        assert_eq!(runtime.backing_relpath, "runtime");
+
+        let postgres_ino = tree.lookup_child(runtime_ino, "postgres").unwrap();
+        let postgres = tree.get(postgres_ino).unwrap();
+        assert!(postgres.is_dir);
+        assert_eq!(postgres.mode, 0o700);
+        assert_eq!(postgres.backing_relpath, "runtime/postgres");
+    }
+
+    #[test]
+    fn test_build_tree_with_legacy_file_manifest_still_synthesizes_parents() {
+        let mut tree = InodeTree::new();
+        tree.build_from_manifest(&[regular_entry("runtime/postgres/PG_VERSION", "hash", 2)]);
+
+        let runtime_ino = tree.lookup_child(ROOT_INODE, "runtime").unwrap();
+        let runtime = tree.get(runtime_ino).unwrap();
+        assert!(runtime.is_dir);
+        assert_eq!(runtime.mode, 0o755);
+        assert_eq!(runtime.backing_relpath, "");
+    }
+
+    #[test]
+    fn test_explicit_directory_entry_overrides_synthesized_parent_defaults() {
+        let mut tree = InodeTree::new();
+        tree.build_from_manifest(&[
+            regular_entry("runtime/postgres/PG_VERSION", "hash", 2),
+            dir_entry("runtime", 0o750),
+        ]);
+
+        let runtime_ino = tree.lookup_child(ROOT_INODE, "runtime").unwrap();
+        let runtime = tree.get(runtime_ino).unwrap();
+        assert!(runtime.is_dir);
+        assert_eq!(runtime.mode, 0o750);
+        assert_eq!(runtime.backing_relpath, "runtime");
+    }
+
+    #[test]
+    fn test_active_directories_returns_sorted_non_root_dirs() {
+        let mut tree = InodeTree::new();
+        let runtime = tree.add_dir_with_mode(ROOT_INODE, "runtime", 0o750);
+        let _postgres = tree.add_dir_with_mode(runtime, "postgres", 0o700);
+
+        assert_eq!(
+            tree.active_directories_readonly(),
+            vec![
+                ("runtime".to_string(), 0o750),
+                ("runtime/postgres".to_string(), 0o700),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_directory_manifest_entry_wins_over_conflicting_file_entry() {
+        let mut tree = InodeTree::new();
+        tree.build_from_manifest(&[
+            dir_entry("runtime", 0o750),
+            regular_entry("runtime", "hash", 2),
+        ]);
+
+        let runtime_ino = tree.lookup_child(ROOT_INODE, "runtime").unwrap();
+        let runtime = tree.get(runtime_ino).unwrap();
+        assert!(runtime.is_dir);
+        assert_eq!(runtime.mode, 0o750);
+        assert_eq!(tree.inode_count(), 2);
     }
 }

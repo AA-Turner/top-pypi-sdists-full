@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=61"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -8,7 +8,8 @@ dynamic = ["version"]
 description = "Library for performing speech recognition, with support for several engines and APIs, online and offline."
 readme = { file = "README.rst", content-type = "text/x-rst" }
 requires-python = ">=3.9"
-license = { file = "LICENSE.txt" }
+license = "BSD-3-Clause"
+license-files = ["LICENSE.txt", "LICENSE-FLAC.txt"]
 authors = [
   { name = "Anthony Zhang (Uberi)", email = "azhang9@gmail.com" },
 ]
@@ -77,13 +78,22 @@ groq = [
 assemblyai = ["requests"]
 vosk = ["vosk"]
 
+[tool.setuptools]
+include-package-data = false
+
 [tool.setuptools.package-data]
-speech_recognition = ["version.txt"]
+speech_recognition = [
+  "version.txt",
+  "flac-linux-x86",
+  "flac-linux-x86_64",
+  "flac-mac",
+  "flac-win32.exe",
+  "pocketsphinx-data/**/*",
+]
 
 [tool.setuptools.packages.find]
-exclude = ["tests.*", "test", "speech_recognition.models"]
+exclude = ["tests.*", "tests", "speech_recognition.models"]
 namespaces = false
-
 
 [tool.setuptools.dynamic]
 version = { file = "speech_recognition/version.txt" }

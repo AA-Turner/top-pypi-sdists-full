@@ -20,9 +20,9 @@ export declare class GroupingInfo extends Model {
     properties: GroupingInfo.Props;
     constructor(attrs?: Partial<GroupingInfo.Attrs>);
     get comparer(): (a: {
-        value: any;
+        value: number;
     }, b: {
-        value: any;
+        value: number;
     }) => number;
 }
 export declare class DataCubeProvider extends TableDataProvider {

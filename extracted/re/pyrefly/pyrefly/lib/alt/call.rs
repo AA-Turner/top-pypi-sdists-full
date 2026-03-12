@@ -234,6 +234,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Type::Type(box Type::ClassType(cls)) => CallTargetLookup::Ok(Box::new(
                 CallTarget::Class(cls, ConstructorKind::TypeOfClass, None),
             )),
+            // `type[A | B]` is equivalent to `type[A] | type[B]` for call target resolution.
+            // Distribute `type[...]` over union members and resolve as a union.
+            Type::Type(box Type::Union(box Union { members: xs, .. })) => {
+                let union_of_types = self
+                    .heap
+                    .mk_union(xs.into_iter().map(|x| self.heap.mk_type_form(x)).collect());
+                self.as_call_target_impl(union_of_types, quantified)
+            }
             Type::Type(box Type::SelfType(cls)) => CallTargetLookup::Ok(Box::new(
                 CallTarget::Class(cls, ConstructorKind::TypeOfSelf, None),
             )),
@@ -326,7 +334,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             Type::Any(style) => CallTargetLookup::Ok(Box::new(CallTarget::Any(style))),
             Type::TypeAlias(ta) => {
-                self.as_call_target_impl(self.get_type_alias(&ta).as_value(self.stdlib), quantified)
+                let body = self.get_type_alias(&ta).as_value(self.stdlib);
+                match body {
+                    // This comes from an expression like `int | str`, which is not callable.
+                    Type::Type(box Type::Union(_)) => CallTargetLookup::Error(vec![]),
+                    _ => self.as_call_target_impl(body, quantified),
+                }
             }
             Type::ClassType(cls) => {
                 let maybe_dunder_call = if let Some(quantified) = &quantified {
@@ -662,7 +675,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let class_metadata = self.get_metadata_for_class(cls.class_object());
         if let Some(ret) =
             self.call_metaclass(&cls, arguments_range, args, keywords, errors, context, hint)
-            && !self.is_compatible_constructor_return(&ret, cls.class_object())
         {
             if let Some(metaclass_dunder_call) = self.get_metaclass_dunder_call(&cls) {
                 if let Some(callee_range) = callee_range
@@ -676,14 +688,28 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
                 self.record_resolved_trace(arguments_range, metaclass_dunder_call);
             }
-            // Got something other than an instance of the class under construction.
-            if let Err(e) = self
-                .solver()
-                .finish_quantified(vs, self.solver().infer_with_first_use)
-            {
-                self.add_specialization_errors(e, arguments_range, errors, context);
+            // Enum construction is routed through EnumMeta.__call__, which performs
+            // member lookup by value. A custom enum __new__ is used for member creation
+            // during class definition and should not be re-applied at call sites.
+            if class_metadata.is_enum() {
+                if let Err(e) = self
+                    .solver()
+                    .finish_quantified(vs, self.solver().flags.infer_with_first_use)
+                {
+                    self.add_specialization_errors(e, arguments_range, errors, context);
+                }
+                return ret;
             }
-            return ret;
+            if !self.is_compatible_constructor_return(&ret, cls.class_object()) {
+                // Got something other than an instance of the class under construction.
+                if let Err(e) = self
+                    .solver()
+                    .finish_quantified(vs, self.solver().flags.infer_with_first_use)
+                {
+                    self.add_specialization_errors(e, arguments_range, errors, context);
+                }
+                return ret;
+            }
         }
         let mut dunder_new_ret = None;
         let (overrides_new, dunder_new_has_errors) =
@@ -730,7 +756,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         .finish_class_targs(cls.targs_mut(), self.uniques);
                     if let Err(e) = self
                         .solver()
-                        .finish_quantified(vs, self.solver().infer_with_first_use)
+                        .finish_quantified(vs, self.solver().flags.infer_with_first_use)
                     {
                         self.add_specialization_errors(e, arguments_range, errors, context);
                     }
@@ -790,17 +816,28 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .finish_class_targs(cls.targs_mut(), self.uniques);
         if let Err(e) = self
             .solver()
-            .finish_quantified(vs, self.solver().infer_with_first_use)
+            .finish_quantified(vs, self.solver().flags.infer_with_first_use)
         {
             self.add_specialization_errors(e, arguments_range, errors, context);
         }
-        if let Some(mut ret) = dunder_new_ret {
+        let result = if let Some(mut ret) = dunder_new_ret {
             ret.subst_mut(&cls.targs().substitution_map());
             ret
         } else if constructor_kind == ConstructorKind::TypeOfSelf {
             self.heap.mk_self_type(cls)
         } else {
             self.heap.mk_class_type(cls)
+        };
+        // Normalize builtins.tuple instances to structural Type::Tuple so downstream
+        // match arms (concat, unpacking, except, etc.) handle them directly.
+        if let Type::ClassType(ref ct) = result
+            && ct.class_object().is_builtin("tuple")
+            && ct.targs().as_slice().len() == 1
+        {
+            let targ = ct.targs().as_slice()[0].clone();
+            self.heap.mk_unbounded_tuple(targ)
+        } else {
+            result
         }
     }
 
@@ -846,7 +883,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .finish_class_targs(typed_dict.targs_mut(), self.uniques);
         if let Err(e) = self
             .solver()
-            .finish_quantified(vs, self.solver().infer_with_first_use)
+            .finish_quantified(vs, self.solver().flags.infer_with_first_use)
         {
             self.add_specialization_errors(e, arguments_range, errors, context);
         }
@@ -1289,12 +1326,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn constructor_to_callable(&self, cls: &ClassType) -> Type {
         let class_type = self.heap.mk_class_type(cls.clone());
         if let Some(metaclass_call_attr_ty) = self.get_metaclass_dunder_call(cls) {
-            // If the class has a custom metaclass and the return type of the metaclass's __call__
-            // is not a subclass of the current class, use that and ignore __new__ and __init__
+            // Use the metaclass __call__ directly (ignoring __new__ and __init__) when either:
+            // 1. Its return type is not a subclass of the current class, or
+            // 2. The class is an enum (enum construction is handled by EnumMeta.__call__).
             if metaclass_call_attr_ty
                 .callable_return_type(self.heap)
                 .is_some_and(|ret| !self.is_compatible_constructor_return(&ret, cls.class_object()))
             {
+                return metaclass_call_attr_ty;
+            }
+            if self.get_metadata_for_class(cls.class_object()).is_enum() {
                 return metaclass_call_attr_ty;
             }
         }

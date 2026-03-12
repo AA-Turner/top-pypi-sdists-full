@@ -8,11 +8,13 @@ LanceDB provides:
 - High performance for large-scale operations
 """
 
+import functools
 import hashlib
 import json
 import os
 import platform
 import shutil
+import time
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
@@ -102,6 +104,7 @@ def _create_lance_schema(vector_dim: int) -> pa.Schema:
 LANCEDB_SCHEMA = _create_lance_schema(768)
 
 
+@functools.lru_cache(maxsize=1)  # Cache: sysctl subprocess only runs once per process
 def _detect_optimal_write_buffer_size() -> int:
     """Detect optimal write buffer size based on available RAM.
 
@@ -234,6 +237,13 @@ class LanceVectorDatabase:
         # Auto-detect optimal buffer size based on available RAM
         self._write_buffer: list[dict] = []
         self._write_buffer_size = _detect_optimal_write_buffer_size()
+
+        # TTL cache for get_stats() — avoids full pandas table scan on repeated calls.
+        # Follows the same time.monotonic() wall-clock gate as SemanticSearchEngine
+        # health check throttle (search.py:88-90). Invalidated on any write or reset.
+        self._stats_cache: IndexStats | None = None
+        self._stats_cache_time: float = 0.0
+        self._stats_cache_ttl: float = 30.0  # seconds
 
     # ------------------------------------------------------------------
     # Helpers: idempotent table operations
@@ -931,6 +941,14 @@ class LanceVectorDatabase:
                     database_size_bytes=0,
                 )
 
+        # TTL cache guard — skip the full pandas scan if result is still fresh.
+        now = time.monotonic()
+        if (
+            self._stats_cache is not None
+            and (now - self._stats_cache_time) < self._stats_cache_ttl
+        ):
+            return self._stats_cache
+
         try:
             total_chunks = self._table.count_rows()
 
@@ -969,7 +987,7 @@ class LanceVectorDatabase:
             db_size_bytes = self._get_database_size()
             index_size_mb = db_size_bytes / (1024 * 1024)
 
-            return IndexStats(
+            result = IndexStats(
                 total_files=total_files,
                 total_chunks=total_chunks,
                 languages=language_counts,
@@ -979,6 +997,9 @@ class LanceVectorDatabase:
                 embedding_model="unknown",  # Would need to be passed in or stored
                 database_size_bytes=db_size_bytes,
             )
+            self._stats_cache = result
+            self._stats_cache_time = time.monotonic()
+            return result
 
         except Exception as e:
             # Check for corruption and auto-recover
@@ -1560,6 +1581,7 @@ class LanceVectorDatabase:
         """Invalidate search cache when database is modified."""
         self._search_cache.clear()
         self._search_cache_order.clear()
+        self._stats_cache = None
         logger.debug("Search cache invalidated")
 
     async def __aenter__(self) -> "LanceVectorDatabase":

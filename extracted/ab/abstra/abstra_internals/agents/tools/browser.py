@@ -1,4 +1,6 @@
 import asyncio
+import functools
+import re
 from collections.abc import Iterable
 from pathlib import Path
 from tempfile import NamedTemporaryFile
@@ -9,6 +11,36 @@ import playwright.sync_api
 from playwright.sync_api import Page
 
 from .base import AgentTools
+
+BROWSER_DEAD_ERROR = "FATAL: Browser has been closed or crashed and cannot recover. Complete the task with the information you already have."
+
+_BARE_RETURN_RE = re.compile(r"(?:^|\n)\s*return\s")
+
+
+def _prepare_script(script: str) -> str:
+    if _BARE_RETURN_RE.search(script):
+        return f"(async () => {{ {script} }})()"
+    return script
+
+
+def _browser_guard(method):
+    @functools.wraps(method)
+    def wrapper(self, *args, **kwargs):
+        if self._browser_dead:
+            raise RuntimeError(BROWSER_DEAD_ERROR)
+        try:
+            return method(self, *args, **kwargs)
+        except Exception as e:
+            msg = str(e)
+            if (
+                "Target page, context or browser has been closed" in msg
+                or "Browser has been closed" in msg
+            ):
+                self._browser_dead = True
+                raise RuntimeError(BROWSER_DEAD_ERROR) from e
+            raise
+
+    return wrapper
 
 
 class ElementExtractor:
@@ -255,7 +287,6 @@ class BrowserTools(AgentTools):
     network_requests: Dict[str, List[playwright.sync_api.Request]]
     console_logs: Dict[str, List[playwright.sync_api.ConsoleMessage]]
     debug_mode: bool
-    allow_close_page: bool
     headless: bool
 
     def __init__(
@@ -264,16 +295,14 @@ class BrowserTools(AgentTools):
         listen_network: bool = False,
         listen_console: bool = False,
         debug_mode: bool = False,
-        allow_close_page: bool = True,
         headless: bool = True,
     ):
         self.urls = to_urls(url)
         self.debug_mode = debug_mode
-        self.allow_close_page = allow_close_page
         self.headless = headless
         if self.debug_mode:
             print(
-                f"[DEBUG][BrowserTools.__init__] url={url}, listen_network={listen_network}, listen_console={listen_console}, debug_mode={debug_mode}, allow_close_page={allow_close_page}"
+                f"[DEBUG][BrowserTools.__init__] url={url}, listen_network={listen_network}, listen_console={listen_console}, debug_mode={debug_mode}"
             )
             print(f"[DEBUG][BrowserTools.__init__] resolved urls={self.urls}")
         try:
@@ -301,6 +330,7 @@ class BrowserTools(AgentTools):
         self.listen_console = listen_console
         if listen_network:
             self._setup_network_listener()
+        self._browser_dead = False
         self.last_extracted_elements = None
         self.extractor = ElementExtractor()
 
@@ -387,9 +417,11 @@ class BrowserTools(AgentTools):
             if self.listen_console:
                 page.on("console", on_console_message)
 
+    @_browser_guard
     def navigate_to_url(
         self, url: str, page_id: Optional[str] = None
     ) -> Dict[str, str]:
+        """Navigate to a URL. If page_id given, reuse that page; otherwise create new. Returns page_id."""
         if self.debug_mode:
             print(f"[DEBUG][BrowserTools.navigate_to_url] url={url}, page_id={page_id}")
         if self.urls is not None and url not in self.urls:
@@ -428,6 +460,7 @@ class BrowserTools(AgentTools):
             )
         return dict(page_id=page_id)
 
+    @_browser_guard
     def click(
         self,
         page_id: str,
@@ -451,10 +484,16 @@ class BrowserTools(AgentTools):
             raise ValueError(
                 "Provide either 'selector' OR both 'x' and 'y' coordinates."
             )
+        try:
+            page.wait_for_load_state("networkidle", timeout=5000)
+        except playwright.sync_api.TimeoutError:
+            pass
         if self.debug_mode:
             print(f"[DEBUG][BrowserTools.click] Click complete. Current url={page.url}")
 
+    @_browser_guard
     def fill(self, page_id: str, selector: str, value: str):
+        """Fill an input field by CSS selector with the given value."""
         if self.debug_mode:
             print(
                 f"[DEBUG][BrowserTools.fill] page_id={page_id}, selector={selector}, value={value!r}"
@@ -466,7 +505,9 @@ class BrowserTools(AgentTools):
         if self.debug_mode:
             print("[DEBUG][BrowserTools.fill] Fill complete")
 
+    @_browser_guard
     def get_html(self, page_id: str) -> str:
+        """Get full HTML of the page. Prefer get_text or get_page_summary for targeted info."""
         if self.debug_mode:
             print(f"[DEBUG][BrowserTools.get_html] page_id={page_id}")
         if page_id not in self.pages:
@@ -479,7 +520,9 @@ class BrowserTools(AgentTools):
             )
         return content
 
+    @_browser_guard
     def get_text(self, page_id: str, selector: str) -> str:
+        """Get visible text of an element by CSS selector."""
         if self.debug_mode:
             print(
                 f"[DEBUG][BrowserTools.get_text] page_id={page_id}, selector={selector}"
@@ -494,9 +537,11 @@ class BrowserTools(AgentTools):
             )
         return text
 
+    @_browser_guard
     def get_attribute(
         self, page_id: str, selector: str, attribute: str
     ) -> Optional[str]:
+        """Get a single HTML attribute from an element by CSS selector."""
         if self.debug_mode:
             print(
                 f"[DEBUG][BrowserTools.get_attribute] page_id={page_id}, selector={selector}, attribute={attribute}"
@@ -509,7 +554,9 @@ class BrowserTools(AgentTools):
             print(f"[DEBUG][BrowserTools.get_attribute] Result: {value!r}")
         return value
 
+    @_browser_guard
     def get_attributes(self, page_id: str, selector: str) -> Dict[str, Optional[str]]:
+        """Get all HTML attributes of an element by CSS selector."""
         if self.debug_mode:
             print(
                 f"[DEBUG][BrowserTools.get_attributes] page_id={page_id}, selector={selector}"
@@ -533,7 +580,9 @@ class BrowserTools(AgentTools):
             )
         return attrs
 
+    @_browser_guard
     def get_all_links(self, page_id: str) -> Dict[str, str]:
+        """Get all links on the page as {text: href} mapping."""
         if self.debug_mode:
             print(f"[DEBUG][BrowserTools.get_all_links] page_id={page_id}")
         if page_id not in self.pages:
@@ -556,6 +605,7 @@ class BrowserTools(AgentTools):
         return result
 
     def get_network_requests(self, page_id: str) -> Iterable[dict]:
+        """Get captured network requests. Only available when listen_network=True."""
         if self.debug_mode:
             print(f"[DEBUG][BrowserTools.get_network_requests] page_id={page_id}")
         if page_id not in self.pages:
@@ -591,6 +641,7 @@ class BrowserTools(AgentTools):
         ]
 
     def get_console_logs(self, page_id: str) -> Iterable[dict]:
+        """Get captured console messages. Only available when listen_console=True."""
         if self.debug_mode:
             print(f"[DEBUG][BrowserTools.get_console_logs] page_id={page_id}")
         if page_id not in self.pages:
@@ -617,7 +668,9 @@ class BrowserTools(AgentTools):
             for msg in self.console_logs.get(page_id, [])
         ]
 
+    @_browser_guard
     def list_pages(self) -> Iterable[dict]:
+        """List all open pages with page_id, URL, and title."""
         if self.debug_mode:
             print(f"[DEBUG][BrowserTools.list_pages] Total pages: {len(self.pages)}")
             for pid, p in self.pages.items():
@@ -647,7 +700,9 @@ class BrowserTools(AgentTools):
         else:
             raise ValueError(f"Page '{page_id}' does not exist.")
 
+    @_browser_guard
     def execute_javascript(self, page_id: str, script: str):
+        """Execute JavaScript code in the page and return the result. Write a JavaScript expression (e.g. 'document.title') and its value will be returned. Do NOT use 'return' statements. For async operations, return a Promise."""
         if self.debug_mode:
             print(
                 f"[DEBUG][BrowserTools.execute_javascript] page_id={page_id}, script={script[:200]!r}"
@@ -655,13 +710,16 @@ class BrowserTools(AgentTools):
         if page_id not in self.pages:
             raise ValueError(f"Page '{page_id}' does not exist.")
         page = self.pages[page_id]
+        script = _prepare_script(script)
         result = page.evaluate(script)
         if self.debug_mode:
             result_preview = repr(result)[:500] if result is not None else "None"
             print(f"[DEBUG][BrowserTools.execute_javascript] Result: {result_preview}")
         return result
 
+    @_browser_guard
     def get_page_summary(self, page_id: str):
+        """Extract all interactive elements with index, tag, text, and bounding box. Use indices with click or get_element_by_summary_index."""
         if self.debug_mode:
             print(f"[DEBUG][BrowserTools.get_page_summary] page_id={page_id}")
         if page_id not in self.pages:
@@ -682,7 +740,9 @@ class BrowserTools(AgentTools):
                 )
         return self.last_extracted_elements
 
+    @_browser_guard
     def get_element_by_summary_index(self, page_id: str, index: int):
+        """Get details of an element by index from the last get_page_summary."""
         if self.debug_mode:
             print(
                 f"[DEBUG][BrowserTools.get_element_by_summary_index] page_id={page_id}, index={index}"
@@ -710,6 +770,7 @@ class BrowserTools(AgentTools):
                 )
         return element
 
+    @_browser_guard
     def screenshot(
         self,
         page_id: str,
@@ -837,8 +898,6 @@ class BrowserTools(AgentTools):
             self.screenshot.__name__,
         ]
 
-        if self.allow_close_page:
-            tools.append(self.close_page.__name__)
         if self.listen_network:
             tools.append(self.get_network_requests.__name__)
         if self.listen_console:

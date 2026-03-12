@@ -22,18 +22,27 @@ from loguru import logger
 from pydantic import BaseModel, Field, ValidationError
 
 import mindroom.tool_system.sandbox_proxy as _sandbox_proxy
-from mindroom.tool_system.metadata import ensure_tool_registry_loaded, get_tool_by_name
+from mindroom.tool_system.metadata import (
+    TOOL_METADATA,
+    ToolInitOverrideError,
+    ensure_tool_registry_loaded,
+    get_tool_by_name,
+    sanitize_tool_init_overrides,
+)
 from mindroom.tool_system.sandbox_proxy import sandbox_proxy_token_matches, to_json_compatible
 from mindroom.tool_system.worker_routing import (
     ToolExecutionIdentity,
     WorkerScope,
     tool_execution_identity,
+    worker_dir_name,
 )
 from mindroom.workers.backend import WorkerBackendError
 from mindroom.workers.backends.local import (
     LOCAL_WORKER_ROOT_ENV,
     LocalWorkerStatePaths,
+    ensure_local_worker_state_locked,
     get_local_worker_manager,
+    local_worker_state_paths_for_root,
     local_worker_state_paths_from_handle,
 )
 from mindroom.workers.models import WorkerHandle, WorkerSpec
@@ -51,6 +60,8 @@ _DEFAULT_SUBPROCESS_TIMEOUT_SECONDS = 120.0
 _SUBPROCESS_WORKER_ARG = "--sandbox-subprocess-worker"
 _RUNNER_EXECUTION_MODE_ENV = "MINDROOM_SANDBOX_RUNNER_EXECUTION_MODE"
 _RUNNER_SUBPROCESS_TIMEOUT_ENV = "MINDROOM_SANDBOX_RUNNER_SUBPROCESS_TIMEOUT_SECONDS"
+_DEDICATED_WORKER_KEY_ENV = "MINDROOM_SANDBOX_DEDICATED_WORKER_KEY"
+_DEDICATED_WORKER_ROOT_ENV = "MINDROOM_SANDBOX_DEDICATED_WORKER_ROOT"
 
 # Sentinel written to stderr to delimit the JSON response from tool output.
 _RESPONSE_MARKER = "__SANDBOX_RESPONSE__"
@@ -98,8 +109,9 @@ _LEASES_LOCK = threading.Lock()
 class SandboxRunnerExecuteRequest(BaseModel):
     """Tool call payload forwarded from a primary runtime to the sandbox runtime.
 
-    Also used internally for in-process and subprocess execution when
-    ``credential_overrides`` are resolved from a lease.
+    Clients must provide credentials via ``lease_id``.
+    ``credential_overrides`` is reserved for internal in-process and subprocess
+    execution after the lease has been resolved.
     """
 
     tool_name: str
@@ -112,6 +124,7 @@ class SandboxRunnerExecuteRequest(BaseModel):
     routing_agent_name: str | None = None
     execution_identity: dict[str, Any] = Field(default_factory=dict)
     credential_overrides: dict[str, Any] = Field(default_factory=dict)
+    tool_init_overrides: dict[str, Any] = Field(default_factory=dict)
 
 
 class SandboxRunnerLeaseRequest(BaseModel):
@@ -196,6 +209,7 @@ def _resolve_entrypoint(
     tool_name: str,
     function_name: str,
     credential_overrides: dict[str, object] | None = None,
+    tool_init_overrides: dict[str, object] | None = None,
     runtime_overrides: dict[str, object] | None = None,
     worker_scope: WorkerScope | None = None,
     routing_agent_name: str | None = None,
@@ -206,10 +220,13 @@ def _resolve_entrypoint(
             tool_name,
             disable_sandbox_proxy=True,
             credential_overrides=credential_overrides,
+            tool_init_overrides=tool_init_overrides,
             runtime_overrides=runtime_overrides,
             worker_scope=worker_scope,
             routing_agent_name=routing_agent_name,
         )
+    except ToolInitOverrideError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     function = toolkit.functions.get(function_name) or toolkit.async_functions.get(function_name)
@@ -285,6 +302,26 @@ def _runner_subprocess_timeout_seconds() -> float:
     return max(1.0, timeout)
 
 
+def _runner_dedicated_worker_key() -> str | None:
+    raw = os.getenv(_DEDICATED_WORKER_KEY_ENV, "").strip()
+    return raw or None
+
+
+def _runner_dedicated_worker_root() -> Path | None:
+    dedicated_root = os.getenv(_DEDICATED_WORKER_ROOT_ENV, "").strip()
+    if dedicated_root:
+        return Path(dedicated_root).expanduser().resolve()
+
+    storage_root = os.getenv("MINDROOM_STORAGE_PATH", "").strip()
+    if storage_root:
+        return Path(storage_root).expanduser().resolve()
+    return None
+
+
+def _runner_uses_dedicated_worker() -> bool:
+    return _runner_dedicated_worker_key() is not None
+
+
 def _project_src_path() -> Path:
     return Path(__file__).resolve().parents[2]
 
@@ -324,6 +361,10 @@ def _worker_subprocess_env(paths: LocalWorkerStatePaths) -> dict[str, str]:
     if existing_python_path:
         python_path_parts.append(existing_python_path)
     env["PYTHONPATH"] = ":".join(python_path_parts)
+    dedicated_worker_key = _runner_dedicated_worker_key()
+    if dedicated_worker_key is not None:
+        env[_DEDICATED_WORKER_KEY_ENV] = dedicated_worker_key
+        env[_DEDICATED_WORKER_ROOT_ENV] = str(paths.root)
     return env
 
 
@@ -346,6 +387,38 @@ def _serialize_worker(worker: WorkerHandle) -> SandboxWorkerResponse:
 
 
 def _prepare_worker(worker_key: str) -> WorkerHandle:
+    dedicated_worker_key = _runner_dedicated_worker_key()
+    if dedicated_worker_key is not None:
+        if worker_key != dedicated_worker_key:
+            msg = f"Dedicated sandbox worker is pinned to '{dedicated_worker_key}' but received '{worker_key}'."
+            raise WorkerBackendError(msg)
+        dedicated_root = _runner_dedicated_worker_root()
+        if dedicated_root is None:
+            msg = "Dedicated sandbox worker requires a configured worker root."
+            raise WorkerBackendError(msg)
+        paths = local_worker_state_paths_for_root(dedicated_root)
+        try:
+            ensure_local_worker_state_locked(worker_key, paths)
+        except Exception as exc:
+            failure_reason = f"Failed to initialize dedicated worker '{worker_key}': {exc}"
+            raise WorkerBackendError(failure_reason) from exc
+        now = time.time()
+        return WorkerHandle(
+            worker_id=worker_dir_name(worker_key),
+            worker_key=worker_key,
+            endpoint="/api/sandbox-runner/execute",
+            auth_token=_sandbox_proxy._PROXY_TOKEN,
+            status="ready",
+            backend_name="dedicated_sandbox_runner",
+            last_used_at=now,
+            created_at=now,
+            last_started_at=now,
+            startup_count=1,
+            debug_metadata={
+                "state_root": str(paths.root),
+                "api_root": "/api/sandbox-runner",
+            },
+        )
     return get_local_worker_manager().ensure_worker(WorkerSpec(worker_key))
 
 
@@ -355,6 +428,14 @@ def _worker_initialization_failure_response(
 ) -> SandboxRunnerExecuteResponse:
     logger.opt(exception=True).warning("Sandbox worker initialization failed", worker_key=worker_key)
     return SandboxRunnerExecuteResponse(ok=False, error=str(exc))
+
+
+def _normalize_request_worker_key(request: SandboxRunnerExecuteRequest) -> SandboxRunnerExecuteRequest:
+    """Fill in the pinned worker key for dedicated worker pods when omitted."""
+    dedicated_worker_key = _runner_dedicated_worker_key()
+    if dedicated_worker_key is not None and request.worker_key is None:
+        request.worker_key = dedicated_worker_key
+    return request
 
 
 async def _execute_request_inprocess(request: SandboxRunnerExecuteRequest) -> SandboxRunnerExecuteResponse:
@@ -375,6 +456,7 @@ async def _execute_request_inprocess(request: SandboxRunnerExecuteRequest) -> Sa
             tool_name=request.tool_name,
             function_name=request.function_name,
             credential_overrides=request.credential_overrides or None,
+            tool_init_overrides=request.tool_init_overrides or None,
             runtime_overrides=runtime_overrides,
             worker_scope=request.worker_scope,
             routing_agent_name=request.routing_agent_name,
@@ -409,7 +491,7 @@ def _subprocess_failure_response(
     request: SandboxRunnerExecuteRequest,
     error: str,
 ) -> SandboxRunnerExecuteResponse:
-    if request.worker_key is not None:
+    if request.worker_key is not None and not _runner_uses_dedicated_worker():
         get_local_worker_manager().record_failure(request.worker_key, error)
     return SandboxRunnerExecuteResponse(ok=False, error=error)
 
@@ -511,6 +593,7 @@ def _run_subprocess_worker() -> int:
             file=sys.stderr,
         )
         return 1
+    request = _normalize_request_worker_key(request)
 
     # Redirect stdout/stderr during tool execution so tool output doesn't
     # interfere with the protocol marker we write to stderr afterwards.
@@ -570,6 +653,16 @@ async def execute_tool_call(
     request: SandboxRunnerExecuteRequest,
 ) -> SandboxRunnerExecuteResponse:
     """Execute a tool function locally and return the serialized result."""
+    request = _normalize_request_worker_key(request)
+    if request.credential_overrides:
+        raise HTTPException(status_code=400, detail="credential_overrides must be supplied via lease_id.")
+    if request.tool_init_overrides and request.tool_name in TOOL_METADATA:
+        try:
+            request.tool_init_overrides = (
+                sanitize_tool_init_overrides(request.tool_name, request.tool_init_overrides) or {}
+            )
+        except ToolInitOverrideError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
     credential_overrides: dict[str, object] = {}
     if request.lease_id is not None:
         credential_overrides = _consume_credential_lease(
@@ -579,7 +672,12 @@ async def execute_tool_call(
         )
 
     request.credential_overrides = credential_overrides
-    if request.worker_key is not None or _runner_uses_subprocess():
+    if _runner_uses_subprocess():
+        return await _execute_request_subprocess(request)
+    # Worker-routed execution stays on the subprocess path so the per-worker
+    # virtualenv and worker-specific process environment remain authoritative,
+    # even when this pod is itself a dedicated worker runtime.
+    if request.worker_key is not None:
         return await _execute_request_subprocess(request)
     return await _execute_request_inprocess(request)
 

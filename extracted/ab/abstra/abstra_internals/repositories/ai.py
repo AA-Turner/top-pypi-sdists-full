@@ -61,6 +61,10 @@ class AIRepository(ABC):
         raise NotImplementedError()
 
     @abstractmethod
+    def compact_conversation(self, headers: dict, conversation_id: str) -> dict:
+        raise NotImplementedError()
+
+    @abstractmethod
     def run_agent(
         self,
         body: CloudApiCliAgentsPostRequestBody,
@@ -115,6 +119,11 @@ class ProductionAIRepository(AIRepository):
         )
 
     def delete_thread(self, headers: dict, thread_id: str):
+        raise NotImplementedError(
+            "This method is not implemented in ProductionAIRepository."
+        )
+
+    def compact_conversation(self, headers: dict, conversation_id: str) -> dict:
         raise NotImplementedError(
             "This method is not implemented in ProductionAIRepository."
         )
@@ -239,6 +248,15 @@ class LocalAIRepository(AIRepository):
         if user_jwt:
             headers["Web-Editor-Authorization"] = f"Bearer {user_jwt}"
         response = self.client.post(url, json=body, headers=headers)
+        response.raise_for_status()
+        return response.json()
+
+    def compact_conversation(self, headers: dict, conversation_id: str) -> dict:
+        response = self.client.post(
+            "/ai-v2/compact",
+            headers=headers,
+            json={"conversationId": conversation_id},
+        )
         response.raise_for_status()
         return response.json()
 

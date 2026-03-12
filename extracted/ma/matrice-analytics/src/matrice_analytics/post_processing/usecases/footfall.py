@@ -21,8 +21,11 @@ from ..core.base import BaseProcessor, ProcessingContext, ProcessingResult, Conf
 from ..core.config import BaseConfig, ZoneConfig, AlertConfig, LineConfig
 
 # Footfall uses the same schema as people tracking; alias for compatibility across __init__.py, config, etc.
+@dataclass
 class FootFallConfig(BaseConfig):
     """Configuration for Footfall use case (same schema as people tracking)."""
+    category: str = "retail"    
+    usecase: str = "footfall"   
     # Counting method: "polygon" (double-polygon hysteresis) or "abline" (trap zone two-line)
     method: str = "abline"
     # Use bottom-center (foot) of bbox for counting logic; False = bbox center
@@ -922,10 +925,18 @@ class FootFallUseCase(BaseProcessor):
         """
         client = self._config_client or (stream_info.get("config_client") if stream_info else None)
         if not client or not stream_info:
+            self.logger.info(
+                "Footfall: _resolve_geometry_from_api skipped (no config_client or no stream_info)"
+            )
             return None
         ids = client.get_stream_identifiers(stream_info)
         app_deployment_id = ids.get("app_deployment_id") or ""
         camera_id = ids.get("camera_id") or ""
+        self.logger.info(
+            "Footfall: _resolve_geometry_from_api app_deployment_id=%s camera_id=%s",
+            app_deployment_id or "(empty)",
+            camera_id or "(empty)",
+        )
         self.logger.debug(
             "_resolve_geometry_from_api: app_deployment_id=%r, camera_id=%r",
             app_deployment_id,
@@ -936,7 +947,7 @@ class FootFallUseCase(BaseProcessor):
         configs, err, _ = client.get_post_processing_configs_by_app_deployment(app_deployment_id)
         if err or not configs:
             return None
-        self.logger.debug(
+        self.logger.info(
             "_resolve_geometry_from_api: configs=%r",
             configs,
         )
@@ -947,7 +958,7 @@ class FootFallUseCase(BaseProcessor):
         width, height = client.get_resolution(camera_id)
         if width is None or height is None:
             return None
-        self.logger.debug(
+        self.logger.info(
             "_resolve_geometry_from_api: width=%r, height=%r",
             width,
             height,
@@ -962,7 +973,7 @@ class FootFallUseCase(BaseProcessor):
             lines_px = {}
         if not isinstance(zones_px, dict):
             zones_px = {}
-        self.logger.debug(
+        self.logger.info(
             "_resolve_geometry_from_api: lines_px=%r, zones_px=%r",
             lines_px,
             zones_px,
@@ -971,7 +982,7 @@ class FootFallUseCase(BaseProcessor):
         line_values = list(lines_px.values()) if lines_px else []
         line_a = list(line_values[0]) if len(line_values) > 0 else []
         line_b = list(line_values[1]) if len(line_values) > 1 else []
-        self.logger.debug(
+        self.logger.info(
             "_resolve_geometry_from_api: line_a=%r, line_b=%r",
             line_a,
             line_b,
@@ -1006,7 +1017,7 @@ class FootFallUseCase(BaseProcessor):
             ProcessingResult: Processing result with standardized agg_summary structure
         """
         processing_start = time.time()
-
+        self.logger.info("stream_info: %s", stream_info)
         try:
             if not isinstance(config, FootFallConfig):
                 return self.create_error_result(
@@ -1017,8 +1028,11 @@ class FootFallUseCase(BaseProcessor):
             # Resolve line_a, line_b, outer_polygon, inner_polygon from API when config_client and stream_info are available.
             # Call kept for platform debugging (logs); config from file (line_a, line_b, etc.) is used — do not replace.
             if stream_info:
+                self.logger.info(
+                    "Footfall: stream_info present, calling API geometry resolution (config from file used for processing)"
+                )
                 _resolved = self._resolve_geometry_from_api(config, stream_info)
-                self.logger.debug(
+                self.logger.info(
                     "_resolve_geometry_from_api: _resolved=%r",
                     _resolved,
                 )

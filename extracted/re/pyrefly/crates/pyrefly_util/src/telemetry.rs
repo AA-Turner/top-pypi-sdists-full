@@ -57,7 +57,7 @@ impl QueueName {
 
 pub enum TelemetryEventKind {
     LspEvent(String),
-    CodeAction(String),
+    CodeAction(&'static str),
     AdHocSolve(String),
     SetMemory,
     InvalidateDisk,
@@ -67,6 +67,7 @@ pub enum TelemetryEventKind {
     InvalidateOnClose,
     PopulateProjectFiles,
     PopulateWorkspaceFiles,
+    WorkspaceDiagnosticsRepopulation,
     SourceDbRebuild,
     SourceDbRebuildInstance,
     FindFromDefinition,
@@ -105,6 +106,7 @@ pub struct TelemetryServerState {
     pub id: Uuid,
     /// The surface/entrypoint for the language server
     pub surface: Option<String>,
+    pub server_start_time: Instant,
 }
 
 #[derive(Default)]
@@ -123,12 +125,22 @@ pub struct TelemetryTransactionStats {
     pub set_memory_dirty: usize,
     /// Time spent in `compute_stdlib` during `run_step`.
     pub compute_stdlib_time: Duration,
+    /// `true` when stdlib was already cached and computation was skipped.
+    pub compute_stdlib_cached: bool,
+    /// Time spent in the parallel pre-warming phase of `compute_stdlib`.
+    pub compute_stdlib_prewarm_time: Duration,
     /// Number of modules in the dirty set at the start of `run_step`.
     pub run_dirty_count: usize,
     /// Number of items pushed to the todo work queue in `run_step`.
     pub run_todo_count: usize,
     /// Time spent in `work()` (the parallel solve phase) during `run_step`.
     pub run_work_time: Duration,
+    /// Time spent in `spawn_many` during `search_exports`.
+    pub search_exports_time: Duration,
+    /// Max time a thread waited before starting work in `search_exports`.
+    pub search_exports_dispatch_time: Duration,
+    /// Whether the transaction was cancelled before completing.
+    pub cancelled: bool,
 }
 
 #[derive(Default)]
@@ -177,6 +189,7 @@ pub struct TelemetryExternalReferencesStats {
     pub result_span_count: usize,
     pub find_repo_ms: Option<Duration>,
     pub angle_query_ms: Option<Duration>,
+    pub cas_init_error: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -308,6 +321,8 @@ pub struct SubTaskTelemetry<'a> {
     server_state: TelemetryServerState,
     queue_name: QueueName,
     task_id: Option<usize>,
+    activity_key: Option<ActivityKey>,
+    file_stats: Option<TelemetryFileStats>,
 }
 
 impl<'a> SubTaskTelemetry<'a> {
@@ -316,23 +331,30 @@ impl<'a> SubTaskTelemetry<'a> {
         server_state: TelemetryServerState,
         queue_name: QueueName,
         task_id: Option<usize>,
+        activity_key: Option<ActivityKey>,
+        file_stats: Option<TelemetryFileStats>,
     ) -> Self {
         Self {
             telemetry,
             server_state,
             queue_name,
             task_id,
+            activity_key,
+            file_stats,
         }
     }
 
     pub fn new_task(&self, kind: TelemetryEventKind, start: Instant) -> TelemetryEvent {
-        TelemetryEvent::new_task(
+        let mut event = TelemetryEvent::new_task(
             kind,
             self.server_state.clone(),
             self.queue_name,
             self.task_id,
             start,
-        )
+        );
+        event.set_activity_key(self.activity_key.clone());
+        event.file_stats = self.file_stats.clone();
+        event
     }
 
     pub fn finish_task(&self, telemetry_event: TelemetryEvent, error: Option<&Error>) {

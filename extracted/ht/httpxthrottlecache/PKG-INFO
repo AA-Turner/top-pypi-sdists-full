@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: httpxthrottlecache
-Version: 0.3.0
+Version: 0.3.5
 Summary: Rate Limiting and Caching HTTPX Client
 Project-URL: Homepage, https://github.com/paultiq/httpxthrottlecache
 Project-URL: Repository, https://github.com/paultiq/httpxthrottlecache
@@ -18,7 +18,7 @@ Requires-Python: >=3.10
 Requires-Dist: aiofiles>=24.1.0
 Requires-Dist: filelock>=3.18.0
 Requires-Dist: httpx>=0.28.1
-Requires-Dist: pyrate-limiter>=3.9.0
+Requires-Dist: pyrate-limiter>=4.0.0
 Description-Content-Type: text/markdown
 
 HTTPX Wrapper with Rate Limiting and Caching Transports.
