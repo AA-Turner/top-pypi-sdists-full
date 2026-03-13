@@ -3,7 +3,9 @@ use crate::models::TunnelTimeouts;
 use crate::router_helpers::post_connection_state;
 use crate::runtime::get_runtime;
 use crate::tube_and_channel_helpers::{setup_channel_for_data_channel, TubeStatus};
-use crate::tube_protocol::{CloseConnectionReason, ControlMessage, Frame};
+use crate::tube_protocol::{
+    CloseConnectionReason, ControlMessage, Frame, CLOSE_CONNECTION_PAYLOAD_MIN_LEN,
+};
 use crate::tube_registry::SignalMessage;
 use crate::unlikely;
 use crate::webrtc_core::{create_data_channel, WebRTCPeerConnection};
@@ -18,6 +20,7 @@ use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::Mutex as TokioMutex;
 use tokio::sync::RwLock as TokioRwLock;
 use uuid::Uuid;
+use webrtc::data_channel::data_channel_state::RTCDataChannelState;
 use webrtc::peer_connection::configuration::RTCConfiguration;
 use webrtc::peer_connection::peer_connection_state::RTCPeerConnectionState;
 
@@ -670,6 +673,7 @@ impl Tube {
 
                     // Clone the Arc so we can access it after run() consumes the channel
                     let close_reason_arc = owned_channel.channel_close_reason.clone();
+                    let control_connection_closed = owned_channel.control_connection_closed.clone();
                     debug!("on_data_channel: About to call channel.run() (tube_id: {}, channel_label: {})", tube_id_for_log, label_clone_for_run);
                     let run_result = owned_channel.run().await;
                     debug!("on_data_channel: channel.run() completed with result: {:?} (tube_id: {}, channel_label: {})", run_result.as_ref().map(|_| "Ok").map_err(|e| format!("{:?}", e)), tube_id_for_log, label_clone_for_run);
@@ -744,6 +748,28 @@ impl Tube {
                         }
                     } else if unlikely!(crate::logger::is_verbose_logging()) {
                         debug!("Peer_connection was None, cannot send channel_closed signal (from on_data_channel - tube_id: {}, channel_label: {}) - this is normal during shutdown", tube_id_for_log, label_clone_for_run);
+                    }
+
+                    // When conn_no 0 (control connection) is closed, the tube should close.
+                    if control_connection_closed.load(std::sync::atomic::Ordering::Acquire) {
+                        let close_reason_for_tube =
+                            close_reason.unwrap_or(CloseConnectionReason::Normal);
+                        info!(
+                            "Control connection (conn_no 0) closed, closing tube (tube_id: {}, channel: {}, reason: {:?})",
+                            tube_id_for_log, label_clone_for_run, close_reason_for_tube
+                        );
+                        let tube_id_to_close = tube_id_for_log.clone();
+                        tokio::spawn(async move {
+                            if let Err(e) = crate::tube_registry::REGISTRY
+                                .close_tube(&tube_id_to_close, Some(close_reason_for_tube))
+                                .await
+                            {
+                                error!(
+                                    "Error closing tube after control connection closed (tube_id: {}, error: {})",
+                                    tube_id_to_close, e
+                                );
+                            }
+                        });
                     }
 
                     if unlikely!(crate::logger::is_verbose_logging()) {
@@ -1314,6 +1340,7 @@ impl Tube {
 
             // Clone the Arc so we can access it after run() consumes the channel
             let close_reason_arc = owned_channel.channel_close_reason.clone();
+            let control_connection_closed = owned_channel.control_connection_closed.clone();
             let run_result = owned_channel.run().await;
             // Get the close reason after run completes - use try_lock to avoid blocking
             let close_reason = close_reason_arc.try_lock().ok().and_then(|guard| *guard);
@@ -1387,6 +1414,29 @@ impl Tube {
                 debug!("Peer_connection was None, cannot send channel_closed signal (tube_id: {}, channel_name: {}) - this is normal during shutdown", tube_id_for_spawn, name_clone);
             }
 
+            // When conn_no 0 (control connection) is closed, the tube should close.
+            // This signals session end regardless of channel name (guacd, tunnel, control, etc.).
+            if control_connection_closed.load(std::sync::atomic::Ordering::Acquire) {
+                let close_reason_for_tube =
+                    close_reason.unwrap_or(CloseConnectionReason::Normal);
+                info!(
+                    "Control connection (conn_no 0) closed, closing tube (tube_id: {}, channel: {}, reason: {:?})",
+                    tube_id_for_spawn, name_clone, close_reason_for_tube
+                );
+                let tube_id_to_close = tube_id_for_spawn.clone();
+                tokio::spawn(async move {
+                    if let Err(e) = crate::tube_registry::REGISTRY
+                        .close_tube(&tube_id_to_close, Some(close_reason_for_tube))
+                        .await
+                    {
+                        error!(
+                            "Error closing tube after control channel closed (tube_id: {}, error: {})",
+                            tube_id_to_close, e
+                        );
+                    }
+                });
+            }
+
             if unlikely!(crate::logger::is_verbose_logging()) {
                 debug!("create_channel: channel.run() task finished and cleaned up. (tube_id: {}, channel_name: {})", tube_id_for_spawn, name_clone);
             }
@@ -1434,12 +1484,12 @@ impl Tube {
         }
         drop(close_reasons);
 
-        // First, try to send a CloseConnection message with the specified reason
-        // This ensures the remote side knows why it was closed
+        // First, try to send a CloseConnection message with the specified reason.
+        // Must send full payload (conn_no 4 + reason 1) so receiver gets expected bytes (avoids
+        // GuacdError on guacd-initiated disconnect / logout).
         let data_channels = self.data_channels.read().await;
         if let Some(channel) = data_channels.get(name) {
-            // Send CloseConnection for the control connection with specified reason
-            let mut close_data = Vec::with_capacity(5);
+            let mut close_data = Vec::with_capacity(CLOSE_CONNECTION_PAYLOAD_MIN_LEN);
             close_data.extend_from_slice(&0u32.to_be_bytes()); // conn_no 0 (control connection)
             close_data.push(reason as u8); // reason - 1 byte
 
@@ -1889,6 +1939,12 @@ impl Tube {
     ///
     /// CRITICAL: Prevents TURN "400 Bad Request" errors by ensuring allocations
     /// are properly deallocated before permission refresh timers fire.
+    ///
+    /// CONNECTION MODEL (this close() is ENTIRE TUBE only, never single-connection):
+    /// - Tunnel mode (PortForward, SOCKS5): conn 0 = control, conn 1,2,3,4 = terminals.
+    ///   Closing conn 3 uses channel.close_backend(3) only; tube stays open.
+    /// - Guacd mode: conn 0 = control, conn 1 = guacd (paired). When conn 1 closes,
+    ///   we close both and the tube. This close() is invoked for whole-tube shutdown.
     pub async fn close(&self, reason: Option<CloseConnectionReason>) -> Result<(), String> {
         let tube_id = self.id.clone();
         let close_reason = reason.unwrap_or(CloseConnectionReason::AdminClosed);
@@ -1925,6 +1981,26 @@ impl Tube {
             // Prevents race where channels are signaled before fully initialized on slow networks
             tokio::time::sleep(crate::config::channel_shutdown_grace_period()).await;
 
+            // Set close reason for each channel BEFORE notifying (so Channel reads it in cleanup)
+            let reason_arcs: Vec<(
+                String,
+                Arc<tokio::sync::Mutex<Option<CloseConnectionReason>>>,
+            )> = {
+                self.channel_close_reasons
+                    .read()
+                    .await
+                    .iter()
+                    .map(|(k, v)| (k.clone(), Arc::clone(v)))
+                    .collect()
+            };
+            for (_, reason_arc) in &reason_arcs {
+                let mut guard = reason_arc.lock().await;
+                *guard = Some(close_reason);
+            }
+
+            // GUACD CLOSE ORDER: Notify channel first so it sends CloseConnection(conn 1) before
+            // we send conn 0. The frontend expects conn 1 (guacd data) first with the reason
+            // (e.g. AIClosed), then conn 0 (control). Sending conn 0 first causes "closed normally".
             let notifiers: Vec<Arc<tokio::sync::Notify>> = {
                 self.channel_shutdown_notifiers
                     .read()
@@ -1943,6 +2019,47 @@ impl Tube {
                 start_time.elapsed(),
                 crate::config::channel_shutdown_grace_period()
             );
+
+            // Wait for channel to send CloseConnection(conn 1) first (guacd outbound on disconnect).
+            // Frontend expects conn 1 before conn 0; sending conn 0 first causes "closed normally".
+            tokio::time::sleep(Duration::from_millis(100)).await;
+
+            // Now send CloseConnection(conn 0) - control/conversation level.
+            let channel_names: Vec<String> =
+                { self.data_channels.read().await.keys().cloned().collect() };
+            if !channel_names.is_empty() {
+                debug!(
+                    "Tube {}: Sending CloseConnection(conn 0) to {} channels (reason: {:?}) after conn 1",
+                    tube_id,
+                    channel_names.len(),
+                    close_reason
+                );
+                let data_channels_guard = self.data_channels.read().await;
+                for name in &channel_names {
+                    if let Some(channel) = data_channels_guard.get(name) {
+                        let mut close_data = Vec::with_capacity(5);
+                        close_data.extend_from_slice(&0u32.to_be_bytes()); // conn_no 0 (control)
+                        close_data.push(close_reason as u8);
+                        let buffer_pool = BufferPool::default();
+                        let close_frame = Frame::new_control_with_pool(
+                            ControlMessage::CloseConnection,
+                            &close_data,
+                            &buffer_pool,
+                        );
+                        let encoded = close_frame.encode_with_pool(&buffer_pool);
+                        if let Err(e) = channel.send(encoded).await {
+                            warn!("Failed to send CloseConnection to channel {}: {}", name, e);
+                        } else {
+                            debug!(
+                                "Sent CloseConnection(conn 0, {:?}) to channel {}",
+                                close_reason, name
+                            );
+                        }
+                    }
+                }
+                drop(data_channels_guard);
+                tokio::time::sleep(Duration::from_millis(50)).await; // Brief flush
+            }
         }
 
         // CRITICAL: Wait for channel.run() tasks to complete and release buffers
@@ -1978,6 +2095,27 @@ impl Tube {
                     break;
                 }
 
+                // Early exit when all data channels are closed (e.g. by client after receiving CloseConnection).
+                // Channel tasks may be stuck in cleanup (e.g. graceful_shutdown), but we can't send anyway.
+                // Saves ~5s in AI-close flow when client closes the data channel promptly.
+                // Safe for tunnel mode: this loop only runs during whole-tube close, never for
+                // single-connection closes (conn 3) which use channel.close_backend() and keep tube open.
+                let all_data_channels_closed = {
+                    let dc_guard = self.data_channels.read().await;
+                    !dc_guard.is_empty()
+                        && dc_guard
+                            .values()
+                            .all(|dc| dc.data_channel.ready_state() == RTCDataChannelState::Closed)
+                };
+                if all_data_channels_closed {
+                    let wait_duration = wait_start.elapsed();
+                    debug!(
+                        "Tube {}: All data channels closed, proceeding without waiting for {} channel tasks ({:?} elapsed)",
+                        tube_id, active_count, wait_duration
+                    );
+                    break;
+                }
+
                 // Safety: Prevent infinite loops even if timeout logic fails
                 iterations += 1;
                 if iterations >= max_iterations {
@@ -2001,65 +2139,8 @@ impl Tube {
             }
         }
 
-        // 3. Send CloseConnection control messages to all channels BEFORE physically closing them
-        // This ensures Vault receives the close reason (e.g., AI_CLOSED) before channels disconnect
-        let channel_names: Vec<String> =
-            { self.data_channels.read().await.keys().cloned().collect() };
-
-        if !channel_names.is_empty() {
-            debug!(
-                "Tube {}: Sending CloseConnection messages to {} channels (reason: {:?})",
-                tube_id,
-                channel_names.len(),
-                close_reason
-            );
-
-            // Set channel_close_reason for each channel to prevent duplicate messages
-            let close_reasons_guard = self.channel_close_reasons.read().await;
-            for name in &channel_names {
-                if let Some(close_reason_arc) = close_reasons_guard.get(name) {
-                    let mut guard = close_reason_arc.lock().await;
-                    *guard = Some(close_reason);
-                }
-            }
-            drop(close_reasons_guard);
-
-            // Send CloseConnection control message on each data channel
-            let data_channels_guard = self.data_channels.read().await;
-            for name in &channel_names {
-                if let Some(channel) = data_channels_guard.get(name) {
-                    // Build CloseConnection control message
-                    let mut close_data = Vec::with_capacity(5);
-                    close_data.extend_from_slice(&0u32.to_be_bytes()); // conn_no 0 (control)
-                    close_data.push(close_reason as u8); // reason code
-
-                    let buffer_pool = BufferPool::default();
-                    let close_frame = Frame::new_control_with_pool(
-                        ControlMessage::CloseConnection,
-                        &close_data,
-                        &buffer_pool,
-                    );
-
-                    let encoded = close_frame.encode_with_pool(&buffer_pool);
-                    if let Err(e) = channel.send(encoded).await {
-                        warn!("Failed to send CloseConnection to channel {}: {}", name, e);
-                    } else {
-                        debug!(
-                            "Sent CloseConnection({:?}) to channel {}",
-                            close_reason, name
-                        );
-                    }
-                }
-            }
-            drop(data_channels_guard);
-
-            // Give messages time to be transmitted before closing channels (200ms for reliability)
-            tokio::time::sleep(Duration::from_millis(200)).await;
-            debug!(
-                "Tube {}: CloseConnection messages sent, waited 200ms for transmission",
-                tube_id
-            );
-        }
+        // 3. CloseConnection(conn 0) was sent after notify+100ms (step 2). Conn 1 is sent by
+        // the channel's guacd outbound task when it receives disconnect (before conn 0).
 
         // 4. Close all data channels (physically close the WebRTC channels)
         let channels: Vec<_> = {
@@ -2188,7 +2269,7 @@ impl Tube {
         let no_message_timeout = Duration::from_millis(200); // If no messages for 200ms, assume done
         let no_messages_initial_timeout = Duration::from_millis(500); // If no messages at all after 500ms, assume no tasks or early spawn
 
-        // Drain completion channel with timeout (lock-free!)
+        // Drain completion channel with timeout (Mutex needed because UnboundedReceiver is !Sync)
         let mut rx_guard = self.spawned_task_completion_rx.lock().await;
         loop {
             match tokio::time::timeout(Duration::from_millis(100), rx_guard.recv()).await {
@@ -2366,8 +2447,8 @@ impl Tube {
             .get(channel_name)
             .ok_or_else(|| anyhow::anyhow!("Channel not found: {}", channel_name))?;
 
-        // Build CloseConnection control message
-        let mut close_data = Vec::with_capacity(5);
+        // Full payload (conn_no 4 + reason 1) so receiver gets expected bytes on disconnect.
+        let mut close_data = Vec::with_capacity(CLOSE_CONNECTION_PAYLOAD_MIN_LEN);
         close_data.extend_from_slice(&conn_no.to_be_bytes());
         close_data.push(reason as u8);
 

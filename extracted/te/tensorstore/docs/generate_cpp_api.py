@@ -143,11 +143,12 @@ def main():
       # display in the documentation.
       type_replacements={
           "absl::remove_cvref_t": "std::remove_cvref_t",
+          "absl::weak_ordering": "std::weak_ordering",
           "tensorstore::internal::type_identity_t": "std::type_identity_t",
           "internal::type_identity_t": "std::type_identity_t",
-          "SourceLocation": "std::source_location",
+          "::tensorstore::SourceLocation": "std::source_location",
           "tensorstore::SourceLocation": "std::source_location",
-          "absl::weak_ordering": "std::weak_ordering",
+          "SourceLocation": "std::source_location",
       },
       verbose=args.verbose,
   )

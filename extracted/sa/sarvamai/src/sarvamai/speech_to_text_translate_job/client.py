@@ -6,10 +6,10 @@ from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.request_options import RequestOptions
 from ..requests.bulk_job_callback import BulkJobCallbackParams
 from ..requests.speech_to_text_translate_job_parameters import SpeechToTextTranslateJobParametersParams
-from ..types.bulk_job_init_response_v_1 import BulkJobInitResponseV1
+from ..types.bulk_job_init_response import BulkJobInitResponse
 from ..types.files_download_response import FilesDownloadResponse
 from ..types.files_upload_response import FilesUploadResponse
-from ..types.job_status_v_1_response import JobStatusV1Response
+from ..types.job_status_response import JobStatusResponse
 from ..types.speech_to_text_translate_model import SpeechToTextTranslateModel
 from .raw_client import AsyncRawSpeechToTextTranslateJobClient, RawSpeechToTextTranslateJobClient
 from .job import AsyncSpeechToTextTranslateJob, SpeechToTextTranslateJob
@@ -40,7 +40,7 @@ class SpeechToTextTranslateJobClient:
         ptu_id: typing.Optional[int] = None,
         callback: typing.Optional[BulkJobCallbackParams] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> BulkJobInitResponseV1:
+    ) -> BulkJobInitResponse:
         """
         Get a job uuid, and storage folder details for speech to text tranlsate bulk job v1
 
@@ -59,7 +59,7 @@ class SpeechToTextTranslateJobClient:
 
         Returns
         -------
-        BulkJobInitResponseV1
+        BulkJobInitResponse
             Successful Response
 
         Examples
@@ -80,7 +80,7 @@ class SpeechToTextTranslateJobClient:
 
     def get_status(
         self, job_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> JobStatusV1Response:
+    ) -> JobStatusResponse:
         """
         Get the status of a speech to text translate bulk job V1
 
@@ -94,7 +94,7 @@ class SpeechToTextTranslateJobClient:
 
         Returns
         -------
-        JobStatusV1Response
+        JobStatusResponse
             Successful Response
 
         Examples
@@ -117,7 +117,7 @@ class SpeechToTextTranslateJobClient:
         *,
         ptu_id: typing.Optional[int] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> JobStatusV1Response:
+    ) -> JobStatusResponse:
         """
         Start a speech to text translate bulk job V1
 
@@ -133,7 +133,7 @@ class SpeechToTextTranslateJobClient:
 
         Returns
         -------
-        JobStatusV1Response
+        JobStatusResponse
             Successful Response
 
         Examples
@@ -327,7 +327,7 @@ class AsyncSpeechToTextTranslateJobClient:
         ptu_id: typing.Optional[int] = None,
         callback: typing.Optional[BulkJobCallbackParams] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> BulkJobInitResponseV1:
+    ) -> BulkJobInitResponse:
         """
         Get a job uuid, and storage folder details for speech to text tranlsate bulk job v1
 
@@ -346,7 +346,7 @@ class AsyncSpeechToTextTranslateJobClient:
 
         Returns
         -------
-        BulkJobInitResponseV1
+        BulkJobInitResponse
             Successful Response
 
         Examples
@@ -375,7 +375,7 @@ class AsyncSpeechToTextTranslateJobClient:
 
     async def get_status(
         self, job_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> JobStatusV1Response:
+    ) -> JobStatusResponse:
         """
         Get the status of a speech to text translate bulk job V1
 
@@ -389,7 +389,7 @@ class AsyncSpeechToTextTranslateJobClient:
 
         Returns
         -------
-        JobStatusV1Response
+        JobStatusResponse
             Successful Response
 
         Examples
@@ -420,7 +420,7 @@ class AsyncSpeechToTextTranslateJobClient:
         *,
         ptu_id: typing.Optional[int] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> JobStatusV1Response:
+    ) -> JobStatusResponse:
         """
         Start a speech to text translate bulk job V1
 
@@ -436,7 +436,7 @@ class AsyncSpeechToTextTranslateJobClient:
 
         Returns
         -------
-        JobStatusV1Response
+        JobStatusResponse
             Successful Response
 
         Examples

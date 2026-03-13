@@ -32,18 +32,17 @@
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
+#include "tensorstore/util/status_builder.h"
 
 namespace tensorstore {
 namespace internal_json_binding {
 
 inline absl::Status MaybeAnnotateTupleElementError(absl::Status status,
                                                    size_t i, bool is_loading) {
-  return status.ok()
-             ? status
-             : MaybeAnnotateStatus(
-                   status,
-                   absl::StrFormat("Error %s value at position %d",
-                                   is_loading ? "parsing" : "converting", i));
+  if (status.ok()) return absl::OkStatus();
+  return StatusBuilder(std::move(status))
+      .Format("Error %s value at position %d",
+              is_loading ? "parsing" : "converting", i);
 }
 
 template <bool IsLoading>

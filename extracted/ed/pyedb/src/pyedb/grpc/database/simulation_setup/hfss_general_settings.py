@@ -20,15 +20,9 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-from typing import TYPE_CHECKING
 import warnings
 
 from ansys.edb.core.simulation_setup.hfss_simulation_settings import AdaptType as CoreAdaptType
-
-if TYPE_CHECKING:
-    from ansys.edb.core.simulation_setup.hfss_simulation_settings import (
-        HFSSGeneralSettings as CoreHFSSGeneralSettings,
-    )
 
 
 class BroadbandAdaptiveSolution:
@@ -99,6 +93,22 @@ class BroadbandAdaptiveSolution:
     @max_num_passes.setter
     def max_num_passes(self, value):
         self.core.max_num_passes = value
+
+    @property
+    def max_passes(self) -> int:
+        """Maximum number of passes for broadband adaptive solution.
+
+        Returns
+        -------
+        int
+            Maximum number of passes.
+
+        """
+        return self.max_num_passes
+
+    @max_passes.setter
+    def max_passes(self, value):
+        self.max_num_passes = value
 
 
 class AdaptiveFrequency:
@@ -515,9 +525,10 @@ class SingleFrequencyAdaptiveSolution:
 class HFSSGeneralSettings:
     """PyEDB-core HFSS general settings class."""
 
-    def __init__(self, pedb, core: "CoreHFSSGeneralSettings"):
-        self.core = core
-        self._pedb = pedb
+    def __init__(self, parent):
+        self._parent = parent
+        self.core = parent.core.general
+        self._pedb = parent._pedb
 
     @property
     def adapt_type(self) -> str:
@@ -543,6 +554,10 @@ class HFSSGeneralSettings:
         except Exception:
             return str(val).lower()
 
+    @adapt_type.setter
+    def adapt_type(self, value):
+        self.adaptive_solution_type = value
+
     @property
     def adaptive_solution_type(self) -> str:
         """Adaptive solution type.
@@ -550,7 +565,7 @@ class HFSSGeneralSettings:
         Returns
         -------
         str
-            Adaptive solution type name. Returned values are `single`, `multi_frequencies`, `broad_band`,
+            Adaptive solution type name. Returned values are `single`, `multi_frequencies`, `broadband`,
             or `num_adapt_type`.
 
         """
@@ -563,10 +578,23 @@ class HFSSGeneralSettings:
                 self.core.adaptive_solution_type = CoreAdaptType.SINGLE
             elif value.lower() == "multi_frequencies":
                 self.core.adaptive_solution_type = CoreAdaptType.MULTI_FREQUENCIES
-            elif value.lower() == "broad_band":
+            elif value.lower() == "broadband":
                 self.core.adaptive_solution_type = CoreAdaptType.BROADBAND
             elif value.lower() == "num_adapt_type":
                 self.core.adaptive_solution_type = CoreAdaptType.NUM_ADAPT_TYPE
+            else:
+                raise ValueError(f"Invalid adaptive solution type: {value}")
+
+    @property
+    def adaptive_frequency_data_list(self):
+        """List the adaptive frequency data entries for multi-frequency adaptive solution.
+
+        Returns
+        -------
+        list[AdaptiveFrequency]
+            List of adaptive frequency data entries.
+        """
+        return self.multi_frequency_adaptive_solution.adaptive_frequencies
 
     @property
     def broadband_adaptive_solution(self) -> BroadbandAdaptiveSolution:
@@ -708,11 +736,11 @@ class HFSSGeneralSettings:
             "Use 'settings.options.max_refinement_per_pass' instead.",
             DeprecationWarning,
         )
-        return self._pedb.settings.options.max_refinement_per_pass
+        return self._parent.options.max_refinement_per_pass
 
     @max_refine_per_pass.setter
     def max_refine_per_pass(self, value: float):
-        self._pedb.settings.options.max_refinement_per_pass = value
+        self._parent.options.max_refinement_per_pass = value
 
     @property
     def min_passes(self) -> int:
@@ -728,11 +756,11 @@ class HFSSGeneralSettings:
             "Use 'settings.options.min_passes' instead.",
             DeprecationWarning,
         )
-        return self._pedb.settings.options.min_passes
+        return self._parent.options.min_passes
 
     @min_passes.setter
     def min_passes(self, value: int):
-        self._pedb.settings.options.min_passes = value
+        self._parent.options.min_passes = value
 
     @property
     def use_max_refinement(self) -> bool:
@@ -748,8 +776,8 @@ class HFSSGeneralSettings:
             "Use 'settings.options.use_max_refinement' instead.",
             DeprecationWarning,
         )
-        return self._pedb.settings.options.use_max_refinement
+        return self._parent.options.use_max_refinement
 
     @use_max_refinement.setter
     def use_max_refinement(self, value: bool):
-        self._pedb.settings.options.use_max_refinement = value
+        self._parent.options.use_max_refinement = value

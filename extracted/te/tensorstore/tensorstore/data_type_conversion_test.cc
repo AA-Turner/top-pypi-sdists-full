@@ -30,7 +30,6 @@
 #include "tensorstore/internal/testing/json_gtest.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace {
 
@@ -41,7 +40,6 @@ using ::tensorstore::Index;
 using ::tensorstore::IsDataTypeConversionSupported;
 using ::tensorstore::Result;
 using ::tensorstore::StatusIs;
-using ::tensorstore::StrCat;
 using ::tensorstore::internal::GetDataTypeConverter;
 using ::tensorstore::internal::GetDataTypeConverterOrError;
 using ::tensorstore::internal::GetElementCopyErrorStatus;

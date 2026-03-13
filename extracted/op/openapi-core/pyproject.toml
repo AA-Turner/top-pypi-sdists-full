@@ -32,7 +32,7 @@ ignore_missing_imports = true
 
 [tool.poetry]
 name = "openapi-core"
-version = "0.22.0"
+version = "0.23.0"
 description = "client-side and server-side support for the OpenAPI Specification v3"
 authors = ["Artur Maciag <maciag.artur@gmail.com>"]
 license = "BSD-3-Clause"
@@ -46,7 +46,6 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -60,64 +59,60 @@ include = [
 ]
 
 [tool.poetry.dependencies]
-python = "^3.9.0"
-django = {version = ">=3.0", optional = true}
-falcon = {version = ">=3.0", optional = true}
-flask = {version = "*", optional = true}
+python = "^3.10.0"
+django = {version = ">=4.0", optional = true}
+falcon = {version = ">=4.0", optional = true}
+flask = {version = ">=2.0", optional = true}
 aiohttp = {version = ">=3.0", optional = true}
-starlette = {version = ">=0.26.1,<0.50.0", optional = true}
+starlette = {version = ">=0.40.0,<0.60.0", optional = true}
 isodate = "*"
 more-itertools = "*"
-openapi-schema-validator = "^0.6.0"
-openapi-spec-validator = "^0.7.1"
+openapi-schema-validator = ">=0.7.0,<0.9.0"
+openapi-spec-validator = "^0.8.0"
 requests = {version = "*", optional = true}
 werkzeug = ">=2.1.0"
-jsonschema-path = "^0.3.4"
+jsonschema-path = "^0.4.5"
 jsonschema = "^4.23.0"
 multidict = {version = "^6.0.4", optional = true}
 aioitertools = {version = ">=0.11,<0.14", optional = true}
-fastapi = {version = ">=0.111,<0.125", optional = true}
+fastapi = {version = ">=0.111,<0.130", optional = true}
 typing-extensions = "^4.8.0"
 
 [tool.poetry.extras]
 django = ["django"]
 falcon = ["falcon"]
-fastapi = ["fastapi"]
+fastapi = ["fastapi", "aioitertools"]
 flask = ["flask"]
 requests = ["requests"]
 aiohttp = ["aiohttp", "multidict"]
 starlette = ["starlette", "aioitertools"]
+werkzeug = []
 
 [tool.poetry.group.dev.dependencies]
-black = ">=23.3,<26.0"
-django = ">=3.0"
+black = ">=23.3,<27.0"
 djangorestframework = "^3.11.2"
-falcon = ">=3.0"
-flask = "*"
-isort = ">=5.11.5,<7.0.0"
+isort = ">=5.11.5,<9.0.0"
 pre-commit = "*"
-pytest = "^8"
+pytest = ">=8,<10"
 pytest-flake8 = "*"
 pytest-cov = "*"
 python-multipart = "*"
 responses = "*"
-starlette = ">=0.26.1,<0.50.0"
 strict-rfc3339 = "^0.7"
 webob = "*"
 mypy = "^1.2"
 httpx = ">=0.24,<0.29"
-deptry = ">=0.11,<0.24"
-aiohttp = "^3.8.4"
+deptry = ">=0.11,<0.25"
 pytest-aiohttp = "^1.1.0"
 pyflakes = "^3.1.0"
-fastapi = ">=0.111,<0.125"
 tbump = "^6.11.0"
+ipykernel = "^7.2.0"
 
 [tool.poetry.group.docs.dependencies]
 mkdocs = "^1.6.1"
-mkdocstrings = {extras = ["python"], version = ">=0.26.1,<0.31.0"}
+mkdocstrings = {extras = ["python"], version = ">=0.26.1,<1.1.0"}
 mkdocs-material = "^9.5.34"
-griffe-typingdoc = ">=0.2.7,<0.4.0"
+griffe-typingdoc = ">=0.2.7,<0.3.0"
 
 [tool.pytest.ini_options]
 addopts = """
@@ -129,7 +124,7 @@ addopts = """
 --cov-report=term-missing
 --cov-report=xml
 """
-asyncio_mode = "auto"
+asyncio_mode = "strict"
 filterwarnings = [
     "error",
     # falcon.media.handlers uses cgi to parse data
@@ -149,13 +144,14 @@ force_single_line = true
 github_url = "https://github.com/python-openapi/openapi-core"
 
 [tool.tbump.version]
-current = "0.22.0"
+current = "0.23.0"
 regex = '''
   (?P<major>\d+)
   \.
   (?P<minor>\d+)
   \.
   (?P<patch>\d+)
+  (?P<prerelease>[a-z]+\d+)?
   '''
 
 [tool.tbump.git]
@@ -167,3 +163,81 @@ src = "openapi_core/__init__.py"
 
 [[tool.tbump.file]]
 src = "pyproject.toml"
+
+[tool.tox]
+min_version = "4.21"
+env_list = [
+    "contrib-aiohttp-3x",
+    "contrib-aiohttp-311plus",
+    "contrib-django-4x",
+    "contrib-django-5x",
+    "contrib-django-6x",
+    "contrib-falcon-4x",
+    "contrib-fastapi-011x",
+    "contrib-fastapi-012x",
+    "contrib-flask-2x",
+    "contrib-flask-3x",
+    "contrib-requests-default",
+    "contrib-starlette-04x",
+    "contrib-starlette-05x",
+    "contrib-werkzeug-default",
+]
+isolated_build = true
+skip_missing_interpreters = false
+
+[tool.tox.env_run_base]
+description = "Run contrib integration and unit tests for selected framework range."
+package = "skip"
+allowlist_externals = ["poetry"]
+labels = ["contrib"]
+commands_pre = [
+    ["python", "-c", "import os,subprocess; extra=os.environ.get('POETRY_EXTRA',''); cmd=['poetry','install','--with','dev','--without','docs','--no-interaction']; extra and cmd.extend(['--extras', extra]); env=dict(os.environ); env['POETRY_VIRTUALENVS_CREATE']='false'; env['POETRY_CACHE_DIR']='.tox/.poetry-cache/' + os.environ.get('TOX_ENV_NAME', 'default'); subprocess.check_call(cmd, env=env)"],
+    ["python", "-c", "import os,subprocess,sys; pkg=os.environ['CONTRIB_PACKAGE']; spec=os.environ.get('CONTRIB_SPEC',''); target=f'{pkg}{spec}'; label=target if spec else 'from-lock'; print(f'framework target: {label}'); spec and subprocess.check_call([sys.executable,'-m','pip','install','--upgrade','--force-reinstall','--no-cache-dir',target])"],
+    ["python", "-m", "pip", "check"],
+    ["python", "-c", "import importlib, os; name=os.environ['CONTRIB_PACKAGE']; mod=importlib.import_module(name); print(name, getattr(mod, '__version__', 'unknown'))"],
+]
+commands = [
+    ["python", "-c", "import os,shlex,subprocess,sys; paths=shlex.split(os.environ['CONTRIB_PATHS']); cmd=[sys.executable,'-m','pytest','--override-ini','addopts=','--capture=no','--verbose','--showlocals','--color=yes','--junitxml=reports/junit-{env_name}.xml','--cov=openapi_core','--cov-report=term-missing','--cov-report=xml:reports/coverage-{env_name}.xml',*paths]; env=dict(os.environ); env['COVERAGE_FILE']='.coverage.{env_name}'; raise SystemExit(subprocess.call(cmd, env=env))"],
+]
+
+[tool.tox.env."contrib-aiohttp-3x"]
+set_env = { POETRY_EXTRA = "aiohttp", CONTRIB_PACKAGE = "aiohttp", CONTRIB_SPEC = ">=3.8,<4.0", CONTRIB_PATHS = "tests/integration/contrib/aiohttp tests/unit/contrib/aiohttp" }
+
+[tool.tox.env."contrib-aiohttp-311plus"]
+set_env = { POETRY_EXTRA = "aiohttp", CONTRIB_PACKAGE = "aiohttp", CONTRIB_SPEC = ">=3.11,<4.0", CONTRIB_PATHS = "tests/integration/contrib/aiohttp tests/unit/contrib/aiohttp" }
+
+[tool.tox.env."contrib-django-4x"]
+set_env = { POETRY_EXTRA = "django", CONTRIB_PACKAGE = "django", CONTRIB_SPEC = ">=4.0,<5.0", CONTRIB_PATHS = "tests/integration/contrib/django tests/unit/contrib/django" }
+
+[tool.tox.env."contrib-django-5x"]
+set_env = { POETRY_EXTRA = "django", CONTRIB_PACKAGE = "django", CONTRIB_SPEC = ">=5.0,<6.0", CONTRIB_PATHS = "tests/integration/contrib/django tests/unit/contrib/django" }
+
+[tool.tox.env."contrib-django-6x"]
+set_env = { POETRY_EXTRA = "django", CONTRIB_PACKAGE = "django", CONTRIB_SPEC = ">=6.0,<7.0", CONTRIB_PATHS = "tests/integration/contrib/django tests/unit/contrib/django" }
+
+[tool.tox.env."contrib-falcon-4x"]
+set_env = { POETRY_EXTRA = "falcon", CONTRIB_PACKAGE = "falcon", CONTRIB_SPEC = ">=4.0,<5.0", CONTRIB_PATHS = "tests/integration/contrib/falcon" }
+
+[tool.tox.env."contrib-fastapi-011x"]
+set_env = { POETRY_EXTRA = "fastapi", CONTRIB_PACKAGE = "fastapi", CONTRIB_SPEC = ">=0.111,<0.120", CONTRIB_PATHS = "tests/integration/contrib/fastapi" }
+
+[tool.tox.env."contrib-fastapi-012x"]
+set_env = { POETRY_EXTRA = "fastapi", CONTRIB_PACKAGE = "fastapi", CONTRIB_SPEC = ">=0.120,<0.129", CONTRIB_PATHS = "tests/integration/contrib/fastapi" }
+
+[tool.tox.env."contrib-flask-2x"]
+set_env = { POETRY_EXTRA = "flask", CONTRIB_PACKAGE = "flask", CONTRIB_SPEC = ">=2.0,<3.0", CONTRIB_PATHS = "tests/integration/contrib/flask tests/unit/contrib/flask" }
+
+[tool.tox.env."contrib-flask-3x"]
+set_env = { POETRY_EXTRA = "flask", CONTRIB_PACKAGE = "flask", CONTRIB_SPEC = ">=3.0,<4.0", CONTRIB_PATHS = "tests/integration/contrib/flask tests/unit/contrib/flask" }
+
+[tool.tox.env."contrib-requests-default"]
+set_env = { POETRY_EXTRA = "requests", CONTRIB_PACKAGE = "requests", CONTRIB_SPEC = "", CONTRIB_PATHS = "tests/integration/contrib/requests tests/unit/contrib/requests" }
+
+[tool.tox.env."contrib-starlette-04x"]
+set_env = { POETRY_EXTRA = "starlette", CONTRIB_PACKAGE = "starlette", CONTRIB_SPEC = ">=0.40.0,<0.50.0", CONTRIB_PATHS = "tests/integration/contrib/starlette" }
+
+[tool.tox.env."contrib-starlette-05x"]
+set_env = { POETRY_EXTRA = "starlette", CONTRIB_PACKAGE = "starlette", CONTRIB_SPEC = ">=0.50.0,<0.60.0", CONTRIB_PATHS = "tests/integration/contrib/starlette" }
+
+[tool.tox.env."contrib-werkzeug-default"]
+set_env = { CONTRIB_PACKAGE = "werkzeug", CONTRIB_SPEC = "", CONTRIB_PATHS = "tests/integration/contrib/werkzeug" }

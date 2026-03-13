@@ -32,11 +32,13 @@
 #include "absl/strings/str_split.h"
 #include "absl/synchronization/mutex.h"
 #include "tensorstore/internal/driver_kind_registry.h"
+#include "tensorstore/internal/utf8.h"
 #include "tensorstore/kvstore/driver.h"
 #include "tensorstore/kvstore/spec.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
+#include "tensorstore/util/status_builder.h"
 
 namespace tensorstore {
 namespace internal_kvstore {
@@ -84,6 +86,10 @@ Result<kvstore::Spec> GetSpecFromUrlImpl(std::string_view url, Arg&&... arg) {
   if (url.empty()) {
     return absl::InvalidArgumentError("URL must be non-empty");
   }
+  if (!internal::IsValidUtf8(url)) {
+    return absl::InvalidArgumentError("URL contains invalid UTF-8 sequence");
+  }
+
   std::string buffer;
   std::string_view scheme =
       *(absl::StrSplit(url, absl::MaxSplits(':', 1)).begin());
@@ -107,23 +113,20 @@ Result<kvstore::Spec> GetSpecFromUrlImpl(std::string_view url, Arg&&... arg) {
     auto it = registry.handlers.find(scheme);
     if (it == registry.handlers.end() ||
         !std::holds_alternative<Handler>(it->second)) {
-      auto status = absl::InvalidArgumentError(
-          absl::StrFormat("unsupported URL scheme %v in %v",
-                          QuoteString(scheme), QuoteString(url)));
+      StatusBuilder status_builder(absl::StatusCode::kInvalidArgument);
+      status_builder.Format("unsupported URL scheme %v in %v",
+                            QuoteString(scheme), QuoteString(url));
       if (auto kind = internal::GetUrlSchemeKind(scheme)) {
-        status = tensorstore::MaybeAnnotateStatus(
-            std::move(status), absl::StrFormat("%v is a %v URL scheme",
-                                               QuoteString(scheme), *kind));
+        status_builder.Format(": %v is a %v URL scheme", QuoteString(scheme),
+                              *kind);
       }
-      return status;
+      return status_builder;
     }
     handler = std::get<Handler>(it->second);
   }
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto spec, handler(url, std::forward<Arg>(arg)...),
-      tensorstore::MaybeAnnotateStatus(
-          std::move(_), absl::StrFormat("Invalid kvstore URL component %v",
-                                        QuoteString(url))));
+      _.Format("Invalid kvstore URL component %v", QuoteString(url)));
   if (!spec.valid()) {
     // This should never happen with correct kvstore drivers, but as Spec
     // permits invalid state, check here and error about it.
@@ -162,13 +165,11 @@ Result<Spec> Spec::FromUrl(std::string_view url) {
   auto it = splitter.begin();
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto spec, internal_kvstore::GetRootSpecFromUrl(*it),
-      tensorstore::MaybeAnnotateStatus(
-          _, absl::StrFormat("Parsing spec from url: %v", QuoteString(url))));
+      _.Format("Parsing spec from url: %v", QuoteString(url)));
   while (++it != splitter.end()) {
     TENSORSTORE_ASSIGN_OR_RETURN(
         spec, internal_kvstore::GetAdapterSpecFromUrl(*it, std::move(spec)),
-        tensorstore::MaybeAnnotateStatus(
-            _, absl::StrFormat("Parsing spec from url: %v", QuoteString(url))));
+        _.Format("Parsing spec from url: %v", QuoteString(url)));
   }
   return spec;
 }

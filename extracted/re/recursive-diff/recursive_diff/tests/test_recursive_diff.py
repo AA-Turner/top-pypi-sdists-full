@@ -1,4 +1,5 @@
 import math
+import sys
 from copy import deepcopy
 
 import numpy as np
@@ -82,13 +83,10 @@ class Square:
         return f"Square({self.side})"
 
 
-def check(lhs, rhs, *expect, rel_tol=1e-09, abs_tol=0.0, brief_dims=()):
-    expect = sorted(expect)
-    actual = sorted(
-        recursive_diff(
-            lhs, rhs, rel_tol=rel_tol, abs_tol=abs_tol, brief_dims=brief_dims
-        )
-    )
+def check(lhs, rhs, *expect, order=False, **kwargs):
+    f = list if order else sorted
+    expect = f(expect)
+    actual = f(recursive_diff(lhs, rhs, **kwargs))
     assert actual == expect
 
 
@@ -172,8 +170,7 @@ def test_identical(x):
     ],
 )
 def test_identical_dask(x):
-    x = x.chunk()
-    assert not list(recursive_diff(x, deepcopy(x)))
+    check(x.chunk(), deepcopy(x).chunk())
 
 
 def test_simple():
@@ -785,11 +782,6 @@ def test_pandas_multiindex():
     )
 
 
-@pytest.fixture(params=[False, pytest.param(True, marks=requires_dask)])
-def chunk(request):
-    return request.param
-
-
 def test_xarray(chunk):
     # xarray.Dataset
     ds1 = xarray.Dataset(
@@ -1175,6 +1167,67 @@ def test_dask_dataarray(chunk_lhs, chunk_rhs):
 
 
 @requires_dask
+@pytest.mark.parametrize(
+    "chunk_lhs,chunk_rhs",
+    [
+        (None, None),
+        (None, -1),
+        (None, 2),
+        ({"x": 3, "y": 1}, {"x": 2, "y": 2}),
+    ],
+)
+def test_dask_dataarray_2d(chunk_lhs, chunk_rhs):
+    lhs = xarray.DataArray([[0, 1, 2], [3, 4, 5]], dims=["x", "y"])
+    rhs = xarray.DataArray([[0, 1, 2], [3, 4, 6]], dims=["x", "y"])
+    if chunk_lhs:
+        lhs = lhs.chunk(chunk_lhs)
+    if chunk_rhs:
+        rhs = rhs.chunk(chunk_rhs)
+
+    check(lhs, rhs, "[data][x=1, y=2]: 5 != 6 (abs: 1.0e+00, rel: 2.0e-01)")
+
+
+def test_dask_dataarray_ordered(chunk):
+    """Test that difference order goes in C order and is not influenced
+    by Dask chunks.
+    """
+    lhs = xarray.DataArray(np.arange(2 * 3 * 4).reshape(2, 3, 4), dims=["x", "y", "z"])
+    rhs = lhs + 1
+    if chunk:
+        lhs = lhs.chunk({"x": 2, "y": 2, "z": 3})
+        rhs = rhs.chunk({"x": 2, "y": 2, "z": 3})
+    check(
+        lhs,
+        rhs,
+        "[data][x=0, y=0, z=0]: 0 != 1 (abs: 1.0e+00, rel: nan)",
+        "[data][x=0, y=0, z=1]: 1 != 2 (abs: 1.0e+00, rel: 1.0e+00)",
+        "[data][x=0, y=0, z=2]: 2 != 3 (abs: 1.0e+00, rel: 5.0e-01)",
+        "[data][x=0, y=0, z=3]: 3 != 4 (abs: 1.0e+00, rel: 3.3e-01)",
+        "[data][x=0, y=1, z=0]: 4 != 5 (abs: 1.0e+00, rel: 2.5e-01)",
+        "[data][x=0, y=1, z=1]: 5 != 6 (abs: 1.0e+00, rel: 2.0e-01)",
+        "[data][x=0, y=1, z=2]: 6 != 7 (abs: 1.0e+00, rel: 1.7e-01)",
+        "[data][x=0, y=1, z=3]: 7 != 8 (abs: 1.0e+00, rel: 1.4e-01)",
+        "[data][x=0, y=2, z=0]: 8 != 9 (abs: 1.0e+00, rel: 1.2e-01)",
+        "[data][x=0, y=2, z=1]: 9 != 10 (abs: 1.0e+00, rel: 1.1e-01)",
+        "[data][x=0, y=2, z=2]: 10 != 11 (abs: 1.0e+00, rel: 1.0e-01)",
+        "[data][x=0, y=2, z=3]: 11 != 12 (abs: 1.0e+00, rel: 9.1e-02)",
+        "[data][x=1, y=0, z=0]: 12 != 13 (abs: 1.0e+00, rel: 8.3e-02)",
+        "[data][x=1, y=0, z=1]: 13 != 14 (abs: 1.0e+00, rel: 7.7e-02)",
+        "[data][x=1, y=0, z=2]: 14 != 15 (abs: 1.0e+00, rel: 7.1e-02)",
+        "[data][x=1, y=0, z=3]: 15 != 16 (abs: 1.0e+00, rel: 6.7e-02)",
+        "[data][x=1, y=1, z=0]: 16 != 17 (abs: 1.0e+00, rel: 6.2e-02)",
+        "[data][x=1, y=1, z=1]: 17 != 18 (abs: 1.0e+00, rel: 5.9e-02)",
+        "[data][x=1, y=1, z=2]: 18 != 19 (abs: 1.0e+00, rel: 5.6e-02)",
+        "[data][x=1, y=1, z=3]: 19 != 20 (abs: 1.0e+00, rel: 5.3e-02)",
+        "[data][x=1, y=2, z=0]: 20 != 21 (abs: 1.0e+00, rel: 5.0e-02)",
+        "[data][x=1, y=2, z=1]: 21 != 22 (abs: 1.0e+00, rel: 4.8e-02)",
+        "[data][x=1, y=2, z=2]: 22 != 23 (abs: 1.0e+00, rel: 4.5e-02)",
+        "[data][x=1, y=2, z=3]: 23 != 24 (abs: 1.0e+00, rel: 4.3e-02)",
+        order=False,
+    )
+
+
+@requires_dask
 def test_dask_dataarray_discards_data():
     """Test that chunked Dask datasets are loaded into memory and then
     discarded, without caching them in place with .load() or .persist()
@@ -1309,14 +1362,25 @@ def test_lazy_datasets_without_dask(tmp_path):
 @requires_zarr
 @pytest.mark.slow
 @pytest.mark.thread_unsafe(reason="process-wide memory readings")
-@pytest.mark.parametrize("chunks,max_peak", [(None, 200), ("auto", 80)])
-@pytest.mark.parametrize("format", ["netcdf", "zarr"])
+@pytest.mark.parametrize(
+    "format,chunks,max_peak",
+    [
+        # Different OSes and dependency versions have different peak RAM usages.
+        # These are the worst case scenarios across all combinations.
+        ("netcdf", None, 110),  # Uses more RAM on MacOS
+        ("netcdf", {}, 60),
+        ("zarr", None, 110),
+        ("zarr", {}, 30),  # ~5 MiB on Linux, up to 30 MiB on Windows
+    ],
+)
 def test_lazy_datasets_huge(tmp_path, chunks, max_peak, format):
-    import dask
     import dask.array as da
+    import dask.config
 
-    # 320 MiB, 8 MiB per variable
-    a = xarray.Dataset({f"v{i}": ("x", da.random.random(1_000_000)) for i in range(40)})
+    # 320 MiB, 8 MiB per variable, 2 MiB per chunk, indices are pd.RangeIndex
+    a = xarray.Dataset(
+        {f"v{i}": ("x", da.random.random(1_000_000, chunks=250_000)) for i in range(40)}
+    )
     if format == "netcdf":
         a.to_netcdf(tmp_path / "a.nc")
         b = xarray.open_dataset(tmp_path / "a.nc", chunks=chunks)
@@ -1363,3 +1427,79 @@ def test_dask_scheduler():
     with dask.config.set({"scheduler": get}):
         check([a1, b1, c1], [a2, b2, c2])
     assert len(seen) == 1
+
+
+@requires_dask
+@pytest.mark.slow
+@pytest.mark.skipif(sys.platform == "darwin", reason="Very slow and high memory usage")
+@pytest.mark.thread_unsafe(reason="process-wide dask config")
+def test_distributed_index_bloom():
+    """Test against an issue where broadcasting the indices
+    vs. the mask on dask.distributed can cause the worker memory
+    to bloom.
+    """
+    distributed = pytest.importorskip("distributed")
+    import dask.array as da
+    import dask.config
+
+    a = xarray.DataArray(
+        # 781 MiB, 24 MiB per chunk
+        # The issue of broadcasting the indices vs. the mask and accidentally
+        # deep-copying afterwards grows with the number of dimensions.
+        da.random.random((40,) * 5, chunks=(20,) * 5)
+    )
+    # Identical array but with different Dask keys
+    b = xarray.where(a < 0, 1, a)
+
+    with dask.config.set(
+        {
+            # P2P rechunk is slower and takes more memory!
+            "array.rechunk.method": "tasks",
+            "distributed.worker.memory.spill": False,
+        }
+    ), distributed.Client(
+        n_workers=2,
+        threads_per_worker=2,
+        memory_limit="1 GiB",
+    ):
+        check(a, b)
+
+
+@requires_dask
+@pytest.mark.thread_unsafe(reason="spawns processes")
+def test_p2p_rechunk():
+    """Test support for p2p rechunk, which is the default when using
+    dask.distributed.
+    """
+    distributed = pytest.importorskip("distributed")
+
+    a = xarray.DataArray([1, 2, 3], dims=["x"], coords={"x": ["a", "b", "c"]}).chunk(2)
+    b = xarray.DataArray([1, 2, 4], dims=["x"], coords={"x": ["a", "b", "c"]}).chunk(2)
+
+    with distributed.Client(n_workers=2, threads_per_worker=1):
+        check(a, b, "[data][x=c]: 3 != 4 (abs: 1.0e+00, rel: 3.3e-01)")
+
+
+@requires_dask
+def test_do_not_duplicate_input_graph():
+    """Test that recursive_diff does not encroach on
+    https://github.com/dask/dask/issues/12318
+    """
+    import dask.array as da
+
+    count = []
+
+    def f(x):
+        count.append(x[0].item())
+        return x
+
+    a = xarray.DataArray(da.asarray(["a"]).map_blocks(f), name="x")
+    b = xarray.DataArray(da.asarray(["b"]).map_blocks(f), name="x")
+    count.clear()
+
+    check(a, b, "[data][0]: a != b")
+    assert sorted(count) == ["a", "b"]
+    count.clear()
+
+    check(a, b, "[data]: 1 differences", brief_dims="all")
+    assert sorted(count) == ["a", "b"]

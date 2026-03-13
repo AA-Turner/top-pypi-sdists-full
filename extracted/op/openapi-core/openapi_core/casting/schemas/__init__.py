@@ -1,5 +1,6 @@
 from collections import OrderedDict
 
+from openapi_core.casting.schemas.casters import AnyCaster
 from openapi_core.casting.schemas.casters import ArrayCaster
 from openapi_core.casting.schemas.casters import BooleanCaster
 from openapi_core.casting.schemas.casters import IntegerCaster
@@ -15,11 +16,13 @@ from openapi_core.validation.schemas import (
     oas30_write_schema_validators_factory,
 )
 from openapi_core.validation.schemas import oas31_schema_validators_factory
+from openapi_core.validation.schemas import oas32_schema_validators_factory
 
 __all__ = [
     "oas30_write_schema_casters_factory",
     "oas30_read_schema_casters_factory",
     "oas31_schema_casters_factory",
+    "oas32_schema_casters_factory",
 ]
 
 oas30_casters_dict = OrderedDict(
@@ -41,13 +44,14 @@ oas31_casters_dict.update(
 
 oas30_types_caster = TypesCaster(
     oas30_casters_dict,
-    PrimitiveCaster,
+    AnyCaster,
 )
 oas31_types_caster = TypesCaster(
     oas31_casters_dict,
-    PrimitiveCaster,
+    AnyCaster,
     multi=PrimitiveCaster,
 )
+oas32_types_caster = oas31_types_caster
 
 oas30_write_schema_casters_factory = SchemaCastersFactory(
     oas30_write_schema_validators_factory,
@@ -62,4 +66,8 @@ oas30_read_schema_casters_factory = SchemaCastersFactory(
 oas31_schema_casters_factory = SchemaCastersFactory(
     oas31_schema_validators_factory,
     oas31_types_caster,
+)
+oas32_schema_casters_factory = SchemaCastersFactory(
+    oas32_schema_validators_factory,
+    oas32_types_caster,
 )

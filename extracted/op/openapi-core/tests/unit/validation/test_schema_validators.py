@@ -9,9 +9,14 @@ from openapi_core.validation.schemas.exceptions import InvalidSchemaValue
 
 class TestSchemaValidate:
     @pytest.fixture
-    def validator_factory(self):
+    def spec(self):
+        spec_dict = {}
+        return SchemaPath.from_dict(spec_dict)
+
+    @pytest.fixture
+    def validator_factory(self, spec):
         def create_validator(schema):
-            return oas30_write_schema_validators_factory.create(schema)
+            return oas30_write_schema_validators_factory.create(spec, schema)
 
         return create_validator
 
@@ -213,3 +218,141 @@ class TestSchemaValidate:
         result = validator_factory(spec).validate(value)
 
         assert result is None
+
+    def test_additional_properties_omitted_default_allows_extra(self, spec):
+        schema_dict = {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"},
+            },
+            "required": ["name"],
+        }
+        schema = SchemaPath.from_dict(schema_dict)
+        value = {
+            "name": "openapi-core",
+            "extra": "allowed by default",
+        }
+
+        result = oas30_write_schema_validators_factory.create(
+            spec, schema
+        ).validate(value)
+
+        assert result is None
+
+    def test_additional_properties_omitted_strict_rejects_extra(self, spec):
+        schema_dict = {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"},
+            },
+            "required": ["name"],
+        }
+        schema = SchemaPath.from_dict(schema_dict)
+        value = {
+            "name": "openapi-core",
+            "extra": "not allowed in strict mode",
+        }
+
+        with pytest.raises(InvalidSchemaValue):
+            oas30_write_schema_validators_factory.create(
+                spec,
+                schema,
+                forbid_unspecified_additional_properties=True,
+            ).validate(value)
+
+    def test_additional_properties_true_strict_allows_extra(self, spec):
+        schema_dict = {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"},
+            },
+            "required": ["name"],
+            "additionalProperties": True,
+        }
+        schema = SchemaPath.from_dict(schema_dict)
+        value = {
+            "name": "openapi-core",
+            "extra": "explicitly allowed",
+        }
+
+        result = oas30_write_schema_validators_factory.create(
+            spec,
+            schema,
+            forbid_unspecified_additional_properties=True,
+        ).validate(value)
+
+        assert result is None
+
+    def test_enforce_properties_required_rejects_missing_property(self, spec):
+        schema_dict = {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"},
+                "age": {"type": "integer"},
+            },
+            "required": ["name"],
+        }
+        schema = SchemaPath.from_dict(schema_dict)
+
+        with pytest.raises(InvalidSchemaValue):
+            oas30_write_schema_validators_factory.create(
+                spec,
+                schema,
+                enforce_properties_required=True,
+            ).validate({"name": "openapi-core"})
+
+    def test_enforce_properties_required_ignores_write_only_fields(self, spec):
+        schema_dict = {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"},
+                "secret": {
+                    "type": "string",
+                    "writeOnly": True,
+                },
+            },
+            "required": ["name"],
+        }
+        schema = SchemaPath.from_dict(schema_dict)
+
+        result = oas30_write_schema_validators_factory.create(
+            spec,
+            schema,
+            enforce_properties_required=True,
+        ).validate({"name": "openapi-core"})
+
+        assert result is None
+
+    def test_enforce_properties_required_applies_to_nested_composed_schemas(
+        self,
+        spec,
+    ):
+        schema_dict = {
+            "allOf": [
+                {
+                    "type": "object",
+                    "properties": {
+                        "name": {"type": "string"},
+                    },
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "meta": {
+                            "type": "object",
+                            "properties": {
+                                "version": {"type": "integer"},
+                            },
+                        }
+                    },
+                },
+            ]
+        }
+        schema = SchemaPath.from_dict(schema_dict)
+
+        with pytest.raises(InvalidSchemaValue):
+            oas30_write_schema_validators_factory.create(
+                spec,
+                schema,
+                enforce_properties_required=True,
+            ).validate({"name": "openapi-core", "meta": {}})

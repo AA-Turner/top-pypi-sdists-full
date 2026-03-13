@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dagster-celery
-Version: 0.28.18
+Version: 0.28.19
 Summary: Package for using Celery as Dagster's execution engine.
 Project-URL: Homepage, https://github.com/dagster-io/dagster/tree/master/python_modules/libraries/dagster-celery
 Author-email: Dagster Labs <hello@dagsterlabs.com>
@@ -11,7 +11,7 @@ Classifier: Programming Language :: Python :: 3.10
 Requires-Python: <3.15,>=3.10
 Requires-Dist: celery>=4.3.0
 Requires-Dist: click<9.0,>=5.0
-Requires-Dist: dagster==1.12.18
+Requires-Dist: dagster==1.12.19
 Requires-Dist: importlib-metadata<5.0.0; python_version < '3.8'
 Provides-Extra: flower
 Requires-Dist: flower; extra == 'flower'

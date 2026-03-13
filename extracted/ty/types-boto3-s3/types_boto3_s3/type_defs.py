@@ -33,6 +33,7 @@ from .literals import (
     BucketCannedACLType,
     BucketLocationConstraintType,
     BucketLogsPermissionType,
+    BucketNamespaceType,
     BucketVersioningStatusType,
     ChecksumAlgorithmType,
     ChecksumTypeType,
@@ -3471,6 +3472,7 @@ class CreateBucketRequestBucketCreateTypeDef(TypedDict):
     GrantWriteACP: NotRequired[str]
     ObjectLockEnabledForBucket: NotRequired[bool]
     ObjectOwnership: NotRequired[ObjectOwnershipType]
+    BucketNamespace: NotRequired[BucketNamespaceType]
 
 
 class CreateBucketRequestServiceResourceCreateBucketTypeDef(TypedDict):
@@ -3484,6 +3486,7 @@ class CreateBucketRequestServiceResourceCreateBucketTypeDef(TypedDict):
     GrantWriteACP: NotRequired[str]
     ObjectLockEnabledForBucket: NotRequired[bool]
     ObjectOwnership: NotRequired[ObjectOwnershipType]
+    BucketNamespace: NotRequired[BucketNamespaceType]
 
 
 class CreateBucketRequestTypeDef(TypedDict):
@@ -3497,6 +3500,7 @@ class CreateBucketRequestTypeDef(TypedDict):
     GrantWriteACP: NotRequired[str]
     ObjectLockEnabledForBucket: NotRequired[bool]
     ObjectOwnership: NotRequired[ObjectOwnershipType]
+    BucketNamespace: NotRequired[BucketNamespaceType]
 
 
 class ObjectLockConfigurationTypeDef(TypedDict):

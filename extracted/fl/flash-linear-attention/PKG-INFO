@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: flash-linear-attention
-Version: 0.4.1
+Version: 0.4.2
 Summary: Fast linear attention models and layers
 Project-URL: Homepage, https://github.com/fla-org/flash-linear-attention
 Project-URL: Repository, https://github.com/fla-org/flash-linear-attention
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: fla-core==0.4.1
+Requires-Dist: fla-core==0.4.2
 Requires-Dist: transformers
 Provides-Extra: conv1d
 Requires-Dist: causal-conv1d>=1.4.0; extra == "conv1d"

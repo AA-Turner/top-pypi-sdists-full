@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-log-request-id
-Version: 2.1.1
+Version: 2.1.2
 Summary: Django middleware and log filter to attach a unique ID to every log message generated as part of a request
 Author-email: DabApps <hello@dabapps.com>
 License-Expression: BSD-3-Clause

@@ -21,6 +21,156 @@ class TestInstance(testing.PyLXDTestCase):
 
         self.assertEqual(1, len(instances))
 
+    def test_all_with_fields_uses_selective_recursion(self):
+        """When the extension is present and fields is given, the selective
+        recursion URL (recursion=2;fields=...) is used."""
+        testing.add_api_extension_helper(self, ["instances_state_selective_recursion"])
+        self.add_rule(
+            {
+                "json": {
+                    "type": "sync",
+                    "metadata": [
+                        {
+                            "name": "an-instance",
+                            "status": "Running",
+                            "status_code": 103,
+                            "state": {"disk": {}},
+                        }
+                    ],
+                },
+                "method": "GET",
+                "url": r"^http://pylxd.test/1.0/instances\?recursion=2%3Bfields%3Dstate\.disk$",
+            }
+        )
+
+        instances = models.Instance.all(self.client, recursion=2, fields=["state.disk"])
+
+        self.assertEqual(1, len(instances))
+        self.assertEqual("an-instance", instances[0].name)
+
+    def test_all_with_fields_multiple_uses_selective_recursion(self):
+        """Multiple fields are comma-joined in the selective recursion URL."""
+        testing.add_api_extension_helper(self, ["instances_state_selective_recursion"])
+        self.add_rule(
+            {
+                "json": {
+                    "type": "sync",
+                    "metadata": [
+                        {
+                            "name": "an-instance",
+                            "status": "Running",
+                            "status_code": 103,
+                            "state": {"disk": {}, "network": {}},
+                        }
+                    ],
+                },
+                "method": "GET",
+                "url": r"^http://pylxd.test/1.0/instances\?recursion=2%3Bfields%3Dstate\.disk%2Cstate\.network$",
+            }
+        )
+
+        instances = models.Instance.all(
+            self.client, recursion=2, fields=["state.disk", "state.network"]
+        )
+
+        self.assertEqual(1, len(instances))
+        self.assertEqual("an-instance", instances[0].name)
+
+    def test_all_with_fields_empty_suppresses_state(self):
+        """An empty fields list produces recursion=2;fields= (no state sub-fields)."""
+        testing.add_api_extension_helper(self, ["instances_state_selective_recursion"])
+        self.add_rule(
+            {
+                "json": {
+                    "type": "sync",
+                    "metadata": [
+                        {
+                            "name": "an-instance",
+                            "status": "Running",
+                            "status_code": 103,
+                        }
+                    ],
+                },
+                "method": "GET",
+                "url": r"^http://pylxd.test/1.0/instances\?recursion=2%3Bfields%3D$",
+            }
+        )
+
+        instances = models.Instance.all(self.client, recursion=2, fields=[])
+
+        self.assertEqual(1, len(instances))
+        self.assertEqual("an-instance", instances[0].name)
+
+    def test_all_with_fields_falls_back_without_extension(self):
+        """When the extension is absent, fields is ignored and plain recursion=2 is used."""
+        # Extension is NOT added → has_api_extension returns False
+        self.add_rule(
+            {
+                "json": {
+                    "type": "sync",
+                    "metadata": [
+                        {
+                            "name": "an-instance",
+                            "status": "Running",
+                            "status_code": 103,
+                        }
+                    ],
+                },
+                "method": "GET",
+                "url": r"^http://pylxd.test/1.0/instances\?recursion=2$",
+            }
+        )
+
+        instances = models.Instance.all(self.client, recursion=2, fields=["state.disk"])
+
+        self.assertEqual(1, len(instances))
+        self.assertEqual("an-instance", instances[0].name)
+
+    def test_all_with_fields_ignored_for_recursion_1(self):
+        """fields is silently ignored when recursion is not 2."""
+        self.add_rule(
+            {
+                "json": {
+                    "type": "sync",
+                    "metadata": [
+                        {
+                            "name": "an-instance",
+                            "status": "Running",
+                            "status_code": 103,
+                        }
+                    ],
+                },
+                "method": "GET",
+                "url": r"^http://pylxd.test/1.0/instances\?recursion=1$",
+            }
+        )
+
+        instances = models.Instance.all(self.client, recursion=1, fields=["state.disk"])
+
+        self.assertEqual(1, len(instances))
+        self.assertEqual("an-instance", instances[0].name)
+
+    def test_all_with_fields_str_raises_type_error(self):
+        """Passing a bare string for fields raises TypeError (string is iterable of chars)."""
+        testing.add_api_extension_helper(self, ["instances_state_selective_recursion"])
+
+        with self.assertRaises(TypeError):
+            models.Instance.all(self.client, recursion=2, fields="state.disk")
+
+    def test_all_with_fields_bytes_raises_type_error(self):
+        """Passing bytes for fields raises TypeError."""
+        testing.add_api_extension_helper(self, ["instances_state_selective_recursion"])
+
+        with self.assertRaises(TypeError):
+            models.Instance.all(self.client, recursion=2, fields=b"state.disk")
+
+    def test_all_with_fields_non_string_element_raises_type_error(self):
+        """Passing an iterable containing a non-string element raises TypeError."""
+        testing.add_api_extension_helper(self, ["instances_state_selective_recursion"])
+
+        with self.assertRaises(TypeError):
+            models.Instance.all(self.client, recursion=2, fields=["state.disk", 42])
+
     def test_get(self):
         """Return a instance."""
         name = "an-instance"
@@ -77,11 +227,21 @@ class TestInstance(testing.PyLXDTestCase):
 
     def test_create(self):
         """A new instance is created."""
-        config = {"name": "an-new-instance"}
+        # parametrization (native parametrize doesn't work with unittest.TestCase, so we do it manually)
+        for name in ("an-new-instance", None):
+            for wait in (True, False):
+                with self.subTest(name=name, wait=wait):
+                    config = {"name": name} if name else {}
 
-        an_new_instance = models.Instance.create(self.client, config, wait=True)
+                    an_new_instance = models.Instance.create(
+                        self.client, config, wait=wait
+                    )
 
-        self.assertEqual(config["name"], an_new_instance.name)
+                    if name:
+                        self.assertEqual(config["name"], an_new_instance.name)
+                    else:
+                        # Creating an instance without a name should still work (a random name is assigned).
+                        self.assertEqual("an-instance-generated", an_new_instance.name)
 
     def test_create_remote_location(self):
         """A new instance is created at target."""
@@ -103,6 +263,109 @@ class TestInstance(testing.PyLXDTestCase):
         instance = models.Instance.create(self.client, config, wait=True)
 
         self.assertIsNone(instance.location)
+
+    def test_create_does_not_inject_type(self):
+        """Instance.create() with _instance_type=None does not add 'type' to the payload."""
+        posted_json = {}
+
+        def capture(request, context):
+            posted_json.update(json.loads(request.body))
+            context.status_code = 202
+            return json.dumps(
+                {
+                    "type": "async",
+                    "operation": "/1.0/operations/operation-abc?project=default",
+                }
+            )
+
+        self.add_rule(
+            {
+                "text": capture,
+                "method": "POST",
+                "url": r"^http://pylxd.test/1.0/instances$",
+            }
+        )
+        models.Instance.create(self.client, {"name": "an-new-instance"})
+        self.assertNotIn("type", posted_json)
+
+    def test_create_container_injects_type(self):
+        """Container.create() injects type='container' into the POST payload."""
+        posted_json = {}
+
+        def capture(request, context):
+            posted_json.update(json.loads(request.body))
+            context.status_code = 202
+            return json.dumps(
+                {
+                    "type": "async",
+                    "operation": "/1.0/operations/operation-abc?project=default",
+                }
+            )
+
+        self.add_rule(
+            {
+                "text": capture,
+                "method": "POST",
+                "url": r"^http://pylxd.test/1.0/instances$",
+            }
+        )
+        models.Container.create(self.client, {"name": "an-new-instance"})
+        self.assertEqual("container", posted_json["type"])
+
+    def test_create_virtual_machine_injects_type(self):
+        """VirtualMachine.create() injects type='virtual-machine' into the POST payload."""
+        posted_json = {}
+
+        def capture(request, context):
+            posted_json.update(json.loads(request.body))
+            context.status_code = 202
+            return json.dumps(
+                {
+                    "type": "async",
+                    "operation": "/1.0/operations/operation-abc?project=default",
+                }
+            )
+
+        self.add_rule(
+            {
+                "text": capture,
+                "method": "POST",
+                "url": r"^http://pylxd.test/1.0/instances$",
+            }
+        )
+        models.VirtualMachine.create(self.client, {"name": "an-new-instance"})
+        self.assertEqual("virtual-machine", posted_json["type"])
+
+    def test_create_preserves_caller_type(self):
+        """Container.create() does not overwrite a 'type' already in the caller's config."""
+        posted_json = {}
+        original_config = {"name": "an-new-instance", "type": "virtual-machine"}
+
+        def capture(request, context):
+            posted_json.update(json.loads(request.body))
+            context.status_code = 202
+            return json.dumps(
+                {
+                    "type": "async",
+                    "operation": "/1.0/operations/operation-abc?project=default",
+                }
+            )
+
+        self.add_rule(
+            {
+                "text": capture,
+                "method": "POST",
+                "url": r"^http://pylxd.test/1.0/instances$",
+            }
+        )
+        models.Container.create(self.client, original_config)
+        self.assertEqual("virtual-machine", posted_json["type"])
+
+    def test_create_does_not_mutate_caller_config(self):
+        """Container.create() does not mutate the caller's config dict."""
+        config = {"name": "an-new-instance"}
+        models.Container.create(self.client, config)
+        self.assertNotIn("type", config)
 
     def test_exists(self):
         """A instance exists."""

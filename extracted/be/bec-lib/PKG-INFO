@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bec_lib
-Version: 3.108.0
+Version: 3.108.2
 Summary: BEC library
 Project-URL: Bug Tracker, https://github.com/bec-project/bec/issues
 Project-URL: Homepage, https://github.com/bec-project/bec
@@ -35,7 +35,7 @@ Requires-Dist: typeguard>=4.1.5,~=4.1
 Provides-Extra: ci
 Requires-Dist: bec-testing-plugin; extra == 'ci'
 Provides-Extra: dev
-Requires-Dist: black~=25.0; extra == 'dev'
+Requires-Dist: black~=26.0; extra == 'dev'
 Requires-Dist: copier~=9.7; extra == 'dev'
 Requires-Dist: coverage~=7.0; extra == 'dev'
 Requires-Dist: fakeredis>=2.23.2,~=2.23; extra == 'dev'

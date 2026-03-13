@@ -4,6 +4,7 @@ use crate::channel::Channel;
 use crate::tube_protocol::{ControlMessage, Frame};
 use anyhow::Result;
 use bytes::{Bytes, BytesMut};
+use parking_lot::Mutex;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
@@ -84,7 +85,7 @@ async fn test_server_mode_data_flow() -> Result<()> {
     });
 
     // Create a Channel with server_mode=true
-    let (_tx_to_channel, rx_from_dc) = mpsc::unbounded_channel::<Bytes>();
+    let (tx_to_channel, rx_from_dc) = mpsc::unbounded_channel::<Bytes>();
     let mut settings = HashMap::new();
     settings.insert("conversationType".to_string(), serde_json::json!("tunnel"));
 
@@ -93,6 +94,7 @@ async fn test_server_mode_data_flow() -> Result<()> {
     let mut channel = Channel::new(crate::channel::core::ChannelParams {
         webrtc: webrtc.clone(),
         rx_from_dc,
+        tx_from_dc: Arc::new(Mutex::new(Some(tx_to_channel))),
         channel_id: "test_server_mode".to_string(),
         timeouts: None,                                        // default timeouts
         protocol_settings: settings,                           // protocol_settings
@@ -285,6 +287,7 @@ async fn test_client_mode_data_flow() -> Result<()> {
     let channel = Channel::new(crate::channel::core::ChannelParams {
         webrtc: webrtc.clone(),
         rx_from_dc,
+        tx_from_dc: Arc::new(Mutex::new(Some(tx_to_channel.clone()))),
         channel_id: "test_client_mode".to_string(),
         timeouts: None,                                        // default timeouts
         protocol_settings: settings,                           // protocol_settings

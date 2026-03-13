@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lmcache
-Version: 0.4.0
+Version: 0.4.1
 Summary: A LLM serving engine extension to reduce TTFT and increase throughput, especially under long-context scenarios.
 Author-email: LMCache Team <lmcacheteam@gmail.com>
 License-Expression: Apache-2.0

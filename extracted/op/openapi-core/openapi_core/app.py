@@ -2,6 +2,8 @@
 
 from functools import cached_property
 from pathlib import Path
+from typing import Any
+from typing import Iterator
 from typing import Optional
 
 from jsonschema._utils import Unset
@@ -123,19 +125,15 @@ class OpenAPI:
         self,
         spec: Annotated[
             SchemaPath,
-            Doc(
-                """
+            Doc("""
                 OpenAPI specification schema path object.
-                """
-            ),
+                """),
         ],
         config: Annotated[
             Optional[Config],
-            Doc(
-                """
+            Doc("""
                 Configuration object for the OpenAPI application.
-                """
-            ),
+                """),
         ] = None,
     ):
         if not isinstance(spec, SchemaPath):
@@ -151,27 +149,21 @@ class OpenAPI:
         cls,
         data: Annotated[
             Schema,
-            Doc(
-                """
+            Doc("""
                 Dictionary representing the OpenAPI specification.
-                """
-            ),
+                """),
         ],
         config: Annotated[
             Optional[Config],
-            Doc(
-                """
+            Doc("""
                 Configuration object for the OpenAPI application.
-                """
-            ),
+                """),
         ] = None,
         base_uri: Annotated[
             str,
-            Doc(
-                """
+            Doc("""
                 Base URI for the OpenAPI specification.
-                """
-            ),
+                """),
         ] = "",
     ) -> "OpenAPI":
         """Creates an `OpenAPI` from a dictionary.
@@ -194,19 +186,15 @@ class OpenAPI:
         cls,
         path: Annotated[
             Path,
-            Doc(
-                """
+            Doc("""
                 Path object representing the OpenAPI specification file.
-                """
-            ),
+                """),
         ],
         config: Annotated[
             Optional[Config],
-            Doc(
-                """
+            Doc("""
                 Configuration object for the OpenAPI application.
-                """
-            ),
+                """),
         ] = None,
     ) -> "OpenAPI":
         """Creates an `OpenAPI` from a [Path object](https://docs.python.org/3/library/pathlib.html#pathlib.Path).
@@ -229,19 +217,15 @@ class OpenAPI:
         cls,
         file_path: Annotated[
             str,
-            Doc(
-                """
+            Doc("""
                 File path string representing the OpenAPI specification file.
-                """
-            ),
+                """),
         ],
         config: Annotated[
             Optional[Config],
-            Doc(
-                """
+            Doc("""
                 Configuration object for the OpenAPI application.
-                """
-            ),
+                """),
         ] = None,
     ) -> "OpenAPI":
         """Creates an `OpenAPI` from a file path string.
@@ -264,27 +248,21 @@ class OpenAPI:
         cls,
         fileobj: Annotated[
             SupportsRead,
-            Doc(
-                """
+            Doc("""
                 File object representing the OpenAPI specification file.
-                """
-            ),
+                """),
         ],
         config: Annotated[
             Optional[Config],
-            Doc(
-                """
+            Doc("""
                 Configuration object for the OpenAPI application.
-                """
-            ),
+                """),
         ] = None,
         base_uri: Annotated[
             str,
-            Doc(
-                """
+            Doc("""
                 Base URI for the OpenAPI specification.
-                """
-            ),
+                """),
         ] = "",
     ) -> "OpenAPI":
         """Creates an `OpenAPI` from a [file object](https://docs.python.org/3/glossary.html#term-file-object).
@@ -303,9 +281,54 @@ class OpenAPI:
         sp = SchemaPath.from_file(fileobj, base_uri=base_uri)
         return cls(sp, config=config)
 
+    @classmethod
+    def build(
+        cls,
+        spec: Annotated[
+            SchemaPath,
+            Doc("""
+                OpenAPI specification schema path object.
+                """),
+        ],
+        request_unmarshaller_cls: Annotated[
+            Optional[RequestUnmarshallerType],
+            Doc("""
+                Custom request unmarshaller class.
+                """),
+        ] = None,
+        response_unmarshaller_cls: Annotated[
+            Optional[ResponseUnmarshallerType],
+            Doc("""
+                Custom response unmarshaller class.
+                """),
+        ] = None,
+    ) -> "OpenAPI":
+        """Builds an `OpenAPI` from a `SchemaPath` object with optional configuration parameters.
+
+        Example:
+        ```python
+        from openapi_core import OpenAPI
+        app = OpenAPI.build(spec, request_unmarshaller_cls=CustomRequestUnmarshaller)
+        ```
+
+        Returns:
+            OpenAPI: An instance of the OpenAPI class.
+        """
+        config_kwargs: dict[str, Any] = {}
+        if request_unmarshaller_cls is not None:
+            config_kwargs["request_unmarshaller_cls"] = (
+                request_unmarshaller_cls
+            )
+        if response_unmarshaller_cls is not None:
+            config_kwargs["response_unmarshaller_cls"] = (
+                response_unmarshaller_cls
+            )
+        config = Config(**config_kwargs)
+        return cls(spec, config=config)
+
     def _get_version(self) -> SpecVersion:
         try:
-            return get_spec_version(self.spec.contents())
+            return get_spec_version(self.spec.read_value())
         # backward compatibility
         except OpenAPIVersionNotFound:
             raise SpecError("Spec schema version not detected")
@@ -320,9 +343,8 @@ class OpenAPI:
 
         try:
             validate(
-                self.spec.contents(),
-                base_uri=self.config.spec_base_uri
-                or self.spec.accessor.resolver._base_uri,  # type: ignore[attr-defined]
+                self.spec.read_value(),
+                base_uri=self.config.spec_base_uri or self.spec.base_uri,
                 cls=cls,
             )
         except ValidatorDetectError:
@@ -405,6 +427,8 @@ class OpenAPI:
             spec_validator_cls=self.config.spec_validator_cls,
             extra_format_validators=self.config.extra_format_validators,
             extra_media_type_deserializers=self.config.extra_media_type_deserializers,
+            forbid_unspecified_additional_properties=self.config.additional_properties_default_policy
+            == "forbid",
             security_provider_factory=self.config.security_provider_factory,
         )
 
@@ -423,6 +447,10 @@ class OpenAPI:
             spec_validator_cls=self.config.spec_validator_cls,
             extra_format_validators=self.config.extra_format_validators,
             extra_media_type_deserializers=self.config.extra_media_type_deserializers,
+            forbid_unspecified_additional_properties=self.config.additional_properties_default_policy
+            == "forbid",
+            enforce_properties_required=self.config.response_properties_default_policy
+            == "required",
         )
 
     @cached_property
@@ -440,6 +468,8 @@ class OpenAPI:
             spec_validator_cls=self.config.spec_validator_cls,
             extra_format_validators=self.config.extra_format_validators,
             extra_media_type_deserializers=self.config.extra_media_type_deserializers,
+            forbid_unspecified_additional_properties=self.config.additional_properties_default_policy
+            == "forbid",
             security_provider_factory=self.config.security_provider_factory,
         )
 
@@ -458,6 +488,10 @@ class OpenAPI:
             spec_validator_cls=self.config.spec_validator_cls,
             extra_format_validators=self.config.extra_format_validators,
             extra_media_type_deserializers=self.config.extra_media_type_deserializers,
+            forbid_unspecified_additional_properties=self.config.additional_properties_default_policy
+            == "forbid",
+            enforce_properties_required=self.config.response_properties_default_policy
+            == "required",
         )
 
     @cached_property
@@ -475,6 +509,8 @@ class OpenAPI:
             spec_validator_cls=self.config.spec_validator_cls,
             extra_format_validators=self.config.extra_format_validators,
             extra_media_type_deserializers=self.config.extra_media_type_deserializers,
+            forbid_unspecified_additional_properties=self.config.additional_properties_default_policy
+            == "forbid",
             security_provider_factory=self.config.security_provider_factory,
             schema_unmarshallers_factory=self.config.schema_unmarshallers_factory,
             extra_format_unmarshallers=self.config.extra_format_unmarshallers,
@@ -495,6 +531,10 @@ class OpenAPI:
             spec_validator_cls=self.config.spec_validator_cls,
             extra_format_validators=self.config.extra_format_validators,
             extra_media_type_deserializers=self.config.extra_media_type_deserializers,
+            forbid_unspecified_additional_properties=self.config.additional_properties_default_policy
+            == "forbid",
+            enforce_properties_required=self.config.response_properties_default_policy
+            == "required",
             schema_unmarshallers_factory=self.config.schema_unmarshallers_factory,
             extra_format_unmarshallers=self.config.extra_format_unmarshallers,
         )
@@ -514,6 +554,8 @@ class OpenAPI:
             spec_validator_cls=self.config.spec_validator_cls,
             extra_format_validators=self.config.extra_format_validators,
             extra_media_type_deserializers=self.config.extra_media_type_deserializers,
+            forbid_unspecified_additional_properties=self.config.additional_properties_default_policy
+            == "forbid",
             security_provider_factory=self.config.security_provider_factory,
             schema_unmarshallers_factory=self.config.schema_unmarshallers_factory,
             extra_format_unmarshallers=self.config.extra_format_unmarshallers,
@@ -534,6 +576,10 @@ class OpenAPI:
             spec_validator_cls=self.config.spec_validator_cls,
             extra_format_validators=self.config.extra_format_validators,
             extra_media_type_deserializers=self.config.extra_media_type_deserializers,
+            forbid_unspecified_additional_properties=self.config.additional_properties_default_policy
+            == "forbid",
+            enforce_properties_required=self.config.response_properties_default_policy
+            == "required",
             schema_unmarshallers_factory=self.config.schema_unmarshallers_factory,
             extra_format_unmarshallers=self.config.extra_format_unmarshallers,
         )
@@ -542,11 +588,9 @@ class OpenAPI:
         self,
         request: Annotated[
             AnyRequest,
-            Doc(
-                """
+            Doc("""
                 Request object to be validated.
-                """
-            ),
+                """),
         ],
     ) -> None:
         """Validates the given request object.
@@ -563,23 +607,45 @@ class OpenAPI:
         else:
             self.validate_apicall_request(request)
 
+    def iter_request_errors(
+        self,
+        request: Annotated[
+            AnyRequest,
+            Doc("""
+                Request object to be validated.
+                """),
+        ],
+    ) -> Iterator[Exception]:
+        """Iterates over request validation errors.
+
+        Args:
+            request (AnyRequest): Request object to be validated.
+
+        Returns:
+            Iterator[Exception]: Iterator over request validation errors.
+
+        Raises:
+            TypeError: If the request object is not of the expected type.
+            SpecError: If the validator class is not found.
+        """
+        if isinstance(request, WebhookRequest):
+            return self.iter_webhook_request_errors(request)
+        else:
+            return self.iter_apicall_request_errors(request)
+
     def validate_response(
         self,
         request: Annotated[
             AnyRequest,
-            Doc(
-                """
+            Doc("""
                 Request object associated with the response.
-                """
-            ),
+                """),
         ],
         response: Annotated[
             Response,
-            Doc(
-                """
+            Doc("""
                 Response object to be validated.
-                """
-            ),
+                """),
         ],
     ) -> None:
         """Validates the given response object associated with the request.
@@ -597,38 +663,78 @@ class OpenAPI:
         else:
             self.validate_apicall_response(request, response)
 
+    def iter_response_errors(
+        self,
+        request: Annotated[
+            AnyRequest,
+            Doc("""
+                Request object associated with the response.
+                """),
+        ],
+        response: Annotated[
+            Response,
+            Doc("""
+                Response object to be validated.
+                """),
+        ],
+    ) -> Iterator[Exception]:
+        """Iterates over response validation errors.
+
+        Args:
+            request (AnyRequest): Request object associated with the response.
+            response (Response): Response object to be validated.
+
+        Returns:
+            Iterator[Exception]: Iterator over response validation errors.
+
+        Raises:
+            TypeError: If the request or response object is not of the expected type.
+            SpecError: If the validator class is not found.
+        """
+        if isinstance(request, WebhookRequest):
+            return self.iter_webhook_response_errors(request, response)
+        else:
+            return self.iter_apicall_response_errors(request, response)
+
     def validate_apicall_request(
         self,
         request: Annotated[
             Request,
-            Doc(
-                """
+            Doc("""
                 API call request object to be validated.
-                """
-            ),
+                """),
         ],
     ) -> None:
         if not isinstance(request, Request):
             raise TypeError("'request' argument is not type of Request")
         self.request_validator.validate(request)
 
+    def iter_apicall_request_errors(
+        self,
+        request: Annotated[
+            Request,
+            Doc("""
+                API call request object to be validated.
+                """),
+        ],
+    ) -> Iterator[Exception]:
+        if not isinstance(request, Request):
+            raise TypeError("'request' argument is not type of Request")
+        return self.request_validator.iter_errors(request)
+
     def validate_apicall_response(
         self,
         request: Annotated[
             Request,
-            Doc(
-                """
+            Doc("""
                 API call request object associated with the response.
-                """
-            ),
+                """),
         ],
         response: Annotated[
             Response,
-            Doc(
-                """
+            Doc("""
                 API call response object to be validated.
-                """
-            ),
+                """),
         ],
     ) -> None:
         if not isinstance(request, Request):
@@ -637,38 +743,66 @@ class OpenAPI:
             raise TypeError("'response' argument is not type of Response")
         self.response_validator.validate(request, response)
 
+    def iter_apicall_response_errors(
+        self,
+        request: Annotated[
+            Request,
+            Doc("""
+                API call request object associated with the response.
+                """),
+        ],
+        response: Annotated[
+            Response,
+            Doc("""
+                API call response object to be validated.
+                """),
+        ],
+    ) -> Iterator[Exception]:
+        if not isinstance(request, Request):
+            raise TypeError("'request' argument is not type of Request")
+        if not isinstance(response, Response):
+            raise TypeError("'response' argument is not type of Response")
+        return self.response_validator.iter_errors(request, response)
+
     def validate_webhook_request(
         self,
         request: Annotated[
             WebhookRequest,
-            Doc(
-                """
+            Doc("""
                 Webhook request object to be validated.
-                """
-            ),
+                """),
         ],
     ) -> None:
         if not isinstance(request, WebhookRequest):
             raise TypeError("'request' argument is not type of WebhookRequest")
         self.webhook_request_validator.validate(request)
 
+    def iter_webhook_request_errors(
+        self,
+        request: Annotated[
+            WebhookRequest,
+            Doc("""
+                Webhook request object to be validated.
+                """),
+        ],
+    ) -> Iterator[Exception]:
+        if not isinstance(request, WebhookRequest):
+            raise TypeError("'request' argument is not type of WebhookRequest")
+        return self.webhook_request_validator.iter_errors(request)
+
     def validate_webhook_response(
         self,
         request: Annotated[
             WebhookRequest,
-            Doc(
-                """
+            Doc("""
                 Webhook request object associated with the response.
-                """
-            ),
+                """),
         ],
         response: Annotated[
             Response,
-            Doc(
-                """
+            Doc("""
                 Webhook response object to be validated.
-                """
-            ),
+                """),
         ],
     ) -> None:
         if not isinstance(request, WebhookRequest):
@@ -677,15 +811,34 @@ class OpenAPI:
             raise TypeError("'response' argument is not type of Response")
         self.webhook_response_validator.validate(request, response)
 
+    def iter_webhook_response_errors(
+        self,
+        request: Annotated[
+            WebhookRequest,
+            Doc("""
+                Webhook request object associated with the response.
+                """),
+        ],
+        response: Annotated[
+            Response,
+            Doc("""
+                Webhook response object to be validated.
+                """),
+        ],
+    ) -> Iterator[Exception]:
+        if not isinstance(request, WebhookRequest):
+            raise TypeError("'request' argument is not type of WebhookRequest")
+        if not isinstance(response, Response):
+            raise TypeError("'response' argument is not type of Response")
+        return self.webhook_response_validator.iter_errors(request, response)
+
     def unmarshal_request(
         self,
         request: Annotated[
             AnyRequest,
-            Doc(
-                """
+            Doc("""
                 Request object to be unmarshalled.
-                """
-            ),
+                """),
         ],
     ) -> RequestUnmarshalResult:
         """Unmarshals the given request object.
@@ -709,19 +862,15 @@ class OpenAPI:
         self,
         request: Annotated[
             AnyRequest,
-            Doc(
-                """
+            Doc("""
                 Request object associated with the response.
-                """
-            ),
+                """),
         ],
         response: Annotated[
             Response,
-            Doc(
-                """
+            Doc("""
                 Response object to be unmarshalled.
-                """
-            ),
+                """),
         ],
     ) -> ResponseUnmarshalResult:
         """Unmarshals the given response object associated with the request.
@@ -746,11 +895,9 @@ class OpenAPI:
         self,
         request: Annotated[
             Request,
-            Doc(
-                """
+            Doc("""
                 API call request object to be unmarshalled.
-                """
-            ),
+                """),
         ],
     ) -> RequestUnmarshalResult:
         if not isinstance(request, Request):
@@ -761,19 +908,15 @@ class OpenAPI:
         self,
         request: Annotated[
             Request,
-            Doc(
-                """
+            Doc("""
                 API call request object associated with the response.
-                """
-            ),
+                """),
         ],
         response: Annotated[
             Response,
-            Doc(
-                """
+            Doc("""
                 API call response object to be unmarshalled.
-                """
-            ),
+                """),
         ],
     ) -> ResponseUnmarshalResult:
         if not isinstance(request, Request):
@@ -786,11 +929,9 @@ class OpenAPI:
         self,
         request: Annotated[
             WebhookRequest,
-            Doc(
-                """
+            Doc("""
                 Webhook request object to be unmarshalled.
-                """
-            ),
+                """),
         ],
     ) -> RequestUnmarshalResult:
         if not isinstance(request, WebhookRequest):
@@ -801,19 +942,15 @@ class OpenAPI:
         self,
         request: Annotated[
             WebhookRequest,
-            Doc(
-                """
+            Doc("""
                 Webhook request object associated with the response.
-                """
-            ),
+                """),
         ],
         response: Annotated[
             Response,
-            Doc(
-                """
+            Doc("""
                 Webhook response object to be unmarshalled.
-                """
-            ),
+                """),
         ],
     ) -> ResponseUnmarshalResult:
         if not isinstance(request, WebhookRequest):

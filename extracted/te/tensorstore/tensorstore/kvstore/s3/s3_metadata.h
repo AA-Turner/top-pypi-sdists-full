@@ -62,7 +62,7 @@ Result<StorageGeneration> StorageGenerationFromHeaders(
 /// Constructs an absl::Status from an Aws HttpResponse.
 absl::Status AwsHttpResponseToStatus(
     const internal_http::HttpResponse& response, bool& retryable,
-    SourceLocation loc = ::tensorstore::SourceLocation::current());
+    SourceLocation loc = SourceLocation::current());
 
 }  // namespace internal_kvstore_s3
 }  // namespace tensorstore

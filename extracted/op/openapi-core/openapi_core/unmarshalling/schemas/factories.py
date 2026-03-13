@@ -33,28 +33,34 @@ class SchemaUnmarshallersFactory:
 
     def create(
         self,
+        spec: SchemaPath,
         schema: SchemaPath,
         format_validators: Optional[FormatValidatorsDict] = None,
         format_unmarshallers: Optional[FormatUnmarshallersDict] = None,
         extra_format_validators: Optional[FormatValidatorsDict] = None,
         extra_format_unmarshallers: Optional[FormatUnmarshallersDict] = None,
+        forbid_unspecified_additional_properties: bool = False,
+        enforce_properties_required: bool = False,
     ) -> SchemaUnmarshaller:
         """Create unmarshaller from the schema."""
         if schema is None:
             raise TypeError("Invalid schema")
 
-        if schema.getkey("deprecated", False):
+        if (schema / "deprecated").read_bool(default=False):
             warnings.warn("The schema is deprecated", DeprecationWarning)
 
         if extra_format_validators is None:
             extra_format_validators = {}
         schema_validator = self.schema_validators_factory.create(
+            spec,
             schema,
             format_validators=format_validators,
             extra_format_validators=extra_format_validators,
+            forbid_unspecified_additional_properties=forbid_unspecified_additional_properties,
+            enforce_properties_required=enforce_properties_required,
         )
 
-        schema_format = schema.getkey("format")
+        schema_format = (schema / "format").read_str(None)
 
         formats_unmarshaller = FormatsUnmarshaller(
             format_unmarshallers or self.format_unmarshallers,

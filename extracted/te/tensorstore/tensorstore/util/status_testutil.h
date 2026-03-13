@@ -50,6 +50,7 @@
 #include "absl/status/status.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
+#include "tensorstore/util/status_builder.h"
 
 namespace tensorstore {
 namespace internal_status {
@@ -190,7 +191,8 @@ class StatusIsMatcherImpl : public ::testing::MatcherInterface<StatusType> {
     }
 
     if (!message_matcher_.Matches(std::string(status.message()))) {
-      *result_listener << "whose error message is wrong";
+      *result_listener << "whose error message \"" << status.message()
+                       << "\" does not match";
       return false;
     }
 
@@ -297,9 +299,10 @@ internal_status::StatusIsMatcher MatchesStatus(
 ///
 /// \relates tensorstore::Result
 /// \membergroup Test support
-#define TENSORSTORE_ASSERT_OK_AND_ASSIGN(decl, expr)                      \
-  TENSORSTORE_ASSIGN_OR_RETURN(decl, expr,                                \
-                               ([&] { FAIL() << #expr << ": " << _; })()) \
+#define TENSORSTORE_ASSERT_OK_AND_ASSIGN(decl, expr)                        \
+  TENSORSTORE_ASSIGN_OR_RETURN(                                             \
+      decl, expr,                                                           \
+      ([&] { FAIL() << #expr << ": " << static_cast<absl::Status>(_); })()) \
   /**/
 
 #endif  // TENSORSTORE_UTIL_STATUS_TESTUTIL_H_

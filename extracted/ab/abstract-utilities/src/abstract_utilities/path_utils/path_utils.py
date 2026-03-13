@@ -225,8 +225,14 @@ def get_abs_path(path: str, i=None) -> str:
 
 
     return root / name
-
-
+def get_pathlib_path(obj):
+    if isinstance(obj,str):
+        obj = Path(obj)
+    return obj
+def get_str_path(obj):
+    if obj and not isinstance(obj,str):
+        obj = str(obj)
+    return obj
 def get_file_parts(path):
     if path:
         path= str(path) 

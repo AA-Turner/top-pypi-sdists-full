@@ -10,7 +10,7 @@ from collections import defaultdict
 from contextlib import suppress
 from datetime import datetime, timezone
 from re import Pattern
-from typing import TYPE_CHECKING, Any, Callable, ClassVar, SupportsIndex, overload
+from typing import TYPE_CHECKING, Any, ClassVar, SupportsIndex, overload
 
 if sys.version_info < (3, 13):
     from typing_extensions import deprecated
@@ -18,7 +18,7 @@ else:
     from warnings import deprecated
 
 if TYPE_CHECKING:
-    from collections.abc import ItemsView, Iterable, KeysView, ValuesView
+    from collections.abc import Callable, ItemsView, Iterable, KeysView, ValuesView
 
     from git_changelog._internal.providers import ProviderRefParser, Ref
     from git_changelog._internal.versioning import ParsedVersion
@@ -49,7 +49,7 @@ class _Trailers(list[tuple[str, str]]):
     def _dict(self) -> dict[str, str]:
         return dict(iter(self))
 
-    def __contains__(self, key: str | tuple[str, str]) -> bool:  # type: ignore[override]
+    def __contains__(self, key: str | tuple[str, str]) -> bool:  # ty:ignore[invalid-method-override]
         if isinstance(key, str):
             warnings.warn(
                 "Checking membership of a string in trailers will stop being supported in version 3.",
@@ -114,9 +114,9 @@ class _Trailers(list[tuple[str, str]]):
                 DeprecationWarning,
                 stacklevel=2,
             )
-            self.append((key, value))  # type: ignore[arg-type]
+            self.append((key, value))  # ty:ignore[invalid-argument-type]
             return
-        super().__setitem__(key, value)  # type: ignore[assignment,index]
+        super().__setitem__(key, value)  # ty:ignore[no-matching-overload]
 
 
 class Commit:
@@ -147,10 +147,10 @@ class Commit:
             commit_hash: The commit hash.
             author_name: The author name.
             author_email: The author email.
-            author_date: The authoring date (datetime or UTC timestamp).
+            author_date: The authoring date (datetime, UTC timestamp with optional timezone offset).
             committer_name: The committer name.
             committer_email: The committer email.
-            committer_date: The committing date (datetime or UTC timestamp).
+            committer_date: The committing date (datetime, UTC timestamp with optional timezone offset).
             refs: The commit refs.
             subject: The commit message subject.
             body: The commit message body.
@@ -158,13 +158,17 @@ class Commit:
             parse_trailers: Whether to parse Git trailers.
         """
         if not author_date:
-            author_date = datetime.now()  # noqa: DTZ005
+            author_date = datetime.now().astimezone()
         elif isinstance(author_date, str):
-            author_date = datetime.fromtimestamp(float(author_date), tz=timezone.utc)
+            epoch, _, offset = author_date.partition(" ")
+            tz = datetime.strptime(offset, "%z").tzinfo if offset else timezone.utc
+            author_date = datetime.fromtimestamp(float(epoch), tz=tz)
         if not committer_date:
-            committer_date = datetime.now()  # noqa: DTZ005
+            committer_date = datetime.now().astimezone()
         elif isinstance(committer_date, str):
-            committer_date = datetime.fromtimestamp(float(committer_date), tz=timezone.utc)
+            epoch, _, offset = committer_date.partition(" ")
+            tz = datetime.strptime(offset, "%z").tzinfo if offset else timezone.utc
+            committer_date = datetime.fromtimestamp(float(epoch), tz=tz)
 
         self.hash: str = commit_hash
         """The commit hash."""
@@ -353,11 +357,11 @@ class BasicConvention(CommitConvention):
     }
     """The commit message types."""
 
-    TYPE_REGEX: ClassVar[Pattern] = re.compile(rf"^(?P<type>({'|'.join(TYPES.keys())}))", re.I)
+    TYPE_REGEX: ClassVar[Pattern] = re.compile(rf"^(?P<type>({'|'.join(TYPES.keys())}))", re.IGNORECASE)
     """The commit message type regex."""
     BREAK_REGEX: ClassVar[Pattern] = re.compile(
         r"^break(s|ing changes?)?[ :].+$",
-        re.I | re.MULTILINE,
+        re.IGNORECASE | re.MULTILINE,
     )
     """The commit message breaking change regex."""
     DEFAULT_RENDER: ClassVar[list[str]] = [
@@ -454,7 +458,7 @@ class AngularConvention(CommitConvention):
     """The commit message subject regex."""
     BREAK_REGEX: ClassVar[Pattern] = re.compile(
         r"^break(s|ing changes?)?[ :].+$",
-        re.I | re.MULTILINE,
+        re.IGNORECASE | re.MULTILINE,
     )
     """The commit message breaking change regex."""
     DEFAULT_RENDER: ClassVar[list[str]] = [

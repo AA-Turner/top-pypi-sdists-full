@@ -81,16 +81,18 @@ struct ExistingVersionTreeNodeReady {
   void operator()(
       Promise<void> promise,
       ReadyFuture<const std::shared_ptr<const VersionTreeNode>> future) {
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        auto existing_node, future.result(),
-        static_cast<void>(SetDeferredResult(promise, _)));
+    auto set_deferred_result = [&](absl::Status error) {
+      SetDeferredResult(promise, std::move(error));
+    };
+    TENSORSTORE_ASSIGN_OR_RETURN(auto existing_node, future.result(),
+                                 static_cast<void>(set_deferred_result(_)));
     auto& new_node_ref = new_manifest_->version_tree_nodes[i_];
 
     TENSORSTORE_RETURN_IF_ERROR(
         ValidateVersionTreeNodeReference(*existing_node, new_manifest_->config,
                                          existing_node_ref_->generation_number,
-                                         existing_node_ref_->height),
-        static_cast<void>(SetDeferredResult(promise, _)));
+                                         existing_node_ref_->height))
+        .With(set_deferred_result);
 
     VersionTreeNode new_node;
     new_node.height = existing_node_ref_->height;

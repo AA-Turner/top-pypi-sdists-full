@@ -22,8 +22,8 @@ class CompletionUsage(UniversalBaseModel):
     Total number of tokens used in the request (prompt + completion).
     """
 
-    completion_tokens_details: typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]] = None
-    prompt_tokens_details: typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]] = None
+    completion_tokens_details: typing.Optional[typing.Dict[str, typing.Any]] = None
+    prompt_tokens_details: typing.Optional[typing.Dict[str, typing.Any]] = None
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

@@ -105,6 +105,13 @@ def get_editor_bp(repos: Repositories):
         )
         return controller.check_files(req.paths)
 
+    @bp.get("/read-file")
+    def _read_absolute_file():
+        path = flask.request.args.get("path")
+        if not path:
+            flask.abort(400, description="Missing 'path' query parameter")
+        return controller.get_file(path)
+
     @bp.get("/files/<path:path>")
     def _get_file(path):
         return controller.get_file(path)

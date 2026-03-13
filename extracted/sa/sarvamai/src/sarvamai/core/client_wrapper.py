@@ -5,6 +5,7 @@ import typing
 import httpx
 from ..environment import SarvamAIEnvironment
 from .http_client import AsyncHttpClient, HttpClient
+from .logging import LogConfig, Logger
 
 
 class BaseClientWrapper:
@@ -15,18 +16,24 @@ class BaseClientWrapper:
         headers: typing.Optional[typing.Dict[str, str]] = None,
         environment: SarvamAIEnvironment,
         timeout: typing.Optional[float] = None,
+        logging: typing.Optional[typing.Union[LogConfig, Logger]] = None,
     ):
         self.api_subscription_key = api_subscription_key
         self._headers = headers
         self._environment = environment
         self._timeout = timeout
+        self._logging = logging
 
     def get_headers(self) -> typing.Dict[str, str]:
+        import platform
+
         headers: typing.Dict[str, str] = {
-            "User-Agent": "sarvamai/0.1.26",
+            "User-Agent": "sarvamai/0.1.27",
             "X-Fern-Language": "Python",
+            "X-Fern-Runtime": f"python/{platform.python_version()}",
+            "X-Fern-Platform": f"{platform.system().lower()}/{platform.release()}",
             "X-Fern-SDK-Name": "sarvamai",
-            "X-Fern-SDK-Version": "0.1.26",
+            "X-Fern-SDK-Version": "0.1.27",
             **(self.get_custom_headers() or {}),
         }
         headers["api-subscription-key"] = self.api_subscription_key
@@ -50,13 +57,21 @@ class SyncClientWrapper(BaseClientWrapper):
         headers: typing.Optional[typing.Dict[str, str]] = None,
         environment: SarvamAIEnvironment,
         timeout: typing.Optional[float] = None,
+        logging: typing.Optional[typing.Union[LogConfig, Logger]] = None,
         httpx_client: httpx.Client,
     ):
         super().__init__(
-            api_subscription_key=api_subscription_key, headers=headers, environment=environment, timeout=timeout
+            api_subscription_key=api_subscription_key,
+            headers=headers,
+            environment=environment,
+            timeout=timeout,
+            logging=logging,
         )
         self.httpx_client = HttpClient(
-            httpx_client=httpx_client, base_headers=self.get_headers, base_timeout=self.get_timeout
+            httpx_client=httpx_client,
+            base_headers=self.get_headers,
+            base_timeout=self.get_timeout,
+            logging_config=self._logging,
         )
 
 
@@ -68,11 +83,29 @@ class AsyncClientWrapper(BaseClientWrapper):
         headers: typing.Optional[typing.Dict[str, str]] = None,
         environment: SarvamAIEnvironment,
         timeout: typing.Optional[float] = None,
+        logging: typing.Optional[typing.Union[LogConfig, Logger]] = None,
+        async_token: typing.Optional[typing.Callable[[], typing.Awaitable[str]]] = None,
         httpx_client: httpx.AsyncClient,
     ):
         super().__init__(
-            api_subscription_key=api_subscription_key, headers=headers, environment=environment, timeout=timeout
+            api_subscription_key=api_subscription_key,
+            headers=headers,
+            environment=environment,
+            timeout=timeout,
+            logging=logging,
         )
+        self._async_token = async_token
         self.httpx_client = AsyncHttpClient(
-            httpx_client=httpx_client, base_headers=self.get_headers, base_timeout=self.get_timeout
+            httpx_client=httpx_client,
+            base_headers=self.get_headers,
+            base_timeout=self.get_timeout,
+            async_base_headers=self.async_get_headers,
+            logging_config=self._logging,
         )
+
+    async def async_get_headers(self) -> typing.Dict[str, str]:
+        headers = self.get_headers()
+        if self._async_token is not None:
+            token = await self._async_token()
+            headers["Authorization"] = f"Bearer {token}"
+        return headers

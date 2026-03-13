@@ -17,7 +17,7 @@ import logging
 import os
 import stat
 import time
-from typing import IO, NamedTuple
+from typing import IO, NamedTuple, Optional
 from urllib import parse
 
 from ws4py.client import WebSocketBaseClient
@@ -70,6 +70,7 @@ class Instance(model.Model):
     files = model.Manager()
 
     _endpoint = "instances"
+    _instance_type: Optional[str] = None
 
     def __setattr__(self, name, value):
         if name == "location" and not self.client.server_clustered:
@@ -305,7 +306,7 @@ class Instance(model.Model):
         return cls(client, **response.json()["metadata"])
 
     @classmethod
-    def all(cls, client, recursion=0):
+    def all(cls, client, recursion=0, fields=None):
         """Get all instances.
 
         This method returns an Instance array. If recursion is unset,
@@ -313,10 +314,41 @@ class Instance(model.Model):
         can be used to return more information. If recursion is between
         1-2 this method will pre-fetch additional instance attributes for
         all instances in the array.
+
+        If `fields` is provided and the server supports the
+        ``instances_state_selective_recursion`` extension, only the
+        specified state sub-fields are fetched (for example:
+        ``state.disk``, ``state.network``; additional values may be
+        supported by LXD).  Pass an empty list to suppress all
+        expensive state fields.  ``fields`` is only meaningful when
+        ``recursion=2``; it is silently ignored otherwise, or when the
+        extension is unavailable (in which case the server returns all
+        state fields as usual).
+
+        :param recursion: Recursion level (0, 1, or 2).
+        :type recursion: int
+        :param fields: Selective state fields to fetch (requires
+            ``instances_state_selective_recursion`` extension).
+        :type fields: list[str] or None
         """
         params = {}
         if recursion != 0:
-            params = {"recursion": recursion}
+            if (
+                recursion == 2
+                and fields is not None
+                and client.has_api_extension("instances_state_selective_recursion")
+            ):
+                if isinstance(fields, (str, bytes)):
+                    raise TypeError(
+                        "fields must be an iterable of strings, not str or bytes"
+                    )
+                for field in fields:
+                    if not isinstance(field, str):
+                        raise TypeError("fields must be an iterable of strings")
+                fields_str = ",".join(fields)
+                params = {"recursion": f"2;fields={fields_str}"}
+            else:
+                params = {"recursion": recursion}
         response = client.api[cls._endpoint].get(params=params)
 
         instances = []
@@ -351,11 +383,24 @@ class Instance(model.Model):
         :returns: an instance if successful
         :rtype: :class:`Instance`
         """
+        if cls._instance_type is not None and "type" not in config:
+            config = {**config, "type": cls._instance_type}
         response = client.api[cls._endpoint].post(json=config, target=target)
+        instance_name = config.get("name")
 
-        if wait:
-            client.operations.wait_for_operation(response.json()["operation"])
-        return cls(client, name=config["name"])
+        # Only decode JSON if we need to fetch the auto-generated name or wait for the operation
+        if instance_name is None or wait:
+            response_json = response.json()
+
+            if instance_name is None:
+                # LXD may assign a name if not provided, so we need to get it from the metadata.
+                instance_name = os.path.basename(
+                    response_json["metadata"]["resources"]["instances"][0]
+                )
+
+            if wait:
+                client.operations.wait_for_operation(response_json["operation"])
+        return cls(client, name=instance_name)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -681,7 +726,7 @@ class Instance(model.Model):
             },
         }
 
-    def publish(self, public=False, wait=False):
+    def publish(self, public=False, wait=False, compression_algorithm=None):
         """Publish a instance as an image.
 
         The instance must be stopped in order publish it as an image. This
@@ -697,6 +742,8 @@ class Instance(model.Model):
                 "name": self.name,
             },
         }
+        if compression_algorithm:
+            data["compression_algorithm"] = compression_algorithm
 
         response = self.client.api.images.post(json=data)
         if wait:

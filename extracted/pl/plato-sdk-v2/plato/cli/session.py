@@ -227,7 +227,7 @@ def start(
 
         with console.status("[bold green]Creating session..."):
             if task:
-                session = plato.sessions.create(task=task, timeout=timeout, connect_network=not no_network)
+                session = plato.sessions.create(testcase=task, timeout=timeout, connect_network=not no_network)
             else:
                 session = plato.sessions.create(envs=envs, timeout=timeout, connect_network=not no_network)
 

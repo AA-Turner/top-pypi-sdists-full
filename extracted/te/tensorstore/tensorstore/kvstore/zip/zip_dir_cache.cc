@@ -50,6 +50,7 @@
 
 // specializations
 #include "tensorstore/internal/estimate_heap_usage/std_vector.h"  // IWYU pragma: keep
+#include "tensorstore/util/status_builder.h"
 
 namespace tensorstore {
 namespace internal_zip_kvstore {
@@ -93,7 +94,8 @@ struct ReadDirectoryOp
         return;
       }
       entry_->ReadError(
-          internal::ConvertInvalidArgumentToFailedPrecondition(r.status()));
+          StatusBuilder(std::move(r).status())
+              .With(internal::ConvertInvalidArgumentToFailedPrecondition));
       return;
     }
 
@@ -171,7 +173,8 @@ struct ReadDirectoryOp
     if (!r.ok()) {
       ABSL_LOG_IF(INFO, zip_logging) << r.status();
       entry_->ReadError(
-          internal::ConvertInvalidArgumentToFailedPrecondition(r.status()));
+          StatusBuilder(std::move(r).status())
+              .With(internal::ConvertInvalidArgumentToFailedPrecondition));
       return;
     }
 

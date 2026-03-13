@@ -128,9 +128,6 @@ class ToolServer:
             # FastMCP inspects the signature and builds the schema from it.
             src = """
 async def _wrapper(input: _Model) -> Any:
-    _params = {k: v for k, v in input.model_dump().items() if v is not None}
-    _summary = ", ".join(f"{k}={v!r}" for k, v in list(_params.items())[:3])
-    _logger.info(f"CallToolRequest: {_tool_name}({_summary})")
     result = _handler(input)
     if _isawaitable(result):
         return await result
@@ -142,8 +139,6 @@ async def _wrapper(input: _Model) -> Any:
                 "_Model": model_cls,
                 "_handler": handler,
                 "_isawaitable": inspect.isawaitable,
-                "_logger": logger,
-                "_tool_name": tool.name,
             }
             exec(src, ns, ns)
             self._mcp.tool(name=tool.name, description=tool.description)(ns["_wrapper"])

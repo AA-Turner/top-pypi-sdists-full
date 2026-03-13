@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sentence-transformers
-Version: 5.2.3
+Version: 5.3.0
 Summary: Embeddings, Retrieval, and Reranking
 Author-email: Nils Reimers <info@nils-reimers.de>, Tom Aarsen <tom.aarsen@huggingface.co>
 Maintainer-email: Tom Aarsen <tom.aarsen@huggingface.co>
@@ -45,6 +45,7 @@ Requires-Dist: accelerate>=0.20.3; extra == "dev"
 Requires-Dist: pre-commit; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-cov; extra == "dev"
+Requires-Dist: pytest-env; extra == "dev"
 Requires-Dist: peft; extra == "dev"
 Requires-Dist: Pillow; extra == "dev"
 Dynamic: license-file

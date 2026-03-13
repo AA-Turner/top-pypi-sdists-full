@@ -28,6 +28,8 @@ class EditKafkaTrigger:
         is_flow (bool): True if script_path points to a flow, false if it points to a script
         auto_offset_reset (Union[Unset, EditKafkaTriggerAutoOffsetReset]): Initial offset behavior when consumer group
             has no committed offset. Default: EditKafkaTriggerAutoOffsetReset.LATEST.
+        auto_commit (Union[Unset, bool]): When true (default), offsets are committed automatically after receiving each
+            message. When false, you must manually commit offsets using the commit_offsets endpoint. Default: True.
         error_handler_path (Union[Unset, str]): Path to a script or flow to run when the triggered job fails
         error_handler_args (Union[Unset, EditKafkaTriggerErrorHandlerArgs]): The arguments to pass to the script or flow
         retry (Union[Unset, EditKafkaTriggerRetry]): Retry configuration for failed module executions
@@ -45,6 +47,7 @@ class EditKafkaTrigger:
     script_path: str
     is_flow: bool
     auto_offset_reset: Union[Unset, EditKafkaTriggerAutoOffsetReset] = EditKafkaTriggerAutoOffsetReset.LATEST
+    auto_commit: Union[Unset, bool] = True
     error_handler_path: Union[Unset, str] = UNSET
     error_handler_args: Union[Unset, "EditKafkaTriggerErrorHandlerArgs"] = UNSET
     retry: Union[Unset, "EditKafkaTriggerRetry"] = UNSET
@@ -70,6 +73,7 @@ class EditKafkaTrigger:
         if not isinstance(self.auto_offset_reset, Unset):
             auto_offset_reset = self.auto_offset_reset.value
 
+        auto_commit = self.auto_commit
         error_handler_path = self.error_handler_path
         error_handler_args: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.error_handler_args, Unset):
@@ -97,6 +101,8 @@ class EditKafkaTrigger:
         )
         if auto_offset_reset is not UNSET:
             field_dict["auto_offset_reset"] = auto_offset_reset
+        if auto_commit is not UNSET:
+            field_dict["auto_commit"] = auto_commit
         if error_handler_path is not UNSET:
             field_dict["error_handler_path"] = error_handler_path
         if error_handler_args is not UNSET:
@@ -143,6 +149,8 @@ class EditKafkaTrigger:
         else:
             auto_offset_reset = EditKafkaTriggerAutoOffsetReset(_auto_offset_reset)
 
+        auto_commit = d.pop("auto_commit", UNSET)
+
         error_handler_path = d.pop("error_handler_path", UNSET)
 
         _error_handler_args = d.pop("error_handler_args", UNSET)
@@ -172,6 +180,7 @@ class EditKafkaTrigger:
             script_path=script_path,
             is_flow=is_flow,
             auto_offset_reset=auto_offset_reset,
+            auto_commit=auto_commit,
             error_handler_path=error_handler_path,
             error_handler_args=error_handler_args,
             retry=retry,

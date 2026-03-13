@@ -159,13 +159,18 @@ numpy = "*"
 pandas = "*"
 xarray = "*"
 
+[tool.pixi.feature.dask-core.dependencies]
+dask-core = "*"
+
 [tool.pixi.feature.dask.dependencies]
 dask-core = "*"
+distributed = "*"
 
 [tool.pixi.feature.files.dependencies]
 msgpack-python = "*"
 PyYAML = "*"
 netcdf4 = "*" # netCDF engine
+libnetcdf = "!=4.10.0" # Breaks coverage
 scipy = "*" # netCDF engine
 h5netcdf = "*" # netCDF engine
 zarr = "*"
@@ -208,6 +213,7 @@ open-coverage = { cmd = "open htmlcov/index.html", depends-on = ["coverage"], de
 pip = "*"
 sphinx = "*"
 sphinx_rtd_theme = "*"
+myst-nb = "*"
 
 [tool.pixi.feature.docs.tasks]
 docs = { cmd = "sphinx-build -n -j auto -b html -d ../build/doctrees . ../build/html", env = { PYTHONPATH = "$PIXI_PROJECT_ROOT" }, cwd = "doc", description = "Build docs" }
@@ -219,6 +225,13 @@ ipython = "*"
 
 [tool.pixi.feature.ipython.tasks]
 ipython = { cmd = "ipython", description = "Launch IPython" }
+
+[tool.pixi.feature.jupyter.dependencies]
+jupyterlab = "*"
+python-graphviz = "*"
+
+[tool.pixi.feature.jupyter.tasks]
+jupyter = { cmd = "jupyter lab", description = "Launch JupyterLab" }
 
 [tool.pixi.feature.py39.dependencies]
 python = "=3.9"
@@ -299,10 +312,10 @@ twine-check = { cmd = "python -m twine check dist/*" }
 twine-upload = { cmd = "python -m twine upload dist/*" }
 
 [tool.pixi.environments]
-default = { features = ["py314", "dask", "files", "docs", "smoke", "tests", "ipython"] }
+default = { features = ["py314", "dask", "files", "docs", "smoke", "tests", "ipython", "jupyter"] }
 dist = { features = ["dist"], no-default-feature = true }
 lint = { features = ["lint"] }
-docs = { features = ["py314", "docs"] }
+docs = { features = ["py314", "dask", "files", "docs"] }
 mindeps = { features = ["mindeps", "smoke", "tests"] }
 xarray2024-5 = { features = ["xarray2024-5", "smoke", "tests"] }
 py39 = { features = ["py39", "dask", "files", "smoke", "tests"] }
@@ -310,6 +323,6 @@ py311 = { features = ["py311", "dask", "files", "smoke", "tests"] }
 py314 = { features = ["py314", "dask", "files", "smoke", "tests"] }
 no-dask = { features = ["py314", "files", "smoke", "tests"] }
 no-optional = { features = ["py314", "smoke", "tests"] }
-nogil = { features = ["nogil", "dask", "smoke", "tests"] }
+nogil = { features = ["nogil", "dask-core", "smoke", "tests"] }
 upstream = { features = ["upstream", "smoke", "tests"], no-default-feature = true }
 smoke = { features = ["smoke"] }

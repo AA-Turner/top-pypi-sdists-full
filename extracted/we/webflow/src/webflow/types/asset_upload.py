@@ -3,51 +3,65 @@
 import datetime as dt
 import typing
 
-from ..core.datetime_utils import serialize_datetime
+import pydantic
+import typing_extensions
+from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from ..core.serialization import FieldMetadata
 from .asset_upload_upload_details import AssetUploadUploadDetails
 
-try:
-    import pydantic.v1 as pydantic  # type: ignore
-except ImportError:
-    import pydantic  # type: ignore
 
-
-class AssetUpload(pydantic.BaseModel):
-    upload_details: typing.Optional[AssetUploadUploadDetails] = pydantic.Field(
-        alias="uploadDetails", default=None, description="Metadata for uploading the asset binary"
-    )
+class AssetUpload(UniversalBaseModel):
+    upload_details: typing_extensions.Annotated[
+        typing.Optional[AssetUploadUploadDetails],
+        FieldMetadata(alias="uploadDetails"),
+        pydantic.Field(alias="uploadDetails", description="Metadata for uploading the asset binary"),
+    ] = None
+    content_type: typing_extensions.Annotated[
+        typing.Optional[str], FieldMetadata(alias="contentType"), pydantic.Field(alias="contentType")
+    ] = None
     id: typing.Optional[str] = None
-    content_type: typing.Optional[str] = pydantic.Field(alias="contentType", default=None)
-    parent_folder: typing.Optional[str] = pydantic.Field(
-        alias="parentFolder", default=None, description="Parent folder for the asset"
-    )
-    hosted_url: typing.Optional[str] = pydantic.Field(
-        alias="hostedUrl", default=None, description="Represents the link to the asset"
-    )
-    upload_url: typing.Optional[str] = pydantic.Field(alias="uploadUrl", default=None)
-    asset_url: typing.Optional[str] = pydantic.Field(alias="assetUrl", default=None, description="S3 link to the asset")
-    original_file_name: typing.Optional[str] = pydantic.Field(
-        alias="originalFileName",
-        default=None,
-        description="Original file name when uploaded. If not specified at time of upload, it may be extracted from the raw file name",
-    )
-    last_updated: typing.Optional[dt.datetime] = pydantic.Field(
-        alias="lastUpdated", default=None, description="Date the asset metadata was last updated"
-    )
-    created_on: typing.Optional[dt.datetime] = pydantic.Field(
-        alias="createdOn", default=None, description="Date the asset metadata was created"
-    )
+    parent_folder: typing_extensions.Annotated[
+        typing.Optional[str],
+        FieldMetadata(alias="parentFolder"),
+        pydantic.Field(alias="parentFolder", description="Parent folder for the asset"),
+    ] = None
+    upload_url: typing_extensions.Annotated[
+        typing.Optional[str], FieldMetadata(alias="uploadUrl"), pydantic.Field(alias="uploadUrl")
+    ] = None
+    asset_url: typing_extensions.Annotated[
+        typing.Optional[str],
+        FieldMetadata(alias="assetUrl"),
+        pydantic.Field(alias="assetUrl", description="S3 link to the asset"),
+    ] = None
+    hosted_url: typing_extensions.Annotated[
+        typing.Optional[str],
+        FieldMetadata(alias="hostedUrl"),
+        pydantic.Field(alias="hostedUrl", description="Represents the link to the asset"),
+    ] = None
+    original_file_name: typing_extensions.Annotated[
+        typing.Optional[str],
+        FieldMetadata(alias="originalFileName"),
+        pydantic.Field(
+            alias="originalFileName",
+            description="Original file name when uploaded. If not specified at time of upload, it may be extracted from the raw file name",
+        ),
+    ] = None
+    created_on: typing_extensions.Annotated[
+        typing.Optional[dt.datetime],
+        FieldMetadata(alias="createdOn"),
+        pydantic.Field(alias="createdOn", description="Date the asset metadata was created"),
+    ] = None
+    last_updated: typing_extensions.Annotated[
+        typing.Optional[dt.datetime],
+        FieldMetadata(alias="lastUpdated"),
+        pydantic.Field(alias="lastUpdated", description="Date the asset metadata was last updated"),
+    ] = None
 
-    def json(self, **kwargs: typing.Any) -> str:
-        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
-        return super().json(**kwargs_with_defaults)
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2
+    else:
 
-    def dict(self, **kwargs: typing.Any) -> typing.Dict[str, typing.Any]:
-        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
-        return super().dict(**kwargs_with_defaults)
-
-    class Config:
-        frozen = True
-        smart_union = True
-        allow_population_by_field_name = True
-        json_encoders = {dt.datetime: serialize_datetime}
+        class Config:
+            frozen = True
+            smart_union = True
+            extra = pydantic.Extra.allow

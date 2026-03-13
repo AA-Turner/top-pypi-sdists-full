@@ -28,6 +28,7 @@
 #include "absl/strings/cord.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include <nlohmann/json.hpp>
@@ -60,8 +61,10 @@
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/lexicographical_grid_index_key.h"
 #include "tensorstore/internal/storage_statistics.h"
-#include "tensorstore/internal/uri_utils.h"
+#include "tensorstore/internal/uri/parse.h"
+#include "tensorstore/internal/uri/percent_coder.h"
 #include "tensorstore/kvstore/auto_detect.h"
+#include "tensorstore/kvstore/spec.h"
 #include "tensorstore/open_mode.h"
 #include "tensorstore/open_options.h"
 #include "tensorstore/rank.h"
@@ -74,7 +77,6 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_zarr3 {
@@ -120,7 +122,7 @@ class ZarrDriverSpec
       jb::Member(
           "metadata",
           jb::Validate(
-              [](const auto& options, auto* obj) {
+              [](const auto& options, auto* obj) -> absl::Status {
                 TENSORSTORE_RETURN_IF_ERROR(obj->schema.Set(
                     obj->metadata_constraints.data_type.value_or(DataType())));
                 TENSORSTORE_RETURN_IF_ERROR(obj->schema.Set(
@@ -171,7 +173,7 @@ class ZarrDriverSpec
 
   Result<std::string> ToUrl() const override {
     TENSORSTORE_ASSIGN_OR_RETURN(auto base_url, store.ToUrl());
-    return tensorstore::StrCat(base_url, "|", id, ":");
+    return absl::StrCat(base_url, "|", id, ":");
   }
 
   Future<internal::Driver::Handle> Open(
@@ -198,7 +200,7 @@ class MetadataCache : public internal_kvs_backed_chunk_driver::MetadataCache {
 
   // Metadata is stored as JSON under the `zarr.json` key.
   std::string GetMetadataStorageKey(std::string_view entry_key) override {
-    return tensorstore::StrCat(entry_key, kMetadataKey);
+    return absl::StrCat(entry_key, kMetadataKey);
   }
 
   Result<MetadataPtr> DecodeMetadata(std::string_view entry_key,
@@ -238,9 +240,9 @@ class DataCacheBase
     auto existing_key = existing_metadata.GetCompatibilityKey();
     auto new_key = new_metadata.GetCompatibilityKey();
     if (existing_key == new_key) return absl::OkStatus();
-    return absl::FailedPreconditionError(tensorstore::StrCat(
-        "Updated zarr metadata ", new_key,
-        " is incompatible with existing metadata ", existing_key));
+    return absl::FailedPreconditionError(absl::StrFormat(
+        "Updated zarr metadata %v is incompatible with existing metadata %v",
+        new_key, existing_key));
   }
 
   void GetChunkGridBounds(const void* metadata_ptr, MutableBoxView<> bounds,
@@ -298,12 +300,12 @@ class DataCacheBase
     const DimensionIndex rank = metadata.rank;
     char separator = metadata.chunk_key_encoding.separator;
     if (metadata.chunk_key_encoding.kind == ChunkKeyEncoding::kDefault) {
-      key = tensorstore::StrCat(
+      key = absl::StrCat(
           key_prefix_, "c",
           rank != 0 ? std::string_view(&separator, 1) : std::string_view());
     } else {
       if (rank == 0) {
-        return tensorstore::StrCat(key_prefix_, "0");
+        return absl::StrCat(key_prefix_, "0");
       }
       key = key_prefix_;
     }
@@ -347,19 +349,19 @@ class DataCacheBase
     const auto& metadata =
         *static_cast<const ZarrMetadata*>(initial_metadata().get());
     if (metadata.chunk_key_encoding.kind == ChunkKeyEncoding::kDefault) {
-      std::string key = tensorstore::StrCat(key_prefix_, "c");
+      std::string key = absl::StrCat(key_prefix_, "c");
       for (DimensionIndex i = 0; i < cell_indices.size(); ++i) {
-        tensorstore::StrAppend(
+        absl::StrAppend(
             &key, std::string_view(&metadata.chunk_key_encoding.separator, 1),
             cell_indices[i]);
       }
       return key;
     }
     // Use "0" for rank 0 as a special case.
-    std::string key = tensorstore::StrCat(
-        key_prefix_, cell_indices.empty() ? 0 : cell_indices[0]);
+    std::string key =
+        absl::StrCat(key_prefix_, cell_indices.empty() ? 0 : cell_indices[0]);
     for (DimensionIndex i = 1; i < cell_indices.size(); ++i) {
-      tensorstore::StrAppend(
+      absl::StrAppend(
           &key, std::string_view(&metadata.chunk_key_encoding.separator, 1),
           cell_indices[i]);
     }
@@ -582,8 +584,7 @@ class ZarrDriver::OpenState : public ZarrDriver::OpenStateBase {
         auto metadata,
         internal_zarr3::GetNewMetadata(spec().metadata_constraints,
                                        spec().schema),
-        tensorstore::MaybeAnnotateStatus(
-            _, "Cannot create using specified \"metadata\" and schema"));
+        _.Format("Cannot create using specified \"metadata\" and schema"));
     return metadata;
   }
 
@@ -619,12 +620,13 @@ Future<internal::Driver::Handle> ZarrDriverSpec::Open(
 
 Result<internal::TransformedDriverSpec> ParseZarr3Url(std::string_view url,
                                                       kvstore::Spec&& base) {
-  auto parsed = internal::ParseGenericUri(url);
+  auto parsed = internal_uri::ParseGenericUri(url);
   TENSORSTORE_RETURN_IF_ERROR(
-      internal::EnsureSchema(parsed, ZarrDriverSpec::id));
-  TENSORSTORE_RETURN_IF_ERROR(internal::EnsureNoQueryOrFragment(parsed));
+      internal_uri::EnsureSchema(parsed, ZarrDriverSpec::id));
+  TENSORSTORE_RETURN_IF_ERROR(internal_uri::EnsureNoQueryOrFragment(parsed));
   auto driver_spec = internal::MakeIntrusivePtr<ZarrDriverSpec>();
-  driver_spec->InitializeFromUrl(std::move(base), parsed.authority_and_path);
+  TENSORSTORE_RETURN_IF_ERROR(driver_spec->InitializeFromUrl(
+      std::move(base), parsed.authority_and_path));
   return internal::TransformedDriverSpec{std::move(driver_spec)};
 }
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: supertokens_python
-Version: 0.31.0
+Version: 0.31.1
 Summary: SuperTokens SDK for Python
 Home-page: https://github.com/supertokens/supertokens-python
 Author: SuperTokens
@@ -27,7 +27,7 @@ Requires-Dist: aiosmtplib<4.0.0,>=1.1.6
 Requires-Dist: asgiref<4,>=3.4.1
 Requires-Dist: httpx<1.0.0,>=0.15.0
 Requires-Dist: packaging<26.0,>=25.0
-Requires-Dist: phonenumbers<9
+Requires-Dist: phonenumbers<10,>=8.0
 Requires-Dist: pkce<1.1.0
 Requires-Dist: pycryptodome<3.21.0
 Requires-Dist: pydantic<3.0.0,>=2.10.6

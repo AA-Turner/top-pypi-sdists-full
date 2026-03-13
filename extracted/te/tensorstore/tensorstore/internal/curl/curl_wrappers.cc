@@ -29,7 +29,6 @@
 #include "tensorstore/internal/source_location.h"
 #include "tensorstore/internal/version/version.h"
 #include "tensorstore/util/status_builder.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_http {
@@ -148,7 +147,7 @@ absl::Status CurlCodeToStatus(CURLcode code, std::string_view detail,
   if (!detail.empty() && detail == curl_code_str) {
     detail = {};
   }
-  return internal::StatusBuilder(error_code, loc)
+  return StatusBuilder(error_code, loc)
       .SetPayload("curl_code", absl::StrFormat("%d", code))
       .Format("CURL error %s%s%s", curl_code_str, detail.empty() ? "" : ": ",
               detail);
@@ -164,7 +163,7 @@ absl::Status CurlMCodeToStatus(CURLMcode code, std::string_view detail,
   if (!detail.empty() && detail == curl_code_str) {
     detail = {};
   }
-  return internal::StatusBuilder(absl::StatusCode::kInternal, loc)
+  return StatusBuilder(absl::StatusCode::kInternal, loc)
       .SetPayload("curlm_code", absl::StrFormat("%d", code))
       .Format("CURLM error %s%s%s", curl_code_str, detail.empty() ? "" : ": ",
               detail);

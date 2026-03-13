@@ -49,7 +49,6 @@
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 // Include this Python header last since it defines some macros that are not
 // properly prefixed and we want to avoid problems with any other headers.
@@ -405,8 +404,11 @@ class PickleDecodeSource final : public serialization::DecodeSource {
           PickleDecodeImpl(data.python_object,
                            [&](serialization::DecodeSource& source) {
                              return decode(source, data.cpp_object);
-                           }),
-          (Fail(_), false));
+                           }))
+          .With([this](absl::Status s) {
+            Fail(std::move(s));
+            return false;
+          });
       data.type_info = &type;
       data.python_object = {};
     }

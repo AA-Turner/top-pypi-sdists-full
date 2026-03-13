@@ -18,10 +18,10 @@ from ..errors.too_many_requests_error import TooManyRequestsError
 from ..errors.unprocessable_entity_error import UnprocessableEntityError
 from ..requests.bulk_job_callback import BulkJobCallbackParams
 from ..requests.speech_to_text_job_parameters import SpeechToTextJobParametersParams
-from ..types.bulk_job_init_response_v_1 import BulkJobInitResponseV1
+from ..types.bulk_job_init_response import BulkJobInitResponse
 from ..types.files_download_response import FilesDownloadResponse
 from ..types.files_upload_response import FilesUploadResponse
-from ..types.job_status_v_1_response import JobStatusV1Response
+from ..types.job_status_response import JobStatusResponse
 
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
@@ -37,7 +37,7 @@ class RawSpeechToTextJobClient:
         job_parameters: SpeechToTextJobParametersParams,
         callback: typing.Optional[BulkJobCallbackParams] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> HttpResponse[BulkJobInitResponseV1]:
+    ) -> HttpResponse[BulkJobInitResponse]:
         """
         Create a new speech to text bulk job and receive a job UUID and storage folder details for processing multiple audio files
 
@@ -54,7 +54,7 @@ class RawSpeechToTextJobClient:
 
         Returns
         -------
-        HttpResponse[BulkJobInitResponseV1]
+        HttpResponse[BulkJobInitResponse]
             Successful Response
         """
         _response = self._client_wrapper.httpx_client.request(
@@ -78,9 +78,9 @@ class RawSpeechToTextJobClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    BulkJobInitResponseV1,
+                    BulkJobInitResponse,
                     parse_obj_as(
-                        type_=BulkJobInitResponseV1,  # type: ignore
+                        type_=BulkJobInitResponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -89,9 +89,9 @@ class RawSpeechToTextJobClient:
                 raise BadRequestError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        typing.Any,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -100,9 +100,9 @@ class RawSpeechToTextJobClient:
                 raise ForbiddenError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        typing.Any,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -111,9 +111,9 @@ class RawSpeechToTextJobClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        typing.Any,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -122,9 +122,9 @@ class RawSpeechToTextJobClient:
                 raise TooManyRequestsError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        typing.Any,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -133,9 +133,9 @@ class RawSpeechToTextJobClient:
                 raise InternalServerError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        typing.Any,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -144,9 +144,9 @@ class RawSpeechToTextJobClient:
                 raise ServiceUnavailableError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        typing.Any,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -158,7 +158,7 @@ class RawSpeechToTextJobClient:
 
     def get_status(
         self, job_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> HttpResponse[JobStatusV1Response]:
+    ) -> HttpResponse[JobStatusResponse]:
         """
         Retrieve the current status and details of a speech to text bulk job, including progress and file-level information.
 
@@ -174,7 +174,7 @@ class RawSpeechToTextJobClient:
 
         Returns
         -------
-        HttpResponse[JobStatusV1Response]
+        HttpResponse[JobStatusResponse]
             Successful Response
         """
         _response = self._client_wrapper.httpx_client.request(
@@ -186,9 +186,9 @@ class RawSpeechToTextJobClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    JobStatusV1Response,
+                    JobStatusResponse,
                     parse_obj_as(
-                        type_=JobStatusV1Response,  # type: ignore
+                        type_=JobStatusResponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -197,9 +197,9 @@ class RawSpeechToTextJobClient:
                 raise BadRequestError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        typing.Any,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -208,9 +208,9 @@ class RawSpeechToTextJobClient:
                 raise ForbiddenError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        typing.Any,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -219,9 +219,9 @@ class RawSpeechToTextJobClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        typing.Any,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -230,9 +230,9 @@ class RawSpeechToTextJobClient:
                 raise TooManyRequestsError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        typing.Any,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -241,9 +241,9 @@ class RawSpeechToTextJobClient:
                 raise InternalServerError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        typing.Any,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -252,9 +252,9 @@ class RawSpeechToTextJobClient:
                 raise ServiceUnavailableError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        typing.Any,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -270,7 +270,7 @@ class RawSpeechToTextJobClient:
         *,
         ptu_id: typing.Optional[int] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> HttpResponse[JobStatusV1Response]:
+    ) -> HttpResponse[JobStatusResponse]:
         """
         Start processing a speech to text bulk job after all audio files have been uploaded
 
@@ -286,7 +286,7 @@ class RawSpeechToTextJobClient:
 
         Returns
         -------
-        HttpResponse[JobStatusV1Response]
+        HttpResponse[JobStatusResponse]
             Successful Response
         """
         _response = self._client_wrapper.httpx_client.request(
@@ -301,9 +301,9 @@ class RawSpeechToTextJobClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    JobStatusV1Response,
+                    JobStatusResponse,
                     parse_obj_as(
-                        type_=JobStatusV1Response,  # type: ignore
+                        type_=JobStatusResponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -312,9 +312,9 @@ class RawSpeechToTextJobClient:
                 raise BadRequestError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        typing.Any,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -323,9 +323,9 @@ class RawSpeechToTextJobClient:
                 raise ForbiddenError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        typing.Any,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -334,9 +334,9 @@ class RawSpeechToTextJobClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        typing.Any,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -345,9 +345,9 @@ class RawSpeechToTextJobClient:
                 raise TooManyRequestsError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        typing.Any,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -356,9 +356,9 @@ class RawSpeechToTextJobClient:
                 raise InternalServerError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        typing.Any,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -367,9 +367,9 @@ class RawSpeechToTextJobClient:
                 raise ServiceUnavailableError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        typing.Any,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -427,9 +427,9 @@ class RawSpeechToTextJobClient:
                 raise BadRequestError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        typing.Any,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -438,9 +438,9 @@ class RawSpeechToTextJobClient:
                 raise ForbiddenError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        typing.Any,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -449,9 +449,9 @@ class RawSpeechToTextJobClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        typing.Any,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -460,9 +460,9 @@ class RawSpeechToTextJobClient:
                 raise TooManyRequestsError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        typing.Any,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -471,9 +471,9 @@ class RawSpeechToTextJobClient:
                 raise InternalServerError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        typing.Any,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -482,9 +482,9 @@ class RawSpeechToTextJobClient:
                 raise ServiceUnavailableError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        typing.Any,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -542,9 +542,9 @@ class RawSpeechToTextJobClient:
                 raise BadRequestError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        typing.Any,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -553,9 +553,9 @@ class RawSpeechToTextJobClient:
                 raise ForbiddenError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        typing.Any,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -564,9 +564,9 @@ class RawSpeechToTextJobClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        typing.Any,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -575,9 +575,9 @@ class RawSpeechToTextJobClient:
                 raise TooManyRequestsError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        typing.Any,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -586,9 +586,9 @@ class RawSpeechToTextJobClient:
                 raise InternalServerError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        typing.Any,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -597,9 +597,9 @@ class RawSpeechToTextJobClient:
                 raise ServiceUnavailableError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        typing.Any,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -620,7 +620,7 @@ class AsyncRawSpeechToTextJobClient:
         job_parameters: SpeechToTextJobParametersParams,
         callback: typing.Optional[BulkJobCallbackParams] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncHttpResponse[BulkJobInitResponseV1]:
+    ) -> AsyncHttpResponse[BulkJobInitResponse]:
         """
         Create a new speech to text bulk job and receive a job UUID and storage folder details for processing multiple audio files
 
@@ -637,7 +637,7 @@ class AsyncRawSpeechToTextJobClient:
 
         Returns
         -------
-        AsyncHttpResponse[BulkJobInitResponseV1]
+        AsyncHttpResponse[BulkJobInitResponse]
             Successful Response
         """
         _response = await self._client_wrapper.httpx_client.request(
@@ -661,9 +661,9 @@ class AsyncRawSpeechToTextJobClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    BulkJobInitResponseV1,
+                    BulkJobInitResponse,
                     parse_obj_as(
-                        type_=BulkJobInitResponseV1,  # type: ignore
+                        type_=BulkJobInitResponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -672,9 +672,9 @@ class AsyncRawSpeechToTextJobClient:
                 raise BadRequestError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        typing.Any,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -683,9 +683,9 @@ class AsyncRawSpeechToTextJobClient:
                 raise ForbiddenError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        typing.Any,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -694,9 +694,9 @@ class AsyncRawSpeechToTextJobClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        typing.Any,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -705,9 +705,9 @@ class AsyncRawSpeechToTextJobClient:
                 raise TooManyRequestsError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        typing.Any,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -716,9 +716,9 @@ class AsyncRawSpeechToTextJobClient:
                 raise InternalServerError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        typing.Any,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -727,9 +727,9 @@ class AsyncRawSpeechToTextJobClient:
                 raise ServiceUnavailableError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        typing.Any,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -741,7 +741,7 @@ class AsyncRawSpeechToTextJobClient:
 
     async def get_status(
         self, job_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> AsyncHttpResponse[JobStatusV1Response]:
+    ) -> AsyncHttpResponse[JobStatusResponse]:
         """
         Retrieve the current status and details of a speech to text bulk job, including progress and file-level information.
 
@@ -757,7 +757,7 @@ class AsyncRawSpeechToTextJobClient:
 
         Returns
         -------
-        AsyncHttpResponse[JobStatusV1Response]
+        AsyncHttpResponse[JobStatusResponse]
             Successful Response
         """
         _response = await self._client_wrapper.httpx_client.request(
@@ -769,9 +769,9 @@ class AsyncRawSpeechToTextJobClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    JobStatusV1Response,
+                    JobStatusResponse,
                     parse_obj_as(
-                        type_=JobStatusV1Response,  # type: ignore
+                        type_=JobStatusResponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -780,9 +780,9 @@ class AsyncRawSpeechToTextJobClient:
                 raise BadRequestError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        typing.Any,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -791,9 +791,9 @@ class AsyncRawSpeechToTextJobClient:
                 raise ForbiddenError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        typing.Any,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -802,9 +802,9 @@ class AsyncRawSpeechToTextJobClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        typing.Any,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -813,9 +813,9 @@ class AsyncRawSpeechToTextJobClient:
                 raise TooManyRequestsError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        typing.Any,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -824,9 +824,9 @@ class AsyncRawSpeechToTextJobClient:
                 raise InternalServerError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        typing.Any,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -835,9 +835,9 @@ class AsyncRawSpeechToTextJobClient:
                 raise ServiceUnavailableError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        typing.Any,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -853,7 +853,7 @@ class AsyncRawSpeechToTextJobClient:
         *,
         ptu_id: typing.Optional[int] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncHttpResponse[JobStatusV1Response]:
+    ) -> AsyncHttpResponse[JobStatusResponse]:
         """
         Start processing a speech to text bulk job after all audio files have been uploaded
 
@@ -869,7 +869,7 @@ class AsyncRawSpeechToTextJobClient:
 
         Returns
         -------
-        AsyncHttpResponse[JobStatusV1Response]
+        AsyncHttpResponse[JobStatusResponse]
             Successful Response
         """
         _response = await self._client_wrapper.httpx_client.request(
@@ -884,9 +884,9 @@ class AsyncRawSpeechToTextJobClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    JobStatusV1Response,
+                    JobStatusResponse,
                     parse_obj_as(
-                        type_=JobStatusV1Response,  # type: ignore
+                        type_=JobStatusResponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -895,9 +895,9 @@ class AsyncRawSpeechToTextJobClient:
                 raise BadRequestError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        typing.Any,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -906,9 +906,9 @@ class AsyncRawSpeechToTextJobClient:
                 raise ForbiddenError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        typing.Any,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -917,9 +917,9 @@ class AsyncRawSpeechToTextJobClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        typing.Any,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -928,9 +928,9 @@ class AsyncRawSpeechToTextJobClient:
                 raise TooManyRequestsError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        typing.Any,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -939,9 +939,9 @@ class AsyncRawSpeechToTextJobClient:
                 raise InternalServerError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        typing.Any,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -950,9 +950,9 @@ class AsyncRawSpeechToTextJobClient:
                 raise ServiceUnavailableError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        typing.Any,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -1010,9 +1010,9 @@ class AsyncRawSpeechToTextJobClient:
                 raise BadRequestError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        typing.Any,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -1021,9 +1021,9 @@ class AsyncRawSpeechToTextJobClient:
                 raise ForbiddenError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        typing.Any,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -1032,9 +1032,9 @@ class AsyncRawSpeechToTextJobClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        typing.Any,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -1043,9 +1043,9 @@ class AsyncRawSpeechToTextJobClient:
                 raise TooManyRequestsError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        typing.Any,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -1054,9 +1054,9 @@ class AsyncRawSpeechToTextJobClient:
                 raise InternalServerError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        typing.Any,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -1065,9 +1065,9 @@ class AsyncRawSpeechToTextJobClient:
                 raise ServiceUnavailableError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        typing.Any,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -1125,9 +1125,9 @@ class AsyncRawSpeechToTextJobClient:
                 raise BadRequestError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        typing.Any,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -1136,9 +1136,9 @@ class AsyncRawSpeechToTextJobClient:
                 raise ForbiddenError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        typing.Any,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -1147,9 +1147,9 @@ class AsyncRawSpeechToTextJobClient:
                 raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        typing.Any,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -1158,9 +1158,9 @@ class AsyncRawSpeechToTextJobClient:
                 raise TooManyRequestsError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        typing.Any,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -1169,9 +1169,9 @@ class AsyncRawSpeechToTextJobClient:
                 raise InternalServerError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        typing.Any,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -1180,9 +1180,9 @@ class AsyncRawSpeechToTextJobClient:
                 raise ServiceUnavailableError(
                     headers=dict(_response.headers),
                     body=typing.cast(
-                        typing.Optional[typing.Any],
+                        typing.Any,
                         parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
+                            type_=typing.Any,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),

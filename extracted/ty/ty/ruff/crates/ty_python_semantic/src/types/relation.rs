@@ -12,7 +12,7 @@ use crate::types::set_theoretic::RecursivelyDefined;
 use crate::types::{
     CallableType, ClassBase, ClassType, CycleDetector, DynamicType, KnownClass, KnownInstanceType,
     LiteralValueTypeKind, MemberLookupPolicy, ProtocolInstanceType, SubclassOfInner,
-    TypeVarBoundOrConstraints, UnionType,
+    TypeVarBoundOrConstraints, UnionType, UpcastPolicy,
 };
 use crate::{
     Db,
@@ -1186,7 +1186,7 @@ impl<'db> Type<'db> {
 
             (_, Type::Callable(other_callable)) => {
                 relation_visitor.visit((self, target, relation), || {
-                    self.try_upcast_to_callable(db)
+                    self.try_upcast_to_callable_with_policy(db, UpcastPolicy::from(relation))
                         .when_some_and(db, constraints, |callables| {
                             callables.has_relation_to_impl(
                                 db,

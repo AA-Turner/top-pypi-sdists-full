@@ -3744,7 +3744,12 @@ impl DAGCircuit {
             .node_references()
             .filter_map(|(node_index, node_type)| match node_type {
                 NodeType::Operation(node) => {
-                    if node.op.try_control_flow().is_some() {
+                    if node.op.try_control_flow().is_some_and(|control_flow| {
+                        !matches!(
+                            control_flow.control_flow,
+                            ControlFlow::BreakLoop | ControlFlow::ContinueLoop
+                        )
+                    }) {
                         Some(self.unpack_into(py, node_index, node_type))
                     } else {
                         None
@@ -4552,6 +4557,11 @@ impl DAGCircuit {
     /// Graphviz and does not actually install Graphviz). You can refer to
     /// `the Graphviz documentation <https://www.graphviz.org/download/>`__ on
     /// how to install it.
+    ///
+    /// .. warning::
+    ///     This function will call the system Graphviz tool on a file involving user-controllable
+    ///     strings (such as gate labels or register names).  It is recommended to only call this
+    ///     function on trusted input.
     ///
     /// Args:
     ///     scale (float): scaling factor

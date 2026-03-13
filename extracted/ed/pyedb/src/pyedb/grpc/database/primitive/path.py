@@ -57,7 +57,7 @@ class Path(Primitive):
 
     @width.setter
     def width(self, value):
-        self.core.width = Value(value)
+        self.core.width = self._pedb._value_setter(value)
 
     @property
     def length(self) -> float:
@@ -171,14 +171,7 @@ class Path(Primitive):
 
         # keeping cache synced
         new_path = cls(layout._pedb, _path)
-        layout._pedb.modeler._add_primitive(new_path)
         return new_path
-
-    def delete(self):
-        """Delete the path object."""
-        # keeping cache synced
-        self._pedb.modeler._remove_primitive(self)
-        self.core.delete()
 
     def add_point(self, x, y, incremental=True) -> bool:
         """Add a point at the end of the path.
@@ -225,7 +218,7 @@ class Path(Primitive):
             layout=self._pedb.active_layout.core,
             layer=self.layer,
             net=self.net.core,
-            width=Value(self.width),
+            width=self.width,
             end_cap1=self.core.get_end_cap_style()[0],
             end_cap2=self.core.get_end_cap_style()[1],
             corner_style=mapping[self.corner_style],
@@ -282,11 +275,11 @@ class Path(Primitive):
         pos = center_line[-1] if position.lower() == "end" else center_line[0]
 
         # if port_type.lower() == "wave":
-        #     return self._pedb.hfss.create_wave_port(
+        #     return self._pedb.excitation_manager.create_wave_port(
         #         self.id, pos, name, 50, horizontal_extent_factor, vertical_extent_factor, pec_launch_width
         #     )
         # else:
-        return self._pedb.hfss.create_edge_port_vertical(
+        return self._pedb.excitation_manager.create_edge_port_vertical(
             self.edb_uid,
             pos,
             name,
@@ -395,8 +388,8 @@ class Path(Primitive):
             rightline.append(rightPt)
             return leftline, rightline
 
-        distance = Value(distance)
-        gap = Value(gap)
+        distance = self._pedb._value_setter(distance)
+        gap = self._pedb._value_setter(gap)
         center_line = self.center_line
         leftline, rightline = get_parallet_lines(center_line, distance)
         for x, y in get_locations(rightline, gap) + get_locations(leftline, gap):
@@ -488,3 +481,16 @@ class Path(Primitive):
                 "extended": CorePathEndCapType.EXTENDED,
             }
             self.core.set_end_cap_style(self.core.get_end_cap_style()[0].value, mapping[end_cap_style])
+
+    def move(self, vector):
+        """Move the path by a given vector.
+
+        Parameters
+        ----------
+        vector: list, tuple
+            A list or tuple of two floats representing the x and y components of the movement vector.
+
+        """
+        center_line = self.core.center_line
+        new_center_line = center_line.move(vector)
+        self.core.center_line = new_center_line

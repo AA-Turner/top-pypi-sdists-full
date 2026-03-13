@@ -9,6 +9,7 @@ import asyncio
 import json
 import logging
 import sys
+import time
 import warnings
 from datetime import datetime, timedelta, timezone
 from random import randint
@@ -282,13 +283,25 @@ class WorxCloud(dict):
         # Disconnect MQTT connection
         try:
             if self.mqtt is not None:
+                started = time.perf_counter()
                 await self.mqtt.adisconnect()
+                logger.debug(
+                    "MQTT adisconnect completed in %.3fs",
+                    time.perf_counter() - started,
+                )
+                started = time.perf_counter()
                 await self.mqtt.ashutdown()
+                logger.debug(
+                    "MQTT ashutdown completed in %.3fs",
+                    time.perf_counter() - started,
+                )
         except Exception as err:
             logger.debug("Could not disconnect MQTT cleanly: %s", err)
         finally:
             self.mqtt = None
+            started = time.perf_counter()
             await self._api.close()
+            logger.debug("API close completed in %.3fs", time.perf_counter() - started)
 
     async def connect(
         self,
@@ -519,9 +532,21 @@ class WorxCloud(dict):
         # self.devices = {}
         for mower in self._mowers:
             try:
+                previous_device = self.devices.get(mower["name"])
                 device = DeviceHandler(self._api, mower, self._tz, False)
                 if not isinstance(mower["last_status"], type(None)):
                     device.raw_data = mower["last_status"]["payload"]
+
+                if (
+                    previous_device is not None
+                    and getattr(device, "updated_origin", None) == "observed"
+                    and isinstance(getattr(previous_device, "updated", None), datetime)
+                ):
+                    device.updated = previous_device.updated
+                    device.updated_origin = getattr(
+                        previous_device, "updated_origin", "existing"
+                    )
+                    mower["last_status"]["timestamp"] = previous_device.updated
 
                 self.devices.update({mower["name"]: device})
 
@@ -1039,6 +1064,28 @@ class WorxCloud(dict):
                 serial_number if mower["protocol"] == 0 else mower["uuid"],
                 mower["mqtt_topics"]["command_in"],
                 {"sc": {"p": time_extension}},
+                mower["protocol"],
+            )
+        else:
+            raise OfflineError("The device is currently offline, no action was sent.")
+
+    async def set_torque(self, serial_number: str, torque: int) -> None:
+        """Set wheel torque percentage.
+
+        Args:
+            serial_number (str): Serial number of the device
+            torque (int): Wheel torque percentage.
+
+        Raises:
+            OfflineError: Raised if the device is offline.
+        """
+        torque = self._coerce_int(torque, "torque", minimum=-50, maximum=50)
+        mower = self.get_mower(serial_number)
+        if mower["online"]:
+            await self.mqtt.apublish(
+                serial_number if mower["protocol"] == 0 else mower["uuid"],
+                mower["mqtt_topics"]["command_in"],
+                {"tq": torque},
                 mower["protocol"],
             )
         else:

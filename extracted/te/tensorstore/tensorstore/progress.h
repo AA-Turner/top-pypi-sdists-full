@@ -22,6 +22,8 @@
 #include "tensorstore/index.h"
 #include "tensorstore/internal/poly/poly.h"
 #include "tensorstore/util/future.h"
+#include "tensorstore/util/result.h"
+#include "tensorstore/util/status_builder.h"
 
 namespace tensorstore {
 
@@ -41,6 +43,11 @@ struct ReadProgress {
 
   /// Prints a debugging string representation to an `std::ostream`.
   friend std::ostream& operator<<(std::ostream& os, const ReadProgress& a);
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, const ReadProgress& a) {
+    absl::Format(&sink, "{ total_elements=%v, copied_elements=%v }",
+                 a.total_elements, a.copied_elements);
+  }
 };
 
 /// Specifies progress statistics for `Write` operations.
@@ -62,6 +69,13 @@ struct WriteProgress {
 
   /// Prints a debugging string representation to an `std::ostream`.
   friend std::ostream& operator<<(std::ostream& os, const WriteProgress& a);
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, const WriteProgress& a) {
+    absl::Format(
+        &sink,
+        "{ total_elements=%v, copied_elements=%v, committed_elements=%v }",
+        a.total_elements, a.copied_elements, a.committed_elements);
+  }
 };
 
 /// Specifies progress statistics for `Copy` operations.
@@ -86,6 +100,14 @@ struct CopyProgress {
 
   /// Prints a debugging string representation to an `std::ostream`.
   friend std::ostream& operator<<(std::ostream& os, const CopyProgress& a);
+  template <typename Sink>
+  friend void AbslStringify(Sink& sink, const CopyProgress& a) {
+    absl::Format(&sink,
+                 "{ total_elements=%v, read_elements=%v, copied_elements=%v, "
+                 "committed_elements=%v }",
+                 a.total_elements, a.read_elements, a.copied_elements,
+                 a.committed_elements);
+  }
 };
 
 /// Handle for consuming the result of an asynchronous write operation.

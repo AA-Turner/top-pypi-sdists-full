@@ -710,6 +710,33 @@ def unpack_data_packed(
     logging.info(" - collecting schema names...")
     schema_names = df.lazy().collect_schema().names()
 
+    logging.info(f" - {schema_names=}")
+
+    if "dstream_data_id" in schema_names:
+        logging.info(" - casting dstream_data_id to u64 (possible no-op)...")
+        df = df.with_columns(pl.col("dstream_data_id").cast(pl.UInt64))
+
+        logging.info(" - collecting dstream_data_id metrics...")
+
+        dstream_data_id_metrics = (
+            df.lazy()
+            .select(
+                diff_min=pl.col("dstream_data_id").diff().min(),
+                diff_max=pl.col("dstream_data_id").diff().max(),
+                first=pl.col("dstream_data_id").first(),
+                last=pl.col("dstream_data_id").last(),
+                len=pl.len(),
+            )
+            .collect()
+            .row(named=True)
+        )
+        logging.info(f" - {dstream_data_id_metrics=}")
+    else:
+        logging.info(" - setting row index as dstream_data_id...")
+        df = df.with_columns(
+            dstream_data_id=pl.int_range(pl.len(), dtype=pl.UInt64)
+        )
+
     if "dstream_T_dilation" in schema_names:
         logging.info(" - found dstream_T_dilation...")
     else:
@@ -736,9 +763,6 @@ def unpack_data_packed(
 
     logging.info(" - calculating offsets...")
     df = _calculate_offsets(df)
-
-    if "dstream_data_id" not in df.lazy().collect_schema().names():
-        df = df.with_row_index("dstream_data_id")
 
     logging.info(" - extracting T and storage_hex from data_hex...")
     df = _extract_from_data_hex(df)

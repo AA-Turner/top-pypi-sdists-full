@@ -40,10 +40,13 @@ class xt(ArchiveUnit, docs='{0}{p}{PathExtractorUnit}'):
         from refinery.units.formats.winreg import winreg              ; yield winreg    # noqa
         from refinery.units.formats.archive.xtgz import xtgz          ; yield xtgz      # noqa
         from refinery.units.formats.archive.xtcpio import xtcpio      ; yield xtcpio    # noqa
+        from refinery.units.formats.archive.xtdmg import xtdmg        ; yield xtdmg     # noqa
+        from refinery.units.formats.office.xtmdb import xtmdb         ; yield xtmdb     # noqa
         # units that use fixed offsets + file magic
         from refinery.units.formats.msi import xtmsi                  ; yield xtmsi     # noqa
         # units that search for markers
         from refinery.units.formats.archive.xt7z import xt7z          ; yield xt7z      # noqa
+        from refinery.units.formats.archive.xtrar import xtrar        ; yield xtrar     # noqa
         from refinery.units.formats.archive.xtzip import xtzip        ; yield xtzip     # noqa
         from refinery.units.formats.pe.dotnet.dnsfx import dnsfx      ; yield dnsfx     # noqa
         from refinery.units.formats.archive.xtinno import xtinno      ; yield xtinno    # noqa
@@ -58,6 +61,7 @@ class xt(ArchiveUnit, docs='{0}{p}{PathExtractorUnit}'):
         from refinery.units.formats.office.xtdoc import xtdoc         ; yield xtdoc     # noqa
         # units that implement more complex parsing / searching:
         from refinery.units.formats.archive.xtsim import xtsim        ; yield xtsim     # noqa
+        from refinery.units.formats.archive.xtsf import xtsf          ; yield xtsf      # noqa
         from refinery.units.formats.archive.xtnuitka import xtnuitka  ; yield xtnuitka  # noqa
         # fallbacks that have to be attempted last
         from refinery.units.formats.json import xtjson                ; yield xtjson    # noqa

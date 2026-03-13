@@ -16,10 +16,9 @@
 
 use std::{collections::VecDeque, pin::Pin, sync::Arc};
 
-use arrow::array::AsArray;
-use arrow_array::{ArrayRef, RecordBatch, StructArray};
+use arrow_array::{ArrayRef, RecordBatch};
 use arrow_cast::{CastOptions, cast_with_options};
-use arrow_schema::{DataType, FieldRef, Schema, SchemaBuilder, SchemaRef};
+use arrow_schema::{FieldRef, Schema, SchemaBuilder, SchemaRef};
 use chrono::{TimeZone as _, Utc};
 use dashmap::DashMap;
 use datafusion::{
@@ -43,12 +42,14 @@ use datafusion_datasource::{
     PartitionedFile, TableSchema, compute_all_files_statistics, file_groups::FileGroup,
     file_scan_config::FileScanConfigBuilder, source::DataSourceExec,
 };
+use datafusion_physical_expr_adapter::{BatchAdapter, BatchAdapterFactory};
 use delta_kernel::{
     Engine, Expression, expressions::StructData, scan::ScanMetadata, table_features::TableFeature,
 };
 use futures::{Stream, TryStreamExt as _, future::ready};
 use itertools::Itertools as _;
 use object_store::{ObjectMeta, path::Path};
+use url::Url;
 
 pub use self::exec::DeltaScanExec;
 use self::exec_meta::DeltaScanMetaExec;
@@ -156,9 +157,11 @@ pub(super) async fn replay_deletion_vectors(
     // Only files with `dv_info.has_vector()` spawn tasks, so every item should carry a DV.
     // Guard with a typed error (instead of panic) in case that invariant drifts.
     let dvs: DashMap<_, _> = dv_stream
-        .and_then(|(url, dv)| {
+        .and_then(|(url, dv, num_records)| {
             ready(match dv {
-                Some(keep_mask) => Ok((url.to_string(), keep_mask)),
+                Some(keep_mask) => normalize_dv_keep_mask_for_api(keep_mask, num_records, &url)
+                    .map(|mask| (url.to_string(), mask))
+                    .map_err(DeltaTableError::from),
                 None => Err(DeltaTableError::generic(
                     "Invariant violation: DV task spawned for file without deletion vector",
                 )),
@@ -202,29 +205,29 @@ async fn replay_files(
         files.extend(file);
     }
 
-    if let Some(selection) = file_selection {
-        if selection.missing_file_policy == super::MissingFilePolicy::Error {
-            let found: std::collections::HashSet<_> =
-                files.iter().map(|f| f.file_url.to_string()).collect();
-            let all_missing: Vec<_> = selection.file_ids.difference(&found).sorted().collect();
+    if let Some(selection) = file_selection
+        && selection.missing_file_policy == super::MissingFilePolicy::Error
+    {
+        let found: std::collections::HashSet<_> =
+            files.iter().map(|f| f.file_url.to_string()).collect();
+        let all_missing: Vec<_> = selection.file_ids.difference(&found).sorted().collect();
 
-            if !all_missing.is_empty() {
-                let missing_total = all_missing.len();
-                let missing: Vec<_> = all_missing
-                    .iter()
-                    .take(10)
-                    .map(|id| super::redact_url_str_for_error(id))
-                    .collect();
-                let extra = if missing_total > missing.len() {
-                    format!(" (and {} more)", missing_total - missing.len())
-                } else {
-                    String::new()
-                };
-                return plan_err!(
-                    "File selection contains {missing_total} missing files (showing up to 10, redacted): {}{extra}",
-                    missing.join(", ")
-                );
-            }
+        if !all_missing.is_empty() {
+            let missing_total = all_missing.len();
+            let missing: Vec<_> = all_missing
+                .iter()
+                .take(10)
+                .map(|id| super::redact_url_str_for_error(id))
+                .collect();
+            let extra = if missing_total > missing.len() {
+                format!(" (and {} more)", missing_total - missing.len())
+            } else {
+                String::new()
+            };
+            return plan_err!(
+                "File selection contains {missing_total} missing files (showing up to 10, redacted): {}{extra}",
+                missing.join(", ")
+            );
         }
     }
 
@@ -239,7 +242,7 @@ async fn replay_files(
 
     let dv_stream = stream.dv_stream.build();
     let dvs: DashMap<_, _> = dv_stream
-        .try_filter_map(|(url, dv)| ready(Ok(dv.map(|dv| (url.to_string(), dv)))))
+        .try_filter_map(|(url, dv, _)| ready(Ok(dv.map(|dv| (url.to_string(), dv)))))
         .try_collect()
         .await?;
 
@@ -249,6 +252,43 @@ async fn replay_files(
         .add(stream.metrics.num_scanned);
 
     Ok((files, transforms, dvs, metrics))
+}
+
+/// Normalize a DV keep mask for `deletion_vectors()`.
+///
+/// Kernel returns a sparse mask (up to the highest deleted row index). For API output we need one
+/// full mask per file, to do this we pad trailing entries with `true` up to `numRecords`. If `numRecords`
+/// is missing we fail, because we cannot know the correct full length.
+///
+/// This is API only. Scan execution does per batch normalization in `exec::consume_dv_mask` and
+/// `exec_meta::apply_selection_vector`.
+fn normalize_dv_keep_mask_for_api(
+    mut mask: Vec<bool>,
+    num_records: Option<u64>,
+    file_url: &Url,
+) -> Result<Vec<bool>> {
+    let redacted_url = super::redact_url_for_error(file_url);
+    let Some(num_records) = num_records else {
+        return plan_err!(
+            "Missing numRecords for file with deletion vector: {}",
+            redacted_url
+        );
+    };
+    let num_records = usize::try_from(num_records).map_err(|_| {
+        DataFusionError::Execution(format!(
+            "numRecords does not fit usize for file with deletion vector: {redacted_url}"
+        ))
+    })?;
+    if mask.len() > num_records {
+        return plan_err!(
+            "Deletion vector mask length {} exceeds numRecords {} for file: {}",
+            mask.len(),
+            num_records,
+            redacted_url
+        );
+    }
+    mask.resize(num_records, true);
+    Ok(mask)
 }
 
 async fn get_data_scan_plan(
@@ -472,6 +512,7 @@ fn finalize_transformed_batch(
     batch: RecordBatch,
     scan_plan: &KernelScanPlan,
     file_id_col: Option<(ArrayRef, FieldRef)>,
+    schema_adapter: &mut SchemaAdapter,
 ) -> Result<RecordBatch> {
     let result = if let Some(projection) = scan_plan.result_projection.as_ref() {
         batch.project(projection)?
@@ -480,7 +521,11 @@ fn finalize_transformed_batch(
     };
     // NOTE: most data is read properly typed already, however columns added via
     // literals in the transformations may need to be cast to the physical expected type.
-    let result = cast_record_batch(result, &scan_plan.result_schema)?;
+    let result = if result.schema_ref().eq(&scan_plan.result_schema) {
+        result
+    } else {
+        schema_adapter.adapt(result)?
+    };
     if let Some((arr, field)) = file_id_col {
         let arr = if arr.data_type() != field.data_type() {
             let options = CastOptions {
@@ -504,37 +549,59 @@ fn finalize_transformed_batch(
     }
 }
 
-fn cast_record_batch(batch: RecordBatch, target_schema: &SchemaRef) -> Result<RecordBatch> {
-    if batch.num_columns() == 0 {
-        if !target_schema.fields().is_empty() {
-            return plan_err!(
-                "Cannot cast empty RecordBatch to non-empty schema: {:?}",
-                target_schema
-            );
+/// Caches a [`BatchAdapter`] for the most recently seen source schema, avoiding
+/// repeated expression-tree construction when consecutive batches share the same
+/// physical schema (the common case within a single file).
+struct SchemaAdapter {
+    factory: BatchAdapterFactory,
+    /// Single-entry cache: the source schema for the currently cached adapter.
+    cached_source: Option<SchemaRef>,
+    cached_adapter: Option<BatchAdapter>,
+}
+
+impl SchemaAdapter {
+    fn new(target_schema: SchemaRef) -> Self {
+        Self {
+            factory: BatchAdapterFactory::new(target_schema),
+            cached_source: None,
+            cached_adapter: None,
         }
-        return Ok(batch);
     }
 
-    let options = CastOptions {
-        safe: true,
-        ..Default::default()
-    };
-    Ok(cast_with_options(
-        &StructArray::from(batch),
-        &DataType::Struct(target_schema.fields().clone()),
-        &options,
-    )?
-    .as_struct()
-    .into())
+    /// Adapt the batch to the target schema, using a cached adapter when the
+    /// source schema matches the previous call.
+    fn adapt(&mut self, batch: RecordBatch) -> Result<RecordBatch> {
+        let source_schema = batch.schema();
+        let can_reuse = matches!(
+            (&self.cached_source, &self.cached_adapter),
+            (Some(cached_source), Some(_)) if cached_source.eq(&source_schema)
+        );
+        let needs_rebuild = !can_reuse;
+        if needs_rebuild {
+            let adapter = self.factory.make_adapter(Arc::clone(&source_schema))?;
+            self.cached_source = Some(source_schema);
+            self.cached_adapter = Some(adapter);
+        }
+        match self.cached_adapter.as_ref() {
+            Some(adapter) => adapter.adapt_batch(&batch),
+            None => plan_err!(
+                "schema adapter cache entry missing for source schema: {:?}",
+                batch.schema()
+            ),
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    use arrow_array::Array;
     use arrow_array::{
-        BinaryArray, BinaryViewArray, Int32Array, RecordBatch, StringArray, StructArray,
+        BinaryArray, BinaryViewArray, Int32Array, Int64Array, RecordBatch, RecordBatchOptions,
+        StringArray, StructArray,
     };
-    use arrow_schema::{DataType, Field, Fields, Schema};
+    use arrow_schema::{ArrowError, DataType, Field, Fields, Schema};
     use datafusion::{
+        error::DataFusionError,
         physical_plan::collect,
         prelude::{col, lit},
     };
@@ -560,6 +627,236 @@ mod tests {
         assert_eq!(groups.len(), 2);
         assert_eq!(groups[0].len(), MAX_PARTITION_DICT_CARDINALITY);
         assert_eq!(groups[1].len(), 1);
+    }
+
+    #[test]
+    fn test_normalize_dv_keep_mask_for_api_pads_short_mask_with_true() {
+        let url = Url::parse("file:///tmp/table/file.parquet").unwrap();
+        let actual = normalize_dv_keep_mask_for_api(vec![true, false], Some(4), &url).unwrap();
+        assert_eq!(actual, vec![true, false, true, true]);
+    }
+
+    #[test]
+    fn test_normalize_dv_keep_mask_for_api_keeps_equal_length_mask() {
+        let url = Url::parse("file:///tmp/table/file.parquet").unwrap();
+        let mask = vec![true, false, true];
+        let actual = normalize_dv_keep_mask_for_api(mask.clone(), Some(3), &url).unwrap();
+        assert_eq!(actual, mask);
+    }
+
+    #[test]
+    fn test_normalize_dv_keep_mask_for_api_pads_empty_mask_to_all_true() {
+        let url = Url::parse("file:///tmp/table/file.parquet").unwrap();
+        let actual = normalize_dv_keep_mask_for_api(Vec::new(), Some(3), &url).unwrap();
+        assert_eq!(actual, vec![true, true, true]);
+    }
+
+    #[test]
+    fn test_normalize_dv_keep_mask_for_api_errors_when_mask_longer_than_num_records() {
+        let url =
+            Url::parse("s3://user:secret@example.com/table/file.parquet?sig=token#frag").unwrap();
+        let expected_url = super::super::redact_url_for_error(&url);
+        let err = normalize_dv_keep_mask_for_api(vec![true, false, true], Some(2), &url)
+            .expect_err("longer mask should error");
+        let message = err.to_string();
+        assert!(message.contains("exceeds numRecords"));
+        assert!(message.contains(&expected_url));
+        assert!(!message.contains("sig=token"));
+        assert!(!message.contains("secret"));
+    }
+
+    #[test]
+    fn test_normalize_dv_keep_mask_for_api_errors_when_num_records_missing() {
+        let url =
+            Url::parse("s3://user:secret@example.com/table/file.parquet?sig=token#frag").unwrap();
+        let expected_url = super::super::redact_url_for_error(&url);
+        let err = normalize_dv_keep_mask_for_api(vec![true], None, &url)
+            .expect_err("missing numRecords should error");
+        let message = err.to_string();
+        assert!(message.contains("Missing numRecords"));
+        assert!(message.contains(&expected_url));
+        assert!(!message.contains("sig=token"));
+        assert!(!message.contains("secret"));
+    }
+
+    #[cfg(target_pointer_width = "32")]
+    #[test]
+    fn test_normalize_dv_keep_mask_for_api_errors_when_num_records_overflow_usize() {
+        // This branch is only reachable on 32-bit targets where u64 may exceed usize.
+        let url = Url::parse("file:///tmp/table/file.parquet").unwrap();
+        let overflow_num_records = (usize::MAX as u64) + 1;
+        let err = normalize_dv_keep_mask_for_api(vec![true], Some(overflow_num_records), &url)
+            .expect_err("numRecords that does not fit usize should error");
+        assert!(err.to_string().contains("does not fit usize"));
+    }
+
+    #[test]
+    fn test_schema_adapter_synthesizes_nullable_columns() {
+        let source_schema = Arc::new(Schema::new(Fields::empty()));
+        let source = RecordBatch::try_new_with_options(
+            source_schema,
+            vec![],
+            &RecordBatchOptions::new().with_row_count(Some(2)),
+        )
+        .unwrap();
+
+        let target_schema = Arc::new(Schema::new(vec![Field::new("id", DataType::Int32, true)]));
+        let mut adapter = SchemaAdapter::new(target_schema.clone());
+        let adapted = adapter.adapt(source).unwrap();
+
+        assert_eq!(adapted.schema().as_ref(), target_schema.as_ref());
+        assert_eq!(adapted.num_rows(), 2);
+        let id = adapted
+            .column(0)
+            .as_any()
+            .downcast_ref::<Int32Array>()
+            .unwrap();
+        assert_eq!(id.null_count(), 2);
+    }
+
+    #[test]
+    fn test_schema_adapter_missing_non_nullable_column_errors() {
+        let source_schema = Arc::new(Schema::new(Fields::empty()));
+        let source = RecordBatch::try_new_with_options(
+            source_schema,
+            vec![],
+            &RecordBatchOptions::new().with_row_count(Some(1)),
+        )
+        .unwrap();
+
+        let target_schema = Arc::new(Schema::new(vec![Field::new("id", DataType::Int32, false)]));
+        let mut adapter = SchemaAdapter::new(target_schema);
+        let err = adapter
+            .adapt(source)
+            .expect_err("missing non-nullable columns should error");
+        match err {
+            DataFusionError::Execution(msg) => {
+                assert!(
+                    msg.contains("Non-nullable column 'id'"),
+                    "expected non-nullable missing-column error, got: {msg}"
+                );
+                assert!(
+                    msg.contains("missing from the physical schema"),
+                    "expected missing physical schema detail, got: {msg}"
+                );
+            }
+            other => {
+                panic!("expected execution error for missing non-nullable column, got: {other}")
+            }
+        }
+    }
+
+    #[test]
+    fn test_schema_adapter_invalid_scalar_cast_errors() {
+        let source_schema = Arc::new(Schema::new(vec![Field::new("id", DataType::Utf8, true)]));
+        let source = RecordBatch::try_new(
+            source_schema,
+            vec![Arc::new(StringArray::from(vec![Some("not-an-int")]))],
+        )
+        .unwrap();
+
+        let target_schema = Arc::new(Schema::new(vec![Field::new("id", DataType::Int32, true)]));
+        let mut adapter = SchemaAdapter::new(target_schema);
+        let err = adapter
+            .adapt(source)
+            .expect_err("invalid value cast should fail under DataFusion default cast semantics");
+        match err {
+            DataFusionError::ArrowError(inner, _) => {
+                assert!(
+                    matches!(inner.as_ref(), ArrowError::CastError(_)),
+                    "expected arrow cast error, got: {inner}"
+                );
+            }
+            other => panic!("expected arrow cast error for invalid scalar cast, got: {other}"),
+        }
+    }
+
+    #[test]
+    fn test_schema_adapter_type_widening() {
+        let source_schema = Arc::new(Schema::new(vec![
+            Field::new("id", DataType::Int32, false),
+            Field::new("name", DataType::Utf8, true),
+        ]));
+        let source = RecordBatch::try_new(
+            source_schema,
+            vec![
+                Arc::new(Int32Array::from(vec![1, 2, 3])),
+                Arc::new(StringArray::from(vec![Some("a"), Some("b"), Some("c")])),
+            ],
+        )
+        .unwrap();
+
+        let target_schema = Arc::new(Schema::new(vec![
+            Field::new("id", DataType::Int64, false),
+            Field::new("name", DataType::Utf8, true),
+        ]));
+        let mut adapter = SchemaAdapter::new(target_schema.clone());
+        let adapted = adapter.adapt(source).unwrap();
+
+        assert_eq!(adapted.schema().as_ref(), target_schema.as_ref());
+        assert_eq!(adapted.num_rows(), 3);
+        let id = adapted
+            .column(0)
+            .as_any()
+            .downcast_ref::<Int64Array>()
+            .unwrap();
+        assert_eq!(id.values(), &[1i64, 2, 3]);
+    }
+
+    #[test]
+    fn test_schema_adapter_overflow_cast_errors() {
+        let source_schema = Arc::new(Schema::new(vec![Field::new("id", DataType::Int64, true)]));
+        let source = RecordBatch::try_new(
+            source_schema,
+            vec![Arc::new(Int64Array::from(vec![i64::from(i32::MAX) + 1]))],
+        )
+        .unwrap();
+
+        let target_schema = Arc::new(Schema::new(vec![Field::new("id", DataType::Int32, true)]));
+        let mut adapter = SchemaAdapter::new(target_schema);
+        let err = adapter
+            .adapt(source)
+            .expect_err("overflow cast should fail under DataFusion default cast semantics");
+        match err {
+            DataFusionError::ArrowError(inner, _) => {
+                assert!(
+                    matches!(inner.as_ref(), ArrowError::CastError(_)),
+                    "expected arrow cast error, got: {inner}"
+                );
+            }
+            other => panic!("expected arrow cast error for overflow cast, got: {other}"),
+        }
+    }
+
+    #[test]
+    fn test_schema_adapter_caches_across_calls() {
+        let source_schema = Arc::new(Schema::new(vec![Field::new("id", DataType::Int32, false)]));
+        let target_schema = Arc::new(Schema::new(vec![Field::new("id", DataType::Int64, false)]));
+        let mut adapter = SchemaAdapter::new(target_schema);
+
+        let batch1 = RecordBatch::try_new(
+            Arc::clone(&source_schema),
+            vec![Arc::new(Int32Array::from(vec![1]))],
+        )
+        .unwrap();
+        let batch2 = RecordBatch::try_new(
+            Arc::clone(&source_schema),
+            vec![Arc::new(Int32Array::from(vec![2]))],
+        )
+        .unwrap();
+
+        let _ = adapter.adapt(batch1).unwrap();
+        assert!(adapter.cached_source.is_some());
+
+        // Second call with the same schema should hit the cache (no rebuild).
+        let adapted = adapter.adapt(batch2).unwrap();
+        assert_eq!(adapted.num_rows(), 1);
+        let id = adapted
+            .column(0)
+            .as_any()
+            .downcast_ref::<Int64Array>()
+            .unwrap();
+        assert_eq!(id.values(), &[2i64]);
     }
 
     #[tokio::test]

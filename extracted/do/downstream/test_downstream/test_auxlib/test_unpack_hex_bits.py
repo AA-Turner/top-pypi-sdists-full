@@ -22,7 +22,8 @@ def test_unpack_hex_bits_zero():
 def test_unpack_hex_bits_two_chars():
     result = unpack_hex_bits("0f")
     np.testing.assert_array_equal(
-        result, [0, 0, 0, 0, 1, 1, 1, 1],
+        result,
+        [0, 0, 0, 0, 1, 1, 1, 1],
     )
 
 

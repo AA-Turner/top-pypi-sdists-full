@@ -17,7 +17,6 @@
 
 #include <cassert>
 #include <cerrno>
-#include <sstream>
 #include <string>
 #include <string_view>
 
@@ -64,40 +63,45 @@ const char* OsErrorCodeLiteral(OsErrorCode error);
 /// Returns the error message associated with a system error code.
 std::string GetOsErrorMessage(OsErrorCode error);
 
-/// Returns an `absl::Status` with an OS error. The message is composed by
-/// catenation of the provided parts {a .. f}
-///
-/// TODO: Convert these uses to use absl::StrFormat
-template <typename A = std::string_view, typename B = std::string_view,
-          typename C = std::string_view, typename D = std::string_view,
-          typename E = std::string_view, typename F = std::string_view>
-absl::Status StatusWithOsError(
-    absl::StatusCode status_code, OsErrorCode error_code,  //
-    A a = {}, B b = {}, C c = {}, D d = {}, E e = {}, F f = {},
-    SourceLocation loc = tensorstore::SourceLocation::current()) {
-  assert(status_code != absl::StatusCode::kOk);
-  std::ostringstream os;
-  os << a << b << c << d << e << f << ": " << GetOsErrorMessage(error_code);
-  return internal::StatusBuilder(status_code, loc)
-      .SetPayload("os_error_code", absl::StrFormat("%d", error_code))
-      .Format("%s", os.str());
-}
+// Builds an `absl::Status` from an OS error code and/or message.
+struct StatusFromOsError {
+  absl::StatusCode status_code;
+  OsErrorCode error_code;
+  SourceLocation loc;
 
-/// Returns an `absl::Status` from an OS error. The message is composed by
-/// catenation of the provided parts {a .. f}
-///
-/// TODO: Convert these uses to use absl::StrFormat
-template <typename A = std::string_view, typename B = std::string_view,
-          typename C = std::string_view, typename D = std::string_view,
-          typename E = std::string_view, typename F = std::string_view>
-absl::Status StatusFromOsError(
-    OsErrorCode error_code,  //
-    A a = {}, B b = {}, C c = {}, D d = {}, E e = {}, F f = {},
-    SourceLocation loc = tensorstore::SourceLocation::current()) {
-  return StatusWithOsError(GetOsErrorStatusCode(error_code), error_code,
-                           std::move(a), std::move(b), std::move(c),
-                           std::move(d), std::move(e), std::move(f), loc);
-}
+  StatusFromOsError(OsErrorCode error_code,
+                    SourceLocation loc = SourceLocation::current())
+      : status_code(GetOsErrorStatusCode(error_code)),
+        error_code(error_code),
+        loc(loc) {
+    assert(status_code != absl::StatusCode::kOk);
+  }
+
+  StatusFromOsError(absl::StatusCode status_code, OsErrorCode error_code,
+                    SourceLocation loc = SourceLocation::current())
+      : status_code(status_code), error_code(error_code), loc(loc) {
+    assert(status_code != absl::StatusCode::kOk);
+  }
+
+  // Returns an `absl::Status` with a message constructed from the provided
+  // format string and arguments.
+  template <typename... Args>
+  absl::Status Format(const absl::FormatSpec<Args...>& format,
+                      const Args&... args) {
+    return StatusBuilder(status_code, loc)
+        .SetPayload("os_error_code", absl::StrFormat("%d", error_code))
+        .Format(format, args...)
+        .Format(": %s", GetOsErrorMessage(error_code));
+  }
+
+  // Returns an `absl::Status` with a message constructed only from the OS error
+  // message.
+  absl::Status Default() const {
+    return StatusBuilder(status_code, loc)
+        .SetPayload("os_error_code", absl::StrFormat("%d", error_code))
+        .Format("%s", GetOsErrorMessage(error_code));
+  }
+};
 
 }  // namespace internal
 }  // namespace tensorstore

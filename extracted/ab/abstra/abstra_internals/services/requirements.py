@@ -16,6 +16,7 @@ from packaging.requirements import Requirement
 from pip._internal.cli.main import main as pip_main
 
 from abstra_internals.repositories.project.project import LocalProjectRepository
+from abstra_internals.services.fs import FileSystemService
 from abstra_internals.settings import Settings
 from abstra_internals.utils.ast_cache import ASTCache
 from abstra_internals.utils.format import pip_name
@@ -49,6 +50,79 @@ def check_package(package_name) -> Literal["builtin", "installed", "unknown"]:
     return "unknown"
 
 
+def _should_skip_directory(path: Path) -> bool:
+    """
+    Check if a directory should be skipped during Python file search.
+
+    Skips:
+    - Hidden directories (starting with .)
+    - Python cache directories (__pycache__)
+    - Directories ignored by .gitignore (uses FileSystemService for this)
+    """
+    name = path.name
+
+    # Fast checks first (no I/O required)
+    if name.startswith(".") or name == "__pycache__":
+        return True
+
+    # Check .gitignore rules (cached, uses git check-ignore when available)
+    return FileSystemService.is_ignored(path)
+
+
+def _has_python_files_recursive(
+    directory: Path, max_depth: int, current_depth: int = 0
+) -> bool:
+    """
+    Recursively check if a directory contains Python files up to a maximum depth.
+
+    This function supports Python 3.3+ namespace packages (PEP 420), which don't
+    require __init__.py files. A directory structure like:
+
+        src/
+            entities/
+                square.py
+            jobs/
+                job.py
+
+    Is valid Python code where `from src.entities.square import Square` works,
+    even without any __init__.py files.
+
+    Args:
+        directory: The directory to search in
+        max_depth: Maximum depth to search (e.g., 5 means up to 5 levels deep)
+        current_depth: Current recursion depth (used internally)
+
+    Returns:
+        True if any .py file is found within the depth limit, False otherwise
+    """
+    if current_depth > max_depth:
+        return False
+
+    try:
+        items = list(directory.iterdir())
+
+        # First pass: check for Python files (fast path, avoids unnecessary recursion)
+        for item in items:
+            if item.is_file() and item.suffix == ".py":
+                return True
+
+        # Second pass: recurse into subdirectories only if no .py files found
+        for item in items:
+            if item.is_dir() and not _should_skip_directory(item):
+                if _has_python_files_recursive(item, max_depth, current_depth + 1):
+                    return True
+    except PermissionError:
+        # Skip directories we can't access
+        pass
+
+    return False
+
+
+# Maximum depth to search for Python files when detecting local modules.
+# This limits performance impact while supporting reasonably nested project structures.
+_LOCAL_MODULE_MAX_SEARCH_DEPTH = 5
+
+
 def is_local_module(pkg_name: str) -> bool:
     """
     Check if a package name corresponds to a local module in the project.
@@ -57,8 +131,20 @@ def is_local_module(pkg_name: str) -> bool:
     - A Python file with the same name (e.g., utils.py)
     - A directory with the same name containing Python files (with or without __init__.py)
 
+    This function supports namespace packages (PEP 420, Python 3.3+), where directories
+    don't need __init__.py to be valid packages. For example, this project structure:
+
+        project/
+            src/
+                entities/
+                    square.py
+
+    Allows `from src.entities.square import Square` to work without any __init__.py files.
+    The linter should recognize 'src' as a local module and not suggest adding it to
+    requirements.txt.
+
     Args:
-        pkg_name: The package name to check (e.g., "utils" from "from utils import X")
+        pkg_name: The package name to check (e.g., "src" from "from src.entities import X")
 
     Returns:
         True if it's a local module, False otherwise
@@ -69,11 +155,13 @@ def is_local_module(pkg_name: str) -> bool:
     if (root / f"{pkg_name}.py").exists():
         return True
 
-    # Check if it's a directory with Python files
+    # Check if it's a directory with Python files (supports namespace packages)
     pkg_dir = root / pkg_name
     if pkg_dir.is_dir():
-        # Check if it has at least one Python file inside
-        return any(pkg_dir.glob("*.py"))
+        return _has_python_files_recursive(
+            pkg_dir,
+            max_depth=_LOCAL_MODULE_MAX_SEARCH_DEPTH,
+        )
 
     return False
 
@@ -259,6 +347,10 @@ def get_requirements_lint_markers(code: str) -> List[dict]:
                     continue
 
                 visited_packages.add(pkg_name)
+
+                if is_local_module(pkg_name):
+                    continue
+
                 kind = check_package(pkg_name)
 
                 if kind == "builtin":

@@ -3,49 +3,58 @@
 import datetime as dt
 import typing
 
-from ..core.datetime_utils import serialize_datetime
-
-try:
-    import pydantic.v1 as pydantic  # type: ignore
-except ImportError:
-    import pydantic  # type: ignore
+import pydantic
+import typing_extensions
+from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from ..core.serialization import FieldMetadata
 
 
-class AssetFolder(pydantic.BaseModel):
+class AssetFolder(UniversalBaseModel):
     """
     Asset Folder details
     """
 
-    display_name: typing.Optional[str] = pydantic.Field(
-        alias="displayName", default=None, description="User visible name for the Asset Folder"
-    )
-    id: typing.Optional[str] = pydantic.Field(default=None, description="Unique identifier for the Asset Folder")
-    parent_folder: typing.Optional[str] = pydantic.Field(
-        alias="parentFolder", default=None, description="Pointer to parent Asset Folder (or null if root)"
-    )
-    assets: typing.Optional[typing.List[str]] = pydantic.Field(
-        default=None, description="Array of Asset instances in the folder"
-    )
-    site_id: typing.Optional[str] = pydantic.Field(
-        alias="siteId", default=None, description="The unique id of the site the Asset Folder belongs to"
-    )
-    created_on: typing.Optional[dt.datetime] = pydantic.Field(
-        alias="createdOn", default=None, description="Date that the Asset Folder was created on"
-    )
-    last_updated: typing.Optional[dt.datetime] = pydantic.Field(
-        alias="lastUpdated", default=None, description="Date that the Asset Folder was last updated on"
-    )
+    id: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Unique identifier for the Asset Folder
+    """
 
-    def json(self, **kwargs: typing.Any) -> str:
-        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
-        return super().json(**kwargs_with_defaults)
+    display_name: typing_extensions.Annotated[
+        typing.Optional[str],
+        FieldMetadata(alias="displayName"),
+        pydantic.Field(alias="displayName", description="User visible name for the Asset Folder"),
+    ] = None
+    parent_folder: typing_extensions.Annotated[
+        typing.Optional[str],
+        FieldMetadata(alias="parentFolder"),
+        pydantic.Field(alias="parentFolder", description="Pointer to parent Asset Folder (or null if root)"),
+    ] = None
+    assets: typing.Optional[typing.List[str]] = pydantic.Field(default=None)
+    """
+    Array of Asset instances in the folder
+    """
 
-    def dict(self, **kwargs: typing.Any) -> typing.Dict[str, typing.Any]:
-        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
-        return super().dict(**kwargs_with_defaults)
+    site_id: typing_extensions.Annotated[
+        typing.Optional[str],
+        FieldMetadata(alias="siteId"),
+        pydantic.Field(alias="siteId", description="The unique ID of the site the Asset Folder belongs to"),
+    ] = None
+    created_on: typing_extensions.Annotated[
+        typing.Optional[dt.datetime],
+        FieldMetadata(alias="createdOn"),
+        pydantic.Field(alias="createdOn", description="Date that the Asset Folder was created on"),
+    ] = None
+    last_updated: typing_extensions.Annotated[
+        typing.Optional[dt.datetime],
+        FieldMetadata(alias="lastUpdated"),
+        pydantic.Field(alias="lastUpdated", description="Date that the Asset Folder was last updated on"),
+    ] = None
 
-    class Config:
-        frozen = True
-        smart_union = True
-        allow_population_by_field_name = True
-        json_encoders = {dt.datetime: serialize_datetime}
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2
+    else:
+
+        class Config:
+            frozen = True
+            smart_union = True
+            extra = pydantic.Extra.allow

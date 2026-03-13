@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: slack_sdk
-Version: 3.40.1
+Version: 3.41.0
 Summary: The Slack API Platform SDK for Python
 Home-page: https://github.com/slackapi/python-slack-sdk
 Author: Slack Technologies, LLC

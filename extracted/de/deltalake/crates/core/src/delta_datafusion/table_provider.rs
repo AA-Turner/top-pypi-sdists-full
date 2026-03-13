@@ -55,6 +55,7 @@ use crate::delta_datafusion::{
 use crate::kernel::transaction::PROTOCOL;
 use crate::kernel::{Add, EagerSnapshot, Snapshot};
 use crate::logstore::LogStore;
+use crate::logstore::LogStoreExt as _;
 use crate::protocol::SaveMode;
 use crate::table::normalize_table_url;
 use crate::{DeltaResult, DeltaTable, DeltaTableError, logstore::LogStoreRef};
@@ -63,6 +64,41 @@ mod data_sink;
 pub(crate) mod next;
 
 const PATH_COLUMN: &str = "__delta_rs_path";
+
+pub(crate) fn resolve_file_column_name(
+    input_schema: &Schema,
+    file_column_name: Option<&str>,
+) -> DeltaResult<String> {
+    let column_names: HashSet<&str> = input_schema
+        .fields()
+        .iter()
+        .map(|field| field.name().as_str())
+        .collect();
+
+    match file_column_name {
+        Some(name) => {
+            if column_names.contains(name) {
+                return Err(DeltaTableError::Generic(format!(
+                    "Unable to add file path column since column with name {name} exists"
+                )));
+            }
+
+            Ok(name.to_owned())
+        }
+        None => {
+            let prefix = PATH_COLUMN;
+            let mut idx = 0;
+            let mut name = prefix.to_owned();
+
+            while column_names.contains(name.as_str()) {
+                idx += 1;
+                name = format!("{prefix}_{idx}");
+            }
+
+            Ok(name)
+        }
+    }
+}
 
 #[derive(Debug, Clone)]
 /// Used to specify if additional metadata columns are exposed to the user
@@ -137,35 +173,10 @@ impl DeltaScanConfigBuilder {
     /// Build a DeltaScanConfig and ensure no column name conflicts occur during downstream processing
     pub fn build(&self, snapshot: &EagerSnapshot) -> DeltaResult<DeltaScanConfig> {
         let file_column_name = if self.include_file_column {
-            let input_schema = snapshot.input_schema();
-            let mut column_names: HashSet<&String> = HashSet::new();
-            for field in input_schema.fields.iter() {
-                column_names.insert(field.name());
-            }
-
-            match &self.file_column_name {
-                Some(name) => {
-                    if column_names.contains(name) {
-                        return Err(DeltaTableError::Generic(format!(
-                            "Unable to add file path column since column with name {name} exists"
-                        )));
-                    }
-
-                    Some(name.to_owned())
-                }
-                None => {
-                    let prefix = PATH_COLUMN;
-                    let mut idx = 0;
-                    let mut name = prefix.to_owned();
-
-                    while column_names.contains(&name) {
-                        idx += 1;
-                        name = format!("{prefix}_{idx}");
-                    }
-
-                    Some(name)
-                }
-            }
+            Some(resolve_file_column_name(
+                snapshot.input_schema().as_ref(),
+                self.file_column_name.as_deref(),
+            )?)
         } else {
             None
         };
@@ -569,14 +580,29 @@ impl<'a> DeltaScanBuilder<'a> {
 /// A table provider can be built by providing either a log store, a Snapshot,
 /// or an eager snapshot. If some Snapshot is provided, that will be used directly,
 /// and no IO will be performed when building the provider.
-#[derive(Debug)]
 pub struct TableProviderBuilder {
     log_store: Option<Arc<dyn LogStore>>,
     snapshot: Option<SnapshotWrapper>,
+    session: Option<Arc<dyn Session>>,
     file_column: Option<String>,
     table_version: Option<Version>,
     /// Predicates used only for file skipping in kernel log replay
     file_skipping_predicates: Option<Vec<Expr>>,
+    file_selection: Option<next::FileSelection>,
+}
+
+impl fmt::Debug for TableProviderBuilder {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("TableProviderBuilder")
+            .field("log_store", &self.log_store)
+            .field("snapshot", &self.snapshot)
+            .field("has_session", &self.session.is_some())
+            .field("file_column", &self.file_column)
+            .field("table_version", &self.table_version)
+            .field("file_skipping_predicates", &self.file_skipping_predicates)
+            .field("file_selection", &self.file_selection)
+            .finish()
+    }
 }
 
 impl Default for TableProviderBuilder {
@@ -590,9 +616,11 @@ impl TableProviderBuilder {
         Self {
             log_store: None,
             snapshot: None,
+            session: None,
             file_column: None,
             table_version: None,
             file_skipping_predicates: None,
+            file_selection: None,
         }
     }
 
@@ -611,6 +639,15 @@ impl TableProviderBuilder {
     /// Provide a snapshot to use for the table provider
     pub fn with_snapshot(mut self, snapshot: impl Into<Arc<Snapshot>>) -> Self {
         self.snapshot = Some(SnapshotWrapper::Snapshot(snapshot.into()));
+        self
+    }
+
+    /// Provide a DataFusion session for scan config defaults.
+    pub fn with_session<S>(mut self, session: Arc<S>) -> Self
+    where
+        S: Session + 'static,
+    {
+        self.session = Some(session);
         self
     }
 
@@ -646,21 +683,41 @@ impl TableProviderBuilder {
         self
     }
 
+    /// Limit scan planning to an explicit set of file identifiers.
+    pub(crate) fn with_file_selection(mut self, file_selection: next::FileSelection) -> Self {
+        self.file_selection = Some(file_selection);
+        self
+    }
+
     pub async fn build(self) -> Result<next::DeltaScan> {
-        let mut config = DeltaScanConfig::new();
-        if let Some(file_column) = self.file_column {
+        let TableProviderBuilder {
+            log_store,
+            snapshot,
+            session,
+            file_column,
+            table_version,
+            file_skipping_predicates,
+            file_selection,
+        } = self;
+
+        let mut config = session
+            .as_ref()
+            .map_or_else(DeltaScanConfig::new, |session| {
+                DeltaScanConfig::new_from_session(session.as_ref())
+            });
+        if let Some(file_column) = file_column {
             config = config.with_file_column_name(file_column);
         }
 
-        let snapshot = match self.snapshot {
+        let snapshot = match snapshot {
             Some(wrapper) => wrapper,
             None => {
-                if let Some(log_store) = self.log_store.as_ref() {
+                if let Some(log_store) = log_store.as_ref() {
                     SnapshotWrapper::Snapshot(
                         Snapshot::try_new(
                             log_store,
                             Default::default(),
-                            self.table_version.map(|v| v as i64),
+                            table_version.map(|v| v as i64),
                         )
                         .await?
                         .into(),
@@ -673,8 +730,28 @@ impl TableProviderBuilder {
             }
         };
 
+        if let Some(log_store) = log_store.as_ref() {
+            let snapshot_root_identity = canonical_table_root_identity(
+                snapshot.snapshot().scan_builder().build()?.table_root(),
+            );
+            let log_store_root = log_store.table_root_url();
+            let log_store_root_identity = canonical_table_root_identity(&log_store_root);
+
+            let snapshot_root_redacted = next::redact_url_for_error(&snapshot_root_identity);
+            let log_store_root_redacted = next::redact_url_for_error(&log_store_root_identity);
+            if snapshot_root_identity != log_store_root_identity {
+                return Err(DataFusionError::Plan(format!(
+                    "Provided snapshot root ({snapshot_root_redacted}) does not match provided log store root ({log_store_root_redacted})"
+                )));
+            }
+        }
+
         let mut provider = next::DeltaScan::new(snapshot, config)?;
-        if let Some(skipping) = self.file_skipping_predicates {
+        if let Some(log_store) = log_store {
+            provider = provider.with_log_store(log_store);
+        }
+
+        if let Some(skipping) = file_skipping_predicates {
             // validate that the expressions contain no illegal variants
             // that are not eligible for file skipping, e.g. volatile functions.
             for term in &skipping {
@@ -685,8 +762,21 @@ impl TableProviderBuilder {
             provider = provider.with_file_skipping_predicate(skipping);
         }
 
+        if let Some(file_selection) = file_selection {
+            provider = provider.with_file_selection(file_selection);
+        }
+
         Ok(provider)
     }
+}
+
+fn canonical_table_root_identity(root: &url::Url) -> url::Url {
+    let mut root = next::ensure_table_root_url(&normalize_table_url(root));
+    let _ = root.set_username("");
+    let _ = root.set_password(None);
+    root.set_query(None);
+    root.set_fragment(None);
+    root
 }
 
 impl std::future::IntoFuture for TableProviderBuilder {
@@ -704,11 +794,9 @@ impl DeltaTable {
     ///
     /// See [`TableProviderBuilder`] for options when building the provider.
     pub fn table_provider(&self) -> TableProviderBuilder {
-        let mut builder = TableProviderBuilder::new();
+        let mut builder = TableProviderBuilder::new().with_log_store(self.log_store());
         if let Ok(state) = self.snapshot() {
             builder = builder.with_eager_snapshot(state.snapshot().clone());
-        } else {
-            builder = builder.with_log_store(self.log_store());
         }
         builder
     }
@@ -744,8 +832,8 @@ impl DeltaTable {
 }
 
 pub(crate) fn update_datafusion_session(
-    log_store: &dyn LogStore,
     session: &dyn Session,
+    log_store: &dyn LogStore,
     operation_id: Option<Uuid>,
 ) -> DeltaResult<()> {
     crate::delta_datafusion::DeltaSessionExt::ensure_object_store_registered(
@@ -1196,10 +1284,24 @@ mod tests {
     use datafusion::datasource::listing::PartitionedFile;
     use datafusion::execution::context::SessionState;
     use datafusion::logical_expr::dml::InsertOp;
+    use datafusion::physical_plan::collect_partitioned;
     use object_store::path::Path;
     use std::sync::Arc;
+    use url::Url;
 
     use super::*;
+
+    async fn create_in_memory_id_table() -> Result<DeltaTable, DeltaTableError> {
+        let schema = StructType::try_new(vec![StructField::new(
+            "id".to_string(),
+            DataType::Primitive(PrimitiveType::Long),
+            true,
+        )])?;
+        DeltaTable::new_in_memory()
+            .create()
+            .with_columns(schema.fields().cloned())
+            .await
+    }
 
     async fn create_test_table() -> Result<DeltaTable, DeltaTableError> {
         use tempfile::TempDir;
@@ -1231,6 +1333,32 @@ mod tests {
         use datafusion::prelude::SessionConfig;
         let config = SessionConfig::new();
         Arc::new(SessionStateBuilder::new().with_config(config).build())
+    }
+
+    #[test]
+    fn test_resolve_file_column_name_avoids_collisions() {
+        let schema = Schema::new(vec![
+            Field::new("id", ArrowDataType::Int64, false),
+            Field::new(PATH_COLUMN, ArrowDataType::Utf8, true),
+            Field::new(format!("{PATH_COLUMN}_1"), ArrowDataType::Utf8, true),
+        ]);
+
+        let resolved = resolve_file_column_name(&schema, None).unwrap();
+        assert_eq!(resolved, format!("{PATH_COLUMN}_2"));
+    }
+
+    #[test]
+    fn test_resolve_file_column_name_rejects_explicit_collision() {
+        let schema = Schema::new(vec![
+            Field::new("id", ArrowDataType::Int64, false),
+            Field::new("file_col", ArrowDataType::Utf8, true),
+        ]);
+
+        let err = resolve_file_column_name(&schema, Some("file_col")).unwrap_err();
+        assert!(
+            err.to_string()
+                .contains("Unable to add file path column since column with name file_col exists")
+        );
     }
 
     #[tokio::test]
@@ -1280,6 +1408,212 @@ mod tests {
         );
         assert_eq!(result_plan.children().len(), 1);
         assert!(result_plan.metrics().is_some());
+    }
+
+    #[tokio::test]
+    async fn test_table_provider_from_loaded_table_supports_insert_into() {
+        let table = create_in_memory_id_table().await.unwrap();
+        let log_store = table.log_store();
+        let provider = table.table_provider().await.unwrap();
+
+        let session = Arc::new(crate::delta_datafusion::create_session().into_inner());
+        let state = session.state_ref().read().clone();
+
+        let schema = provider.schema();
+        let batch = RecordBatch::try_new(
+            schema.clone(),
+            vec![Arc::new(Int64Array::from(vec![11, 13]))],
+        )
+        .unwrap();
+        let mem_table = MemTable::try_new(schema, vec![vec![batch]]).unwrap();
+        let input = mem_table.scan(&state, None, &[], None).await.unwrap();
+
+        let write_plan = provider
+            .insert_into(&state, input, InsertOp::Append)
+            .await
+            .unwrap();
+        let _write_batches: Vec<_> = collect_partitioned(write_plan, session.task_ctx())
+            .await
+            .unwrap()
+            .into_iter()
+            .flatten()
+            .collect();
+
+        let read_provider = next::DeltaScan::builder()
+            .with_log_store(log_store)
+            .await
+            .unwrap();
+        session
+            .register_table("delta_table", read_provider)
+            .unwrap();
+        let batches = session
+            .sql("SELECT id FROM delta_table ORDER BY id")
+            .await
+            .unwrap()
+            .collect()
+            .await
+            .unwrap();
+        let expected = vec!["+----+", "| id |", "+----+", "| 11 |", "| 13 |", "+----+"];
+        datafusion::assert_batches_sorted_eq!(&expected, &batches);
+    }
+
+    #[tokio::test]
+    async fn test_builder_allows_matching_snapshot_and_log_store_root() {
+        let table = create_in_memory_id_table().await.unwrap();
+        let snapshot = table.snapshot().unwrap().snapshot().snapshot().clone();
+        let log_store = table.log_store();
+
+        let provider = next::DeltaScan::builder()
+            .with_snapshot(snapshot)
+            .with_log_store(log_store)
+            .build()
+            .await;
+
+        assert!(
+            provider.is_ok(),
+            "unexpected error: {}",
+            provider.unwrap_err()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_builder_allows_same_root_with_different_query_on_log_store() {
+        let one_url = Url::parse("memory:///same-root?snap-token").unwrap();
+        let one_store =
+            crate::logstore::logstore_for(&one_url, crate::logstore::StorageConfig::default())
+                .unwrap();
+        let schema = StructType::try_new(vec![StructField::new(
+            "id".to_string(),
+            DataType::Primitive(PrimitiveType::Long),
+            true,
+        )])
+        .unwrap();
+        let table_one = CreateBuilder::new()
+            .with_log_store(one_store)
+            .with_columns(schema.fields().cloned())
+            .await
+            .unwrap();
+        let snapshot = table_one.snapshot().unwrap().snapshot().snapshot().clone();
+
+        let two_url = Url::parse("memory:///same-root?log-token").unwrap();
+        let two_store =
+            crate::logstore::logstore_for(&two_url, crate::logstore::StorageConfig::default())
+                .unwrap();
+
+        let provider = next::DeltaScan::builder()
+            .with_snapshot(snapshot)
+            .with_log_store(two_store)
+            .build()
+            .await;
+
+        assert!(
+            provider.is_ok(),
+            "unexpected error: {}",
+            provider.unwrap_err()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_builder_rejects_mismatched_snapshot_and_log_store() {
+        let one_url = Url::parse("memory:///same-root?snap-token").unwrap();
+        let one_store =
+            crate::logstore::logstore_for(&one_url, crate::logstore::StorageConfig::default())
+                .unwrap();
+        let schema = StructType::try_new(vec![StructField::new(
+            "id".to_string(),
+            DataType::Primitive(PrimitiveType::Long),
+            true,
+        )])
+        .unwrap();
+        let table_one = CreateBuilder::new()
+            .with_log_store(one_store)
+            .with_columns(schema.fields().cloned())
+            .await
+            .unwrap();
+        let snapshot = table_one.snapshot().unwrap().snapshot().snapshot().clone();
+
+        let two_url = Url::parse("memory:///different-root?log-token").unwrap();
+        let two_store =
+            crate::logstore::logstore_for(&two_url, crate::logstore::StorageConfig::default())
+                .unwrap();
+
+        let err = next::DeltaScan::builder()
+            .with_snapshot(snapshot)
+            .with_log_store(two_store)
+            .build()
+            .await
+            .unwrap_err();
+
+        let err_str = err.to_string();
+        assert!(
+            err_str.contains("snapshot") || err_str.contains("Snapshot"),
+            "unexpected error: {err_str}"
+        );
+        assert!(
+            err_str.contains("log store") || err_str.contains("log_store"),
+            "unexpected error: {err_str}"
+        );
+        assert!(
+            !err_str.contains("snap-token"),
+            "unexpected error: {err_str}"
+        );
+        assert!(
+            !err_str.contains("log-token"),
+            "unexpected error: {err_str}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_builder_with_file_selection_propagates_to_scan() {
+        let log_store = crate::test_utils::TestTables::Simple
+            .table_builder()
+            .unwrap()
+            .build_storage()
+            .unwrap();
+        let snapshot = Arc::new(
+            crate::kernel::Snapshot::try_new(&log_store, Default::default(), None)
+                .await
+                .unwrap(),
+        );
+        let table_root = snapshot
+            .scan_builder()
+            .build()
+            .unwrap()
+            .table_root()
+            .clone();
+        let missing_file_id = table_root
+            .join("__does_not_exist__.parquet")
+            .unwrap()
+            .to_string();
+
+        let provider = next::DeltaScan::builder()
+            .with_snapshot(snapshot)
+            .with_file_selection(next::FileSelection::new([missing_file_id]))
+            .build()
+            .await
+            .unwrap();
+
+        let session = Arc::new(crate::delta_datafusion::create_session().into_inner());
+        let state = session.state_ref().read().clone();
+        let err = provider.scan(&state, None, &[], None).await.unwrap_err();
+        let err_str = err.to_string();
+        assert!(
+            err_str.contains("File selection contains"),
+            "unexpected error: {err_str}"
+        );
+    }
+
+    #[test]
+    fn test_canonical_table_root_identity_strips_username_query_and_fragment() {
+        let url =
+            Url::parse("https://urluser:urlpassword@example.com/path?token=abc#frag").unwrap();
+
+        let canonical = canonical_table_root_identity(&url);
+
+        assert_eq!(canonical.username(), "");
+        assert!(canonical.password().is_none());
+        assert!(canonical.query().is_none());
+        assert!(canonical.fragment().is_none());
     }
 
     #[test]

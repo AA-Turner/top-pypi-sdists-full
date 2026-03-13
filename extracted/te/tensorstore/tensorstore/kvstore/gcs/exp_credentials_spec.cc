@@ -22,6 +22,7 @@
 #include <variant>
 
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include <nlohmann/json_fwd.hpp>
 #include "tensorstore/internal/grpc/clientauth/authentication_strategy.h"
 #include "tensorstore/internal/grpc/clientauth/call_authentication.h"
@@ -35,7 +36,6 @@
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 // specializations
 #include "tensorstore/internal/json_binding/absl_time.h"  // IWYU pragma: keep
@@ -87,7 +87,7 @@ using MaybeConst =
 // The PartialBinder for ExperimentalGcsGrpcCredentialsSpec looks at the
 // "type" member and then invokes the credential-specific binder.
 const auto kPartialBinder = [](auto is_loading, const auto& options, auto* obj,
-                               nlohmann::json::object_t* j) {
+                               nlohmann::json::object_t* j) -> absl::Status {
   // This uses a custom variant binder, so extract the credential type
   // first before using std::visit for the credential-specific binding.
   std::string credentials;
@@ -100,8 +100,8 @@ const auto kPartialBinder = [](auto is_loading, const auto& options, auto* obj,
       is_loading, options, &credentials, j));
 
   if (!credentials.empty() && !IsKnownCredential(credentials)) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        "Invalid credentials : ", QuoteString(credentials)));
+    return absl::InvalidArgumentError(
+        absl::StrFormat("Invalid credentials: %v", QuoteString(credentials)));
   }
 
   Spec::Access config;
@@ -315,7 +315,7 @@ MakeGrpcAuthenticationStrategy(const Spec& spec, CaInfo ca_info) {
         return internal_grpc::CreateGoogleDefaultAuthenticationStrategy();
       }
       return absl::InvalidArgumentError(
-          tensorstore::StrCat("Unknown credentials : ", QuoteString(spec)));
+          absl::StrFormat("Unknown credentials: %v", QuoteString(spec)));
     }
 
     R operator()(const Spec::AccessToken& spec) {
@@ -357,7 +357,8 @@ MakeGrpcAuthenticationStrategy(const Spec& spec, CaInfo ca_info) {
       ::nlohmann::json::object_t j_copy = spec.base;
       Spec base;
       TENSORSTORE_RETURN_IF_ERROR(
-          kPartialBinder(std::true_type{}, jb::NoOptions{}, &base, &j_copy));
+          kPartialBinder(std::true_type{}, jb::NoOptions{}, &base, &j_copy))
+          .BuildStatus();
       TENSORSTORE_ASSIGN_OR_RETURN(
           auto base_strategy, MakeGrpcAuthenticationStrategy(base, ca_info));
 

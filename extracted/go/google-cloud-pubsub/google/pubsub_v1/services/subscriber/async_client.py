@@ -14,51 +14,54 @@
 # limitations under the License.
 #
 import logging as std_logging
-from collections import OrderedDict
+import warnings
 import re
+from collections import OrderedDict
 from typing import (
-    Dict,
+    AsyncIterable,
+    AsyncIterator,
+    Awaitable,
     Callable,
+    Dict,
     Mapping,
     MutableMapping,
     MutableSequence,
     Optional,
-    AsyncIterable,
-    Awaitable,
-    AsyncIterator,
     Sequence,
     Tuple,
     Type,
     Union,
 )
 
-import warnings
-from google.pubsub_v1 import gapic_version as package_version
-
-from google.api_core.client_options import ClientOptions
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
 from google.api_core import retry_async as retries
+from google.api_core.client_options import ClientOptions
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
+from google.pubsub_v1 import gapic_version as package_version
 
 try:
     OptionalRetry = Union[retries.AsyncRetry, gapic_v1.method._MethodDefault, None]
 except AttributeError:  # pragma: NO COVER
     OptionalRetry = Union[retries.AsyncRetry, object, None]  # type: ignore
 
-from google.iam.v1 import iam_policy_pb2  # type: ignore
-from google.iam.v1 import policy_pb2  # type: ignore
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+from google.iam.v1 import (
+    iam_policy_pb2,  # type: ignore
+    policy_pb2,  # type: ignore
+)
+
 from google.pubsub_v1.services.subscriber import pagers
 from google.pubsub_v1.types import pubsub
-from .transports.base import SubscriberTransport, DEFAULT_CLIENT_INFO
-from .transports.grpc_asyncio import SubscriberGrpcAsyncIOTransport
+
 from .client import SubscriberClient
+from .transports.base import DEFAULT_CLIENT_INFO, SubscriberTransport
+from .transports.grpc_asyncio import SubscriberGrpcAsyncIOTransport
 
 try:
     from google.api_core import client_logging  # type: ignore
@@ -126,7 +129,10 @@ class SubscriberAsyncClient:
         Returns:
             SubscriberAsyncClient: The constructed client.
         """
-        return SubscriberClient.from_service_account_info.__func__(SubscriberAsyncClient, info, *args, **kwargs)  # type: ignore
+        sa_info_func = (
+            SubscriberClient.from_service_account_info.__func__  # type: ignore
+        )
+        return sa_info_func(SubscriberAsyncClient, info, *args, **kwargs)
 
     @classmethod
     def from_service_account_file(cls, filename: str, *args, **kwargs):
@@ -142,7 +148,10 @@ class SubscriberAsyncClient:
         Returns:
             SubscriberAsyncClient: The constructed client.
         """
-        return SubscriberClient.from_service_account_file.__func__(SubscriberAsyncClient, filename, *args, **kwargs)  # type: ignore
+        sa_file_func = (
+            SubscriberClient.from_service_account_file.__func__  # type: ignore
+        )
+        return sa_file_func(SubscriberAsyncClient, filename, *args, **kwargs)
 
     from_service_account_json = from_service_account_file
 

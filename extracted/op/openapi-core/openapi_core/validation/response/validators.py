@@ -11,9 +11,11 @@ from typing import Optional
 from jsonschema_path import SchemaPath
 from openapi_spec_validator import OpenAPIV30SpecValidator
 from openapi_spec_validator import OpenAPIV31SpecValidator
+from openapi_spec_validator import OpenAPIV32SpecValidator
 
 from openapi_core.casting.schemas import oas30_read_schema_casters_factory
 from openapi_core.casting.schemas import oas31_schema_casters_factory
+from openapi_core.casting.schemas import oas32_schema_casters_factory
 from openapi_core.exceptions import OpenAPIError
 from openapi_core.protocols import HeadersType
 from openapi_core.protocols import Request
@@ -35,6 +37,7 @@ from openapi_core.validation.schemas import (
     oas30_read_schema_validators_factory,
 )
 from openapi_core.validation.schemas import oas31_schema_validators_factory
+from openapi_core.validation.schemas import oas32_schema_validators_factory
 from openapi_core.validation.validators import BaseAPICallValidator
 from openapi_core.validation.validators import BaseValidator
 from openapi_core.validation.validators import BaseWebhookValidator
@@ -147,11 +150,9 @@ class BaseResponseValidator(BaseValidator):
         if "headers" not in operation_response:
             return {}
 
-        response_headers = operation_response / "headers"
-
         errors: List[OpenAPIError] = []
         validated: Dict[str, Any] = {}
-        for name, header in list(response_headers.items()):
+        for name, header in (operation_response / "headers").str_items():
             # ignore Content-Type header
             if name.lower() == "content-type":
                 continue
@@ -174,8 +175,8 @@ class BaseResponseValidator(BaseValidator):
     def _get_header(
         self, headers: Mapping[str, Any], name: str, header: SchemaPath
     ) -> Any:
-        deprecated = header.getkey("deprecated", False)
-        if deprecated:
+        deprecated = (header / "deprecated").read_bool(default=False)
+        if deprecated and name in headers:
             warnings.warn(
                 f"{name} header is deprecated",
                 DeprecationWarning,
@@ -186,7 +187,7 @@ class BaseResponseValidator(BaseValidator):
                 header, headers, name=name
             )
         except KeyError:
-            required = header.getkey("required", False)
+            required = (header / "required").read_bool(default=False)
             if required:
                 raise MissingRequiredHeader(name)
             raise MissingHeader(name)
@@ -406,3 +407,39 @@ class V31WebhookResponseValidator(WebhookResponseValidator):
     spec_validator_cls = OpenAPIV31SpecValidator
     schema_casters_factory = oas31_schema_casters_factory
     schema_validators_factory = oas31_schema_validators_factory
+
+
+class V32ResponseDataValidator(APICallResponseDataValidator):
+    spec_validator_cls = OpenAPIV32SpecValidator
+    schema_casters_factory = oas32_schema_casters_factory
+    schema_validators_factory = oas32_schema_validators_factory
+
+
+class V32ResponseHeadersValidator(APICallResponseHeadersValidator):
+    spec_validator_cls = OpenAPIV32SpecValidator
+    schema_casters_factory = oas32_schema_casters_factory
+    schema_validators_factory = oas32_schema_validators_factory
+
+
+class V32ResponseValidator(APICallResponseValidator):
+    spec_validator_cls = OpenAPIV32SpecValidator
+    schema_casters_factory = oas32_schema_casters_factory
+    schema_validators_factory = oas32_schema_validators_factory
+
+
+class V32WebhookResponseDataValidator(WebhookResponseDataValidator):
+    spec_validator_cls = OpenAPIV32SpecValidator
+    schema_casters_factory = oas32_schema_casters_factory
+    schema_validators_factory = oas32_schema_validators_factory
+
+
+class V32WebhookResponseHeadersValidator(WebhookResponseHeadersValidator):
+    spec_validator_cls = OpenAPIV32SpecValidator
+    schema_casters_factory = oas32_schema_casters_factory
+    schema_validators_factory = oas32_schema_validators_factory
+
+
+class V32WebhookResponseValidator(WebhookResponseValidator):
+    spec_validator_cls = OpenAPIV32SpecValidator
+    schema_casters_factory = oas32_schema_casters_factory
+    schema_validators_factory = oas32_schema_validators_factory

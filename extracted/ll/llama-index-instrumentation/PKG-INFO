@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: llama-index-instrumentation
-Version: 0.4.3
+Version: 0.5.0
 Summary: Instrumentation and Observability for LlamaIndex
 Project-URL: Homepage, https://llamaindex.ai
 Project-URL: Repository, https://github.com/run-llama/llama_index/tree/main/llama-index-instrumentation
 Project-URL: Documentation, https://developers.llamaindex.ai/python/framework/module_guides/observability/instrumentation/
 Author-email: Massimiliano Pippi <mpippi@gmail.com>
 License-Expression: MIT
-Requires-Python: <4.0,>=3.9
+Requires-Python: <4.0,>=3.10
 Requires-Dist: deprecated>=1.2.18
 Requires-Dist: pydantic>=2.11.5
 Description-Content-Type: text/markdown

@@ -5,7 +5,9 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Union
 
+from packaging.version import parse as parse_version
 from transformers import TrainingArguments as TransformersTrainingArguments
+from transformers import __version__ as transformers_version
 from transformers.training_args import ParallelMode
 from transformers.utils import ExplicitEnum
 
@@ -24,7 +26,12 @@ class BatchSamplers(ExplicitEnum):
     - ``BatchSamplers.BATCH_SAMPLER``: **[default]** Uses :class:`~sentence_transformers.sampler.DefaultBatchSampler`, the default
       PyTorch batch sampler.
     - ``BatchSamplers.NO_DUPLICATES``: Uses :class:`~sentence_transformers.sampler.NoDuplicatesBatchSampler`,
-      ensuring no duplicate samples in a batch. Recommended for losses that use in-batch negatives, such as:
+      ensuring no duplicate samples in a batch.
+    - ``BatchSamplers.NO_DUPLICATES_HASHED``: Uses :class:`~sentence_transformers.sampler.NoDuplicatesBatchSampler`
+      with ``precompute_hashes=True``, a variant that precomputes hashes for faster duplicate checks at a small memory cost.
+      Requires the ``xxhash`` library to be installed.
+
+      Both are recommended for losses that use in-batch negatives, such as:
 
         - :class:`~sentence_transformers.losses.MultipleNegativesRankingLoss`
         - :class:`~sentence_transformers.losses.CachedMultipleNegativesRankingLoss`
@@ -34,8 +41,9 @@ class BatchSamplers(ExplicitEnum):
         - :class:`~sentence_transformers.losses.GISTEmbedLoss`
         - :class:`~sentence_transformers.losses.CachedGISTEmbedLoss`
     - ``BatchSamplers.GROUP_BY_LABEL``: Uses :class:`~sentence_transformers.sampler.GroupByLabelBatchSampler`,
-      ensuring that each batch has 2+ samples from the same label. Recommended for losses that require multiple
-      samples from the same label, such as:
+      which constructs each batch by drawing at least 2 samples from each of at least 2 distinct labels.
+      This guarantees every batch contains multiple classes, which is required for in-batch triplet mining.
+      Recommended for:
 
         - :class:`~sentence_transformers.losses.BatchAllTripletLoss`
         - :class:`~sentence_transformers.losses.BatchHardSoftMarginTripletLoss`
@@ -79,6 +87,7 @@ class BatchSamplers(ExplicitEnum):
 
     BATCH_SAMPLER = "batch_sampler"
     NO_DUPLICATES = "no_duplicates"
+    NO_DUPLICATES_HASHED = "no_duplicates_hashed"
     GROUP_BY_LABEL = "group_by_label"
 
 
@@ -243,8 +252,43 @@ class SentenceTransformerTrainingArguments(TransformersTrainingArguments):
             r"{'SparseStaticEmbedding\.*': 1e-3} for the SparseStaticEmbedding module."
         },
     )
+    # Explicitly add warmup_ratio as transformers will remove it in the future, and I'd like to keep it until Sentence
+    # Transformers drops support for transformers v4. The default mirrors that of transformers, regardless of version.
+    warmup_ratio: float | None = field(
+        default_factory=lambda: None if parse_version(transformers_version) >= parse_version("5.0.0") else 0.0,
+        metadata={
+            "help": "This argument is deprecated and will be removed in the future. If you're on Transformers v5+, "
+            "then you should use `warmup_steps` instead as it also works with float values."
+        },
+    )
 
     def __post_init__(self):
+        # Handle compatibility for warmup arguments across different transformers versions. Transformers v5+ only
+        # supports warmup_steps (which can be an int or a float ratio) and removes warmup_ratio, while older versions
+        # only support warmup_ratio and warmup_steps as an int number of steps. The logic here ensures that users can
+        # use either argument across transformers versions, until we drop support for transformers <v5, at which point
+        # users should only use warmup_steps.
+        if parse_version(transformers_version) >= parse_version("5.0.0"):
+            # For transformers >= 5: if the user provided a warmup_ratio but did not
+            # explicitly set warmup_steps, treat warmup_ratio as the ratio and store
+            # it in warmup_steps (which now accepts floats).
+            if self.warmup_ratio is not None and self.warmup_steps == 0:
+                self.warmup_steps = self.warmup_ratio
+                self.warmup_ratio = None  # Reset to default
+
+                logger.warning(
+                    "The `warmup_ratio` argument is deprecated in Transformers v5+, and will also be removed from "
+                    "Sentence Transformers once support for Transformers v4 is dropped. Since you're using "
+                    "Transformers v5+, please use `warmup_steps` (as a float) to specify the warmup ratio instead."
+                )
+        else:
+            # For transformers < 5: allow users to pass a float in warmup_steps to
+            # denote a warmup ratio (0 < ratio < 1) and convert it into warmup_ratio.
+            # NOTE: For transformers v4, warmup_ratio defaults to 0.0, while in v5 it defaults to None.
+            if isinstance(self.warmup_steps, float) and 0.0 < self.warmup_steps < 1.0 and self.warmup_ratio == 0.0:
+                self.warmup_ratio = self.warmup_steps
+                self.warmup_steps = 0  # Set to default
+
         super().__post_init__()
 
         self.batch_sampler = (

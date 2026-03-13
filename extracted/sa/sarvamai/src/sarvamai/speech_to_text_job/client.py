@@ -6,10 +6,10 @@ from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.request_options import RequestOptions
 from ..requests.bulk_job_callback import BulkJobCallbackParams
 from ..requests.speech_to_text_job_parameters import SpeechToTextJobParametersParams
-from ..types.bulk_job_init_response_v_1 import BulkJobInitResponseV1
+from ..types.bulk_job_init_response import BulkJobInitResponse
 from ..types.files_download_response import FilesDownloadResponse
 from ..types.files_upload_response import FilesUploadResponse
-from ..types.job_status_v_1_response import JobStatusV1Response
+from ..types.job_status_response import JobStatusResponse
 from ..types.speech_to_text_model import SpeechToTextModel
 from ..types.speech_to_text_language import SpeechToTextLanguage
 from ..types.mode import Mode
@@ -41,7 +41,7 @@ class SpeechToTextJobClient:
         job_parameters: SpeechToTextJobParametersParams,
         callback: typing.Optional[BulkJobCallbackParams] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> BulkJobInitResponseV1:
+    ) -> BulkJobInitResponse:
         """
         Get a job uuid, and storage folder details for speech to text bulk job v1
 
@@ -58,7 +58,7 @@ class SpeechToTextJobClient:
 
         Returns
         -------
-        BulkJobInitResponseV1
+        BulkJobInitResponse
             Successful Response
 
         Examples
@@ -81,7 +81,7 @@ class SpeechToTextJobClient:
 
     def get_status(
         self, job_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> JobStatusV1Response:
+    ) -> JobStatusResponse:
         """
         Get the status of a speech to text bulk job V1
 
@@ -95,7 +95,7 @@ class SpeechToTextJobClient:
 
         Returns
         -------
-        JobStatusV1Response
+        JobStatusResponse
             Successful Response
 
         Examples
@@ -118,7 +118,7 @@ class SpeechToTextJobClient:
         *,
         ptu_id: typing.Optional[int] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> JobStatusV1Response:
+    ) -> JobStatusResponse:
         """
         Start a speech to text bulk job V1
 
@@ -134,7 +134,7 @@ class SpeechToTextJobClient:
 
         Returns
         -------
-        JobStatusV1Response
+        JobStatusResponse
             Successful Response
 
         Examples
@@ -333,7 +333,7 @@ class AsyncSpeechToTextJobClient:
         job_parameters: SpeechToTextJobParametersParams,
         callback: typing.Optional[BulkJobCallbackParams] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> BulkJobInitResponseV1:
+    ) -> BulkJobInitResponse:
         """
         Get a job uuid, and storage folder details for speech to text bulk job v1
 
@@ -350,7 +350,7 @@ class AsyncSpeechToTextJobClient:
 
         Returns
         -------
-        BulkJobInitResponseV1
+        BulkJobInitResponse
             Successful Response
 
         Examples
@@ -381,7 +381,7 @@ class AsyncSpeechToTextJobClient:
 
     async def get_status(
         self, job_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> JobStatusV1Response:
+    ) -> JobStatusResponse:
         """
         Get the status of a speech to text bulk job V1
 
@@ -395,7 +395,7 @@ class AsyncSpeechToTextJobClient:
 
         Returns
         -------
-        JobStatusV1Response
+        JobStatusResponse
             Successful Response
 
         Examples
@@ -428,7 +428,7 @@ class AsyncSpeechToTextJobClient:
         *,
         ptu_id: typing.Optional[int] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> JobStatusV1Response:
+    ) -> JobStatusResponse:
         """
         Start a speech to text bulk job V1
 
@@ -444,7 +444,7 @@ class AsyncSpeechToTextJobClient:
 
         Returns
         -------
-        JobStatusV1Response
+        JobStatusResponse
             Successful Response
 
         Examples

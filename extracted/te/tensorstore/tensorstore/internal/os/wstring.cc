@@ -36,8 +36,8 @@ namespace internal {
 
 absl::Status ConvertUTF8ToWindowsWide(std::string_view in, std::wstring& out) {
   if (in.size() > std::numeric_limits<int>::max()) {
-    return StatusFromOsError(ERROR_BUFFER_OVERFLOW,
-                             "ConvertUTF8ToWindowsWide buffer overflow");
+    return StatusFromOsError(ERROR_BUFFER_OVERFLOW)
+        .Format("ConvertUTF8ToWindowsWide buffer overflow");
   }
   if (in.empty()) {
     out.clear();
@@ -47,16 +47,16 @@ absl::Status ConvertUTF8ToWindowsWide(std::string_view in, std::wstring& out) {
       /*CodePage=*/CP_UTF8, /*dwFlags=*/MB_ERR_INVALID_CHARS, in.data(),
       static_cast<int>(in.size()), nullptr, 0);
   if (n <= 0) {
-    return StatusFromOsError(::GetLastError(),
-                             "ConvertUTF8ToWindowsWide failed");
+    return StatusFromOsError(::GetLastError())
+        .Format("ConvertUTF8ToWindowsWide failed");
   }
   out.resize(n);
   int m = ::MultiByteToWideChar(
       /*CodePage=*/CP_UTF8, /*dwFlags=*/MB_ERR_INVALID_CHARS, in.data(),
       static_cast<int>(in.size()), out.data(), n);
   if (n <= 0) {
-    return StatusFromOsError(::GetLastError(),
-                             "ConvertUTF8ToWindowsWide failed");
+    return StatusFromOsError(::GetLastError())
+        .Format("ConvertUTF8ToWindowsWide failed");
   }
   return absl::OkStatus();
 }
@@ -73,8 +73,8 @@ absl::Status ConvertWindowsWideToUTF8(std::wstring_view in, std::string& out) {
                                 /*lpDefaultChar=*/nullptr,
                                 /*lpUsedDefaultChar=*/nullptr);
   if (n <= 0) {
-    return StatusFromOsError(::GetLastError(),
-                             "ConvertWindowsWideToUTF8 failed");
+    return StatusFromOsError(::GetLastError())
+        .Format("ConvertWindowsWideToUTF8 failed");
   }
   out.resize(n);
   n = ::WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS,           //
@@ -83,8 +83,8 @@ absl::Status ConvertWindowsWideToUTF8(std::wstring_view in, std::string& out) {
                             /*lpDefaultChar=*/nullptr,
                             /*lpUsedDefaultChar=*/nullptr);
   if (n <= 0) {
-    return StatusFromOsError(::GetLastError(),
-                             "ConvertWindowsWideToUTF8 failed");
+    return StatusFromOsError(::GetLastError())
+        .Format("ConvertWindowsWideToUTF8 failed");
   }
   return absl::OkStatus();
 }

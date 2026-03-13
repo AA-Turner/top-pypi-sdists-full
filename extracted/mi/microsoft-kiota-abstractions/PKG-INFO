@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: microsoft-kiota-abstractions
-Version: 1.9.9
+Version: 1.9.10
 Summary: Core abstractions for kiota generated libraries in Python
 License: MIT
 License-File: LICENSE

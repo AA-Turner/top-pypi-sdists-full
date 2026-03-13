@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import IO
 from urllib.parse import urlparse
 
+import awkward
 import fsspec
 import numpy
 import packaging.version
@@ -79,9 +80,7 @@ def ensure_numpy(array, types=(numpy.bool_, numpy.integer, numpy.floating)):
     Returns an ``np.ndarray`` if ``array`` can be converted to an array of the
     desired type and raises TypeError if it cannot.
     """
-    import uproot
 
-    awkward = uproot.extras.awkward()
     with warnings.catch_warnings():
         warnings.simplefilter(
             "error", getattr(numpy, "exceptions", numpy).VisibleDeprecationWarning
@@ -384,8 +383,7 @@ else:
 def _file_not_found(files, message=None):
     message = "" if message is None else " (" + message + ")"
 
-    return _FileNotFoundError(
-        f"""file not found{message}
+    return _FileNotFoundError(f"""file not found{message}
 
     {files!r}
 
@@ -406,8 +404,7 @@ Functions that accept many files (uproot.iterate, etc.) also allow:
          Example: {{"/data_v1/*.root": "ttree_v1", "/data_v2/*.root": "ttree_v2"}}
    * already-open TTree objects.
    * iterables of the above.
-"""
-    )
+""")
 
 
 def memory_size(data, error_message=None) -> int:
@@ -519,9 +516,6 @@ def awkward_form(model, file, context):
     """
     Utility function to get an ``ak.forms.Form`` for a :doc:`uproot.model.Model`.
     """
-    import uproot
-
-    awkward = uproot.extras.awkward()
 
     if isinstance(model, numpy.dtype):
         model = model.newbyteorder("=")
@@ -696,9 +690,7 @@ def get_ttree_form(
     common_keys,
     ak_add_doc,
 ):
-    import uproot
 
-    awkward = uproot.extras.awkward()
     contents = []
     for key in common_keys:
         branch = ttree[key]

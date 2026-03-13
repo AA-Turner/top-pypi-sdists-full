@@ -24,6 +24,7 @@
 #include "absl/base/attributes.h"
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/time/time.h"
 #include "grpcpp/client_context.h"  // third_party
@@ -51,7 +52,6 @@
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_ocdbt_cooperator {
@@ -187,8 +187,10 @@ struct SubmitMutationBatchOperation
             ABSL_LOG_IF(INFO, ocdbt_logging)
                 << "SubmitMutationBatch: " << state->node_identifier
                 << ": Flushed indirect writes: " << future.status();
-            TENSORSTORE_RETURN_IF_ERROR(
-                future.status(), static_cast<void>(promise.SetResult(_)));
+            if (!future.status().ok()) {
+              state->promise.SetResult(future.status());
+              return;
+            }
             SendToPeerOnExecutor(std::move(state));
           },
           state_ptr->promise, flush_future);
@@ -319,11 +321,12 @@ void EnqueueWriteRequest(Cooperator& server,
       status = m->DecodeFrom(reader);
       local_request.mutation = std::move(m);
     }
-    TENSORSTORE_RETURN_IF_ERROR(
-        status,
-        static_cast<void>(reactor->Finish(grpc::Status(
-            grpc::StatusCode::INTERNAL,
-            tensorstore::StrCat("Failed to decode write request: ", _)))));
+    if (!status.ok()) {
+      reactor->Finish(grpc::Status(
+          grpc::StatusCode::INTERNAL,
+          absl::StrCat("Failed to decode write request: ", status)));
+      return;
+    }
   }
   auto mutation_requests =
       server.GetNodeMutationRequests(lease_node, node_height);

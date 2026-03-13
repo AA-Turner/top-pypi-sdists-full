@@ -117,6 +117,12 @@ jobs:
             timeout: 10
             extra-deps: ""
             ignore: ""
+          # TODO: expand to full tests_integ/memory once test stability is addressed
+          - group: memory
+            path: tests_integ/memory/test_controlplane.py tests_integ/memory/test_memory_client.py tests_integ/memory/integrations/test_session_manager.py
+            timeout: 10
+            extra-deps: ""
+            ignore: ""
           - group: evaluation
             path: tests_integ/evaluation
             timeout: 15
@@ -145,16 +151,18 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -e .
-          pip install --no-cache-dir pytest requests strands-agents uvicorn httpx starlette websockets ${{ matrix.extra-deps }}
+          pip install --no-cache-dir pytest pytest-xdist pytest-order requests strands-agents uvicorn httpx starlette websockets ${{ matrix.extra-deps }}
 
       - name: Run integration tests
         env:
           AWS_REGION: us-west-2
           PYTHONUNBUFFERED: 1
+          MEMORY_KINESIS_ARN: ${{ secrets.MEMORY_KINESIS_ARN }}
+          MEMORY_ROLE_ARN: ${{ secrets.MEMORY_ROLE_ARN }}
         id: tests
         timeout-minutes: ${{ matrix.timeout }}
         run: |
-          pytest ${{ matrix.path }} ${{ matrix.ignore }} -s --log-cli-level=INFO
+          pytest ${{ matrix.path }} ${{ matrix.ignore }} -n auto --dist=loadscope -s --log-cli-level=INFO
 
   safety-gate:
     runs-on: ubuntu-latest

@@ -21,14 +21,16 @@
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_cat.h"
 #include "tensorstore/internal/source_location.h"
+#include "tensorstore/util/status_builder.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace {
 
 using ::tensorstore::IsOk;
-using ::tensorstore::MaybeAnnotateStatus;
+using ::tensorstore::SourceLocation;
+using ::tensorstore::StatusBuilder;
 using ::tensorstore::StatusIs;
 using ::tensorstore::internal::InvokeForStatus;
 using ::testing::HasSubstr;
@@ -36,24 +38,31 @@ using ::testing::HasSubstr;
 TEST(StatusTest, StrCat) {
   const absl::Status s = absl::UnknownError("Message");
   EXPECT_THAT(s.ToString(), testing::HasSubstr("UNKNOWN: Message"));
-  EXPECT_THAT(tensorstore::StrCat(s), testing::HasSubstr("UNKNOWN: Message"));
+  EXPECT_THAT(absl::StrCat(s), testing::HasSubstr("UNKNOWN: Message"));
 }
 
-TEST(StatusTest, MaybeAnnotateStatus) {
-  EXPECT_THAT(MaybeAnnotateStatus(absl::OkStatus(), "Annotated"), IsOk());
+TEST(StatusTest, StatusBuilderAnnotate) {
+  EXPECT_THAT(StatusBuilder(absl::OkStatus())
+                  .SetPrepend()
+                  .Format("Annotated")
+                  .BuildStatus(),
+              IsOk());
 
-  EXPECT_THAT(MaybeAnnotateStatus(absl::OkStatus(), "Annotated",
-                                  tensorstore::SourceLocation::current()),
+  EXPECT_THAT(StatusBuilder(absl::OkStatus(), SourceLocation::current())
+                  .SetPrepend()
+                  .Format("Annotated")
+                  .BuildStatus(),
               IsOk());
 
   auto bar_status = absl::UnknownError("Bar");
   bar_status.SetPayload("a", absl::Cord("b"));
-  auto status = MaybeAnnotateStatus(bar_status, "Annotated");
+  auto status =
+      StatusBuilder(bar_status).SetPrepend().Format("Annotated").BuildStatus();
   EXPECT_TRUE(status.GetPayload("a").has_value());
 
   EXPECT_THAT(status, StatusIs(absl::StatusCode::kUnknown,
                                HasSubstr("Annotated: Bar")));
-  EXPECT_THAT(tensorstore::StrCat(status), testing::HasSubstr("a='b'"));
+  EXPECT_THAT(absl::StrCat(status), testing::HasSubstr("a='b'"));
 }
 
 TEST(StatusTest, InvokeForStatus) {
@@ -86,7 +95,7 @@ TEST(StatusTest, ReturnIfError) {
     return absl::UnknownError("No error");
   };
 
-  EXPECT_THAT(Helper(absl::Status()),
+  EXPECT_THAT(Helper(absl::OkStatus()),
               StatusIs(absl::StatusCode::kUnknown, HasSubstr("No error")));
 
   EXPECT_THAT(Helper(absl::UnknownError("Got error")),
@@ -95,14 +104,56 @@ TEST(StatusTest, ReturnIfError) {
 
 TEST(StatusTest, ReturnIfErrorAnnotate) {
   const auto Helper = [](absl::Status s) -> absl::Status {
-    TENSORSTORE_RETURN_IF_ERROR(s, MaybeAnnotateStatus(_, "Annotated"));
+    TENSORSTORE_RETURN_IF_ERROR(s).Format("Annotated");
     return absl::UnknownError("No error");
   };
-  EXPECT_THAT(Helper(absl::Status()),
+  EXPECT_THAT(Helper(absl::OkStatus()),
               StatusIs(absl::StatusCode::kUnknown, HasSubstr("No error")));
   EXPECT_THAT(
       Helper(absl::UnknownError("Got error")),
       StatusIs(absl::StatusCode::kUnknown, HasSubstr("Annotated: Got error")));
+}
+
+TEST(StatusTest, ReturnIfErrorWithReturnBool) {
+  const auto Helper = [](absl::Status s) {
+    TENSORSTORE_RETURN_IF_ERROR(s).With([](auto) { return false; });
+    return true;
+  };
+  EXPECT_TRUE(Helper(absl::OkStatus()));
+  EXPECT_FALSE(Helper(absl::UnknownError("Got error")));
+}
+
+TEST(StatusTest, ReturnIfErrorTwoArg) {
+  const auto Helper = [](absl::Status s) -> absl::Status {
+    TENSORSTORE_RETURN_IF_ERROR(s, _.Format("Annotated"));
+    return absl::UnknownError("No error");
+  };
+  EXPECT_THAT(Helper(absl::OkStatus()),
+              StatusIs(absl::StatusCode::kUnknown, HasSubstr("No error")));
+  EXPECT_THAT(
+      Helper(absl::UnknownError("Got error")),
+      StatusIs(absl::StatusCode::kUnknown, HasSubstr("Annotated: Got error")));
+}
+
+TEST(StatusTest, ReturnIfErrorTwoArgReturnBool) {
+  const auto Helper = [](absl::Status s) {
+    TENSORSTORE_RETURN_IF_ERROR(s, false);
+    return true;
+  };
+  EXPECT_TRUE(Helper(absl::OkStatus()));
+  EXPECT_FALSE(Helper(absl::UnknownError("Got error")));
+}
+
+TEST(StatusTest, StatusBuilderIsOk) {
+  EXPECT_THAT(StatusBuilder(absl::OkStatus()), IsOk());
+}
+
+TEST(StatusTest, StatusBuilderIsNotOk) {
+  EXPECT_THAT(StatusBuilder(absl::StatusCode::kUnknown),
+              ::testing::Not(IsOk()));
+
+  EXPECT_THAT(StatusBuilder(absl::StatusCode::kUnknown),
+              StatusIs(absl::StatusCode::kUnknown, testing::_));
 }
 
 }  // namespace

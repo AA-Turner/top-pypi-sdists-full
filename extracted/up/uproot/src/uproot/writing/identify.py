@@ -15,16 +15,21 @@ but not adding it to any :doc:`uproot.writing.writable.WritableDirectory`.
 The (many) other functions in this module construct writable :doc:`uproot.model.Model`
 objects from Python builtins and other writable models.
 """
+
 from __future__ import annotations
 
 from collections.abc import Mapping
 
+import awkward
 import numpy
 
 import uproot.compression
 import uproot.extras
 import uproot.pyroot
 import uproot.writing
+import uproot.writing._cascade
+import uproot.writing._cascadentuple
+import uproot.writing.writable
 
 
 def add_to_directory(obj, name, directory, streamers):
@@ -48,9 +53,7 @@ def add_to_directory(obj, name, directory, streamers):
 
     Raises ``TypeError`` if ``obj`` is not recognized as writable data.
     """
-    obj = uproot.writing.writable._regularize_input_type_to_awkward(obj)
-
-    awkward = uproot.extras.awkward()
+    obj = uproot.writing._cascadentuple._regularize_input_type_to_awkward(obj)
 
     if isinstance(obj, Mapping) and all(isinstance(x, str) for x in obj):
         metadata, data = uproot.writing.writable._unpack_metadata_and_arrays(obj)
@@ -416,7 +419,7 @@ def to_writable(obj):
             title = ""
 
         if len(obj) == 2:
-            (entries, edges) = obj
+            entries, edges = obj
 
             with_flow = numpy.empty(len(entries) + 2, dtype=">f8")
             with_flow[1:-1] = entries
@@ -456,7 +459,7 @@ def to_writable(obj):
             )
 
         elif len(obj) == 3:
-            (entries, xedges, yedges) = obj
+            entries, xedges, yedges = obj
 
             fEntries = entries.sum()
             (
@@ -525,7 +528,7 @@ def to_writable(obj):
             )
 
         elif len(obj) == 4:
-            (entries, xedges, yedges, zedges) = obj
+            entries, xedges, yedges, zedges = obj
 
             fEntries = entries.sum()
             (

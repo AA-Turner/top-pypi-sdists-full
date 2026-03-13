@@ -11,10 +11,12 @@ import pytest
 
 from mindroom.tool_system.dependencies import (
     _PIP_TO_IMPORT,
-    _install_tool_extras,
+    _install_optional_extras,
     _install_via_uv_sync,
     _pip_name_to_import,
+    auto_install_optional_extra,
     check_deps_installed,
+    install_command_for_current_python,
 )
 from mindroom.tool_system.metadata import (
     _TOOL_REGISTRY,
@@ -73,6 +75,12 @@ def test_tool_extras_in_sync_with_pyproject() -> None:
     if result.returncode != 0:
         output = (result.stdout + result.stderr).strip()
         pytest.fail(f"Tool extras out of sync with pyproject.toml:\n{output}")
+
+
+def test_full_runtime_image_keeps_sentence_transformers_runtime_only() -> None:
+    """The full image should not preinstall the runtime-only sentence_transformers extra."""
+    dockerfile = Path("local/instances/deploy/Dockerfile.mindroom").read_text(encoding="utf-8")
+    assert "--all-extras --no-extra sentence_transformers" in dockerfile
 
 
 def test_tools_requiring_config_metadata() -> None:
@@ -260,8 +268,98 @@ def test_install_via_uv_sync_targets_active_virtualenv(monkeypatch: pytest.Monke
     assert env["VIRTUAL_ENV"] == sys.prefix
 
 
-def test_install_tool_extras_skips_uv_sync_outside_virtualenv(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Outside virtualenvs, tool extras should install via pip/uv pip instead of uv sync."""
+def test_install_command_for_current_python_uses_uv_system_outside_virtualenv(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Non-venv uv installs must target the system interpreter explicitly."""
+    monkeypatch.setattr("mindroom.tool_system.dependencies._in_virtualenv", lambda: False)
+    monkeypatch.setattr("mindroom.tool_system.dependencies._current_python_has_module", lambda _module_name: False)
+    monkeypatch.setattr("mindroom.tool_system.dependencies.shutil.which", lambda _binary: "/usr/bin/uv")
+
+    assert install_command_for_current_python() == [
+        "uv",
+        "pip",
+        "install",
+        "--python",
+        sys.executable,
+        "--system",
+    ]
+
+
+def test_install_command_for_current_python_prefers_current_python_uv_module(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """When PATH lacks uv, the current interpreter should still be able to run `python -m uv`."""
+    monkeypatch.setattr("mindroom.tool_system.dependencies._in_virtualenv", lambda: False)
+    monkeypatch.setattr(
+        "mindroom.tool_system.dependencies._current_python_has_module",
+        lambda module_name: module_name == "uv",
+    )
+    monkeypatch.setattr("mindroom.tool_system.dependencies.shutil.which", lambda _binary: None)
+
+    assert install_command_for_current_python() == [
+        sys.executable,
+        "-m",
+        "uv",
+        "pip",
+        "install",
+        "--python",
+        sys.executable,
+        "--system",
+    ]
+
+
+def test_install_command_for_current_python_uses_pip_user_outside_virtualenv(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Non-venv pip installs must avoid writing to the managed interpreter directly."""
+    monkeypatch.setattr("mindroom.tool_system.dependencies._in_virtualenv", lambda: False)
+    monkeypatch.setattr("mindroom.tool_system.dependencies._current_python_has_module", lambda _module_name: False)
+    monkeypatch.setattr("mindroom.tool_system.dependencies.shutil.which", lambda _binary: None)
+
+    assert install_command_for_current_python() == [
+        sys.executable,
+        "-m",
+        "pip",
+        "install",
+        "--user",
+    ]
+
+
+def test_auto_install_optional_extra_supports_non_tool_groups(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Non-tool optional extras should use the same runtime install path."""
+    monkeypatch.setattr("mindroom.tool_system.dependencies.auto_install_enabled", lambda: True)
+    monkeypatch.setattr(
+        "mindroom.tool_system.dependencies._available_optional_extras",
+        lambda: {"sentence_transformers"},
+    )
+    monkeypatch.setattr(
+        "mindroom.tool_system.dependencies._install_optional_extras",
+        lambda extras, *, quiet=False: extras == ["sentence_transformers"] and quiet,
+    )
+
+    assert auto_install_optional_extra("sentence_transformers")
+
+
+def test_auto_install_optional_extra_matches_installed_metadata_names(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Normalized extra names should resolve when installed metadata uses hyphens."""
+    monkeypatch.setattr("mindroom.tool_system.dependencies.auto_install_enabled", lambda: True)
+    monkeypatch.setattr(
+        "mindroom.tool_system.dependencies._available_optional_extras",
+        lambda: {"sentence-transformers"},
+    )
+    monkeypatch.setattr(
+        "mindroom.tool_system.dependencies._install_optional_extras",
+        lambda extras, *, quiet=False: extras == ["sentence-transformers"] and quiet,
+    )
+
+    assert auto_install_optional_extra("sentence_transformers")
+
+
+def test_install_optional_extras_skips_uv_sync_outside_virtualenv(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Outside virtualenvs, optional extras should install via pip/uv pip instead of uv sync."""
     calls = {"sync": 0, "env": 0}
 
     def fake_install_via_uv_sync(_extras: list[str], *, quiet: bool) -> bool:  # noqa: ARG001
@@ -279,6 +377,6 @@ def test_install_tool_extras_skips_uv_sync_outside_virtualenv(monkeypatch: pytes
     monkeypatch.setattr("mindroom.tool_system.dependencies._install_via_uv_sync", fake_install_via_uv_sync)
     monkeypatch.setattr("mindroom.tool_system.dependencies._install_in_environment", fake_install_in_environment)
 
-    assert _install_tool_extras(["wikipedia"], quiet=True)
+    assert _install_optional_extras(["wikipedia"], quiet=True)
     assert calls["sync"] == 0
     assert calls["env"] == 1

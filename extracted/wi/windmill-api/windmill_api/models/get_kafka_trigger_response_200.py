@@ -39,6 +39,8 @@ class GetKafkaTriggerResponse200:
         auto_offset_reset (Union[Unset, GetKafkaTriggerResponse200AutoOffsetReset]): Initial offset behavior when
             consumer group has no committed offset. 'latest' starts from new messages only, 'earliest' starts from the
             beginning. Default: GetKafkaTriggerResponse200AutoOffsetReset.LATEST.
+        auto_commit (Union[Unset, bool]): When true (default), offsets are committed automatically after receiving each
+            message. When false, you must manually commit offsets using the commit_offsets endpoint. Default: True.
         server_id (Union[Unset, str]): ID of the server currently handling this trigger (internal)
         last_server_ping (Union[Unset, datetime.datetime]): Timestamp of last server heartbeat (internal)
         error (Union[Unset, str]): Last error message if the trigger failed
@@ -64,6 +66,7 @@ class GetKafkaTriggerResponse200:
     auto_offset_reset: Union[
         Unset, GetKafkaTriggerResponse200AutoOffsetReset
     ] = GetKafkaTriggerResponse200AutoOffsetReset.LATEST
+    auto_commit: Union[Unset, bool] = True
     server_id: Union[Unset, str] = UNSET
     last_server_ping: Union[Unset, datetime.datetime] = UNSET
     error: Union[Unset, str] = UNSET
@@ -99,6 +102,7 @@ class GetKafkaTriggerResponse200:
         if not isinstance(self.auto_offset_reset, Unset):
             auto_offset_reset = self.auto_offset_reset.value
 
+        auto_commit = self.auto_commit
         server_id = self.server_id
         last_server_ping: Union[Unset, str] = UNSET
         if not isinstance(self.last_server_ping, Unset):
@@ -135,6 +139,8 @@ class GetKafkaTriggerResponse200:
         )
         if auto_offset_reset is not UNSET:
             field_dict["auto_offset_reset"] = auto_offset_reset
+        if auto_commit is not UNSET:
+            field_dict["auto_commit"] = auto_commit
         if server_id is not UNSET:
             field_dict["server_id"] = server_id
         if last_server_ping is not UNSET:
@@ -198,6 +204,8 @@ class GetKafkaTriggerResponse200:
         else:
             auto_offset_reset = GetKafkaTriggerResponse200AutoOffsetReset(_auto_offset_reset)
 
+        auto_commit = d.pop("auto_commit", UNSET)
+
         server_id = d.pop("server_id", UNSET)
 
         _last_server_ping = d.pop("last_server_ping", UNSET)
@@ -240,6 +248,7 @@ class GetKafkaTriggerResponse200:
             is_flow=is_flow,
             mode=mode,
             auto_offset_reset=auto_offset_reset,
+            auto_commit=auto_commit,
             server_id=server_id,
             last_server_ping=last_server_ping,
             error=error,

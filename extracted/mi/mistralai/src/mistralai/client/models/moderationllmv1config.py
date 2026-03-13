@@ -2,7 +2,7 @@
 # @generated-id: 483378b56394
 
 from __future__ import annotations
-from .moderationllmv1action import ModerationLlmv1Action
+from .moderationllmaction import ModerationLLMAction
 from .moderationllmv1categorythresholds import (
     ModerationLlmv1CategoryThresholds,
     ModerationLlmv1CategoryThresholdsTypedDict,
@@ -25,10 +25,9 @@ class ModerationLlmv1ConfigTypedDict(TypedDict):
     custom_category_thresholds: NotRequired[
         Nullable[ModerationLlmv1CategoryThresholdsTypedDict]
     ]
-    r"""Override default thresholds for specific categories."""
     ignore_other_categories: NotRequired[bool]
     r"""If true, only evaluate categories in custom_category_thresholds; others are ignored."""
-    action: NotRequired[ModerationLlmv1Action]
+    action: NotRequired[ModerationLLMAction]
 
 
 class ModerationLlmv1Config(BaseModel):
@@ -38,12 +37,11 @@ class ModerationLlmv1Config(BaseModel):
     custom_category_thresholds: OptionalNullable[ModerationLlmv1CategoryThresholds] = (
         UNSET
     )
-    r"""Override default thresholds for specific categories."""
 
     ignore_other_categories: Optional[bool] = False
     r"""If true, only evaluate categories in custom_category_thresholds; others are ignored."""
 
-    action: Optional[ModerationLlmv1Action] = None
+    action: Optional[ModerationLLMAction] = None
 
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):

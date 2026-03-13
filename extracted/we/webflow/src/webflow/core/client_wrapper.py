@@ -3,18 +3,38 @@
 import typing
 
 import httpx
+from ..environment import WebflowEnvironment
+from .http_client import AsyncHttpClient, HttpClient
+from .logging import LogConfig, Logger
 
 
 class BaseClientWrapper:
-    def __init__(self, *, access_token: typing.Union[str, typing.Callable[[], str]], base_url: str):
+    def __init__(
+        self,
+        *,
+        access_token: typing.Union[str, typing.Callable[[], str]],
+        headers: typing.Optional[typing.Dict[str, str]] = None,
+        environment: WebflowEnvironment,
+        timeout: typing.Optional[float] = None,
+        logging: typing.Optional[typing.Union[LogConfig, Logger]] = None,
+    ):
         self._access_token = access_token
-        self._base_url = base_url
+        self._headers = headers
+        self._environment = environment
+        self._timeout = timeout
+        self._logging = logging
 
     def get_headers(self) -> typing.Dict[str, str]:
+        import platform
+
         headers: typing.Dict[str, str] = {
+            "User-Agent": "webflow/2.0.0",
             "X-Fern-Language": "Python",
+            "X-Fern-Runtime": f"python/{platform.python_version()}",
+            "X-Fern-Platform": f"{platform.system().lower()}/{platform.release()}",
             "X-Fern-SDK-Name": "webflow",
-            "X-Fern-SDK-Version": "v1.2.0",
+            "X-Fern-SDK-Version": "2.0.0",
+            **(self.get_custom_headers() or {}),
         }
         headers["Authorization"] = f"Bearer {self._get_access_token()}"
         return headers
@@ -25,16 +45,36 @@ class BaseClientWrapper:
         else:
             return self._access_token()
 
-    def get_base_url(self) -> str:
-        return self._base_url
+    def get_custom_headers(self) -> typing.Optional[typing.Dict[str, str]]:
+        return self._headers
+
+    def get_environment(self) -> WebflowEnvironment:
+        return self._environment
+
+    def get_timeout(self) -> typing.Optional[float]:
+        return self._timeout
 
 
 class SyncClientWrapper(BaseClientWrapper):
     def __init__(
-        self, *, access_token: typing.Union[str, typing.Callable[[], str]], base_url: str, httpx_client: httpx.Client
+        self,
+        *,
+        access_token: typing.Union[str, typing.Callable[[], str]],
+        headers: typing.Optional[typing.Dict[str, str]] = None,
+        environment: WebflowEnvironment,
+        timeout: typing.Optional[float] = None,
+        logging: typing.Optional[typing.Union[LogConfig, Logger]] = None,
+        httpx_client: httpx.Client,
     ):
-        super().__init__(access_token=access_token, base_url=base_url)
-        self.httpx_client = httpx_client
+        super().__init__(
+            access_token=access_token, headers=headers, environment=environment, timeout=timeout, logging=logging
+        )
+        self.httpx_client = HttpClient(
+            httpx_client=httpx_client,
+            base_headers=self.get_headers,
+            base_timeout=self.get_timeout,
+            logging_config=self._logging,
+        )
 
 
 class AsyncClientWrapper(BaseClientWrapper):
@@ -42,8 +82,28 @@ class AsyncClientWrapper(BaseClientWrapper):
         self,
         *,
         access_token: typing.Union[str, typing.Callable[[], str]],
-        base_url: str,
+        headers: typing.Optional[typing.Dict[str, str]] = None,
+        environment: WebflowEnvironment,
+        timeout: typing.Optional[float] = None,
+        logging: typing.Optional[typing.Union[LogConfig, Logger]] = None,
+        async_token: typing.Optional[typing.Callable[[], typing.Awaitable[str]]] = None,
         httpx_client: httpx.AsyncClient,
     ):
-        super().__init__(access_token=access_token, base_url=base_url)
-        self.httpx_client = httpx_client
+        super().__init__(
+            access_token=access_token, headers=headers, environment=environment, timeout=timeout, logging=logging
+        )
+        self._async_token = async_token
+        self.httpx_client = AsyncHttpClient(
+            httpx_client=httpx_client,
+            base_headers=self.get_headers,
+            base_timeout=self.get_timeout,
+            async_base_headers=self.async_get_headers,
+            logging_config=self._logging,
+        )
+
+    async def async_get_headers(self) -> typing.Dict[str, str]:
+        headers = self.get_headers()
+        if self._async_token is not None:
+            token = await self._async_token()
+            headers["Authorization"] = f"Bearer {token}"
+        return headers

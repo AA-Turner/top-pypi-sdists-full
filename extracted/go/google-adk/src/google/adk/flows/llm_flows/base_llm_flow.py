@@ -16,7 +16,6 @@ from __future__ import annotations
 
 from abc import ABC
 import asyncio
-import datetime
 import inspect
 import logging
 from typing import AsyncGenerator
@@ -24,6 +23,7 @@ from typing import cast
 from typing import Optional
 from typing import TYPE_CHECKING
 
+from google.adk.platform import time as platform_time
 from google.genai import types
 from websockets.exceptions import ConnectionClosed
 from websockets.exceptions import ConnectionClosedOK
@@ -368,11 +368,17 @@ async def _run_and_handle_error(
 
   try:
     async with Aclosing(response_generator) as agen:
-      with tracing.use_generate_content_span(
-          llm_request, invocation_context, model_response_event
-      ) as span:
+      async with tracing.use_inference_span(
+          llm_request,
+          invocation_context,
+          model_response_event,
+      ) as gc_span:
         async for llm_response in agen:
-          tracing.trace_generate_content_result(span, llm_response)
+          if gc_span:
+            tracing.trace_inference_result(
+                gc_span,
+                llm_response,
+            )
           yield llm_response
   except Exception as model_error:
     callback_context = CallbackContext(
@@ -839,7 +845,7 @@ class BaseLlmFlow(ABC):
           async for event in agen:
             # Update the mutable event id to avoid conflict
             model_response_event.id = Event.new_id()
-            model_response_event.timestamp = datetime.datetime.now().timestamp()
+            model_response_event.timestamp = platform_time.get_time()
             yield event
 
   async def _preprocess_async(

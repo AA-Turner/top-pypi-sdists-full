@@ -15,7 +15,7 @@ else:
         for cmd in ("sdist", "egg_info", "--name", "--version", "--help", "--help-commands")
     )
 
-VERSION: Final = "5.3.24"
+VERSION: Final = "5.3.25"
 DESCRIPTION: Final = "A faster fork of eth-utils: Common utility functions for python code that interacts with Ethereum. Implemented in C."
 
 ext_modules: list[Extension] = []
@@ -118,10 +118,11 @@ setup(
     },
     include_package_data=True,
     install_requires=[
-        "cchecksum==0.4.1",
+        "cchecksum==0.4.3",
         "eth-hash>=0.3.1",
         "eth-typing==5.2.1",
         "eth-utils==5.3.1",
+        "mypy-extensions>=0.4.2",
         "toolz>0.8.2;implementation_name=='pypy'",
         "cytoolz>=0.10.1;implementation_name=='cpython'",
         "pydantic>=2.0.0,<3",

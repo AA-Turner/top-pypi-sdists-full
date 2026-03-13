@@ -1,0 +1,2 @@
+import{j as s}from"./vendor-tanstack-DXJUyAoV.js";import{B as a,g as r,h as i,q as l,I as t}from"./index-CsXgjoBo.js";const n=({onAddVariableClick:e})=>s.jsxs("div",{className:"flex items-center gap-2",children:[s.jsx(a,{children:s.jsx(r,{children:s.jsx(i,{className:"text-xl font-semibold",children:"Variables"})})}),e&&s.jsx(l,{size:"icon",className:"size-7",variant:"outline","aria-label":"Add variable",onClick:()=>e(),children:s.jsx(t,{id:"Plus",className:"size-4"})})]});export{n as V};
+//# sourceMappingURL=header-B-NV5iAG.js.map

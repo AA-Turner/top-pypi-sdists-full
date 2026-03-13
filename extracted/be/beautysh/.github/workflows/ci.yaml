@@ -1,4 +1,4 @@
-name: CI
+name: ci
 on:
   push:
     branches: [master, main]
@@ -11,13 +11,13 @@ jobs:
     outputs:
       matrix: ${{ steps.eval.outputs.matrix }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: cachix/install-nix-action@v31
         with:
           extra_nix_config: |
             experimental-features = nix-command flakes
             accept-flake-config = true
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         with:
           path: |
             ~/.cache/nix
@@ -37,13 +37,13 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJSON(needs.nix-eval.outputs.matrix) }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: cachix/install-nix-action@v31
         with:
           extra_nix_config: |
             experimental-features = nix-command flakes
             accept-flake-config = true
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         with:
           path: |
             ~/.cache/nix
@@ -58,3 +58,15 @@ jobs:
           skipPush: ${{ github.event_name == 'pull_request' }}
       - name: Build ${{ matrix.name }} (${{ matrix.system }})
         run: nix build -L '.#${{ matrix.attr }}'
+  ci-gate:
+    if: always()
+    # nix-eval is covered transitively: nix-matrix needs it, so if nix-eval
+    # fails nix-matrix skips, and alls-green treats skip as failure.
+    # Including nix-eval directly breaks alls-green because its matrix output
+    # contains escaped quotes that get mangled through the action's heredoc.
+    needs: [nix-matrix]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: re-actors/alls-green@release/v1
+        with:
+          jobs: ${{ toJSON(needs) }}

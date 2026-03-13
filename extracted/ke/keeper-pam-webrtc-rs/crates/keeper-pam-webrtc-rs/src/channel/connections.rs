@@ -499,6 +499,7 @@ pub async fn setup_outbound_task(
                             Err(e) => {
                                 if !e.contains("DataChannel is not opened")
                                     && !e.contains("Channel is closing")
+                                    && !e.contains("DataChannel closed")
                                 {
                                     error!(
                                         "Fragment send failed (channel_id: {}, conn_no: {}, fragment: {}, error: {})",
@@ -537,8 +538,11 @@ pub async fn setup_outbound_task(
                 }
                 Err(e) => {
                     // Only log if the error is not related to a closed connection
-                    if !e.to_string().contains("DataChannel is not opened")
-                        && !e.to_string().contains("Channel is closing")
+                    // KCM-style teardown: transport-layer close, no protocol-level disconnect needed
+                    let err_str = e.to_string();
+                    if !err_str.contains("DataChannel is not opened")
+                        && !err_str.contains("Channel is closing")
+                        && !err_str.contains("DataChannel closed")
                     {
                         error!("Event-driven send failed (channel_id: {}, conn_no: {}, context: {}, error: {})", channel_id_local, conn_no_local, context_msg, e);
                     }
@@ -682,12 +686,10 @@ pub async fn setup_outbound_task(
                     biased;  // Check cancellation first for faster exit
 
                     _ = cancel_token_for_task.cancelled() => {
-                        if unlikely!(should_log_connection(true)) {
-                            debug!(
-                                "Backend read cancelled due to WebRTC closure (channel_id: {}, conn_no: {})",
-                                channel_id_for_task, conn_no
-                            );
-                        }
+                        debug!(
+                            "Guacd outbound: Read cancelled, exiting (channel_id: {}, conn_no: {})",
+                            channel_id_for_task, conn_no
+                        );
                         break;  // Exit immediately
                     }
 
@@ -718,12 +720,10 @@ pub async fn setup_outbound_task(
                     biased;  // Check cancellation first for faster exit
 
                     _ = cancel_token_for_task.cancelled() => {
-                        if unlikely!(should_log_connection(true)) {
-                            debug!(
-                                "Backend read cancelled due to WebRTC closure (channel_id: {}, conn_no: {})",
-                                channel_id_for_task, conn_no
-                            );
-                        }
+                        debug!(
+                            "Guacd outbound: Read cancelled, exiting (channel_id: {}, conn_no: {})",
+                            channel_id_for_task, conn_no
+                        );
                         break;  // Exit immediately
                     }
 
@@ -754,6 +754,10 @@ pub async fn setup_outbound_task(
             match n_read {
                 0 => {
                     // EOF detected - guacd closed connection
+                    debug!(
+                        "Guacd outbound: EOF from guacd, connection closed (channel_id: {}, conn_no: {})",
+                        channel_id_for_task, conn_no
+                    );
                     if !eof_sent {
                         // First EOF detection
 
@@ -1005,21 +1009,50 @@ pub async fn setup_outbound_task(
                                                 );
                                             }
 
-                                            // Check if Python already sent a CloseConnection with specific reason
-                                            // (e.g., AI_CLOSED). If so, don't send a second one that would overwrite it.
-                                            let python_already_closed = channel_close_reason_arc
+                                            // Check if Python/tube already set a CloseConnection reason
+                                            // (e.g., AI_CLOSED = 15). If so, use that reason when sending
+                                            // CloseConnection so the client receives the correct reason.
+                                            let existing_reason = channel_close_reason_arc
                                                 .try_lock()
                                                 .ok()
-                                                .and_then(|guard| *guard)
-                                                .is_some();
+                                                .and_then(|guard| *guard);
 
-                                            if python_already_closed {
-                                                // Python already sent CloseConnection with the correct reason
-                                                // (e.g., AI_CLOSED = 15). Don't send a second one with GuacdError.
-                                                // This prevents overwriting AI_CLOSED with GuacdError in Vault.
+                                            if let Some(reason) = existing_reason {
+                                                // Send CloseConnection with the existing reason (e.g., AI_CLOSED)
+                                                // so the client receives the correct close reason, not GuacdError.
                                                 if unlikely!(should_log_connection(false)) {
                                                     debug!(
-                                                        "Channel({}): Conn {}: Skipping redundant CloseConnection (Python already sent with specific reason)",
+                                                        "Channel({}): Conn {}: Sending CloseConnection with existing reason {:?}",
+                                                        channel_id_for_task, conn_no, reason
+                                                    );
+                                                }
+                                                let mut temp_buf_for_control =
+                                                    buffer_pool.acquire();
+                                                temp_buf_for_control.clear();
+                                                temp_buf_for_control
+                                                    .extend_from_slice(&conn_no.to_be_bytes());
+                                                temp_buf_for_control.put_u8(reason as u8);
+
+                                                let close_frame = Frame::new_control_with_buffer(
+                                                    ControlMessage::CloseConnection,
+                                                    &mut temp_buf_for_control,
+                                                );
+                                                buffer_pool.release(temp_buf_for_control);
+                                                let encoded_close_frame =
+                                                    close_frame.encode_with_pool(&buffer_pool);
+                                                if send_with_event_backpressure(
+                                                    encoded_close_frame,
+                                                    conn_no,
+                                                    &event_sender,
+                                                    &channel_id_for_task,
+                                                    "Guacd close (existing reason)",
+                                                    fragmentation_enabled,
+                                                )
+                                                .await
+                                                .is_err()
+                                                {
+                                                    error!(
+                                                        "Channel({}): Conn {}: Failed to send CloseConnection with existing reason",
                                                         channel_id_for_task, conn_no
                                                     );
                                                 }
@@ -1072,17 +1105,17 @@ pub async fn setup_outbound_task(
                                                     );
                                                 }
 
-                                                // Store the close reason so internal_handle_connection_close knows this was a GuacdError
-                                                // This allows the tube to be closed with the correct reason instead of generic UpstreamClosed
+                                                // Store the close reason so the post-loop check and tube know how this ended.
+                                                // Use close_reason (Normal for clean disconnect, GuacdError for error)
+                                                // so a clean guacd disconnect does not trigger is_critical() upstream.
                                                 if let Ok(mut guard) =
                                                     channel_close_reason_arc.try_lock()
                                                 {
-                                                    *guard =
-                                                        Some(CloseConnectionReason::GuacdError);
+                                                    *guard = Some(close_reason);
                                                     if unlikely!(should_log_connection(false)) {
                                                         debug!(
-                                                            "Stored GuacdError as close reason for channel (channel_id: {}, conn_no: {})",
-                                                            channel_id_for_task, conn_no
+                                                            "Stored {:?} as close reason for channel (channel_id: {}, conn_no: {})",
+                                                            close_reason, channel_id_for_task, conn_no
                                                         );
                                                     }
                                                 }
@@ -1843,7 +1876,6 @@ where
     }
     let encoded_select = GuacdParser::guacd_encode_instruction(&select_instruction);
     writer.write_all(&encoded_select).await?;
-    writer.flush().await?;
 
     // Step 2: Receive args from proxy
     let args_instruction = read_expected_instruction(
@@ -1917,7 +1949,6 @@ where
     writer
         .write_all(&GuacdParser::guacd_encode_instruction(&connect_instruction))
         .await?;
-    writer.flush().await?;
 
     // Step 5: Receive ready or error
     let ready_instruction = read_expected_instruction(

@@ -23,6 +23,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -167,8 +168,11 @@ struct LeafNodeValueReferenceArrayCodec {
       auto* data_ref = std::get_if<IndirectDataReference>(&value_reference);
       if (!data_ref) continue;
       if (!DataFileOffsetCodec{}(reader, data_ref->offset)) return false;
-      TENSORSTORE_RETURN_IF_ERROR(data_ref->Validate(/*allow_missing=*/false),
-                                  (reader.Fail(_), false));
+      TENSORSTORE_RETURN_IF_ERROR(data_ref->Validate(/*allow_missing=*/false))
+          .With([&](absl::Status status) {
+            reader.Fail(std::move(status));
+            return false;
+          });
     }
 
     // Read values for direct values.

@@ -17,14 +17,13 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.struct_pb2 as struct_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
 import proto  # type: ignore
 
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import struct_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
 from google.pubsub_v1.types import schema as gp_schema
-
 
 __protobuf__ = proto.module(
     package="google.pubsub.v1",
@@ -58,6 +57,7 @@ __protobuf__ = proto.module(
         "ExpirationPolicy",
         "PushConfig",
         "BigQueryConfig",
+        "BigtableConfig",
         "CloudStorageConfig",
         "ReceivedMessage",
         "GetSubscriptionRequest",
@@ -260,6 +260,7 @@ class IngestionDataSourceSettings(proto.Message):
                 CONSUMER_NOT_FOUND (5):
                     The Kinesis consumer does not exist.
             """
+
             STATE_UNSPECIFIED = 0
             ACTIVE = 1
             KINESIS_PERMISSION_DENIED = 2
@@ -364,6 +365,7 @@ class IngestionDataSourceSettings(proto.Message):
                     The Cloud Storage bucket has too many
                     objects, ingestion will be paused.
             """
+
             STATE_UNSPECIFIED = 0
             ACTIVE = 1
             CLOUD_STORAGE_PERMISSION_DENIED = 2
@@ -508,6 +510,7 @@ class IngestionDataSourceSettings(proto.Message):
                     The provided Event Hubs resource group
                     couldn't be found.
             """
+
             STATE_UNSPECIFIED = 0
             ACTIVE = 1
             EVENT_HUBS_PERMISSION_DENIED = 2
@@ -599,6 +602,7 @@ class IngestionDataSourceSettings(proto.Message):
                 TOPIC_NOT_FOUND (5):
                     The provided topic wasn't found.
             """
+
             STATE_UNSPECIFIED = 0
             ACTIVE = 1
             MSK_PERMISSION_DENIED = 2
@@ -677,6 +681,7 @@ class IngestionDataSourceSettings(proto.Message):
                 TOPIC_NOT_FOUND (6):
                     The provided topic wasn't found.
             """
+
             STATE_UNSPECIFIED = 0
             ACTIVE = 1
             CONFLUENT_CLOUD_PERMISSION_DENIED = 2
@@ -778,6 +783,7 @@ class PlatformLogsSettings(proto.Message):
             ERROR (5):
                 Only error logs will be written.
         """
+
         SEVERITY_UNSPECIFIED = 0
         DISABLED = 1
         DEBUG = 2
@@ -1548,6 +1554,7 @@ class Topic(proto.Message):
                 detailed error state in the corresponding
                 ingestion source configuration.
         """
+
         STATE_UNSPECIFIED = 0
         ACTIVE = 1
         INGESTION_RESOURCE_ERROR = 2
@@ -2004,6 +2011,10 @@ class Subscription(proto.Message):
             Optional. If delivery to Google Cloud Storage
             is used with this subscription, this field is
             used to configure it.
+        bigtable_config (google.pubsub_v1.types.BigtableConfig):
+            Optional. If delivery to Bigtable is used
+            with this subscription, this field is used to
+            configure it.
         ack_deadline_seconds (int):
             Optional. The approximate amount of time (on a best-effort
             basis) Pub/Sub waits for the subscriber to acknowledge
@@ -2165,6 +2176,7 @@ class Subscription(proto.Message):
                 it pushes messages. See the more detailed error
                 state in the corresponding configuration.
         """
+
         STATE_UNSPECIFIED = 0
         ACTIVE = 1
         RESOURCE_ERROR = 2
@@ -2216,6 +2228,11 @@ class Subscription(proto.Message):
         proto.MESSAGE,
         number=22,
         message="CloudStorageConfig",
+    )
+    bigtable_config: "BigtableConfig" = proto.Field(
+        proto.MESSAGE,
+        number=27,
+        message="BigtableConfig",
     )
     ack_deadline_seconds: int = proto.Field(
         proto.INT32,
@@ -2627,6 +2644,7 @@ class BigQueryConfig(proto.Message):
                 in the same location as where Vertex AI models used in
                 ``message_transform``\ s are deployed.
         """
+
         STATE_UNSPECIFIED = 0
         ACTIVE = 1
         PERMISSION_DENIED = 2
@@ -2663,6 +2681,123 @@ class BigQueryConfig(proto.Message):
     service_account_email: str = proto.Field(
         proto.STRING,
         number=7,
+    )
+
+
+class BigtableConfig(proto.Message):
+    r"""Configuration for a Bigtable subscription. The Pub/Sub
+    message will be written to a Bigtable row as follows:
+
+    - row key: subscription name and message ID delimited by #.
+    - columns: message bytes written to a single column family
+      "data" with an   empty-string column qualifier.
+    - cell timestamp: the message publish timestamp.
+
+    Attributes:
+        table (str):
+            Optional. The unique name of the table to write messages to.
+
+            Values are of the form
+            ``projects/<project>/instances/<instance>/tables/<table>``.
+        app_profile_id (str):
+            Optional. The app profile to use for the
+            Bigtable writes. If not specified, the "default"
+            application profile will be used. The app
+            profile must use single-cluster routing.
+        service_account_email (str):
+            Optional. The service account to use to write to Bigtable.
+            The subscription creator or updater that specifies this
+            field must have ``iam.serviceAccounts.actAs`` permission on
+            the service account. If not specified, the Pub/Sub `service
+            agent <https://cloud.google.com/iam/docs/service-agents>`__,
+            service-{project_number}@gcp-sa-pubsub.iam.gserviceaccount.com,
+            is used.
+        write_metadata (bool):
+            Optional. When true, write the subscription name,
+            message_id, publish_time, attributes, and ordering_key to
+            additional columns in the table under the pubsub_metadata
+            column family. The subscription name, message_id, and
+            publish_time fields are put in their own columns while all
+            other message properties (other than data) are written to a
+            JSON object in the attributes column.
+        state (google.pubsub_v1.types.BigtableConfig.State):
+            Output only. An output-only field that
+            indicates whether or not the subscription can
+            receive messages.
+    """
+
+    class State(proto.Enum):
+        r"""Possible states for a Bigtable subscription.
+        Note: more states could be added in the future. Please code
+        accordingly.
+
+        Values:
+            STATE_UNSPECIFIED (0):
+                Default value. This value is unused.
+            ACTIVE (1):
+                The subscription can actively send messages
+                to Bigtable.
+            NOT_FOUND (2):
+                Cannot write to Bigtable because the
+                instance, table, or app profile does not exist.
+            APP_PROFILE_MISCONFIGURED (3):
+                Cannot write to Bigtable because the app
+                profile is not configured for single-cluster
+                routing.
+            PERMISSION_DENIED (4):
+                Cannot write to Bigtable because of permission denied
+                errors. This can happen if:
+
+                - The Pub/Sub service agent has not been granted the
+                  `appropriate Bigtable IAM permission
+                  bigtable.tables.mutateRows <{$universe.dns_names.final_documentation_domain}/bigtable/docs/access-control#permissions>`__
+                - The bigtable.googleapis.com API is not enabled for the
+                  project
+                  (`instructions <{$universe.dns_names.final_documentation_domain}/service-usage/docs/enable-disable>`__)
+            SCHEMA_MISMATCH (5):
+                Cannot write to Bigtable because of a missing
+                column family ("data") or if there is no
+                structured row key for the subscription name +
+                message ID.
+            IN_TRANSIT_LOCATION_RESTRICTION (6):
+                Cannot write to the destination because enforce_in_transit
+                is set to true and the destination locations are not in the
+                allowed regions.
+            VERTEX_AI_LOCATION_RESTRICTION (7):
+                Cannot write to Bigtable because the table is not in the
+                same location as where Vertex AI models used in
+                ``message_transform``\ s are deployed.
+        """
+
+        STATE_UNSPECIFIED = 0
+        ACTIVE = 1
+        NOT_FOUND = 2
+        APP_PROFILE_MISCONFIGURED = 3
+        PERMISSION_DENIED = 4
+        SCHEMA_MISMATCH = 5
+        IN_TRANSIT_LOCATION_RESTRICTION = 6
+        VERTEX_AI_LOCATION_RESTRICTION = 7
+
+    table: str = proto.Field(
+        proto.STRING,
+        number=1,
+    )
+    app_profile_id: str = proto.Field(
+        proto.STRING,
+        number=2,
+    )
+    service_account_email: str = proto.Field(
+        proto.STRING,
+        number=3,
+    )
+    write_metadata: bool = proto.Field(
+        proto.BOOL,
+        number=5,
+    )
+    state: State = proto.Field(
+        proto.ENUM,
+        number=4,
+        enum=State,
     )
 
 
@@ -2765,6 +2900,7 @@ class CloudStorageConfig(proto.Message):
                 is not in the same location as where Vertex AI models used
                 in ``message_transform``\ s are deployed.
         """
+
         STATE_UNSPECIFIED = 0
         ACTIVE = 1
         PERMISSION_DENIED = 2

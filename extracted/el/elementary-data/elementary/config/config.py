@@ -76,6 +76,7 @@ class Config:
         run_dbt_deps_if_needed: Optional[bool] = None,
         project_name: Optional[str] = None,
         quiet_logs: Optional[bool] = None,
+        ssl_ca_bundle: Optional[str] = None,
     ):
         self.config_dir = config_dir
         self.profiles_dir = profiles_dir
@@ -223,9 +224,12 @@ class Config:
             quiet_logs, config.get("quiet_logs"), False
         )
 
+        self.ssl_ca_bundle = self._first_not_none(
+            ssl_ca_bundle,
+            config.get("ssl_ca_bundle"),
+        )
+
     def _load_configuration(self) -> dict:
-        if not os.path.exists(self.config_dir):
-            os.makedirs(self.config_dir)
         config_file_path = os.path.join(self.config_dir, self._CONFIG_FILE_NAME)
         if not os.path.exists(config_file_path):
             return {}

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: invenio-rest
-Version: 3.0.0
+Version: 3.0.1
 Summary: "REST API module for Invenio."
 Home-page: https://github.com/inveniosoftware/invenio-rest
 Author: CERN
@@ -18,7 +18,7 @@ Requires-Dist: invenio-logging<5.0.0,>=4.0.0
 Requires-Dist: itsdangerous>=2.2.0
 Requires-Dist: marshmallow<4.0.0,>=2.15.2
 Requires-Dist: marshmallow-utils>=0.14.0
-Requires-Dist: webargs<6.0.0,>=5.5.0
+Requires-Dist: webargs>=5.5.0
 Provides-Extra: tests
 Requires-Dist: pytest-black>=0.6.0; extra == "tests"
 Requires-Dist: pytest-invenio<5.0.0,>=4.0.0; extra == "tests"
@@ -71,6 +71,10 @@ https://invenio-rest.readthedocs.io/
 
 Changes
 =======
+
+Version v3.0.1 (released 2026-03-12)
+
+- chore(setup): unpin webargs
 
 Version v3.0.0 (released 2026-01-27)
 

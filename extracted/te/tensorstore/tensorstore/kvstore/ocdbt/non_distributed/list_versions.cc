@@ -142,14 +142,15 @@ struct ListVersionsOperation : public internal::FlowSenderOperationState<
         Promise<void> promise,
         ReadyFuture<const std::shared_ptr<const VersionTreeNode>> read_future) {
       TENSORSTORE_ASSIGN_OR_RETURN(auto node, read_future.result(),
-                                   op->SetError(_));
+                                   static_cast<void>(op->SetError(_)));
+
       if (op->cancelled()) return;
       auto* config = op->io_handle->config_state->GetExistingConfig();
       assert(config);
       TENSORSTORE_RETURN_IF_ERROR(
           ValidateVersionTreeNodeReference(*node, *config, generation_number,
-                                           height),
-          op->SetError(_));
+                                           height))
+          .With([&](absl::Status error) { op->SetError(std::move(error)); });
 
       std::visit([&](const auto& entries) { VisitEntries(*op, entries); },
                  node->entries);

@@ -44,7 +44,7 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
+#include "tensorstore/util/status_builder.h"
 
 namespace tensorstore {
 namespace internal_index_space {
@@ -131,11 +131,12 @@ absl::Status InitializeSingleArrayIterationStateImpl(
     if (output_stride == 0 || map.method() == OutputIndexMethod::constant) {
       if constexpr (UseStridedLayout) {
         if (!Contains(array.domain()[output_dim], output_offset)) {
-          return MaybeAnnotateStatus(
-              CheckContains(array.domain()[output_dim], output_offset),
-              absl::StrFormat("Checking bounds of constant output index map "
-                              "for dimension %d",
-                              output_dim));
+          return StatusBuilder(
+                     CheckContains(array.domain()[output_dim], output_offset))
+              .Format(
+                  "Checking bounds of constant output index map "
+                  "for dimension %d",
+                  output_dim);
         }
       } else {
         // `output_offset` is assumed to be valid in the normalized
@@ -151,15 +152,13 @@ absl::Status InitializeSingleArrayIterationStateImpl(
                 IndexInterval::UncheckedSized(iteration_origin[input_dim],
                                               iteration_shape[input_dim]),
                 output_offset, output_stride),
-            MaybeAnnotateStatus(
-                _, absl::StrFormat(
-                       "Checking bounds of output index map for dimension %d",
-                       output_dim)));
+            _.Format("Checking bounds of output index map for dimension %d",
+                     output_dim));
         if (!Contains(array.domain()[output_dim], range)) {
-          return absl::OutOfRangeError(tensorstore::StrCat(
-              "Output dimension ", output_dim, " range of ", range,
-              " is not contained within array domain of ",
-              array.domain()[output_dim]));
+          return absl::OutOfRangeError(
+              absl::StrFormat("Output dimension %d range of %v is not "
+                              "contained within array domain of %v",
+                              output_dim, range, array.domain()[output_dim]));
         }
       }
       single_array_state->base_pointer += internal::wrap_on_overflow::Multiply(
@@ -186,10 +185,8 @@ absl::Status InitializeSingleArrayIterationStateImpl(
             IndexInterval propagated_index_bounds,
             GetAffineTransformDomain(array.domain()[output_dim], output_offset,
                                      output_stride),
-            MaybeAnnotateStatus(
-                _, absl::StrFormat(
-                       "Propagating bounds from intermediate dimension %d.",
-                       output_dim)));
+            _.Format("Propagating bounds from intermediate dimension %d.",
+                     output_dim));
         index_bounds = Intersect(propagated_index_bounds, index_bounds);
       }
 
@@ -214,11 +211,8 @@ absl::Status InitializeSingleArrayIterationStateImpl(
         // The index array has only a single distinct value; therefore, we treat
         // it as a constant output index map.
         const Index index = *index_array_pointer;
-        TENSORSTORE_RETURN_IF_ERROR(
-            CheckContains(index_bounds, index),
-            MaybeAnnotateStatus(
-                _, absl::StrFormat("In index array map for output dimension %d",
-                                   output_dim)));
+        TENSORSTORE_RETURN_IF_ERROR(CheckContains(index_bounds, index))
+            .Format("In index array map for output dimension %d", output_dim);
         single_array_state->base_pointer +=
             internal::wrap_on_overflow::Multiply(
                 byte_stride,
@@ -241,10 +235,8 @@ absl::Status InitializeSingleArrayIterationStateImpl(
                 ArrayView<const Index>(index_array_pointer.get(),
                                        StridedLayoutView<dynamic_rank>(
                                            input_rank, iteration_shape,
-                                           index_array_data.byte_strides))),
-            MaybeAnnotateStatus(
-                _, absl::StrFormat("In index array map for output dimension %d",
-                                   output_dim)));
+                                           index_array_data.byte_strides))))
+            .Format("In index array map for output dimension %d", output_dim);
       }
     }
   }

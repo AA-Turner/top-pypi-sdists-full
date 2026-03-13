@@ -22,13 +22,12 @@
 #include <gtest/gtest.h>
 #include "absl/hash/hash_testing.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
 #include "tensorstore/container_kind.h"
 #include "tensorstore/index.h"
 #include "tensorstore/serialization/serialization.h"
 #include "tensorstore/serialization/test_util.h"
-#include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace {
 
@@ -60,7 +59,6 @@ using ::tensorstore::ShiftInterval;
 using ::tensorstore::ShiftIntervalBackward;
 using ::tensorstore::ShiftIntervalTo;
 using ::tensorstore::StatusIs;
-using ::tensorstore::StrCat;
 using ::tensorstore::view;
 using ::tensorstore::serialization::TestSerializationRoundTrip;
 using ::testing::HasSubstr;
@@ -506,10 +504,14 @@ TEST(IndexIntervalTest, AreCompatibleOrUnbounded) {
                                IndexInterval::UncheckedClosed(1, kInfIndex)));
 }
 
-TEST(IndexIntervalTest, Ostream) {
-  EXPECT_EQ("[1, 3)", StrCat(IndexInterval::UncheckedClosed(1, 2)));
-  EXPECT_EQ("(-inf, 3)", StrCat(IndexInterval::UncheckedClosed(-kInfIndex, 2)));
-  EXPECT_EQ("[7, +inf)", StrCat(IndexInterval::UncheckedClosed(7, kInfIndex)));
+TEST(IndexIntervalTest, AbslStringify) {
+  EXPECT_EQ("[1, 3)", absl::StrCat(IndexInterval::UncheckedClosed(1, 2)));
+  EXPECT_EQ("(-inf, 3)",
+            absl::StrCat(IndexInterval::UncheckedClosed(-kInfIndex, 2)));
+  EXPECT_EQ("[7, +inf)",
+            absl::StrCat(IndexInterval::UncheckedClosed(7, kInfIndex)));
+  auto interval = IndexInterval::UncheckedClosed(1, 2);
+  EXPECT_EQ("[1, 3)", absl::StrCat(IndexIntervalRef(interval)));
 }
 
 TEST(IndexIntervalTest, Hash) {
@@ -1410,14 +1412,14 @@ TEST(OptionallyImplicitIndexIntervalTest, EffectiveInterval) {
                 .effective_interval());
 }
 
-TEST(OptionallyImplicitIndexIntervalTest, Ostream) {
-  EXPECT_EQ("[1*, 3)", StrCat(OptionallyImplicitIndexInterval{
+TEST(OptionallyImplicitIndexIntervalTest, AbslStringify) {
+  EXPECT_EQ("[1*, 3)", absl::StrCat(OptionallyImplicitIndexInterval{
                            IndexInterval::UncheckedClosed(1, 2), true, false}));
   EXPECT_EQ("(-inf, 3*)",
-            StrCat(OptionallyImplicitIndexInterval{
+            absl::StrCat(OptionallyImplicitIndexInterval{
                 IndexInterval::UncheckedClosed(-kInfIndex, 2), false, true}));
   EXPECT_EQ("[7*, +inf*)",
-            StrCat(OptionallyImplicitIndexInterval{
+            absl::StrCat(OptionallyImplicitIndexInterval{
                 IndexInterval::UncheckedClosed(7, kInfIndex), true, true}));
 }
 
@@ -1562,13 +1564,13 @@ TEST(IndexDomainDimensionTest, AssignViewFromContainer) {
 
 TEST(IndexDomainDimensionTest, PrintToOstream) {
   EXPECT_EQ("[0, 10*)",
-            StrCat(IndexDomainDimension<>{
+            absl::StrCat(IndexDomainDimension<>{
                 {IndexInterval::UncheckedSized(0, 10), false, true}, ""}));
   EXPECT_EQ("[0, 10*)",
-            StrCat(IndexDomainDimension<view>{
+            absl::StrCat(IndexDomainDimension<view>{
                 {IndexInterval::UncheckedSized(0, 10), false, true}, ""}));
   EXPECT_EQ("\"label\": [0, 10*)",
-            StrCat(IndexDomainDimension<>{
+            absl::StrCat(IndexDomainDimension<>{
                 {IndexInterval::UncheckedSized(0, 10), false, true}, "label"}));
 }
 

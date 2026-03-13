@@ -136,8 +136,15 @@ _CPU_SUBTYPES = {
 
 class machometa(JSONTableUnit):
     """
-    Extract metadata from Mach-O files.
+    Extract metadata from Mach-O files. Parses Apple/macOS/iOS executable headers, load commands,
+    and code signing information.
     """
+    @classmethod
+    def handles(cls, data) -> bool | None:
+        from refinery.lib.id import get_macho_type
+        if get_macho_type(data) is not None:
+            return True
+
     def __init__(
         self, all: Param[bool, Arg('-c', '--custom',
             help='Unless enabled, all default categories will be extracted.')] = True,

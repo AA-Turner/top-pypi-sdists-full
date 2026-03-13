@@ -14,21 +14,21 @@
 # limitations under the License.
 #
 import json  # type: ignore
-from google.api_core import path_template
-from google.api_core import gapic_v1
-
-from google.protobuf import json_format
-from google.iam.v1 import iam_policy_pb2  # type: ignore
-from google.iam.v1 import policy_pb2  # type: ignore
-from .base import SchemaServiceTransport, DEFAULT_CLIENT_INFO
-
 import re
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
+from google.api_core import gapic_v1, path_template
+from google.iam.v1 import (
+    iam_policy_pb2,  # type: ignore
+    policy_pb2,  # type: ignore
+)
+from google.protobuf import json_format
 
-from google.protobuf import empty_pb2  # type: ignore
 from google.pubsub_v1.types import schema
 from google.pubsub_v1.types import schema as gp_schema
+
+from .base import DEFAULT_CLIENT_INFO, SchemaServiceTransport
 
 
 class _BaseSchemaServiceRestTransport(SchemaServiceTransport):

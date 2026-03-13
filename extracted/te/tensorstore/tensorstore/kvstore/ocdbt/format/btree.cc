@@ -28,6 +28,7 @@
 
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "riegeli/bytes/reader.h"
 #include "tensorstore/internal/integer_overflow.h"
@@ -42,7 +43,6 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_ocdbt {
@@ -235,10 +235,7 @@ Result<BtreeNode> DecodeBtreeNode(const absl::Cord& encoded,
               reader, data_file_table, num_entries, node);
         }
       });
-  if (!status.ok()) {
-    return tensorstore::MaybeAnnotateStatus(status,
-                                            "Error decoding b-tree node");
-  }
+  TENSORSTORE_RETURN_IF_ERROR(status).Format("Error decoding b-tree node");
 #ifndef NDEBUG
   CheckBtreeNodeInvariants(node);
 #endif
@@ -257,13 +254,11 @@ absl::Status ValidateBtreeNodeReference(const BtreeNode& node,
       [&](auto& entries) {
         if (ComparePrefixedKeyToUnprefixedKey{node.key_prefix}(
                 entries.front().key, inclusive_min_key) < 0) {
-          return absl::DataLossError(
-              tensorstore::StrCat("First key ",
-                                  tensorstore::QuoteString(tensorstore::StrCat(
-                                      node.key_prefix, entries.front().key)),
-                                  " is less than inclusive_min ",
-                                  tensorstore::QuoteString(inclusive_min_key),
-                                  " specified by parent node"));
+          return absl::DataLossError(absl::StrCat(
+              "First key ",
+              QuoteString(absl::StrCat(node.key_prefix, entries.front().key)),
+              " is less than inclusive_min ", QuoteString(inclusive_min_key),
+              " specified by parent node"));
         }
         return absl::OkStatus();
       },
@@ -276,9 +271,7 @@ bool operator==(const BtreeNodeStatistics& a, const BtreeNodeStatistics& b) {
 }
 
 std::ostream& operator<<(std::ostream& os, const BtreeNodeStatistics& x) {
-  return os << "{num_indirect_value_bytes=" << x.num_indirect_value_bytes
-            << ", num_tree_bytes=" << x.num_tree_bytes
-            << ", num_keys=" << x.num_keys << "}";
+  return os << absl::StreamFormat("%v", x);
 }
 
 BtreeNodeStatistics& BtreeNodeStatistics::operator+=(
@@ -295,16 +288,11 @@ bool operator==(const LeafNodeEntry& a, const LeafNodeEntry& b) {
 }
 
 std::ostream& operator<<(std::ostream& os, const LeafNodeValueReference& x) {
-  if (auto* value = std::get_if<absl::Cord>(&x)) {
-    return os << tensorstore::QuoteString(std::string(*value));
-  } else {
-    return os << std::get<IndirectDataReference>(x);
-  }
+  return os << absl::StreamFormat("%v", x);
 }
 
 std::ostream& operator<<(std::ostream& os, const LeafNodeEntry& e) {
-  return os << "{key=" << tensorstore::QuoteString(e.key)
-            << ", value_reference=" << e.value_reference << "}";
+  return os << absl::StreamFormat("%v", e);
 }
 
 bool operator==(const BtreeNodeReference& a, const BtreeNodeReference& b) {
@@ -312,14 +300,11 @@ bool operator==(const BtreeNodeReference& a, const BtreeNodeReference& b) {
 }
 
 std::ostream& operator<<(std::ostream& os, const BtreeNodeReference& x) {
-  return os << "{location=" << x.location << ", statistics=" << x.statistics
-            << "}";
+  return os << absl::StreamFormat("%v", x);
 }
 
 std::ostream& operator<<(std::ostream& os, const InteriorNodeEntry& e) {
-  return os << "{key=" << tensorstore::QuoteString(e.key)
-            << ", subtree_common_prefix_length="
-            << e.subtree_common_prefix_length << ", node=" << e.node << "}";
+  return os << absl::StreamFormat("%v", e);
 }
 
 const LeafNodeEntry* FindBtreeEntry(span<const LeafNodeEntry> entries,

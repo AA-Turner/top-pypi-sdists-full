@@ -61,7 +61,7 @@ def plot_gate_map(
         filename (str): file path to save image to.
         qubit_coordinates (Sequence): An optional sequence input (list or array being the
             most common) of 2d coordinates for each qubit. The length of the
-            sequence much match the number of qubits on the backend. The sequence
+            sequence must match the number of qubits on the backend. The sequence
             should be the planar coordinates in a 0-based square grid where each
             qubit is located.
 
@@ -958,6 +958,11 @@ def plot_coupling_map(
 ):
     """Plots an arbitrary coupling map of qubits (embedded in a plane).
 
+    .. warning::
+        This function will call the system Graphviz tool on a file involving user-controllable
+        strings (such as qubit labels).  It is recommended to only call this function on trusted
+        input.
+
     Args:
         num_qubits (int): The number of qubits defined and plotted.
         qubit_coordinates (List[List[int]]): A list of two-element lists, with entries of each nested
@@ -1239,7 +1244,7 @@ def plot_error_map(backend, figsize=(15, 12), show_title=True, qubit_coordinates
         show_title (bool): Show the title or not.
         qubit_coordinates (Sequence): An optional sequence input (list or array being the
             most common) of 2d coordinates for each qubit. The length of the
-            sequence much mast the number of qubits on the backend. The sequence
+            sequence must match the number of qubits on the backend. The sequence
             should be the planar coordinates in a 0-based square grid where each
             qubit is located.
 

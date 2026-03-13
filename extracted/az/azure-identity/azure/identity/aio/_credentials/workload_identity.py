@@ -7,7 +7,10 @@ import os
 from typing import Any, Optional
 
 from .client_assertion import ClientAssertionCredential
-from ..._credentials.workload_identity import TokenFileMixin, WORKLOAD_CONFIG_ERROR
+from ..._credentials.workload_identity import (
+    TokenFileMixin,
+    WORKLOAD_CONFIG_ERROR,
+)
 from ..._constants import EnvironmentVariables
 
 

@@ -195,3 +195,38 @@ class MissingPackagesInRequirementsTest(BaseTest):
 
         # Relative imports should not be suggested as missing external packages
         self.assertEqual(len(issues), 0)
+
+    def test_does_not_suggest_namespace_package_without_init_py(self):
+        """
+        Should not suggest adding namespace packages (PEP 420) to requirements.txt.
+
+        Python 3.3+ supports namespace packages, which are directories containing
+        Python files but without __init__.py. This is a valid project structure:
+
+            src/
+                entities/
+                    square.py
+
+        Where `from src.entities.square import Square` works without any __init__.py.
+        The linter should recognize 'src' as a local module.
+        """
+        requirements_file = self.root / "requirements.txt"
+        requirements_file.touch()
+
+        # Create a namespace package structure (no __init__.py files)
+        entities_dir = self.root / "src" / "entities"
+        entities_dir.mkdir(parents=True)
+        (entities_dir / "square.py").write_text("class Square: pass")
+
+        # Create a script at root that imports from the namespace package
+        script = self.controller.create_tasklet("New script", "script.py")
+        script.file_path.write_text("from src.entities.square import Square\n")
+
+        rule = MissingPackagesInRequirements()
+        issues = rule.find_issues()
+
+        # Should not suggest 'src' as a missing package
+        issue_packages = [
+            issue.label for issue in issues if "src" in issue.label.lower()
+        ]
+        self.assertEqual(len(issue_packages), 0)

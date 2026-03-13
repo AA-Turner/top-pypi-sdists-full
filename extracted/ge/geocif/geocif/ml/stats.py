@@ -299,8 +299,9 @@ def add_statistics(
         def process_group(group, region, harvest_year, season=None):
             season_filter = season_filters.get(season, season_filters.get(None, []))
 
-            # Case-insensitive region matching
-            mask_region = df_fewsnet[admin_zone].str.lower() == region.lower()
+            # Case-insensitive region matching (normalize underscores to spaces
+            # because geoprepare extraction converts spaces to underscores)
+            mask_region = df_fewsnet[admin_zone].str.lower().str.replace("_", " ") == region.lower().replace("_", " ")
             mask_yield = (
                 df_fewsnet["crop_production_system"].isin(
                     [

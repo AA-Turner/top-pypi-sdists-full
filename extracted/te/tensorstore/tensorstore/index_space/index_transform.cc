@@ -25,7 +25,7 @@
 
 #include "absl/status/status.h"
 #include "absl/strings/str_format.h"
-#include <nlohmann/json_fwd.hpp>
+#include <nlohmann/json.hpp>
 #include "tensorstore/box.h"
 #include "tensorstore/container_kind.h"
 #include "tensorstore/index.h"
@@ -43,7 +43,7 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
+#include "tensorstore/util/status_builder.h"
 
 namespace tensorstore {
 
@@ -56,8 +56,8 @@ std::string DescribeTransformForCast(DimensionIndex input_rank,
       StaticCastTraits<DimensionIndex>::Describe(output_rank));
 }
 std::string DescribeDomainForCast(DimensionIndex rank) {
-  return tensorstore::StrCat("index domain with ",
-                             StaticCastTraits<DimensionIndex>::Describe(rank));
+  return absl::StrFormat("index domain with %s",
+                         StaticCastTraits<DimensionIndex>::Describe(rank));
 }
 
 Result<IndexTransform<>> SliceByIndexDomain(IndexTransform<> transform,
@@ -323,10 +323,8 @@ absl::Status PropagateInputDomainResizeToOutput(
         internal_index_space::ValidateInputDimensionResize(
             transform.input_domain()[input_dim],
             requested_input_inclusive_min[input_dim],
-            requested_input_exclusive_max[input_dim]),
-        MaybeAnnotateStatus(
-            _, absl::StrFormat("Invalid resize request for input dimension %d",
-                               input_dim)));
+            requested_input_exclusive_max[input_dim]))
+        .Format("Invalid resize request for input dimension %d", input_dim);
   }
 
   bool is_noop_value = true;
@@ -354,25 +352,22 @@ absl::Status PropagateInputDomainResizeToOutput(
             output_dim, input_dim, map.stride()));
       }
 
-      Result<OptionallyImplicitIndexInterval> output_bounds =
+      TENSORSTORE_ASSIGN_OR_RETURN(
+          auto output_bounds,
           GetAffineTransformRange(
               {IndexInterval::UncheckedHalfOpen(
                    requested_min == kImplicit ? -kInfIndex : requested_min,
                    requested_max == kImplicit ? kInfIndex + 1 : requested_max),
                requested_min == kImplicit, requested_max == kImplicit},
-              map.offset(), map.stride());
-      if (!output_bounds) {
-        return MaybeAnnotateStatus(
-            output_bounds.status(),
-            absl::StrFormat("Error propagating bounds for output dimension %d "
-                            "from requested bounds for input dimension %d",
-                            output_dim, input_dim));
+              map.offset(), map.stride()),
+          _.Format("Error propagating bounds for output dimension %d from "
+                   "requested bounds for input dimension %d",
+                   output_dim, input_dim));
+      if (!output_bounds.implicit_lower()) {
+        new_output_inclusive_min[output_dim] = output_bounds.inclusive_min();
       }
-      if (!output_bounds->implicit_lower()) {
-        new_output_inclusive_min[output_dim] = output_bounds->inclusive_min();
-      }
-      if (!output_bounds->implicit_upper()) {
-        new_output_exclusive_max[output_dim] = output_bounds->exclusive_max();
+      if (!output_bounds.implicit_upper()) {
+        new_output_exclusive_max[output_dim] = output_bounds.exclusive_max();
       }
     }
   }
@@ -420,13 +415,12 @@ absl::Status PropagateInputDomainResizeToOutput(
           Result<OptionallyImplicitIndexInterval> output_bounds =
               GetAffineTransformRange(transform.input_domain()[input_dim],
                                       map.offset(), map.stride());
-          if (!output_bounds) {
-            return MaybeAnnotateStatus(
-                output_bounds.status(),
-                absl::StrFormat(
-                    "Error propagating bounds for output dimension "
-                    "%d from existing bounds for input dimension %d",
-                    output_dim, input_dim));
+          if (!output_bounds.ok()) {
+            return StatusBuilder(std::move(output_bounds).status())
+                .Format(
+                    "Error propagating bounds for output dimension %d from "
+                    "existing bounds for input dimension %d",
+                    output_dim, input_dim);
           }
           if (!output_bounds->implicit_lower()) {
             output_inclusive_min_constraint[output_dim] =
@@ -471,18 +465,13 @@ inline Result<IndexDomain<>> MergeIndexDomainsImpl(IndexDomainView<> a,
   const auto a_labels = a.labels();
   const auto b_labels = b.labels();
   for (DimensionIndex i = 0; i < rank; ++i) {
-    auto status = [&] {
-      TENSORSTORE_ASSIGN_OR_RETURN(
-          auto new_label, MergeDimensionLabels(a_labels[i], b_labels[i]));
-      TENSORSTORE_ASSIGN_OR_RETURN(auto new_bounds, merge(a[i], b[i]));
-      new_rep->input_dimension(i) =
-          IndexDomainDimension<view>(new_bounds, new_label);
-      return absl::OkStatus();
-    }();
-    if (!status.ok()) {
-      return tensorstore::MaybeAnnotateStatus(
-          status, absl::StrFormat("Mismatch in dimension %d", i));
-    }
+    TENSORSTORE_ASSIGN_OR_RETURN(auto new_label,
+                                 MergeDimensionLabels(a_labels[i], b_labels[i]),
+                                 _.Format("Mismatch in dimension %d", i));
+    TENSORSTORE_ASSIGN_OR_RETURN(auto new_bounds, merge(a[i], b[i]),
+                                 _.Format("Mismatch in dimension %d", i));
+    new_rep->input_dimension(i) =
+        IndexDomainDimension<view>(new_bounds, new_label);
   }
   internal_index_space::DebugCheckInvariants(new_rep.get());
   return internal_index_space::TransformAccess::Make<IndexDomain<>>(
@@ -495,10 +484,9 @@ Result<IndexDomain<>> MergeIndexDomains(IndexDomainView<> a,
   auto result =
       MergeIndexDomainsImpl(a, b, MergeOptionallyImplicitIndexIntervals);
   if (!result.ok()) {
-    return tensorstore::MaybeAnnotateStatus(
-        result.status(),
-        absl::StrFormat("Cannot merge index domain %s with index domain %s",
-                        absl::FormatStreamed(a), absl::FormatStreamed(b)));
+    return StatusBuilder(std::move(result).status())
+        .Format("Cannot merge index domain %v with index domain %v",
+                absl::FormatStreamed(a), absl::FormatStreamed(b));
   }
   return result;
 }
@@ -510,10 +498,9 @@ Result<IndexDomain<>> HullIndexDomains(IndexDomainView<> a,
       [](OptionallyImplicitIndexInterval a, OptionallyImplicitIndexInterval b)
           -> Result<OptionallyImplicitIndexInterval> { return Hull(a, b); });
   if (!result.ok()) {
-    return tensorstore::MaybeAnnotateStatus(
-        result.status(),
-        absl::StrFormat("Cannot hull index domain %s with index domain %s",
-                        absl::FormatStreamed(a), absl::FormatStreamed(b)));
+    return StatusBuilder(std::move(result).status())
+        .Format("Cannot hull index domain %v with index domain %v",
+                absl::FormatStreamed(a), absl::FormatStreamed(b));
   }
   return result;
 }
@@ -527,10 +514,9 @@ Result<IndexDomain<>> IntersectIndexDomains(IndexDomainView<> a,
         return Intersect(a, b);
       });
   if (!result.ok()) {
-    return tensorstore::MaybeAnnotateStatus(
-        result.status(),
-        absl::StrFormat("Cannot intersect index domain %s with index domain %s",
-                        absl::FormatStreamed(a), absl::FormatStreamed(b)));
+    return StatusBuilder(std::move(result).status())
+        .Format("Cannot intersect index domain %v with index domain %v",
+                absl::FormatStreamed(a), absl::FormatStreamed(b));
   }
   return result;
 }
@@ -554,10 +540,9 @@ Result<IndexDomain<>> ConstrainIndexDomain(IndexDomainView<> a,
             constrain_upper ? bi.implicit_upper() : ai.implicit_upper()};
       });
   if (!result.ok()) {
-    return tensorstore::MaybeAnnotateStatus(
-        result.status(),
-        absl::StrFormat("Cannot constrain index domain %s with index domain %s",
-                        absl::FormatStreamed(a), absl::FormatStreamed(b)));
+    return StatusBuilder(std::move(result).status())
+        .Format("Cannot constrain index domain %v with index domain %v",
+                absl::FormatStreamed(a), absl::FormatStreamed(b));
   }
   return result;
 }

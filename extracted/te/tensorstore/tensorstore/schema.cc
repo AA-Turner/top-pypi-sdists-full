@@ -54,10 +54,10 @@
 #include "tensorstore/serialization/json_bindable.h"
 #include "tensorstore/strided_layout.h"
 #include "tensorstore/util/dimension_set.h"
+#include "tensorstore/util/generic_stringify.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 
@@ -104,9 +104,9 @@ absl::Status ValidateRank(Schema& schema, const char* field_name,
       schema.impl_->fill_value_.rank() > rank) {
     return absl::InvalidArgumentError(absl::StrFormat(
         "Rank specified by %s (%d) is incompatible with existing fill_value of "
-        "shape %s",
+        "shape %v",
         field_name, rank,
-        absl::FormatStreamed(schema.impl_->fill_value_.shape())));
+        tensorstore::GenericStringify(schema.impl_->fill_value_.shape())));
   }
   schema.rank_ = rank;
   return absl::OkStatus();
@@ -140,7 +140,7 @@ template <typename Wrapper, typename TempValue, auto MemberPointer,
           typename Binder>
 auto ScalarMemberJsonBinder(Binder binder) {
   return [binder](auto is_loading, const JsonSerializationOptions& options,
-                  auto* obj, ::nlohmann::json* j) {
+                  auto* obj, ::nlohmann::json* j) -> absl::Status {
     if constexpr (is_loading) {
       TempValue value;
       TENSORSTORE_RETURN_IF_ERROR(binder(is_loading, options, &value, j));
@@ -269,10 +269,9 @@ Result<IndexDomain<>> TransformInputDomain(IndexDomainView<> input_domain,
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto new_interval,
         GetAffineTransformRange(output_interval, map.offset(), map.stride()),
-        tensorstore::MaybeAnnotateStatus(
-            _, absl::StrFormat("Error computing range of output dimension %d "
-                               "from input dimension %d",
-                               output_dim, input_dim)));
+        _.Format("Error computing range of output dimension %d from input "
+                 "dimension %d",
+                 output_dim, input_dim));
     output_domain_builder.labels()[output_dim] =
         input_domain[input_dim].label();
     output_domain_builder.origin()[output_dim] = new_interval.inclusive_min();
@@ -337,9 +336,8 @@ absl::Status ValidateFillValueForDomain(Schema::Impl& impl,
                                         IndexDomainView<> domain) {
   if (impl.fill_value_.valid()) {
     TENSORSTORE_RETURN_IF_ERROR(
-        ValidateShapeBroadcast(impl.fill_value_.shape(), domain.shape()),
-        tensorstore::MaybeAnnotateStatus(
-            _, "domain is incompatible with fill_value"));
+        ValidateShapeBroadcast(impl.fill_value_.shape(), domain.shape()))
+        .Format("domain is incompatible with fill_value");
   }
   return absl::OkStatus();
 }
@@ -381,9 +379,8 @@ absl::Status Schema::Set(FillValue value) {
   }
   if (impl_ && impl_->domain_.valid()) {
     TENSORSTORE_RETURN_IF_ERROR(
-        ValidateShapeBroadcast(value.shape(), impl_->domain_.shape()),
-        tensorstore::MaybeAnnotateStatus(
-            _, "fill_value is incompatible with domain"));
+        ValidateShapeBroadcast(value.shape(), impl_->domain_.shape()))
+        .Format("fill_value is incompatible with domain");
   }
   auto unbroadcast = tensorstore::UnbroadcastArray(value.shared_array_view());
   if (rank_ != dynamic_rank && rank_ < unbroadcast.rank()) {
@@ -480,9 +477,9 @@ absl::Status Schema::TransformInputSpaceSchema(IndexTransformView<> transform) {
 
   // Transform domain and transform.
   if (impl.domain_.valid()) {
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        impl.domain_, TransformInputDomain(impl.domain_, transform),
-        tensorstore::MaybeAnnotateStatus(_, "Error transforming domain"));
+    TENSORSTORE_ASSIGN_OR_RETURN(impl.domain_,
+                                 TransformInputDomain(impl.domain_, transform),
+                                 _.Format("Error transforming domain"));
   }
 
   // Transform fill value.
@@ -490,7 +487,7 @@ absl::Status Schema::TransformInputSpaceSchema(IndexTransformView<> transform) {
     TENSORSTORE_ASSIGN_OR_RETURN(
         impl.fill_value_,
         TransformInputBroadcastableArray(transform, impl.fill_value_),
-        tensorstore::MaybeAnnotateStatus(_, "Error transforming fill_value"));
+        _.Format("Error transforming fill_value"));
   }
 
   // Transform dimension units.
@@ -499,8 +496,7 @@ absl::Status Schema::TransformInputSpaceSchema(IndexTransformView<> transform) {
         impl.dimension_units_,
         TransformInputDimensionUnits(transform,
                                      std::move(impl.dimension_units_)),
-        tensorstore::MaybeAnnotateStatus(_,
-                                         "Error transforming dimension_units"));
+        _.Format("Error transforming dimension_units"));
   }
   return absl::OkStatus();
 }
@@ -535,7 +531,7 @@ Result<Schema> ApplyIndexTransform(IndexTransform<> transform, Schema schema) {
         impl.fill_value_,
         TransformOutputBroadcastableArray(
             transform, std::move(impl.fill_value_), output_domain),
-        tensorstore::MaybeAnnotateStatus(_, "Error transforming fill_value"));
+        _.Format("Error transforming fill_value"));
   }
 
   // Transform dimension units.
@@ -556,7 +552,7 @@ bool operator==(Schema::DimensionUnits a, Schema::DimensionUnits b) {
 }
 
 std::ostream& operator<<(std::ostream& os, Schema::DimensionUnits u) {
-  return os << tensorstore::DimensionUnitsToString(u);
+  return os << absl::StreamFormat("%v", u);
 }
 
 namespace {
@@ -573,11 +569,7 @@ bool operator==(const Schema& a, const Schema& b) {
 }
 
 std::ostream& operator<<(std::ostream& os, const Schema& schema) {
-  auto json_result = schema.ToJson();
-  if (!json_result.ok()) {
-    return os << "<unprintable>";
-  }
-  return os << json_result->dump();
+  return os << absl::StreamFormat("%v", schema);
 }
 
 ChunkLayout& Schema::MutableLayoutInternal() {

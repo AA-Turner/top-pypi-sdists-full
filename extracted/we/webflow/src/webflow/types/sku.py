@@ -3,44 +3,52 @@
 import datetime as dt
 import typing
 
-from ..core.datetime_utils import serialize_datetime
+import pydantic
+import typing_extensions
+from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from ..core.serialization import FieldMetadata
 from .sku_field_data import SkuFieldData
 
-try:
-    import pydantic.v1 as pydantic  # type: ignore
-except ImportError:
-    import pydantic  # type: ignore
 
-
-class Sku(pydantic.BaseModel):
+class Sku(UniversalBaseModel):
     """
     The SKU object
     """
 
-    id: typing.Optional[str] = pydantic.Field(default=None, description="Unique identifier for the Product")
-    last_published: typing.Optional[dt.datetime] = pydantic.Field(
-        alias="lastPublished", default=None, description="The date the Product was last published"
-    )
-    last_updated: typing.Optional[dt.datetime] = pydantic.Field(
-        alias="lastUpdated", default=None, description="The date the Product was last updated"
-    )
-    created_on: typing.Optional[dt.datetime] = pydantic.Field(
-        alias="createdOn", default=None, description="The date the Product was created"
-    )
-    field_data: typing.Optional[SkuFieldData] = pydantic.Field(
-        alias="fieldData", default=None, description="Standard and Custom fields for a SKU"
-    )
+    id: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Unique identifier for the Product
+    """
 
-    def json(self, **kwargs: typing.Any) -> str:
-        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
-        return super().json(**kwargs_with_defaults)
+    cms_locale_id: typing_extensions.Annotated[
+        typing.Optional[str],
+        FieldMetadata(alias="cmsLocaleId"),
+        pydantic.Field(alias="cmsLocaleId", description="Identifier for the locale of the CMS item"),
+    ] = None
+    last_published: typing_extensions.Annotated[
+        typing.Optional[dt.datetime],
+        FieldMetadata(alias="lastPublished"),
+        pydantic.Field(alias="lastPublished", description="The date the Product was last published"),
+    ] = None
+    last_updated: typing_extensions.Annotated[
+        typing.Optional[dt.datetime],
+        FieldMetadata(alias="lastUpdated"),
+        pydantic.Field(alias="lastUpdated", description="The date the Product was last updated"),
+    ] = None
+    created_on: typing_extensions.Annotated[
+        typing.Optional[dt.datetime],
+        FieldMetadata(alias="createdOn"),
+        pydantic.Field(alias="createdOn", description="The date the Product was created"),
+    ] = None
+    field_data: typing_extensions.Annotated[
+        typing.Optional[SkuFieldData], FieldMetadata(alias="fieldData"), pydantic.Field(alias="fieldData")
+    ] = None
 
-    def dict(self, **kwargs: typing.Any) -> typing.Dict[str, typing.Any]:
-        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
-        return super().dict(**kwargs_with_defaults)
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2
+    else:
 
-    class Config:
-        frozen = True
-        smart_union = True
-        allow_population_by_field_name = True
-        json_encoders = {dt.datetime: serialize_datetime}
+        class Config:
+            frozen = True
+            smart_union = True
+            extra = pydantic.Extra.allow

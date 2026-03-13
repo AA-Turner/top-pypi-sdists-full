@@ -41,7 +41,10 @@ pub enum AggExpr {
         allow_empty: bool,
     },
     Mean(Arc<Expr>),
-    Implode(Arc<Expr>),
+    Implode {
+        input: Arc<Expr>,
+        maintain_order: bool,
+    },
     Count {
         input: Arc<Expr>,
         include_nulls: bool,
@@ -71,7 +74,7 @@ impl AsRef<Expr> for AggExpr {
             LastNonNull(e) => e,
             Item { input, .. } => input,
             Mean(e) => e,
-            Implode(e) => e,
+            Implode { input, .. } => input,
             Count { input, .. } => input,
             Quantile { expr, .. } => expr,
             Sum(e) => e,
@@ -203,7 +206,9 @@ pub enum Expr {
         evaluation: Vec<Expr>,
     },
     /// SQL SubQueries
-    SubPlan(SpecialEq<Arc<DslPlan>>, Vec<PlSmallStr>),
+    /// Plan,
+    /// Post-select expression and output-name of that expr
+    SubPlan(SpecialEq<Arc<DslPlan>>, Vec<(PlSmallStr, Expr)>),
     RenameAlias {
         function: RenameAliasFn,
         expr: Arc<Expr>,
@@ -717,7 +722,7 @@ pub enum Operator {
     Plus,
     Minus,
     Multiply,
-    /// Rust division semantics, this is what Rust interface `/` fispatches to
+    /// Rust division semantics, this is what Rust interface `/` dispatches to
     RustDivide,
     /// Python division semantics, converting to floats. This is what python `/` operator dispatches to
     TrueDivide,

@@ -114,7 +114,6 @@
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_json_binding {
@@ -869,22 +868,16 @@ struct MemberBinderImpl {
       j_member = std::move(j_extract.mapped());
     }
     auto status = binder(is_loading, options, obj, &j_member);
-    return status.ok()
-               ? status
-               : MaybeAnnotateStatus(
-                     status, absl::StrFormat("Error parsing object member %v",
-                                             QuoteString(name)));
+    TENSORSTORE_RETURN_IF_ERROR(status).Format("Error parsing object member %v",
+                                               QuoteString(name));
+    return absl::OkStatus();
   }
   template <typename Options, typename Obj>
   absl::Status operator()(std::false_type is_loading, const Options& options,
                           Obj* obj, ::nlohmann::json::object_t* j_obj) const {
     ::nlohmann::json j_member(::nlohmann::json::value_t::discarded);
-    TENSORSTORE_RETURN_IF_ERROR(
-        binder(is_loading, options, obj, &j_member),
-
-        MaybeAnnotateStatus(_,
-                            absl::StrFormat("Error converting object member %v",
-                                            QuoteString(name))));
+    TENSORSTORE_RETURN_IF_ERROR(binder(is_loading, options, obj, &j_member))
+        .Format("Error converting object member %v", QuoteString(name));
     if (!j_member.is_discarded()) {
       j_obj->emplace(name, std::move(j_member));
     }

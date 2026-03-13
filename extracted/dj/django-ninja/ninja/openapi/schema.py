@@ -62,9 +62,10 @@ class OpenAPISchema(dict):
 
     def get_paths(self) -> DictStrAny:
         result: DictStrAny = {}
-        for prefix, router in self.api._routers:
-            for path, path_view in router.path_operations.items():
-                full_path = "/".join([i for i in (prefix, path) if i])
+        # Use bound routers to ensure operations have correct auth/throttle/tags
+        for bound_router in self.api._get_bound_routers():
+            for path, path_view in bound_router.path_operations.items():
+                full_path = "/".join([i for i in (bound_router.prefix, path) if i])
                 full_path = "/" + self.path_prefix + full_path
                 full_path = normalize_path(full_path)
                 full_path = re.sub(
@@ -302,9 +303,14 @@ class OpenAPISchema(dict):
                 schema = self._create_schema_from_model(
                     model, by_alias=operation.by_alias, mode="serialization"
                 )[0]
-                details[status]["content"] = {
-                    self.api.renderer.media_type: {"schema": schema}
-                }
+                if operation.stream_format is not None:
+                    details[status]["content"] = (
+                        operation.stream_format.openapi_content_schema(schema)
+                    )
+                else:
+                    details[status]["content"] = {
+                        self.api.renderer.media_type: {"schema": schema}
+                    }
             result.update(details)
 
         return result

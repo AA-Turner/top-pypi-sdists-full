@@ -136,6 +136,7 @@ from .constants import (
 from .convert_utils import (
     check_is_matplotlib_figure,
     check_is_pandas_dataframe,
+    convert_list_to_string_truncated,
     convert_log_table_input_to_io,
     convert_model_to_string,
     convert_object_to_dictionary,
@@ -2350,7 +2351,19 @@ class CometExperiment(CommonExperiment):
                 )
                 message.set_param(name, value, step=self.curr_step, source=source)
             elif is_list_like(value):
-                message.set_params(name, value, step=self.curr_step, source=source)
+                result = convert_list_to_string_truncated(
+                    value,
+                    size=MAXIMAL_VALUE_LENGTH,
+                    source=source,
+                    raise_on_warning=debug_helpers.has_enabled_debug_exception_raising(),
+                )
+                if result.truncated:
+                    message.set_param(
+                        name, result.value, step=self.curr_step, source=source
+                    )
+                    value = result.value
+                else:
+                    message.set_params(name, value, step=self.curr_step, source=source)
             elif (
                 isinstance(value, numbers.Number) or value is None
             ):  # booleans are Numbers

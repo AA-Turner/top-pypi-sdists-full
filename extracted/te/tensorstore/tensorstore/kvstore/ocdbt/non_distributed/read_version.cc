@@ -196,8 +196,9 @@ struct ReadVersionOperation
       assert(config);
       TENSORSTORE_RETURN_IF_ERROR(
           ValidateVersionTreeNodeReference(
-              *node, *config, node_ref.generation_number, node_ref.height),
-          static_cast<void>(promise.SetResult(_)));
+              *node, *config, node_ref.generation_number, node_ref.height))
+          .With(
+              [&](absl::Status error) { promise.SetResult(std::move(error)); });
       if (node->height > 0) {
         VisitInteriorNode(std::move(op), *node, std::move(promise));
       } else {

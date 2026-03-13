@@ -62,7 +62,7 @@ use crate::{open_table, open_table_with_storage_options};
 pub(crate) use self::session::DeltaSessionExt;
 pub use self::session::{
     DeltaParserOptions, DeltaRuntimeEnvBuilder, DeltaSessionConfig, DeltaSessionContext,
-    create_session,
+    create_session, create_session_state_with_spill_config,
 };
 pub use self::table_provider::next::{DeletionVectorSelection, DeltaScan as DeltaScanNext};
 pub(crate) use self::utils::*;
@@ -71,12 +71,14 @@ pub(crate) use data_validation::{
     DataValidationExec, constraints_to_exprs, generated_columns_to_exprs, validation_predicates,
 };
 pub(crate) use find_files::*;
+pub(crate) use table_provider::next::normalize_path_as_file_id;
 pub use table_provider::{
     DeltaScan, DeltaScanConfig, DeltaScanConfigBuilder, DeltaTableProvider, TableProviderBuilder,
     next::DeltaScanExec,
 };
 pub(crate) use table_provider::{
-    DeltaScanBuilder, next::FILE_ID_COLUMN_DEFAULT, update_datafusion_session,
+    DeltaScanBuilder, next::FILE_ID_COLUMN_DEFAULT, resolve_file_column_name,
+    update_datafusion_session,
 };
 
 pub(crate) const PATH_COLUMN: &str = "__delta_rs_path";
@@ -533,7 +535,7 @@ pub struct DeltaTableFactory {}
 impl TableProviderFactory for DeltaTableFactory {
     async fn create(
         &self,
-        _ctx: &dyn Session,
+        ctx: &dyn Session,
         cmd: &CreateExternalTable,
     ) -> datafusion::error::Result<Arc<dyn TableProvider>> {
         let table = if cmd.options.is_empty() {
@@ -543,7 +545,22 @@ impl TableProviderFactory for DeltaTableFactory {
             let table_url = ensure_table_uri(&cmd.to_owned().location)?;
             open_table_with_storage_options(table_url, cmd.to_owned().options).await?
         };
-        Ok(table.table_provider().await?)
+        let table_uri = table.log_store().root_url().clone();
+        let (session_state, _) = resolve_session_state(
+            Some(ctx),
+            SessionFallbackPolicy::DeriveFromTrait,
+            || create_session().state(),
+            SessionResolveContext {
+                operation: "DeltaTableFactory::create",
+                table_uri: Some(&table_uri),
+                cdc: false,
+            },
+        )?;
+
+        Ok(table
+            .table_provider()
+            .with_session(Arc::new(session_state))
+            .await?)
     }
 }
 

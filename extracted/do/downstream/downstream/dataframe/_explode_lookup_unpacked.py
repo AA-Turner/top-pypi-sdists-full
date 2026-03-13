@@ -196,7 +196,6 @@ def _check_lookup_bounds(df_long: pl.DataFrame) -> None:
         )
 
 
-
 def _drop_excluded_rows(df_long: pl.DataFrame) -> pl.DataFrame:
     kept = pl.col("downstream_exclude_exploded").not_().fill_null(True)
     num_before = len(df_long)

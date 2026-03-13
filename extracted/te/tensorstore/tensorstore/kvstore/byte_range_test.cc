@@ -14,24 +14,22 @@
 
 #include "tensorstore/kvstore/byte_range.h"
 
-#include <optional>
 #include <string>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_cat.h"
 #include "tensorstore/serialization/serialization.h"
 #include "tensorstore/serialization/test_util.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace {
 
 using ::tensorstore::ByteRange;
 using ::tensorstore::OptionalByteRangeRequest;
 using ::tensorstore::StatusIs;
-using ::tensorstore::StrCat;
 using ::tensorstore::internal::GetSubCord;
 using ::tensorstore::serialization::TestSerializationRoundTrip;
 using ::testing::HasSubstr;
@@ -68,8 +66,8 @@ TEST(ByteRangeTest, Comparison) {
   EXPECT_NE(b, c);
 }
 
-TEST(ByteRangeTest, Ostream) {
-  EXPECT_EQ("[1, 10)", tensorstore::StrCat(ByteRange{1, 10}));
+TEST(ByteRangeTest, AbslStringify) {
+  EXPECT_EQ("[1, 10)", absl::StrCat(ByteRange{1, 10}));
 }
 
 TEST(OptionalByteRangeRequestTest, DefaultConstruct) {
@@ -129,9 +127,9 @@ TEST(OptionalByteRangeRequestTest, SatisfiesInvariants) {
   EXPECT_FALSE(OptionalByteRangeRequest(3, -2).SatisfiesInvariants());
 }
 
-TEST(OptionalByteRangeRequestTest, Ostream) {
-  EXPECT_EQ("[5, 10)", StrCat(OptionalByteRangeRequest(5, 10)));
-  EXPECT_EQ("[5, ?)", StrCat(OptionalByteRangeRequest(5)));
+TEST(OptionalByteRangeRequestTest, AbslStringify) {
+  EXPECT_EQ("[5, 10)", absl::StrCat(OptionalByteRangeRequest(5, 10)));
+  EXPECT_EQ("[5, ?)", absl::StrCat(OptionalByteRangeRequest(5)));
 }
 
 TEST(OptionalByteRangeRequestTest, Validate) {

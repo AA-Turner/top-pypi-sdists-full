@@ -162,8 +162,7 @@ absl::Status PngWriter::Context::Encode(
   }();
 
   if (!writer_->ok() || !last_error_.ok()) {
-    return internal::StatusBuilder(!writer_->ok() ? writer_->status()
-                                                  : last_error_)
+    return StatusBuilder(!writer_->ok() ? writer_->status() : last_error_)
         .SetCode(absl::StatusCode::kDataLoss);
   }
   return absl::OkStatus();

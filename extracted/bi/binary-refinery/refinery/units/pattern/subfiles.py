@@ -4,8 +4,10 @@ from refinery.lib.intervals import IntIntervalUnion
 from refinery.lib.types import Param
 from refinery.units import Arg, Unit
 from refinery.units.pattern.carve_7z import carve_7z
+from refinery.units.pattern.carve_elf import carve_elf
 from refinery.units.pattern.carve_json import carve_json
 from refinery.units.pattern.carve_lnk import carve_lnk
+from refinery.units.pattern.carve_pdf import carve_pdf
 from refinery.units.pattern.carve_pe import carve_pe
 from refinery.units.pattern.carve_png import carve_png
 from refinery.units.pattern.carve_rtf import carve_rtf
@@ -47,6 +49,8 @@ class subfiles(Unit):
             'xml'  : carve_xml(),
             'rtf'  : carve_rtf(),
             'png'  : carve_png(),
+            'elf'  : carve_elf(),
+            'pdf'  : carve_pdf(),
         }
 
         covered = IntIntervalUnion()

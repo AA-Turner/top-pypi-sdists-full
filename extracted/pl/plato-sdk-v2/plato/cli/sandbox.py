@@ -337,7 +337,7 @@ def sandbox_start(
     # general args
     dataset: str = typer.Option("base", "--dataset", "-d", help="Dataset we are using"),
     connect_network: bool = typer.Option(True, "--network/--no-network", help="Connect WireGuard to the sandbox"),
-    timeout: int = typer.Option(1800, "--timeout", "-t", help="Timeout in seconds for VM to become ready"),
+    timeout: int = typer.Option(1800, "--timeout", "-t", help="VM lifetime in seconds"),
     json_output: JsonArg = False,
     verbose: VerboseArg = False,
 ):

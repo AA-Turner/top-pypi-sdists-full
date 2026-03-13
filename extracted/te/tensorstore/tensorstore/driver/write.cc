@@ -282,7 +282,8 @@ WriteFutures DriverWrite(Executor executor,
                          TransformedSharedArray<const void> source,
                          DriverHandle target, DriverWriteOptions options) {
   TENSORSTORE_RETURN_IF_ERROR(
-      internal::ValidateSupportsWrite(target.driver.read_write_mode()));
+      internal::ValidateSupportsWrite(target.driver.read_write_mode()))
+      .BuildStatus();
   IntrusivePtr<WriteState> state(new WriteState);
   state->executor = executor;
   TENSORSTORE_ASSIGN_OR_RETURN(

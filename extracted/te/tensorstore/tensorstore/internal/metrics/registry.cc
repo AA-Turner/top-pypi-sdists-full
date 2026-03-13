@@ -35,7 +35,7 @@ void MetricRegistry::AddInternal(std::string_view metric_name,
                                  MetricRegistry::Metric m,
                                  std::shared_ptr<void> hook) {
   ABSL_CHECK(m) << metric_name;
-  absl::MutexLock l(&mu_);
+  absl::MutexLock l(mu_);
   ABSL_CHECK(
       entries_.try_emplace(metric_name, Entry{std::move(m), std::move(hook)})
           .second)
@@ -46,7 +46,7 @@ std::vector<CollectedMetric> MetricRegistry::CollectWithPrefix(
     std::string_view prefix) {
   std::vector<CollectedMetric> all;
   all.reserve(entries_.size());
-  absl::MutexLock l(&mu_);
+  absl::MutexLock l(mu_);
   for (auto& kv : entries_) {
     if (prefix.empty() || absl::StartsWith(kv.first, prefix)) {
       auto opt_metric = kv.second.poly(CollectMetricTag{});
@@ -64,7 +64,7 @@ std::vector<CollectedMetric> MetricRegistry::CollectWithPrefix(
 }
 
 std::optional<CollectedMetric> MetricRegistry::Collect(std::string_view name) {
-  absl::MutexLock l(&mu_);
+  absl::MutexLock l(mu_);
   auto it = entries_.find(name);
   if (it == entries_.end()) return std::nullopt;
   auto opt_metric = it->second.poly(CollectMetricTag{});
@@ -78,7 +78,7 @@ MetricRegistry& GetMetricRegistry() {
 }
 
 void MetricRegistry::Reset() {
-  absl::MutexLock l(&mu_);
+  absl::MutexLock l(mu_);
   for (auto& [k, v] : entries_) {
     v.poly(ResetMetricTag{});
   }

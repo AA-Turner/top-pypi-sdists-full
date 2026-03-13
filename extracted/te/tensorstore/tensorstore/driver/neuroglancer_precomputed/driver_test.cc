@@ -28,6 +28,7 @@
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_cat.h"
 #include "absl/time/clock.h"
 #include <nlohmann/json.hpp>
 #include "riegeli/bytes/cord_writer.h"
@@ -68,7 +69,6 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/str_cat.h"
 #include "tensorstore/util/unit.h"
 
 namespace {
@@ -84,7 +84,6 @@ using ::tensorstore::MatchesJson;
 using ::tensorstore::Schema;
 using ::tensorstore::StatusIs;
 using ::tensorstore::StorageGeneration;
-using ::tensorstore::StrCat;
 using ::tensorstore::TimestampedStorageGeneration;
 using ::tensorstore::Unit;
 using ::tensorstore::internal::GetMap;
@@ -1421,7 +1420,7 @@ TENSORSTORE_GLOBAL_INITIALIZER {
       const auto [x_size, y_size, z_size, c_size] = shape;
       tensorstore::internal::TensorStoreDriverBasicFunctionalityTestOptions
           options;
-      options.test_name = tensorstore::StrCat(
+      options.test_name = absl::StrCat(
           "neuroglancer_precomputed", "/sharding=", sharding_name,
           "/shape=", x_size, ",", y_size, ",", z_size, ",", c_size);
       options.create_spec = {
@@ -3046,8 +3045,8 @@ TEST(DriverTest, SeparateMetadataCache) {
 
 TEST(DriverTest, FillMissingDataReads) {
   for (bool fill_missing_data_reads : {false, true}) {
-    SCOPED_TRACE(tensorstore::StrCat("fill_missing_data_reads=",
-                                     fill_missing_data_reads));
+    SCOPED_TRACE(
+        absl::StrCat("fill_missing_data_reads=", fill_missing_data_reads));
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
         auto store,
         tensorstore::Open(
@@ -3085,8 +3084,8 @@ TEST(DriverTest, FillMissingDataReads) {
 // `store_data_equal_to_fill_value=true`.
 TEST(DriverTest, StoreDataEqualToFillValue) {
   for (bool store_data_equal_to_fill_value : {false, true}) {
-    SCOPED_TRACE(tensorstore::StrCat("store_data_equal_to_fill_value=",
-                                     store_data_equal_to_fill_value));
+    SCOPED_TRACE(absl::StrCat("store_data_equal_to_fill_value=",
+                              store_data_equal_to_fill_value));
     TENSORSTORE_ASSERT_OK_AND_ASSIGN(
         auto store, tensorstore::Open({{"driver", "neuroglancer_precomputed"},
                                        {"kvstore", "memory://"},

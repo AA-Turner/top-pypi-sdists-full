@@ -16,7 +16,7 @@ class FunctionDefinitionParams(typing_extensions.TypedDict):
     A description of what the function does.
     """
 
-    parameters: typing_extensions.NotRequired[typing.Dict[str, typing.Optional[typing.Any]]]
+    parameters: typing_extensions.NotRequired[typing.Dict[str, typing.Any]]
     """
     The parameters the function accepts, described as a JSON Schema object.
     """

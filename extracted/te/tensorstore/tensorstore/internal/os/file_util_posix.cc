@@ -78,7 +78,6 @@
 
 using ::tensorstore::internal::PotentiallyBlockingRegion;
 using ::tensorstore::internal::StatusFromOsError;
-using ::tensorstore::internal::StatusWithOsError;
 using ::tensorstore::internal_tracing::LoggedTraceSpan;
 
 // On FreeBSD and Mac OS X, `flock` can safely be used instead of open file
@@ -197,7 +196,7 @@ Result<UnlockFn> AcquireFdLock(FileDescriptor fd) {
     }
     if (errno == EINTR) continue;
     if (errno == EINVAL || errno == ENOTSUP) break;
-    auto status = StatusFromOsError(errno, "Failed to lock file");
+    auto status = StatusFromOsError(errno).Format("Failed to lock file");
     return std::move(tspan).EndWithStatus(std::move(status));
   }
 #endif
@@ -208,7 +207,7 @@ Result<UnlockFn> AcquireFdLock(FileDescriptor fd) {
         return UnlockFlockLock;
       }
       if (errno == EINTR) continue;
-      auto status = StatusFromOsError(errno, "Failed to lock file");
+      auto status = StatusFromOsError(errno).Format("Failed to lock file");
       return std::move(tspan).EndWithStatus(std::move(status));
     }
   }
@@ -260,15 +259,16 @@ Result<UniqueFileDescriptor> OpenFileWrapper(const std::string& path,
     } else {
       status_code = internal::GetOsErrorStatusCode(errno);
     }
-    auto status = StatusWithOsError(status_code, errno,
-                                    "Failed to open: ", QuoteString(path));
+    absl::Status status = StatusFromOsError(status_code, errno)
+                              .Format("Failed to open: %v", QuoteString(path));
     return std::move(tspan).EndWithStatus(std::move(status));
   }
 
 #if defined(__APPLE__) && !defined(O_DIRECT)
   if ((flags & OpenFlags::Direct) == OpenFlags::Direct) {
     if (fcntl(fd, F_NOCACHE, 1) == -1) {
-      ABSL_LOG(WARNING) << StatusFromOsError(errno, "Failed to set F_NOCACHE");
+      ABSL_LOG(WARNING) << StatusFromOsError(errno).Format(
+          "Failed to set F_NOCACHE");
     }
   }
 #endif
@@ -285,13 +285,13 @@ absl::Status SetFileFlags(FileDescriptor fd, OpenFlags flags) {
 #endif
   int old_flags = ::fcntl(fd, F_GETFL, 0);
   if (old_flags == -1) {
-    return StatusFromOsError(errno, "Failed to get flags");
+    return StatusFromOsError(errno).Format("Failed to get flags");
   }
   if (static_cast<int>(flags) == old_flags) {
     return absl::OkStatus();
   }
   if (::fcntl(fd, F_SETFL, static_cast<int>(flags)) == -1) {
-    return StatusFromOsError(errno, "Failed to get flags");
+    return StatusFromOsError(errno).Format("Failed to get flags");
   }
   return absl::OkStatus();
 }
@@ -310,7 +310,7 @@ Result<ptrdiff_t> ReadFromFile(FileDescriptor fd,
   } else if (errno == EAGAIN || errno == EWOULDBLOCK) {
     return 0;
   }
-  auto status = StatusFromOsError(errno, "Failed to read from file");
+  auto status = StatusFromOsError(errno).Format("Failed to read from file");
   return std::move(tspan).EndWithStatus(std::move(status));
 }
 
@@ -329,8 +329,8 @@ Result<ptrdiff_t> PReadFromFile(FileDescriptor fd,
   if (n >= 0) {
     return n;
   }
-  auto status = StatusFromOsError(errno, "Failed to read ", buffer.size(),
-                                  " from file at offset ", offset);
+  auto status = StatusFromOsError(errno).Format(
+      "Failed to read %d bytes from file at offset %d", buffer.size(), offset);
   return std::move(tspan).EndWithStatus(std::move(status));
 }
 
@@ -349,8 +349,8 @@ Result<ptrdiff_t> WriteToFile(FileDescriptor fd, const void* buf,
   } else if (n >= 0) {
     return n;
   }
-  auto status = StatusFromOsError(errno, "Failed to write ", count,
-                                  " bytes to file ", fd);
+  auto status = StatusFromOsError(errno).Format(
+      "Failed to write %d bytes to file %d", count, fd);
   return std::move(tspan).EndWithStatus(std::move(status));
 }
 
@@ -377,8 +377,8 @@ Result<ptrdiff_t> WriteCordToFile(FileDescriptor fd, absl::Cord value) {
   } else if (n >= 0) {
     return n;
   }
-  auto status = StatusFromOsError(errno, "Failed to write ", value.size(),
-                                  "butes to file ", fd);
+  auto status = StatusFromOsError(errno).Format(
+      "Failed to write %d bytes to file %d", value.size(), fd);
   return std::move(tspan).EndWithStatus(std::move(status));
 }
 
@@ -388,7 +388,7 @@ absl::Status TruncateFile(FileDescriptor fd) {
   if (::ftruncate(fd, 0) == 0) {
     return absl::OkStatus();
   }
-  auto status = StatusFromOsError(errno, "Failed to truncate file");
+  auto status = StatusFromOsError(errno).Format("Failed to truncate file");
   return std::move(tspan).EndWithStatus(std::move(status));
 }
 
@@ -402,9 +402,9 @@ absl::Status RenameOpenFile(FileDescriptor fd, const std::string& old_name,
   if (::rename(old_name.c_str(), new_name.c_str()) == 0) {
     return absl::OkStatus();
   }
-  auto status = StatusFromOsError(
-      errno, absl::StrFormat("Failed to rename fd: %d %v to: %v", fd,
-                             QuoteString(old_name), QuoteString(new_name)));
+  auto status = StatusFromOsError(errno).Format(
+      "Failed to rename fd: %d %v to: %v", fd, QuoteString(old_name),
+      QuoteString(new_name));
   return std::move(tspan).EndWithStatus(std::move(status));
 }
 
@@ -416,8 +416,8 @@ absl::Status DeleteOpenFile(FileDescriptor fd, const std::string& path) {
   if (::unlink(path.c_str()) == 0) {
     return absl::OkStatus();
   }
-  auto status =
-      StatusFromOsError(errno, "Failed to delete: ", QuoteString(path));
+  auto status = StatusFromOsError(errno).Format("Failed to delete: %v",
+                                                QuoteString(path));
   return std::move(tspan).EndWithStatus(std::move(status));
 }
 
@@ -428,8 +428,8 @@ absl::Status DeleteFile(const std::string& path) {
   if (::unlink(path.c_str()) == 0) {
     return absl::OkStatus();
   }
-  auto status =
-      StatusFromOsError(errno, "Failed to delete: ", QuoteString(path));
+  auto status = StatusFromOsError(errno).Format("Failed to delete: %v",
+                                                QuoteString(path));
   return std::move(tspan).EndWithStatus(std::move(status));
 }
 
@@ -457,7 +457,7 @@ size_t GetDirectIoBlockAlignment(FileDescriptor fd) {
 namespace {
 void UnmapFilePosix(char* data, size_t size) {
   if (::munmap(data, size) != 0) {
-    ABSL_LOG(FATAL) << StatusFromOsError(errno, "Failed to unmap file");
+    ABSL_LOG(FATAL) << StatusFromOsError(errno).Format("Failed to unmap file");
   }
   mmap_active.Decrement();
 }
@@ -477,7 +477,7 @@ Result<MemoryRegion> MemmapFileReadOnly(FileDescriptor fd, size_t offset,
     struct ::stat info;
     if (::fstat(fd, &info) != 0) {
       return std::move(tspan).EndWithStatus(
-          StatusFromOsError(errno, "Failed to stat"));
+          StatusFromOsError(errno).Format("Failed to stat"));
     }
 
     uint64_t file_size = info.st_size;
@@ -496,7 +496,7 @@ Result<MemoryRegion> MemmapFileReadOnly(FileDescriptor fd, size_t offset,
   void* address = ::mmap(nullptr, size, PROT_READ, MAP_PRIVATE, fd, offset);
   if (address == MAP_FAILED) {
     return std::move(tspan).EndWithStatus(
-        StatusFromOsError(errno, "Failed to mmap"));
+        StatusFromOsError(errno).Format("Failed to mmap"));
   }
   ::madvise(address, size, MADV_WILLNEED);
 
@@ -515,7 +515,7 @@ absl::Status FsyncFile(FileDescriptor fd) {
   if (::fsync(fd) == 0) {
     return absl::OkStatus();
   }
-  auto status = StatusFromOsError(errno, "Failed to fsync file");
+  auto status = StatusFromOsError(errno).Format("Failed to fsync file");
   return std::move(tspan).EndWithStatus(std::move(status));
 }
 
@@ -535,7 +535,7 @@ absl::Status AwaitReadablePipe(FileDescriptor fd, absl::Time deadline) {
   if (n == 0) {
     return absl::DeadlineExceededError("Timeout reading from file");
   } else if (n < 0) {
-    return StatusFromOsError(errno, "Failed to poll file");
+    return StatusFromOsError(errno).Format("Failed to poll file");
   }
   return absl::OkStatus();
 }
@@ -548,8 +548,8 @@ Result<UniqueFileDescriptor> OpenDirectoryDescriptor(const std::string& path) {
     fd = ::open(path.c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC, 0);
   }
   if (fd == FileDescriptorTraits::Invalid()) {
-    auto status = StatusFromOsError(
-        errno, "Failed to open directory: ", QuoteString(path));
+    auto status = StatusFromOsError(errno).Format(
+        "Failed to open directory: %v", QuoteString(path));
     return std::move(tspan).EndWithStatus(std::move(status));
   }
   return UniqueFileDescriptor(fd);
@@ -561,8 +561,8 @@ absl::Status MakeDirectory(const std::string& path) {
   if (::mkdir(path.c_str(), 0777) == 0 || errno == EEXIST) {
     return absl::OkStatus();
   }
-  auto status = StatusFromOsError(
-      errno, "Failed to create directory: ", QuoteString(path));
+  auto status = StatusFromOsError(errno).Format(
+      "Failed to create directory: %v", QuoteString(path));
   return std::move(tspan).EndWithStatus(std::move(status));
 }
 
@@ -573,7 +573,7 @@ absl::Status FsyncDirectory(FileDescriptor fd) {
   if (::fsync(fd) == 0) {
     return absl::OkStatus();
   }
-  auto status = StatusFromOsError(errno, "Failed to fsync directory");
+  auto status = StatusFromOsError(errno).Format("Failed to fsync directory");
   return std::move(tspan).EndWithStatus(std::move(status));
 }
 

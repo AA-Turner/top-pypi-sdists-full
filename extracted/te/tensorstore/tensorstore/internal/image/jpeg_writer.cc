@@ -210,8 +210,8 @@ absl::Status JpegWriter::Encode(const ImageInfo& info,
 
   // On failure, clear the writer.
   if (!ok) {
-    internal::StatusBuilder builder(
-        state.writer->ok() ? state.error_.last_error : state.writer->status());
+    StatusBuilder builder(state.writer->ok() ? state.error_.last_error
+                                             : state.writer->status());
     writer_ = nullptr;
     return builder.SetCode(absl::StatusCode::kDataLoss);
   }

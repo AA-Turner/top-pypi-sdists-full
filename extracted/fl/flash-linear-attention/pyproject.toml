@@ -4,11 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "flash-linear-attention"
-version = "0.4.1"
+version = "0.4.2"
 description = "Fast linear attention models and layers"
 readme = "README.md"
 requires-python = ">=3.10"
-dependencies = ["fla-core==0.4.1", "transformers"]
+dependencies = ["fla-core==0.4.2", "transformers"]
 
 [project.urls]
 Homepage = "https://github.com/fla-org/flash-linear-attention"

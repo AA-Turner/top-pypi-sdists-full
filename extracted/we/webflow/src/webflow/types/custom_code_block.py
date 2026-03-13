@@ -3,48 +3,51 @@
 import datetime as dt
 import typing
 
-from ..core.datetime_utils import serialize_datetime
+import pydantic
+import typing_extensions
+from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from ..core.serialization import FieldMetadata
 from .custom_code_block_type import CustomCodeBlockType
 from .scripts import Scripts
 
-try:
-    import pydantic.v1 as pydantic  # type: ignore
-except ImportError:
-    import pydantic  # type: ignore
 
-
-class CustomCodeBlock(pydantic.BaseModel):
+class CustomCodeBlock(UniversalBaseModel):
     """
     A specific instance of Custom Code applied to a Site or Page
     """
 
-    site_id: typing.Optional[str] = pydantic.Field(
-        alias="siteId", default=None, description="The Site id where the custom code was applied"
-    )
-    page_id: typing.Optional[str] = pydantic.Field(
-        alias="pageId", default=None, description="The Page id (if applied at Page-level)"
-    )
-    type: typing.Optional[CustomCodeBlockType] = pydantic.Field(
-        default=None, description="Whether the Custom Code script is applied at the Site-level or Page-level"
-    )
+    site_id: typing_extensions.Annotated[
+        typing.Optional[str],
+        FieldMetadata(alias="siteId"),
+        pydantic.Field(alias="siteId", description="The Site ID where the custom code was applied"),
+    ] = None
+    page_id: typing_extensions.Annotated[
+        typing.Optional[str],
+        FieldMetadata(alias="pageId"),
+        pydantic.Field(alias="pageId", description="The Page ID (if applied at Page-level)"),
+    ] = None
+    type: typing.Optional[CustomCodeBlockType] = pydantic.Field(default=None)
+    """
+    Whether the Custom Code script is applied at the Site-level or Page-level
+    """
+
     scripts: typing.Optional[Scripts] = None
-    created_on: typing.Optional[dt.datetime] = pydantic.Field(
-        alias="createdOn", default=None, description="The date the Block was created"
-    )
-    last_updated: typing.Optional[dt.datetime] = pydantic.Field(
-        alias="lastUpdated", default=None, description="The date the Block was most recently updated"
-    )
+    created_on: typing_extensions.Annotated[
+        typing.Optional[dt.datetime],
+        FieldMetadata(alias="createdOn"),
+        pydantic.Field(alias="createdOn", description="The date the Block was created"),
+    ] = None
+    last_updated: typing_extensions.Annotated[
+        typing.Optional[dt.datetime],
+        FieldMetadata(alias="lastUpdated"),
+        pydantic.Field(alias="lastUpdated", description="The date the Block was most recently updated"),
+    ] = None
 
-    def json(self, **kwargs: typing.Any) -> str:
-        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
-        return super().json(**kwargs_with_defaults)
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2
+    else:
 
-    def dict(self, **kwargs: typing.Any) -> typing.Dict[str, typing.Any]:
-        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
-        return super().dict(**kwargs_with_defaults)
-
-    class Config:
-        frozen = True
-        smart_union = True
-        allow_population_by_field_name = True
-        json_encoders = {dt.datetime: serialize_datetime}
+        class Config:
+            frozen = True
+            smart_union = True
+            extra = pydantic.Extra.allow

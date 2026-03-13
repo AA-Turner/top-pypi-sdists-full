@@ -21,8 +21,8 @@ T = TypeVar("T", bound="EditWorkspaceGitSyncConfigJsonBodyGitSyncSettingsReposit
 class EditWorkspaceGitSyncConfigJsonBodyGitSyncSettingsRepositoriesItem:
     """
     Attributes:
-        script_path (str):
         git_repo_resource_path (str):
+        script_path (Union[Unset, str]):
         use_individual_branch (Union[Unset, bool]):
         group_by_folder (Union[Unset, bool]):
         force_branch (Union[Unset, str]):
@@ -32,8 +32,8 @@ class EditWorkspaceGitSyncConfigJsonBodyGitSyncSettingsRepositoriesItem:
             List[EditWorkspaceGitSyncConfigJsonBodyGitSyncSettingsRepositoriesItemExcludeTypesOverrideItem]]):
     """
 
-    script_path: str
     git_repo_resource_path: str
+    script_path: Union[Unset, str] = UNSET
     use_individual_branch: Union[Unset, bool] = UNSET
     group_by_folder: Union[Unset, bool] = UNSET
     force_branch: Union[Unset, str] = UNSET
@@ -45,8 +45,8 @@ class EditWorkspaceGitSyncConfigJsonBodyGitSyncSettingsRepositoriesItem:
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
-        script_path = self.script_path
         git_repo_resource_path = self.git_repo_resource_path
+        script_path = self.script_path
         use_individual_branch = self.use_individual_branch
         group_by_folder = self.group_by_folder
         force_branch = self.force_branch
@@ -67,10 +67,11 @@ class EditWorkspaceGitSyncConfigJsonBodyGitSyncSettingsRepositoriesItem:
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
-                "script_path": script_path,
                 "git_repo_resource_path": git_repo_resource_path,
             }
         )
+        if script_path is not UNSET:
+            field_dict["script_path"] = script_path
         if use_individual_branch is not UNSET:
             field_dict["use_individual_branch"] = use_individual_branch
         if group_by_folder is not UNSET:
@@ -93,9 +94,9 @@ class EditWorkspaceGitSyncConfigJsonBodyGitSyncSettingsRepositoriesItem:
         )
 
         d = src_dict.copy()
-        script_path = d.pop("script_path")
-
         git_repo_resource_path = d.pop("git_repo_resource_path")
+
+        script_path = d.pop("script_path", UNSET)
 
         use_individual_branch = d.pop("use_individual_branch", UNSET)
 
@@ -124,8 +125,8 @@ class EditWorkspaceGitSyncConfigJsonBodyGitSyncSettingsRepositoriesItem:
             exclude_types_override.append(exclude_types_override_item)
 
         edit_workspace_git_sync_config_json_body_git_sync_settings_repositories_item = cls(
-            script_path=script_path,
             git_repo_resource_path=git_repo_resource_path,
+            script_path=script_path,
             use_individual_branch=use_individual_branch,
             group_by_folder=group_by_folder,
             force_branch=force_branch,

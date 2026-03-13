@@ -1,4 +1,5 @@
-from datetime import datetime
+import ssl
+from datetime import datetime, timezone
 from http import HTTPStatus
 from typing import Any, Optional
 
@@ -37,9 +38,12 @@ class SlackWebhookMessagingIntegration(
 
     @classmethod
     def from_url(
-        cls, url: str, tracking: Optional[Tracking] = None
+        cls,
+        url: str,
+        tracking: Optional[Tracking] = None,
+        ssl_context: Optional[ssl.SSLContext] = None,
     ) -> "SlackWebhookMessagingIntegration":
-        client = WebhookClient(url)
+        client = WebhookClient(url, ssl=ssl_context)
         client.retry_handlers.append(RateLimitErrorRetryHandler(max_retry_count=5))
         return cls(client, tracking)
 
@@ -65,7 +69,7 @@ class SlackWebhookMessagingIntegration(
         self._send_message(formatted_message)
         return MessageSendResult(
             message_context=EmptyMessageContext(),
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(tz=timezone.utc),
             message_format="block_kit",
         )
 

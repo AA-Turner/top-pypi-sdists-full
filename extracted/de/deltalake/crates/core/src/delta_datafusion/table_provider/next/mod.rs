@@ -30,9 +30,9 @@ use std::collections::HashSet;
 use std::{borrow::Cow, sync::Arc};
 
 use arrow::datatypes::{Schema, SchemaRef};
-use datafusion::common::Result;
-use datafusion::datasource::TableType;
-use datafusion::logical_expr::TableProviderFilterPushDown;
+use datafusion::common::{DataFusionError, Result};
+use datafusion::datasource::{TableType, sink::DataSinkExec};
+use datafusion::logical_expr::{TableProviderFilterPushDown, dml::InsertOp};
 use datafusion::prelude::Expr;
 use datafusion::{
     catalog::{Session, TableProvider},
@@ -45,11 +45,14 @@ use url::Url;
 
 pub use self::scan::DeltaScanExec;
 pub(crate) use self::scan::KernelScanPlan;
+use super::data_sink::DeltaDataSink;
 use crate::DeltaTableError;
 use crate::delta_datafusion::DeltaScanConfig;
 use crate::delta_datafusion::engine::DataFusionEngine;
 use crate::delta_datafusion::table_provider::TableProviderBuilder;
 use crate::kernel::{EagerSnapshot, SendableScanMetadataStream, Snapshot};
+use crate::logstore::LogStoreRef;
+use crate::protocol::SaveMode;
 
 mod scan;
 
@@ -101,8 +104,8 @@ impl FileSelection {
     /// Create a selection from pre-normalized file IDs.
     ///
     /// This constructor does not normalize or validate the input IDs.
-    /// Callers with relative paths or Add actions should prefer:
-    /// - [`FileSelection::from_paths`]
+    /// Callers with relative file paths or Add actions should prefer:
+    /// - [`FileSelection::from_file_paths`]
     /// - [`FileSelection::from_adds`]
     /// - [`normalize_path_as_file_id`]
     pub(crate) fn new(file_ids: impl IntoIterator<Item = String>) -> Self {
@@ -117,13 +120,13 @@ impl FileSelection {
         self
     }
 
-    pub(crate) fn from_paths(
-        paths: impl IntoIterator<Item = impl AsRef<str>>,
+    pub(crate) fn from_file_paths(
+        file_paths: impl IntoIterator<Item = impl AsRef<str>>,
         table_root_url: &Url,
     ) -> crate::DeltaResult<Self> {
         let table_root_url = ensure_table_root_url(table_root_url);
         let mut file_ids = HashSet::new();
-        for path in paths {
+        for path in file_paths {
             let file_id = normalize_path_as_file_id_with_table_root(
                 path.as_ref(),
                 &table_root_url,
@@ -142,11 +145,11 @@ impl FileSelection {
         adds: impl IntoIterator<Item = crate::kernel::Add>,
         table_root_url: &Url,
     ) -> crate::DeltaResult<Self> {
-        Self::from_paths(adds.into_iter().map(|a| a.path), table_root_url)
+        Self::from_file_paths(adds.into_iter().map(|a| a.path), table_root_url)
     }
 }
 
-fn ensure_table_root_url(table_root_url: &Url) -> Url {
+pub(crate) fn ensure_table_root_url(table_root_url: &Url) -> Url {
     if table_root_url.path().ends_with('/') {
         table_root_url.clone()
     } else {
@@ -169,7 +172,7 @@ pub(crate) fn redact_url_str_for_error(urlish: &str) -> String {
     Url::parse(urlish).map_or_else(
         |_| {
             urlish
-                .split(|c| c == '?' || c == '#')
+                .split(['?', '#'])
                 .next()
                 .unwrap_or(urlish)
                 .to_string()
@@ -265,6 +268,8 @@ pub struct DeltaScan {
     full_schema: SchemaRef,
     #[serde(skip)]
     file_skipping_predicate: Option<Vec<Expr>>,
+    #[serde(skip)]
+    log_store: Option<LogStoreRef>,
     file_selection: Option<FileSelection>,
 }
 
@@ -295,6 +300,7 @@ impl DeltaScan {
             scan_schema,
             full_schema,
             file_skipping_predicate: None,
+            log_store: None,
             file_selection: None,
         })
     }
@@ -309,6 +315,12 @@ impl DeltaScan {
 
     pub(crate) fn with_file_selection(mut self, selection: FileSelection) -> Self {
         self.file_selection = Some(selection);
+        self
+    }
+
+    /// Attach the runtime log store handle required for write operations.
+    pub(crate) fn with_log_store(mut self, log_store: impl Into<LogStoreRef>) -> Self {
+        self.log_store = Some(log_store.into());
         self
     }
     /// Materialize deletion vector keep masks for files in this scan.
@@ -429,6 +441,46 @@ impl TableProvider for DeltaScan {
         .await
     }
 
+    async fn insert_into(
+        &self,
+        state: &dyn Session,
+        input: Arc<dyn ExecutionPlan>,
+        insert_op: InsertOp,
+    ) -> Result<Arc<dyn ExecutionPlan>> {
+        let log_store = self.log_store.clone().ok_or_else(|| {
+            DataFusionError::Plan(
+                "DeltaScan insert_into requires a runtime log_store handle".to_string(),
+            )
+        })?;
+
+        super::update_datafusion_session(state, log_store.as_ref(), None)?;
+
+        let snapshot = match &self.snapshot {
+            SnapshotWrapper::EagerSnapshot(esnap) => esnap.as_ref().clone(),
+            SnapshotWrapper::Snapshot(snap) => {
+                EagerSnapshot::try_new_with_snapshot(log_store.as_ref(), snap.clone()).await?
+            }
+        };
+
+        let save_mode = match insert_op {
+            InsertOp::Append => SaveMode::Append,
+            InsertOp::Overwrite => SaveMode::Overwrite,
+            InsertOp::Replace => {
+                return Err(DataFusionError::Plan(
+                    "Replace operation is not supported for DeltaScan".to_string(),
+                ));
+            }
+        };
+
+        let data_sink = DeltaDataSink::new(log_store, snapshot, save_mode);
+
+        Ok(Arc::new(DataSinkExec::new(
+            input,
+            Arc::new(data_sink),
+            None,
+        )))
+    }
+
     fn supports_filters_pushdown(
         &self,
         filter: &[&Expr],
@@ -443,9 +495,18 @@ impl TableProvider for DeltaScan {
 
 #[cfg(test)]
 mod tests {
+    use arrow::{
+        array::Int64Array,
+        datatypes::{DataType as ArrowDataType, Field as ArrowField, Schema as ArrowSchema},
+        record_batch::RecordBatch,
+    };
+    use arrow_array::{DictionaryArray, UInt16Array, types::UInt16Type};
     use datafusion::{
+        catalog::Session,
+        datasource::MemTable,
         datasource::{physical_plan::FileScanConfig, source::DataSource},
         error::DataFusionError,
+        logical_expr::dml::InsertOp,
         physical_plan::{ExecutionPlanVisitor, collect_partitioned, visit_execution_plan},
     };
     use datafusion_datasource::source::DataSourceExec;
@@ -458,7 +519,10 @@ mod tests {
     use crate::{
         assert_batches_sorted_eq,
         delta_datafusion::{DeltaScanConfig, session::create_session},
-        kernel::{EagerSnapshot, Snapshot},
+        kernel::{
+            Action, DataType, EagerSnapshot, PrimitiveType, Snapshot, StructField, StructType,
+        },
+        logstore::get_actions,
         test_utils::{TestResult, TestTables},
     };
 
@@ -523,6 +587,258 @@ mod tests {
 
             Ok(true)
         }
+    }
+
+    async fn create_in_memory_id_table() -> crate::DeltaResult<crate::DeltaTable> {
+        let schema = StructType::try_new(vec![StructField::new(
+            "id".to_string(),
+            DataType::Primitive(PrimitiveType::Long),
+            true,
+        )])?;
+        crate::DeltaTable::new_in_memory()
+            .create()
+            .with_columns(schema.fields().cloned())
+            .await
+    }
+
+    async fn build_insert_input(
+        state: &dyn Session,
+        schema: SchemaRef,
+        values: Vec<i64>,
+    ) -> Result<Arc<dyn ExecutionPlan>, DataFusionError> {
+        let batch = RecordBatch::try_new(schema.clone(), vec![Arc::new(Int64Array::from(values))])?;
+        let mem_table = MemTable::try_new(schema, vec![vec![batch]])?;
+        mem_table.scan(state, None, &[], None).await
+    }
+
+    #[tokio::test]
+    async fn test_insert_into_append_works() -> TestResult {
+        let table = create_in_memory_id_table().await?;
+        let log_store = table.log_store();
+        let provider = DeltaScan::builder()
+            .with_log_store(log_store.clone())
+            .build()
+            .await?;
+
+        let session = Arc::new(create_session().into_inner());
+        let state = session.state_ref().read().clone();
+        let input = build_insert_input(&state, provider.schema(), vec![11, 13]).await?;
+
+        let write_plan = provider
+            .insert_into(&state, input, InsertOp::Append)
+            .await?;
+        let _write_batches: Vec<_> = collect_partitioned(write_plan, session.task_ctx())
+            .await?
+            .into_iter()
+            .flatten()
+            .collect();
+
+        let read_provider = DeltaScan::builder().with_log_store(log_store).await?;
+        session.register_table("delta_table", read_provider)?;
+        let batches = session
+            .sql("SELECT id FROM delta_table ORDER BY id")
+            .await?
+            .collect()
+            .await?;
+        let expected = vec!["+----+", "| id |", "+----+", "| 11 |", "| 13 |", "+----+"];
+        assert_batches_sorted_eq!(&expected, &batches);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_insert_into_overwrite_works() -> TestResult {
+        let table = create_in_memory_id_table().await?;
+        let log_store = table.log_store();
+
+        let append_provider = DeltaScan::builder()
+            .with_log_store(log_store.clone())
+            .build()
+            .await?;
+        let session = Arc::new(create_session().into_inner());
+        let state = session.state_ref().read().clone();
+
+        let append_input = build_insert_input(&state, append_provider.schema(), vec![1, 2]).await?;
+        let append_plan = append_provider
+            .insert_into(&state, append_input, InsertOp::Append)
+            .await?;
+        let _append_batches: Vec<_> = collect_partitioned(append_plan, session.task_ctx())
+            .await?
+            .into_iter()
+            .flatten()
+            .collect();
+
+        let overwrite_provider = DeltaScan::builder()
+            .with_log_store(log_store.clone())
+            .build()
+            .await?;
+        let overwrite_input =
+            build_insert_input(&state, overwrite_provider.schema(), vec![11, 13]).await?;
+        let overwrite_plan = overwrite_provider
+            .insert_into(&state, overwrite_input, InsertOp::Overwrite)
+            .await?;
+        let _overwrite_batches: Vec<_> = collect_partitioned(overwrite_plan, session.task_ctx())
+            .await?
+            .into_iter()
+            .flatten()
+            .collect();
+
+        let commit_bytes = log_store
+            .read_commit_entry(2)
+            .await?
+            .expect("expected overwrite commit bytes at version 2");
+        let overwrite_actions = get_actions(2, &commit_bytes)?;
+        assert!(
+            overwrite_actions
+                .iter()
+                .any(|action| matches!(action, Action::Remove(_))),
+            "expected overwrite commit to contain at least one Remove action"
+        );
+        assert!(
+            overwrite_actions
+                .iter()
+                .any(|action| matches!(action, Action::Add(_))),
+            "expected overwrite commit to contain at least one Add action"
+        );
+
+        let read_provider = DeltaScan::builder().with_log_store(log_store).await?;
+        session.register_table("delta_table", read_provider)?;
+        let batches = session
+            .sql("SELECT id FROM delta_table ORDER BY id")
+            .await?
+            .collect()
+            .await?;
+        let expected = vec!["+----+", "| id |", "+----+", "| 11 |", "| 13 |", "+----+"];
+        assert_batches_sorted_eq!(&expected, &batches);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_insert_into_dictionary_source_is_cast_to_table_schema() -> TestResult {
+        let table = create_in_memory_id_table().await?;
+        let log_store = table.log_store();
+        let provider = DeltaScan::builder()
+            .with_log_store(log_store.clone())
+            .build()
+            .await?;
+
+        let session = Arc::new(create_session().into_inner());
+        let state = session.state_ref().read().clone();
+
+        let dictionary_schema = Arc::new(ArrowSchema::new(vec![ArrowField::new(
+            "id",
+            ArrowDataType::Dictionary(
+                Box::new(ArrowDataType::UInt16),
+                Box::new(ArrowDataType::Int64),
+            ),
+            true,
+        )]));
+
+        let dictionary_values = Int64Array::from(vec![11, 13]);
+        let dictionary_keys = UInt16Array::from(vec![0, 1]);
+        let dictionary_array =
+            DictionaryArray::<UInt16Type>::new(dictionary_keys, Arc::new(dictionary_values));
+        let dictionary_batch =
+            RecordBatch::try_new(dictionary_schema.clone(), vec![Arc::new(dictionary_array)])?;
+
+        let mem_table = MemTable::try_new(dictionary_schema, vec![vec![dictionary_batch]])?;
+        let input = mem_table.scan(&state, None, &[], None).await?;
+        let write_plan = provider
+            .insert_into(&state, input, InsertOp::Append)
+            .await?;
+        let _write_batches: Vec<_> = collect_partitioned(write_plan, session.task_ctx())
+            .await?
+            .into_iter()
+            .flatten()
+            .collect();
+
+        let read_provider = DeltaScan::builder().with_log_store(log_store).await?;
+        session.register_table("delta_table", read_provider)?;
+        let batches = session
+            .sql("SELECT id FROM delta_table ORDER BY id")
+            .await?
+            .collect()
+            .await?;
+        let expected = vec!["+----+", "| id |", "+----+", "| 11 |", "| 13 |", "+----+"];
+        assert_batches_sorted_eq!(&expected, &batches);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_insert_into_rejects_replace() -> TestResult {
+        let table = create_in_memory_id_table().await?;
+        let provider = DeltaScan::builder()
+            .with_log_store(table.log_store())
+            .build()
+            .await?;
+
+        let session = Arc::new(create_session().into_inner());
+        let state = session.state_ref().read().clone();
+        let input = build_insert_input(&state, provider.schema(), vec![1]).await?;
+
+        let err = provider
+            .insert_into(&state, input, InsertOp::Replace)
+            .await
+            .unwrap_err();
+        let err_str = err.to_string();
+        assert!(err_str.contains("Replace"), "unexpected error: {err_str}");
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_insert_into_requires_log_store() -> TestResult {
+        let table = create_in_memory_id_table().await?;
+        let snapshot = table.snapshot()?.snapshot().snapshot().clone();
+        let provider = DeltaScan::builder().with_snapshot(snapshot).build().await?;
+
+        let session = Arc::new(create_session().into_inner());
+        let state = session.state_ref().read().clone();
+        let input = build_insert_input(&state, provider.schema(), vec![1]).await?;
+
+        let err = provider
+            .insert_into(&state, input, InsertOp::Append)
+            .await
+            .unwrap_err();
+        let err_str = err.to_string();
+        assert!(err_str.contains("log_store"), "unexpected error: {err_str}");
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_insert_into_serde_roundtrip_is_read_only() -> TestResult {
+        let log_store = TestTables::Simple.table_builder()?.build_storage()?;
+        let snapshot = Snapshot::try_new(&log_store, Default::default(), None).await?;
+        let provider = DeltaScan::builder()
+            .with_snapshot(snapshot)
+            .with_log_store(log_store.clone())
+            .build()
+            .await?;
+
+        let serialized = serde_json::to_vec(&provider)?;
+        let decoded: DeltaScan = serde_json::from_slice(&serialized)?;
+
+        let session = Arc::new(create_session().into_inner());
+        let state = session.state_ref().read().clone();
+        let read_plan = decoded.scan(&state, None, &[], None).await?;
+        let _read_batches: Vec<_> = collect_partitioned(read_plan, session.task_ctx())
+            .await?
+            .into_iter()
+            .flatten()
+            .collect();
+
+        let input = build_insert_input(&state, decoded.schema(), vec![1]).await?;
+        let err = decoded
+            .insert_into(&state, input, InsertOp::Append)
+            .await
+            .unwrap_err();
+        let err_str = err.to_string();
+        assert!(err_str.contains("log_store"), "unexpected error: {err_str}");
+
+        Ok(())
     }
 
     #[tokio::test]
@@ -653,7 +969,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_scan_with_file_selection_from_paths_reads_selected_file() -> TestResult {
+    async fn test_scan_with_file_selection_from_file_paths_reads_selected_file() -> TestResult {
         let log_store = TestTables::Simple.table_builder()?.build_storage()?;
         let snapshot = Arc::new(Snapshot::try_new(&log_store, Default::default(), None).await?);
         let table_root = snapshot.scan_builder().build()?.table_root().clone();
@@ -670,7 +986,7 @@ mod tests {
             .into_iter()
             .next()
             .unwrap();
-        let selection = FileSelection::from_paths([selected_path.as_str()], &table_root)?;
+        let selection = FileSelection::from_file_paths([selected_path.as_str()], &table_root)?;
 
         let provider = DeltaScan::builder()
             .with_snapshot(snapshot)
@@ -831,7 +1147,7 @@ mod tests {
     }
 
     #[test]
-    fn test_file_selection_from_paths_normalizes_urls() -> TestResult {
+    fn test_file_selection_from_file_paths_normalizes_urls() -> TestResult {
         let cases = vec![
             (
                 "file:///tmp/delta",
@@ -867,7 +1183,7 @@ mod tests {
 
         for (table_root, input, expected) in cases {
             let table_root = Url::parse(table_root).unwrap();
-            let selection = FileSelection::from_paths([input], &table_root)?;
+            let selection = FileSelection::from_file_paths([input], &table_root)?;
             assert!(selection.file_ids.contains(expected));
             assert_eq!(selection.missing_file_policy, MissingFilePolicy::Error);
         }

@@ -93,7 +93,8 @@ absl::Status GetFileInfo(HANDLE fd, FileInfo* info) {
   if (::GetFileInformationByHandle(fd, &info->impl)) {
     return absl::OkStatus();
   }
-  auto status = StatusFromOsError(::GetLastError());
+  auto status =
+      StatusFromOsError(::GetLastError()).Format("Failed to stat file");
   return std::move(tspan).EndWithStatus(std::move(status));
 }
 
@@ -116,8 +117,8 @@ absl::Status GetFileInfo(const std::string& path, FileInfo* info) {
       ::GetFileInformationByHandle(stat_fd.get(), &info->impl)) {
     return absl::OkStatus();
   }
-  auto status = StatusFromOsError(::GetLastError(),
-                                  "Failed to stat file: ", QuoteString(path));
+  auto status = StatusFromOsError(::GetLastError())
+                    .Format("Failed to stat file: %v", QuoteString(path));
   return std::move(tspan).EndWithStatus(std::move(status));
 }
 

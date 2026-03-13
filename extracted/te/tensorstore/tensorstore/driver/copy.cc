@@ -350,9 +350,11 @@ struct DriverCopyInitiateOp {
 WriteFutures DriverCopy(Executor executor, DriverHandle source,
                         DriverHandle target, DriverCopyOptions options) {
   TENSORSTORE_RETURN_IF_ERROR(
-      internal::ValidateSupportsRead(source.driver.read_write_mode()));
+      internal::ValidateSupportsRead(source.driver.read_write_mode()))
+      .BuildStatus();
   TENSORSTORE_RETURN_IF_ERROR(
-      internal::ValidateSupportsWrite(target.driver.read_write_mode()));
+      internal::ValidateSupportsWrite(target.driver.read_write_mode()))
+      .BuildStatus();
   IntrusivePtr<CopyState> state(new CopyState);
   state->executor = executor;
   TENSORSTORE_ASSIGN_OR_RETURN(

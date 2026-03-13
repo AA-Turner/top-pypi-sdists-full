@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: elementary-data
-Version: 0.22.0
+Version: 0.23.0
 Summary: Data monitoring and lineage
 License: Apache-2.0
 License-File: LICENSE
@@ -21,11 +21,17 @@ Provides-Extra: athena
 Provides-Extra: bigquery
 Provides-Extra: clickhouse
 Provides-Extra: databricks
+Provides-Extra: dremio
+Provides-Extra: duckdb
+Provides-Extra: fabric
+Provides-Extra: fabricspark
 Provides-Extra: postgres
 Provides-Extra: redshift
 Provides-Extra: snowflake
 Provides-Extra: spark
+Provides-Extra: sqlserver
 Provides-Extra: trino
+Provides-Extra: vertica
 Requires-Dist: alive-progress (<=2.3.1)
 Requires-Dist: azure-storage-blob (>=12.11.0)
 Requires-Dist: beautifulsoup4 (<5.0.0)
@@ -36,11 +42,17 @@ Requires-Dist: dbt-bigquery (>=0.20,<2.0.0) ; extra == "bigquery" or extra == "a
 Requires-Dist: dbt-clickhouse (>=0.20,<2.0.0) ; extra == "clickhouse" or extra == "all"
 Requires-Dist: dbt-core (>=0.20,<2.0.0)
 Requires-Dist: dbt-databricks (>=0.20,<2.0.0) ; extra == "databricks" or extra == "all"
+Requires-Dist: dbt-dremio (>=1.5.0,<2.0.0) ; extra == "dremio" or extra == "all"
+Requires-Dist: dbt-duckdb (>=1.5.0,<2.0.0) ; extra == "duckdb" or extra == "all"
+Requires-Dist: dbt-fabric (>=1.4,<2.0.0) ; extra == "fabric" or extra == "all"
+Requires-Dist: dbt-fabricspark (>=1.4,<2.0.0) ; extra == "fabricspark" or extra == "all"
 Requires-Dist: dbt-postgres (>=0.20,<2.0.0) ; extra == "postgres" or extra == "all"
 Requires-Dist: dbt-redshift (>=0.20,<2.0.0) ; extra == "redshift" or extra == "all"
 Requires-Dist: dbt-snowflake (>=0.20,<2.0.0) ; extra == "snowflake" or extra == "all"
 Requires-Dist: dbt-spark (>=0.20,<2.0.0) ; extra == "spark" or extra == "all"
+Requires-Dist: dbt-sqlserver (>=1.4,<2.0.0) ; extra == "sqlserver" or extra == "all"
 Requires-Dist: dbt-trino (>=1.5.0,<2.0.0) ; extra == "trino" or extra == "all"
+Requires-Dist: dbt-vertica (>=1.7,<2.0.0) ; extra == "vertica" or extra == "all"
 Requires-Dist: google-cloud-storage (>=2.4,<3.2)
 Requires-Dist: networkx (>=2.3,<3)
 Requires-Dist: packaging (>=20.9)
@@ -53,6 +65,7 @@ Requires-Dist: requests (>=2.28.1,<3.0.0)
 Requires-Dist: ruamel.yaml (<1.0.0)
 Requires-Dist: slack-sdk (>=3.20.1,<4.0.0)
 Requires-Dist: tabulate (>=0.9.0)
+Requires-Dist: tenacity (>=8.0,<10.0)
 Project-URL: Documentation, https://docs.elementary-data.com
 Project-URL: Homepage, https://www.elementary-data.com
 Project-URL: Repository, https://github.com/elementary-data/elementary

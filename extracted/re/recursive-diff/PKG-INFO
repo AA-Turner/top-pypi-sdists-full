@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: recursive_diff
-Version: 2.0.0
+Version: 2.1.0
 Summary: Recursively compare two Python data structures
 Project-URL: homepage, https://github.com/crusaderky/recursive_diff
 Project-URL: issues, https://github.com/crusaderky/recursive_diff/issues

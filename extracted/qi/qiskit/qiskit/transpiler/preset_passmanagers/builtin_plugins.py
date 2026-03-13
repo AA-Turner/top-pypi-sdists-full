@@ -74,7 +74,7 @@ _discrete_skipped_ops = {
 class DefaultInitPassManager(PassManagerStagePlugin):
     """Plugin class for default init stage."""
 
-    def pass_manager(self, pass_manager_config, optimization_level=None) -> PassManager:
+    def pass_manager(self, pass_manager_config, optimization_level=None):
         if pass_manager_config._is_clifford_t:
             optimization_metric = OptimizationMetric.COUNT_T
         else:
@@ -471,7 +471,7 @@ class NoneRoutingPassManager(PassManagerStagePlugin):
 class OptimizationPassManager(PassManagerStagePlugin):
     """Plugin class for optimization stage"""
 
-    def pass_manager(self, pass_manager_config, optimization_level=None) -> PassManager:
+    def pass_manager(self, pass_manager_config, optimization_level=None):
         """Build pass manager for optimization stage."""
 
         # Use the dedicated plugin for the Clifford+T basis when appropriate.
@@ -662,7 +662,7 @@ class AlapSchedulingPassManager(PassManagerStagePlugin):
 
 
 class AsapSchedulingPassManager(PassManagerStagePlugin):
-    """Plugin class for alap scheduling stage."""
+    """Plugin class for asap scheduling stage."""
 
     def pass_manager(self, pass_manager_config, optimization_level=None) -> PassManager:
         """Build scheduling stage PassManager"""
@@ -678,7 +678,7 @@ class AsapSchedulingPassManager(PassManagerStagePlugin):
 
 
 class DefaultSchedulingPassManager(PassManagerStagePlugin):
-    """Plugin class for alap scheduling stage."""
+    """Plugin class for default scheduling stage."""
 
     def pass_manager(self, pass_manager_config, optimization_level=None) -> PassManager:
         """Build scheduling stage PassManager"""
@@ -999,7 +999,7 @@ def _get_trial_count(default_trials=5):
 class CliffordTOptimizationPassManager(PassManagerStagePlugin):
     """Plugin class for optimization stage"""
 
-    def pass_manager(self, pass_manager_config, optimization_level=None) -> PassManager:
+    def pass_manager(self, pass_manager_config, optimization_level=None):
         """Build pass manager for optimization stage."""
 
         # Obtain the translation method required for this pass to work

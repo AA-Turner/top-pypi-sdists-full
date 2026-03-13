@@ -38,6 +38,7 @@ from typing import (
     Literal,
     overload,
 )
+import os
 from math import pi
 import numpy as np
 from qiskit._accelerate.circuit import CircuitData
@@ -330,7 +331,7 @@ class QuantumCircuit:
 
     Similarly, if you want a circuit that contains all the same data objects (bits, registers,
     variables, etc) but with none of the instructions, you can use :meth:`copy_empty_like`.  This is
-    quite common when you want to build up a new layer of a circuit to then use apply onto the back
+    quite common when you want to build up a new layer of a circuit to then apply onto the back
     with :meth:`compose`, or to do a full rewrite of a circuit's instructions.
 
     .. automethod:: copy_empty_like
@@ -417,7 +418,7 @@ class QuantumCircuit:
     -------------------------------
 
     A :class:`.Bit` instance is, on its own, just a unique handle for circuits to use in their own
-    contexts.  If you have got a :class:`.Bit` instance and a circuit, just can find the contexts
+    contexts.  If you have got a :class:`.Bit` instance and a circuit, you can find the contexts
     that the bit exists in using :meth:`find_bit`, such as its integer index in the circuit and any
     registers it is contained in.
 
@@ -810,7 +811,7 @@ class QuantumCircuit:
 
     :class:`QuantumCircuit` has corresponding methods for all of the control-flow operations that
     are supported by Qiskit.  These have two forms for calling them.  The first is a very
-    straightfowards convenience wrapper that takes in the block bodies of the instructions as
+    straightforward convenience wrapper that takes in the block bodies of the instructions as
     :class:`QuantumCircuit` arguments, and simply constructs and appends the corresponding
     :class:`.ControlFlowOp`.
 
@@ -976,7 +977,7 @@ class QuantumCircuit:
     ==============================
 
     Circuits are a fairly low-level abstraction of quantum algorithms.  However, even within this,
-    there are distinctions. Quantum programmers often want to use a wide arrange of gates and
+    there are distinctions. Quantum programmers often want to use a wide array of gates and
     instructions, and work in a regime where all qubits and interact with all others.  Quantum
     hardware, however, typically has a restrictive set of native gates, and only certain pairs of
     hardware qubits can interact.  We term these two regimes "abstract circuits" and "physical
@@ -1704,7 +1705,16 @@ class QuantumCircuit:
 
             virtuals = self.qubits.copy()
             if num_qubits is not None and num_qubits > original_num_qubits:
-                virtuals.extend(QuantumRegister(num_qubits - original_num_qubits, "ancilla"))
+
+                ancilla_register_name = "ancilla"
+                ancilla_suffix = 0
+                reg_names = {reg.name for reg in self.qregs}
+                while ancilla_register_name in reg_names:
+                    ancilla_register_name = f"ancilla{ancilla_suffix}"
+                    ancilla_suffix += 1
+                virtuals.extend(
+                    QuantumRegister(num_qubits - original_num_qubits, ancilla_register_name)
+                )
             initial_layout = Layout(dict(enumerate(virtuals)))
         else:
             initial_layout = None
@@ -1903,7 +1913,7 @@ class QuantumCircuit:
             except QiskitError:
                 inst = self.to_instruction()
             for i in range(reps):
-                repeated_circ._append(inst, self.qubits, self.clbits)
+                repeated_circ.append(inst, self.qubits, self.clbits)
                 if insert_barriers and i != reps - 1:
                     repeated_circ.barrier()
 
@@ -3888,13 +3898,23 @@ class QuantumCircuit:
     ):
         r"""Draw the quantum circuit. Use the output parameter to choose the drawing format:
 
-        **text**: ASCII art TextDrawing that can be printed in the console.
+        ``text``
+            ASCII art TextDrawing that can be printed in the console.
 
-        **mpl**: images with color rendered purely in Python using matplotlib.
+        ``mpl``
+            Images with color rendered purely in Python using matplotlib.
 
-        **latex**: high-quality images compiled via latex.
+        ``latex``
+            High-quality images compiled via LaTeX.
 
-        **latex_source**: raw uncompiled latex output.
+            .. warning::
+                This will call an installed system version of ``pdflatex`` on arbitrary user input
+                by design (such as to render custom code in :attr:`.Instruction.label`), so should
+                only be used on trusted input.
+
+        ``latex_source``
+            Raw uncompiled LaTeX output.  This is the source of what would be rendered by the
+            ``latex`` drawer.
 
         .. warning::
 
@@ -3926,7 +3946,7 @@ class QuantumCircuit:
                   the location specified in ``~/.qiskit/settings.conf``.
                 * If a dictionary, every entry overrides the default configuration. If the
                   ``"name"`` key is given, the default configuration is given by that style.
-                  For example, ``{"name": "textbook", "subfontsize": 5}`` loads the ``"texbook"``
+                  For example, ``{"name": "textbook", "subfontsize": 5}`` loads the ``"textbook"``
                   style and sets the subfontsize (e.g. the gate angles) to ``5``.
                 * If ``None`` the default style ``"iqp"`` is used or, if given, the default style
                   specified in ``~/.qiskit/settings.conf``.
@@ -3953,7 +3973,7 @@ class QuantumCircuit:
                 the ``text`` output, will be silently ignored otherwise.
             idle_wires: Include (or not) idle wires (wires with no circuit elements)
                 in output visualization. The string ``"auto"`` is also possible, in which
-                case idle wires are show except that the circuit has a layout attached.
+                case idle wires are shown except when the circuit has a layout attached.
                 Default is ``"auto"`` unless the
                 user config file (usually ``~/.qiskit/settings.conf``) has an
                 alternative value set. For example, ``circuit_idle_wires = False``.
@@ -3981,7 +4001,7 @@ class QuantumCircuit:
             expr_len: The number of characters to display if an :class:`~.expr.Expr`
                 is used for the condition in a :class:`.ControlFlowOp`. If this number is exceeded,
                 the string will be truncated at that number and '...' added to the end.
-            measure_arrows: If True, draw an arrow from each measure box down the the classical bit
+            measure_arrows: If True, draw an arrow from each measure box down to the classical bit
                 or register where the measure value is placed. If False, do not draw arrow, but
                 instead place the name of the bit or register in the measure box.
                 Default is ``True`` unless the user config file (usually ``~/.qiskit/settings.conf``)
@@ -4204,14 +4224,11 @@ class QuantumCircuit:
         """
         return self._data.num_clbits
 
-    # The stringified return type is because OrderedDict can't be subscripted before Python 3.9, and
-    # typing.OrderedDict wasn't added until 3.7.2.  It can be turned into a proper type once 3.6
-    # support is dropped.
-    def count_ops(self) -> "OrderedDict[Instruction, int]":
+    def count_ops(self) -> OrderedDict[str, int]:
         """Count each operation kind in the circuit.
 
         Returns:
-            OrderedDict: a breakdown of how many operations of each kind, sorted by amount.
+            A breakdown of how many operations of each kind, sorted by amount.
         """
         ops_dict = self._data.count_ops()
         return OrderedDict(ops_dict)
@@ -4227,7 +4244,7 @@ class QuantumCircuit:
         """Get instructions matching name.
 
         Args:
-            name (str): The name of instruction to.
+            name (str): The name of instruction to get.
 
         Returns:
             list(tuple): list of (instruction, qargs, cargs).
@@ -4722,12 +4739,12 @@ class QuantumCircuit:
             return None
 
     @staticmethod
-    def from_qasm_file(path: str) -> "QuantumCircuit":
+    def from_qasm_file(path: str | os.PathLike) -> "QuantumCircuit":
         """Read an OpenQASM 2.0 program from a file and convert to an instance of
         :class:`.QuantumCircuit`.
 
         Args:
-          path (str): Path to the file for an OpenQASM 2 program
+          path: Path to the file for an OpenQASM 2 program
 
         Return:
           QuantumCircuit: The QuantumCircuit object for the input OpenQASM 2.
@@ -5216,7 +5233,7 @@ class QuantumCircuit:
         For the full matrix form of this gate, see the underlying gate documentation.
 
         Args:
-            theta: THe angle of the rotation.
+            theta: The angle of the rotation.
             qubit: The qubit(s) to apply the gate to.
 
         Returns:
@@ -7024,7 +7041,7 @@ class QuantumCircuit:
                 if given an iterable of :class:`.Annotation` objects, the context-manager form of
                 this method is triggered.
             qubits: the qubits to apply the :class:`.BoxOp` to, in the explicit form.
-            clbits: the qubits to apply the :class:`.BoxOp` to, in the explicit form.
+            clbits: the clbits to apply the :class:`.BoxOp` to, in the explicit form.
             label: an optional string label for the instruction.
             duration: an optional explicit duration for the :class:`.BoxOp`.  Scheduling passes are
                 constrained to schedule the contained scope to match a given duration, including

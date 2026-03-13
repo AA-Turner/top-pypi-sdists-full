@@ -10,7 +10,8 @@ from refinery.units import Arg, Unit
 
 class imgto(Unit):
     """
-    Convert an image to a given format.
+    Convert an image to a given format. Supports PNG, BMP, GIF, JPEG, and other formats handled by
+    the Pillow (PIL) imaging library.
     """
     def __init__(
         self,
@@ -31,9 +32,15 @@ class imgto(Unit):
             raise
         except Exception:
             raise ValueError('input could not be parsed as an image')
-        with io.BytesIO() as out:
-            image.save(out, self.args.format)
-            return out.getvalue()
+        format = self.args.format.upper()
+        format = {'JPG': 'JPEG'}.get(format, format)
+        try:
+            out = io.BytesIO()
+            image.save(out, format)
+        except Exception:
+            out = io.BytesIO()
+            image.convert('RGB').save(out, format)
+        return out.getvalue()
 
     @classmethod
     def handles(cls, data) -> bool | None:

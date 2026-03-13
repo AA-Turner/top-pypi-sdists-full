@@ -33,12 +33,12 @@
 #include "tensorstore/internal/json_binding/raw_bytes_hex.h"
 #include "tensorstore/internal/json_binding/std_optional.h"
 #include "tensorstore/internal/json_binding/std_variant.h"
+#include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/kvstore/ocdbt/format/config.h"
 #include "tensorstore/kvstore/ocdbt/format/version_tree.h"
 #include "tensorstore/kvstore/supported_features.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_ocdbt {
@@ -206,10 +206,8 @@ absl::Status ConfigState::ValidateNewConfig(const Config& config) {
     if (assume_config_) {
       ConfigConstraints assumed_constraints(assumed_config_);
       assumed_constraints.uuid = config.uuid;
-      TENSORSTORE_RETURN_IF_ERROR(
-          ValidateConfig(config, assumed_constraints),
-          tensorstore::MaybeAnnotateStatus(
-              _, "Observed config does not match assumed config"));
+      TENSORSTORE_RETURN_IF_ERROR(ValidateConfig(config, assumed_constraints))
+          .Format("Observed config does not match assumed config");
     }
     constraints_ = ConfigConstraints(config);
     config_ = config;

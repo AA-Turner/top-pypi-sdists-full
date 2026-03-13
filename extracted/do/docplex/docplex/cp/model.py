@@ -87,7 +87,6 @@ import types
 from collections import OrderedDict
 import re
 import ast
-import numpy as np
 import subprocess
 import tempfile
 import os

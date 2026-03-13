@@ -270,7 +270,7 @@ absl::Status AwsHttpResponseToStatus(const HttpResponse& response,
     error_type = "Unknown";
   }
 
-  internal::StatusBuilder builder(absl_status_code, loc);
+  StatusBuilder builder(absl_status_code, loc);
   if (!payload_str.empty()) {
     builder.SetPayload(
         "http_response_body",

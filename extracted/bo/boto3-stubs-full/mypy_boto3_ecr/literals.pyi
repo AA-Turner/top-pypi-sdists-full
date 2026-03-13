@@ -130,6 +130,7 @@ TagStatusType = Literal["ANY", "TAGGED", "UNTAGGED"]
 TargetStorageClassType = Literal["ARCHIVE", "STANDARD"]
 UpstreamRegistryType = Literal[
     "azure-container-registry",
+    "chainguard",
     "docker-hub",
     "ecr",
     "ecr-public",

@@ -22,16 +22,17 @@
 
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include <nlohmann/json.hpp>
 #include "re2/re2.h"
-#include "tensorstore/internal/ascii_set.h"
 #include "tensorstore/internal/json/value_as.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_binding/std_array.h"
 #include "tensorstore/internal/json_binding/std_variant.h"
-#include "tensorstore/internal/uri_utils.h"
+#include "tensorstore/internal/uri/ascii_set.h"
+#include "tensorstore/internal/uri/percent_coder.h"
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/kvstore/ocdbt/config.h"
 #include "tensorstore/kvstore/ocdbt/format/btree.h"
@@ -42,7 +43,6 @@
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_ocdbt {
@@ -59,9 +59,11 @@ Result<LabeledIndirectDataReference> LabeledIndirectDataReference::Parse(
         "Invalid indirect data reference: %v", tensorstore::QuoteString(s)));
   }
   TENSORSTORE_ASSIGN_OR_RETURN(r.kind, ParseIndirectDataKind(label));
-  r.location.file_id.base_path = internal::PercentDecode(encoded_base_path);
-  r.location.file_id.relative_path =
-      internal::PercentDecode(encoded_relative_path);
+  TENSORSTORE_ASSIGN_OR_RETURN(r.location.file_id.base_path,
+                               internal_uri::PercentDecode(encoded_base_path));
+  TENSORSTORE_ASSIGN_OR_RETURN(
+      r.location.file_id.relative_path,
+      internal_uri::PercentDecode(encoded_relative_path));
   TENSORSTORE_RETURN_IF_ERROR(r.location.Validate(/*allow_missing=*/false));
   return r;
 }
@@ -71,7 +73,8 @@ namespace {
 namespace jb = tensorstore::internal_json_binding;
 
 constexpr auto ConfigBinder = jb::Compose<ConfigConstraints>(
-    [](auto is_loading, const auto& options, auto* obj, auto* constraints) {
+    [](auto is_loading, const auto& options, auto* obj,
+       auto* constraints) -> absl::Status {
       if constexpr (is_loading) {
         TENSORSTORE_RETURN_IF_ERROR(CreateConfig(*constraints, {}, *obj));
         if (ConfigConstraints(*obj) != *constraints) {
@@ -83,7 +86,7 @@ constexpr auto ConfigBinder = jb::Compose<ConfigConstraints>(
       return absl::OkStatus();
     });
 
-static inline constexpr internal::AsciiSet
+static inline constexpr internal_uri::AsciiSet
     kLabeledIndirectDataReferenceUnreservedChars{
         "abcdefghijklmnopqrstuvwxyz"
         "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -108,13 +111,13 @@ constexpr auto LabeledIndirectDataReferenceBinder =
         if (obj->location.IsMissing()) {
           *j = ::nlohmann::json::value_t::discarded;
         } else {
-          *j = tensorstore::StrCat(
+          *j = absl::StrCat(  //
               IndirectDataKindToString(obj->kind), ":",
-              internal::PercentEncodeReserved(
+              internal_uri::PercentEncode(
                   obj->location.file_id.base_path,
                   kLabeledIndirectDataReferenceUnreservedChars),
               ":",
-              internal::PercentEncodeReserved(
+              internal_uri::PercentEncode(
                   obj->location.file_id.relative_path,
                   kLabeledIndirectDataReferenceUnreservedChars),
               ":", obj->location.offset, ":", obj->location.length);
@@ -221,22 +224,22 @@ constexpr auto LeafNodeValueReferenceBinder = jb::Variant(
                IndirectDataReferenceBinder(IndirectDataKind::kValue)));
 
 constexpr auto BtreeLeafNodeEntryBinder(std::string_view key_prefix) {
-  return
-      [=](std::false_type is_loading, const auto& options, auto* obj, auto* j) {
-        ::nlohmann::json::binary_t key;
-        key.insert(key.end(), key_prefix.begin(), key_prefix.end());
-        key.insert(key.end(), obj->key.begin(), obj->key.end());
-        ::nlohmann::json::object_t x{{"key", key}};
-        TENSORSTORE_RETURN_IF_ERROR(LeafNodeValueReferenceBinder(
-            std::false_type{}, IncludeDefaults{}, &obj->value_reference, &x));
-        *j = std::move(x);
-        return absl::OkStatus();
-      };
+  return [=](std::false_type is_loading, const auto& options, auto* obj,
+             auto* j) -> absl::Status {
+    ::nlohmann::json::binary_t key;
+    key.insert(key.end(), key_prefix.begin(), key_prefix.end());
+    key.insert(key.end(), obj->key.begin(), obj->key.end());
+    ::nlohmann::json::object_t x{{"key", key}};
+    TENSORSTORE_RETURN_IF_ERROR(LeafNodeValueReferenceBinder(
+        std::false_type{}, IncludeDefaults{}, &obj->value_reference, &x));
+    *j = std::move(x);
+    return absl::OkStatus();
+  };
 }
 
 constexpr auto BtreeInteriorNodeEntryBinder(std::string_view key_prefix) {
   return [=](std::false_type is_loading, const auto& options, auto* obj,
-             auto* j) {
+             auto* j) -> absl::Status {
     ::nlohmann::json::binary_t key;
     key.insert(key.end(), key_prefix.begin(), key_prefix.end());
     key.insert(key.end(), obj->key.begin(), obj->key.end());

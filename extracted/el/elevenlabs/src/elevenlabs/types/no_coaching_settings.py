@@ -8,6 +8,7 @@ from ..core.unchecked_base_model import UncheckedBaseModel
 
 
 class NoCoachingSettings(UncheckedBaseModel):
+    type: typing.Optional[typing.Literal["none"]] = None
     memory_base_id: typing.Optional[str] = None
 
     if IS_PYDANTIC_V2:

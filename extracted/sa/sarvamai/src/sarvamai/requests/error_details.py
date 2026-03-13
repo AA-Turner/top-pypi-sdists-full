@@ -5,6 +5,7 @@ from ..types.error_code import ErrorCode
 
 
 class ErrorDetailsParams(typing_extensions.TypedDict):
+    request_id: typing_extensions.NotRequired[str]
     message: str
     """
     Message describing the error
@@ -13,9 +14,4 @@ class ErrorDetailsParams(typing_extensions.TypedDict):
     code: ErrorCode
     """
     Error code for the specific error that has occured. Refer to the error code documentation for more details.
-    """
-
-    request_id: typing_extensions.NotRequired[str]
-    """
-    Unique identifier for the request. Format: date_UUID4
     """

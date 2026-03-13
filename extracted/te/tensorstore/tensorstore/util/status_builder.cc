@@ -30,7 +30,6 @@
 #include "tensorstore/util/status_impl.h"
 
 namespace tensorstore {
-namespace internal {
 
 StatusBuilder& StatusBuilder::AddStatusPayload(std::string_view type_url,
                                                absl::Cord payload) {
@@ -82,5 +81,4 @@ absl::Status StatusBuilder::BuildStatusImpl() const {
   return dest;
 }
 
-}  // namespace internal
 }  // namespace tensorstore

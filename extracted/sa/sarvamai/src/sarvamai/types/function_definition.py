@@ -17,7 +17,7 @@ class FunctionDefinition(UniversalBaseModel):
     A description of what the function does.
     """
 
-    parameters: typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]] = pydantic.Field(default=None)
+    parameters: typing.Optional[typing.Dict[str, typing.Any]] = pydantic.Field(default=None)
     """
     The parameters the function accepts, described as a JSON Schema object.
     """

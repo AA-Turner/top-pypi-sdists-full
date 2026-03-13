@@ -1,13 +1,14 @@
 from __future__ import annotations
 
-from refinery.lib.maru import maru32digest
+from refinery.lib.crypto.maru import maru32digest
 from refinery.lib.types import Param
 from refinery.units.crypto.hash import Arg, HashUnit
 
 
 class maru(HashUnit):
     """
-    Returns the 64bit maru hash of the input data.
+    Returns the 64bit maru hash of the input data. A custom hash algorithm used for API hashing in
+    position-independent shellcode.
     """
     def __init__(
         self,

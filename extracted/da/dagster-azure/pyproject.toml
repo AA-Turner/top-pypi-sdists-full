@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "dagster-azure"
-version = "0.28.18"
+version = "0.28.19"
 description = "Package for Azure-specific Dagster framework op and resource components."
 authors = [
     { name = "Dagster Labs", email = "hello@dagsterlabs.com" },
@@ -27,7 +27,7 @@ dependencies = [
     "azure-ai-ml<2.0.0,>=1.28.0",
     "azure-storage-blob<13.0.0,>=12.5.0",
     "azure-storage-file-datalake<13.0.0,>=12.5",
-    "dagster==1.12.18",
+    "dagster==1.12.19",
 ]
 
 [project.urls]
@@ -35,3 +35,6 @@ Homepage = "https://github.com/dagster-io/dagster/tree/master/python_modules/lib
 
 [project.scripts]
 dagster-azure = "dagster_azure.cli.cli:main"
+
+[project.entry-points."dagster_dg_cli.registry_modules"]
+dagster_azure = "dagster_azure.components"

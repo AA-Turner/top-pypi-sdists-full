@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: neo
-Version: 0.14.3
+Version: 0.14.4
 Summary: Neo is a package for representing electrophysiology data in Python, together with support for reading a wide range of neurophysiology file formats
 Author: Neo authors and contributors
-License: BSD 3-Clause License
+License-Expression: BSD-3-Clause
 Project-URL: homepage, https://neuralensemble.org/neo
 Project-URL: documentation, http://neo.readthedocs.io/
 Project-URL: repository, https://github.com/NeuralEnsemble/python-neo
@@ -14,20 +14,18 @@ Classifier: Operating System :: OS Independent
 Classifier: Intended Audience :: Science/Research
 Classifier: Natural Language :: English
 Classifier: Topic :: Scientific/Engineering
-Classifier: License :: OSI Approved :: BSD License
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3 :: Only
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
 License-File: AUTHORS
 Requires-Dist: packaging
-Requires-Dist: numpy>=1.24.4
-Requires-Dist: quantities>=0.16.1
+Requires-Dist: numpy>=1.25.2
+Requires-Dist: quantities>=0.16.4
 Provides-Extra: iocache
 Requires-Dist: joblib>=1.0.0; extra == "iocache"
 Provides-Extra: test
@@ -179,7 +177,7 @@ For installation instructions, see doc/source/install.rst
 
 To cite Neo in publications, see CITATION.txt
 
-:copyright: Copyright 2010-2025 by the Neo team, see doc/source/authors.rst.
+:copyright: Copyright 2010-2026 by the Neo team, see doc/source/authors.rst.
 :license: 3-Clause Revised BSD License, see LICENSE.txt for details.
 
 Funding

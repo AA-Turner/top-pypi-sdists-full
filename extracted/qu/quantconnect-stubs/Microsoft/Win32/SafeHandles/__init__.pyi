@@ -65,6 +65,16 @@ class SafeFileHandle(Microsoft.Win32.SafeHandles.SafeHandleZeroOrMinusOneIsInval
     def __init__(self) -> None:
         ...
 
+    @staticmethod
+    @overload
+    def create_anonymous_pipe(read_handle: typing.Optional[Microsoft.Win32.SafeHandles.SafeFileHandle], write_handle: typing.Optional[Microsoft.Win32.SafeHandles.SafeFileHandle], async_read: bool = False, async_write: bool = False) -> typing.Tuple[None, Microsoft.Win32.SafeHandles.SafeFileHandle, Microsoft.Win32.SafeHandles.SafeFileHandle]:
+        ...
+
+    @staticmethod
+    @overload
+    def create_anonymous_pipe(read_handle: typing.Optional[Microsoft.Win32.SafeHandles.SafeFileHandle], write_handle: typing.Optional[Microsoft.Win32.SafeHandles.SafeFileHandle], async_read: bool, async_write: bool) -> typing.Tuple[None, Microsoft.Win32.SafeHandles.SafeFileHandle, Microsoft.Win32.SafeHandles.SafeFileHandle]:
+        ...
+
     def release_handle(self) -> bool:
         ...
 

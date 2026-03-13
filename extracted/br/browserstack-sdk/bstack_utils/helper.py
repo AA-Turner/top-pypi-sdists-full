@@ -1,19 +1,19 @@
 # coding: UTF-8
 import sys
-bstack1l1ll11_opy_ = sys.version_info [0] == 2
-bstack11111l1_opy_ = 2048
-bstack1111lll_opy_ = 7
-def bstack1ll111_opy_ (bstack1111l1l_opy_):
-    global bstack11l111l_opy_
-    bstack11l1ll_opy_ = ord (bstack1111l1l_opy_ [-1])
-    bstack11lll1l_opy_ = bstack1111l1l_opy_ [:-1]
-    bstack111lll_opy_ = bstack11l1ll_opy_ % len (bstack11lll1l_opy_)
-    bstack11llll1_opy_ = bstack11lll1l_opy_ [:bstack111lll_opy_] + bstack11lll1l_opy_ [bstack111lll_opy_:]
-    if bstack1l1ll11_opy_:
-        bstack11l1111_opy_ = unicode () .join ([unichr (ord (char) - bstack11111l1_opy_ - (bstack111l11_opy_ + bstack11l1ll_opy_) % bstack1111lll_opy_) for bstack111l11_opy_, char in enumerate (bstack11llll1_opy_)])
+bstack11llll1_opy_ = sys.version_info [0] == 2
+bstack11ll11_opy_ = 2048
+bstack1ll11ll_opy_ = 7
+def bstack1111l_opy_ (bstack1l1l11l_opy_):
+    global bstack1l1ll11_opy_
+    bstack1llll11_opy_ = ord (bstack1l1l11l_opy_ [-1])
+    bstack11ll111_opy_ = bstack1l1l11l_opy_ [:-1]
+    bstack1l11ll_opy_ = bstack1llll11_opy_ % len (bstack11ll111_opy_)
+    bstack1lllll1_opy_ = bstack11ll111_opy_ [:bstack1l11ll_opy_] + bstack11ll111_opy_ [bstack1l11ll_opy_:]
+    if bstack11llll1_opy_:
+        bstack1l11l1l_opy_ = unicode () .join ([unichr (ord (char) - bstack11ll11_opy_ - (bstack1l1l1ll_opy_ + bstack1llll11_opy_) % bstack1ll11ll_opy_) for bstack1l1l1ll_opy_, char in enumerate (bstack1lllll1_opy_)])
     else:
-        bstack11l1111_opy_ = str () .join ([chr (ord (char) - bstack11111l1_opy_ - (bstack111l11_opy_ + bstack11l1ll_opy_) % bstack1111lll_opy_) for bstack111l11_opy_, char in enumerate (bstack11llll1_opy_)])
-    return eval (bstack11l1111_opy_)
+        bstack1l11l1l_opy_ = str () .join ([chr (ord (char) - bstack11ll11_opy_ - (bstack1l1l1ll_opy_ + bstack1llll11_opy_) % bstack1ll11ll_opy_) for bstack1l1l1ll_opy_, char in enumerate (bstack1lllll1_opy_)])
+    return eval (bstack1l11l1l_opy_)
 import collections
 import datetime
 import json
@@ -35,23 +35,23 @@ import git
 import requests
 from packaging import version
 from bstack_utils.config import Config
-from bstack_utils.constants import (bstack1l11llll11_opy_, bstack11l11l11l1_opy_, HTTPS_HUB,
-                                    bstack111l1l111ll_opy_, bstack111l1ll1lll_opy_, bstack111llll1111_opy_, bstack111ll111111_opy_)
+from bstack_utils.constants import (bstack1l111l111_opy_, bstack11l1l111l1_opy_, HTTPS_HUB,
+                                    bstack111l1l1111l_opy_, bstack111l1ll11l1_opy_, bstack111l1l1l11l_opy_, bstack111l1l111ll_opy_)
 from bstack_utils.measure import measure
-from bstack_utils.messages import bstack111l11l1l1_opy_, bstack11l11l1l_opy_
-from bstack_utils.proxy import bstack111lllllll_opy_, bstack11lll11l_opy_
+from bstack_utils.messages import bstack11l1lllll_opy_, bstack111l1lllll_opy_
+from bstack_utils.proxy import bstack1l1l111l11_opy_, bstack11ll1lllll_opy_
 from bstack_utils.constants import *
 from bstack_utils import logger_utils
-from bstack_utils.bstack11l11ll11_opy_ import bstack1lll1l11_opy_
+from bstack_utils.bstack1lll111l_opy_ import bstack11lll1ll_opy_
 from browserstack_sdk._version import __version__
 global_config = Config.get_instance()
-logger = logger_utils.get_logger(__name__, logger_utils.bstack1ll111l111l_opy_())
-bstack1l11llll_opy_ = logger_utils.bstack1111l1ll1_opy_(__name__)
-def bstack11l111111ll_opy_(config):
-    return config[bstack1ll111_opy_ (u"ࠫࡺࡹࡥࡳࡐࡤࡱࡪ࠭ᦎ")]
-def bstack111llll11l1_opy_(config):
-    return config[bstack1ll111_opy_ (u"ࠬࡧࡣࡤࡧࡶࡷࡐ࡫ࡹࠨᦏ")]
-def bstack1l1l111l11_opy_():
+logger = logger_utils.get_logger(__name__, logger_utils.get_log_level())
+automation_logger = logger_utils.get_automation_logger(__name__)
+def bstack111lll1ll11_opy_(config):
+    return config[bstack1111l_opy_ (u"ࠧࡶࡵࡨࡶࡓࡧ࡭ࡦࠩ἗")]
+def bstack111lll11lll_opy_(config):
+    return config[bstack1111l_opy_ (u"ࠨࡣࡦࡧࡪࡹࡳࡌࡧࡼࠫἘ")]
+def bstack1l1l1l1l11_opy_():
     try:
         import playwright
         return True
@@ -63,456 +63,460 @@ def is_robot_playwright_installed():
         return True
     except ImportError:
         return False
-def bstack111l1ll11l1_opy_(obj):
+def bstack1111l11llll_opy_(obj):
     values = []
-    bstack111l1lllll1_opy_ = re.compile(bstack1ll111_opy_ (u"ࡸࠢ࡟ࡅࡘࡗ࡙ࡕࡍࡠࡖࡄࡋࡤࡢࡤࠬࠦࠥᦐ"), re.I)
+    bstack1111lll1lll_opy_ = re.compile(bstack1111l_opy_ (u"ࡴࠥࡢࡈ࡛ࡓࡕࡑࡐࡣ࡙ࡇࡇࡠ࡞ࡧ࠯ࠩࠨἙ"), re.I)
     for key in obj.keys():
-        if bstack111l1lllll1_opy_.match(key):
+        if bstack1111lll1lll_opy_.match(key):
             values.append(obj[key])
     return values
-def bstack111l1ll1l1l_opy_(config):
+def bstack11111llllll_opy_(config):
     tags = []
-    tags.extend(bstack111l1ll11l1_opy_(os.environ))
-    tags.extend(bstack111l1ll11l1_opy_(config))
+    tags.extend(bstack1111l11llll_opy_(os.environ))
+    tags.extend(bstack1111l11llll_opy_(config))
     return tags
-def bstack111l111ll1l_opy_(markers):
+def bstack1111l1l1ll1_opy_(markers):
     tags = []
     for marker in markers:
         tags.append(marker.name)
     return tags
-def bstack111ll11l1ll_opy_(bstack111l1l111l1_opy_):
-    if not bstack111l1l111l1_opy_:
-        return bstack1ll111_opy_ (u"ࠧࠨᦑ")
-    return bstack1ll111_opy_ (u"ࠣࡽࢀࠤ࠭ࢁࡽࠪࠤᦒ").format(bstack111l1l111l1_opy_.name, bstack111l1l111l1_opy_.email)
-def bstack111l1l1111l_opy_():
+def bstack1111ll11l11_opy_(bstack11111l111ll_opy_):
+    if not bstack11111l111ll_opy_:
+        return bstack1111l_opy_ (u"ࠪࠫἚ")
+    return bstack1111l_opy_ (u"ࠦࢀࢃࠠࠩࡽࢀ࠭ࠧἛ").format(bstack11111l111ll_opy_.name, bstack11111l111ll_opy_.email)
+def bstack111llll11ll_opy_():
     try:
         repo = git.Repo(search_parent_directories=True)
-        bstack111ll111l11_opy_ = repo.common_dir
+        bstack111l11111l1_opy_ = repo.common_dir
         info = {
-            bstack1ll111_opy_ (u"ࠤࡶ࡬ࡦࠨᦓ"): repo.head.commit.hexsha,
-            bstack1ll111_opy_ (u"ࠥࡷ࡭ࡵࡲࡵࡡࡶ࡬ࡦࠨᦔ"): repo.git.rev_parse(repo.head.commit, short=True),
-            bstack1ll111_opy_ (u"ࠦࡧࡸࡡ࡯ࡥ࡫ࠦᦕ"): repo.active_branch.name,
-            bstack1ll111_opy_ (u"ࠧࡺࡡࡨࠤᦖ"): repo.git.describe(all=True, tags=True, exact_match=True),
-            bstack1ll111_opy_ (u"ࠨࡣࡰ࡯ࡰ࡭ࡹࡺࡥࡳࠤᦗ"): bstack111ll11l1ll_opy_(repo.head.commit.committer),
-            bstack1ll111_opy_ (u"ࠢࡤࡱࡰࡱ࡮ࡺࡴࡦࡴࡢࡨࡦࡺࡥࠣᦘ"): repo.head.commit.committed_datetime.isoformat(),
-            bstack1ll111_opy_ (u"ࠣࡣࡸࡸ࡭ࡵࡲࠣᦙ"): bstack111ll11l1ll_opy_(repo.head.commit.author),
-            bstack1ll111_opy_ (u"ࠤࡤࡹࡹ࡮࡯ࡳࡡࡧࡥࡹ࡫ࠢᦚ"): repo.head.commit.authored_datetime.isoformat(),
-            bstack1ll111_opy_ (u"ࠥࡧࡴࡳ࡭ࡪࡶࡢࡱࡪࡹࡳࡢࡩࡨࠦᦛ"): repo.head.commit.message,
-            bstack1ll111_opy_ (u"ࠦࡷࡵ࡯ࡵࠤᦜ"): repo.git.rev_parse(bstack1ll111_opy_ (u"ࠧ࠳࠭ࡴࡪࡲࡻ࠲ࡺ࡯ࡱ࡮ࡨࡺࡪࡲࠢᦝ")),
-            bstack1ll111_opy_ (u"ࠨࡣࡰ࡯ࡰࡳࡳࡥࡧࡪࡶࡢࡨ࡮ࡸࠢᦞ"): bstack111ll111l11_opy_,
-            bstack1ll111_opy_ (u"ࠢࡸࡱࡵ࡯ࡹࡸࡥࡦࡡࡪ࡭ࡹࡥࡤࡪࡴࠥᦟ"): subprocess.check_output([bstack1ll111_opy_ (u"ࠣࡩ࡬ࡸࠧᦠ"), bstack1ll111_opy_ (u"ࠤࡵࡩࡻ࠳ࡰࡢࡴࡶࡩࠧᦡ"), bstack1ll111_opy_ (u"ࠥ࠱࠲࡭ࡩࡵ࠯ࡦࡳࡲࡳ࡯࡯࠯ࡧ࡭ࡷࠨᦢ")]).strip().decode(
-                bstack1ll111_opy_ (u"ࠫࡺࡺࡦ࠮࠺ࠪᦣ")),
-            bstack1ll111_opy_ (u"ࠧࡲࡡࡴࡶࡢࡸࡦ࡭ࠢᦤ"): repo.git.describe(tags=True, abbrev=0, always=True),
-            bstack1ll111_opy_ (u"ࠨࡣࡰ࡯ࡰ࡭ࡹࡹ࡟ࡴ࡫ࡱࡧࡪࡥ࡬ࡢࡵࡷࡣࡹࡧࡧࠣᦥ"): repo.git.rev_list(
-                bstack1ll111_opy_ (u"ࠢࡼࡿ࠱࠲ࢀࢃࠢᦦ").format(repo.head.commit, repo.git.describe(tags=True, abbrev=0, always=True)), count=True)
+            bstack1111l_opy_ (u"ࠧࡹࡨࡢࠤἜ"): repo.head.commit.hexsha,
+            bstack1111l_opy_ (u"ࠨࡳࡩࡱࡵࡸࡤࡹࡨࡢࠤἝ"): repo.git.rev_parse(repo.head.commit, short=True),
+            bstack1111l_opy_ (u"ࠢࡣࡴࡤࡲࡨ࡮ࠢ἞"): repo.active_branch.name,
+            bstack1111l_opy_ (u"ࠣࡶࡤ࡫ࠧ἟"): repo.git.describe(all=True, tags=True, exact_match=True),
+            bstack1111l_opy_ (u"ࠤࡦࡳࡲࡳࡩࡵࡶࡨࡶࠧἠ"): bstack1111ll11l11_opy_(repo.head.commit.committer),
+            bstack1111l_opy_ (u"ࠥࡧࡴࡳ࡭ࡪࡶࡷࡩࡷࡥࡤࡢࡶࡨࠦἡ"): repo.head.commit.committed_datetime.isoformat(),
+            bstack1111l_opy_ (u"ࠦࡦࡻࡴࡩࡱࡵࠦἢ"): bstack1111ll11l11_opy_(repo.head.commit.author),
+            bstack1111l_opy_ (u"ࠧࡧࡵࡵࡪࡲࡶࡤࡪࡡࡵࡧࠥἣ"): repo.head.commit.authored_datetime.isoformat(),
+            bstack1111l_opy_ (u"ࠨࡣࡰ࡯ࡰ࡭ࡹࡥ࡭ࡦࡵࡶࡥ࡬࡫ࠢἤ"): repo.head.commit.message,
+            bstack1111l_opy_ (u"ࠢࡳࡱࡲࡸࠧἥ"): repo.git.rev_parse(bstack1111l_opy_ (u"ࠣ࠯࠰ࡷ࡭ࡵࡷ࠮ࡶࡲࡴࡱ࡫ࡶࡦ࡮ࠥἦ")),
+            bstack1111l_opy_ (u"ࠤࡦࡳࡲࡳ࡯࡯ࡡࡪ࡭ࡹࡥࡤࡪࡴࠥἧ"): bstack111l11111l1_opy_,
+            bstack1111l_opy_ (u"ࠥࡻࡴࡸ࡫ࡵࡴࡨࡩࡤ࡭ࡩࡵࡡࡧ࡭ࡷࠨἨ"): subprocess.check_output([bstack1111l_opy_ (u"ࠦ࡬࡯ࡴࠣἩ"), bstack1111l_opy_ (u"ࠧࡸࡥࡷ࠯ࡳࡥࡷࡹࡥࠣἪ"), bstack1111l_opy_ (u"ࠨ࠭࠮ࡩ࡬ࡸ࠲ࡩ࡯࡮࡯ࡲࡲ࠲ࡪࡩࡳࠤἫ")]).strip().decode(
+                bstack1111l_opy_ (u"ࠧࡶࡶࡩ࠱࠽࠭Ἤ")),
+            bstack1111l_opy_ (u"ࠣ࡮ࡤࡷࡹࡥࡴࡢࡩࠥἭ"): repo.git.describe(tags=True, abbrev=0, always=True),
+            bstack1111l_opy_ (u"ࠤࡦࡳࡲࡳࡩࡵࡵࡢࡷ࡮ࡴࡣࡦࡡ࡯ࡥࡸࡺ࡟ࡵࡣࡪࠦἮ"): repo.git.rev_list(
+                bstack1111l_opy_ (u"ࠥࡿࢂ࠴࠮ࡼࡿࠥἯ").format(repo.head.commit, repo.git.describe(tags=True, abbrev=0, always=True)), count=True)
         }
         remotes = repo.remotes
-        bstack111l1llll1l_opy_ = []
+        bstack1111ll1llll_opy_ = []
         for remote in remotes:
-            bstack111ll111ll1_opy_ = {
-                bstack1ll111_opy_ (u"ࠣࡰࡤࡱࡪࠨᦧ"): remote.name,
-                bstack1ll111_opy_ (u"ࠤࡸࡶࡱࠨᦨ"): remote.url,
+            bstack1111lll1l1l_opy_ = {
+                bstack1111l_opy_ (u"ࠦࡳࡧ࡭ࡦࠤἰ"): remote.name,
+                bstack1111l_opy_ (u"ࠧࡻࡲ࡭ࠤἱ"): remote.url,
             }
-            bstack111l1llll1l_opy_.append(bstack111ll111ll1_opy_)
-        bstack111l1l1llll_opy_ = {
-            bstack1ll111_opy_ (u"ࠥࡲࡦࡳࡥࠣᦩ"): bstack1ll111_opy_ (u"ࠦ࡬࡯ࡴࠣᦪ"),
+            bstack1111ll1llll_opy_.append(bstack1111lll1l1l_opy_)
+        bstack111111l1lll_opy_ = {
+            bstack1111l_opy_ (u"ࠨ࡮ࡢ࡯ࡨࠦἲ"): bstack1111l_opy_ (u"ࠢࡨ࡫ࡷࠦἳ"),
             **info,
-            bstack1ll111_opy_ (u"ࠧࡸࡥ࡮ࡱࡷࡩࡸࠨᦫ"): bstack111l1llll1l_opy_
+            bstack1111l_opy_ (u"ࠣࡴࡨࡱࡴࡺࡥࡴࠤἴ"): bstack1111ll1llll_opy_
         }
-        bstack111l1l1llll_opy_ = bstack111llllll11_opy_(bstack111l1l1llll_opy_)
-        return bstack111l1l1llll_opy_
+        bstack111111l1lll_opy_ = bstack1111l11l1l1_opy_(bstack111111l1lll_opy_)
+        return bstack111111l1lll_opy_
     except git.InvalidGitRepositoryError:
         return {}
     except Exception as err:
-        print(bstack1ll111_opy_ (u"ࠨࡅࡹࡥࡨࡴࡹ࡯࡯࡯ࠢ࡬ࡲࠥࡶ࡯ࡱࡷ࡯ࡥࡹ࡯࡮ࡨࠢࡊ࡭ࡹࠦ࡭ࡦࡶࡤࡨࡦࡺࡡࠡࡹ࡬ࡸ࡭ࠦࡥࡳࡴࡲࡶ࠿ࠦࡻࡾࠤ᦬").format(err))
+        print(bstack1111l_opy_ (u"ࠤࡈࡼࡨ࡫ࡰࡵ࡫ࡲࡲࠥ࡯࡮ࠡࡲࡲࡴࡺࡲࡡࡵ࡫ࡱ࡫ࠥࡍࡩࡵࠢࡰࡩࡹࡧࡤࡢࡶࡤࠤࡼ࡯ࡴࡩࠢࡨࡶࡷࡵࡲ࠻ࠢࡾࢁࠧἵ").format(err))
         return {}
-def bstack111l11l111l_opy_(bstack111llllll1l_opy_=None):
-    bstack1ll111_opy_ (u"ࠢࠣࠤࠍࠤࠥࠦࠠࡈࡧࡷࠤ࡬࡯ࡴࠡ࡯ࡨࡸࡦࡪࡡࡵࡣࠣࡷࡵ࡫ࡣࡪࡨ࡬ࡧࡦࡲ࡬ࡺࠢࡩࡳࡷࡳࡡࡵࡶࡨࡨࠥ࡬࡯ࡳࠢࡄࡍࠥࡹࡥ࡭ࡧࡦࡸ࡮ࡵ࡮ࠡࡷࡶࡩࠥࡩࡡࡴࡧࡶࠤ࡫ࡵࡲࠡࡧࡤࡧ࡭ࠦࡦࡰ࡮ࡧࡩࡷࠦࡩ࡯ࠢࡷ࡬ࡪࠦ࡬ࡪࡵࡷ࠲ࠏࠦࠠࠡࠢࡄࡶ࡬ࡹ࠺ࠋࠢࠣࠤࠥࠦࠠࠡࠢࡩࡳࡱࡪࡥࡳࡵࠣࠬࡱ࡯ࡳࡵ࠮ࠣࡳࡵࡺࡩࡰࡰࡤࡰ࠮ࡀࠠࠋࠢࠣࠤࠥࠦࠠࠡࠢࠣࠤࠥࠦ࠭ࠡࡐࡲࡲࡪࡀࠠࡎࡱࡱࡳ࠲ࡸࡥࡱࡱࠣࡥࡵࡶࡲࡰࡣࡦ࡬࠱ࠦࡵࡴࡧࡶࠤࡨࡻࡲࡳࡧࡱࡸࠥࡪࡩࡳࡧࡦࡸࡴࡸࡹࠡ࡝ࡲࡷ࠳࡭ࡥࡵࡥࡺࡨ࠭࠯࡝ࠋࠢࠣࠤࠥࠦࠠࠡࠢࠣࠤࠥࠦ࠭ࠡࡇࡰࡴࡹࡿࠠ࡭࡫ࡶࡸࠥࡡ࡝࠻ࠢࡐࡹࡱࡺࡩ࠮ࡴࡨࡴࡴࠦࡡࡱࡲࡵࡳࡦࡩࡨࠡࡹ࡬ࡸ࡭ࠦ࡮ࡰࠢࡶࡳࡺࡸࡣࡦࡵࠣࡧࡴࡴࡦࡪࡩࡸࡶࡪࡪࠬࠡࡴࡨࡸࡺࡸ࡮ࡴࠢ࡞ࡡࠏࠦࠠࠡࠢࠣࠤࠥࠦࠠࠡࠢࠣ࠱ࠥࡒࡩࡴࡶࠣࡳ࡫ࠦࡰࡢࡶ࡫ࡷ࠿ࠦࡍࡶ࡮ࡷ࡭࠲ࡸࡥࡱࡱࠣࡥࡵࡶࡲࡰࡣࡦ࡬ࠥࡽࡩࡵࡪࠣࡷࡵ࡫ࡣࡪࡨ࡬ࡧࠥ࡬࡯࡭ࡦࡨࡶࡸࠦࡴࡰࠢࡤࡲࡦࡲࡹࡻࡧࠍࠤࠥࠦࠠࡓࡧࡷࡹࡷࡴࡳ࠻ࠌࠣࠤࠥࠦࠠࠡࠢࠣࡰ࡮ࡹࡴ࠻ࠢࡏ࡭ࡸࡺࠠࡰࡨࠣࡨ࡮ࡩࡴࡴ࠮ࠣࡩࡦࡩࡨࠡࡥࡲࡲࡹࡧࡩ࡯࡫ࡱ࡫ࠥ࡭ࡩࡵࠢࡰࡩࡹࡧࡤࡢࡶࡤࠤ࡫ࡵࡲࠡࡣࠣࡪࡴࡲࡤࡦࡴ࠱ࠎࠥࠦࠠࠡࠤࠥࠦ᦭")
-    if bstack111llllll1l_opy_ is None:
-        bstack111llllll1l_opy_ = [os.getcwd()]
-    elif isinstance(bstack111llllll1l_opy_, list) and len(bstack111llllll1l_opy_) == 0:
+def bstack1111lll11l1_opy_(bstack111111ll1l1_opy_=None):
+    bstack1111l_opy_ (u"ࠥࠦࠧࠐࠠࠡࠢࠣࡋࡪࡺࠠࡨ࡫ࡷࠤࡲ࡫ࡴࡢࡦࡤࡸࡦࠦࡳࡱࡧࡦ࡭࡫࡯ࡣࡢ࡮࡯ࡽࠥ࡬࡯ࡳ࡯ࡤࡸࡹ࡫ࡤࠡࡨࡲࡶࠥࡇࡉࠡࡵࡨࡰࡪࡩࡴࡪࡱࡱࠤࡺࡹࡥࠡࡥࡤࡷࡪࡹࠠࡧࡱࡵࠤࡪࡧࡣࡩࠢࡩࡳࡱࡪࡥࡳࠢ࡬ࡲࠥࡺࡨࡦࠢ࡯࡭ࡸࡺ࠮ࠋࠢࠣࠤࠥࡇࡲࡨࡵ࠽ࠎࠥࠦࠠࠡࠢࠣࠤࠥ࡬࡯࡭ࡦࡨࡶࡸࠦࠨ࡭࡫ࡶࡸ࠱ࠦ࡯ࡱࡶ࡬ࡳࡳࡧ࡬ࠪ࠼ࠣࠎࠥࠦࠠࠡࠢࠣࠤࠥࠦࠠࠡࠢ࠰ࠤࡓࡵ࡮ࡦ࠼ࠣࡑࡴࡴ࡯࠮ࡴࡨࡴࡴࠦࡡࡱࡲࡵࡳࡦࡩࡨ࠭ࠢࡸࡷࡪࡹࠠࡤࡷࡵࡶࡪࡴࡴࠡࡦ࡬ࡶࡪࡩࡴࡰࡴࡼࠤࡠࡵࡳ࠯ࡩࡨࡸࡨࡽࡤࠩࠫࡠࠎࠥࠦࠠࠡࠢࠣࠤࠥࠦࠠࠡࠢ࠰ࠤࡊࡳࡰࡵࡻࠣࡰ࡮ࡹࡴࠡ࡝ࡠ࠾ࠥࡓࡵ࡭ࡶ࡬࠱ࡷ࡫ࡰࡰࠢࡤࡴࡵࡸ࡯ࡢࡥ࡫ࠤࡼ࡯ࡴࡩࠢࡱࡳࠥࡹ࡯ࡶࡴࡦࡩࡸࠦࡣࡰࡰࡩ࡭࡬ࡻࡲࡦࡦ࠯ࠤࡷ࡫ࡴࡶࡴࡱࡷࠥࡡ࡝ࠋࠢࠣࠤࠥࠦࠠࠡࠢࠣࠤࠥࠦ࠭ࠡࡎ࡬ࡷࡹࠦ࡯ࡧࠢࡳࡥࡹ࡮ࡳ࠻ࠢࡐࡹࡱࡺࡩ࠮ࡴࡨࡴࡴࠦࡡࡱࡲࡵࡳࡦࡩࡨࠡࡹ࡬ࡸ࡭ࠦࡳࡱࡧࡦ࡭࡫࡯ࡣࠡࡨࡲࡰࡩ࡫ࡲࡴࠢࡷࡳࠥࡧ࡮ࡢ࡮ࡼࡾࡪࠐࠠࠡࠢࠣࡖࡪࡺࡵࡳࡰࡶ࠾ࠏࠦࠠࠡࠢࠣࠤࠥࠦ࡬ࡪࡵࡷ࠾ࠥࡒࡩࡴࡶࠣࡳ࡫ࠦࡤࡪࡥࡷࡷ࠱ࠦࡥࡢࡥ࡫ࠤࡨࡵ࡮ࡵࡣ࡬ࡲ࡮ࡴࡧࠡࡩ࡬ࡸࠥࡳࡥࡵࡣࡧࡥࡹࡧࠠࡧࡱࡵࠤࡦࠦࡦࡰ࡮ࡧࡩࡷ࠴ࠊࠡࠢࠣࠤࠧࠨࠢἶ")
+    if bstack111111ll1l1_opy_ is None:
+        bstack111111ll1l1_opy_ = [os.getcwd()]
+    elif isinstance(bstack111111ll1l1_opy_, list) and len(bstack111111ll1l1_opy_) == 0:
         return []
     results = []
-    for folder in bstack111llllll1l_opy_:
+    for folder in bstack111111ll1l1_opy_:
         try:
             if not os.path.exists(folder):
-                raise Exception(bstack1ll111_opy_ (u"ࠣࡈࡲࡰࡩ࡫ࡲࠡࡦࡲࡩࡸࠦ࡮ࡰࡶࠣࡩࡽ࡯ࡳࡵ࠼ࠣࡿࢂࠨ᦮").format(folder))
+                raise Exception(bstack1111l_opy_ (u"ࠦࡋࡵ࡬ࡥࡧࡵࠤࡩࡵࡥࡴࠢࡱࡳࡹࠦࡥࡹ࡫ࡶࡸ࠿ࠦࡻࡾࠤἷ").format(folder))
             repo = git.Repo(folder, search_parent_directories=True)
             result = {
-                bstack1ll111_opy_ (u"ࠤࡳࡶࡎࡪࠢ᦯"): bstack1ll111_opy_ (u"ࠥࠦᦰ"),
-                bstack1ll111_opy_ (u"ࠦ࡫࡯࡬ࡦࡵࡆ࡬ࡦࡴࡧࡦࡦࠥᦱ"): [],
-                bstack1ll111_opy_ (u"ࠧࡧࡵࡵࡪࡲࡶࡸࠨᦲ"): [],
-                bstack1ll111_opy_ (u"ࠨࡰࡳࡆࡤࡸࡪࠨᦳ"): bstack1ll111_opy_ (u"ࠢࠣᦴ"),
-                bstack1ll111_opy_ (u"ࠣࡥࡲࡱࡲ࡯ࡴࡎࡧࡶࡷࡦ࡭ࡥࡴࠤᦵ"): [],
-                bstack1ll111_opy_ (u"ࠤࡳࡶ࡙࡯ࡴ࡭ࡧࠥᦶ"): bstack1ll111_opy_ (u"ࠥࠦᦷ"),
-                bstack1ll111_opy_ (u"ࠦࡵࡸࡄࡦࡵࡦࡶ࡮ࡶࡴࡪࡱࡱࠦᦸ"): bstack1ll111_opy_ (u"ࠧࠨᦹ"),
-                bstack1ll111_opy_ (u"ࠨࡰࡳࡔࡤࡻࡉ࡯ࡦࡧࠤᦺ"): bstack1ll111_opy_ (u"ࠢࠣᦻ")
+                bstack1111l_opy_ (u"ࠧࡶࡲࡊࡦࠥἸ"): bstack1111l_opy_ (u"ࠨࠢἹ"),
+                bstack1111l_opy_ (u"ࠢࡧ࡫࡯ࡩࡸࡉࡨࡢࡰࡪࡩࡩࠨἺ"): [],
+                bstack1111l_opy_ (u"ࠣࡣࡸࡸ࡭ࡵࡲࡴࠤἻ"): [],
+                bstack1111l_opy_ (u"ࠤࡳࡶࡉࡧࡴࡦࠤἼ"): bstack1111l_opy_ (u"ࠥࠦἽ"),
+                bstack1111l_opy_ (u"ࠦࡨࡵ࡭࡮࡫ࡷࡑࡪࡹࡳࡢࡩࡨࡷࠧἾ"): [],
+                bstack1111l_opy_ (u"ࠧࡶࡲࡕ࡫ࡷࡰࡪࠨἿ"): bstack1111l_opy_ (u"ࠨࠢὀ"),
+                bstack1111l_opy_ (u"ࠢࡱࡴࡇࡩࡸࡩࡲࡪࡲࡷ࡭ࡴࡴࠢὁ"): bstack1111l_opy_ (u"ࠣࠤὂ"),
+                bstack1111l_opy_ (u"ࠤࡳࡶࡗࡧࡷࡅ࡫ࡩࡪࠧὃ"): bstack1111l_opy_ (u"ࠥࠦὄ")
             }
-            bstack111l1l1l111_opy_ = repo.active_branch.name
-            bstack111l11l1l11_opy_ = repo.head.commit
-            result[bstack1ll111_opy_ (u"ࠣࡲࡵࡍࡩࠨᦼ")] = bstack111l11l1l11_opy_.hexsha
-            bstack111l1lll1ll_opy_ = _111l1l11111_opy_(repo)
-            logger.debug(bstack1ll111_opy_ (u"ࠤࡅࡥࡸ࡫ࠠࡣࡴࡤࡲࡨ࡮ࠠࡧࡱࡵࠤࡨࡵ࡭ࡱࡣࡵ࡭ࡸࡵ࡮࠻ࠢࠥᦽ") + str(bstack111l1lll1ll_opy_) + bstack1ll111_opy_ (u"ࠥࠦᦾ"))
-            if bstack111l1lll1ll_opy_:
+            bstack11111lllll1_opy_ = repo.active_branch.name
+            bstack11111l1l111_opy_ = repo.head.commit
+            result[bstack1111l_opy_ (u"ࠦࡵࡸࡉࡥࠤὅ")] = bstack11111l1l111_opy_.hexsha
+            bstack1111l111l1l_opy_ = _1111lllll11_opy_(repo)
+            logger.debug(bstack1111l_opy_ (u"ࠧࡈࡡࡴࡧࠣࡦࡷࡧ࡮ࡤࡪࠣࡪࡴࡸࠠࡤࡱࡰࡴࡦࡸࡩࡴࡱࡱ࠾ࠥࠨ὆") + str(bstack1111l111l1l_opy_) + bstack1111l_opy_ (u"ࠨࠢ὇"))
+            if bstack1111l111l1l_opy_:
                 try:
-                    bstack11l1111111l_opy_ = repo.git.diff(bstack1ll111_opy_ (u"ࠦ࠲࠳࡮ࡢ࡯ࡨ࠱ࡴࡴ࡬ࡺࠤᦿ"), bstack1ll1l11llll_opy_ (u"ࠧࢁࡢࡢࡵࡨࡣࡧࡸࡡ࡯ࡥ࡫ࢁ࠳࠴࠮ࡼࡥࡸࡶࡷ࡫࡮ࡵࡡࡥࡶࡦࡴࡣࡩࡿࠥᧀ")).split(bstack1ll111_opy_ (u"࠭࡜࡯ࠩᧁ"))
-                    logger.debug(bstack1ll111_opy_ (u"ࠢࡄࡪࡤࡲ࡬࡫ࡤࠡࡨ࡬ࡰࡪࡹࠠࡣࡧࡷࡻࡪ࡫࡮ࠡࡽࡥࡥࡸ࡫࡟ࡣࡴࡤࡲࡨ࡮ࡽࠡࡣࡱࡨࠥࢁࡣࡶࡴࡵࡩࡳࡺ࡟ࡣࡴࡤࡲࡨ࡮ࡽ࠻ࠢࠥᧂ") + str(bstack11l1111111l_opy_) + bstack1ll111_opy_ (u"ࠣࠤᧃ"))
-                    result[bstack1ll111_opy_ (u"ࠤࡩ࡭ࡱ࡫ࡳࡄࡪࡤࡲ࡬࡫ࡤࠣᧄ")] = [f.strip() for f in bstack11l1111111l_opy_ if f.strip()]
-                    commits = list(repo.iter_commits(bstack1ll1l11llll_opy_ (u"ࠥࡿࡧࡧࡳࡦࡡࡥࡶࡦࡴࡣࡩࡿ࠱࠲ࢀࡩࡵࡳࡴࡨࡲࡹࡥࡢࡳࡣࡱࡧ࡭ࢃࠢᧅ")))
+                    bstack111l11111ll_opy_ = repo.git.diff(bstack1111l_opy_ (u"ࠢ࠮࠯ࡱࡥࡲ࡫࠭ࡰࡰ࡯ࡽࠧὈ"), bstack1ll1l11l1ll_opy_ (u"ࠣࡽࡥࡥࡸ࡫࡟ࡣࡴࡤࡲࡨ࡮ࡽ࠯࠰࠱ࡿࡨࡻࡲࡳࡧࡱࡸࡤࡨࡲࡢࡰࡦ࡬ࢂࠨὉ")).split(bstack1111l_opy_ (u"ࠩ࡟ࡲࠬὊ"))
+                    logger.debug(bstack1111l_opy_ (u"ࠥࡇ࡭ࡧ࡮ࡨࡧࡧࠤ࡫࡯࡬ࡦࡵࠣࡦࡪࡺࡷࡦࡧࡱࠤࢀࡨࡡࡴࡧࡢࡦࡷࡧ࡮ࡤࡪࢀࠤࡦࡴࡤࠡࡽࡦࡹࡷࡸࡥ࡯ࡶࡢࡦࡷࡧ࡮ࡤࡪࢀ࠾ࠥࠨὋ") + str(bstack111l11111ll_opy_) + bstack1111l_opy_ (u"ࠦࠧὌ"))
+                    result[bstack1111l_opy_ (u"ࠧ࡬ࡩ࡭ࡧࡶࡇ࡭ࡧ࡮ࡨࡧࡧࠦὍ")] = [f.strip() for f in bstack111l11111ll_opy_ if f.strip()]
+                    commits = list(repo.iter_commits(bstack1ll1l11l1ll_opy_ (u"ࠨࡻࡣࡣࡶࡩࡤࡨࡲࡢࡰࡦ࡬ࢂ࠴࠮ࡼࡥࡸࡶࡷ࡫࡮ࡵࡡࡥࡶࡦࡴࡣࡩࡿࠥ὎")))
                 except Exception:
-                    logger.debug(bstack1ll111_opy_ (u"ࠦࡋࡧࡩ࡭ࡧࡧࠤࡹࡵࠠࡨࡧࡷࠤࡨ࡮ࡡ࡯ࡩࡨࡨࠥ࡬ࡩ࡭ࡧࡶࠤ࡫ࡸ࡯࡮ࠢࡥࡶࡦࡴࡣࡩࠢࡦࡳࡲࡶࡡࡳ࡫ࡶࡳࡳ࠴ࠠࡇࡣ࡯ࡰ࡮ࡴࡧࠡࡤࡤࡧࡰࠦࡴࡰࠢࡵࡩࡨ࡫࡮ࡵࠢࡦࡳࡲࡳࡩࡵࡵ࠱ࠦᧆ"))
+                    logger.debug(bstack1111l_opy_ (u"ࠢࡇࡣ࡬ࡰࡪࡪࠠࡵࡱࠣ࡫ࡪࡺࠠࡤࡪࡤࡲ࡬࡫ࡤࠡࡨ࡬ࡰࡪࡹࠠࡧࡴࡲࡱࠥࡨࡲࡢࡰࡦ࡬ࠥࡩ࡯࡮ࡲࡤࡶ࡮ࡹ࡯࡯࠰ࠣࡊࡦࡲ࡬ࡪࡰࡪࠤࡧࡧࡣ࡬ࠢࡷࡳࠥࡸࡥࡤࡧࡱࡸࠥࡩ࡯࡮࡯࡬ࡸࡸ࠴ࠢ὏"))
                     commits = list(repo.iter_commits(max_count=10))
                     if commits:
-                        result[bstack1ll111_opy_ (u"ࠧ࡬ࡩ࡭ࡧࡶࡇ࡭ࡧ࡮ࡨࡧࡧࠦᧇ")] = _111l1l11ll1_opy_(commits[:5])
+                        result[bstack1111l_opy_ (u"ࠣࡨ࡬ࡰࡪࡹࡃࡩࡣࡱ࡫ࡪࡪࠢὐ")] = _1111l11l1ll_opy_(commits[:5])
             else:
                 commits = list(repo.iter_commits(max_count=10))
                 if commits:
-                    result[bstack1ll111_opy_ (u"ࠨࡦࡪ࡮ࡨࡷࡈ࡮ࡡ࡯ࡩࡨࡨࠧᧈ")] = _111l1l11ll1_opy_(commits[:5])
-            bstack111l11l1ll1_opy_ = set()
-            bstack111l1l1lll1_opy_ = []
+                    result[bstack1111l_opy_ (u"ࠤࡩ࡭ࡱ࡫ࡳࡄࡪࡤࡲ࡬࡫ࡤࠣὑ")] = _1111l11l1ll_opy_(commits[:5])
+            bstack1111l11l111_opy_ = set()
+            bstack11111l11lll_opy_ = []
             for commit in commits:
-                logger.debug(bstack1ll111_opy_ (u"ࠢࡑࡴࡲࡧࡪࡹࡳࡪࡰࡪࠤࡨࡵ࡭࡮࡫ࡷ࠾ࠥࠨᧉ") + str(commit.message) + bstack1ll111_opy_ (u"ࠣࠤ᧊"))
-                bstack111l1l1l11l_opy_ = commit.author.name if commit.author else bstack1ll111_opy_ (u"ࠤࡘࡲࡰࡴ࡯ࡸࡰࠥ᧋")
-                bstack111l11l1ll1_opy_.add(bstack111l1l1l11l_opy_)
-                bstack111l1l1lll1_opy_.append({
-                    bstack1ll111_opy_ (u"ࠥࡱࡪࡹࡳࡢࡩࡨࠦ᧌"): commit.message.strip(),
-                    bstack1ll111_opy_ (u"ࠦࡺࡹࡥࡳࠤ᧍"): bstack111l1l1l11l_opy_
+                logger.debug(bstack1111l_opy_ (u"ࠥࡔࡷࡵࡣࡦࡵࡶ࡭ࡳ࡭ࠠࡤࡱࡰࡱ࡮ࡺ࠺ࠡࠤὒ") + str(commit.message) + bstack1111l_opy_ (u"ࠦࠧὓ"))
+                bstack1111ll1111l_opy_ = commit.author.name if commit.author else bstack1111l_opy_ (u"࡛ࠧ࡮࡬ࡰࡲࡻࡳࠨὔ")
+                bstack1111l11l111_opy_.add(bstack1111ll1111l_opy_)
+                bstack11111l11lll_opy_.append({
+                    bstack1111l_opy_ (u"ࠨ࡭ࡦࡵࡶࡥ࡬࡫ࠢὕ"): commit.message.strip(),
+                    bstack1111l_opy_ (u"ࠢࡶࡵࡨࡶࠧὖ"): bstack1111ll1111l_opy_
                 })
-            result[bstack1ll111_opy_ (u"ࠧࡧࡵࡵࡪࡲࡶࡸࠨ᧎")] = list(bstack111l11l1ll1_opy_)
-            result[bstack1ll111_opy_ (u"ࠨࡣࡰ࡯ࡰ࡭ࡹࡓࡥࡴࡵࡤ࡫ࡪࡹࠢ᧏")] = bstack111l1l1lll1_opy_
-            result[bstack1ll111_opy_ (u"ࠢࡱࡴࡇࡥࡹ࡫ࠢ᧐")] = bstack111l11l1l11_opy_.committed_datetime.strftime(bstack1ll111_opy_ (u"ࠣࠧ࡜࠱ࠪࡳ࠭ࠦࡦࠥ᧑"))
-            if (not result[bstack1ll111_opy_ (u"ࠤࡳࡶ࡙࡯ࡴ࡭ࡧࠥ᧒")] or result[bstack1ll111_opy_ (u"ࠥࡴࡷ࡚ࡩࡵ࡮ࡨࠦ᧓")].strip() == bstack1ll111_opy_ (u"ࠦࠧ᧔")) and bstack111l11l1l11_opy_.message:
-                bstack111llll11ll_opy_ = bstack111l11l1l11_opy_.message.strip().splitlines()
-                result[bstack1ll111_opy_ (u"ࠧࡶࡲࡕ࡫ࡷࡰࡪࠨ᧕")] = bstack111llll11ll_opy_[0] if bstack111llll11ll_opy_ else bstack1ll111_opy_ (u"ࠨࠢ᧖")
-                if len(bstack111llll11ll_opy_) > 2:
-                    result[bstack1ll111_opy_ (u"ࠢࡱࡴࡇࡩࡸࡩࡲࡪࡲࡷ࡭ࡴࡴࠢ᧗")] = bstack1ll111_opy_ (u"ࠨ࡞ࡱࠫ᧘").join(bstack111llll11ll_opy_[2:]).strip()
+            result[bstack1111l_opy_ (u"ࠣࡣࡸࡸ࡭ࡵࡲࡴࠤὗ")] = list(bstack1111l11l111_opy_)
+            result[bstack1111l_opy_ (u"ࠤࡦࡳࡲࡳࡩࡵࡏࡨࡷࡸࡧࡧࡦࡵࠥ὘")] = bstack11111l11lll_opy_
+            result[bstack1111l_opy_ (u"ࠥࡴࡷࡊࡡࡵࡧࠥὙ")] = bstack11111l1l111_opy_.committed_datetime.strftime(bstack1111l_opy_ (u"ࠦࠪ࡟࠭ࠦ࡯࠰ࠩࡩࠨ὚"))
+            if (not result[bstack1111l_opy_ (u"ࠧࡶࡲࡕ࡫ࡷࡰࡪࠨὛ")] or result[bstack1111l_opy_ (u"ࠨࡰࡳࡖ࡬ࡸࡱ࡫ࠢ὜")].strip() == bstack1111l_opy_ (u"ࠢࠣὝ")) and bstack11111l1l111_opy_.message:
+                bstack111111l111l_opy_ = bstack11111l1l111_opy_.message.strip().splitlines()
+                result[bstack1111l_opy_ (u"ࠣࡲࡵࡘ࡮ࡺ࡬ࡦࠤ὞")] = bstack111111l111l_opy_[0] if bstack111111l111l_opy_ else bstack1111l_opy_ (u"ࠤࠥὟ")
+                if len(bstack111111l111l_opy_) > 2:
+                    result[bstack1111l_opy_ (u"ࠥࡴࡷࡊࡥࡴࡥࡵ࡭ࡵࡺࡩࡰࡰࠥὠ")] = bstack1111l_opy_ (u"ࠫࡡࡴࠧὡ").join(bstack111111l111l_opy_[2:]).strip()
             results.append(result)
         except Exception as err:
-            logger.error(bstack1ll111_opy_ (u"ࠤࡈࡼࡨ࡫ࡰࡵ࡫ࡲࡲࠥ࡯࡮ࠡࡲࡲࡴࡺࡲࡡࡵ࡫ࡱ࡫ࠥࡍࡩࡵࠢࡰࡩࡹࡧࡤࡢࡶࡤࠤ࡫ࡵࡲࠡࡃࡌࠤࡸ࡫࡬ࡦࡥࡷ࡭ࡴࡴࠠࠩࡨࡲࡰࡩ࡫ࡲ࠻ࠢࡾࢁ࠮ࡀࠠࡼࡿࠣ࠱ࠥࢁࡽࠣ᧙").format(
+            logger.error(bstack1111l_opy_ (u"ࠧࡋࡸࡤࡧࡳࡸ࡮ࡵ࡮ࠡ࡫ࡱࠤࡵࡵࡰࡶ࡮ࡤࡸ࡮ࡴࡧࠡࡉ࡬ࡸࠥࡳࡥࡵࡣࡧࡥࡹࡧࠠࡧࡱࡵࠤࡆࡏࠠࡴࡧ࡯ࡩࡨࡺࡩࡰࡰࠣࠬ࡫ࡵ࡬ࡥࡧࡵ࠾ࠥࢁࡽࠪ࠼ࠣࡿࢂࠦ࠭ࠡࡽࢀࠦὢ").format(
                 folder,
                 type(err).__name__,
                 str(err)
             ))
-    bstack11l1111ll1l_opy_ = [
+    bstack1111l111lll_opy_ = [
         result
         for result in results
-        if _111ll1111ll_opy_(result)
+        if _11111ll1ll1_opy_(result)
     ]
-    return bstack11l1111ll1l_opy_
-def _111ll1111ll_opy_(result):
-    bstack1ll111_opy_ (u"ࠥࠦࠧࠐࠠࠡࠢࠣࡌࡪࡲࡰࡦࡴࠣࡸࡴࠦࡣࡩࡧࡦ࡯ࠥ࡯ࡦࠡࡣࠣ࡫࡮ࡺࠠ࡮ࡧࡷࡥࡩࡧࡴࡢࠢࡵࡩࡸࡻ࡬ࡵࠢ࡬ࡷࠥࡼࡡ࡭࡫ࡧࠤ࠭ࡴ࡯࡯࠯ࡨࡱࡵࡺࡹࠡࡨ࡬ࡰࡪࡹࡃࡩࡣࡱ࡫ࡪࡪࠠࡢࡰࡧࠤࡦࡻࡴࡩࡱࡵࡷ࠮࠴ࠊࠡࠢࠣࠤࠧࠨࠢ᧚")
+    return bstack1111l111lll_opy_
+def _11111ll1ll1_opy_(result):
+    bstack1111l_opy_ (u"ࠨࠢࠣࠌࠣࠤࠥࠦࡈࡦ࡮ࡳࡩࡷࠦࡴࡰࠢࡦ࡬ࡪࡩ࡫ࠡ࡫ࡩࠤࡦࠦࡧࡪࡶࠣࡱࡪࡺࡡࡥࡣࡷࡥࠥࡸࡥࡴࡷ࡯ࡸࠥ࡯ࡳࠡࡸࡤࡰ࡮ࡪࠠࠩࡰࡲࡲ࠲࡫࡭ࡱࡶࡼࠤ࡫࡯࡬ࡦࡵࡆ࡬ࡦࡴࡧࡦࡦࠣࡥࡳࡪࠠࡢࡷࡷ࡬ࡴࡸࡳࠪ࠰ࠍࠤࠥࠦࠠࠣࠤࠥὣ")
     return (
-        isinstance(result.get(bstack1ll111_opy_ (u"ࠦ࡫࡯࡬ࡦࡵࡆ࡬ࡦࡴࡧࡦࡦࠥ᧛"), None), list)
-        and len(result[bstack1ll111_opy_ (u"ࠧ࡬ࡩ࡭ࡧࡶࡇ࡭ࡧ࡮ࡨࡧࡧࠦ᧜")]) > 0
-        and isinstance(result.get(bstack1ll111_opy_ (u"ࠨࡡࡶࡶ࡫ࡳࡷࡹࠢ᧝"), None), list)
-        and len(result[bstack1ll111_opy_ (u"ࠢࡢࡷࡷ࡬ࡴࡸࡳࠣ᧞")]) > 0
+        isinstance(result.get(bstack1111l_opy_ (u"ࠢࡧ࡫࡯ࡩࡸࡉࡨࡢࡰࡪࡩࡩࠨὤ"), None), list)
+        and len(result[bstack1111l_opy_ (u"ࠣࡨ࡬ࡰࡪࡹࡃࡩࡣࡱ࡫ࡪࡪࠢὥ")]) > 0
+        and isinstance(result.get(bstack1111l_opy_ (u"ࠤࡤࡹࡹ࡮࡯ࡳࡵࠥὦ"), None), list)
+        and len(result[bstack1111l_opy_ (u"ࠥࡥࡺࡺࡨࡰࡴࡶࠦὧ")]) > 0
     )
-def _111l1l11111_opy_(repo):
-    bstack1ll111_opy_ (u"ࠣࠤࠥࠎࠥࠦࠠࠡࡖࡵࡽࠥࡺ࡯ࠡࡦࡨࡸࡪࡸ࡭ࡪࡰࡨࠤࡹ࡮ࡥࠡࡤࡤࡷࡪࠦࡢࡳࡣࡱࡧ࡭ࠦࡦࡰࡴࠣࡸ࡭࡫ࠠࡨ࡫ࡹࡩࡳࠦࡲࡦࡲࡲࠤࡼ࡯ࡴࡩࡱࡸࡸࠥ࡮ࡡࡳࡦࡦࡳࡩ࡫ࡤࠡࡰࡤࡱࡪࡹࠠࡢࡰࡧࠤࡼࡵࡲ࡬ࠢࡺ࡭ࡹ࡮ࠠࡢ࡮࡯ࠤ࡛ࡉࡓࠡࡲࡵࡳࡻ࡯ࡤࡦࡴࡶ࠲ࠏࠦࠠࠡࠢࡕࡩࡹࡻࡲ࡯ࡵࠣࡸ࡭࡫ࠠࡥࡧࡩࡥࡺࡲࡴࠡࡤࡵࡥࡳࡩࡨࠡ࡫ࡩࠤࡵࡵࡳࡴ࡫ࡥࡰࡪ࠲ࠠࡦ࡮ࡶࡩࠥࡔ࡯࡯ࡧ࠱ࠎࠥࠦࠠࠡࠤࠥࠦ᧟")
+def _1111lllll11_opy_(repo):
+    bstack1111l_opy_ (u"ࠦࠧࠨࠊࠡࠢࠣࠤ࡙ࡸࡹࠡࡶࡲࠤࡩ࡫ࡴࡦࡴࡰ࡭ࡳ࡫ࠠࡵࡪࡨࠤࡧࡧࡳࡦࠢࡥࡶࡦࡴࡣࡩࠢࡩࡳࡷࠦࡴࡩࡧࠣ࡫࡮ࡼࡥ࡯ࠢࡵࡩࡵࡵࠠࡸ࡫ࡷ࡬ࡴࡻࡴࠡࡪࡤࡶࡩࡩ࡯ࡥࡧࡧࠤࡳࡧ࡭ࡦࡵࠣࡥࡳࡪࠠࡸࡱࡵ࡯ࠥࡽࡩࡵࡪࠣࡥࡱࡲࠠࡗࡅࡖࠤࡵࡸ࡯ࡷ࡫ࡧࡩࡷࡹ࠮ࠋࠢࠣࠤࠥࡘࡥࡵࡷࡵࡲࡸࠦࡴࡩࡧࠣࡨࡪ࡬ࡡࡶ࡮ࡷࠤࡧࡸࡡ࡯ࡥ࡫ࠤ࡮࡬ࠠࡱࡱࡶࡷ࡮ࡨ࡬ࡦ࠮ࠣࡩࡱࡹࡥࠡࡐࡲࡲࡪ࠴ࠊࠡࠢࠣࠤࠧࠨࠢὨ")
     try:
         try:
             origin = repo.remotes.origin
-            bstack111l111llll_opy_ = origin.refs[bstack1ll111_opy_ (u"ࠩࡋࡉࡆࡊࠧ᧠")]
-            target = bstack111l111llll_opy_.reference.name
-            if target.startswith(bstack1ll111_opy_ (u"ࠪࡳࡷ࡯ࡧࡪࡰ࠲ࠫ᧡")):
+            bstack1111ll1ll1l_opy_ = origin.refs[bstack1111l_opy_ (u"ࠬࡎࡅࡂࡆࠪὩ")]
+            target = bstack1111ll1ll1l_opy_.reference.name
+            if target.startswith(bstack1111l_opy_ (u"࠭࡯ࡳ࡫ࡪ࡭ࡳ࠵ࠧὪ")):
                 return target
         except Exception:
             pass
         if repo.remotes and repo.remotes.origin.refs:
             for ref in repo.remotes.origin.refs:
-                if ref.name.startswith(bstack1ll111_opy_ (u"ࠫࡴࡸࡩࡨ࡫ࡱ࠳ࠬ᧢")):
+                if ref.name.startswith(bstack1111l_opy_ (u"ࠧࡰࡴ࡬࡫࡮ࡴ࠯ࠨὫ")):
                     return ref.name
         if repo.heads:
             return repo.heads[0].name
     except Exception:
         pass
     return None
-def _111l1l11ll1_opy_(commits):
-    bstack1ll111_opy_ (u"ࠧࠨࠢࠋࠢࠣࠤࠥࡍࡥࡵࠢ࡯࡭ࡸࡺࠠࡰࡨࠣࡧ࡭ࡧ࡮ࡨࡧࡧࠤ࡫࡯࡬ࡦࡵࠣࡪࡷࡵ࡭ࠡࡣࠣࡰ࡮ࡹࡴࠡࡱࡩࠤࡨࡵ࡭࡮࡫ࡷࡷ࠳ࠐࠠࠡࠢࠣࠦࠧࠨ᧣")
-    bstack11l1111111l_opy_ = set()
+def _1111l11l1ll_opy_(commits):
+    bstack1111l_opy_ (u"ࠣࠤࠥࠎࠥࠦࠠࠡࡉࡨࡸࠥࡲࡩࡴࡶࠣࡳ࡫ࠦࡣࡩࡣࡱ࡫ࡪࡪࠠࡧ࡫࡯ࡩࡸࠦࡦࡳࡱࡰࠤࡦࠦ࡬ࡪࡵࡷࠤࡴ࡬ࠠࡤࡱࡰࡱ࡮ࡺࡳ࠯ࠌࠣࠤࠥࠦࠢࠣࠤὬ")
+    bstack111l11111ll_opy_ = set()
     try:
         for commit in commits:
             if commit.parents:
                 for parent in commit.parents:
                     diff = commit.diff(parent)
-                    for bstack111l11l11l1_opy_ in diff:
-                        if bstack111l11l11l1_opy_.a_path:
-                            bstack11l1111111l_opy_.add(bstack111l11l11l1_opy_.a_path)
-                        if bstack111l11l11l1_opy_.b_path:
-                            bstack11l1111111l_opy_.add(bstack111l11l11l1_opy_.b_path)
+                    for bstack1111l11ll1l_opy_ in diff:
+                        if bstack1111l11ll1l_opy_.a_path:
+                            bstack111l11111ll_opy_.add(bstack1111l11ll1l_opy_.a_path)
+                        if bstack1111l11ll1l_opy_.b_path:
+                            bstack111l11111ll_opy_.add(bstack1111l11ll1l_opy_.b_path)
     except Exception:
         pass
-    return list(bstack11l1111111l_opy_)
-def bstack111llllll11_opy_(bstack111l1l1llll_opy_):
-    bstack111l11l1l1l_opy_ = bstack111ll1lll11_opy_(bstack111l1l1llll_opy_)
-    if bstack111l11l1l1l_opy_ and bstack111l11l1l1l_opy_ > bstack111l1l111ll_opy_:
-        bstack111ll1ll1ll_opy_ = bstack111l11l1l1l_opy_ - bstack111l1l111ll_opy_
-        bstack111l11lll11_opy_ = bstack111lll111l1_opy_(bstack111l1l1llll_opy_[bstack1ll111_opy_ (u"ࠨࡣࡰ࡯ࡰ࡭ࡹࡥ࡭ࡦࡵࡶࡥ࡬࡫ࠢ᧤")], bstack111ll1ll1ll_opy_)
-        bstack111l1l1llll_opy_[bstack1ll111_opy_ (u"ࠢࡤࡱࡰࡱ࡮ࡺ࡟࡮ࡧࡶࡷࡦ࡭ࡥࠣ᧥")] = bstack111l11lll11_opy_
-        logger.info(bstack1ll111_opy_ (u"ࠣࡖ࡫ࡩࠥࡩ࡯࡮࡯࡬ࡸࠥ࡮ࡡࡴࠢࡥࡩࡪࡴࠠࡵࡴࡸࡲࡨࡧࡴࡦࡦ࠱ࠤࡘ࡯ࡺࡦࠢࡲࡪࠥࡩ࡯࡮࡯࡬ࡸࠥࡧࡦࡵࡧࡵࠤࡹࡸࡵ࡯ࡥࡤࡸ࡮ࡵ࡮ࠡ࡫ࡶࠤࢀࢃࠠࡌࡄࠥ᧦")
-                    .format(bstack111ll1lll11_opy_(bstack111l1l1llll_opy_) / 1024))
-    return bstack111l1l1llll_opy_
-def bstack111ll1lll11_opy_(json_data):
+    return list(bstack111l11111ll_opy_)
+def bstack1111l11l1l1_opy_(bstack111111l1lll_opy_):
+    bstack1111llll111_opy_ = bstack1111ll1l1l1_opy_(bstack111111l1lll_opy_)
+    if bstack1111llll111_opy_ and bstack1111llll111_opy_ > bstack111l1l1111l_opy_:
+        bstack1111l1l11ll_opy_ = bstack1111llll111_opy_ - bstack111l1l1111l_opy_
+        bstack1111ll1l11l_opy_ = bstack11111l1l1l1_opy_(bstack111111l1lll_opy_[bstack1111l_opy_ (u"ࠤࡦࡳࡲࡳࡩࡵࡡࡰࡩࡸࡹࡡࡨࡧࠥὭ")], bstack1111l1l11ll_opy_)
+        bstack111111l1lll_opy_[bstack1111l_opy_ (u"ࠥࡧࡴࡳ࡭ࡪࡶࡢࡱࡪࡹࡳࡢࡩࡨࠦὮ")] = bstack1111ll1l11l_opy_
+        logger.info(bstack1111l_opy_ (u"࡙ࠦ࡮ࡥࠡࡥࡲࡱࡲ࡯ࡴࠡࡪࡤࡷࠥࡨࡥࡦࡰࠣࡸࡷࡻ࡮ࡤࡣࡷࡩࡩ࠴ࠠࡔ࡫ࡽࡩࠥࡵࡦࠡࡥࡲࡱࡲ࡯ࡴࠡࡣࡩࡸࡪࡸࠠࡵࡴࡸࡲࡨࡧࡴࡪࡱࡱࠤ࡮ࡹࠠࡼࡿࠣࡏࡇࠨὯ")
+                    .format(bstack1111ll1l1l1_opy_(bstack111111l1lll_opy_) / 1024))
+    return bstack111111l1lll_opy_
+def bstack1111ll1l1l1_opy_(json_data):
     try:
         if json_data:
-            bstack111ll11ll1l_opy_ = json.dumps(json_data)
-            bstack111lll111ll_opy_ = sys.getsizeof(bstack111ll11ll1l_opy_)
-            return bstack111lll111ll_opy_
+            bstack11111l1ll11_opy_ = json.dumps(json_data)
+            bstack1111l1ll11l_opy_ = sys.getsizeof(bstack11111l1ll11_opy_)
+            return bstack1111l1ll11l_opy_
     except Exception as e:
-        logger.debug(bstack1ll111_opy_ (u"ࠤࡖࡳࡲ࡫ࡴࡩ࡫ࡱ࡫ࠥࡽࡥ࡯ࡶࠣࡻࡷࡵ࡮ࡨࠢࡺ࡬࡮ࡲࡥࠡࡥࡤࡰࡨࡻ࡬ࡢࡶ࡬ࡲ࡬ࠦࡳࡪࡼࡨࠤࡴ࡬ࠠࡋࡕࡒࡒࠥࡵࡢ࡫ࡧࡦࡸ࠿ࠦࡻࡾࠤ᧧").format(e))
+        logger.debug(bstack1111l_opy_ (u"࡙ࠧ࡯࡮ࡧࡷ࡬࡮ࡴࡧࠡࡹࡨࡲࡹࠦࡷࡳࡱࡱ࡫ࠥࡽࡨࡪ࡮ࡨࠤࡨࡧ࡬ࡤࡷ࡯ࡥࡹ࡯࡮ࡨࠢࡶ࡭ࡿ࡫ࠠࡰࡨࠣࡎࡘࡕࡎࠡࡱࡥ࡮ࡪࡩࡴ࠻ࠢࡾࢁࠧὰ").format(e))
     return -1
-def bstack111lll111l1_opy_(field, bstack111lllll1ll_opy_):
+def bstack11111l1l1l1_opy_(field, bstack1111l1l11l1_opy_):
     try:
-        bstack111lll1llll_opy_ = len(bytes(bstack111l1ll1lll_opy_, bstack1ll111_opy_ (u"ࠪࡹࡹ࡬࠭࠹ࠩ᧨")))
-        bstack111l1ll11ll_opy_ = bytes(field, bstack1ll111_opy_ (u"ࠫࡺࡺࡦ࠮࠺ࠪ᧩"))
-        bstack111lllll11l_opy_ = len(bstack111l1ll11ll_opy_)
-        bstack111l1lll111_opy_ = ceil(bstack111lllll11l_opy_ - bstack111lllll1ll_opy_ - bstack111lll1llll_opy_)
-        if bstack111l1lll111_opy_ > 0:
-            bstack111ll1lll1l_opy_ = bstack111l1ll11ll_opy_[:bstack111l1lll111_opy_].decode(bstack1ll111_opy_ (u"ࠬࡻࡴࡧ࠯࠻ࠫ᧪"), errors=bstack1ll111_opy_ (u"࠭ࡩࡨࡰࡲࡶࡪ࠭᧫")) + bstack111l1ll1lll_opy_
-            return bstack111ll1lll1l_opy_
+        bstack1111lll1111_opy_ = len(bytes(bstack111l1ll11l1_opy_, bstack1111l_opy_ (u"࠭ࡵࡵࡨ࠰࠼ࠬά")))
+        bstack1111l1lll1l_opy_ = bytes(field, bstack1111l_opy_ (u"ࠧࡶࡶࡩ࠱࠽࠭ὲ"))
+        bstack11111l11ll1_opy_ = len(bstack1111l1lll1l_opy_)
+        bstack1111l1111ll_opy_ = ceil(bstack11111l11ll1_opy_ - bstack1111l1l11l1_opy_ - bstack1111lll1111_opy_)
+        if bstack1111l1111ll_opy_ > 0:
+            bstack111111l1l1l_opy_ = bstack1111l1lll1l_opy_[:bstack1111l1111ll_opy_].decode(bstack1111l_opy_ (u"ࠨࡷࡷࡪ࠲࠾ࠧέ"), errors=bstack1111l_opy_ (u"ࠩ࡬࡫ࡳࡵࡲࡦࠩὴ")) + bstack111l1ll11l1_opy_
+            return bstack111111l1l1l_opy_
     except Exception as e:
-        logger.debug(bstack1ll111_opy_ (u"ࠢࡆࡴࡵࡳࡷࠦࡷࡩ࡫࡯ࡩࠥࡺࡲࡶࡰࡦࡥࡹ࡯࡮ࡨࠢࡩ࡭ࡪࡲࡤ࠭ࠢࡱࡳࡹ࡮ࡩ࡯ࡩࠣࡻࡦࡹࠠࡵࡴࡸࡲࡨࡧࡴࡦࡦࠣ࡬ࡪࡸࡥ࠻ࠢࡾࢁࠧ᧬").format(e))
+        logger.debug(bstack1111l_opy_ (u"ࠥࡉࡷࡸ࡯ࡳࠢࡺ࡬࡮ࡲࡥࠡࡶࡵࡹࡳࡩࡡࡵ࡫ࡱ࡫ࠥ࡬ࡩࡦ࡮ࡧ࠰ࠥࡴ࡯ࡵࡪ࡬ࡲ࡬ࠦࡷࡢࡵࠣࡸࡷࡻ࡮ࡤࡣࡷࡩࡩࠦࡨࡦࡴࡨ࠾ࠥࢁࡽࠣή").format(e))
     return field
-def bstack1ll1lll111_opy_():
+def bstack11llll111_opy_():
     env = os.environ
-    if (bstack1ll111_opy_ (u"ࠣࡌࡈࡒࡐࡏࡎࡔࡡࡘࡖࡑࠨ᧭") in env and len(env[bstack1ll111_opy_ (u"ࠤࡍࡉࡓࡑࡉࡏࡕࡢ࡙ࡗࡒࠢ᧮")]) > 0) or (
-            bstack1ll111_opy_ (u"ࠥࡎࡊࡔࡋࡊࡐࡖࡣࡍࡕࡍࡆࠤ᧯") in env and len(env[bstack1ll111_opy_ (u"ࠦࡏࡋࡎࡌࡋࡑࡗࡤࡎࡏࡎࡇࠥ᧰")]) > 0):
+    if (bstack1111l_opy_ (u"ࠦࡏࡋࡎࡌࡋࡑࡗࡤ࡛ࡒࡍࠤὶ") in env and len(env[bstack1111l_opy_ (u"ࠧࡐࡅࡏࡍࡌࡒࡘࡥࡕࡓࡎࠥί")]) > 0) or (
+            bstack1111l_opy_ (u"ࠨࡊࡆࡐࡎࡍࡓ࡙࡟ࡉࡑࡐࡉࠧὸ") in env and len(env[bstack1111l_opy_ (u"ࠢࡋࡇࡑࡏࡎࡔࡓࡠࡊࡒࡑࡊࠨό")]) > 0):
         return {
-            bstack1ll111_opy_ (u"ࠧࡴࡡ࡮ࡧࠥ᧱"): bstack1ll111_opy_ (u"ࠨࡊࡦࡰ࡮࡭ࡳࡹࠢ᧲"),
-            bstack1ll111_opy_ (u"ࠢࡣࡷ࡬ࡰࡩࡥࡵࡳ࡮ࠥ᧳"): env.get(bstack1ll111_opy_ (u"ࠣࡄࡘࡍࡑࡊ࡟ࡖࡔࡏࠦ᧴")),
-            bstack1ll111_opy_ (u"ࠤ࡭ࡳࡧࡥ࡮ࡢ࡯ࡨࠦ᧵"): env.get(bstack1ll111_opy_ (u"ࠥࡎࡔࡈ࡟ࡏࡃࡐࡉࠧ᧶")),
-            bstack1ll111_opy_ (u"ࠦࡧࡻࡩ࡭ࡦࡢࡲࡺࡳࡢࡦࡴࠥ᧷"): env.get(bstack1ll111_opy_ (u"ࠧࡈࡕࡊࡎࡇࡣࡓ࡛ࡍࡃࡇࡕࠦ᧸"))
+            bstack1111l_opy_ (u"ࠣࡰࡤࡱࡪࠨὺ"): bstack1111l_opy_ (u"ࠤࡍࡩࡳࡱࡩ࡯ࡵࠥύ"),
+            bstack1111l_opy_ (u"ࠥࡦࡺ࡯࡬ࡥࡡࡸࡶࡱࠨὼ"): env.get(bstack1111l_opy_ (u"ࠦࡇ࡛ࡉࡍࡆࡢ࡙ࡗࡒࠢώ")),
+            bstack1111l_opy_ (u"ࠧࡰ࡯ࡣࡡࡱࡥࡲ࡫ࠢ὾"): env.get(bstack1111l_opy_ (u"ࠨࡊࡐࡄࡢࡒࡆࡓࡅࠣ὿")),
+            bstack1111l_opy_ (u"ࠢࡣࡷ࡬ࡰࡩࡥ࡮ࡶ࡯ࡥࡩࡷࠨᾀ"): env.get(bstack1111l_opy_ (u"ࠣࡄࡘࡍࡑࡊ࡟ࡏࡗࡐࡆࡊࡘࠢᾁ"))
         }
-    if env.get(bstack1ll111_opy_ (u"ࠨࡃࡊࠤ᧹")) == bstack1ll111_opy_ (u"ࠢࡵࡴࡸࡩࠧ᧺") and bstack1l11lll111_opy_(env.get(bstack1ll111_opy_ (u"ࠣࡅࡌࡖࡈࡒࡅࡄࡋࠥ᧻"))):
+    if env.get(bstack1111l_opy_ (u"ࠤࡆࡍࠧᾂ")) == bstack1111l_opy_ (u"ࠥࡸࡷࡻࡥࠣᾃ") and bstack1ll111llll_opy_(env.get(bstack1111l_opy_ (u"ࠦࡈࡏࡒࡄࡎࡈࡇࡎࠨᾄ"))):
         return {
-            bstack1ll111_opy_ (u"ࠤࡱࡥࡲ࡫ࠢ᧼"): bstack1ll111_opy_ (u"ࠥࡇ࡮ࡸࡣ࡭ࡧࡆࡍࠧ᧽"),
-            bstack1ll111_opy_ (u"ࠦࡧࡻࡩ࡭ࡦࡢࡹࡷࡲࠢ᧾"): env.get(bstack1ll111_opy_ (u"ࠧࡉࡉࡓࡅࡏࡉࡤࡈࡕࡊࡎࡇࡣ࡚ࡘࡌࠣ᧿")),
-            bstack1ll111_opy_ (u"ࠨࡪࡰࡤࡢࡲࡦࡳࡥࠣᨀ"): env.get(bstack1ll111_opy_ (u"ࠢࡄࡋࡕࡇࡑࡋ࡟ࡋࡑࡅࠦᨁ")),
-            bstack1ll111_opy_ (u"ࠣࡤࡸ࡭ࡱࡪ࡟࡯ࡷࡰࡦࡪࡸࠢᨂ"): env.get(bstack1ll111_opy_ (u"ࠤࡆࡍࡗࡉࡌࡆࡡࡅ࡙ࡎࡒࡄࡠࡐࡘࡑࠧᨃ"))
+            bstack1111l_opy_ (u"ࠧࡴࡡ࡮ࡧࠥᾅ"): bstack1111l_opy_ (u"ࠨࡃࡪࡴࡦࡰࡪࡉࡉࠣᾆ"),
+            bstack1111l_opy_ (u"ࠢࡣࡷ࡬ࡰࡩࡥࡵࡳ࡮ࠥᾇ"): env.get(bstack1111l_opy_ (u"ࠣࡅࡌࡖࡈࡒࡅࡠࡄࡘࡍࡑࡊ࡟ࡖࡔࡏࠦᾈ")),
+            bstack1111l_opy_ (u"ࠤ࡭ࡳࡧࡥ࡮ࡢ࡯ࡨࠦᾉ"): env.get(bstack1111l_opy_ (u"ࠥࡇࡎࡘࡃࡍࡇࡢࡎࡔࡈࠢᾊ")),
+            bstack1111l_opy_ (u"ࠦࡧࡻࡩ࡭ࡦࡢࡲࡺࡳࡢࡦࡴࠥᾋ"): env.get(bstack1111l_opy_ (u"ࠧࡉࡉࡓࡅࡏࡉࡤࡈࡕࡊࡎࡇࡣࡓ࡛ࡍࠣᾌ"))
         }
-    if env.get(bstack1ll111_opy_ (u"ࠥࡇࡎࠨᨄ")) == bstack1ll111_opy_ (u"ࠦࡹࡸࡵࡦࠤᨅ") and bstack1l11lll111_opy_(env.get(bstack1ll111_opy_ (u"࡚ࠧࡒࡂࡘࡌࡗࠧᨆ"))):
+    if env.get(bstack1111l_opy_ (u"ࠨࡃࡊࠤᾍ")) == bstack1111l_opy_ (u"ࠢࡵࡴࡸࡩࠧᾎ") and bstack1ll111llll_opy_(env.get(bstack1111l_opy_ (u"ࠣࡖࡕࡅ࡛ࡏࡓࠣᾏ"))):
         return {
-            bstack1ll111_opy_ (u"ࠨ࡮ࡢ࡯ࡨࠦᨇ"): bstack1ll111_opy_ (u"ࠢࡕࡴࡤࡺ࡮ࡹࠠࡄࡋࠥᨈ"),
-            bstack1ll111_opy_ (u"ࠣࡤࡸ࡭ࡱࡪ࡟ࡶࡴ࡯ࠦᨉ"): env.get(bstack1ll111_opy_ (u"ࠤࡗࡖࡆ࡜ࡉࡔࡡࡅ࡙ࡎࡒࡄࡠ࡙ࡈࡆࡤ࡛ࡒࡍࠤᨊ")),
-            bstack1ll111_opy_ (u"ࠥ࡮ࡴࡨ࡟࡯ࡣࡰࡩࠧᨋ"): env.get(bstack1ll111_opy_ (u"࡙ࠦࡘࡁࡗࡋࡖࡣࡏࡕࡂࡠࡐࡄࡑࡊࠨᨌ")),
-            bstack1ll111_opy_ (u"ࠧࡨࡵࡪ࡮ࡧࡣࡳࡻ࡭ࡣࡧࡵࠦᨍ"): env.get(bstack1ll111_opy_ (u"ࠨࡔࡓࡃ࡙ࡍࡘࡥࡂࡖࡋࡏࡈࡤࡔࡕࡎࡄࡈࡖࠧᨎ"))
+            bstack1111l_opy_ (u"ࠤࡱࡥࡲ࡫ࠢᾐ"): bstack1111l_opy_ (u"ࠥࡘࡷࡧࡶࡪࡵࠣࡇࡎࠨᾑ"),
+            bstack1111l_opy_ (u"ࠦࡧࡻࡩ࡭ࡦࡢࡹࡷࡲࠢᾒ"): env.get(bstack1111l_opy_ (u"࡚ࠧࡒࡂࡘࡌࡗࡤࡈࡕࡊࡎࡇࡣ࡜ࡋࡂࡠࡗࡕࡐࠧᾓ")),
+            bstack1111l_opy_ (u"ࠨࡪࡰࡤࡢࡲࡦࡳࡥࠣᾔ"): env.get(bstack1111l_opy_ (u"ࠢࡕࡔࡄ࡚ࡎ࡙࡟ࡋࡑࡅࡣࡓࡇࡍࡆࠤᾕ")),
+            bstack1111l_opy_ (u"ࠣࡤࡸ࡭ࡱࡪ࡟࡯ࡷࡰࡦࡪࡸࠢᾖ"): env.get(bstack1111l_opy_ (u"ࠤࡗࡖࡆ࡜ࡉࡔࡡࡅ࡙ࡎࡒࡄࡠࡐࡘࡑࡇࡋࡒࠣᾗ"))
         }
-    if env.get(bstack1ll111_opy_ (u"ࠢࡄࡋࠥᨏ")) == bstack1ll111_opy_ (u"ࠣࡶࡵࡹࡪࠨᨐ") and env.get(bstack1ll111_opy_ (u"ࠤࡆࡍࡤࡔࡁࡎࡇࠥᨑ")) == bstack1ll111_opy_ (u"ࠥࡧࡴࡪࡥࡴࡪ࡬ࡴࠧᨒ"):
+    if env.get(bstack1111l_opy_ (u"ࠥࡇࡎࠨᾘ")) == bstack1111l_opy_ (u"ࠦࡹࡸࡵࡦࠤᾙ") and env.get(bstack1111l_opy_ (u"ࠧࡉࡉࡠࡐࡄࡑࡊࠨᾚ")) == bstack1111l_opy_ (u"ࠨࡣࡰࡦࡨࡷ࡭࡯ࡰࠣᾛ"):
         return {
-            bstack1ll111_opy_ (u"ࠦࡳࡧ࡭ࡦࠤᨓ"): bstack1ll111_opy_ (u"ࠧࡉ࡯ࡥࡧࡶ࡬࡮ࡶࠢᨔ"),
-            bstack1ll111_opy_ (u"ࠨࡢࡶ࡫࡯ࡨࡤࡻࡲ࡭ࠤᨕ"): None,
-            bstack1ll111_opy_ (u"ࠢ࡫ࡱࡥࡣࡳࡧ࡭ࡦࠤᨖ"): None,
-            bstack1ll111_opy_ (u"ࠣࡤࡸ࡭ࡱࡪ࡟࡯ࡷࡰࡦࡪࡸࠢᨗ"): None
+            bstack1111l_opy_ (u"ࠢ࡯ࡣࡰࡩࠧᾜ"): bstack1111l_opy_ (u"ࠣࡅࡲࡨࡪࡹࡨࡪࡲࠥᾝ"),
+            bstack1111l_opy_ (u"ࠤࡥࡹ࡮ࡲࡤࡠࡷࡵࡰࠧᾞ"): None,
+            bstack1111l_opy_ (u"ࠥ࡮ࡴࡨ࡟࡯ࡣࡰࡩࠧᾟ"): None,
+            bstack1111l_opy_ (u"ࠦࡧࡻࡩ࡭ࡦࡢࡲࡺࡳࡢࡦࡴࠥᾠ"): None
         }
-    if env.get(bstack1ll111_opy_ (u"ࠤࡅࡍ࡙ࡈࡕࡄࡍࡈࡘࡤࡈࡒࡂࡐࡆࡌᨘࠧ")) and env.get(bstack1ll111_opy_ (u"ࠥࡆࡎ࡚ࡂࡖࡅࡎࡉ࡙ࡥࡃࡐࡏࡐࡍ࡙ࠨᨙ")):
+    if env.get(bstack1111l_opy_ (u"ࠧࡈࡉࡕࡄࡘࡇࡐࡋࡔࡠࡄࡕࡅࡓࡉࡈࠣᾡ")) and env.get(bstack1111l_opy_ (u"ࠨࡂࡊࡖࡅ࡙ࡈࡑࡅࡕࡡࡆࡓࡒࡓࡉࡕࠤᾢ")):
         return {
-            bstack1ll111_opy_ (u"ࠦࡳࡧ࡭ࡦࠤᨚ"): bstack1ll111_opy_ (u"ࠧࡈࡩࡵࡤࡸࡧࡰ࡫ࡴࠣᨛ"),
-            bstack1ll111_opy_ (u"ࠨࡢࡶ࡫࡯ࡨࡤࡻࡲ࡭ࠤ᨜"): env.get(bstack1ll111_opy_ (u"ࠢࡃࡋࡗࡆ࡚ࡉࡋࡆࡖࡢࡋࡎ࡚࡟ࡉࡖࡗࡔࡤࡕࡒࡊࡉࡌࡒࠧ᨝")),
-            bstack1ll111_opy_ (u"ࠣ࡬ࡲࡦࡤࡴࡡ࡮ࡧࠥ᨞"): None,
-            bstack1ll111_opy_ (u"ࠤࡥࡹ࡮ࡲࡤࡠࡰࡸࡱࡧ࡫ࡲࠣ᨟"): env.get(bstack1ll111_opy_ (u"ࠥࡆࡎ࡚ࡂࡖࡅࡎࡉ࡙ࡥࡂࡖࡋࡏࡈࡤࡔࡕࡎࡄࡈࡖࠧᨠ"))
+            bstack1111l_opy_ (u"ࠢ࡯ࡣࡰࡩࠧᾣ"): bstack1111l_opy_ (u"ࠣࡄ࡬ࡸࡧࡻࡣ࡬ࡧࡷࠦᾤ"),
+            bstack1111l_opy_ (u"ࠤࡥࡹ࡮ࡲࡤࡠࡷࡵࡰࠧᾥ"): env.get(bstack1111l_opy_ (u"ࠥࡆࡎ࡚ࡂࡖࡅࡎࡉ࡙ࡥࡇࡊࡖࡢࡌ࡙࡚ࡐࡠࡑࡕࡍࡌࡏࡎࠣᾦ")),
+            bstack1111l_opy_ (u"ࠦ࡯ࡵࡢࡠࡰࡤࡱࡪࠨᾧ"): None,
+            bstack1111l_opy_ (u"ࠧࡨࡵࡪ࡮ࡧࡣࡳࡻ࡭ࡣࡧࡵࠦᾨ"): env.get(bstack1111l_opy_ (u"ࠨࡂࡊࡖࡅ࡙ࡈࡑࡅࡕࡡࡅ࡙ࡎࡒࡄࡠࡐࡘࡑࡇࡋࡒࠣᾩ"))
         }
-    if env.get(bstack1ll111_opy_ (u"ࠦࡈࡏࠢᨡ")) == bstack1ll111_opy_ (u"ࠧࡺࡲࡶࡧࠥᨢ") and bstack1l11lll111_opy_(env.get(bstack1ll111_opy_ (u"ࠨࡄࡓࡑࡑࡉࠧᨣ"))):
+    if env.get(bstack1111l_opy_ (u"ࠢࡄࡋࠥᾪ")) == bstack1111l_opy_ (u"ࠣࡶࡵࡹࡪࠨᾫ") and bstack1ll111llll_opy_(env.get(bstack1111l_opy_ (u"ࠤࡇࡖࡔࡔࡅࠣᾬ"))):
         return {
-            bstack1ll111_opy_ (u"ࠢ࡯ࡣࡰࡩࠧᨤ"): bstack1ll111_opy_ (u"ࠣࡆࡵࡳࡳ࡫ࠢᨥ"),
-            bstack1ll111_opy_ (u"ࠤࡥࡹ࡮ࡲࡤࡠࡷࡵࡰࠧᨦ"): env.get(bstack1ll111_opy_ (u"ࠥࡈࡗࡕࡎࡆࡡࡅ࡙ࡎࡒࡄࡠࡎࡌࡒࡐࠨᨧ")),
-            bstack1ll111_opy_ (u"ࠦ࡯ࡵࡢࡠࡰࡤࡱࡪࠨᨨ"): None,
-            bstack1ll111_opy_ (u"ࠧࡨࡵࡪ࡮ࡧࡣࡳࡻ࡭ࡣࡧࡵࠦᨩ"): env.get(bstack1ll111_opy_ (u"ࠨࡄࡓࡑࡑࡉࡤࡈࡕࡊࡎࡇࡣࡓ࡛ࡍࡃࡇࡕࠦᨪ"))
+            bstack1111l_opy_ (u"ࠥࡲࡦࡳࡥࠣᾭ"): bstack1111l_opy_ (u"ࠦࡉࡸ࡯࡯ࡧࠥᾮ"),
+            bstack1111l_opy_ (u"ࠧࡨࡵࡪ࡮ࡧࡣࡺࡸ࡬ࠣᾯ"): env.get(bstack1111l_opy_ (u"ࠨࡄࡓࡑࡑࡉࡤࡈࡕࡊࡎࡇࡣࡑࡏࡎࡌࠤᾰ")),
+            bstack1111l_opy_ (u"ࠢ࡫ࡱࡥࡣࡳࡧ࡭ࡦࠤᾱ"): None,
+            bstack1111l_opy_ (u"ࠣࡤࡸ࡭ࡱࡪ࡟࡯ࡷࡰࡦࡪࡸࠢᾲ"): env.get(bstack1111l_opy_ (u"ࠤࡇࡖࡔࡔࡅࡠࡄࡘࡍࡑࡊ࡟ࡏࡗࡐࡆࡊࡘࠢᾳ"))
         }
-    if env.get(bstack1ll111_opy_ (u"ࠢࡄࡋࠥᨫ")) == bstack1ll111_opy_ (u"ࠣࡶࡵࡹࡪࠨᨬ") and bstack1l11lll111_opy_(env.get(bstack1ll111_opy_ (u"ࠤࡖࡉࡒࡇࡐࡉࡑࡕࡉࠧᨭ"))):
+    if env.get(bstack1111l_opy_ (u"ࠥࡇࡎࠨᾴ")) == bstack1111l_opy_ (u"ࠦࡹࡸࡵࡦࠤ᾵") and bstack1ll111llll_opy_(env.get(bstack1111l_opy_ (u"࡙ࠧࡅࡎࡃࡓࡌࡔࡘࡅࠣᾶ"))):
         return {
-            bstack1ll111_opy_ (u"ࠥࡲࡦࡳࡥࠣᨮ"): bstack1ll111_opy_ (u"ࠦࡘ࡫࡭ࡢࡲ࡫ࡳࡷ࡫ࠢᨯ"),
-            bstack1ll111_opy_ (u"ࠧࡨࡵࡪ࡮ࡧࡣࡺࡸ࡬ࠣᨰ"): env.get(bstack1ll111_opy_ (u"ࠨࡓࡆࡏࡄࡔࡍࡕࡒࡆࡡࡒࡖࡌࡇࡎࡊ࡜ࡄࡘࡎࡕࡎࡠࡗࡕࡐࠧᨱ")),
-            bstack1ll111_opy_ (u"ࠢ࡫ࡱࡥࡣࡳࡧ࡭ࡦࠤᨲ"): env.get(bstack1ll111_opy_ (u"ࠣࡕࡈࡑࡆࡖࡈࡐࡔࡈࡣࡏࡕࡂࡠࡐࡄࡑࡊࠨᨳ")),
-            bstack1ll111_opy_ (u"ࠤࡥࡹ࡮ࡲࡤࡠࡰࡸࡱࡧ࡫ࡲࠣᨴ"): env.get(bstack1ll111_opy_ (u"ࠥࡗࡊࡓࡁࡑࡊࡒࡖࡊࡥࡊࡐࡄࡢࡍࡉࠨᨵ"))
+            bstack1111l_opy_ (u"ࠨ࡮ࡢ࡯ࡨࠦᾷ"): bstack1111l_opy_ (u"ࠢࡔࡧࡰࡥࡵ࡮࡯ࡳࡧࠥᾸ"),
+            bstack1111l_opy_ (u"ࠣࡤࡸ࡭ࡱࡪ࡟ࡶࡴ࡯ࠦᾹ"): env.get(bstack1111l_opy_ (u"ࠤࡖࡉࡒࡇࡐࡉࡑࡕࡉࡤࡕࡒࡈࡃࡑࡍ࡟ࡇࡔࡊࡑࡑࡣ࡚ࡘࡌࠣᾺ")),
+            bstack1111l_opy_ (u"ࠥ࡮ࡴࡨ࡟࡯ࡣࡰࡩࠧΆ"): env.get(bstack1111l_opy_ (u"ࠦࡘࡋࡍࡂࡒࡋࡓࡗࡋ࡟ࡋࡑࡅࡣࡓࡇࡍࡆࠤᾼ")),
+            bstack1111l_opy_ (u"ࠧࡨࡵࡪ࡮ࡧࡣࡳࡻ࡭ࡣࡧࡵࠦ᾽"): env.get(bstack1111l_opy_ (u"ࠨࡓࡆࡏࡄࡔࡍࡕࡒࡆࡡࡍࡓࡇࡥࡉࡅࠤι"))
         }
-    if env.get(bstack1ll111_opy_ (u"ࠦࡈࡏࠢᨶ")) == bstack1ll111_opy_ (u"ࠧࡺࡲࡶࡧࠥᨷ") and bstack1l11lll111_opy_(env.get(bstack1ll111_opy_ (u"ࠨࡇࡊࡖࡏࡅࡇࡥࡃࡊࠤᨸ"))):
+    if env.get(bstack1111l_opy_ (u"ࠢࡄࡋࠥ᾿")) == bstack1111l_opy_ (u"ࠣࡶࡵࡹࡪࠨ῀") and bstack1ll111llll_opy_(env.get(bstack1111l_opy_ (u"ࠤࡊࡍ࡙ࡒࡁࡃࡡࡆࡍࠧ῁"))):
         return {
-            bstack1ll111_opy_ (u"ࠢ࡯ࡣࡰࡩࠧᨹ"): bstack1ll111_opy_ (u"ࠣࡉ࡬ࡸࡑࡧࡢࠣᨺ"),
-            bstack1ll111_opy_ (u"ࠤࡥࡹ࡮ࡲࡤࡠࡷࡵࡰࠧᨻ"): env.get(bstack1ll111_opy_ (u"ࠥࡇࡎࡥࡊࡐࡄࡢ࡙ࡗࡒࠢᨼ")),
-            bstack1ll111_opy_ (u"ࠦ࡯ࡵࡢࡠࡰࡤࡱࡪࠨᨽ"): env.get(bstack1ll111_opy_ (u"ࠧࡉࡉࡠࡌࡒࡆࡤࡔࡁࡎࡇࠥᨾ")),
-            bstack1ll111_opy_ (u"ࠨࡢࡶ࡫࡯ࡨࡤࡴࡵ࡮ࡤࡨࡶࠧᨿ"): env.get(bstack1ll111_opy_ (u"ࠢࡄࡋࡢࡎࡔࡈ࡟ࡊࡆࠥᩀ"))
+            bstack1111l_opy_ (u"ࠥࡲࡦࡳࡥࠣῂ"): bstack1111l_opy_ (u"ࠦࡌ࡯ࡴࡍࡣࡥࠦῃ"),
+            bstack1111l_opy_ (u"ࠧࡨࡵࡪ࡮ࡧࡣࡺࡸ࡬ࠣῄ"): env.get(bstack1111l_opy_ (u"ࠨࡃࡊࡡࡍࡓࡇࡥࡕࡓࡎࠥ῅")),
+            bstack1111l_opy_ (u"ࠢ࡫ࡱࡥࡣࡳࡧ࡭ࡦࠤῆ"): env.get(bstack1111l_opy_ (u"ࠣࡅࡌࡣࡏࡕࡂࡠࡐࡄࡑࡊࠨῇ")),
+            bstack1111l_opy_ (u"ࠤࡥࡹ࡮ࡲࡤࡠࡰࡸࡱࡧ࡫ࡲࠣῈ"): env.get(bstack1111l_opy_ (u"ࠥࡇࡎࡥࡊࡐࡄࡢࡍࡉࠨΈ"))
         }
-    if env.get(bstack1ll111_opy_ (u"ࠣࡅࡌࠦᩁ")) == bstack1ll111_opy_ (u"ࠤࡷࡶࡺ࡫ࠢᩂ") and bstack1l11lll111_opy_(env.get(bstack1ll111_opy_ (u"ࠥࡆ࡚ࡏࡌࡅࡍࡌࡘࡊࠨᩃ"))):
+    if env.get(bstack1111l_opy_ (u"ࠦࡈࡏࠢῊ")) == bstack1111l_opy_ (u"ࠧࡺࡲࡶࡧࠥΉ") and bstack1ll111llll_opy_(env.get(bstack1111l_opy_ (u"ࠨࡂࡖࡋࡏࡈࡐࡏࡔࡆࠤῌ"))):
         return {
-            bstack1ll111_opy_ (u"ࠦࡳࡧ࡭ࡦࠤᩄ"): bstack1ll111_opy_ (u"ࠧࡈࡵࡪ࡮ࡧ࡯࡮ࡺࡥࠣᩅ"),
-            bstack1ll111_opy_ (u"ࠨࡢࡶ࡫࡯ࡨࡤࡻࡲ࡭ࠤᩆ"): env.get(bstack1ll111_opy_ (u"ࠢࡃࡗࡌࡐࡉࡑࡉࡕࡇࡢࡆ࡚ࡏࡌࡅࡡࡘࡖࡑࠨᩇ")),
-            bstack1ll111_opy_ (u"ࠣ࡬ࡲࡦࡤࡴࡡ࡮ࡧࠥᩈ"): env.get(bstack1ll111_opy_ (u"ࠤࡅ࡙ࡎࡒࡄࡌࡋࡗࡉࡤࡒࡁࡃࡇࡏࠦᩉ")) or env.get(bstack1ll111_opy_ (u"ࠥࡆ࡚ࡏࡌࡅࡍࡌࡘࡊࡥࡐࡊࡒࡈࡐࡎࡔࡅࡠࡐࡄࡑࡊࠨᩊ")),
-            bstack1ll111_opy_ (u"ࠦࡧࡻࡩ࡭ࡦࡢࡲࡺࡳࡢࡦࡴࠥᩋ"): env.get(bstack1ll111_opy_ (u"ࠧࡈࡕࡊࡎࡇࡏࡎ࡚ࡅࡠࡄࡘࡍࡑࡊ࡟ࡏࡗࡐࡆࡊࡘࠢᩌ"))
+            bstack1111l_opy_ (u"ࠢ࡯ࡣࡰࡩࠧ῍"): bstack1111l_opy_ (u"ࠣࡄࡸ࡭ࡱࡪ࡫ࡪࡶࡨࠦ῎"),
+            bstack1111l_opy_ (u"ࠤࡥࡹ࡮ࡲࡤࡠࡷࡵࡰࠧ῏"): env.get(bstack1111l_opy_ (u"ࠥࡆ࡚ࡏࡌࡅࡍࡌࡘࡊࡥࡂࡖࡋࡏࡈࡤ࡛ࡒࡍࠤῐ")),
+            bstack1111l_opy_ (u"ࠦ࡯ࡵࡢࡠࡰࡤࡱࡪࠨῑ"): env.get(bstack1111l_opy_ (u"ࠧࡈࡕࡊࡎࡇࡏࡎ࡚ࡅࡠࡎࡄࡆࡊࡒࠢῒ")) or env.get(bstack1111l_opy_ (u"ࠨࡂࡖࡋࡏࡈࡐࡏࡔࡆࡡࡓࡍࡕࡋࡌࡊࡐࡈࡣࡓࡇࡍࡆࠤΐ")),
+            bstack1111l_opy_ (u"ࠢࡣࡷ࡬ࡰࡩࡥ࡮ࡶ࡯ࡥࡩࡷࠨ῔"): env.get(bstack1111l_opy_ (u"ࠣࡄࡘࡍࡑࡊࡋࡊࡖࡈࡣࡇ࡛ࡉࡍࡆࡢࡒ࡚ࡓࡂࡆࡔࠥ῕"))
         }
-    if bstack1l11lll111_opy_(env.get(bstack1ll111_opy_ (u"ࠨࡔࡇࡡࡅ࡙ࡎࡒࡄࠣᩍ"))):
+    if bstack1ll111llll_opy_(env.get(bstack1111l_opy_ (u"ࠤࡗࡊࡤࡈࡕࡊࡎࡇࠦῖ"))):
         return {
-            bstack1ll111_opy_ (u"ࠢ࡯ࡣࡰࡩࠧᩎ"): bstack1ll111_opy_ (u"ࠣࡘ࡬ࡷࡺࡧ࡬ࠡࡕࡷࡹࡩ࡯࡯ࠡࡖࡨࡥࡲࠦࡓࡦࡴࡹ࡭ࡨ࡫ࡳࠣᩏ"),
-            bstack1ll111_opy_ (u"ࠤࡥࡹ࡮ࡲࡤࡠࡷࡵࡰࠧᩐ"): bstack1ll111_opy_ (u"ࠥࡿࢂࢁࡽࠣᩑ").format(env.get(bstack1ll111_opy_ (u"ࠫࡘ࡟ࡓࡕࡇࡐࡣ࡙ࡋࡁࡎࡈࡒ࡙ࡓࡊࡁࡕࡋࡒࡒࡘࡋࡒࡗࡇࡕ࡙ࡗࡏࠧᩒ")), env.get(bstack1ll111_opy_ (u"࡙࡙ࠬࡔࡖࡈࡑࡤ࡚ࡅࡂࡏࡓࡖࡔࡐࡅࡄࡖࡌࡈࠬᩓ"))),
-            bstack1ll111_opy_ (u"ࠨࡪࡰࡤࡢࡲࡦࡳࡥࠣᩔ"): env.get(bstack1ll111_opy_ (u"ࠢࡔ࡛ࡖࡘࡊࡓ࡟ࡅࡇࡉࡍࡓࡏࡔࡊࡑࡑࡍࡉࠨᩕ")),
-            bstack1ll111_opy_ (u"ࠣࡤࡸ࡭ࡱࡪ࡟࡯ࡷࡰࡦࡪࡸࠢᩖ"): env.get(bstack1ll111_opy_ (u"ࠤࡅ࡙ࡎࡒࡄࡠࡄࡘࡍࡑࡊࡉࡅࠤᩗ"))
+            bstack1111l_opy_ (u"ࠥࡲࡦࡳࡥࠣῗ"): bstack1111l_opy_ (u"࡛ࠦ࡯ࡳࡶࡣ࡯ࠤࡘࡺࡵࡥ࡫ࡲࠤ࡙࡫ࡡ࡮ࠢࡖࡩࡷࡼࡩࡤࡧࡶࠦῘ"),
+            bstack1111l_opy_ (u"ࠧࡨࡵࡪ࡮ࡧࡣࡺࡸ࡬ࠣῙ"): bstack1111l_opy_ (u"ࠨࡻࡾࡽࢀࠦῚ").format(env.get(bstack1111l_opy_ (u"ࠧࡔ࡛ࡖࡘࡊࡓ࡟ࡕࡇࡄࡑࡋࡕࡕࡏࡆࡄࡘࡎࡕࡎࡔࡇࡕ࡚ࡊࡘࡕࡓࡋࠪΊ")), env.get(bstack1111l_opy_ (u"ࠨࡕ࡜ࡗ࡙ࡋࡍࡠࡖࡈࡅࡒࡖࡒࡐࡌࡈࡇ࡙ࡏࡄࠨ῜"))),
+            bstack1111l_opy_ (u"ࠤ࡭ࡳࡧࡥ࡮ࡢ࡯ࡨࠦ῝"): env.get(bstack1111l_opy_ (u"ࠥࡗ࡞࡙ࡔࡆࡏࡢࡈࡊࡌࡉࡏࡋࡗࡍࡔࡔࡉࡅࠤ῞")),
+            bstack1111l_opy_ (u"ࠦࡧࡻࡩ࡭ࡦࡢࡲࡺࡳࡢࡦࡴࠥ῟"): env.get(bstack1111l_opy_ (u"ࠧࡈࡕࡊࡎࡇࡣࡇ࡛ࡉࡍࡆࡌࡈࠧῠ"))
         }
-    if bstack1l11lll111_opy_(env.get(bstack1ll111_opy_ (u"ࠥࡅࡕࡖࡖࡆ࡛ࡒࡖࠧᩘ"))):
+    if bstack1ll111llll_opy_(env.get(bstack1111l_opy_ (u"ࠨࡁࡑࡒ࡙ࡉ࡞ࡕࡒࠣῡ"))):
         return {
-            bstack1ll111_opy_ (u"ࠦࡳࡧ࡭ࡦࠤᩙ"): bstack1ll111_opy_ (u"ࠧࡇࡰࡱࡸࡨࡽࡴࡸࠢᩚ"),
-            bstack1ll111_opy_ (u"ࠨࡢࡶ࡫࡯ࡨࡤࡻࡲ࡭ࠤᩛ"): bstack1ll111_opy_ (u"ࠢࡼࡿ࠲ࡴࡷࡵࡪࡦࡥࡷ࠳ࢀࢃ࠯ࡼࡿ࠲ࡦࡺ࡯࡬ࡥࡵ࠲ࡿࢂࠨᩜ").format(env.get(bstack1ll111_opy_ (u"ࠨࡃࡓࡔ࡛ࡋ࡙ࡐࡔࡢ࡙ࡗࡒࠧᩝ")), env.get(bstack1ll111_opy_ (u"ࠩࡄࡔࡕ࡜ࡅ࡚ࡑࡕࡣࡆࡉࡃࡐࡗࡑࡘࡤࡔࡁࡎࡇࠪᩞ")), env.get(bstack1ll111_opy_ (u"ࠪࡅࡕࡖࡖࡆ࡛ࡒࡖࡤࡖࡒࡐࡌࡈࡇ࡙ࡥࡓࡍࡗࡊࠫ᩟")), env.get(bstack1ll111_opy_ (u"ࠫࡆࡖࡐࡗࡇ࡜ࡓࡗࡥࡂࡖࡋࡏࡈࡤࡏࡄࠨ᩠"))),
-            bstack1ll111_opy_ (u"ࠧࡰ࡯ࡣࡡࡱࡥࡲ࡫ࠢᩡ"): env.get(bstack1ll111_opy_ (u"ࠨࡁࡑࡒ࡙ࡉ࡞ࡕࡒࡠࡌࡒࡆࡤࡔࡁࡎࡇࠥᩢ")),
-            bstack1ll111_opy_ (u"ࠢࡣࡷ࡬ࡰࡩࡥ࡮ࡶ࡯ࡥࡩࡷࠨᩣ"): env.get(bstack1ll111_opy_ (u"ࠣࡃࡓࡔ࡛ࡋ࡙ࡐࡔࡢࡆ࡚ࡏࡌࡅࡡࡑ࡙ࡒࡈࡅࡓࠤᩤ"))
+            bstack1111l_opy_ (u"ࠢ࡯ࡣࡰࡩࠧῢ"): bstack1111l_opy_ (u"ࠣࡃࡳࡴࡻ࡫ࡹࡰࡴࠥΰ"),
+            bstack1111l_opy_ (u"ࠤࡥࡹ࡮ࡲࡤࡠࡷࡵࡰࠧῤ"): bstack1111l_opy_ (u"ࠥࡿࢂ࠵ࡰࡳࡱ࡭ࡩࡨࡺ࠯ࡼࡿ࠲ࡿࢂ࠵ࡢࡶ࡫࡯ࡨࡸ࠵ࡻࡾࠤῥ").format(env.get(bstack1111l_opy_ (u"ࠫࡆࡖࡐࡗࡇ࡜ࡓࡗࡥࡕࡓࡎࠪῦ")), env.get(bstack1111l_opy_ (u"ࠬࡇࡐࡑࡘࡈ࡝ࡔࡘ࡟ࡂࡅࡆࡓ࡚ࡔࡔࡠࡐࡄࡑࡊ࠭ῧ")), env.get(bstack1111l_opy_ (u"࠭ࡁࡑࡒ࡙ࡉ࡞ࡕࡒࡠࡒࡕࡓࡏࡋࡃࡕࡡࡖࡐ࡚ࡍࠧῨ")), env.get(bstack1111l_opy_ (u"ࠧࡂࡒࡓ࡚ࡊ࡟ࡏࡓࡡࡅ࡙ࡎࡒࡄࡠࡋࡇࠫῩ"))),
+            bstack1111l_opy_ (u"ࠣ࡬ࡲࡦࡤࡴࡡ࡮ࡧࠥῪ"): env.get(bstack1111l_opy_ (u"ࠤࡄࡔࡕ࡜ࡅ࡚ࡑࡕࡣࡏࡕࡂࡠࡐࡄࡑࡊࠨΎ")),
+            bstack1111l_opy_ (u"ࠥࡦࡺ࡯࡬ࡥࡡࡱࡹࡲࡨࡥࡳࠤῬ"): env.get(bstack1111l_opy_ (u"ࠦࡆࡖࡐࡗࡇ࡜ࡓࡗࡥࡂࡖࡋࡏࡈࡤࡔࡕࡎࡄࡈࡖࠧ῭"))
         }
-    if env.get(bstack1ll111_opy_ (u"ࠤࡄ࡞࡚ࡘࡅࡠࡊࡗࡘࡕࡥࡕࡔࡇࡕࡣࡆࡍࡅࡏࡖࠥᩥ")) and env.get(bstack1ll111_opy_ (u"ࠥࡘࡋࡥࡂࡖࡋࡏࡈࠧᩦ")):
+    if env.get(bstack1111l_opy_ (u"ࠧࡇ࡚ࡖࡔࡈࡣࡍ࡚ࡔࡑࡡࡘࡗࡊࡘ࡟ࡂࡉࡈࡒ࡙ࠨ΅")) and env.get(bstack1111l_opy_ (u"ࠨࡔࡇࡡࡅ࡙ࡎࡒࡄࠣ`")):
         return {
-            bstack1ll111_opy_ (u"ࠦࡳࡧ࡭ࡦࠤᩧ"): bstack1ll111_opy_ (u"ࠧࡇࡺࡶࡴࡨࠤࡈࡏࠢᩨ"),
-            bstack1ll111_opy_ (u"ࠨࡢࡶ࡫࡯ࡨࡤࡻࡲ࡭ࠤᩩ"): bstack1ll111_opy_ (u"ࠢࡼࡿࡾࢁ࠴ࡥࡢࡶ࡫࡯ࡨ࠴ࡸࡥࡴࡷ࡯ࡸࡸࡅࡢࡶ࡫࡯ࡨࡎࡪ࠽ࡼࡿࠥᩪ").format(env.get(bstack1ll111_opy_ (u"ࠨࡕ࡜ࡗ࡙ࡋࡍࡠࡖࡈࡅࡒࡌࡏࡖࡐࡇࡅ࡙ࡏࡏࡏࡕࡈࡖ࡛ࡋࡒࡖࡔࡌࠫᩫ")), env.get(bstack1ll111_opy_ (u"ࠩࡖ࡝ࡘ࡚ࡅࡎࡡࡗࡉࡆࡓࡐࡓࡑࡍࡉࡈ࡚ࠧᩬ")), env.get(bstack1ll111_opy_ (u"ࠪࡆ࡚ࡏࡌࡅࡡࡅ࡙ࡎࡒࡄࡊࡆࠪᩭ"))),
-            bstack1ll111_opy_ (u"ࠦ࡯ࡵࡢࡠࡰࡤࡱࡪࠨᩮ"): env.get(bstack1ll111_opy_ (u"ࠧࡈࡕࡊࡎࡇࡣࡇ࡛ࡉࡍࡆࡌࡈࠧᩯ")),
-            bstack1ll111_opy_ (u"ࠨࡢࡶ࡫࡯ࡨࡤࡴࡵ࡮ࡤࡨࡶࠧᩰ"): env.get(bstack1ll111_opy_ (u"ࠢࡃࡗࡌࡐࡉࡥࡂࡖࡋࡏࡈࡎࡊࠢᩱ"))
+            bstack1111l_opy_ (u"ࠢ࡯ࡣࡰࡩࠧ῰"): bstack1111l_opy_ (u"ࠣࡃࡽࡹࡷ࡫ࠠࡄࡋࠥ῱"),
+            bstack1111l_opy_ (u"ࠤࡥࡹ࡮ࡲࡤࡠࡷࡵࡰࠧῲ"): bstack1111l_opy_ (u"ࠥࡿࢂࢁࡽ࠰ࡡࡥࡹ࡮ࡲࡤ࠰ࡴࡨࡷࡺࡲࡴࡴࡁࡥࡹ࡮ࡲࡤࡊࡦࡀࡿࢂࠨῳ").format(env.get(bstack1111l_opy_ (u"ࠫࡘ࡟ࡓࡕࡇࡐࡣ࡙ࡋࡁࡎࡈࡒ࡙ࡓࡊࡁࡕࡋࡒࡒࡘࡋࡒࡗࡇࡕ࡙ࡗࡏࠧῴ")), env.get(bstack1111l_opy_ (u"࡙࡙ࠬࡔࡖࡈࡑࡤ࡚ࡅࡂࡏࡓࡖࡔࡐࡅࡄࡖࠪ῵")), env.get(bstack1111l_opy_ (u"࠭ࡂࡖࡋࡏࡈࡤࡈࡕࡊࡎࡇࡍࡉ࠭ῶ"))),
+            bstack1111l_opy_ (u"ࠢ࡫ࡱࡥࡣࡳࡧ࡭ࡦࠤῷ"): env.get(bstack1111l_opy_ (u"ࠣࡄࡘࡍࡑࡊ࡟ࡃࡗࡌࡐࡉࡏࡄࠣῸ")),
+            bstack1111l_opy_ (u"ࠤࡥࡹ࡮ࡲࡤࡠࡰࡸࡱࡧ࡫ࡲࠣΌ"): env.get(bstack1111l_opy_ (u"ࠥࡆ࡚ࡏࡌࡅࡡࡅ࡙ࡎࡒࡄࡊࡆࠥῺ"))
         }
-    if any([env.get(bstack1ll111_opy_ (u"ࠣࡅࡒࡈࡊࡈࡕࡊࡎࡇࡣࡇ࡛ࡉࡍࡆࡢࡍࡉࠨᩲ")), env.get(bstack1ll111_opy_ (u"ࠤࡆࡓࡉࡋࡂࡖࡋࡏࡈࡤࡘࡅࡔࡑࡏ࡚ࡊࡊ࡟ࡔࡑࡘࡖࡈࡋ࡟ࡗࡇࡕࡗࡎࡕࡎࠣᩳ")), env.get(bstack1ll111_opy_ (u"ࠥࡇࡔࡊࡅࡃࡗࡌࡐࡉࡥࡓࡐࡗࡕࡇࡊࡥࡖࡆࡔࡖࡍࡔࡔࠢᩴ"))]):
+    if any([env.get(bstack1111l_opy_ (u"ࠦࡈࡕࡄࡆࡄࡘࡍࡑࡊ࡟ࡃࡗࡌࡐࡉࡥࡉࡅࠤΏ")), env.get(bstack1111l_opy_ (u"ࠧࡉࡏࡅࡇࡅ࡙ࡎࡒࡄࡠࡔࡈࡗࡔࡒࡖࡆࡆࡢࡗࡔ࡛ࡒࡄࡇࡢ࡚ࡊࡘࡓࡊࡑࡑࠦῼ")), env.get(bstack1111l_opy_ (u"ࠨࡃࡐࡆࡈࡆ࡚ࡏࡌࡅࡡࡖࡓ࡚ࡘࡃࡆࡡ࡙ࡉࡗ࡙ࡉࡐࡐࠥ´"))]):
         return {
-            bstack1ll111_opy_ (u"ࠦࡳࡧ࡭ࡦࠤ᩵"): bstack1ll111_opy_ (u"ࠧࡇࡗࡔࠢࡆࡳࡩ࡫ࡂࡶ࡫࡯ࡨࠧ᩶"),
-            bstack1ll111_opy_ (u"ࠨࡢࡶ࡫࡯ࡨࡤࡻࡲ࡭ࠤ᩷"): env.get(bstack1ll111_opy_ (u"ࠢࡄࡑࡇࡉࡇ࡛ࡉࡍࡆࡢࡔ࡚ࡈࡌࡊࡅࡢࡆ࡚ࡏࡌࡅࡡࡘࡖࡑࠨ᩸")),
-            bstack1ll111_opy_ (u"ࠣ࡬ࡲࡦࡤࡴࡡ࡮ࡧࠥ᩹"): env.get(bstack1ll111_opy_ (u"ࠤࡆࡓࡉࡋࡂࡖࡋࡏࡈࡤࡈࡕࡊࡎࡇࡣࡎࡊࠢ᩺")),
-            bstack1ll111_opy_ (u"ࠥࡦࡺ࡯࡬ࡥࡡࡱࡹࡲࡨࡥࡳࠤ᩻"): env.get(bstack1ll111_opy_ (u"ࠦࡈࡕࡄࡆࡄࡘࡍࡑࡊ࡟ࡃࡗࡌࡐࡉࡥࡉࡅࠤ᩼"))
+            bstack1111l_opy_ (u"ࠢ࡯ࡣࡰࡩࠧ῾"): bstack1111l_opy_ (u"ࠣࡃ࡚ࡗࠥࡉ࡯ࡥࡧࡅࡹ࡮ࡲࡤࠣ῿"),
+            bstack1111l_opy_ (u"ࠤࡥࡹ࡮ࡲࡤࡠࡷࡵࡰࠧ "): env.get(bstack1111l_opy_ (u"ࠥࡇࡔࡊࡅࡃࡗࡌࡐࡉࡥࡐࡖࡄࡏࡍࡈࡥࡂࡖࡋࡏࡈࡤ࡛ࡒࡍࠤ ")),
+            bstack1111l_opy_ (u"ࠦ࡯ࡵࡢࡠࡰࡤࡱࡪࠨ "): env.get(bstack1111l_opy_ (u"ࠧࡉࡏࡅࡇࡅ࡙ࡎࡒࡄࡠࡄࡘࡍࡑࡊ࡟ࡊࡆࠥ ")),
+            bstack1111l_opy_ (u"ࠨࡢࡶ࡫࡯ࡨࡤࡴࡵ࡮ࡤࡨࡶࠧ "): env.get(bstack1111l_opy_ (u"ࠢࡄࡑࡇࡉࡇ࡛ࡉࡍࡆࡢࡆ࡚ࡏࡌࡅࡡࡌࡈࠧ "))
         }
-    if env.get(bstack1ll111_opy_ (u"ࠧࡨࡡ࡮ࡤࡲࡳࡤࡨࡵࡪ࡮ࡧࡒࡺࡳࡢࡦࡴࠥ᩽")):
+    if env.get(bstack1111l_opy_ (u"ࠣࡤࡤࡱࡧࡵ࡯ࡠࡤࡸ࡭ࡱࡪࡎࡶ࡯ࡥࡩࡷࠨ ")):
         return {
-            bstack1ll111_opy_ (u"ࠨ࡮ࡢ࡯ࡨࠦ᩾"): bstack1ll111_opy_ (u"ࠢࡃࡣࡰࡦࡴࡵ᩿ࠢ"),
-            bstack1ll111_opy_ (u"ࠣࡤࡸ࡭ࡱࡪ࡟ࡶࡴ࡯ࠦ᪀"): env.get(bstack1ll111_opy_ (u"ࠤࡥࡥࡲࡨ࡯ࡰࡡࡥࡹ࡮ࡲࡤࡓࡧࡶࡹࡱࡺࡳࡖࡴ࡯ࠦ᪁")),
-            bstack1ll111_opy_ (u"ࠥ࡮ࡴࡨ࡟࡯ࡣࡰࡩࠧ᪂"): env.get(bstack1ll111_opy_ (u"ࠦࡧࡧ࡭ࡣࡱࡲࡣࡸ࡮࡯ࡳࡶࡍࡳࡧࡔࡡ࡮ࡧࠥ᪃")),
-            bstack1ll111_opy_ (u"ࠧࡨࡵࡪ࡮ࡧࡣࡳࡻ࡭ࡣࡧࡵࠦ᪄"): env.get(bstack1ll111_opy_ (u"ࠨࡢࡢ࡯ࡥࡳࡴࡥࡢࡶ࡫࡯ࡨࡓࡻ࡭ࡣࡧࡵࠦ᪅"))
+            bstack1111l_opy_ (u"ࠤࡱࡥࡲ࡫ࠢ "): bstack1111l_opy_ (u"ࠥࡆࡦࡳࡢࡰࡱࠥ "),
+            bstack1111l_opy_ (u"ࠦࡧࡻࡩ࡭ࡦࡢࡹࡷࡲࠢ "): env.get(bstack1111l_opy_ (u"ࠧࡨࡡ࡮ࡤࡲࡳࡤࡨࡵࡪ࡮ࡧࡖࡪࡹࡵ࡭ࡶࡶ࡙ࡷࡲࠢ ")),
+            bstack1111l_opy_ (u"ࠨࡪࡰࡤࡢࡲࡦࡳࡥࠣ​"): env.get(bstack1111l_opy_ (u"ࠢࡣࡣࡰࡦࡴࡵ࡟ࡴࡪࡲࡶࡹࡐ࡯ࡣࡐࡤࡱࡪࠨ‌")),
+            bstack1111l_opy_ (u"ࠣࡤࡸ࡭ࡱࡪ࡟࡯ࡷࡰࡦࡪࡸࠢ‍"): env.get(bstack1111l_opy_ (u"ࠤࡥࡥࡲࡨ࡯ࡰࡡࡥࡹ࡮ࡲࡤࡏࡷࡰࡦࡪࡸࠢ‎"))
         }
-    if env.get(bstack1ll111_opy_ (u"ࠢࡘࡇࡕࡇࡐࡋࡒࠣ᪆")) or env.get(bstack1ll111_opy_ (u"࡙ࠣࡈࡖࡈࡑࡅࡓࡡࡐࡅࡎࡔ࡟ࡑࡋࡓࡉࡑࡏࡎࡆࡡࡖࡘࡆࡘࡔࡆࡆࠥ᪇")):
+    if env.get(bstack1111l_opy_ (u"࡛ࠥࡊࡘࡃࡌࡇࡕࠦ‏")) or env.get(bstack1111l_opy_ (u"ࠦ࡜ࡋࡒࡄࡍࡈࡖࡤࡓࡁࡊࡐࡢࡔࡎࡖࡅࡍࡋࡑࡉࡤ࡙ࡔࡂࡔࡗࡉࡉࠨ‐")):
         return {
-            bstack1ll111_opy_ (u"ࠤࡱࡥࡲ࡫ࠢ᪈"): bstack1ll111_opy_ (u"࡛ࠥࡪࡸࡣ࡬ࡧࡵࠦ᪉"),
-            bstack1ll111_opy_ (u"ࠦࡧࡻࡩ࡭ࡦࡢࡹࡷࡲࠢ᪊"): env.get(bstack1ll111_opy_ (u"ࠧ࡝ࡅࡓࡅࡎࡉࡗࡥࡂࡖࡋࡏࡈࡤ࡛ࡒࡍࠤ᪋")),
-            bstack1ll111_opy_ (u"ࠨࡪࡰࡤࡢࡲࡦࡳࡥࠣ᪌"): bstack1ll111_opy_ (u"ࠢࡎࡣ࡬ࡲࠥࡖࡩࡱࡧ࡯࡭ࡳ࡫ࠢ᪍") if env.get(bstack1ll111_opy_ (u"࡙ࠣࡈࡖࡈࡑࡅࡓࡡࡐࡅࡎࡔ࡟ࡑࡋࡓࡉࡑࡏࡎࡆࡡࡖࡘࡆࡘࡔࡆࡆࠥ᪎")) else None,
-            bstack1ll111_opy_ (u"ࠤࡥࡹ࡮ࡲࡤࡠࡰࡸࡱࡧ࡫ࡲࠣ᪏"): env.get(bstack1ll111_opy_ (u"࡛ࠥࡊࡘࡃࡌࡇࡕࡣࡌࡏࡔࡠࡅࡒࡑࡒࡏࡔࠣ᪐"))
+            bstack1111l_opy_ (u"ࠧࡴࡡ࡮ࡧࠥ‑"): bstack1111l_opy_ (u"ࠨࡗࡦࡴࡦ࡯ࡪࡸࠢ‒"),
+            bstack1111l_opy_ (u"ࠢࡣࡷ࡬ࡰࡩࡥࡵࡳ࡮ࠥ–"): env.get(bstack1111l_opy_ (u"࡙ࠣࡈࡖࡈࡑࡅࡓࡡࡅ࡙ࡎࡒࡄࡠࡗࡕࡐࠧ—")),
+            bstack1111l_opy_ (u"ࠤ࡭ࡳࡧࡥ࡮ࡢ࡯ࡨࠦ―"): bstack1111l_opy_ (u"ࠥࡑࡦ࡯࡮ࠡࡒ࡬ࡴࡪࡲࡩ࡯ࡧࠥ‖") if env.get(bstack1111l_opy_ (u"ࠦ࡜ࡋࡒࡄࡍࡈࡖࡤࡓࡁࡊࡐࡢࡔࡎࡖࡅࡍࡋࡑࡉࡤ࡙ࡔࡂࡔࡗࡉࡉࠨ‗")) else None,
+            bstack1111l_opy_ (u"ࠧࡨࡵࡪ࡮ࡧࡣࡳࡻ࡭ࡣࡧࡵࠦ‘"): env.get(bstack1111l_opy_ (u"ࠨࡗࡆࡔࡆࡏࡊࡘ࡟ࡈࡋࡗࡣࡈࡕࡍࡎࡋࡗࠦ’"))
         }
-    if any([env.get(bstack1ll111_opy_ (u"ࠦࡌࡉࡐࡠࡒࡕࡓࡏࡋࡃࡕࠤ᪑")), env.get(bstack1ll111_opy_ (u"ࠧࡍࡃࡍࡑࡘࡈࡤࡖࡒࡐࡌࡈࡇ࡙ࠨ᪒")), env.get(bstack1ll111_opy_ (u"ࠨࡇࡐࡑࡊࡐࡊࡥࡃࡍࡑࡘࡈࡤࡖࡒࡐࡌࡈࡇ࡙ࠨ᪓"))]):
+    if any([env.get(bstack1111l_opy_ (u"ࠢࡈࡅࡓࡣࡕࡘࡏࡋࡇࡆࡘࠧ‚")), env.get(bstack1111l_opy_ (u"ࠣࡉࡆࡐࡔ࡛ࡄࡠࡒࡕࡓࡏࡋࡃࡕࠤ‛")), env.get(bstack1111l_opy_ (u"ࠤࡊࡓࡔࡍࡌࡆࡡࡆࡐࡔ࡛ࡄࡠࡒࡕࡓࡏࡋࡃࡕࠤ“"))]):
         return {
-            bstack1ll111_opy_ (u"ࠢ࡯ࡣࡰࡩࠧ᪔"): bstack1ll111_opy_ (u"ࠣࡉࡲࡳ࡬ࡲࡥࠡࡅ࡯ࡳࡺࡪࠢ᪕"),
-            bstack1ll111_opy_ (u"ࠤࡥࡹ࡮ࡲࡤࡠࡷࡵࡰࠧ᪖"): None,
-            bstack1ll111_opy_ (u"ࠥ࡮ࡴࡨ࡟࡯ࡣࡰࡩࠧ᪗"): env.get(bstack1ll111_opy_ (u"ࠦࡕࡘࡏࡋࡇࡆࡘࡤࡏࡄࠣ᪘")),
-            bstack1ll111_opy_ (u"ࠧࡨࡵࡪ࡮ࡧࡣࡳࡻ࡭ࡣࡧࡵࠦ᪙"): env.get(bstack1ll111_opy_ (u"ࠨࡂࡖࡋࡏࡈࡤࡏࡄࠣ᪚"))
+            bstack1111l_opy_ (u"ࠥࡲࡦࡳࡥࠣ”"): bstack1111l_opy_ (u"ࠦࡌࡵ࡯ࡨ࡮ࡨࠤࡈࡲ࡯ࡶࡦࠥ„"),
+            bstack1111l_opy_ (u"ࠧࡨࡵࡪ࡮ࡧࡣࡺࡸ࡬ࠣ‟"): None,
+            bstack1111l_opy_ (u"ࠨࡪࡰࡤࡢࡲࡦࡳࡥࠣ†"): env.get(bstack1111l_opy_ (u"ࠢࡑࡔࡒࡎࡊࡉࡔࡠࡋࡇࠦ‡")),
+            bstack1111l_opy_ (u"ࠣࡤࡸ࡭ࡱࡪ࡟࡯ࡷࡰࡦࡪࡸࠢ•"): env.get(bstack1111l_opy_ (u"ࠤࡅ࡙ࡎࡒࡄࡠࡋࡇࠦ‣"))
         }
-    if env.get(bstack1ll111_opy_ (u"ࠢࡔࡊࡌࡔࡕࡇࡂࡍࡇࠥ᪛")):
+    if env.get(bstack1111l_opy_ (u"ࠥࡗࡍࡏࡐࡑࡃࡅࡐࡊࠨ․")):
         return {
-            bstack1ll111_opy_ (u"ࠣࡰࡤࡱࡪࠨ᪜"): bstack1ll111_opy_ (u"ࠤࡖ࡬࡮ࡶࡰࡢࡤ࡯ࡩࠧ᪝"),
-            bstack1ll111_opy_ (u"ࠥࡦࡺ࡯࡬ࡥࡡࡸࡶࡱࠨ᪞"): env.get(bstack1ll111_opy_ (u"ࠦࡘࡎࡉࡑࡒࡄࡆࡑࡋ࡟ࡃࡗࡌࡐࡉࡥࡕࡓࡎࠥ᪟")),
-            bstack1ll111_opy_ (u"ࠧࡰ࡯ࡣࡡࡱࡥࡲ࡫ࠢ᪠"): bstack1ll111_opy_ (u"ࠨࡊࡰࡤࠣࠧࢀࢃࠢ᪡").format(env.get(bstack1ll111_opy_ (u"ࠧࡔࡊࡌࡔࡕࡇࡂࡍࡇࡢࡎࡔࡈ࡟ࡊࡆࠪ᪢"))) if env.get(bstack1ll111_opy_ (u"ࠣࡕࡋࡍࡕࡖࡁࡃࡎࡈࡣࡏࡕࡂࡠࡋࡇࠦ᪣")) else None,
-            bstack1ll111_opy_ (u"ࠤࡥࡹ࡮ࡲࡤࡠࡰࡸࡱࡧ࡫ࡲࠣ᪤"): env.get(bstack1ll111_opy_ (u"ࠥࡗࡍࡏࡐࡑࡃࡅࡐࡊࡥࡂࡖࡋࡏࡈࡤࡔࡕࡎࡄࡈࡖࠧ᪥"))
+            bstack1111l_opy_ (u"ࠦࡳࡧ࡭ࡦࠤ‥"): bstack1111l_opy_ (u"࡙ࠧࡨࡪࡲࡳࡥࡧࡲࡥࠣ…"),
+            bstack1111l_opy_ (u"ࠨࡢࡶ࡫࡯ࡨࡤࡻࡲ࡭ࠤ‧"): env.get(bstack1111l_opy_ (u"ࠢࡔࡊࡌࡔࡕࡇࡂࡍࡇࡢࡆ࡚ࡏࡌࡅࡡࡘࡖࡑࠨ ")),
+            bstack1111l_opy_ (u"ࠣ࡬ࡲࡦࡤࡴࡡ࡮ࡧࠥ "): bstack1111l_opy_ (u"ࠤࡍࡳࡧࠦࠣࡼࡿࠥ‪").format(env.get(bstack1111l_opy_ (u"ࠪࡗࡍࡏࡐࡑࡃࡅࡐࡊࡥࡊࡐࡄࡢࡍࡉ࠭‫"))) if env.get(bstack1111l_opy_ (u"ࠦࡘࡎࡉࡑࡒࡄࡆࡑࡋ࡟ࡋࡑࡅࡣࡎࡊࠢ‬")) else None,
+            bstack1111l_opy_ (u"ࠧࡨࡵࡪ࡮ࡧࡣࡳࡻ࡭ࡣࡧࡵࠦ‭"): env.get(bstack1111l_opy_ (u"ࠨࡓࡉࡋࡓࡔࡆࡈࡌࡆࡡࡅ࡙ࡎࡒࡄࡠࡐࡘࡑࡇࡋࡒࠣ‮"))
         }
-    if bstack1l11lll111_opy_(env.get(bstack1ll111_opy_ (u"ࠦࡓࡋࡔࡍࡋࡉ࡝ࠧ᪦"))):
+    if bstack1ll111llll_opy_(env.get(bstack1111l_opy_ (u"ࠢࡏࡇࡗࡐࡎࡌ࡙ࠣ "))):
         return {
-            bstack1ll111_opy_ (u"ࠧࡴࡡ࡮ࡧࠥᪧ"): bstack1ll111_opy_ (u"ࠨࡎࡦࡶ࡯࡭࡫ࡿࠢ᪨"),
-            bstack1ll111_opy_ (u"ࠢࡣࡷ࡬ࡰࡩࡥࡵࡳ࡮ࠥ᪩"): env.get(bstack1ll111_opy_ (u"ࠣࡆࡈࡔࡑࡕ࡙ࡠࡗࡕࡐࠧ᪪")),
-            bstack1ll111_opy_ (u"ࠤ࡭ࡳࡧࡥ࡮ࡢ࡯ࡨࠦ᪫"): env.get(bstack1ll111_opy_ (u"ࠥࡗࡎ࡚ࡅࡠࡐࡄࡑࡊࠨ᪬")),
-            bstack1ll111_opy_ (u"ࠦࡧࡻࡩ࡭ࡦࡢࡲࡺࡳࡢࡦࡴࠥ᪭"): env.get(bstack1ll111_opy_ (u"ࠧࡈࡕࡊࡎࡇࡣࡎࡊࠢ᪮"))
+            bstack1111l_opy_ (u"ࠣࡰࡤࡱࡪࠨ‰"): bstack1111l_opy_ (u"ࠤࡑࡩࡹࡲࡩࡧࡻࠥ‱"),
+            bstack1111l_opy_ (u"ࠥࡦࡺ࡯࡬ࡥࡡࡸࡶࡱࠨ′"): env.get(bstack1111l_opy_ (u"ࠦࡉࡋࡐࡍࡑ࡜ࡣ࡚ࡘࡌࠣ″")),
+            bstack1111l_opy_ (u"ࠧࡰ࡯ࡣࡡࡱࡥࡲ࡫ࠢ‴"): env.get(bstack1111l_opy_ (u"ࠨࡓࡊࡖࡈࡣࡓࡇࡍࡆࠤ‵")),
+            bstack1111l_opy_ (u"ࠢࡣࡷ࡬ࡰࡩࡥ࡮ࡶ࡯ࡥࡩࡷࠨ‶"): env.get(bstack1111l_opy_ (u"ࠣࡄࡘࡍࡑࡊ࡟ࡊࡆࠥ‷"))
         }
-    if bstack1l11lll111_opy_(env.get(bstack1ll111_opy_ (u"ࠨࡇࡊࡖࡋ࡙ࡇࡥࡁࡄࡖࡌࡓࡓ࡙ࠢ᪯"))):
+    if bstack1ll111llll_opy_(env.get(bstack1111l_opy_ (u"ࠤࡊࡍ࡙ࡎࡕࡃࡡࡄࡇ࡙ࡏࡏࡏࡕࠥ‸"))):
         return {
-            bstack1ll111_opy_ (u"ࠢ࡯ࡣࡰࡩࠧ᪰"): bstack1ll111_opy_ (u"ࠣࡉ࡬ࡸࡍࡻࡢࠡࡃࡦࡸ࡮ࡵ࡮ࡴࠤ᪱"),
-            bstack1ll111_opy_ (u"ࠤࡥࡹ࡮ࡲࡤࡠࡷࡵࡰࠧ᪲"): bstack1ll111_opy_ (u"ࠥࡿࢂ࠵ࡻࡾ࠱ࡤࡧࡹ࡯࡯࡯ࡵ࠲ࡶࡺࡴࡳ࠰ࡽࢀࠦ᪳").format(env.get(bstack1ll111_opy_ (u"ࠫࡌࡏࡔࡉࡗࡅࡣࡘࡋࡒࡗࡇࡕࡣ࡚ࡘࡌࠨ᪴")), env.get(bstack1ll111_opy_ (u"ࠬࡍࡉࡕࡊࡘࡆࡤࡘࡅࡑࡑࡖࡍ࡙ࡕࡒ࡚᪵ࠩ")), env.get(bstack1ll111_opy_ (u"࠭ࡇࡊࡖࡋ࡙ࡇࡥࡒࡖࡐࡢࡍࡉ᪶࠭"))),
-            bstack1ll111_opy_ (u"ࠢ࡫ࡱࡥࡣࡳࡧ࡭ࡦࠤ᪷"): env.get(bstack1ll111_opy_ (u"ࠣࡉࡌࡘࡍ࡛ࡂࡠ࡙ࡒࡖࡐࡌࡌࡐ࡙᪸ࠥ")),
-            bstack1ll111_opy_ (u"ࠤࡥࡹ࡮ࡲࡤࡠࡰࡸࡱࡧ࡫ࡲ᪹ࠣ"): env.get(bstack1ll111_opy_ (u"ࠥࡋࡎ࡚ࡈࡖࡄࡢࡖ࡚ࡔ࡟ࡊࡆ᪺ࠥ"))
+            bstack1111l_opy_ (u"ࠥࡲࡦࡳࡥࠣ‹"): bstack1111l_opy_ (u"ࠦࡌ࡯ࡴࡉࡷࡥࠤࡆࡩࡴࡪࡱࡱࡷࠧ›"),
+            bstack1111l_opy_ (u"ࠧࡨࡵࡪ࡮ࡧࡣࡺࡸ࡬ࠣ※"): bstack1111l_opy_ (u"ࠨࡻࡾ࠱ࡾࢁ࠴ࡧࡣࡵ࡫ࡲࡲࡸ࠵ࡲࡶࡰࡶ࠳ࢀࢃࠢ‼").format(env.get(bstack1111l_opy_ (u"ࠧࡈࡋࡗࡌ࡚ࡈ࡟ࡔࡇࡕ࡚ࡊࡘ࡟ࡖࡔࡏࠫ‽")), env.get(bstack1111l_opy_ (u"ࠨࡉࡌࡘࡍ࡛ࡂࡠࡔࡈࡔࡔ࡙ࡉࡕࡑࡕ࡝ࠬ‾")), env.get(bstack1111l_opy_ (u"ࠩࡊࡍ࡙ࡎࡕࡃࡡࡕ࡙ࡓࡥࡉࡅࠩ‿"))),
+            bstack1111l_opy_ (u"ࠥ࡮ࡴࡨ࡟࡯ࡣࡰࡩࠧ⁀"): env.get(bstack1111l_opy_ (u"ࠦࡌࡏࡔࡉࡗࡅࡣ࡜ࡕࡒࡌࡈࡏࡓ࡜ࠨ⁁")),
+            bstack1111l_opy_ (u"ࠧࡨࡵࡪ࡮ࡧࡣࡳࡻ࡭ࡣࡧࡵࠦ⁂"): env.get(bstack1111l_opy_ (u"ࠨࡇࡊࡖࡋ࡙ࡇࡥࡒࡖࡐࡢࡍࡉࠨ⁃"))
         }
-    if env.get(bstack1ll111_opy_ (u"ࠦࡈࡏࠢ᪻")) == bstack1ll111_opy_ (u"ࠧࡺࡲࡶࡧࠥ᪼") and env.get(bstack1ll111_opy_ (u"ࠨࡖࡆࡔࡆࡉࡑࠨ᪽")) == bstack1ll111_opy_ (u"ࠢ࠲ࠤ᪾"):
+    if env.get(bstack1111l_opy_ (u"ࠢࡄࡋࠥ⁄")) == bstack1111l_opy_ (u"ࠣࡶࡵࡹࡪࠨ⁅") and env.get(bstack1111l_opy_ (u"ࠤ࡙ࡉࡗࡉࡅࡍࠤ⁆")) == bstack1111l_opy_ (u"ࠥ࠵ࠧ⁇"):
         return {
-            bstack1ll111_opy_ (u"ࠣࡰࡤࡱࡪࠨᪿ"): bstack1ll111_opy_ (u"ࠤ࡙ࡩࡷࡩࡥ࡭ࠤᫀ"),
-            bstack1ll111_opy_ (u"ࠥࡦࡺ࡯࡬ࡥࡡࡸࡶࡱࠨ᫁"): bstack1ll111_opy_ (u"ࠦ࡭ࡺࡴࡱ࠼࠲࠳ࢀࢃࠢ᫂").format(env.get(bstack1ll111_opy_ (u"ࠬ࡜ࡅࡓࡅࡈࡐࡤ࡛ࡒࡍ᫃ࠩ"))),
-            bstack1ll111_opy_ (u"ࠨࡪࡰࡤࡢࡲࡦࡳࡥ᫄ࠣ"): None,
-            bstack1ll111_opy_ (u"ࠢࡣࡷ࡬ࡰࡩࡥ࡮ࡶ࡯ࡥࡩࡷࠨ᫅"): None,
+            bstack1111l_opy_ (u"ࠦࡳࡧ࡭ࡦࠤ⁈"): bstack1111l_opy_ (u"ࠧ࡜ࡥࡳࡥࡨࡰࠧ⁉"),
+            bstack1111l_opy_ (u"ࠨࡢࡶ࡫࡯ࡨࡤࡻࡲ࡭ࠤ⁊"): bstack1111l_opy_ (u"ࠢࡩࡶࡷࡴ࠿࠵࠯ࡼࡿࠥ⁋").format(env.get(bstack1111l_opy_ (u"ࠨࡘࡈࡖࡈࡋࡌࡠࡗࡕࡐࠬ⁌"))),
+            bstack1111l_opy_ (u"ࠤ࡭ࡳࡧࡥ࡮ࡢ࡯ࡨࠦ⁍"): None,
+            bstack1111l_opy_ (u"ࠥࡦࡺ࡯࡬ࡥࡡࡱࡹࡲࡨࡥࡳࠤ⁎"): None,
         }
-    if env.get(bstack1ll111_opy_ (u"ࠣࡖࡈࡅࡒࡉࡉࡕ࡛ࡢ࡚ࡊࡘࡓࡊࡑࡑࠦ᫆")):
+    if env.get(bstack1111l_opy_ (u"࡙ࠦࡋࡁࡎࡅࡌࡘ࡞ࡥࡖࡆࡔࡖࡍࡔࡔࠢ⁏")):
         return {
-            bstack1ll111_opy_ (u"ࠤࡱࡥࡲ࡫ࠢ᫇"): bstack1ll111_opy_ (u"ࠥࡘࡪࡧ࡭ࡤ࡫ࡷࡽࠧ᫈"),
-            bstack1ll111_opy_ (u"ࠦࡧࡻࡩ࡭ࡦࡢࡹࡷࡲࠢ᫉"): None,
-            bstack1ll111_opy_ (u"ࠧࡰ࡯ࡣࡡࡱࡥࡲ࡫᫊ࠢ"): env.get(bstack1ll111_opy_ (u"ࠨࡔࡆࡃࡐࡇࡎ࡚࡙ࡠࡒࡕࡓࡏࡋࡃࡕࡡࡑࡅࡒࡋࠢ᫋")),
-            bstack1ll111_opy_ (u"ࠢࡣࡷ࡬ࡰࡩࡥ࡮ࡶ࡯ࡥࡩࡷࠨᫌ"): env.get(bstack1ll111_opy_ (u"ࠣࡄࡘࡍࡑࡊ࡟ࡏࡗࡐࡆࡊࡘࠢᫍ"))
+            bstack1111l_opy_ (u"ࠧࡴࡡ࡮ࡧࠥ⁐"): bstack1111l_opy_ (u"ࠨࡔࡦࡣࡰࡧ࡮ࡺࡹࠣ⁑"),
+            bstack1111l_opy_ (u"ࠢࡣࡷ࡬ࡰࡩࡥࡵࡳ࡮ࠥ⁒"): None,
+            bstack1111l_opy_ (u"ࠣ࡬ࡲࡦࡤࡴࡡ࡮ࡧࠥ⁓"): env.get(bstack1111l_opy_ (u"ࠤࡗࡉࡆࡓࡃࡊࡖ࡜ࡣࡕࡘࡏࡋࡇࡆࡘࡤࡔࡁࡎࡇࠥ⁔")),
+            bstack1111l_opy_ (u"ࠥࡦࡺ࡯࡬ࡥࡡࡱࡹࡲࡨࡥࡳࠤ⁕"): env.get(bstack1111l_opy_ (u"ࠦࡇ࡛ࡉࡍࡆࡢࡒ࡚ࡓࡂࡆࡔࠥ⁖"))
         }
-    if any([env.get(bstack1ll111_opy_ (u"ࠤࡆࡓࡓࡉࡏࡖࡔࡖࡉࠧᫎ")), env.get(bstack1ll111_opy_ (u"ࠥࡇࡔࡔࡃࡐࡗࡕࡗࡊࡥࡕࡓࡎࠥ᫏")), env.get(bstack1ll111_opy_ (u"ࠦࡈࡕࡎࡄࡑࡘࡖࡘࡋ࡟ࡖࡕࡈࡖࡓࡇࡍࡆࠤ᫐")), env.get(bstack1ll111_opy_ (u"ࠧࡉࡏࡏࡅࡒ࡙ࡗ࡙ࡅࡠࡖࡈࡅࡒࠨ᫑"))]):
+    if any([env.get(bstack1111l_opy_ (u"ࠧࡉࡏࡏࡅࡒ࡙ࡗ࡙ࡅࠣ⁗")), env.get(bstack1111l_opy_ (u"ࠨࡃࡐࡐࡆࡓ࡚ࡘࡓࡆࡡࡘࡖࡑࠨ⁘")), env.get(bstack1111l_opy_ (u"ࠢࡄࡑࡑࡇࡔ࡛ࡒࡔࡇࡢ࡙ࡘࡋࡒࡏࡃࡐࡉࠧ⁙")), env.get(bstack1111l_opy_ (u"ࠣࡅࡒࡒࡈࡕࡕࡓࡕࡈࡣ࡙ࡋࡁࡎࠤ⁚"))]):
         return {
-            bstack1ll111_opy_ (u"ࠨ࡮ࡢ࡯ࡨࠦ᫒"): bstack1ll111_opy_ (u"ࠢࡄࡱࡱࡧࡴࡻࡲࡴࡧࠥ᫓"),
-            bstack1ll111_opy_ (u"ࠣࡤࡸ࡭ࡱࡪ࡟ࡶࡴ࡯ࠦ᫔"): None,
-            bstack1ll111_opy_ (u"ࠤ࡭ࡳࡧࡥ࡮ࡢ࡯ࡨࠦ᫕"): env.get(bstack1ll111_opy_ (u"ࠥࡆ࡚ࡏࡌࡅࡡࡍࡓࡇࡥࡎࡂࡏࡈࠦ᫖")) or None,
-            bstack1ll111_opy_ (u"ࠦࡧࡻࡩ࡭ࡦࡢࡲࡺࡳࡢࡦࡴࠥ᫗"): env.get(bstack1ll111_opy_ (u"ࠧࡈࡕࡊࡎࡇࡣࡎࡊࠢ᫘"), 0)
+            bstack1111l_opy_ (u"ࠤࡱࡥࡲ࡫ࠢ⁛"): bstack1111l_opy_ (u"ࠥࡇࡴࡴࡣࡰࡷࡵࡷࡪࠨ⁜"),
+            bstack1111l_opy_ (u"ࠦࡧࡻࡩ࡭ࡦࡢࡹࡷࡲࠢ⁝"): None,
+            bstack1111l_opy_ (u"ࠧࡰ࡯ࡣࡡࡱࡥࡲ࡫ࠢ⁞"): env.get(bstack1111l_opy_ (u"ࠨࡂࡖࡋࡏࡈࡤࡐࡏࡃࡡࡑࡅࡒࡋࠢ ")) or None,
+            bstack1111l_opy_ (u"ࠢࡣࡷ࡬ࡰࡩࡥ࡮ࡶ࡯ࡥࡩࡷࠨ⁠"): env.get(bstack1111l_opy_ (u"ࠣࡄࡘࡍࡑࡊ࡟ࡊࡆࠥ⁡"), 0)
         }
-    if env.get(bstack1ll111_opy_ (u"ࠨࡇࡐࡡࡍࡓࡇࡥࡎࡂࡏࡈࠦ᫙")):
+    if env.get(bstack1111l_opy_ (u"ࠤࡊࡓࡤࡐࡏࡃࡡࡑࡅࡒࡋࠢ⁢")):
         return {
-            bstack1ll111_opy_ (u"ࠢ࡯ࡣࡰࡩࠧ᫚"): bstack1ll111_opy_ (u"ࠣࡉࡲࡇࡉࠨ᫛"),
-            bstack1ll111_opy_ (u"ࠤࡥࡹ࡮ࡲࡤࡠࡷࡵࡰࠧ᫜"): None,
-            bstack1ll111_opy_ (u"ࠥ࡮ࡴࡨ࡟࡯ࡣࡰࡩࠧ᫝"): env.get(bstack1ll111_opy_ (u"ࠦࡌࡕ࡟ࡋࡑࡅࡣࡓࡇࡍࡆࠤ᫞")),
-            bstack1ll111_opy_ (u"ࠧࡨࡵࡪ࡮ࡧࡣࡳࡻ࡭ࡣࡧࡵࠦ᫟"): env.get(bstack1ll111_opy_ (u"ࠨࡇࡐࡡࡓࡍࡕࡋࡌࡊࡐࡈࡣࡈࡕࡕࡏࡖࡈࡖࠧ᫠"))
+            bstack1111l_opy_ (u"ࠥࡲࡦࡳࡥࠣ⁣"): bstack1111l_opy_ (u"ࠦࡌࡵࡃࡅࠤ⁤"),
+            bstack1111l_opy_ (u"ࠧࡨࡵࡪ࡮ࡧࡣࡺࡸ࡬ࠣ⁥"): None,
+            bstack1111l_opy_ (u"ࠨࡪࡰࡤࡢࡲࡦࡳࡥࠣ⁦"): env.get(bstack1111l_opy_ (u"ࠢࡈࡑࡢࡎࡔࡈ࡟ࡏࡃࡐࡉࠧ⁧")),
+            bstack1111l_opy_ (u"ࠣࡤࡸ࡭ࡱࡪ࡟࡯ࡷࡰࡦࡪࡸࠢ⁨"): env.get(bstack1111l_opy_ (u"ࠤࡊࡓࡤࡖࡉࡑࡇࡏࡍࡓࡋ࡟ࡄࡑࡘࡒ࡙ࡋࡒࠣ⁩"))
         }
-    if env.get(bstack1ll111_opy_ (u"ࠢࡄࡈࡢࡆ࡚ࡏࡌࡅࡡࡌࡈࠧ᫡")):
+    if env.get(bstack1111l_opy_ (u"ࠥࡇࡋࡥࡂࡖࡋࡏࡈࡤࡏࡄࠣ⁪")):
         return {
-            bstack1ll111_opy_ (u"ࠣࡰࡤࡱࡪࠨ᫢"): bstack1ll111_opy_ (u"ࠤࡆࡳࡩ࡫ࡆࡳࡧࡶ࡬ࠧ᫣"),
-            bstack1ll111_opy_ (u"ࠥࡦࡺ࡯࡬ࡥࡡࡸࡶࡱࠨ᫤"): env.get(bstack1ll111_opy_ (u"ࠦࡈࡌ࡟ࡃࡗࡌࡐࡉࡥࡕࡓࡎࠥ᫥")),
-            bstack1ll111_opy_ (u"ࠧࡰ࡯ࡣࡡࡱࡥࡲ࡫ࠢ᫦"): env.get(bstack1ll111_opy_ (u"ࠨࡃࡇࡡࡓࡍࡕࡋࡌࡊࡐࡈࡣࡓࡇࡍࡆࠤ᫧")),
-            bstack1ll111_opy_ (u"ࠢࡣࡷ࡬ࡰࡩࡥ࡮ࡶ࡯ࡥࡩࡷࠨ᫨"): env.get(bstack1ll111_opy_ (u"ࠣࡅࡉࡣࡇ࡛ࡉࡍࡆࡢࡍࡉࠨ᫩"))
+            bstack1111l_opy_ (u"ࠦࡳࡧ࡭ࡦࠤ⁫"): bstack1111l_opy_ (u"ࠧࡉ࡯ࡥࡧࡉࡶࡪࡹࡨࠣ⁬"),
+            bstack1111l_opy_ (u"ࠨࡢࡶ࡫࡯ࡨࡤࡻࡲ࡭ࠤ⁭"): env.get(bstack1111l_opy_ (u"ࠢࡄࡈࡢࡆ࡚ࡏࡌࡅࡡࡘࡖࡑࠨ⁮")),
+            bstack1111l_opy_ (u"ࠣ࡬ࡲࡦࡤࡴࡡ࡮ࡧࠥ⁯"): env.get(bstack1111l_opy_ (u"ࠤࡆࡊࡤࡖࡉࡑࡇࡏࡍࡓࡋ࡟ࡏࡃࡐࡉࠧ⁰")),
+            bstack1111l_opy_ (u"ࠥࡦࡺ࡯࡬ࡥࡡࡱࡹࡲࡨࡥࡳࠤⁱ"): env.get(bstack1111l_opy_ (u"ࠦࡈࡌ࡟ࡃࡗࡌࡐࡉࡥࡉࡅࠤ⁲"))
         }
-    return {bstack1ll111_opy_ (u"ࠤࡥࡹ࡮ࡲࡤࡠࡰࡸࡱࡧ࡫ࡲࠣ᫪"): None}
+    return {bstack1111l_opy_ (u"ࠧࡨࡵࡪ࡮ࡧࡣࡳࡻ࡭ࡣࡧࡵࠦ⁳"): None}
 def get_host_info():
     return {
-        bstack1ll111_opy_ (u"ࠥ࡬ࡴࡹࡴ࡯ࡣࡰࡩࠧ᫫"): platform.node(),
-        bstack1ll111_opy_ (u"ࠦࡵࡲࡡࡵࡨࡲࡶࡲࠨ᫬"): platform.system(),
-        bstack1ll111_opy_ (u"ࠧࡺࡹࡱࡧࠥ᫭"): platform.machine(),
-        bstack1ll111_opy_ (u"ࠨࡶࡦࡴࡶ࡭ࡴࡴࠢ᫮"): platform.version(),
-        bstack1ll111_opy_ (u"ࠢࡢࡴࡦ࡬ࠧ᫯"): platform.architecture()[0]
+        bstack1111l_opy_ (u"ࠨࡨࡰࡵࡷࡲࡦࡳࡥࠣ⁴"): platform.node(),
+        bstack1111l_opy_ (u"ࠢࡱ࡮ࡤࡸ࡫ࡵࡲ࡮ࠤ⁵"): platform.system(),
+        bstack1111l_opy_ (u"ࠣࡶࡼࡴࡪࠨ⁶"): platform.machine(),
+        bstack1111l_opy_ (u"ࠤࡹࡩࡷࡹࡩࡰࡰࠥ⁷"): platform.version(),
+        bstack1111l_opy_ (u"ࠥࡥࡷࡩࡨࠣ⁸"): platform.architecture()[0]
     }
-def bstack11ll1ll11l_opy_():
+def bstack1l11ll1111_opy_():
     try:
         import selenium
         return True
     except ImportError:
         return False
-def bstack111lll1ll11_opy_():
-    if global_config.get_property(bstack1ll111_opy_ (u"ࠨࡤࡶࡸࡦࡩ࡫ࡠࡵࡨࡷࡸ࡯࡯࡯ࠩ᫰")):
-        return bstack1ll111_opy_ (u"ࠩࡥࡶࡴࡽࡳࡦࡴࡶࡸࡦࡩ࡫ࠨ᫱")
-    return bstack1ll111_opy_ (u"ࠪࡹࡳࡱ࡮ࡰࡹࡱࡣ࡬ࡸࡩࡥࠩ᫲")
-def bstack111ll11ll11_opy_(driver):
+def bstack11111lll1ll_opy_():
+    if global_config.get_property(bstack1111l_opy_ (u"ࠫࡧࡹࡴࡢࡥ࡮ࡣࡸ࡫ࡳࡴ࡫ࡲࡲࠬ⁹")):
+        return bstack1111l_opy_ (u"ࠬࡨࡲࡰࡹࡶࡩࡷࡹࡴࡢࡥ࡮ࠫ⁺")
+    return bstack1111l_opy_ (u"࠭ࡵ࡯࡭ࡱࡳࡼࡴ࡟ࡨࡴ࡬ࡨࠬ⁻")
+def bstack1111lll1ll1_opy_(driver):
     info = {
-        bstack1ll111_opy_ (u"ࠫࡨࡧࡰࡢࡤ࡬ࡰ࡮ࡺࡩࡦࡵࠪ᫳"): driver.capabilities,
-        bstack1ll111_opy_ (u"ࠬࡹࡥࡴࡵ࡬ࡳࡳࡥࡩࡥࠩ᫴"): driver.session_id,
-        bstack1ll111_opy_ (u"࠭ࡢࡳࡱࡺࡷࡪࡸࠧ᫵"): driver.capabilities.get(bstack1ll111_opy_ (u"ࠧࡣࡴࡲࡻࡸ࡫ࡲࡏࡣࡰࡩࠬ᫶"), None),
-        bstack1ll111_opy_ (u"ࠨࡤࡵࡳࡼࡹࡥࡳࡡࡹࡩࡷࡹࡩࡰࡰࠪ᫷"): driver.capabilities.get(bstack1ll111_opy_ (u"ࠩࡥࡶࡴࡽࡳࡦࡴ࡙ࡩࡷࡹࡩࡰࡰࠪ᫸"), None),
-        bstack1ll111_opy_ (u"ࠪࡴࡱࡧࡴࡧࡱࡵࡱࠬ᫹"): driver.capabilities.get(bstack1ll111_opy_ (u"ࠫࡵࡲࡡࡵࡨࡲࡶࡲࡔࡡ࡮ࡧࠪ᫺"), None),
-        bstack1ll111_opy_ (u"ࠬࡶ࡬ࡢࡶࡩࡳࡷࡳ࡟ࡷࡧࡵࡷ࡮ࡵ࡮ࠨ᫻"):driver.capabilities.get(bstack1ll111_opy_ (u"࠭ࡰ࡭ࡣࡷࡪࡴࡸ࡭ࡗࡧࡵࡷ࡮ࡵ࡮ࠨ᫼"), None),
+        bstack1111l_opy_ (u"ࠧࡤࡣࡳࡥࡧ࡯࡬ࡪࡶ࡬ࡩࡸ࠭⁼"): driver.capabilities,
+        bstack1111l_opy_ (u"ࠨࡵࡨࡷࡸ࡯࡯࡯ࡡ࡬ࡨࠬ⁽"): driver.session_id,
+        bstack1111l_opy_ (u"ࠩࡥࡶࡴࡽࡳࡦࡴࠪ⁾"): driver.capabilities.get(bstack1111l_opy_ (u"ࠪࡦࡷࡵࡷࡴࡧࡵࡒࡦࡳࡥࠨⁿ"), None),
+        bstack1111l_opy_ (u"ࠫࡧࡸ࡯ࡸࡵࡨࡶࡤࡼࡥࡳࡵ࡬ࡳࡳ࠭₀"): driver.capabilities.get(bstack1111l_opy_ (u"ࠬࡨࡲࡰࡹࡶࡩࡷ࡜ࡥࡳࡵ࡬ࡳࡳ࠭₁"), None),
+        bstack1111l_opy_ (u"࠭ࡰ࡭ࡣࡷࡪࡴࡸ࡭ࠨ₂"): driver.capabilities.get(bstack1111l_opy_ (u"ࠧࡱ࡮ࡤࡸ࡫ࡵࡲ࡮ࡐࡤࡱࡪ࠭₃"), None),
+        bstack1111l_opy_ (u"ࠨࡲ࡯ࡥࡹ࡬࡯ࡳ࡯ࡢࡺࡪࡸࡳࡪࡱࡱࠫ₄"):driver.capabilities.get(bstack1111l_opy_ (u"ࠩࡳࡰࡦࡺࡦࡰࡴࡰ࡚ࡪࡸࡳࡪࡱࡱࠫ₅"), None),
     }
-    if bstack111lll1ll11_opy_() == bstack1ll111_opy_ (u"ࠧࡣࡴࡲࡻࡸ࡫ࡲࡴࡶࡤࡧࡰ࠭᫽"):
-        if bstack1l11l11111_opy_():
-            info[bstack1ll111_opy_ (u"ࠨࡲࡵࡳࡩࡻࡣࡵࠩ᫾")] = bstack1ll111_opy_ (u"ࠩࡤࡴࡵ࠳ࡡࡶࡶࡲࡱࡦࡺࡥࠨ᫿")
-        elif driver.capabilities.get(bstack1ll111_opy_ (u"ࠪࡦࡸࡺࡡࡤ࡭࠽ࡳࡵࡺࡩࡰࡰࡶࠫᬀ"), {}).get(bstack1ll111_opy_ (u"ࠫࡹࡻࡲࡣࡱࡶࡧࡦࡲࡥࠨᬁ"), False):
-            info[bstack1ll111_opy_ (u"ࠬࡶࡲࡰࡦࡸࡧࡹ࠭ᬂ")] = bstack1ll111_opy_ (u"࠭ࡴࡶࡴࡥࡳࡸࡩࡡ࡭ࡧࠪᬃ")
+    if bstack11111lll1ll_opy_() == bstack1111l_opy_ (u"ࠪࡦࡷࡵࡷࡴࡧࡵࡷࡹࡧࡣ࡬ࠩ₆"):
+        if bstack1lll1ll1l_opy_():
+            info[bstack1111l_opy_ (u"ࠫࡵࡸ࡯ࡥࡷࡦࡸࠬ₇")] = bstack1111l_opy_ (u"ࠬࡧࡰࡱ࠯ࡤࡹࡹࡵ࡭ࡢࡶࡨࠫ₈")
+        elif driver.capabilities.get(bstack1111l_opy_ (u"࠭ࡢࡴࡶࡤࡧࡰࡀ࡯ࡱࡶ࡬ࡳࡳࡹࠧ₉"), {}).get(bstack1111l_opy_ (u"ࠧࡵࡷࡵࡦࡴࡹࡣࡢ࡮ࡨࠫ₊"), False):
+            info[bstack1111l_opy_ (u"ࠨࡲࡵࡳࡩࡻࡣࡵࠩ₋")] = bstack1111l_opy_ (u"ࠩࡷࡹࡷࡨ࡯ࡴࡥࡤࡰࡪ࠭₌")
         else:
-            info[bstack1ll111_opy_ (u"ࠧࡱࡴࡲࡨࡺࡩࡴࠨᬄ")] = bstack1ll111_opy_ (u"ࠨࡣࡸࡸࡴࡳࡡࡵࡧࠪᬅ")
+            info[bstack1111l_opy_ (u"ࠪࡴࡷࡵࡤࡶࡥࡷࠫ₍")] = bstack1111l_opy_ (u"ࠫࡦࡻࡴࡰ࡯ࡤࡸࡪ࠭₎")
     return info
-def bstack1l11l11111_opy_():
-    if global_config.get_property(bstack1ll111_opy_ (u"ࠩࡤࡴࡵࡥࡡࡶࡶࡲࡱࡦࡺࡥࠨᬆ")):
+def bstack1lll1ll1l_opy_():
+    if global_config.get_property(bstack1111l_opy_ (u"ࠬࡧࡰࡱࡡࡤࡹࡹࡵ࡭ࡢࡶࡨࠫ₏")):
         return True
-    if bstack1l11lll111_opy_(os.environ.get(bstack1ll111_opy_ (u"ࠪࡆࡗࡕࡗࡔࡇࡕࡗ࡙ࡇࡃࡌࡡࡌࡗࡤࡇࡐࡑࡡࡄ࡙࡙ࡕࡍࡂࡖࡈࠫᬇ"), None)):
+    if bstack1ll111llll_opy_(os.environ.get(bstack1111l_opy_ (u"࠭ࡂࡓࡑ࡚ࡗࡊࡘࡓࡕࡃࡆࡏࡤࡏࡓࡠࡃࡓࡔࡤࡇࡕࡕࡑࡐࡅ࡙ࡋࠧₐ"), None)):
         return True
     return False
-def bstack11l11111l11_opy_(bstack111ll1ll1l1_opy_, url, response, headers=None, data=None):
-    bstack1ll111_opy_ (u"ࠦࠧࠨࠊࠡࠢࠣࠤࡇࡻࡩ࡭ࡦࠣࡥࡺࡺ࡯࡮ࡣࡷ࡭ࡴࡴࠠ࡭ࡱࡪࠤࡵࡧࡲࡢ࡯ࡨࡸࡪࡸࡳࠡࡨࡲࡶࠥࡸࡥࡲࡷࡨࡷࡹ࠵ࡲࡦࡵࡳࡳࡳࡹࡥࠡ࡮ࡲ࡫࡬࡯࡮ࡨࠌࠣࠤࠥࠦࡁࡳࡩࡶ࠾ࠏࠦࠠࠡࠢࠣࠤࠥࠦࡲࡦࡳࡸࡩࡸࡺ࡟ࡵࡻࡳࡩ࠿ࠦࡈࡕࡖࡓࠤࡲ࡫ࡴࡩࡱࡧࠤ࠭ࡍࡅࡕ࠮ࠣࡔࡔ࡙ࡔ࠭ࠢࡨࡸࡨ࠴ࠩࠋࠢࠣࠤࠥࠦࠠࠡࠢࡸࡶࡱࡀࠠࡓࡧࡴࡹࡪࡹࡴࠡࡗࡕࡐ࠴࡫࡮ࡥࡲࡲ࡭ࡳࡺࠊࠡࠢࠣࠤࠥࠦࠠࠡࡴࡨࡷࡵࡵ࡮ࡴࡧ࠽ࠤࡗ࡫ࡳࡱࡱࡱࡷࡪࠦ࡯ࡣ࡬ࡨࡧࡹࠦࡦࡳࡱࡰࠤࡷ࡫ࡱࡶࡧࡶࡸࡸࠐࠠࠡࠢࠣࠤࠥࠦࠠࡩࡧࡤࡨࡪࡸࡳ࠻ࠢࡕࡩࡶࡻࡥࡴࡶࠣ࡬ࡪࡧࡤࡦࡴࡶࠤࡴࡸࠠࡏࡱࡱࡩࠏࠦࠠࠡࠢࠣࠤࠥࠦࡤࡢࡶࡤ࠾ࠥࡘࡥࡲࡷࡨࡷࡹࠦࡊࡔࡑࡑࠤࡩࡧࡴࡢࠢࡲࡶࠥࡔ࡯࡯ࡧࠍࠤࠥࠦࠠࡓࡧࡷࡹࡷࡴࡳ࠻ࠌࠣࠤࠥࠦࠠࠡࠢࠣࡨ࡮ࡩࡴ࠻ࠢࡉࡳࡷࡳࡡࡵࡶࡨࡨࠥࡲ࡯ࡨࠢࡰࡩࡸࡹࡡࡨࡧࠣࡻ࡮ࡺࡨࠡࡴࡨࡵࡺ࡫ࡳࡵࠢࡤࡲࡩࠦࡲࡦࡵࡳࡳࡳࡹࡥࠡࡦࡤࡸࡦࠐࠠࠡࠢࠣࠦࠧࠨᬈ")
-    bstack111lll1lll1_opy_ = {
-        bstack1ll111_opy_ (u"ࠧ࡮ࡥࡢࡦࡨࡶࡸࠨᬉ"): headers,
-        bstack1ll111_opy_ (u"ࠨ࡭ࡦࡶ࡫ࡳࡩࠨᬊ"): bstack111ll1ll1l1_opy_.upper(),
-        bstack1ll111_opy_ (u"ࠢࡢࡩࡨࡲࡹࠨᬋ"): None,
-        bstack1ll111_opy_ (u"ࠣࡧࡱࡨࡵࡵࡩ࡯ࡶࠥᬌ"): url,
-        bstack1ll111_opy_ (u"ࠤ࡭ࡷࡴࡴࠢᬍ"): data
+def bstack11111l11l1l_opy_(bstack1111l111ll1_opy_, url, response, headers=None, data=None):
+    bstack1111l_opy_ (u"ࠢࠣࠤࠍࠤࠥࠦࠠࡃࡷ࡬ࡰࡩࠦࡡࡶࡶࡲࡱࡦࡺࡩࡰࡰࠣࡰࡴ࡭ࠠࡱࡣࡵࡥࡲ࡫ࡴࡦࡴࡶࠤ࡫ࡵࡲࠡࡴࡨࡵࡺ࡫ࡳࡵ࠱ࡵࡩࡸࡶ࡯࡯ࡵࡨࠤࡱࡵࡧࡨ࡫ࡱ࡫ࠏࠦࠠࠡࠢࡄࡶ࡬ࡹ࠺ࠋࠢࠣࠤࠥࠦࠠࠡࠢࡵࡩࡶࡻࡥࡴࡶࡢࡸࡾࡶࡥ࠻ࠢࡋࡘ࡙ࡖࠠ࡮ࡧࡷ࡬ࡴࡪࠠࠩࡉࡈࡘ࠱ࠦࡐࡐࡕࡗ࠰ࠥ࡫ࡴࡤ࠰ࠬࠎࠥࠦࠠࠡࠢࠣࠤࠥࡻࡲ࡭࠼ࠣࡖࡪࡷࡵࡦࡵࡷࠤ࡚ࡘࡌ࠰ࡧࡱࡨࡵࡵࡩ࡯ࡶࠍࠤࠥࠦࠠࠡࠢࠣࠤࡷ࡫ࡳࡱࡱࡱࡷࡪࡀࠠࡓࡧࡶࡴࡴࡴࡳࡦࠢࡲࡦ࡯࡫ࡣࡵࠢࡩࡶࡴࡳࠠࡳࡧࡴࡹࡪࡹࡴࡴࠌࠣࠤࠥࠦࠠࠡࠢࠣ࡬ࡪࡧࡤࡦࡴࡶ࠾ࠥࡘࡥࡲࡷࡨࡷࡹࠦࡨࡦࡣࡧࡩࡷࡹࠠࡰࡴࠣࡒࡴࡴࡥࠋࠢࠣࠤࠥࠦࠠࠡࠢࡧࡥࡹࡧ࠺ࠡࡔࡨࡵࡺ࡫ࡳࡵࠢࡍࡗࡔࡔࠠࡥࡣࡷࡥࠥࡵࡲࠡࡐࡲࡲࡪࠐࠠࠡࠢࠣࡖࡪࡺࡵࡳࡰࡶ࠾ࠏࠦࠠࠡࠢࠣࠤࠥࠦࡤࡪࡥࡷ࠾ࠥࡌ࡯ࡳ࡯ࡤࡸࡹ࡫ࡤࠡ࡮ࡲ࡫ࠥࡳࡥࡴࡵࡤ࡫ࡪࠦࡷࡪࡶ࡫ࠤࡷ࡫ࡱࡶࡧࡶࡸࠥࡧ࡮ࡥࠢࡵࡩࡸࡶ࡯࡯ࡵࡨࠤࡩࡧࡴࡢࠌࠣࠤࠥࠦࠢࠣࠤₑ")
+    bstack1111ll1l111_opy_ = {
+        bstack1111l_opy_ (u"ࠣࡪࡨࡥࡩ࡫ࡲࡴࠤₒ"): headers,
+        bstack1111l_opy_ (u"ࠤࡰࡩࡹ࡮࡯ࡥࠤₓ"): bstack1111l111ll1_opy_.upper(),
+        bstack1111l_opy_ (u"ࠥࡥ࡬࡫࡮ࡵࠤₔ"): None,
+        bstack1111l_opy_ (u"ࠦࡪࡴࡤࡱࡱ࡬ࡲࡹࠨₕ"): url,
+        bstack1111l_opy_ (u"ࠧࡰࡳࡰࡰࠥₖ"): data
     }
     try:
-        bstack111l1l1ll11_opy_ = response.json()
+        bstack1111ll1l1ll_opy_ = response.json()
+        if isinstance(bstack1111ll1l1ll_opy_, dict) and bstack1111ll1l1ll_opy_.get(bstack1111l_opy_ (u"࠭ࡡࡤࡥࡨࡷࡸ࡯ࡢࡪ࡮࡬ࡸࡾ࠭ₗ"), {}).get(bstack1111l_opy_ (u"ࠧࡰࡲࡷ࡭ࡴࡴࡳࠨₘ"), {}).get(bstack1111l_opy_ (u"ࠨࡵࡦࡶ࡮ࡶࡴࡴࠩₙ")):
+            bstack111111ll11l_opy_ = json.loads(json.dumps(bstack1111ll1l1ll_opy_))
+            bstack111111ll11l_opy_[bstack1111l_opy_ (u"ࠩࡤࡧࡨ࡫ࡳࡴ࡫ࡥ࡭ࡱ࡯ࡴࡺࠩₚ")][bstack1111l_opy_ (u"ࠪࡳࡵࡺࡩࡰࡰࡶࠫₛ")][bstack1111l_opy_ (u"ࠫࡸࡩࡲࡪࡲࡷࡷࠬₜ")] = bstack1111l_opy_ (u"ࠧࡡࡲࡦࡦࡤࡧࡹ࡫ࡤࠡࡨࡲࡶࠥࡨࡲࡦࡸ࡬ࡸࡾࡣࠢ₝")
+            bstack1111ll1l1ll_opy_ = bstack111111ll11l_opy_
     except Exception:
-        bstack111l1l1ll11_opy_ = response.text
-    bstack111lllll1l1_opy_ = {
-        bstack1ll111_opy_ (u"ࠥࡦࡴࡪࡹࠣᬎ"): bstack111l1l1ll11_opy_,
-        bstack1ll111_opy_ (u"ࠦࡸࡺࡡࡵࡷࡶࡇࡴࡪࡥࠣᬏ"): response.status_code
+        bstack1111ll1l1ll_opy_ = response.text
+    bstack1111ll1ll11_opy_ = {
+        bstack1111l_opy_ (u"ࠨࡢࡰࡦࡼࠦ₞"): bstack1111ll1l1ll_opy_,
+        bstack1111l_opy_ (u"ࠢࡴࡶࡤࡸࡺࡹࡃࡰࡦࡨࠦ₟"): response.status_code
     }
     return {
-        bstack1ll111_opy_ (u"ࠧࡸࡥࡲࡷࡨࡷࡹࠨᬐ"): bstack111lll1lll1_opy_,
-        bstack1ll111_opy_ (u"ࠨࡲࡦࡵࡳࡳࡳࡹࡥࠣᬑ"): bstack111lllll1l1_opy_
+        bstack1111l_opy_ (u"ࠣࡴࡨࡵࡺ࡫ࡳࡵࠤ₠"): bstack1111ll1l111_opy_,
+        bstack1111l_opy_ (u"ࠤࡵࡩࡸࡶ࡯࡯ࡵࡨࠦ₡"): bstack1111ll1ll11_opy_
     }
-def bstack11111l1l_opy_(bstack111ll1ll1l1_opy_, url, data, config):
-    headers = config.get(bstack1ll111_opy_ (u"ࠧࡩࡧࡤࡨࡪࡸࡳࠨᬒ"), None)
-    proxies = bstack111lllllll_opy_(config, url)
-    auth = config.get(bstack1ll111_opy_ (u"ࠨࡣࡸࡸ࡭࠭ᬓ"), None)
+def bstack1llll1ll1_opy_(bstack1111l111ll1_opy_, url, data, config):
+    headers = config.get(bstack1111l_opy_ (u"ࠪ࡬ࡪࡧࡤࡦࡴࡶࠫ₢"), None)
+    proxies = bstack1l1l111l11_opy_(config, url)
+    auth = config.get(bstack1111l_opy_ (u"ࠫࡦࡻࡴࡩࠩ₣"), None)
     response = requests.request(
-            bstack111ll1ll1l1_opy_,
+            bstack1111l111ll1_opy_,
             url=url,
             headers=headers,
             auth=auth,
@@ -520,599 +524,599 @@ def bstack11111l1l_opy_(bstack111ll1ll1l1_opy_, url, data, config):
             proxies=proxies
         )
     try:
-        log_message = bstack11l11111l11_opy_(bstack111ll1ll1l1_opy_, url, response, headers, data)
-        bstack1l11llll_opy_.debug(json.dumps(log_message, separators=(bstack1ll111_opy_ (u"ࠩ࠯ࠫᬔ"), bstack1ll111_opy_ (u"ࠪ࠾ࠬᬕ"))))
+        log_message = bstack11111l11l1l_opy_(bstack1111l111ll1_opy_, url, response, headers, data)
+        automation_logger.debug(json.dumps(log_message, separators=(bstack1111l_opy_ (u"ࠬ࠲ࠧ₤"), bstack1111l_opy_ (u"࠭࠺ࠨ₥"))))
     except Exception as e:
-        logger.debug(bstack1ll111_opy_ (u"ࠦࡊࡸࡲࡰࡴࠣࡻ࡭࡯࡬ࡦࠢ࡯ࡳ࡬࡭ࡩ࡯ࡩࠣࡥࡺࡺ࡯࡮ࡣࡷ࡭ࡴࡴࠠࡳࡧࡴࡹࡪࡹࡴ࠻ࠢࡾࢁࠧᬖ").format(e))
+        logger.debug(bstack1111l_opy_ (u"ࠢࡆࡴࡵࡳࡷࠦࡷࡩ࡫࡯ࡩࠥࡲ࡯ࡨࡩ࡬ࡲ࡬ࠦࡡࡶࡶࡲࡱࡦࡺࡩࡰࡰࠣࡶࡪࡷࡵࡦࡵࡷ࠾ࠥࢁࡽࠣ₦").format(e))
     return response
-def bstack1l111ll11l_opy_(bstack1ll111l1l_opy_, size):
-    bstack1ll11l1l_opy_ = []
-    while len(bstack1ll111l1l_opy_) > size:
-        bstack1ll1l11l1l_opy_ = bstack1ll111l1l_opy_[:size]
-        bstack1ll11l1l_opy_.append(bstack1ll1l11l1l_opy_)
-        bstack1ll111l1l_opy_ = bstack1ll111l1l_opy_[size:]
-    bstack1ll11l1l_opy_.append(bstack1ll111l1l_opy_)
-    return bstack1ll11l1l_opy_
-def bstack111l111ll11_opy_(message, bstack111ll111l1l_opy_=False):
-    os.write(1, bytes(message, bstack1ll111_opy_ (u"ࠬࡻࡴࡧ࠯࠻ࠫᬗ")))
-    os.write(1, bytes(bstack1ll111_opy_ (u"࠭࡜࡯ࠩᬘ"), bstack1ll111_opy_ (u"ࠧࡶࡶࡩ࠱࠽࠭ᬙ")))
-    if bstack111ll111l1l_opy_:
-        with open(bstack1ll111_opy_ (u"ࠨࡤࡶࡸࡦࡩ࡫࠮ࡱ࠴࠵ࡾ࠳ࠧᬚ") + os.environ[bstack1ll111_opy_ (u"ࠩࡅࡗࡤ࡚ࡅࡔࡖࡒࡔࡘࡥࡂࡖࡋࡏࡈࡤࡎࡁࡔࡊࡈࡈࡤࡏࡄࠨᬛ")] + bstack1ll111_opy_ (u"ࠪ࠲ࡱࡵࡧࠨᬜ"), bstack1ll111_opy_ (u"ࠫࡦ࠭ᬝ")) as f:
-            f.write(message + bstack1ll111_opy_ (u"ࠬࡢ࡮ࠨᬞ"))
-def bstack1lll111l1_opy_():
-    return os.environ[bstack1ll111_opy_ (u"࠭ࡂࡓࡑ࡚ࡗࡊࡘࡓࡕࡃࡆࡏࡤࡇࡕࡕࡑࡐࡅ࡙ࡏࡏࡏࠩᬟ")].lower() == bstack1ll111_opy_ (u"ࠧࡵࡴࡸࡩࠬᬠ")
+def bstack11llll11l_opy_(bstack11l1l111l_opy_, size):
+    bstack1l1l11lll1_opy_ = []
+    while len(bstack11l1l111l_opy_) > size:
+        bstack1lll11l1_opy_ = bstack11l1l111l_opy_[:size]
+        bstack1l1l11lll1_opy_.append(bstack1lll11l1_opy_)
+        bstack11l1l111l_opy_ = bstack11l1l111l_opy_[size:]
+    bstack1l1l11lll1_opy_.append(bstack11l1l111l_opy_)
+    return bstack1l1l11lll1_opy_
+def bstack1111l111l11_opy_(message, bstack111l1111ll1_opy_=False):
+    os.write(1, bytes(message, bstack1111l_opy_ (u"ࠨࡷࡷࡪ࠲࠾ࠧ₧")))
+    os.write(1, bytes(bstack1111l_opy_ (u"ࠩ࡟ࡲࠬ₨"), bstack1111l_opy_ (u"ࠪࡹࡹ࡬࠭࠹ࠩ₩")))
+    if bstack111l1111ll1_opy_:
+        with open(bstack1111l_opy_ (u"ࠫࡧࡹࡴࡢࡥ࡮࠱ࡴ࠷࠱ࡺ࠯ࠪ₪") + os.environ[bstack1111l_opy_ (u"ࠬࡈࡓࡠࡖࡈࡗ࡙ࡕࡐࡔࡡࡅ࡙ࡎࡒࡄࡠࡊࡄࡗࡍࡋࡄࡠࡋࡇࠫ₫")] + bstack1111l_opy_ (u"࠭࠮࡭ࡱࡪࠫ€"), bstack1111l_opy_ (u"ࠧࡢࠩ₭")) as f:
+            f.write(message + bstack1111l_opy_ (u"ࠨ࡞ࡱࠫ₮"))
+def bstack111l1ll11l_opy_():
+    return os.environ[bstack1111l_opy_ (u"ࠩࡅࡖࡔ࡝ࡓࡆࡔࡖࡘࡆࡉࡋࡠࡃࡘࡘࡔࡓࡁࡕࡋࡒࡒࠬ₯")].lower() == bstack1111l_opy_ (u"ࠪࡸࡷࡻࡥࠨ₰")
 def current_time():
-    return bstack1lllllll1ll_opy_().replace(tzinfo=None).isoformat() + bstack1ll111_opy_ (u"ࠨ࡜ࠪᬡ")
+    return bstack1lllll1111l_opy_().replace(tzinfo=None).isoformat() + bstack1111l_opy_ (u"ࠫ࡟࠭₱")
 def time_diff(start, finish):
-    return (datetime.datetime.fromisoformat(finish.rstrip(bstack1ll111_opy_ (u"ࠩ࡝ࠫᬢ"))) - datetime.datetime.fromisoformat(start.rstrip(bstack1ll111_opy_ (u"ࠪ࡞ࠬᬣ")))).total_seconds() * 1000
-def bstack111lll1l11l_opy_(timestamp):
-    return bstack11l11111111_opy_(timestamp).isoformat() + bstack1ll111_opy_ (u"ࠫ࡟࠭ᬤ")
-def bstack111lll1l111_opy_(bstack11l111l111l_opy_):
-    date_format = bstack1ll111_opy_ (u"࡙ࠬࠫࠦ࡯ࠨࡨࠥࠫࡈ࠻ࠧࡐ࠾࡙ࠪ࠮ࠦࡨࠪᬥ")
-    bstack111lll11l1l_opy_ = datetime.datetime.strptime(bstack11l111l111l_opy_, date_format)
-    return bstack111lll11l1l_opy_.isoformat() + bstack1ll111_opy_ (u"࡚࠭ࠨᬦ")
-def bstack111l1l1ll1l_opy_(outcome):
+    return (datetime.datetime.fromisoformat(finish.rstrip(bstack1111l_opy_ (u"ࠬࡠࠧ₲"))) - datetime.datetime.fromisoformat(start.rstrip(bstack1111l_opy_ (u"࡚࠭ࠨ₳")))).total_seconds() * 1000
+def bstack11111l1ll1l_opy_(timestamp):
+    return bstack11111ll1l1l_opy_(timestamp).isoformat() + bstack1111l_opy_ (u"࡛ࠧࠩ₴")
+def bstack1111ll111ll_opy_(bstack11111ll1111_opy_):
+    date_format = bstack1111l_opy_ (u"ࠨࠧ࡜ࠩࡲࠫࡤࠡࠧࡋ࠾ࠪࡓ࠺ࠦࡕ࠱ࠩ࡫࠭₵")
+    bstack11111l1l1ll_opy_ = datetime.datetime.strptime(bstack11111ll1111_opy_, date_format)
+    return bstack11111l1l1ll_opy_.isoformat() + bstack1111l_opy_ (u"ࠩ࡝ࠫ₶")
+def bstack1111lll1l11_opy_(outcome):
     _, exception, _ = outcome.excinfo or (None, None, None)
     if exception:
-        return bstack1ll111_opy_ (u"ࠧࡧࡣ࡬ࡰࡪࡪࠧᬧ")
+        return bstack1111l_opy_ (u"ࠪࡪࡦ࡯࡬ࡦࡦࠪ₷")
     else:
-        return bstack1ll111_opy_ (u"ࠨࡲࡤࡷࡸ࡫ࡤࠨᬨ")
-def bstack1l11lll111_opy_(val):
+        return bstack1111l_opy_ (u"ࠫࡵࡧࡳࡴࡧࡧࠫ₸")
+def bstack1ll111llll_opy_(val):
     if val is None:
         return False
-    return val.__str__().lower() == bstack1ll111_opy_ (u"ࠩࡷࡶࡺ࡫ࠧᬩ")
-def bstack111l1llll11_opy_(val):
-    return val.__str__().lower() == bstack1ll111_opy_ (u"ࠪࡪࡦࡲࡳࡦࠩᬪ")
-def error_handler(bstack111llllllll_opy_=Exception, class_method=False, default_value=None):
+    return val.__str__().lower() == bstack1111l_opy_ (u"ࠬࡺࡲࡶࡧࠪ₹")
+def bstack111111l11l1_opy_(val):
+    return val.__str__().lower() == bstack1111l_opy_ (u"࠭ࡦࡢ࡮ࡶࡩࠬ₺")
+def error_handler(bstack111l1111l11_opy_=Exception, class_method=False, default_value=None):
     def decorator(func):
         def wrapper(*args, **kwargs):
             try:
                 return func(*args, **kwargs)
-            except bstack111llllllll_opy_ as e:
-                print(bstack1ll111_opy_ (u"ࠦࡊࡾࡣࡦࡲࡷ࡭ࡴࡴࠠࡪࡰࠣࡪࡺࡴࡣࡵ࡫ࡲࡲࠥࢁࡽࠡ࠯ࡁࠤࢀࢃ࠺ࠡࡽࢀࠦᬫ").format(func.__name__, bstack111llllllll_opy_.__name__, str(e)))
+            except bstack111l1111l11_opy_ as e:
+                print(bstack1111l_opy_ (u"ࠢࡆࡺࡦࡩࡵࡺࡩࡰࡰࠣ࡭ࡳࠦࡦࡶࡰࡦࡸ࡮ࡵ࡮ࠡࡽࢀࠤ࠲ࡄࠠࡼࡿ࠽ࠤࢀࢃࠢ₻").format(func.__name__, bstack111l1111l11_opy_.__name__, str(e)))
                 return default_value
         return wrapper
-    def bstack111lllll111_opy_(bstack111l11ll11l_opy_):
+    def bstack11111l1llll_opy_(bstack11111ll11ll_opy_):
         def wrapped(cls, *args, **kwargs):
             try:
-                return bstack111l11ll11l_opy_(cls, *args, **kwargs)
-            except bstack111llllllll_opy_ as e:
-                print(bstack1ll111_opy_ (u"ࠧࡋࡸࡤࡧࡳࡸ࡮ࡵ࡮ࠡ࡫ࡱࠤ࡫ࡻ࡮ࡤࡶ࡬ࡳࡳࠦࡻࡾࠢ࠰ࡂࠥࢁࡽ࠻ࠢࡾࢁࠧᬬ").format(bstack111l11ll11l_opy_.__name__, bstack111llllllll_opy_.__name__, str(e)))
+                return bstack11111ll11ll_opy_(cls, *args, **kwargs)
+            except bstack111l1111l11_opy_ as e:
+                print(bstack1111l_opy_ (u"ࠣࡇࡻࡧࡪࡶࡴࡪࡱࡱࠤ࡮ࡴࠠࡧࡷࡱࡧࡹ࡯࡯࡯ࠢࡾࢁࠥ࠳࠾ࠡࡽࢀ࠾ࠥࢁࡽࠣ₼").format(bstack11111ll11ll_opy_.__name__, bstack111l1111l11_opy_.__name__, str(e)))
                 return default_value
         return wrapped
     if class_method:
-        return bstack111lllll111_opy_
+        return bstack11111l1llll_opy_
     else:
         return decorator
-def bstack1l111l111_opy_(bstack1lll1lllll1_opy_):
-    if os.getenv(bstack1ll111_opy_ (u"࠭ࡂࡓࡑ࡚ࡗࡊࡘࡓࡕࡃࡆࡏࡤࡇࡕࡕࡑࡐࡅ࡙ࡏࡏࡏࠩᬭ")) is not None:
-        return bstack1l11lll111_opy_(os.getenv(bstack1ll111_opy_ (u"ࠧࡃࡔࡒ࡛ࡘࡋࡒࡔࡖࡄࡇࡐࡥࡁࡖࡖࡒࡑࡆ࡚ࡉࡐࡐࠪᬮ")))
-    if bstack1ll111_opy_ (u"ࠨࡣࡸࡸࡴࡳࡡࡵ࡫ࡲࡲࠬᬯ") in bstack1lll1lllll1_opy_ and bstack111l1llll11_opy_(bstack1lll1lllll1_opy_[bstack1ll111_opy_ (u"ࠩࡤࡹࡹࡵ࡭ࡢࡶ࡬ࡳࡳ࠭ᬰ")]):
+def bstack11l1ll11ll_opy_(bstack1lll1l1111l_opy_):
+    if os.getenv(bstack1111l_opy_ (u"ࠩࡅࡖࡔ࡝ࡓࡆࡔࡖࡘࡆࡉࡋࡠࡃࡘࡘࡔࡓࡁࡕࡋࡒࡒࠬ₽")) is not None:
+        return bstack1ll111llll_opy_(os.getenv(bstack1111l_opy_ (u"ࠪࡆࡗࡕࡗࡔࡇࡕࡗ࡙ࡇࡃࡌࡡࡄ࡙࡙ࡕࡍࡂࡖࡌࡓࡓ࠭₾")))
+    if bstack1111l_opy_ (u"ࠫࡦࡻࡴࡰ࡯ࡤࡸ࡮ࡵ࡮ࠨ₿") in bstack1lll1l1111l_opy_ and bstack111111l11l1_opy_(bstack1lll1l1111l_opy_[bstack1111l_opy_ (u"ࠬࡧࡵࡵࡱࡰࡥࡹ࡯࡯࡯ࠩ⃀")]):
         return False
-    if bstack1ll111_opy_ (u"ࠪࡦࡷࡵࡷࡴࡧࡵࡷࡹࡧࡣ࡬ࡃࡸࡸࡴࡳࡡࡵ࡫ࡲࡲࠬᬱ") in bstack1lll1lllll1_opy_ and bstack111l1llll11_opy_(bstack1lll1lllll1_opy_[bstack1ll111_opy_ (u"ࠫࡧࡸ࡯ࡸࡵࡨࡶࡸࡺࡡࡤ࡭ࡄࡹࡹࡵ࡭ࡢࡶ࡬ࡳࡳ࠭ᬲ")]):
+    if bstack1111l_opy_ (u"࠭ࡢࡳࡱࡺࡷࡪࡸࡳࡵࡣࡦ࡯ࡆࡻࡴࡰ࡯ࡤࡸ࡮ࡵ࡮ࠨ⃁") in bstack1lll1l1111l_opy_ and bstack111111l11l1_opy_(bstack1lll1l1111l_opy_[bstack1111l_opy_ (u"ࠧࡣࡴࡲࡻࡸ࡫ࡲࡴࡶࡤࡧࡰࡇࡵࡵࡱࡰࡥࡹ࡯࡯࡯ࠩ⃂")]):
         return False
     return True
-def bstack11l11l1111_opy_():
+def bstack111ll11ll1_opy_():
     try:
         from pytest_bdd import reporting
-        bstack111lllllll1_opy_ = os.environ.get(bstack1ll111_opy_ (u"ࠧࡈࡒࡐ࡙ࡖࡉࡗ࡙ࡔࡂࡅࡎࡣ࡚࡙ࡅࡓࡡࡉࡖࡆࡓࡅࡘࡑࡕࡏࠧᬳ"), None)
-        return bstack111lllllll1_opy_ is None or bstack111lllllll1_opy_ == bstack1ll111_opy_ (u"ࠨࡰࡺࡶࡨࡷࡹ࠳ࡢࡥࡦ᬴ࠥ")
+        bstack1111l11ll11_opy_ = os.environ.get(bstack1111l_opy_ (u"ࠣࡄࡕࡓ࡜࡙ࡅࡓࡕࡗࡅࡈࡑ࡟ࡖࡕࡈࡖࡤࡌࡒࡂࡏࡈ࡛ࡔࡘࡋࠣ⃃"), None)
+        return bstack1111l11ll11_opy_ is None or bstack1111l11ll11_opy_ == bstack1111l_opy_ (u"ࠤࡳࡽࡹ࡫ࡳࡵ࠯ࡥࡨࡩࠨ⃄")
     except Exception as e:
         return False
-def bstack1ll1l111_opy_(hub_url, CONFIG):
-    if bstack11l1l1l11_opy_() <= version.parse(bstack1ll111_opy_ (u"ࠧ࠴࠰࠴࠷࠳࠶ࠧᬵ")):
+def bstack1ll11l111l_opy_(hub_url, CONFIG):
+    if bstack1l1ll1ll1l_opy_() <= version.parse(bstack1111l_opy_ (u"ࠪ࠷࠳࠷࠳࠯࠲ࠪ⃅")):
         if hub_url:
-            return bstack1ll111_opy_ (u"ࠣࡪࡷࡸࡵࡀ࠯࠰ࠤᬶ") + hub_url + bstack1ll111_opy_ (u"ࠤ࠽࠼࠵࠵ࡷࡥ࠱࡫ࡹࡧࠨᬷ")
-        return bstack11l11l11l1_opy_
+            return bstack1111l_opy_ (u"ࠦ࡭ࡺࡴࡱ࠼࠲࠳ࠧ⃆") + hub_url + bstack1111l_opy_ (u"ࠧࡀ࠸࠱࠱ࡺࡨ࠴࡮ࡵࡣࠤ⃇")
+        return bstack11l1l111l1_opy_
     if hub_url:
-        return bstack1ll111_opy_ (u"ࠥ࡬ࡹࡺࡰࡴ࠼࠲࠳ࠧᬸ") + hub_url + bstack1ll111_opy_ (u"ࠦ࠴ࡽࡤ࠰ࡪࡸࡦࠧᬹ")
+        return bstack1111l_opy_ (u"ࠨࡨࡵࡶࡳࡷ࠿࠵࠯ࠣ⃈") + hub_url + bstack1111l_opy_ (u"ࠢ࠰ࡹࡧ࠳࡭ࡻࡢࠣ⃉")
     return HTTPS_HUB
-def bstack111l1ll111l_opy_():
-    return isinstance(os.getenv(bstack1ll111_opy_ (u"ࠬࡈࡒࡐ࡙ࡖࡉࡗ࡙ࡔࡂࡅࡎࡣࡕ࡟ࡔࡆࡕࡗࡣࡕࡒࡕࡈࡋࡑࠫᬺ")), str)
-def bstack111l1lllll_opy_(url):
+def bstack11111l11l11_opy_():
+    return isinstance(os.getenv(bstack1111l_opy_ (u"ࠨࡄࡕࡓ࡜࡙ࡅࡓࡕࡗࡅࡈࡑ࡟ࡑ࡛ࡗࡉࡘ࡚࡟ࡑࡎࡘࡋࡎࡔࠧ⃊")), str)
+def bstack11l11ll1l_opy_(url):
     return urlparse(url).hostname
-def bstack1111ll1lll_opy_(hostname):
-    for bstack1l1l1111_opy_ in bstack1l11llll11_opy_:
-        regex = re.compile(bstack1l1l1111_opy_)
+def bstack111ll1l111_opy_(hostname):
+    for bstack1lllll1lll_opy_ in bstack1l111l111_opy_:
+        regex = re.compile(bstack1lllll1lll_opy_)
         if regex.match(hostname):
             return True
     return False
-def bstack111ll1111l1_opy_(bstack111l11l1111_opy_, file_name, logger):
-    bstack111l1ll11_opy_ = os.path.join(os.path.expanduser(bstack1ll111_opy_ (u"࠭ࡾࠨᬻ")), bstack111l11l1111_opy_)
+def bstack11111ll1lll_opy_(bstack111111lllll_opy_, file_name, logger):
+    bstack111lll11ll_opy_ = os.path.join(os.path.expanduser(bstack1111l_opy_ (u"ࠩࢁࠫ⃋")), bstack111111lllll_opy_)
     try:
-        if not os.path.exists(bstack111l1ll11_opy_):
-            os.makedirs(bstack111l1ll11_opy_)
-        file_path = os.path.join(os.path.expanduser(bstack1ll111_opy_ (u"ࠧࡿࠩᬼ")), bstack111l11l1111_opy_, file_name)
+        if not os.path.exists(bstack111lll11ll_opy_):
+            os.makedirs(bstack111lll11ll_opy_)
+        file_path = os.path.join(os.path.expanduser(bstack1111l_opy_ (u"ࠪࢂࠬ⃌")), bstack111111lllll_opy_, file_name)
         if not os.path.isfile(file_path):
-            with open(file_path, bstack1ll111_opy_ (u"ࠨࡹࠪᬽ")):
+            with open(file_path, bstack1111l_opy_ (u"ࠫࡼ࠭⃍")):
                 pass
-            with open(file_path, bstack1ll111_opy_ (u"ࠤࡺ࠯ࠧᬾ")) as outfile:
+            with open(file_path, bstack1111l_opy_ (u"ࠧࡽࠫࠣ⃎")) as outfile:
                 json.dump({}, outfile)
         return file_path
     except Exception as e:
-        logger.debug(bstack111l11l1l1_opy_.format(str(e)))
-def bstack11l11111ll1_opy_(file_name, key, value, logger):
-    file_path = bstack111ll1111l1_opy_(bstack1ll111_opy_ (u"ࠪ࠲ࡧࡸ࡯ࡸࡵࡨࡶࡸࡺࡡࡤ࡭ࠪᬿ"), file_name, logger)
+        logger.debug(bstack11l1lllll_opy_.format(str(e)))
+def bstack1111l1ll111_opy_(file_name, key, value, logger):
+    file_path = bstack11111ll1lll_opy_(bstack1111l_opy_ (u"࠭࠮ࡣࡴࡲࡻࡸ࡫ࡲࡴࡶࡤࡧࡰ࠭⃏"), file_name, logger)
     if file_path != None:
         if os.path.exists(file_path):
-            bstack1lll11l1l_opy_ = json.load(open(file_path, bstack1ll111_opy_ (u"ࠫࡷࡨࠧᭀ")))
+            bstack1l1lll1ll1_opy_ = json.load(open(file_path, bstack1111l_opy_ (u"ࠧࡳࡤࠪ⃐")))
         else:
-            bstack1lll11l1l_opy_ = {}
-        bstack1lll11l1l_opy_[key] = value
-        with open(file_path, bstack1ll111_opy_ (u"ࠧࡽࠫࠣᭁ")) as outfile:
-            json.dump(bstack1lll11l1l_opy_, outfile)
-def bstack11l1l11ll_opy_(file_name, logger):
-    file_path = bstack111ll1111l1_opy_(bstack1ll111_opy_ (u"࠭࠮ࡣࡴࡲࡻࡸ࡫ࡲࡴࡶࡤࡧࡰ࠭ᭂ"), file_name, logger)
-    bstack1lll11l1l_opy_ = {}
+            bstack1l1lll1ll1_opy_ = {}
+        bstack1l1lll1ll1_opy_[key] = value
+        with open(file_path, bstack1111l_opy_ (u"ࠣࡹ࠮ࠦ⃑")) as outfile:
+            json.dump(bstack1l1lll1ll1_opy_, outfile)
+def bstack11ll111111_opy_(file_name, logger):
+    file_path = bstack11111ll1lll_opy_(bstack1111l_opy_ (u"ࠩ࠱ࡦࡷࡵࡷࡴࡧࡵࡷࡹࡧࡣ࡬⃒ࠩ"), file_name, logger)
+    bstack1l1lll1ll1_opy_ = {}
     if file_path != None and os.path.exists(file_path):
-        with open(file_path, bstack1ll111_opy_ (u"ࠧࡳࠩᭃ")) as bstack111l1l1l1l_opy_:
-            bstack1lll11l1l_opy_ = json.load(bstack111l1l1l1l_opy_)
-    return bstack1lll11l1l_opy_
-def bstack1111ll1l1_opy_(file_path, logger):
+        with open(file_path, bstack1111l_opy_ (u"ࠪࡶ⃓ࠬ")) as bstack111ll1ll1l_opy_:
+            bstack1l1lll1ll1_opy_ = json.load(bstack111ll1ll1l_opy_)
+    return bstack1l1lll1ll1_opy_
+def bstack11ll1l11l1_opy_(file_path, logger):
     try:
         if os.path.exists(file_path):
             os.remove(file_path)
     except Exception as e:
-        logger.debug(bstack1ll111_opy_ (u"ࠨࡇࡵࡶࡴࡸࠠࡪࡰࠣࡨࡪࡲࡥࡵ࡫ࡱ࡫ࠥ࡬ࡩ࡭ࡧ࠽ࠤ᭄ࠬ") + file_path + bstack1ll111_opy_ (u"ࠩࠣࠫᭅ") + str(e))
-def bstack11l1l1l11_opy_():
+        logger.debug(bstack1111l_opy_ (u"ࠫࡊࡸࡲࡰࡴࠣ࡭ࡳࠦࡤࡦ࡮ࡨࡸ࡮ࡴࡧࠡࡨ࡬ࡰࡪࡀࠠࠨ⃔") + file_path + bstack1111l_opy_ (u"ࠬࠦࠧ⃕") + str(e))
+def bstack1l1ll1ll1l_opy_():
     from selenium import webdriver
     return version.parse(webdriver.__version__)
 class Notset:
     def __repr__(self):
-        return bstack1ll111_opy_ (u"ࠥࡀࡓࡕࡔࡔࡇࡗࡂࠧᭆ")
-def bstack1111lllll_opy_(config):
-    if bstack1ll111_opy_ (u"ࠫ࡮ࡹࡐ࡭ࡣࡼࡻࡷ࡯ࡧࡩࡶࠪᭇ") in config:
-        del (config[bstack1ll111_opy_ (u"ࠬ࡯ࡳࡑ࡮ࡤࡽࡼࡸࡩࡨࡪࡷࠫᭈ")])
+        return bstack1111l_opy_ (u"ࠨ࠼ࡏࡑࡗࡗࡊ࡚࠾ࠣ⃖")
+def bstack11l1111l_opy_(config):
+    if bstack1111l_opy_ (u"ࠧࡪࡵࡓࡰࡦࡿࡷࡳ࡫ࡪ࡬ࡹ࠭⃗") in config:
+        del (config[bstack1111l_opy_ (u"ࠨ࡫ࡶࡔࡱࡧࡹࡸࡴ࡬࡫࡭ࡺ⃘ࠧ")])
         return False
-    if bstack11l1l1l11_opy_() < version.parse(bstack1ll111_opy_ (u"࠭࠳࠯࠶࠱࠴ࠬᭉ")):
+    if bstack1l1ll1ll1l_opy_() < version.parse(bstack1111l_opy_ (u"ࠩ࠶࠲࠹࠴࠰ࠨ⃙")):
         return False
-    if bstack11l1l1l11_opy_() >= version.parse(bstack1ll111_opy_ (u"ࠧ࠵࠰࠴࠲࠺࠭ᭊ")):
+    if bstack1l1ll1ll1l_opy_() >= version.parse(bstack1111l_opy_ (u"ࠪ࠸࠳࠷࠮࠶⃚ࠩ")):
         return True
-    if bstack1ll111_opy_ (u"ࠨࡷࡶࡩ࡜࠹ࡃࠨᭋ") in config and config[bstack1ll111_opy_ (u"ࠩࡸࡷࡪ࡝࠳ࡄࠩᭌ")] is False:
+    if bstack1111l_opy_ (u"ࠫࡺࡹࡥࡘ࠵ࡆࠫ⃛") in config and config[bstack1111l_opy_ (u"ࠬࡻࡳࡦ࡙࠶ࡇࠬ⃜")] is False:
         return False
     else:
         return True
-def bstack1lll11ll1_opy_(args_list, bstack111lll11lll_opy_):
+def bstack11lll1lll_opy_(args_list, bstack111111llll1_opy_):
     index = -1
-    for value in bstack111lll11lll_opy_:
+    for value in bstack111111llll1_opy_:
         try:
             index = args_list.index(value)
             return index
         except Exception as e:
             return index
     return index
-def bstack11l1111ll11_opy_(a, b):
+def bstack111lll1lll1_opy_(a, b):
   for k, v in b.items():
     if isinstance(v, dict) and k in a and isinstance(a[k], dict):
-        bstack11l1111ll11_opy_(a[k], v)
+        bstack111lll1lll1_opy_(a[k], v)
     else:
         a[k] = v
 class Result:
-    def __init__(self, result=None, duration=None, exception=None, bstack11111ll1ll_opy_=None):
+    def __init__(self, result=None, duration=None, exception=None, bstack11111l1111_opy_=None):
         self.result = result
         self.duration = duration
         self.exception = exception
         self.exception_type = type(self.exception).__name__ if exception else None
-        self.bstack11111ll1ll_opy_ = bstack11111ll1ll_opy_
+        self.bstack11111l1111_opy_ = bstack11111l1111_opy_
     @classmethod
     def passed(cls):
-        return Result(result=bstack1ll111_opy_ (u"ࠪࡴࡦࡹࡳࡦࡦࠪ᭍"))
+        return Result(result=bstack1111l_opy_ (u"࠭ࡰࡢࡵࡶࡩࡩ࠭⃝"))
     @classmethod
     def failed(cls, exception=None):
-        return Result(result=bstack1ll111_opy_ (u"ࠫ࡫ࡧࡩ࡭ࡧࡧࠫ᭎"), exception=exception)
-    def bstack1lll11ll1l1_opy_(self):
-        if self.result != bstack1ll111_opy_ (u"ࠬ࡬ࡡࡪ࡮ࡨࡨࠬ᭏"):
+        return Result(result=bstack1111l_opy_ (u"ࠧࡧࡣ࡬ࡰࡪࡪࠧ⃞"), exception=exception)
+    def bstack1lll11l1l1l_opy_(self):
+        if self.result != bstack1111l_opy_ (u"ࠨࡨࡤ࡭ࡱ࡫ࡤࠨ⃟"):
             return None
-        if isinstance(self.exception_type, str) and bstack1ll111_opy_ (u"ࠨࡁࡴࡵࡨࡶࡹ࡯࡯࡯ࠤ᭐") in self.exception_type:
-            return bstack1ll111_opy_ (u"ࠢࡂࡵࡶࡩࡷࡺࡩࡰࡰࡈࡶࡷࡵࡲࠣ᭑")
-        return bstack1ll111_opy_ (u"ࠣࡗࡱ࡬ࡦࡴࡤ࡭ࡧࡧࡉࡷࡸ࡯ࡳࠤ᭒")
-    def bstack11l111l1111_opy_(self):
-        if self.result != bstack1ll111_opy_ (u"ࠩࡩࡥ࡮ࡲࡥࡥࠩ᭓"):
+        if isinstance(self.exception_type, str) and bstack1111l_opy_ (u"ࠤࡄࡷࡸ࡫ࡲࡵ࡫ࡲࡲࠧ⃠") in self.exception_type:
+            return bstack1111l_opy_ (u"ࠥࡅࡸࡹࡥࡳࡶ࡬ࡳࡳࡋࡲࡳࡱࡵࠦ⃡")
+        return bstack1111l_opy_ (u"࡚ࠦࡴࡨࡢࡰࡧࡰࡪࡪࡅࡳࡴࡲࡶࠧ⃢")
+    def bstack1111ll11ll1_opy_(self):
+        if self.result != bstack1111l_opy_ (u"ࠬ࡬ࡡࡪ࡮ࡨࡨࠬ⃣"):
             return None
-        if self.bstack11111ll1ll_opy_:
-            return self.bstack11111ll1ll_opy_
-        return bstack111ll1l111l_opy_(self.exception)
-def bstack111ll1l111l_opy_(exc):
+        if self.bstack11111l1111_opy_:
+            return self.bstack11111l1111_opy_
+        return bstack1111l1l111l_opy_(self.exception)
+def bstack1111l1l111l_opy_(exc):
     return [traceback.format_exception(exc)]
-def bstack111ll11llll_opy_(message):
+def bstack1111l1lllll_opy_(message):
     if isinstance(message, str):
         return not bool(message and message.strip())
     return True
-def bstack11llll11l_opy_(object, key, default_value):
+def bstack1l11l11l11_opy_(object, key, default_value):
     if not object or not object.__dict__:
         return default_value
     if key in object.__dict__.keys():
         return object.__dict__.get(key)
     return default_value
-def bstack11l11ll11l_opy_(config, logger):
+def bstack11l1l11l_opy_(config, logger):
     try:
         import playwright
-        bstack111l11l1lll_opy_ = playwright.__file__
-        bstack111ll1llll1_opy_ = os.path.split(bstack111l11l1lll_opy_)
-        bstack111l1l11lll_opy_ = bstack111ll1llll1_opy_[0] + bstack1ll111_opy_ (u"ࠪ࠳ࡩࡸࡩࡷࡧࡵ࠳ࡵࡧࡣ࡬ࡣࡪࡩ࠴ࡲࡩࡣ࠱ࡦࡰ࡮࠵ࡣ࡭࡫࠱࡮ࡸ࠭᭔")
-        os.environ[bstack1ll111_opy_ (u"ࠫࡌࡒࡏࡃࡃࡏࡣࡆࡍࡅࡏࡖࡢࡌ࡙࡚ࡐࡠࡒࡕࡓ࡝࡟ࠧ᭕")] = bstack11lll11l_opy_(config)
-        with open(bstack111l1l11lll_opy_, bstack1ll111_opy_ (u"ࠬࡸࠧ᭖")) as f:
+        bstack11111ll11l1_opy_ = playwright.__file__
+        bstack1111llllll1_opy_ = os.path.split(bstack11111ll11l1_opy_)
+        bstack11111lll111_opy_ = bstack1111llllll1_opy_[0] + bstack1111l_opy_ (u"࠭࠯ࡥࡴ࡬ࡺࡪࡸ࠯ࡱࡣࡦ࡯ࡦ࡭ࡥ࠰࡮࡬ࡦ࠴ࡩ࡬ࡪ࠱ࡦࡰ࡮࠴ࡪࡴࠩ⃤")
+        os.environ[bstack1111l_opy_ (u"ࠧࡈࡎࡒࡆࡆࡒ࡟ࡂࡉࡈࡒ࡙ࡥࡈࡕࡖࡓࡣࡕࡘࡏ⃥࡙࡛ࠪ")] = bstack11ll1lllll_opy_(config)
+        with open(bstack11111lll111_opy_, bstack1111l_opy_ (u"ࠨࡴ⃦ࠪ")) as f:
             file_content = f.read()
-            bstack111ll1ll111_opy_ = bstack1ll111_opy_ (u"࠭ࡧ࡭ࡱࡥࡥࡱ࠳ࡡࡨࡧࡱࡸࠬ᭗")
-            bstack111lll11111_opy_ = file_content.find(bstack111ll1ll111_opy_)
-            if bstack111lll11111_opy_ == -1:
-              process = subprocess.Popen(bstack1ll111_opy_ (u"ࠢ࡯ࡲࡰࠤ࡮ࡴࡳࡵࡣ࡯ࡰࠥ࡭࡬ࡰࡤࡤࡰ࠲ࡧࡧࡦࡰࡷࠦ᭘"), shell=True, cwd=bstack111ll1llll1_opy_[0])
+            bstack1111ll11l1l_opy_ = bstack1111l_opy_ (u"ࠩࡪࡰࡴࡨࡡ࡭࠯ࡤ࡫ࡪࡴࡴࠨ⃧")
+            bstack1111lllll1l_opy_ = file_content.find(bstack1111ll11l1l_opy_)
+            if bstack1111lllll1l_opy_ == -1:
+              process = subprocess.Popen(bstack1111l_opy_ (u"ࠥࡲࡵࡳࠠࡪࡰࡶࡸࡦࡲ࡬ࠡࡩ࡯ࡳࡧࡧ࡬࠮ࡣࡪࡩࡳࡺ⃨ࠢ"), shell=True, cwd=bstack1111llllll1_opy_[0])
               process.wait()
-              bstack111lll11ll1_opy_ = bstack1ll111_opy_ (u"ࠨࠤࡸࡷࡪࠦࡳࡵࡴ࡬ࡧࡹࠨ࠻ࠨ᭙")
-              bstack111l1lll1l1_opy_ = bstack1ll111_opy_ (u"ࠤࠥࠦࠥࡢࠢࡶࡵࡨࠤࡸࡺࡲࡪࡥࡷࡠࠧࡁࠠࡤࡱࡱࡷࡹࠦࡻࠡࡤࡲࡳࡹࡹࡴࡳࡣࡳࠤࢂࠦ࠽ࠡࡴࡨࡵࡺ࡯ࡲࡦࠪࠪ࡫ࡱࡵࡢࡢ࡮࠰ࡥ࡬࡫࡮ࡵࠩࠬ࠿ࠥ࡯ࡦࠡࠪࡳࡶࡴࡩࡥࡴࡵ࠱ࡩࡳࡼ࠮ࡈࡎࡒࡆࡆࡒ࡟ࡂࡉࡈࡒ࡙ࡥࡈࡕࡖࡓࡣࡕࡘࡏ࡙࡛ࠬࠤࡧࡵ࡯ࡵࡵࡷࡶࡦࡶࠨࠪ࠽ࠣࠦࠧࠨ᭚")
-              bstack111ll1l1ll1_opy_ = file_content.replace(bstack111lll11ll1_opy_, bstack111l1lll1l1_opy_)
-              with open(bstack111l1l11lll_opy_, bstack1ll111_opy_ (u"ࠪࡻࠬ᭛")) as f:
-                f.write(bstack111ll1l1ll1_opy_)
+              bstack1111lll111l_opy_ = bstack1111l_opy_ (u"ࠫࠧࡻࡳࡦࠢࡶࡸࡷ࡯ࡣࡵࠤ࠾ࠫ⃩")
+              bstack111l111l11l_opy_ = bstack1111l_opy_ (u"ࠧࠨࠢࠡ࡞ࠥࡹࡸ࡫ࠠࡴࡶࡵ࡭ࡨࡺ࡜ࠣ࠽ࠣࡧࡴࡴࡳࡵࠢࡾࠤࡧࡵ࡯ࡵࡵࡷࡶࡦࡶࠠࡾࠢࡀࠤࡷ࡫ࡱࡶ࡫ࡵࡩ࠭࠭ࡧ࡭ࡱࡥࡥࡱ࠳ࡡࡨࡧࡱࡸࠬ࠯࠻ࠡ࡫ࡩࠤ࠭ࡶࡲࡰࡥࡨࡷࡸ࠴ࡥ࡯ࡸ࠱ࡋࡑࡕࡂࡂࡎࡢࡅࡌࡋࡎࡕࡡࡋࡘ࡙ࡖ࡟ࡑࡔࡒ࡜࡞࠯ࠠࡣࡱࡲࡸࡸࡺࡲࡢࡲࠫ࠭ࡀࠦࠢࠣࠤ⃪")
+              bstack11111lll1l1_opy_ = file_content.replace(bstack1111lll111l_opy_, bstack111l111l11l_opy_)
+              with open(bstack11111lll111_opy_, bstack1111l_opy_ (u"࠭ࡷࠨ⃫")) as f:
+                f.write(bstack11111lll1l1_opy_)
     except Exception as e:
-        logger.error(bstack11l11l1l_opy_.format(str(e)))
-def bstack1l1lll11ll_opy_():
+        logger.error(bstack111l1lllll_opy_.format(str(e)))
+def bstack1111l111_opy_():
   try:
-    bstack111llll1ll1_opy_ = os.path.join(tempfile.gettempdir(), bstack1ll111_opy_ (u"ࠫࡴࡶࡴࡪ࡯ࡤࡰࡤ࡮ࡵࡣࡡࡸࡶࡱ࠴ࡪࡴࡱࡱࠫ᭜"))
-    bstack11l11111l1l_opy_ = []
-    if os.path.exists(bstack111llll1ll1_opy_):
-      with open(bstack111llll1ll1_opy_) as f:
-        bstack11l11111l1l_opy_ = json.load(f)
-      os.remove(bstack111llll1ll1_opy_)
-    return bstack11l11111l1l_opy_
+    bstack1111llll1l1_opy_ = os.path.join(tempfile.gettempdir(), bstack1111l_opy_ (u"ࠧࡰࡲࡷ࡭ࡲࡧ࡬ࡠࡪࡸࡦࡤࡻࡲ࡭࠰࡭ࡷࡴࡴ⃬ࠧ"))
+    bstack111l1111lll_opy_ = []
+    if os.path.exists(bstack1111llll1l1_opy_):
+      with open(bstack1111llll1l1_opy_) as f:
+        bstack111l1111lll_opy_ = json.load(f)
+      os.remove(bstack1111llll1l1_opy_)
+    return bstack111l1111lll_opy_
   except:
     pass
   return []
-def bstack1l111ll11_opy_(bstack11l1ll111_opy_):
+def bstack11ll11111l_opy_(bstack11111l1ll_opy_):
   try:
-    bstack11l11111l1l_opy_ = []
-    bstack111llll1ll1_opy_ = os.path.join(tempfile.gettempdir(), bstack1ll111_opy_ (u"ࠬࡵࡰࡵ࡫ࡰࡥࡱࡥࡨࡶࡤࡢࡹࡷࡲ࠮࡫ࡵࡲࡲࠬ᭝"))
-    if os.path.exists(bstack111llll1ll1_opy_):
-      with open(bstack111llll1ll1_opy_) as f:
-        bstack11l11111l1l_opy_ = json.load(f)
-    bstack11l11111l1l_opy_.append(bstack11l1ll111_opy_)
-    with open(bstack111llll1ll1_opy_, bstack1ll111_opy_ (u"࠭ࡷࠨ᭞")) as f:
-        json.dump(bstack11l11111l1l_opy_, f)
+    bstack111l1111lll_opy_ = []
+    bstack1111llll1l1_opy_ = os.path.join(tempfile.gettempdir(), bstack1111l_opy_ (u"ࠨࡱࡳࡸ࡮ࡳࡡ࡭ࡡ࡫ࡹࡧࡥࡵࡳ࡮࠱࡮ࡸࡵ࡮ࠨ⃭"))
+    if os.path.exists(bstack1111llll1l1_opy_):
+      with open(bstack1111llll1l1_opy_) as f:
+        bstack111l1111lll_opy_ = json.load(f)
+    bstack111l1111lll_opy_.append(bstack11111l1ll_opy_)
+    with open(bstack1111llll1l1_opy_, bstack1111l_opy_ (u"ࠩࡺ⃮ࠫ")) as f:
+        json.dump(bstack111l1111lll_opy_, f)
   except:
     pass
-def bstack1111l11l1l_opy_(logger, bstack111ll11l111_opy_ = False):
+def bstack1111l1ll1_opy_(logger, bstack1111llll1ll_opy_ = False):
   try:
-    test_name = os.environ.get(bstack1ll111_opy_ (u"ࠧࡑ࡛ࡗࡉࡘ࡚࡟ࡕࡇࡖࡘࡤࡔࡁࡎࡇࠪ᭟"), bstack1ll111_opy_ (u"ࠨࠩ᭠"))
-    if test_name == bstack1ll111_opy_ (u"ࠩࠪ᭡"):
-        test_name = threading.current_thread().__dict__.get(bstack1ll111_opy_ (u"ࠪࡴࡾࡺࡥࡴࡶࡅࡨࡩࡥࡴࡦࡵࡷࡣࡳࡧ࡭ࡦࠩ᭢"), bstack1ll111_opy_ (u"ࠫࠬ᭣"))
-    bstack11l1111lll1_opy_ = bstack1ll111_opy_ (u"ࠬ࠲ࠠࠨ᭤").join(threading.current_thread().bstackTestErrorMessages)
-    if bstack111ll11l111_opy_:
-        bstack1l1ll1l1l_opy_ = os.environ.get(bstack1ll111_opy_ (u"࠭ࡂࡓࡑ࡚ࡗࡊࡘࡓࡕࡃࡆࡏࡤࡖࡌࡂࡖࡉࡓࡗࡓ࡟ࡊࡐࡇࡉ࡝࠭᭥"), bstack1ll111_opy_ (u"ࠧ࠱ࠩ᭦"))
-        bstack1l1ll11l1_opy_ = {bstack1ll111_opy_ (u"ࠨࡰࡤࡱࡪ࠭᭧"): test_name, bstack1ll111_opy_ (u"ࠩࡨࡶࡷࡵࡲࠨ᭨"): bstack11l1111lll1_opy_, bstack1ll111_opy_ (u"ࠪ࡭ࡳࡪࡥࡹࠩ᭩"): bstack1l1ll1l1l_opy_}
-        bstack111l11lll1l_opy_ = []
-        bstack111ll1l1111_opy_ = os.path.join(tempfile.gettempdir(), bstack1ll111_opy_ (u"ࠫࡵࡿࡴࡦࡵࡷࡣࡵࡶࡰࡠࡧࡵࡶࡴࡸ࡟࡭࡫ࡶࡸ࠳ࡰࡳࡰࡰࠪ᭪"))
-        if os.path.exists(bstack111ll1l1111_opy_):
-            with open(bstack111ll1l1111_opy_) as f:
-                bstack111l11lll1l_opy_ = json.load(f)
-        bstack111l11lll1l_opy_.append(bstack1l1ll11l1_opy_)
-        with open(bstack111ll1l1111_opy_, bstack1ll111_opy_ (u"ࠬࡽࠧ᭫")) as f:
-            json.dump(bstack111l11lll1l_opy_, f)
+    test_name = os.environ.get(bstack1111l_opy_ (u"ࠪࡔ࡞࡚ࡅࡔࡖࡢࡘࡊ࡙ࡔࡠࡐࡄࡑࡊ⃯࠭"), bstack1111l_opy_ (u"ࠫࠬ⃰"))
+    if test_name == bstack1111l_opy_ (u"ࠬ࠭⃱"):
+        test_name = threading.current_thread().__dict__.get(bstack1111l_opy_ (u"࠭ࡰࡺࡶࡨࡷࡹࡈࡤࡥࡡࡷࡩࡸࡺ࡟࡯ࡣࡰࡩࠬ⃲"), bstack1111l_opy_ (u"ࠧࠨ⃳"))
+    bstack1111l1l1111_opy_ = bstack1111l_opy_ (u"ࠨ࠮ࠣࠫ⃴").join(threading.current_thread().bstackTestErrorMessages)
+    if bstack1111llll1ll_opy_:
+        bstack111l11l1ll_opy_ = os.environ.get(bstack1111l_opy_ (u"ࠩࡅࡖࡔ࡝ࡓࡆࡔࡖࡘࡆࡉࡋࡠࡒࡏࡅ࡙ࡌࡏࡓࡏࡢࡍࡓࡊࡅ࡙ࠩ⃵"), bstack1111l_opy_ (u"ࠪ࠴ࠬ⃶"))
+        bstack1111lllll1_opy_ = {bstack1111l_opy_ (u"ࠫࡳࡧ࡭ࡦࠩ⃷"): test_name, bstack1111l_opy_ (u"ࠬ࡫ࡲࡳࡱࡵࠫ⃸"): bstack1111l1l1111_opy_, bstack1111l_opy_ (u"࠭ࡩ࡯ࡦࡨࡼࠬ⃹"): bstack111l11l1ll_opy_}
+        bstack1111ll11lll_opy_ = []
+        bstack111l1111l1l_opy_ = os.path.join(tempfile.gettempdir(), bstack1111l_opy_ (u"ࠧࡱࡻࡷࡩࡸࡺ࡟ࡱࡲࡳࡣࡪࡸࡲࡰࡴࡢࡰ࡮ࡹࡴ࠯࡬ࡶࡳࡳ࠭⃺"))
+        if os.path.exists(bstack111l1111l1l_opy_):
+            with open(bstack111l1111l1l_opy_) as f:
+                bstack1111ll11lll_opy_ = json.load(f)
+        bstack1111ll11lll_opy_.append(bstack1111lllll1_opy_)
+        with open(bstack111l1111l1l_opy_, bstack1111l_opy_ (u"ࠨࡹࠪ⃻")) as f:
+            json.dump(bstack1111ll11lll_opy_, f)
     else:
-        bstack1l1ll11l1_opy_ = {bstack1ll111_opy_ (u"࠭࡮ࡢ࡯ࡨ᭬ࠫ"): test_name, bstack1ll111_opy_ (u"ࠧࡦࡴࡵࡳࡷ࠭᭭"): bstack11l1111lll1_opy_, bstack1ll111_opy_ (u"ࠨ࡫ࡱࡨࡪࡾࠧ᭮"): str(multiprocessing.current_process().name)}
-        if bstack1ll111_opy_ (u"ࠩࡥࡷࡹࡧࡣ࡬ࡡࡨࡶࡷࡵࡲࡠ࡮࡬ࡷࡹ࠭᭯") not in multiprocessing.current_process().__dict__.keys():
+        bstack1111lllll1_opy_ = {bstack1111l_opy_ (u"ࠩࡱࡥࡲ࡫ࠧ⃼"): test_name, bstack1111l_opy_ (u"ࠪࡩࡷࡸ࡯ࡳࠩ⃽"): bstack1111l1l1111_opy_, bstack1111l_opy_ (u"ࠫ࡮ࡴࡤࡦࡺࠪ⃾"): str(multiprocessing.current_process().name)}
+        if bstack1111l_opy_ (u"ࠬࡨࡳࡵࡣࡦ࡯ࡤ࡫ࡲࡳࡱࡵࡣࡱ࡯ࡳࡵࠩ⃿") not in multiprocessing.current_process().__dict__.keys():
             multiprocessing.current_process().bstack_error_list = []
-        multiprocessing.current_process().bstack_error_list.append(bstack1l1ll11l1_opy_)
+        multiprocessing.current_process().bstack_error_list.append(bstack1111lllll1_opy_)
   except Exception as e:
-      logger.warn(bstack1ll111_opy_ (u"࡙ࠥࡳࡧࡢ࡭ࡧࠣࡸࡴࠦࡳࡵࡱࡵࡩࠥࡶࡹࡵࡧࡶࡸࠥ࡬ࡵ࡯ࡰࡨࡰࠥࡪࡡࡵࡣ࠽ࠤࢀࢃࠢ᭰").format(e))
-def bstack11111lll_opy_(error_message, test_name, index, logger):
+      logger.warn(bstack1111l_opy_ (u"ࠨࡕ࡯ࡣࡥࡰࡪࠦࡴࡰࠢࡶࡸࡴࡸࡥࠡࡲࡼࡸࡪࡹࡴࠡࡨࡸࡲࡳ࡫࡬ࠡࡦࡤࡸࡦࡀࠠࡼࡿࠥ℀").format(e))
+def bstack1111ll1ll_opy_(error_message, test_name, index, logger):
   try:
     from filelock import FileLock
   except ImportError:
-    logger.debug(bstack1ll111_opy_ (u"ࠫ࡫࡯࡬ࡦ࡮ࡲࡧࡰࠦ࡮ࡰࡶࠣࡥࡻࡧࡩ࡭ࡣࡥࡰࡪ࠲ࠠࡶࡵ࡬ࡲ࡬ࠦࡢࡢࡵ࡬ࡧࠥ࡬ࡩ࡭ࡧࠣࡳࡵ࡫ࡲࡢࡶ࡬ࡳࡳࡹࠧ᭱"))
+    logger.debug(bstack1111l_opy_ (u"ࠧࡧ࡫࡯ࡩࡱࡵࡣ࡬ࠢࡱࡳࡹࠦࡡࡷࡣ࡬ࡰࡦࡨ࡬ࡦ࠮ࠣࡹࡸ࡯࡮ࡨࠢࡥࡥࡸ࡯ࡣࠡࡨ࡬ࡰࡪࠦ࡯ࡱࡧࡵࡥࡹ࡯࡯࡯ࡵࠪ℁"))
     try:
-      bstack111lll1ll1l_opy_ = []
-      bstack1l1ll11l1_opy_ = {bstack1ll111_opy_ (u"ࠬࡴࡡ࡮ࡧࠪ᭲"): test_name, bstack1ll111_opy_ (u"࠭ࡥࡳࡴࡲࡶࠬ᭳"): error_message, bstack1ll111_opy_ (u"ࠧࡪࡰࡧࡩࡽ࠭᭴"): index}
-      bstack111ll1lllll_opy_ = os.path.join(tempfile.gettempdir(), bstack1ll111_opy_ (u"ࠨࡴࡲࡦࡴࡺ࡟ࡦࡴࡵࡳࡷࡥ࡬ࡪࡵࡷ࠲࡯ࡹ࡯࡯ࠩ᭵"))
-      if os.path.exists(bstack111ll1lllll_opy_):
-          with open(bstack111ll1lllll_opy_) as f:
-              bstack111lll1ll1l_opy_ = json.load(f)
-      bstack111lll1ll1l_opy_.append(bstack1l1ll11l1_opy_)
-      with open(bstack111ll1lllll_opy_, bstack1ll111_opy_ (u"ࠩࡺࠫ᭶")) as f:
-          json.dump(bstack111lll1ll1l_opy_, f)
+      bstack1111l11lll1_opy_ = []
+      bstack1111lllll1_opy_ = {bstack1111l_opy_ (u"ࠨࡰࡤࡱࡪ࠭ℂ"): test_name, bstack1111l_opy_ (u"ࠩࡨࡶࡷࡵࡲࠨ℃"): error_message, bstack1111l_opy_ (u"ࠪ࡭ࡳࡪࡥࡹࠩ℄"): index}
+      bstack111111lll1l_opy_ = os.path.join(tempfile.gettempdir(), bstack1111l_opy_ (u"ࠫࡷࡵࡢࡰࡶࡢࡩࡷࡸ࡯ࡳࡡ࡯࡭ࡸࡺ࠮࡫ࡵࡲࡲࠬ℅"))
+      if os.path.exists(bstack111111lll1l_opy_):
+          with open(bstack111111lll1l_opy_) as f:
+              bstack1111l11lll1_opy_ = json.load(f)
+      bstack1111l11lll1_opy_.append(bstack1111lllll1_opy_)
+      with open(bstack111111lll1l_opy_, bstack1111l_opy_ (u"ࠬࡽࠧ℆")) as f:
+          json.dump(bstack1111l11lll1_opy_, f)
     except Exception as e:
-      logger.warn(bstack1ll111_opy_ (u"࡙ࠥࡳࡧࡢ࡭ࡧࠣࡸࡴࠦࡳࡵࡱࡵࡩࠥࡸ࡯ࡣࡱࡷࠤ࡫ࡻ࡮࡯ࡧ࡯ࠤࡩࡧࡴࡢ࠼ࠣࡿࢂࠨ᭷").format(e))
+      logger.warn(bstack1111l_opy_ (u"ࠨࡕ࡯ࡣࡥࡰࡪࠦࡴࡰࠢࡶࡸࡴࡸࡥࠡࡴࡲࡦࡴࡺࠠࡧࡷࡱࡲࡪࡲࠠࡥࡣࡷࡥ࠿ࠦࡻࡾࠤℇ").format(e))
     return
-  bstack111lll1ll1l_opy_ = []
-  bstack1l1ll11l1_opy_ = {bstack1ll111_opy_ (u"ࠫࡳࡧ࡭ࡦࠩ᭸"): test_name, bstack1ll111_opy_ (u"ࠬ࡫ࡲࡳࡱࡵࠫ᭹"): error_message, bstack1ll111_opy_ (u"࠭ࡩ࡯ࡦࡨࡼࠬ᭺"): index}
-  bstack111ll1lllll_opy_ = os.path.join(tempfile.gettempdir(), bstack1ll111_opy_ (u"ࠧࡳࡱࡥࡳࡹࡥࡥࡳࡴࡲࡶࡤࡲࡩࡴࡶ࠱࡮ࡸࡵ࡮ࠨ᭻"))
-  lock_file = bstack111ll1lllll_opy_ + bstack1ll111_opy_ (u"ࠨ࠰࡯ࡳࡨࡱࠧ᭼")
+  bstack1111l11lll1_opy_ = []
+  bstack1111lllll1_opy_ = {bstack1111l_opy_ (u"ࠧ࡯ࡣࡰࡩࠬ℈"): test_name, bstack1111l_opy_ (u"ࠨࡧࡵࡶࡴࡸࠧ℉"): error_message, bstack1111l_opy_ (u"ࠩ࡬ࡲࡩ࡫ࡸࠨℊ"): index}
+  bstack111111lll1l_opy_ = os.path.join(tempfile.gettempdir(), bstack1111l_opy_ (u"ࠪࡶࡴࡨ࡯ࡵࡡࡨࡶࡷࡵࡲࡠ࡮࡬ࡷࡹ࠴ࡪࡴࡱࡱࠫℋ"))
+  lock_file = bstack111111lll1l_opy_ + bstack1111l_opy_ (u"ࠫ࠳ࡲ࡯ࡤ࡭ࠪℌ")
   try:
     with FileLock(lock_file, timeout=10):
-      if os.path.exists(bstack111ll1lllll_opy_):
-          with open(bstack111ll1lllll_opy_, bstack1ll111_opy_ (u"ࠩࡵࠫ᭽")) as f:
+      if os.path.exists(bstack111111lll1l_opy_):
+          with open(bstack111111lll1l_opy_, bstack1111l_opy_ (u"ࠬࡸࠧℍ")) as f:
               content = f.read().strip()
               if content:
-                  bstack111lll1ll1l_opy_ = json.load(open(bstack111ll1lllll_opy_))
-      bstack111lll1ll1l_opy_.append(bstack1l1ll11l1_opy_)
-      with open(bstack111ll1lllll_opy_, bstack1ll111_opy_ (u"ࠪࡻࠬ᭾")) as f:
-          json.dump(bstack111lll1ll1l_opy_, f)
+                  bstack1111l11lll1_opy_ = json.load(open(bstack111111lll1l_opy_))
+      bstack1111l11lll1_opy_.append(bstack1111lllll1_opy_)
+      with open(bstack111111lll1l_opy_, bstack1111l_opy_ (u"࠭ࡷࠨℎ")) as f:
+          json.dump(bstack1111l11lll1_opy_, f)
   except Exception as e:
-    logger.warn(bstack1ll111_opy_ (u"࡚ࠦࡴࡡࡣ࡮ࡨࠤࡹࡵࠠࡴࡶࡲࡶࡪࠦࡲࡰࡤࡲࡸࠥ࡬ࡵ࡯ࡰࡨࡰࠥࡪࡡࡵࡣࠣࡻ࡮ࡺࡨࠡࡨ࡬ࡰࡪࠦ࡬ࡰࡥ࡮࡭ࡳ࡭࠺ࠡࡽࢀࠦ᭿").format(e))
-def bstack11l1llll1_opy_(bstack1ll11l11l_opy_, name, logger):
+    logger.warn(bstack1111l_opy_ (u"ࠢࡖࡰࡤࡦࡱ࡫ࠠࡵࡱࠣࡷࡹࡵࡲࡦࠢࡵࡳࡧࡵࡴࠡࡨࡸࡲࡳ࡫࡬ࠡࡦࡤࡸࡦࠦࡷࡪࡶ࡫ࠤ࡫࡯࡬ࡦࠢ࡯ࡳࡨࡱࡩ࡯ࡩ࠽ࠤࢀࢃࠢℏ").format(e))
+def bstack1lll1llll_opy_(bstack11lll11l1_opy_, name, logger):
   try:
-    bstack1l1ll11l1_opy_ = {bstack1ll111_opy_ (u"ࠬࡴࡡ࡮ࡧࠪᮀ"): name, bstack1ll111_opy_ (u"࠭ࡥࡳࡴࡲࡶࠬᮁ"): bstack1ll11l11l_opy_, bstack1ll111_opy_ (u"ࠧࡪࡰࡧࡩࡽ࠭ᮂ"): str(threading.current_thread()._name)}
-    return bstack1l1ll11l1_opy_
+    bstack1111lllll1_opy_ = {bstack1111l_opy_ (u"ࠨࡰࡤࡱࡪ࠭ℐ"): name, bstack1111l_opy_ (u"ࠩࡨࡶࡷࡵࡲࠨℑ"): bstack11lll11l1_opy_, bstack1111l_opy_ (u"ࠪ࡭ࡳࡪࡥࡹࠩℒ"): str(threading.current_thread()._name)}
+    return bstack1111lllll1_opy_
   except Exception as e:
-    logger.warn(bstack1ll111_opy_ (u"ࠣࡗࡱࡥࡧࡲࡥࠡࡶࡲࠤࡸࡺ࡯ࡳࡧࠣࡦࡪ࡮ࡡࡷࡧࠣࡪࡺࡴ࡮ࡦ࡮ࠣࡨࡦࡺࡡ࠻ࠢࡾࢁࠧᮃ").format(e))
+    logger.warn(bstack1111l_opy_ (u"࡚ࠦࡴࡡࡣ࡮ࡨࠤࡹࡵࠠࡴࡶࡲࡶࡪࠦࡢࡦࡪࡤࡺࡪࠦࡦࡶࡰࡱࡩࡱࠦࡤࡢࡶࡤ࠾ࠥࢁࡽࠣℓ").format(e))
   return
-def bstack11l111111l1_opy_():
-    return platform.system() == bstack1ll111_opy_ (u"࡚ࠩ࡭ࡳࡪ࡯ࡸࡵࠪᮄ")
-def bstack1111ll11l_opy_(bstack111l111lll1_opy_, config, logger):
-    bstack111l1l1l1l1_opy_ = {}
+def bstack11111l11111_opy_():
+    return platform.system() == bstack1111l_opy_ (u"ࠬ࡝ࡩ࡯ࡦࡲࡻࡸ࠭℔")
+def bstack1ll111l1_opy_(bstack111l111l111_opy_, config, logger):
+    bstack1111l111111_opy_ = {}
     try:
-        return {key: config[key] for key in config if bstack111l111lll1_opy_.match(key)}
+        return {key: config[key] for key in config if bstack111l111l111_opy_.match(key)}
     except Exception as e:
-        logger.debug(bstack1ll111_opy_ (u"࡙ࠥࡳࡧࡢ࡭ࡧࠣࡸࡴࠦࡦࡪ࡮ࡷࡩࡷࠦࡣࡰࡰࡩ࡭࡬ࠦ࡫ࡦࡻࡶࠤࡧࡿࠠࡳࡧࡪࡩࡽࠦ࡭ࡢࡶࡦ࡬࠿ࠦࡻࡾࠤᮅ").format(e))
-    return bstack111l1l1l1l1_opy_
-def bstack11l1111l1l1_opy_(bstack11l1111llll_opy_, bstack111llll1lll_opy_):
-    bstack111l11ll1l1_opy_ = version.parse(bstack11l1111llll_opy_)
-    bstack111llll1l1l_opy_ = version.parse(bstack111llll1lll_opy_)
-    if bstack111l11ll1l1_opy_ > bstack111llll1l1l_opy_:
+        logger.debug(bstack1111l_opy_ (u"ࠨࡕ࡯ࡣࡥࡰࡪࠦࡴࡰࠢࡩ࡭ࡱࡺࡥࡳࠢࡦࡳࡳ࡬ࡩࡨࠢ࡮ࡩࡾࡹࠠࡣࡻࠣࡶࡪ࡭ࡥࡹࠢࡰࡥࡹࡩࡨ࠻ࠢࡾࢁࠧℕ").format(e))
+    return bstack1111l111111_opy_
+def bstack1111ll11111_opy_(bstack111111l11ll_opy_, bstack11111llll1l_opy_):
+    bstack1111l1lll11_opy_ = version.parse(bstack111111l11ll_opy_)
+    bstack1111l11l11l_opy_ = version.parse(bstack11111llll1l_opy_)
+    if bstack1111l1lll11_opy_ > bstack1111l11l11l_opy_:
         return 1
-    elif bstack111l11ll1l1_opy_ < bstack111llll1l1l_opy_:
+    elif bstack1111l1lll11_opy_ < bstack1111l11l11l_opy_:
         return -1
     else:
         return 0
-def bstack1lllllll1ll_opy_():
+def bstack1lllll1111l_opy_():
     return datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
-def bstack11l11111111_opy_(timestamp):
+def bstack11111ll1l1l_opy_(timestamp):
     return datetime.datetime.fromtimestamp(timestamp, datetime.timezone.utc).replace(tzinfo=None)
-def bstack111lll11l11_opy_(framework):
+def bstack1111lllllll_opy_(framework):
     from browserstack_sdk._version import __version__
     return str(framework) + str(__version__)
-def bstack111ll11l11_opy_(options, framework, config, bstack1ll11l1l11_opy_={}):
+def bstack1l111l11_opy_(options, framework, config, bstack11llll11_opy_={}):
     if options is None:
         return
-    if getattr(options, bstack1ll111_opy_ (u"ࠫ࡬࡫ࡴࠨᮆ"), None):
+    if getattr(options, bstack1111l_opy_ (u"ࠧࡨࡧࡷࠫ№"), None):
         caps = options
     else:
         caps = options.to_capabilities()
-    bstack1ll111ll11_opy_ = caps.get(bstack1ll111_opy_ (u"ࠬࡨࡳࡵࡣࡦ࡯࠿ࡵࡰࡵ࡫ࡲࡲࡸ࠭ᮇ"))
-    bstack111llll111l_opy_ = True
-    bstack111l11lll1_opy_ = os.environ[bstack1ll111_opy_ (u"࠭ࡂࡓࡑ࡚ࡗࡊࡘࡓࡕࡃࡆࡏࡤ࡚ࡅࡔࡖࡋ࡙ࡇࡥࡕࡖࡋࡇࠫᮈ")]
-    bstack1l11lll11l1_opy_ = config.get(bstack1ll111_opy_ (u"ࠧࡢࡥࡦࡩࡸࡹࡩࡣ࡫࡯࡭ࡹࡿࠧᮉ"), False)
-    if bstack1l11lll11l1_opy_:
-        bstack1l1ll11l1ll_opy_ = config.get(bstack1ll111_opy_ (u"ࠨࡣࡦࡧࡪࡹࡳࡪࡤ࡬ࡰ࡮ࡺࡹࡐࡲࡷ࡭ࡴࡴࡳࠨᮊ"), {})
-        bstack1l1ll11l1ll_opy_[bstack1ll111_opy_ (u"ࠩࡤࡹࡹ࡮ࡔࡰ࡭ࡨࡲࠬᮋ")] = os.getenv(bstack1ll111_opy_ (u"ࠪࡆࡘࡥࡁ࠲࠳࡜ࡣࡏ࡝ࡔࠨᮌ"))
-        bstack111l1lll11l_opy_ = json.loads(os.getenv(bstack1ll111_opy_ (u"ࠫࡇࡘࡏࡘࡕࡈࡖࡘ࡚ࡁࡄࡍࡢࡘࡊ࡙ࡔࡠࡃࡆࡇࡊ࡙ࡓࡊࡄࡌࡐࡎ࡚࡙ࡠࡅࡒࡒࡋࡏࡇࡖࡔࡄࡘࡎࡕࡎࡠ࡛ࡐࡐࠬᮍ"), bstack1ll111_opy_ (u"ࠬࢁࡽࠨᮎ"))).get(bstack1ll111_opy_ (u"࠭ࡳࡤࡣࡱࡲࡪࡸࡖࡦࡴࡶ࡭ࡴࡴࠧᮏ"))
-    if bstack111l1llll11_opy_(caps.get(bstack1ll111_opy_ (u"ࠧࡣࡴࡲࡻࡸ࡫ࡲࡴࡶࡤࡧࡰ࠴ࡵࡴࡧ࡚࠷ࡈ࠭ᮐ"))) or bstack111l1llll11_opy_(caps.get(bstack1ll111_opy_ (u"ࠨࡤࡵࡳࡼࡹࡥࡳࡵࡷࡥࡨࡱ࠮ࡶࡵࡨࡣࡼ࠹ࡣࠨᮑ"))):
-        bstack111llll111l_opy_ = False
-    if bstack1111lllll_opy_({bstack1ll111_opy_ (u"ࠤࡸࡷࡪ࡝࠳ࡄࠤᮒ"): bstack111llll111l_opy_}):
-        bstack1ll111ll11_opy_ = bstack1ll111ll11_opy_ or {}
-        bstack1ll111ll11_opy_[bstack1ll111_opy_ (u"ࠪࡦࡷࡵࡷࡴࡧࡵࡷࡹࡧࡣ࡬ࡕࡇࡏࠬᮓ")] = bstack111lll11l11_opy_(framework)
-        bstack1ll111ll11_opy_[bstack1ll111_opy_ (u"ࠫࡧࡸ࡯ࡸࡵࡨࡶࡸࡺࡡࡤ࡭ࡄࡹࡹࡵ࡭ࡢࡶ࡬ࡳࡳ࠭ᮔ")] = bstack1lll111l1_opy_()
-        bstack1ll111ll11_opy_[bstack1ll111_opy_ (u"ࠬࡺࡥࡴࡶ࡫ࡹࡧࡈࡵࡪ࡮ࡧ࡙ࡺ࡯ࡤࠨᮕ")] = bstack111l11lll1_opy_
-        bstack1ll111ll11_opy_[bstack1ll111_opy_ (u"࠭ࡢࡶ࡫࡯ࡨࡕࡸ࡯ࡥࡷࡦࡸࡒࡧࡰࠨᮖ")] = bstack1ll11l1l11_opy_
-        if bstack1l11lll11l1_opy_:
-            bstack1ll111ll11_opy_[bstack1ll111_opy_ (u"ࠧࡢࡥࡦࡩࡸࡹࡩࡣ࡫࡯࡭ࡹࡿࠧᮗ")] = bstack1l11lll11l1_opy_
-            bstack1ll111ll11_opy_[bstack1ll111_opy_ (u"ࠨࡣࡦࡧࡪࡹࡳࡪࡤ࡬ࡰ࡮ࡺࡹࡐࡲࡷ࡭ࡴࡴࡳࠨᮘ")] = bstack1l1ll11l1ll_opy_
-            bstack1ll111ll11_opy_[bstack1ll111_opy_ (u"ࠩࡤࡧࡨ࡫ࡳࡴ࡫ࡥ࡭ࡱ࡯ࡴࡺࡑࡳࡸ࡮ࡵ࡮ࡴࠩᮙ")][bstack1ll111_opy_ (u"ࠪࡷࡨࡧ࡮࡯ࡧࡵ࡚ࡪࡸࡳࡪࡱࡱࠫᮚ")] = bstack111l1lll11l_opy_
-        if getattr(options, bstack1ll111_opy_ (u"ࠫࡸ࡫ࡴࡠࡥࡤࡴࡦࡨࡩ࡭࡫ࡷࡽࠬᮛ"), None):
-            options.set_capability(bstack1ll111_opy_ (u"ࠬࡨࡳࡵࡣࡦ࡯࠿ࡵࡰࡵ࡫ࡲࡲࡸ࠭ᮜ"), bstack1ll111ll11_opy_)
+    bstack11llll11ll_opy_ = caps.get(bstack1111l_opy_ (u"ࠨࡤࡶࡸࡦࡩ࡫࠻ࡱࡳࡸ࡮ࡵ࡮ࡴࠩ℗"))
+    bstack1111l1l1lll_opy_ = True
+    bstack1111l111ll_opy_ = os.environ[bstack1111l_opy_ (u"ࠩࡅࡖࡔ࡝ࡓࡆࡔࡖࡘࡆࡉࡋࡠࡖࡈࡗ࡙ࡎࡕࡃࡡࡘ࡙ࡎࡊࠧ℘")]
+    bstack1l11lll1ll1_opy_ = config.get(bstack1111l_opy_ (u"ࠪࡥࡨࡩࡥࡴࡵ࡬ࡦ࡮ࡲࡩࡵࡻࠪℙ"), False)
+    if bstack1l11lll1ll1_opy_:
+        bstack1l1ll11l111_opy_ = config.get(bstack1111l_opy_ (u"ࠫࡦࡩࡣࡦࡵࡶ࡭ࡧ࡯࡬ࡪࡶࡼࡓࡵࡺࡩࡰࡰࡶࠫℚ"), {})
+        bstack1l1ll11l111_opy_[bstack1111l_opy_ (u"ࠬࡧࡵࡵࡪࡗࡳࡰ࡫࡮ࠨℛ")] = os.getenv(bstack1111l_opy_ (u"࠭ࡂࡔࡡࡄ࠵࠶࡟࡟ࡋ࡙ࡗࠫℜ"))
+        bstack1llll111_opy_ = json.loads(os.getenv(bstack1111l_opy_ (u"ࠧࡃࡔࡒ࡛ࡘࡋࡒࡔࡖࡄࡇࡐࡥࡔࡆࡕࡗࡣࡆࡉࡃࡆࡕࡖࡍࡇࡏࡌࡊࡖ࡜ࡣࡈࡕࡎࡇࡋࡊ࡙ࡗࡇࡔࡊࡑࡑࡣ࡞ࡓࡌࠨℝ"), bstack1111l_opy_ (u"ࠨࡽࢀࠫ℞"))).get(bstack1111l_opy_ (u"ࠩࡶࡧࡦࡴ࡮ࡦࡴ࡙ࡩࡷࡹࡩࡰࡰࠪ℟"))
+    if bstack111111l11l1_opy_(caps.get(bstack1111l_opy_ (u"ࠪࡦࡷࡵࡷࡴࡧࡵࡷࡹࡧࡣ࡬࠰ࡸࡷࡪ࡝࠳ࡄࠩ℠"))) or bstack111111l11l1_opy_(caps.get(bstack1111l_opy_ (u"ࠫࡧࡸ࡯ࡸࡵࡨࡶࡸࡺࡡࡤ࡭࠱ࡹࡸ࡫࡟ࡸ࠵ࡦࠫ℡"))):
+        bstack1111l1l1lll_opy_ = False
+    if bstack11l1111l_opy_({bstack1111l_opy_ (u"ࠧࡻࡳࡦ࡙࠶ࡇࠧ™"): bstack1111l1l1lll_opy_}):
+        bstack11llll11ll_opy_ = bstack11llll11ll_opy_ or {}
+        bstack11llll11ll_opy_[bstack1111l_opy_ (u"࠭ࡢࡳࡱࡺࡷࡪࡸࡳࡵࡣࡦ࡯ࡘࡊࡋࠨ℣")] = bstack1111lllllll_opy_(framework)
+        bstack11llll11ll_opy_[bstack1111l_opy_ (u"ࠧࡣࡴࡲࡻࡸ࡫ࡲࡴࡶࡤࡧࡰࡇࡵࡵࡱࡰࡥࡹ࡯࡯࡯ࠩℤ")] = bstack111l1ll11l_opy_()
+        bstack11llll11ll_opy_[bstack1111l_opy_ (u"ࠨࡶࡨࡷࡹ࡮ࡵࡣࡄࡸ࡭ࡱࡪࡕࡶ࡫ࡧࠫ℥")] = bstack1111l111ll_opy_
+        bstack11llll11ll_opy_[bstack1111l_opy_ (u"ࠩࡥࡹ࡮ࡲࡤࡑࡴࡲࡨࡺࡩࡴࡎࡣࡳࠫΩ")] = bstack11llll11_opy_
+        if bstack1l11lll1ll1_opy_:
+            bstack11llll11ll_opy_[bstack1111l_opy_ (u"ࠪࡥࡨࡩࡥࡴࡵ࡬ࡦ࡮ࡲࡩࡵࡻࠪ℧")] = bstack1l11lll1ll1_opy_
+            bstack11llll11ll_opy_[bstack1111l_opy_ (u"ࠫࡦࡩࡣࡦࡵࡶ࡭ࡧ࡯࡬ࡪࡶࡼࡓࡵࡺࡩࡰࡰࡶࠫℨ")] = bstack1l1ll11l111_opy_
+            bstack11llll11ll_opy_[bstack1111l_opy_ (u"ࠬࡧࡣࡤࡧࡶࡷ࡮ࡨࡩ࡭࡫ࡷࡽࡔࡶࡴࡪࡱࡱࡷࠬ℩")][bstack1111l_opy_ (u"࠭ࡳࡤࡣࡱࡲࡪࡸࡖࡦࡴࡶ࡭ࡴࡴࠧK")] = bstack1llll111_opy_
+        if getattr(options, bstack1111l_opy_ (u"ࠧࡴࡧࡷࡣࡨࡧࡰࡢࡤ࡬ࡰ࡮ࡺࡹࠨÅ"), None):
+            options.set_capability(bstack1111l_opy_ (u"ࠨࡤࡶࡸࡦࡩ࡫࠻ࡱࡳࡸ࡮ࡵ࡮ࡴࠩℬ"), bstack11llll11ll_opy_)
         else:
-            options[bstack1ll111_opy_ (u"࠭ࡢࡴࡶࡤࡧࡰࡀ࡯ࡱࡶ࡬ࡳࡳࡹࠧᮝ")] = bstack1ll111ll11_opy_
+            options[bstack1111l_opy_ (u"ࠩࡥࡷࡹࡧࡣ࡬࠼ࡲࡴࡹ࡯࡯࡯ࡵࠪℭ")] = bstack11llll11ll_opy_
     else:
-        if getattr(options, bstack1ll111_opy_ (u"ࠧࡴࡧࡷࡣࡨࡧࡰࡢࡤ࡬ࡰ࡮ࡺࡹࠨᮞ"), None):
-            options.set_capability(bstack1ll111_opy_ (u"ࠨࡤࡵࡳࡼࡹࡥࡳࡵࡷࡥࡨࡱ࠮ࡣࡴࡲࡻࡸ࡫ࡲࡴࡶࡤࡧࡰ࡙ࡄࡌࠩᮟ"), bstack111lll11l11_opy_(framework))
-            options.set_capability(bstack1ll111_opy_ (u"ࠩࡥࡶࡴࡽࡳࡦࡴࡶࡸࡦࡩ࡫࠯ࡤࡵࡳࡼࡹࡥࡳࡵࡷࡥࡨࡱࡁࡶࡶࡲࡱࡦࡺࡩࡰࡰࠪᮠ"), bstack1lll111l1_opy_())
-            options.set_capability(bstack1ll111_opy_ (u"ࠪࡦࡷࡵࡷࡴࡧࡵࡷࡹࡧࡣ࡬࠰ࡷࡩࡸࡺࡨࡶࡤࡅࡹ࡮ࡲࡤࡖࡷ࡬ࡨࠬᮡ"), bstack111l11lll1_opy_)
-            options.set_capability(bstack1ll111_opy_ (u"ࠫࡧࡸ࡯ࡸࡵࡨࡶࡸࡺࡡࡤ࡭࠱ࡦࡺ࡯࡬ࡥࡒࡵࡳࡩࡻࡣࡵࡏࡤࡴࠬᮢ"), bstack1ll11l1l11_opy_)
-            if bstack1l11lll11l1_opy_:
-                options.set_capability(bstack1ll111_opy_ (u"ࠬࡨࡲࡰࡹࡶࡩࡷࡹࡴࡢࡥ࡮࠲ࡦࡩࡣࡦࡵࡶ࡭ࡧ࡯࡬ࡪࡶࡼࠫᮣ"), bstack1l11lll11l1_opy_)
-                options.set_capability(bstack1ll111_opy_ (u"࠭ࡢࡳࡱࡺࡷࡪࡸࡳࡵࡣࡦ࡯࠳ࡧࡣࡤࡧࡶࡷ࡮ࡨࡩ࡭࡫ࡷࡽࡔࡶࡴࡪࡱࡱࡷࠬᮤ"), bstack1l1ll11l1ll_opy_)
-                options.set_capability(bstack1ll111_opy_ (u"ࠧࡣࡴࡲࡻࡸ࡫ࡲࡴࡶࡤࡧࡰ࠴ࡡࡤࡥࡨࡷࡸ࡯ࡢࡪ࡮࡬ࡸࡾࡕࡰࡵ࡫ࡲࡲࡸ࠴ࡳࡤࡣࡱࡲࡪࡸࡖࡦࡴࡶ࡭ࡴࡴࠧᮥ"), bstack111l1lll11l_opy_)
+        if getattr(options, bstack1111l_opy_ (u"ࠪࡷࡪࡺ࡟ࡤࡣࡳࡥࡧ࡯࡬ࡪࡶࡼࠫ℮"), None):
+            options.set_capability(bstack1111l_opy_ (u"ࠫࡧࡸ࡯ࡸࡵࡨࡶࡸࡺࡡࡤ࡭࠱ࡦࡷࡵࡷࡴࡧࡵࡷࡹࡧࡣ࡬ࡕࡇࡏࠬℯ"), bstack1111lllllll_opy_(framework))
+            options.set_capability(bstack1111l_opy_ (u"ࠬࡨࡲࡰࡹࡶࡩࡷࡹࡴࡢࡥ࡮࠲ࡧࡸ࡯ࡸࡵࡨࡶࡸࡺࡡࡤ࡭ࡄࡹࡹࡵ࡭ࡢࡶ࡬ࡳࡳ࠭ℰ"), bstack111l1ll11l_opy_())
+            options.set_capability(bstack1111l_opy_ (u"࠭ࡢࡳࡱࡺࡷࡪࡸࡳࡵࡣࡦ࡯࠳ࡺࡥࡴࡶ࡫ࡹࡧࡈࡵࡪ࡮ࡧ࡙ࡺ࡯ࡤࠨℱ"), bstack1111l111ll_opy_)
+            options.set_capability(bstack1111l_opy_ (u"ࠧࡣࡴࡲࡻࡸ࡫ࡲࡴࡶࡤࡧࡰ࠴ࡢࡶ࡫࡯ࡨࡕࡸ࡯ࡥࡷࡦࡸࡒࡧࡰࠨℲ"), bstack11llll11_opy_)
+            if bstack1l11lll1ll1_opy_:
+                options.set_capability(bstack1111l_opy_ (u"ࠨࡤࡵࡳࡼࡹࡥࡳࡵࡷࡥࡨࡱ࠮ࡢࡥࡦࡩࡸࡹࡩࡣ࡫࡯࡭ࡹࡿࠧℳ"), bstack1l11lll1ll1_opy_)
+                options.set_capability(bstack1111l_opy_ (u"ࠩࡥࡶࡴࡽࡳࡦࡴࡶࡸࡦࡩ࡫࠯ࡣࡦࡧࡪࡹࡳࡪࡤ࡬ࡰ࡮ࡺࡹࡐࡲࡷ࡭ࡴࡴࡳࠨℴ"), bstack1l1ll11l111_opy_)
+                options.set_capability(bstack1111l_opy_ (u"ࠪࡦࡷࡵࡷࡴࡧࡵࡷࡹࡧࡣ࡬࠰ࡤࡧࡨ࡫ࡳࡴ࡫ࡥ࡭ࡱ࡯ࡴࡺࡑࡳࡸ࡮ࡵ࡮ࡴ࠰ࡶࡧࡦࡴ࡮ࡦࡴ࡙ࡩࡷࡹࡩࡰࡰࠪℵ"), bstack1llll111_opy_)
         else:
-            options[bstack1ll111_opy_ (u"ࠨࡤࡵࡳࡼࡹࡥࡳࡵࡷࡥࡨࡱ࠮ࡣࡴࡲࡻࡸ࡫ࡲࡴࡶࡤࡧࡰ࡙ࡄࡌࠩᮦ")] = bstack111lll11l11_opy_(framework)
-            options[bstack1ll111_opy_ (u"ࠩࡥࡶࡴࡽࡳࡦࡴࡶࡸࡦࡩ࡫࠯ࡤࡵࡳࡼࡹࡥࡳࡵࡷࡥࡨࡱࡁࡶࡶࡲࡱࡦࡺࡩࡰࡰࠪᮧ")] = bstack1lll111l1_opy_()
-            options[bstack1ll111_opy_ (u"ࠪࡦࡷࡵࡷࡴࡧࡵࡷࡹࡧࡣ࡬࠰ࡷࡩࡸࡺࡨࡶࡤࡅࡹ࡮ࡲࡤࡖࡷ࡬ࡨࠬᮨ")] = bstack111l11lll1_opy_
-            options[bstack1ll111_opy_ (u"ࠫࡧࡸ࡯ࡸࡵࡨࡶࡸࡺࡡࡤ࡭࠱ࡦࡺ࡯࡬ࡥࡒࡵࡳࡩࡻࡣࡵࡏࡤࡴࠬᮩ")] = bstack1ll11l1l11_opy_
-            if bstack1l11lll11l1_opy_:
-                options[bstack1ll111_opy_ (u"ࠬࡨࡲࡰࡹࡶࡩࡷࡹࡴࡢࡥ࡮࠲ࡦࡩࡣࡦࡵࡶ࡭ࡧ࡯࡬ࡪࡶࡼ᮪ࠫ")] = bstack1l11lll11l1_opy_
-                options[bstack1ll111_opy_ (u"࠭ࡢࡳࡱࡺࡷࡪࡸࡳࡵࡣࡦ࡯࠳ࡧࡣࡤࡧࡶࡷ࡮ࡨࡩ࡭࡫ࡷࡽࡔࡶࡴࡪࡱࡱࡷ᮫ࠬ")] = bstack1l1ll11l1ll_opy_
-                options[bstack1ll111_opy_ (u"ࠧࡣࡴࡲࡻࡸ࡫ࡲࡴࡶࡤࡧࡰ࠴ࡡࡤࡥࡨࡷࡸ࡯ࡢࡪ࡮࡬ࡸࡾࡕࡰࡵ࡫ࡲࡲࡸ࠭ᮬ")][bstack1ll111_opy_ (u"ࠨࡵࡦࡥࡳࡴࡥࡳࡘࡨࡶࡸ࡯࡯࡯ࠩᮭ")] = bstack111l1lll11l_opy_
+            options[bstack1111l_opy_ (u"ࠫࡧࡸ࡯ࡸࡵࡨࡶࡸࡺࡡࡤ࡭࠱ࡦࡷࡵࡷࡴࡧࡵࡷࡹࡧࡣ࡬ࡕࡇࡏࠬℶ")] = bstack1111lllllll_opy_(framework)
+            options[bstack1111l_opy_ (u"ࠬࡨࡲࡰࡹࡶࡩࡷࡹࡴࡢࡥ࡮࠲ࡧࡸ࡯ࡸࡵࡨࡶࡸࡺࡡࡤ࡭ࡄࡹࡹࡵ࡭ࡢࡶ࡬ࡳࡳ࠭ℷ")] = bstack111l1ll11l_opy_()
+            options[bstack1111l_opy_ (u"࠭ࡢࡳࡱࡺࡷࡪࡸࡳࡵࡣࡦ࡯࠳ࡺࡥࡴࡶ࡫ࡹࡧࡈࡵࡪ࡮ࡧ࡙ࡺ࡯ࡤࠨℸ")] = bstack1111l111ll_opy_
+            options[bstack1111l_opy_ (u"ࠧࡣࡴࡲࡻࡸ࡫ࡲࡴࡶࡤࡧࡰ࠴ࡢࡶ࡫࡯ࡨࡕࡸ࡯ࡥࡷࡦࡸࡒࡧࡰࠨℹ")] = bstack11llll11_opy_
+            if bstack1l11lll1ll1_opy_:
+                options[bstack1111l_opy_ (u"ࠨࡤࡵࡳࡼࡹࡥࡳࡵࡷࡥࡨࡱ࠮ࡢࡥࡦࡩࡸࡹࡩࡣ࡫࡯࡭ࡹࡿࠧ℺")] = bstack1l11lll1ll1_opy_
+                options[bstack1111l_opy_ (u"ࠩࡥࡶࡴࡽࡳࡦࡴࡶࡸࡦࡩ࡫࠯ࡣࡦࡧࡪࡹࡳࡪࡤ࡬ࡰ࡮ࡺࡹࡐࡲࡷ࡭ࡴࡴࡳࠨ℻")] = bstack1l1ll11l111_opy_
+                options[bstack1111l_opy_ (u"ࠪࡦࡷࡵࡷࡴࡧࡵࡷࡹࡧࡣ࡬࠰ࡤࡧࡨ࡫ࡳࡴ࡫ࡥ࡭ࡱ࡯ࡴࡺࡑࡳࡸ࡮ࡵ࡮ࡴࠩℼ")][bstack1111l_opy_ (u"ࠫࡸࡩࡡ࡯ࡰࡨࡶ࡛࡫ࡲࡴ࡫ࡲࡲࠬℽ")] = bstack1llll111_opy_
     return options
-def bstack111ll11l11l_opy_(ws_endpoint, framework):
-    bstack1ll11l1l11_opy_ = global_config.get_property(bstack1ll111_opy_ (u"ࠤࡓࡐࡆ࡟ࡗࡓࡋࡊࡌ࡙ࡥࡐࡓࡑࡇ࡙ࡈ࡚࡟ࡎࡃࡓࠦᮮ"))
-    if ws_endpoint and len(ws_endpoint.split(bstack1ll111_opy_ (u"ࠪࡧࡦࡶࡳ࠾ࠩᮯ"))) > 1:
-        ws_url = ws_endpoint.split(bstack1ll111_opy_ (u"ࠫࡨࡧࡰࡴ࠿ࠪ᮰"))[0]
-        if bstack1ll111_opy_ (u"ࠬࡨࡲࡰࡹࡶࡩࡷࡹࡴࡢࡥ࡮࠲ࡨࡵ࡭ࠨ᮱") in ws_url:
+def bstack111111ll111_opy_(ws_endpoint, framework):
+    bstack11llll11_opy_ = global_config.get_property(bstack1111l_opy_ (u"ࠧࡖࡌࡂ࡛࡚ࡖࡎࡍࡈࡕࡡࡓࡖࡔࡊࡕࡄࡖࡢࡑࡆࡖࠢℾ"))
+    if ws_endpoint and len(ws_endpoint.split(bstack1111l_opy_ (u"࠭ࡣࡢࡲࡶࡁࠬℿ"))) > 1:
+        ws_url = ws_endpoint.split(bstack1111l_opy_ (u"ࠧࡤࡣࡳࡷࡂ࠭⅀"))[0]
+        if bstack1111l_opy_ (u"ࠨࡤࡵࡳࡼࡹࡥࡳࡵࡷࡥࡨࡱ࠮ࡤࡱࡰࠫ⅁") in ws_url:
             from browserstack_sdk._version import __version__
-            bstack11l1111l111_opy_ = json.loads(urllib.parse.unquote(ws_endpoint.split(bstack1ll111_opy_ (u"࠭ࡣࡢࡲࡶࡁࠬ᮲"))[1]))
-            bstack11l1111l111_opy_ = bstack11l1111l111_opy_ or {}
-            bstack111l11lll1_opy_ = os.environ[bstack1ll111_opy_ (u"ࠧࡃࡔࡒ࡛ࡘࡋࡒࡔࡖࡄࡇࡐࡥࡔࡆࡕࡗࡌ࡚ࡈ࡟ࡖࡗࡌࡈࠬ᮳")]
-            bstack11l1111l111_opy_[bstack1ll111_opy_ (u"ࠨࡤࡵࡳࡼࡹࡥࡳࡵࡷࡥࡨࡱ࠮ࡣࡴࡲࡻࡸ࡫ࡲࡴࡶࡤࡧࡰ࡙ࡄࡌࠩ᮴")] = str(framework) + str(__version__)
-            bstack11l1111l111_opy_[bstack1ll111_opy_ (u"ࠩࡥࡶࡴࡽࡳࡦࡴࡶࡸࡦࡩ࡫࠯ࡤࡵࡳࡼࡹࡥࡳࡵࡷࡥࡨࡱࡁࡶࡶࡲࡱࡦࡺࡩࡰࡰࠪ᮵")] = bstack1lll111l1_opy_()
-            bstack11l1111l111_opy_[bstack1ll111_opy_ (u"ࠪࡦࡷࡵࡷࡴࡧࡵࡷࡹࡧࡣ࡬࠰ࡷࡩࡸࡺࡨࡶࡤࡅࡹ࡮ࡲࡤࡖࡷ࡬ࡨࠬ᮶")] = bstack111l11lll1_opy_
-            bstack11l1111l111_opy_[bstack1ll111_opy_ (u"ࠫࡧࡸ࡯ࡸࡵࡨࡶࡸࡺࡡࡤ࡭࠱ࡦࡺ࡯࡬ࡥࡒࡵࡳࡩࡻࡣࡵࡏࡤࡴࠬ᮷")] = bstack1ll11l1l11_opy_
-            ws_endpoint = ws_endpoint.split(bstack1ll111_opy_ (u"ࠬࡩࡡࡱࡵࡀࠫ᮸"))[0] + bstack1ll111_opy_ (u"࠭ࡣࡢࡲࡶࡁࠬ᮹") + urllib.parse.quote(json.dumps(bstack11l1111l111_opy_))
+            bstack1111l1llll1_opy_ = json.loads(urllib.parse.unquote(ws_endpoint.split(bstack1111l_opy_ (u"ࠩࡦࡥࡵࡹ࠽ࠨ⅂"))[1]))
+            bstack1111l1llll1_opy_ = bstack1111l1llll1_opy_ or {}
+            bstack1111l111ll_opy_ = os.environ[bstack1111l_opy_ (u"ࠪࡆࡗࡕࡗࡔࡇࡕࡗ࡙ࡇࡃࡌࡡࡗࡉࡘ࡚ࡈࡖࡄࡢ࡙࡚ࡏࡄࠨ⅃")]
+            bstack1111l1llll1_opy_[bstack1111l_opy_ (u"ࠫࡧࡸ࡯ࡸࡵࡨࡶࡸࡺࡡࡤ࡭࠱ࡦࡷࡵࡷࡴࡧࡵࡷࡹࡧࡣ࡬ࡕࡇࡏࠬ⅄")] = str(framework) + str(__version__)
+            bstack1111l1llll1_opy_[bstack1111l_opy_ (u"ࠬࡨࡲࡰࡹࡶࡩࡷࡹࡴࡢࡥ࡮࠲ࡧࡸ࡯ࡸࡵࡨࡶࡸࡺࡡࡤ࡭ࡄࡹࡹࡵ࡭ࡢࡶ࡬ࡳࡳ࠭ⅅ")] = bstack111l1ll11l_opy_()
+            bstack1111l1llll1_opy_[bstack1111l_opy_ (u"࠭ࡢࡳࡱࡺࡷࡪࡸࡳࡵࡣࡦ࡯࠳ࡺࡥࡴࡶ࡫ࡹࡧࡈࡵࡪ࡮ࡧ࡙ࡺ࡯ࡤࠨⅆ")] = bstack1111l111ll_opy_
+            bstack1111l1llll1_opy_[bstack1111l_opy_ (u"ࠧࡣࡴࡲࡻࡸ࡫ࡲࡴࡶࡤࡧࡰ࠴ࡢࡶ࡫࡯ࡨࡕࡸ࡯ࡥࡷࡦࡸࡒࡧࡰࠨⅇ")] = bstack11llll11_opy_
+            ws_endpoint = ws_endpoint.split(bstack1111l_opy_ (u"ࠨࡥࡤࡴࡸࡃࠧⅈ"))[0] + bstack1111l_opy_ (u"ࠩࡦࡥࡵࡹ࠽ࠨⅉ") + urllib.parse.quote(json.dumps(bstack1111l1llll1_opy_))
     return ws_endpoint
-def bstack1ll1lll11_opy_():
-    global bstack1111111l_opy_
+def bstack1l11ll1ll_opy_():
+    global bstack1l1l1l1l1l_opy_
     from playwright._impl._browser_type import BrowserType
-    bstack1111111l_opy_ = BrowserType.connect
-    return bstack1111111l_opy_
-def bstack111ll1l11l1_opy_(framework_name):
+    bstack1l1l1l1l1l_opy_ = BrowserType.connect
+    return bstack1l1l1l1l1l_opy_
+def bstack111111l1ll1_opy_(framework_name):
     global FRAMEWORK_NAME
     FRAMEWORK_NAME = framework_name
     return framework_name
-def bstack1l1ll1ll111_opy_(self, *args, **kwargs):
-    global bstack1111111l_opy_
+def bstack1ll1111llll_opy_(self, *args, **kwargs):
+    global bstack1l1l1l1l1l_opy_
     try:
         global FRAMEWORK_NAME
-        if bstack1ll111_opy_ (u"ࠧࡸࡵࡈࡲࡩࡶ࡯ࡪࡰࡷࠫᮺ") in kwargs:
-            kwargs[bstack1ll111_opy_ (u"ࠨࡹࡶࡉࡳࡪࡰࡰ࡫ࡱࡸࠬᮻ")] = bstack111ll11l11l_opy_(
-                kwargs.get(bstack1ll111_opy_ (u"ࠩࡺࡷࡊࡴࡤࡱࡱ࡬ࡲࡹ࠭ᮼ"), None),
+        if bstack1111l_opy_ (u"ࠪࡻࡸࡋ࡮ࡥࡲࡲ࡭ࡳࡺࠧ⅊") in kwargs:
+            kwargs[bstack1111l_opy_ (u"ࠫࡼࡹࡅ࡯ࡦࡳࡳ࡮ࡴࡴࠨ⅋")] = bstack111111ll111_opy_(
+                kwargs.get(bstack1111l_opy_ (u"ࠬࡽࡳࡆࡰࡧࡴࡴ࡯࡮ࡵࠩ⅌"), None),
                 FRAMEWORK_NAME
             )
     except Exception as e:
-        logger.error(bstack1ll111_opy_ (u"ࠥࡉࡷࡸ࡯ࡳࠢࡺ࡬ࡪࡴࠠࡱࡴࡲࡧࡪࡹࡳࡪࡰࡪࠤࡘࡊࡋࠡࡥࡤࡴࡸࡀࠠࡼࡿࠥᮽ").format(str(e)))
-    return bstack1111111l_opy_(self, *args, **kwargs)
-def bstack111ll11lll1_opy_(bstack11l11111lll_opy_, proxies):
+        logger.error(bstack1111l_opy_ (u"ࠨࡅࡳࡴࡲࡶࠥࡽࡨࡦࡰࠣࡴࡷࡵࡣࡦࡵࡶ࡭ࡳ࡭ࠠࡔࡆࡎࠤࡨࡧࡰࡴ࠼ࠣࡿࢂࠨ⅍").format(str(e)))
+    return bstack1l1l1l1l1l_opy_(self, *args, **kwargs)
+def bstack111l1111111_opy_(bstack11111l1lll1_opy_, proxies):
     proxy_settings = {}
     try:
         if not proxies:
-            proxies = bstack111lllllll_opy_(bstack11l11111lll_opy_, bstack1ll111_opy_ (u"ࠦࠧᮾ"))
-        if proxies and proxies.get(bstack1ll111_opy_ (u"ࠧ࡮ࡴࡵࡲࡶࠦᮿ")):
-            parsed_url = urlparse(proxies.get(bstack1ll111_opy_ (u"ࠨࡨࡵࡶࡳࡷࠧᯀ")))
-            if parsed_url and parsed_url.hostname: proxy_settings[bstack1ll111_opy_ (u"ࠧࡱࡴࡲࡼࡾࡎ࡯ࡴࡶࠪᯁ")] = str(parsed_url.hostname)
-            if parsed_url and parsed_url.port: proxy_settings[bstack1ll111_opy_ (u"ࠨࡲࡵࡳࡽࡿࡐࡰࡴࡷࠫᯂ")] = str(parsed_url.port)
-            if parsed_url and parsed_url.username: proxy_settings[bstack1ll111_opy_ (u"ࠩࡳࡶࡴࡾࡹࡖࡵࡨࡶࠬᯃ")] = str(parsed_url.username)
-            if parsed_url and parsed_url.password: proxy_settings[bstack1ll111_opy_ (u"ࠪࡴࡷࡵࡸࡺࡒࡤࡷࡸ࠭ᯄ")] = str(parsed_url.password)
+            proxies = bstack1l1l111l11_opy_(bstack11111l1lll1_opy_, bstack1111l_opy_ (u"ࠢࠣⅎ"))
+        if proxies and proxies.get(bstack1111l_opy_ (u"ࠣࡪࡷࡸࡵࡹࠢ⅏")):
+            parsed_url = urlparse(proxies.get(bstack1111l_opy_ (u"ࠤ࡫ࡸࡹࡶࡳࠣ⅐")))
+            if parsed_url and parsed_url.hostname: proxy_settings[bstack1111l_opy_ (u"ࠪࡴࡷࡵࡸࡺࡊࡲࡷࡹ࠭⅑")] = str(parsed_url.hostname)
+            if parsed_url and parsed_url.port: proxy_settings[bstack1111l_opy_ (u"ࠫࡵࡸ࡯ࡹࡻࡓࡳࡷࡺࠧ⅒")] = str(parsed_url.port)
+            if parsed_url and parsed_url.username: proxy_settings[bstack1111l_opy_ (u"ࠬࡶࡲࡰࡺࡼ࡙ࡸ࡫ࡲࠨ⅓")] = str(parsed_url.username)
+            if parsed_url and parsed_url.password: proxy_settings[bstack1111l_opy_ (u"࠭ࡰࡳࡱࡻࡽࡕࡧࡳࡴࠩ⅔")] = str(parsed_url.password)
         return proxy_settings
     except:
         return proxy_settings
-def bstack1l1ll1ll_opy_(bstack11l11111lll_opy_):
-    bstack111ll1l11ll_opy_ = {
-        bstack111ll111111_opy_[bstack111lll1l1l1_opy_]: bstack11l11111lll_opy_[bstack111lll1l1l1_opy_]
-        for bstack111lll1l1l1_opy_ in bstack11l11111lll_opy_
-        if bstack111lll1l1l1_opy_ in bstack111ll111111_opy_
+def bstack1ll1l11l11_opy_(bstack11111l1lll1_opy_):
+    bstack1111l11111l_opy_ = {
+        bstack111l1l111ll_opy_[bstack1111lll11ll_opy_]: bstack11111l1lll1_opy_[bstack1111lll11ll_opy_]
+        for bstack1111lll11ll_opy_ in bstack11111l1lll1_opy_
+        if bstack1111lll11ll_opy_ in bstack111l1l111ll_opy_
     }
-    bstack111ll1l11ll_opy_[bstack1ll111_opy_ (u"ࠦࡵࡸ࡯ࡹࡻࡖࡩࡹࡺࡩ࡯ࡩࡶࠦᯅ")] = bstack111ll11lll1_opy_(bstack11l11111lll_opy_, global_config.get_property(bstack1ll111_opy_ (u"ࠧࡶࡲࡰࡺࡼࡗࡪࡺࡴࡪࡰࡪࡷࠧᯆ")))
-    bstack11l1111l11l_opy_ = [element.lower() for element in bstack111llll1111_opy_]
-    bstack111l11lllll_opy_(bstack111ll1l11ll_opy_, bstack11l1111l11l_opy_)
-    return bstack111ll1l11ll_opy_
-def bstack111l11lllll_opy_(d, keys):
+    bstack1111l11111l_opy_[bstack1111l_opy_ (u"ࠢࡱࡴࡲࡼࡾ࡙ࡥࡵࡶ࡬ࡲ࡬ࡹࠢ⅕")] = bstack111l1111111_opy_(bstack11111l1lll1_opy_, global_config.get_property(bstack1111l_opy_ (u"ࠣࡲࡵࡳࡽࡿࡓࡦࡶࡷ࡭ࡳ࡭ࡳࠣ⅖")))
+    bstack1111l1l1l11_opy_ = [element.lower() for element in bstack111l1l1l11l_opy_]
+    bstack11111lll11l_opy_(bstack1111l11111l_opy_, bstack1111l1l1l11_opy_)
+    return bstack1111l11111l_opy_
+def bstack11111lll11l_opy_(d, keys):
     for key in list(d.keys()):
         if key.lower() in keys:
-            d[key] = bstack1ll111_opy_ (u"ࠨࠪࠫࠬ࠭ࠦᯇ")
+            d[key] = bstack1111l_opy_ (u"ࠤ࠭࠮࠯࠰ࠢ⅗")
     for value in d.values():
         if isinstance(value, dict):
-            bstack111l11lllll_opy_(value, keys)
+            bstack11111lll11l_opy_(value, keys)
         elif isinstance(value, list):
             for item in value:
                 if isinstance(item, dict):
-                    bstack111l11lllll_opy_(item, keys)
-def bstack1l1111ll1ll_opy_():
-    bstack111ll1l1lll_opy_ = [os.environ.get(bstack1ll111_opy_ (u"ࠢࡃࡔࡒ࡛ࡘࡋࡒࡔࡖࡄࡇࡐࡥࡆࡊࡎࡈࡗࡤࡊࡉࡓࠤᯈ")), os.path.join(os.path.expanduser(bstack1ll111_opy_ (u"ࠣࢀࠥᯉ")), bstack1ll111_opy_ (u"ࠩ࠱ࡦࡷࡵࡷࡴࡧࡵࡷࡹࡧࡣ࡬ࠩᯊ")), os.path.join(bstack1ll111_opy_ (u"ࠪ࠳ࡹࡳࡰࠨᯋ"), bstack1ll111_opy_ (u"ࠫ࠳ࡨࡲࡰࡹࡶࡩࡷࡹࡴࡢࡥ࡮ࠫᯌ"))]
-    for path in bstack111ll1l1lll_opy_:
+                    bstack11111lll11l_opy_(item, keys)
+def bstack1l111llll1l_opy_():
+    bstack11111ll111l_opy_ = [os.environ.get(bstack1111l_opy_ (u"ࠥࡆࡗࡕࡗࡔࡇࡕࡗ࡙ࡇࡃࡌࡡࡉࡍࡑࡋࡓࡠࡆࡌࡖࠧ⅘")), os.path.join(os.path.expanduser(bstack1111l_opy_ (u"ࠦࢃࠨ⅙")), bstack1111l_opy_ (u"ࠬ࠴ࡢࡳࡱࡺࡷࡪࡸࡳࡵࡣࡦ࡯ࠬ⅚")), os.path.join(bstack1111l_opy_ (u"࠭࠯ࡵ࡯ࡳࠫ⅛"), bstack1111l_opy_ (u"ࠧ࠯ࡤࡵࡳࡼࡹࡥࡳࡵࡷࡥࡨࡱࠧ⅜"))]
+    for path in bstack11111ll111l_opy_:
         if path is None:
             continue
         try:
             if os.path.exists(path):
-                logger.debug(bstack1ll111_opy_ (u"ࠧࡌࡩ࡭ࡧࠣࠫࠧᯍ") + str(path) + bstack1ll111_opy_ (u"ࠨࠧࠡࡧࡻ࡭ࡸࡺࡳ࠯ࠤᯎ"))
+                logger.debug(bstack1111l_opy_ (u"ࠣࡈ࡬ࡰࡪࠦࠧࠣ⅝") + str(path) + bstack1111l_opy_ (u"ࠤࠪࠤࡪࡾࡩࡴࡶࡶ࠲ࠧ⅞"))
                 if not os.access(path, os.W_OK):
-                    logger.debug(bstack1ll111_opy_ (u"ࠢࡈ࡫ࡹ࡭ࡳ࡭ࠠࡱࡧࡵࡱ࡮ࡹࡳࡪࡱࡱࡷࠥ࡬࡯ࡳࠢࠪࠦᯏ") + str(path) + bstack1ll111_opy_ (u"ࠣࠩࠥᯐ"))
+                    logger.debug(bstack1111l_opy_ (u"ࠥࡋ࡮ࡼࡩ࡯ࡩࠣࡴࡪࡸ࡭ࡪࡵࡶ࡭ࡴࡴࡳࠡࡨࡲࡶࠥ࠭ࠢ⅟") + str(path) + bstack1111l_opy_ (u"ࠦࠬࠨⅠ"))
                     os.chmod(path, 0o777)
                 else:
-                    logger.debug(bstack1ll111_opy_ (u"ࠤࡉ࡭ࡱ࡫ࠠࠨࠤᯑ") + str(path) + bstack1ll111_opy_ (u"ࠥࠫࠥࡧ࡬ࡳࡧࡤࡨࡾࠦࡨࡢࡵࠣࡸ࡭࡫ࠠࡳࡧࡴࡹ࡮ࡸࡥࡥࠢࡳࡩࡷࡳࡩࡴࡵ࡬ࡳࡳࡹ࠮ࠣᯒ"))
+                    logger.debug(bstack1111l_opy_ (u"ࠧࡌࡩ࡭ࡧࠣࠫࠧⅡ") + str(path) + bstack1111l_opy_ (u"ࠨࠧࠡࡣ࡯ࡶࡪࡧࡤࡺࠢ࡫ࡥࡸࠦࡴࡩࡧࠣࡶࡪࡷࡵࡪࡴࡨࡨࠥࡶࡥࡳ࡯࡬ࡷࡸ࡯࡯࡯ࡵ࠱ࠦⅢ"))
             else:
-                logger.debug(bstack1ll111_opy_ (u"ࠦࡈࡸࡥࡢࡶ࡬ࡲ࡬ࠦࡦࡪ࡮ࡨࠤࠬࠨᯓ") + str(path) + bstack1ll111_opy_ (u"ࠧ࠭ࠠࡸ࡫ࡷ࡬ࠥࡽࡲࡪࡶࡨࠤࡵ࡫ࡲ࡮࡫ࡶࡷ࡮ࡵ࡮࠯ࠤᯔ"))
+                logger.debug(bstack1111l_opy_ (u"ࠢࡄࡴࡨࡥࡹ࡯࡮ࡨࠢࡩ࡭ࡱ࡫ࠠࠨࠤⅣ") + str(path) + bstack1111l_opy_ (u"ࠣࠩࠣࡻ࡮ࡺࡨࠡࡹࡵ࡭ࡹ࡫ࠠࡱࡧࡵࡱ࡮ࡹࡳࡪࡱࡱ࠲ࠧⅤ"))
                 os.makedirs(path, exist_ok=True)
                 os.chmod(path, 0o777)
-            logger.debug(bstack1ll111_opy_ (u"ࠨࡏࡱࡧࡵࡥࡹ࡯࡯࡯ࠢࡶࡹࡨࡩࡥࡦࡦࡨࡨࠥ࡬࡯ࡳࠢࠪࠦᯕ") + str(path) + bstack1ll111_opy_ (u"ࠢࠨ࠰ࠥᯖ"))
+            logger.debug(bstack1111l_opy_ (u"ࠤࡒࡴࡪࡸࡡࡵ࡫ࡲࡲࠥࡹࡵࡤࡥࡨࡩࡩ࡫ࡤࠡࡨࡲࡶࠥ࠭ࠢⅥ") + str(path) + bstack1111l_opy_ (u"ࠥࠫ࠳ࠨⅦ"))
             return path
         except Exception as e:
-            logger.debug(bstack1ll111_opy_ (u"ࠣࡈࡤ࡭ࡱ࡫ࡤࠡࡶࡲࠤࡸ࡫ࡴࠡࡷࡳࠤ࡫࡯࡬ࡦࠢࠪࡿࡵࡧࡴࡩࡿࠪ࠾ࠥࠨᯗ") + str(e) + bstack1ll111_opy_ (u"ࠤࠥᯘ"))
-    logger.debug(bstack1ll111_opy_ (u"ࠥࡅࡱࡲࠠࡱࡣࡷ࡬ࡸࠦࡦࡢ࡫࡯ࡩࡩ࠴ࠢᯙ"))
+            logger.debug(bstack1111l_opy_ (u"ࠦࡋࡧࡩ࡭ࡧࡧࠤࡹࡵࠠࡴࡧࡷࠤࡺࡶࠠࡧ࡫࡯ࡩࠥ࠭ࡻࡱࡣࡷ࡬ࢂ࠭࠺ࠡࠤⅧ") + str(e) + bstack1111l_opy_ (u"ࠧࠨⅨ"))
+    logger.debug(bstack1111l_opy_ (u"ࠨࡁ࡭࡮ࠣࡴࡦࡺࡨࡴࠢࡩࡥ࡮ࡲࡥࡥ࠰ࠥⅩ"))
     return None
-@measure(event_name=EVENTS.bstack111l11ll111_opy_, stage=STAGE.bstack11ll1111_opy_)
-def bstack1llll1l1l1l_opy_(binary_path, bstack1llll1ll111_opy_, bs_config):
-    logger.debug(bstack1ll111_opy_ (u"ࠦࡈࡻࡲࡳࡧࡱࡸࠥࡉࡌࡊࠢࡓࡥࡹ࡮ࠠࡧࡱࡸࡲࡩࡀࠠࡼࡿࠥᯚ").format(binary_path))
-    bstack111l11ll1ll_opy_ = bstack1ll111_opy_ (u"ࠬ࠭ᯛ")
-    bstack111l1l1l1ll_opy_ = {
-        bstack1ll111_opy_ (u"࠭ࡳࡥ࡭ࡢࡺࡪࡸࡳࡪࡱࡱࠫᯜ"): __version__,
-        bstack1ll111_opy_ (u"ࠢࡰࡵࠥᯝ"): platform.system(),
-        bstack1ll111_opy_ (u"ࠣࡱࡶࡣࡦࡸࡣࡩࠤᯞ"): platform.machine(),
-        bstack1ll111_opy_ (u"ࠤࡦࡰ࡮ࡥࡶࡦࡴࡶ࡭ࡴࡴࠢᯟ"): bstack1ll111_opy_ (u"ࠪ࠴ࠬᯠ"),
-        bstack1ll111_opy_ (u"ࠦࡸࡪ࡫ࡠ࡮ࡤࡲ࡬ࡻࡡࡨࡧࠥᯡ"): bstack1ll111_opy_ (u"ࠬࡶࡹࡵࡪࡲࡲࠬᯢ")
+@measure(event_name=EVENTS.bstack111l1ll111l_opy_, stage=STAGE.bstack11lll111l_opy_)
+def bstack1llll1l111l_opy_(binary_path, bstack1llll1l1111_opy_, bs_config):
+    logger.debug(bstack1111l_opy_ (u"ࠢࡄࡷࡵࡶࡪࡴࡴࠡࡅࡏࡍࠥࡖࡡࡵࡪࠣࡪࡴࡻ࡮ࡥ࠼ࠣࡿࢂࠨⅪ").format(binary_path))
+    bstack1111llll11l_opy_ = bstack1111l_opy_ (u"ࠨࠩⅫ")
+    bstack1111l1l1l1l_opy_ = {
+        bstack1111l_opy_ (u"ࠩࡶࡨࡰࡥࡶࡦࡴࡶ࡭ࡴࡴࠧⅬ"): __version__,
+        bstack1111l_opy_ (u"ࠥࡳࡸࠨⅭ"): platform.system(),
+        bstack1111l_opy_ (u"ࠦࡴࡹ࡟ࡢࡴࡦ࡬ࠧⅮ"): platform.machine(),
+        bstack1111l_opy_ (u"ࠧࡩ࡬ࡪࡡࡹࡩࡷࡹࡩࡰࡰࠥⅯ"): bstack1111l_opy_ (u"࠭࠰ࠨⅰ"),
+        bstack1111l_opy_ (u"ࠢࡴࡦ࡮ࡣࡱࡧ࡮ࡨࡷࡤ࡫ࡪࠨⅱ"): bstack1111l_opy_ (u"ࠨࡲࡼࡸ࡭ࡵ࡮ࠨⅲ")
     }
-    bstack111l11l11ll_opy_(bstack111l1l1l1ll_opy_)
+    bstack1111l1ll1l1_opy_(bstack1111l1l1l1l_opy_)
     try:
         if binary_path:
-            if bstack11l111111l1_opy_():
-                bstack111l1l1l1ll_opy_[bstack1ll111_opy_ (u"࠭ࡣ࡭࡫ࡢࡺࡪࡸࡳࡪࡱࡱࠫᯣ")] = subprocess.check_output([binary_path, bstack1ll111_opy_ (u"ࠢࡷࡧࡵࡷ࡮ࡵ࡮ࠣᯤ")]).strip().decode(bstack1ll111_opy_ (u"ࠨࡷࡷࡪ࠲࠾ࠧᯥ"))
+            if bstack11111l11111_opy_():
+                bstack1111l1l1l1l_opy_[bstack1111l_opy_ (u"ࠩࡦࡰ࡮ࡥࡶࡦࡴࡶ࡭ࡴࡴࠧⅳ")] = subprocess.check_output([binary_path, bstack1111l_opy_ (u"ࠥࡺࡪࡸࡳࡪࡱࡱࠦⅴ")]).strip().decode(bstack1111l_opy_ (u"ࠫࡺࡺࡦ࠮࠺ࠪⅵ"))
             else:
-                bstack111l1l1l1ll_opy_[bstack1ll111_opy_ (u"ࠩࡦࡰ࡮ࡥࡶࡦࡴࡶ࡭ࡴࡴ᯦ࠧ")] = subprocess.check_output([binary_path, bstack1ll111_opy_ (u"ࠥࡺࡪࡸࡳࡪࡱࡱࠦᯧ")], stderr=subprocess.DEVNULL).strip().decode(bstack1ll111_opy_ (u"ࠫࡺࡺࡦ࠮࠺ࠪᯨ"))
+                bstack1111l1l1l1l_opy_[bstack1111l_opy_ (u"ࠬࡩ࡬ࡪࡡࡹࡩࡷࡹࡩࡰࡰࠪⅶ")] = subprocess.check_output([binary_path, bstack1111l_opy_ (u"ࠨࡶࡦࡴࡶ࡭ࡴࡴࠢⅷ")], stderr=subprocess.DEVNULL).strip().decode(bstack1111l_opy_ (u"ࠧࡶࡶࡩ࠱࠽࠭ⅸ"))
         response = requests.request(
-            bstack1ll111_opy_ (u"ࠬࡍࡅࡕࠩᯩ"),
-            url=bstack1lll1l11_opy_(bstack111l1ll1l11_opy_),
+            bstack1111l_opy_ (u"ࠨࡉࡈࡘࠬⅹ"),
+            url=bstack11lll1ll_opy_(bstack111l1ll1l11_opy_),
             headers=None,
-            auth=(bs_config[bstack1ll111_opy_ (u"࠭ࡵࡴࡧࡵࡒࡦࡳࡥࠨᯪ")], bs_config[bstack1ll111_opy_ (u"ࠧࡢࡥࡦࡩࡸࡹࡋࡦࡻࠪᯫ")]),
+            auth=(bs_config[bstack1111l_opy_ (u"ࠩࡸࡷࡪࡸࡎࡢ࡯ࡨࠫⅺ")], bs_config[bstack1111l_opy_ (u"ࠪࡥࡨࡩࡥࡴࡵࡎࡩࡾ࠭ⅻ")]),
             json=None,
-            params=bstack111l1l1l1ll_opy_
+            params=bstack1111l1l1l1l_opy_
         )
         data = response.json()
-        if response.status_code == 200 and bstack1ll111_opy_ (u"ࠨࡷࡵࡰࠬᯬ") in data.keys() and bstack1ll111_opy_ (u"ࠩࡸࡴࡩࡧࡴࡦࡦࡢࡧࡱ࡯࡟ࡷࡧࡵࡷ࡮ࡵ࡮ࠨᯭ") in data.keys():
-            logger.debug(bstack1ll111_opy_ (u"ࠥࡒࡪ࡫ࡤࠡࡶࡲࠤࡺࡶࡤࡢࡶࡨࠤࡧ࡯࡮ࡢࡴࡼ࠰ࠥࡩࡵࡳࡴࡨࡲࡹࠦࡢࡪࡰࡤࡶࡾࠦࡶࡦࡴࡶ࡭ࡴࡴ࠺ࠡࡽࢀࠦᯮ").format(bstack111l1l1l1ll_opy_[bstack1ll111_opy_ (u"ࠫࡨࡲࡩࡠࡸࡨࡶࡸ࡯࡯࡯ࠩᯯ")]))
-            if bstack1ll111_opy_ (u"ࠬࡈࡒࡐ࡙ࡖࡉࡗ࡙ࡔࡂࡅࡎࡣࡇࡏࡎࡂࡔ࡜ࡣ࡚ࡘࡌࠨᯰ") in os.environ:
-                logger.debug(bstack1ll111_opy_ (u"ࠨࡓ࡬࡫ࡳࡴ࡮ࡴࡧࠡࡤ࡬ࡲࡦࡸࡹࠡࡦࡲࡻࡳࡲ࡯ࡢࡦࠣࡥࡸࠦࡂࡓࡑ࡚ࡗࡊࡘࡓࡕࡃࡆࡏࡤࡈࡉࡏࡃࡕ࡝ࡤ࡛ࡒࡍࠢ࡬ࡷࠥࡹࡥࡵࠤᯱ"))
-                data[bstack1ll111_opy_ (u"ࠧࡶࡴ࡯᯲ࠫ")] = os.environ[bstack1ll111_opy_ (u"ࠨࡄࡕࡓ࡜࡙ࡅࡓࡕࡗࡅࡈࡑ࡟ࡃࡋࡑࡅࡗ࡟࡟ࡖࡔࡏ᯳ࠫ")]
-            bstack111l1llllll_opy_ = bstack111ll1ll11l_opy_(data[bstack1ll111_opy_ (u"ࠩࡸࡶࡱ࠭᯴")], bstack1llll1ll111_opy_)
-            bstack111l11ll1ll_opy_ = os.path.join(bstack1llll1ll111_opy_, bstack111l1llllll_opy_)
-            os.chmod(bstack111l11ll1ll_opy_, 0o777) # bstack111l1ll1ll1_opy_ permission
-            return bstack111l11ll1ll_opy_
+        if response.status_code == 200 and bstack1111l_opy_ (u"ࠫࡺࡸ࡬ࠨⅼ") in data.keys() and bstack1111l_opy_ (u"ࠬࡻࡰࡥࡣࡷࡩࡩࡥࡣ࡭࡫ࡢࡺࡪࡸࡳࡪࡱࡱࠫⅽ") in data.keys():
+            logger.debug(bstack1111l_opy_ (u"ࠨࡎࡦࡧࡧࠤࡹࡵࠠࡶࡲࡧࡥࡹ࡫ࠠࡣ࡫ࡱࡥࡷࡿࠬࠡࡥࡸࡶࡷ࡫࡮ࡵࠢࡥ࡭ࡳࡧࡲࡺࠢࡹࡩࡷࡹࡩࡰࡰ࠽ࠤࢀࢃࠢⅾ").format(bstack1111l1l1l1l_opy_[bstack1111l_opy_ (u"ࠧࡤ࡮࡬ࡣࡻ࡫ࡲࡴ࡫ࡲࡲࠬⅿ")]))
+            if bstack1111l_opy_ (u"ࠨࡄࡕࡓ࡜࡙ࡅࡓࡕࡗࡅࡈࡑ࡟ࡃࡋࡑࡅࡗ࡟࡟ࡖࡔࡏࠫↀ") in os.environ:
+                logger.debug(bstack1111l_opy_ (u"ࠤࡖ࡯࡮ࡶࡰࡪࡰࡪࠤࡧ࡯࡮ࡢࡴࡼࠤࡩࡵࡷ࡯࡮ࡲࡥࡩࠦࡡࡴࠢࡅࡖࡔ࡝ࡓࡆࡔࡖࡘࡆࡉࡋࡠࡄࡌࡒࡆࡘ࡙ࡠࡗࡕࡐࠥ࡯ࡳࠡࡵࡨࡸࠧↁ"))
+                data[bstack1111l_opy_ (u"ࠪࡹࡷࡲࠧↂ")] = os.environ[bstack1111l_opy_ (u"ࠫࡇࡘࡏࡘࡕࡈࡖࡘ࡚ࡁࡄࡍࡢࡆࡎࡔࡁࡓ࡛ࡢ࡙ࡗࡒࠧↃ")]
+            bstack1111l1111l1_opy_ = bstack1111l1ll1ll_opy_(data[bstack1111l_opy_ (u"ࠬࡻࡲ࡭ࠩↄ")], bstack1llll1l1111_opy_)
+            bstack1111llll11l_opy_ = os.path.join(bstack1llll1l1111_opy_, bstack1111l1111l1_opy_)
+            os.chmod(bstack1111llll11l_opy_, 0o777) # bstack11111l1l11l_opy_ permission
+            return bstack1111llll11l_opy_
     except Exception as e:
-        logger.debug(bstack1ll111_opy_ (u"ࠥࡉࡷࡸ࡯ࡳࠢࡺ࡬࡮ࡲࡥࠡࡦࡲࡻࡳࡲ࡯ࡢࡦ࡬ࡲ࡬ࠦ࡮ࡦࡹࠣࡗࡉࡑࠠࡼࡿࠥ᯵").format(e))
+        logger.debug(bstack1111l_opy_ (u"ࠨࡅࡳࡴࡲࡶࠥࡽࡨࡪ࡮ࡨࠤࡩࡵࡷ࡯࡮ࡲࡥࡩ࡯࡮ࡨࠢࡱࡩࡼࠦࡓࡅࡍࠣࡿࢂࠨↅ").format(e))
     return binary_path
-def bstack111l11l11ll_opy_(bstack111l1l1l1ll_opy_):
+def bstack1111l1ll1l1_opy_(bstack1111l1l1l1l_opy_):
     try:
-        if bstack1ll111_opy_ (u"ࠫࡱ࡯࡮ࡶࡺࠪ᯶") not in bstack111l1l1l1ll_opy_[bstack1ll111_opy_ (u"ࠬࡵࡳࠨ᯷")].lower():
+        if bstack1111l_opy_ (u"ࠧ࡭࡫ࡱࡹࡽ࠭ↆ") not in bstack1111l1l1l1l_opy_[bstack1111l_opy_ (u"ࠨࡱࡶࠫↇ")].lower():
             return
-        if os.path.exists(bstack1ll111_opy_ (u"ࠨ࠯ࡦࡶࡦ࠳ࡴࡹ࠭ࡳࡧ࡯ࡩࡦࡹࡥࠣ᯸")):
-            with open(bstack1ll111_opy_ (u"ࠢ࠰ࡧࡷࡧ࠴ࡵࡳ࠮ࡴࡨࡰࡪࡧࡳࡦࠤ᯹"), bstack1ll111_opy_ (u"ࠣࡴࠥ᯺")) as f:
-                bstack111l1l11l11_opy_ = {}
+        if os.path.exists(bstack1111l_opy_ (u"ࠤ࠲ࡩࡹࡩ࠯ࡰࡵ࠰ࡶࡪࡲࡥࡢࡵࡨࠦↈ")):
+            with open(bstack1111l_opy_ (u"ࠥ࠳ࡪࡺࡣ࠰ࡱࡶ࠱ࡷ࡫࡬ࡦࡣࡶࡩࠧ↉"), bstack1111l_opy_ (u"ࠦࡷࠨ↊")) as f:
+                bstack111l111111l_opy_ = {}
                 for line in f:
-                    if bstack1ll111_opy_ (u"ࠤࡀࠦ᯻") in line:
-                        key, value = line.rstrip().split(bstack1ll111_opy_ (u"ࠥࡁࠧ᯼"), 1)
-                        bstack111l1l11l11_opy_[key] = value.strip(bstack1ll111_opy_ (u"ࠫࠧࡢࠧࠨ᯽"))
-                bstack111l1l1l1ll_opy_[bstack1ll111_opy_ (u"ࠬࡪࡩࡴࡶࡵࡳࠬ᯾")] = bstack111l1l11l11_opy_.get(bstack1ll111_opy_ (u"ࠨࡉࡅࠤ᯿"), bstack1ll111_opy_ (u"ࠢࠣᰀ"))
-        elif os.path.exists(bstack1ll111_opy_ (u"ࠣ࠱ࡨࡸࡨ࠵ࡡ࡭ࡲ࡬ࡲࡪ࠳ࡲࡦ࡮ࡨࡥࡸ࡫ࠢᰁ")):
-            bstack111l1l1l1ll_opy_[bstack1ll111_opy_ (u"ࠩࡧ࡭ࡸࡺࡲࡰࠩᰂ")] = bstack1ll111_opy_ (u"ࠪࡥࡱࡶࡩ࡯ࡧࠪᰃ")
+                    if bstack1111l_opy_ (u"ࠧࡃࠢ↋") in line:
+                        key, value = line.rstrip().split(bstack1111l_opy_ (u"ࠨ࠽ࠣ↌"), 1)
+                        bstack111l111111l_opy_[key] = value.strip(bstack1111l_opy_ (u"ࠧࠣ࡞ࠪࠫ↍"))
+                bstack1111l1l1l1l_opy_[bstack1111l_opy_ (u"ࠨࡦ࡬ࡷࡹࡸ࡯ࠨ↎")] = bstack111l111111l_opy_.get(bstack1111l_opy_ (u"ࠤࡌࡈࠧ↏"), bstack1111l_opy_ (u"ࠥࠦ←"))
+        elif os.path.exists(bstack1111l_opy_ (u"ࠦ࠴࡫ࡴࡤ࠱ࡤࡰࡵ࡯࡮ࡦ࠯ࡵࡩࡱ࡫ࡡࡴࡧࠥ↑")):
+            bstack1111l1l1l1l_opy_[bstack1111l_opy_ (u"ࠬࡪࡩࡴࡶࡵࡳࠬ→")] = bstack1111l_opy_ (u"࠭ࡡ࡭ࡲ࡬ࡲࡪ࠭↓")
     except Exception as e:
-        logger.debug(bstack1ll111_opy_ (u"࡚ࠦࡴࡡࡣ࡮ࡨࠤࡹࡵࠠࡨࡧࡷࠤࡩ࡯ࡳࡵࡴࡲࠤࡴ࡬ࠠ࡭࡫ࡱࡹࡽࠨᰄ") + e)
-@measure(event_name=EVENTS.bstack111ll1l1l1l_opy_, stage=STAGE.bstack11ll1111_opy_)
-def bstack111ll1ll11l_opy_(bstack111l1l11l1l_opy_, bstack111ll11111l_opy_):
-    logger.debug(bstack1ll111_opy_ (u"ࠧࡊ࡯ࡸࡰ࡯ࡳࡦࡪࡩ࡯ࡩࠣࡗࡉࡑࠠࡣ࡫ࡱࡥࡷࡿࠠࡧࡴࡲࡱ࠿ࠦࠢᰅ") + str(bstack111l1l11l1l_opy_) + bstack1ll111_opy_ (u"ࠨࠢᰆ"))
-    zip_path = os.path.join(bstack111ll11111l_opy_, bstack1ll111_opy_ (u"ࠢࡥࡱࡺࡲࡱࡵࡡࡥࡧࡧࡣ࡫࡯࡬ࡦ࠰ࡽ࡭ࡵࠨᰇ"))
-    bstack111l1llllll_opy_ = bstack1ll111_opy_ (u"ࠨࠩᰈ")
-    with requests.get(bstack111l1l11l1l_opy_, stream=True) as response:
+        logger.debug(bstack1111l_opy_ (u"ࠢࡖࡰࡤࡦࡱ࡫ࠠࡵࡱࠣ࡫ࡪࡺࠠࡥ࡫ࡶࡸࡷࡵࠠࡰࡨࠣࡰ࡮ࡴࡵࡹࠤ↔") + e)
+@measure(event_name=EVENTS.bstack111l1llllll_opy_, stage=STAGE.bstack11lll111l_opy_)
+def bstack1111l1ll1ll_opy_(bstack111111ll1ll_opy_, bstack11111l111l1_opy_):
+    logger.debug(bstack1111l_opy_ (u"ࠣࡆࡲࡻࡳࡲ࡯ࡢࡦ࡬ࡲ࡬ࠦࡓࡅࡍࠣࡦ࡮ࡴࡡࡳࡻࠣࡪࡷࡵ࡭࠻ࠢࠥ↕") + str(bstack111111ll1ll_opy_) + bstack1111l_opy_ (u"ࠤࠥ↖"))
+    zip_path = os.path.join(bstack11111l111l1_opy_, bstack1111l_opy_ (u"ࠥࡨࡴࡽ࡮࡭ࡱࡤࡨࡪࡪ࡟ࡧ࡫࡯ࡩ࠳ࢀࡩࡱࠤ↗"))
+    bstack1111l1111l1_opy_ = bstack1111l_opy_ (u"ࠫࠬ↘")
+    with requests.get(bstack111111ll1ll_opy_, stream=True) as response:
         response.raise_for_status()
-        with open(zip_path, bstack1ll111_opy_ (u"ࠤࡺࡦࠧᰉ")) as file:
+        with open(zip_path, bstack1111l_opy_ (u"ࠧࡽࡢࠣ↙")) as file:
             for chunk in response.iter_content(chunk_size=8192):
                 if chunk:
                     file.write(chunk)
-        logger.debug(bstack1ll111_opy_ (u"ࠥࡊ࡮ࡲࡥࠡࡦࡲࡻࡳࡲ࡯ࡢࡦࡨࡨࠥࡹࡵࡤࡥࡨࡷࡸ࡬ࡵ࡭࡮ࡼ࠲ࠧᰊ"))
-    with zipfile.ZipFile(zip_path, bstack1ll111_opy_ (u"ࠫࡷ࠭ᰋ")) as zip_ref:
-        bstack111ll1l1l11_opy_ = zip_ref.namelist()
-        if len(bstack111ll1l1l11_opy_) > 0:
-            bstack111l1llllll_opy_ = bstack111ll1l1l11_opy_[0] # bstack111llll1l11_opy_ bstack111lll1l1ll_opy_ will be bstack11l1111l1ll_opy_ 1 file i.e. the binary in the zip
-        zip_ref.extractall(bstack111ll11111l_opy_)
-        logger.debug(bstack1ll111_opy_ (u"ࠧࡌࡩ࡭ࡧࡶࠤࡸࡻࡣࡤࡧࡶࡷ࡫ࡻ࡬࡭ࡻࠣࡩࡽࡺࡲࡢࡥࡷࡩࡩࠦࡴࡰࠢࠪࠦᰌ") + str(bstack111ll11111l_opy_) + bstack1ll111_opy_ (u"ࠨࠧࠣᰍ"))
+        logger.debug(bstack1111l_opy_ (u"ࠨࡆࡪ࡮ࡨࠤࡩࡵࡷ࡯࡮ࡲࡥࡩ࡫ࡤࠡࡵࡸࡧࡨ࡫ࡳࡴࡨࡸࡰࡱࡿ࠮ࠣ↚"))
+    with zipfile.ZipFile(zip_path, bstack1111l_opy_ (u"ࠧࡳࠩ↛")) as zip_ref:
+        bstack1111ll111l1_opy_ = zip_ref.namelist()
+        if len(bstack1111ll111l1_opy_) > 0:
+            bstack1111l1111l1_opy_ = bstack1111ll111l1_opy_[0] # bstack11111ll1l11_opy_ bstack111l1l1l1l1_opy_ will be bstack11111llll11_opy_ 1 file i.e. the binary in the zip
+        zip_ref.extractall(bstack11111l111l1_opy_)
+        logger.debug(bstack1111l_opy_ (u"ࠣࡈ࡬ࡰࡪࡹࠠࡴࡷࡦࡧࡪࡹࡳࡧࡷ࡯ࡰࡾࠦࡥࡹࡶࡵࡥࡨࡺࡥࡥࠢࡷࡳࠥ࠭ࠢ↜") + str(bstack11111l111l1_opy_) + bstack1111l_opy_ (u"ࠤࠪࠦ↝"))
     os.remove(zip_path)
-    return bstack111l1llllll_opy_
+    return bstack1111l1111l1_opy_
 def get_cli_dir():
-    bstack111l11llll1_opy_ = bstack1l1111ll1ll_opy_()
-    if bstack111l11llll1_opy_:
-        bstack1llll1ll111_opy_ = os.path.join(bstack111l11llll1_opy_, bstack1ll111_opy_ (u"ࠢࡤ࡮࡬ࠦᰎ"))
-        if not os.path.exists(bstack1llll1ll111_opy_):
-            os.makedirs(bstack1llll1ll111_opy_, mode=0o777, exist_ok=True)
-        return bstack1llll1ll111_opy_
+    bstack111111lll11_opy_ = bstack1l111llll1l_opy_()
+    if bstack111111lll11_opy_:
+        bstack1llll1l1111_opy_ = os.path.join(bstack111111lll11_opy_, bstack1111l_opy_ (u"ࠥࡧࡱ࡯ࠢ↞"))
+        if not os.path.exists(bstack1llll1l1111_opy_):
+            os.makedirs(bstack1llll1l1111_opy_, mode=0o777, exist_ok=True)
+        return bstack1llll1l1111_opy_
     else:
-        raise FileNotFoundError(bstack1ll111_opy_ (u"ࠣࡐࡲࠤࡼࡸࡩࡵࡣࡥࡰࡪࠦࡤࡪࡴࡨࡧࡹࡵࡲࡺࠢࡤࡺࡦ࡯࡬ࡢࡤ࡯ࡩࠥ࡬࡯ࡳࠢࡷ࡬ࡪࠦࡓࡅࡍࠣࡦ࡮ࡴࡡࡳࡻ࠱ࠦᰏ"))
-def bstack1llll1l1l11_opy_(bstack1llll1ll111_opy_):
-    bstack1ll111_opy_ (u"ࠤࠥࠦࡌ࡫ࡴࠡࡶ࡫ࡩࠥࡶࡡࡵࡪࠣࡪࡴࡸࠠࡵࡪࡨࠤࡇࡸ࡯ࡸࡵࡨࡶࡘࡺࡡࡤ࡭ࠣࡗࡉࡑࠠࡣ࡫ࡱࡥࡷࡿࠠࡪࡰࠣࡥࠥࡽࡲࡪࡶࡤࡦࡱ࡫ࠠࡥ࡫ࡵࡩࡨࡺ࡯ࡳࡻ࠱ࠦࠧࠨᰐ")
-    bstack111l1ll1111_opy_ = [
-        os.path.join(bstack1llll1ll111_opy_, f)
-        for f in os.listdir(bstack1llll1ll111_opy_)
-        if os.path.isfile(os.path.join(bstack1llll1ll111_opy_, f)) and f.startswith(bstack1ll111_opy_ (u"ࠥࡦ࡮ࡴࡡࡳࡻ࠰ࠦᰑ"))
+        raise FileNotFoundError(bstack1111l_opy_ (u"ࠦࡓࡵࠠࡸࡴ࡬ࡸࡦࡨ࡬ࡦࠢࡧ࡭ࡷ࡫ࡣࡵࡱࡵࡽࠥࡧࡶࡢ࡫࡯ࡥࡧࡲࡥࠡࡨࡲࡶࠥࡺࡨࡦࠢࡖࡈࡐࠦࡢࡪࡰࡤࡶࡾ࠴ࠢ↟"))
+def bstack1llll1l11ll_opy_(bstack1llll1l1111_opy_):
+    bstack1111l_opy_ (u"ࠧࠨࠢࡈࡧࡷࠤࡹ࡮ࡥࠡࡲࡤࡸ࡭ࠦࡦࡰࡴࠣࡸ࡭࡫ࠠࡃࡴࡲࡻࡸ࡫ࡲࡔࡶࡤࡧࡰࠦࡓࡅࡍࠣࡦ࡮ࡴࡡࡳࡻࠣ࡭ࡳࠦࡡࠡࡹࡵ࡭ࡹࡧࡢ࡭ࡧࠣࡨ࡮ࡸࡥࡤࡶࡲࡶࡾ࠴ࠢࠣࠤ↠")
+    bstack111111l1l11_opy_ = [
+        os.path.join(bstack1llll1l1111_opy_, f)
+        for f in os.listdir(bstack1llll1l1111_opy_)
+        if os.path.isfile(os.path.join(bstack1llll1l1111_opy_, f)) and f.startswith(bstack1111l_opy_ (u"ࠨࡢࡪࡰࡤࡶࡾ࠳ࠢ↡"))
     ]
-    if len(bstack111l1ll1111_opy_) > 0:
-        return max(bstack111l1ll1111_opy_, key=os.path.getmtime) # get bstack111lll1111l_opy_ binary
-    return bstack1ll111_opy_ (u"ࠦࠧᰒ")
-def bstack111ll111lll_opy_():
+    if len(bstack111111l1l11_opy_) > 0:
+        return max(bstack111111l1l11_opy_, key=os.path.getmtime) # get bstack1111ll1lll1_opy_ binary
+    return bstack1111l_opy_ (u"ࠢࠣ↢")
+def bstack11l1111111l_opy_():
   from selenium import webdriver
   return version.parse(webdriver.__version__)
-def bstack1l1l11111l1_opy_(d, u):
+def bstack1l1l1111l11_opy_(d, u):
   for k, v in u.items():
     if isinstance(v, collections.abc.Mapping):
-      d[k] = bstack1l1l11111l1_opy_(d.get(k, {}), v)
+      d[k] = bstack1l1l1111l11_opy_(d.get(k, {}), v)
     else:
       if isinstance(v, list):
         d[k] = d.get(k, []) + v
       else:
         d[k] = v
   return d
-def bstack1l1ll11lll_opy_(data, keys, default=None):
-    bstack1ll111_opy_ (u"ࠧࠨࠢࠋࠢࠣࠤ࡙ࠥࡡࡧࡧ࡯ࡽࠥ࡭ࡥࡵࠢࡤࠤࡳ࡫ࡳࡵࡧࡧࠤࡻࡧ࡬ࡶࡧࠣࡪࡷࡵ࡭ࠡࡣࠣࡨ࡮ࡩࡴࡪࡱࡱࡥࡷࡿࠠࡰࡴࠣࡰ࡮ࡹࡴ࠯ࠌࠣࠤࠥࠦ࠺ࡱࡣࡵࡥࡲࠦࡤࡢࡶࡤ࠾࡚ࠥࡨࡦࠢࡧ࡭ࡨࡺࡩࡰࡰࡤࡶࡾࠦ࡯ࡳࠢ࡯࡭ࡸࡺࠠࡵࡱࠣࡸࡷࡧࡶࡦࡴࡶࡩ࠳ࠐࠠࠡࠢࠣ࠾ࡵࡧࡲࡢ࡯ࠣ࡯ࡪࡿࡳ࠻ࠢࡄࠤࡱ࡯ࡳࡵࠢࡲࡪࠥࡱࡥࡺࡵ࠲࡭ࡳࡪࡩࡤࡧࡶࠤࡷ࡫ࡰࡳࡧࡶࡩࡳࡺࡩ࡯ࡩࠣࡸ࡭࡫ࠠࡱࡣࡷ࡬࠳ࠐࠠࠡࠢࠣ࠾ࡵࡧࡲࡢ࡯ࠣࡨࡪ࡬ࡡࡶ࡮ࡷ࠾ࠥ࡜ࡡ࡭ࡷࡨࠤࡹࡵࠠࡳࡧࡷࡹࡷࡴࠠࡪࡨࠣࡸ࡭࡫ࠠࡱࡣࡷ࡬ࠥࡪ࡯ࡦࡵࠣࡲࡴࡺࠠࡦࡺ࡬ࡷࡹ࠴ࠊࠡࠢࠣࠤ࠿ࡸࡥࡵࡷࡵࡲ࠿ࠦࡔࡩࡧࠣࡺࡦࡲࡵࡦࠢࡤࡸࠥࡺࡨࡦࠢࡱࡩࡸࡺࡥࡥࠢࡳࡥࡹ࡮ࠬࠡࡱࡵࠤࡩ࡫ࡦࡢࡷ࡯ࡸࠥ࡯ࡦࠡࡰࡲࡸࠥ࡬࡯ࡶࡰࡧ࠲ࠏࠦࠠࠡࠢࠥࠦࠧᰓ")
+def bstack111l1lll1_opy_(data, keys, default=None):
+    bstack1111l_opy_ (u"ࠣࠤࠥࠎࠥࠦࠠࠡࡕࡤࡪࡪࡲࡹࠡࡩࡨࡸࠥࡧࠠ࡯ࡧࡶࡸࡪࡪࠠࡷࡣ࡯ࡹࡪࠦࡦࡳࡱࡰࠤࡦࠦࡤࡪࡥࡷ࡭ࡴࡴࡡࡳࡻࠣࡳࡷࠦ࡬ࡪࡵࡷ࠲ࠏࠦࠠࠡࠢ࠽ࡴࡦࡸࡡ࡮ࠢࡧࡥࡹࡧ࠺ࠡࡖ࡫ࡩࠥࡪࡩࡤࡶ࡬ࡳࡳࡧࡲࡺࠢࡲࡶࠥࡲࡩࡴࡶࠣࡸࡴࠦࡴࡳࡣࡹࡩࡷࡹࡥ࠯ࠌࠣࠤࠥࠦ࠺ࡱࡣࡵࡥࡲࠦ࡫ࡦࡻࡶ࠾ࠥࡇࠠ࡭࡫ࡶࡸࠥࡵࡦࠡ࡭ࡨࡽࡸ࠵ࡩ࡯ࡦ࡬ࡧࡪࡹࠠࡳࡧࡳࡶࡪࡹࡥ࡯ࡶ࡬ࡲ࡬ࠦࡴࡩࡧࠣࡴࡦࡺࡨ࠯ࠌࠣࠤࠥࠦ࠺ࡱࡣࡵࡥࡲࠦࡤࡦࡨࡤࡹࡱࡺ࠺ࠡࡘࡤࡰࡺ࡫ࠠࡵࡱࠣࡶࡪࡺࡵࡳࡰࠣ࡭࡫ࠦࡴࡩࡧࠣࡴࡦࡺࡨࠡࡦࡲࡩࡸࠦ࡮ࡰࡶࠣࡩࡽ࡯ࡳࡵ࠰ࠍࠤࠥࠦࠠ࠻ࡴࡨࡸࡺࡸ࡮࠻ࠢࡗ࡬ࡪࠦࡶࡢ࡮ࡸࡩࠥࡧࡴࠡࡶ࡫ࡩࠥࡴࡥࡴࡶࡨࡨࠥࡶࡡࡵࡪ࠯ࠤࡴࡸࠠࡥࡧࡩࡥࡺࡲࡴࠡ࡫ࡩࠤࡳࡵࡴࠡࡨࡲࡹࡳࡪ࠮ࠋࠢࠣࠤࠥࠨࠢࠣ↣")
     if not data:
         return default
     current = data
@@ -1127,12 +1131,12 @@ def bstack1l1ll11lll_opy_(data, keys, default=None):
         return current
     except (KeyError, IndexError, TypeError):
         return default
-def bstack1l111l11l_opy_(bstack111ll11l1l1_opy_, key, value):
-    bstack1ll111_opy_ (u"ࠨࠢࠣࠌࠣࠤࠥࠦࡓࡵࡱࡵࡩࠥࡉࡌࡊࠢࡨࡲࡻ࡯ࡲࡰࡰࡰࡩࡳࡺࠠࡷࡣࡵ࡭ࡦࡨ࡬ࡦࡵࠣࡱࡦࡶࡰࡪࡰࡪࠤ࡮ࡴࠠࡵࡪࡨࠤࡵࡸ࡯ࡷ࡫ࡧࡩࡩࠦࡤࡪࡥࡷ࡭ࡴࡴࡡࡳࡻ࠱ࠎࠥࠦࠠࠡࡃࡵ࡫ࡸࡀࠊࠡࠢࠣࠤࠥࠦࠠࠡࡥ࡯࡭ࡤ࡫࡮ࡷࡡࡹࡥࡷࡹ࡟࡮ࡣࡳ࠾ࠥࡊࡩࡤࡶ࡬ࡳࡳࡧࡲࡺࠢࡷࡳࠥࡹࡴࡰࡴࡨࠤࡪࡴࡶࡪࡴࡲࡲࡲ࡫࡮ࡵࠢࡹࡥࡷ࡯ࡡࡣ࡮ࡨࠤࡲࡧࡰࡱ࡫ࡱ࡫ࡸࠐࠠࠡࠢࠣࠤࠥࠦࠠ࡬ࡧࡼ࠾ࠥࡑࡥࡺࠢࡩࡶࡴࡳࠠࡄࡎࡌࡣࡈࡇࡐࡔࡡࡗࡓࡤࡉࡏࡏࡈࡌࡋࠏࠦࠠࠡࠢࠣࠤࠥࠦࡶࡢ࡮ࡸࡩ࠿ࠦࡖࡢ࡮ࡸࡩࠥ࡬ࡲࡰ࡯ࠣࡧࡴࡳ࡭ࡢࡰࡧࠤࡱ࡯࡮ࡦࠢࡤࡶ࡬ࡻ࡭ࡦࡰࡷࡷࠏࠦࠠࠡࠢࠥࠦࠧᰔ")
-    if key in bstack111ll1ll1_opy_:
-        bstack111llll1ll_opy_ = bstack111ll1ll1_opy_[key]
-        if isinstance(bstack111llll1ll_opy_, list):
-            for env_name in bstack111llll1ll_opy_:
-                bstack111ll11l1l1_opy_[env_name] = value
+def bstack11111ll1_opy_(bstack11111l1111l_opy_, key, value):
+    bstack1111l_opy_ (u"ࠤࠥࠦࠏࠦࠠࠡࠢࡖࡸࡴࡸࡥࠡࡅࡏࡍࠥ࡫࡮ࡷ࡫ࡵࡳࡳࡳࡥ࡯ࡶࠣࡺࡦࡸࡩࡢࡤ࡯ࡩࡸࠦ࡭ࡢࡲࡳ࡭ࡳ࡭ࠠࡪࡰࠣࡸ࡭࡫ࠠࡱࡴࡲࡺ࡮ࡪࡥࡥࠢࡧ࡭ࡨࡺࡩࡰࡰࡤࡶࡾ࠴ࠊࠡࠢࠣࠤࡆࡸࡧࡴ࠼ࠍࠤࠥࠦࠠࠡࠢࠣࠤࡨࡲࡩࡠࡧࡱࡺࡤࡼࡡࡳࡵࡢࡱࡦࡶ࠺ࠡࡆ࡬ࡧࡹ࡯࡯࡯ࡣࡵࡽࠥࡺ࡯ࠡࡵࡷࡳࡷ࡫ࠠࡦࡰࡹ࡭ࡷࡵ࡮࡮ࡧࡱࡸࠥࡼࡡࡳ࡫ࡤࡦࡱ࡫ࠠ࡮ࡣࡳࡴ࡮ࡴࡧࡴࠌࠣࠤࠥࠦࠠࠡࠢࠣ࡯ࡪࡿ࠺ࠡࡍࡨࡽࠥ࡬ࡲࡰ࡯ࠣࡇࡑࡏ࡟ࡄࡃࡓࡗࡤ࡚ࡏࡠࡅࡒࡒࡋࡏࡇࠋࠢࠣࠤࠥࠦࠠࠡࠢࡹࡥࡱࡻࡥ࠻࡙ࠢࡥࡱࡻࡥࠡࡨࡵࡳࡲࠦࡣࡰ࡯ࡰࡥࡳࡪࠠ࡭࡫ࡱࡩࠥࡧࡲࡨࡷࡰࡩࡳࡺࡳࠋࠢࠣࠤࠥࠨࠢࠣ↤")
+    if key in bstack1l11l11lll_opy_:
+        bstack1lll11lll1_opy_ = bstack1l11l11lll_opy_[key]
+        if isinstance(bstack1lll11lll1_opy_, list):
+            for env_name in bstack1lll11lll1_opy_:
+                bstack11111l1111l_opy_[env_name] = value
         else:
-            bstack111ll11l1l1_opy_[bstack111llll1ll_opy_] = value
+            bstack11111l1111l_opy_[bstack1lll11lll1_opy_] = value

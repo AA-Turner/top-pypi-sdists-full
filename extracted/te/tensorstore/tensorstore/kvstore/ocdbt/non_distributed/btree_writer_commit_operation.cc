@@ -26,6 +26,7 @@
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_cat.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
@@ -43,7 +44,6 @@
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_ocdbt {
@@ -179,9 +179,8 @@ void BtreeWriterCommitOperationBase::InteriorNodeTraversalState::
     ApplyMutations() {
   ABSL_LOG_IF(INFO, ocdbt_logging)
       << "ApplyMutations: existing inclusive_min="
-      << QuoteString(
-             tensorstore::StrCat(parent_state_->existing_subtree_key_prefix_,
-                                 existing_relative_child_key_))
+      << QuoteString(absl::StrCat(parent_state_->existing_subtree_key_prefix_,
+                                  existing_relative_child_key_))
       << ", height=" << static_cast<int>(this->height_)
       << ", num_mutations=" << this->mutations_.size();
   if (this->mutations_.empty()) {
@@ -213,15 +212,15 @@ void BtreeWriterCommitOperationBase::UpdateParent(
       std::move(encoded_nodes));
 
   {
-    absl::MutexLock lock(&parent_state.mutex_);
+    absl::MutexLock lock(parent_state.mutex_);
 
     // Remove `existing_relative_child_key` from the parent node.
     {
       auto& mutation = parent_state.mutations_.emplace_back();
       mutation.add = false;
       mutation.entry.key =
-          tensorstore::StrCat(parent_state.existing_subtree_key_prefix_,
-                              existing_relative_child_key);
+          absl::StrCat(parent_state.existing_subtree_key_prefix_,
+                       existing_relative_child_key);
     }
 
     // Add `new_entries` in its place.

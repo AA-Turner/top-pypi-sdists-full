@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-adk
-Version: 1.26.0
+Version: 1.27.0
 Summary: Agent Development Kit
 Author-email: Google LLC <googleapis-packages@google.com>
 Requires-Python: >=3.10
@@ -31,6 +31,7 @@ Requires-Dist: google-cloud-aiplatform[agent-engines]>=1.132.0, <2.0.0
 Requires-Dist: google-cloud-bigquery-storage>=2.0.0
 Requires-Dist: google-cloud-bigquery>=2.2.0
 Requires-Dist: google-cloud-bigtable>=2.32.0
+Requires-Dist: google-cloud-dataplex>=1.7.0,<3.0.0
 Requires-Dist: google-cloud-discoveryengine>=0.13.12, <0.14.0
 Requires-Dist: google-cloud-pubsub>=2.0.0, <3.0.0
 Requires-Dist: google-cloud-secret-manager>=2.22.0, <3.0.0
@@ -50,7 +51,7 @@ Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.36.0
 Requires-Dist: opentelemetry-resourcedetector-gcp>=1.9.0a0, <2.0.0
 Requires-Dist: opentelemetry-sdk>=1.36.0, <1.39.0
 Requires-Dist: pyarrow>=14.0.0
-Requires-Dist: pydantic>=2.7.0, <3.0.0
+Requires-Dist: pydantic>=2.12.0, <3.0.0
 Requires-Dist: python-dateutil>=2.9.0.post0, <3.0.0
 Requires-Dist: python-dotenv>=1.0.0, <2.0.0
 Requires-Dist: requests>=2.32.4, <3.0.0
@@ -77,6 +78,7 @@ Requires-Dist: sphinx<9.0.0 ; extra == "docs"
 Requires-Dist: sphinx-autodoc-typehints ; extra == "docs"
 Requires-Dist: sphinx-rtd-theme ; extra == "docs"
 Requires-Dist: Jinja2>=3.1.4,<4.0.0 ; extra == "eval"
+Requires-Dist: gepa>=0.1.0 ; extra == "eval"
 Requires-Dist: google-cloud-aiplatform[evaluation]>=1.100.0 ; extra == "eval"
 Requires-Dist: pandas>=2.2.3 ; extra == "eval"
 Requires-Dist: rouge-score>=0.1.2 ; extra == "eval"
@@ -86,13 +88,14 @@ Requires-Dist: beautifulsoup4>=3.2.2 ; extra == "extensions"
 Requires-Dist: crewai[tools] ; extra == "extensions" and (python_version>='3.11' and python_version<'3.12')
 Requires-Dist: docker>=7.0.0 ; extra == "extensions"
 Requires-Dist: kubernetes>=29.0.0 ; extra == "extensions"
+Requires-Dist: k8s-agent-sandbox>=0.1.1.post2 ; extra == "extensions"
 Requires-Dist: langgraph>=0.2.60, <0.4.8 ; extra == "extensions"
 Requires-Dist: litellm>=1.75.5, <2.0.0 ; extra == "extensions"
 Requires-Dist: llama-index-readers-file>=0.4.0 ; extra == "extensions"
 Requires-Dist: llama-index-embeddings-google-genai>=0.3.0 ; extra == "extensions"
 Requires-Dist: lxml>=5.3.0 ; extra == "extensions"
 Requires-Dist: pypika>=0.50.0 ; extra == "extensions"
-Requires-Dist: toolbox-adk>=0.5.7, <0.6.0 ; extra == "extensions"
+Requires-Dist: toolbox-adk>=0.7.0, <0.8.0 ; extra == "extensions"
 Requires-Dist: opentelemetry-instrumentation-google-genai>=0.6b0, <1.0.0 ; extra == "otel-gcp"
 Requires-Dist: a2a-sdk>=0.3.0,<0.4.0 ; extra == "test"
 Requires-Dist: anthropic>=0.43.0 ; extra == "test"
@@ -112,7 +115,7 @@ Requires-Dist: pytest>=9.0.0,<10.0.0 ; extra == "test"
 Requires-Dist: python-multipart>=0.0.9 ; extra == "test"
 Requires-Dist: rouge-score>=0.1.2 ; extra == "test"
 Requires-Dist: tabulate>=0.9.0 ; extra == "test"
-Requires-Dist: toolbox-adk>=0.5.7, <0.6.0 ; extra == "toolbox"
+Requires-Dist: toolbox-adk>=0.7.0, <0.8.0 ; extra == "toolbox"
 Project-URL: changelog, https://github.com/google/adk-python/blob/main/CHANGELOG.md
 Project-URL: documentation, https://google.github.io/adk-docs/
 Project-URL: homepage, https://google.github.io/adk-docs/

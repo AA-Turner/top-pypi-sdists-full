@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: azure-identity
-Version: 1.25.2
+Version: 1.25.3
 Summary: Microsoft Azure Identity Library for Python
 Author-email: Microsoft Corporation <azpysdkhelp@microsoft.com>
 License-Expression: MIT
@@ -21,7 +21,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: azure-core>=1.31.0
 Requires-Dist: cryptography>=2.5
-Requires-Dist: msal>=1.31.0
+Requires-Dist: msal>=1.35.1
 Requires-Dist: msal-extensions>=1.2.0
 Requires-Dist: typing-extensions>=4.0.0
 Dynamic: license-file
@@ -320,6 +320,24 @@ This project has adopted the [Microsoft Open Source Code of Conduct](https://ope
 [workload_id_cred_ref]: https://aka.ms/azsdk/python/identity/workloadidentitycredential
 
 # Release History
+
+## 1.25.3 (2026-03-12)
+
+### Bugs Fixed
+
+- Fixed an issue where an expired token could skip refresh when a recent token request was made, due to the retry delay taking precedence over expiration. ([#45496](https://github.com/Azure/azure-sdk-for-python/pull/45496))
+
+### Other Changes
+
+- Bumped minimum dependency on `msal` to `>=1.35.1`.
+
+## 1.26.0b2 (2026-02-11)
+
+### Breaking Changes
+
+> These changes do not impact the API of stable versions such as 1.25.2.
+> Only code written against beta version 1.26.0b1 is affected.
+- Renamed `use_token_proxy` keyword argument to `enable_azure_proxy` in `WorkloadIdentityCredential` to better reflect its purpose. ([#44147](https://github.com/Azure/azure-sdk-for-python/pull/44147))
 
 ## 1.25.2 (2026-02-10)
 

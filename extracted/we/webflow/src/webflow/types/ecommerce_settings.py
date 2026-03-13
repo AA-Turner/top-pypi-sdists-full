@@ -3,39 +3,38 @@
 import datetime as dt
 import typing
 
-from ..core.datetime_utils import serialize_datetime
-
-try:
-    import pydantic.v1 as pydantic  # type: ignore
-except ImportError:
-    import pydantic  # type: ignore
+import pydantic
+import typing_extensions
+from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from ..core.serialization import FieldMetadata
 
 
-class EcommerceSettings(pydantic.BaseModel):
+class EcommerceSettings(UniversalBaseModel):
     """
     Ecommerce settings for a Webflow Site
     """
 
-    site_id: typing.Optional[str] = pydantic.Field(
-        alias="siteId", default=None, description="The identifier of the Site"
-    )
-    created_on: typing.Optional[dt.datetime] = pydantic.Field(
-        alias="createdOn", default=None, description="Date that the Site was created on"
-    )
-    default_currency: typing.Optional[str] = pydantic.Field(
-        alias="defaultCurrency", default=None, description="The three-letter ISO currency code for the Site"
-    )
+    site_id: typing_extensions.Annotated[
+        typing.Optional[str],
+        FieldMetadata(alias="siteId"),
+        pydantic.Field(alias="siteId", description="The identifier of the Site"),
+    ] = None
+    created_on: typing_extensions.Annotated[
+        typing.Optional[dt.datetime],
+        FieldMetadata(alias="createdOn"),
+        pydantic.Field(alias="createdOn", description="Date that the Site was created on"),
+    ] = None
+    default_currency: typing_extensions.Annotated[
+        typing.Optional[str],
+        FieldMetadata(alias="defaultCurrency"),
+        pydantic.Field(alias="defaultCurrency", description="The three-letter ISO currency code for the Site"),
+    ] = None
 
-    def json(self, **kwargs: typing.Any) -> str:
-        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
-        return super().json(**kwargs_with_defaults)
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2
+    else:
 
-    def dict(self, **kwargs: typing.Any) -> typing.Dict[str, typing.Any]:
-        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
-        return super().dict(**kwargs_with_defaults)
-
-    class Config:
-        frozen = True
-        smart_union = True
-        allow_population_by_field_name = True
-        json_encoders = {dt.datetime: serialize_datetime}
+        class Config:
+            frozen = True
+            smart_union = True
+            extra = pydantic.Extra.allow

@@ -5,6 +5,7 @@ from __future__ import annotations
 import typing
 
 import pydantic
+import typing_extensions
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 from .chat_completion_message_tool_call import ChatCompletionMessageToolCall
 
@@ -67,9 +68,12 @@ class ChatCompletionRequestMessage_User(UniversalBaseModel):
             extra = pydantic.Extra.allow
 
 
-ChatCompletionRequestMessage = typing.Union[
-    ChatCompletionRequestMessage_Assistant,
-    ChatCompletionRequestMessage_System,
-    ChatCompletionRequestMessage_Tool,
-    ChatCompletionRequestMessage_User,
+ChatCompletionRequestMessage = typing_extensions.Annotated[
+    typing.Union[
+        ChatCompletionRequestMessage_Assistant,
+        ChatCompletionRequestMessage_System,
+        ChatCompletionRequestMessage_Tool,
+        ChatCompletionRequestMessage_User,
+    ],
+    pydantic.Field(discriminator="role"),
 ]

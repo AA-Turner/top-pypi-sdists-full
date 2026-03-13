@@ -68,6 +68,7 @@ class AsyncTextToSpeechStreamingSocketClient(EventEmitterMixin):
         output_audio_bitrate: str = "128k",
         min_buffer_size: int = 50,
         max_chunk_length: int = 150,
+        dict_id: typing.Optional[str] = None,
     ) -> None:
         """
         Configuration message required as the first message after establishing the WebSocket connection.
@@ -97,6 +98,8 @@ class AsyncTextToSpeechStreamingSocketClient(EventEmitterMixin):
         :param output_audio_bitrate: Audio bitrate (choose from 5 supported bitrate options)
         :param min_buffer_size: Minimum character length that triggers buffer flushing for TTS model processing
         :param max_chunk_length: Maximum length for sentence splitting (adjust based on content length)
+        :param dict_id: The ID of a pronunciation dictionary to apply during synthesis.
+            Only supported by bulbul:v3.
         """
         data = ConfigureConnectionData(
             target_language_code=target_language_code,
@@ -110,6 +113,7 @@ class AsyncTextToSpeechStreamingSocketClient(EventEmitterMixin):
             output_audio_bitrate=output_audio_bitrate,
             min_buffer_size=min_buffer_size,
             max_chunk_length=max_chunk_length,
+            dict_id=dict_id,
         )
         message = ConfigureConnection(data=data)
         await self._send_model(message)
@@ -213,6 +217,7 @@ class TextToSpeechStreamingSocketClient(EventEmitterMixin):
         output_audio_bitrate: str = "128k",
         min_buffer_size: int = 50,
         max_chunk_length: int = 150,
+        dict_id: typing.Optional[str] = None,
     ) -> None:
         """
         Configuration message required as the first message after establishing the WebSocket connection.
@@ -242,6 +247,8 @@ class TextToSpeechStreamingSocketClient(EventEmitterMixin):
         :param output_audio_bitrate: Audio bitrate (choose from 5 supported bitrate options)
         :param min_buffer_size: Minimum character length that triggers buffer flushing for TTS model processing
         :param max_chunk_length: Maximum length for sentence splitting (adjust based on content length)
+        :param dict_id: The ID of a pronunciation dictionary to apply during synthesis.
+            Only supported by bulbul:v3.
         """
         data = ConfigureConnectionData(
             target_language_code=target_language_code,
@@ -255,6 +262,7 @@ class TextToSpeechStreamingSocketClient(EventEmitterMixin):
             output_audio_bitrate=output_audio_bitrate,
             min_buffer_size=min_buffer_size,
             max_chunk_length=max_chunk_length,
+            dict_id=dict_id,
         )
         message = ConfigureConnection(data=data)
         self._send_model(message)

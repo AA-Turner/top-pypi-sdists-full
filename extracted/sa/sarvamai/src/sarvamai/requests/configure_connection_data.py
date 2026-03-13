@@ -100,6 +100,17 @@ class ConfigureConnectionDataParams(typing_extensions.TypedDict):
     Audio bitrate (choose from 5 supported bitrate options)
     """
 
+    dict_id: typing_extensions.NotRequired[str]
+    """
+    The ID of a pronunciation dictionary to apply during synthesis. 
+    When provided, matching words in the input text will be replaced 
+    with their custom pronunciations before generating speech.
+    
+    Create and manage dictionaries via the `/text-to-speech/pronunciation-dictionary` endpoints.
+    
+    **Note:** Only supported by **bulbul:v3**.
+    """
+
     min_buffer_size: typing_extensions.NotRequired[int]
     """
     Minimum character length that triggers buffer flushing for TTS model processing

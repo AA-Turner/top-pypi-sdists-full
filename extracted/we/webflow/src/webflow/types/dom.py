@@ -3,35 +3,43 @@
 import datetime as dt
 import typing
 
-from ..core.datetime_utils import serialize_datetime
+import pydantic
+import typing_extensions
+from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from ..core.serialization import FieldMetadata
 from .node import Node
 from .pagination import Pagination
 
-try:
-    import pydantic.v1 as pydantic  # type: ignore
-except ImportError:
-    import pydantic  # type: ignore
 
-
-class Dom(pydantic.BaseModel):
+class Dom(UniversalBaseModel):
     """
-    The DOM (Document Object Model) schema represents the content structure of a web page. It captures various content nodes, such as text and images, along with their associated attributes. Each node has a unique identifier and can be of different types like text or image. The schema also provides pagination details for scenarios where the content nodes are too many to be fetched in a single request.
+    The DOM (Document Object Model) schema represents the content structure of a web page or component. It captures various content nodes along with their associated attributes. Each node has a unique identifier and can be of different types like text, image or component-instance. The schema also provides pagination details for scenarios where the content nodes are too many to be fetched in a single request.
     """
 
-    page_id: typing.Optional[str] = pydantic.Field(alias="pageId", default=None, description="Page ID")
+    page_id: typing_extensions.Annotated[
+        typing.Optional[str], FieldMetadata(alias="pageId"), pydantic.Field(alias="pageId", description="Page ID")
+    ] = None
+    branch_id: typing_extensions.Annotated[
+        typing.Optional[str],
+        FieldMetadata(alias="branchId"),
+        pydantic.Field(
+            alias="branchId",
+            description="The unique identifier of a [specific page branch.](https://help.webflow.com/hc/en-us/articles/33961355506195-Page-branching)",
+        ),
+    ] = None
     nodes: typing.Optional[typing.List[Node]] = None
     pagination: typing.Optional[Pagination] = None
+    last_updated: typing_extensions.Annotated[
+        typing.Optional[dt.datetime],
+        FieldMetadata(alias="lastUpdated"),
+        pydantic.Field(alias="lastUpdated", description="The date the page dom was most recently updated"),
+    ] = None
 
-    def json(self, **kwargs: typing.Any) -> str:
-        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
-        return super().json(**kwargs_with_defaults)
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2
+    else:
 
-    def dict(self, **kwargs: typing.Any) -> typing.Dict[str, typing.Any]:
-        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
-        return super().dict(**kwargs_with_defaults)
-
-    class Config:
-        frozen = True
-        smart_union = True
-        allow_population_by_field_name = True
-        json_encoders = {dt.datetime: serialize_datetime}
+        class Config:
+            frozen = True
+            smart_union = True
+            extra = pydantic.Extra.allow

@@ -79,6 +79,7 @@ MimeByExtension = {
     'xlsx'  : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     'txt'   : 'text/plain',
     'json'  : 'application/json',
+    'plist' : 'application/x-plist',
     'xml'   : 'application/xml',
     'html'  : 'text/html',
     'rtf'   : 'application/rtf',
@@ -292,6 +293,8 @@ class Fmt(Format, enum.Enum):
     XLSX = (FC.Document, 'xlsx', 'OFFICE/ZIP/XLSX', 'Microsoft ZIP/XML Document for Excel')
     PPTX = (FC.Document, 'pptx', 'OFFICE/ZIP/PPTX', 'Microsoft ZIP/XML Document for PowerPoint')
 
+    ODT = (FC.Document, 'odt', 'ZIP/ODT', 'Open Document Format')
+
     TEXT = (FC.Text, 'txt', 'Text', 'Plain Text Data')
     ASCII = (FC.Text, 'txt', 'Text/ASCII', 'Plain Text, Single Byte Encoding')
     UTF08 = (FC.Text, 'txt', 'Text/UTF08', 'Plain Text, UTF-08 Encoding')
@@ -355,6 +358,8 @@ class Fmt(Format, enum.Enum):
     CPIO = (FC.Archive, 'cpio')
     ZPQ = (FC.Archive, 'zpq')
 
+    PLIST = (FC.Serialized, 'plist', 'PList', 'Apple Property List')
+
     S_JAV = (FC.Serialized, 'bin', 'Serialized/Java')
     S_DOT = (FC.Serialized, 'bin', 'Serialized/DotNet')
     S_PHP = (FC.Serialized, 'bin', 'Serialized/PHP')
@@ -412,14 +417,14 @@ def get_pe_type(data: buf):
     if data[nt:nt + 4] != B'PE\0\0':
         return None
     arch = data[nt + 4:nt + 6]
-    if arch == B'\x64\x86':
+    if arch == B'\x4C\x01':
         dll = Fmt.PE32DLL
         sub = (
             Fmt.PE32SYS,
             Fmt.PE32GUI,
             Fmt.PE32CUI,
         )
-    elif arch == B'\x4C\x01':
+    elif arch == B'\x64\x86':
         dll = Fmt.PE64DLL
         sub = (
             Fmt.PE64SYS,
@@ -656,7 +661,7 @@ def buffer_contains(haystack: buf, needle: buf):
     """
     Determines whether `haystack` contains `needle`.
     """
-    return buffer_offset(haystack, needle) > 0
+    return buffer_offset(haystack, needle) >= 0
 
 
 def is_likely_pe_dotnet(data: buf):
@@ -794,10 +799,10 @@ def xml_or_html(view: buf):
         <               # a tag opens
         ([?!]?          # allow for question or exclamation mark
          [-:\w]{3,64})  # the tag name
-        \s{1,20}        # white space after tag name
+        \s{0,20}        # white space after tag name
         (/?>            # the tag may end here, or:
         |[-:\w]{3,32})  # we have an attribute.
-    ''', view):
+    ''', view, flags=re.DOTALL):
         tag = tag_match[1].lower()
         end = tag_match[2].lower()
         # <?xml...
@@ -835,6 +840,7 @@ def ascii_view(
 def is_likely_eml(
     data: buf,
     window_size: int = 0x10000,
+    text_checked: bool = False,
 ):
     """
     Checks the input for common strings that occur as email headers. If at least two are found,
@@ -842,6 +848,8 @@ def is_likely_eml(
     """
     hits = 0
     view = memoryview(data)[:window_size]
+    if not text_checked and get_text_format(view) is None:
+        return False
     for marker in (
         b'\nReceived:\x20from',
         b'\nSubject:\x20',
@@ -967,6 +975,11 @@ def get_office_xml_type(data: buf):
     """
     if data[:2] != B'PK':
         return None
+    if buffer_contains(data, B'application/vnd.oasis.opendocument.text'):
+        if buffer_contains(data, B'settings.xml'):
+            return Fmt.ODT
+        if buffer_contains(data, B'META-INF/manifest.xml'):
+            return Fmt.ODT
     if not buffer_contains(data, B'_rels/.rels'):
         return None
     if not buffer_contains(data, B'[Content_Types].xml'):
@@ -1023,6 +1036,7 @@ def get_compression_type(
         (Fmt.XZ          , F, 0, B'\xFD\x37\x7A\x58\x5A\x00'),                  # noqa
         (Fmt.MSCF        , T, 0, B'\x0A\x51\xE5\xC0'),                          # noqa
         (Fmt.RAR         , T, 0, B'Rar!\x1A\x07'),                              # noqa
+        (Fmt.RAR         , T, 0, B'RE\x7E\x5E'),                                # noqa
         (Fmt.XAR         , T, 0, B'xar!'),                                      # noqa
         (Fmt.SZDD        , T, 0, B'SZDD'),                                      # noqa
         (Fmt.ZLIB0       , T, 0, B'\x78\x01'),                                  # noqa
@@ -1090,9 +1104,9 @@ def get_image_format(data: buf):
         return Fmt.ICO
 
     if data[:3] == B'\xFF\xD8\xFF':
-        if data[4] in (0xDB, 0xEE, 0xE0):
+        if data[3] in (0xDB, 0xEE, 0xE0):
             return Fmt.JPG
-        if data[4] == 0xE1 and data[7:13] == B'\x45\x78\x69\x66\0\0':
+        if data[3] == 0xE1 and data[6:12] == B'Exif\0\0':
             return Fmt.JPG
         return None
 
@@ -1198,6 +1212,8 @@ def get_serialization_format(data: buf):
     """
     Checks for known data serialization formats.
     """
+    if data[:6] == B'bplist':
+        return Fmt.PLIST
     if data[:4] == B'\xAC\xED\x00\x05':
         return Fmt.S_JAV
     if data[:17] == B'\0\01\0\0\0\xFF\xFF\xFF\xFF\x01\0\0\0\0\0\0\0':
@@ -1260,12 +1276,14 @@ def get_text_format(data: buf):
         return Fmt.VBE
     if buffer_contains(view[:200], BR'{\rtf'):
         return Fmt.RTF
-    if step == 1 and is_likely_eml(data):
+    if step == 1 and is_likely_eml(data, text_checked=True):
         return Fmt.EML
     if step > 1:
         # The following checks require a contiguous buffer for the regular expression searches.
         view = bytearray(view)
     if format := xml_or_html(view):
+        if format == Fmt.XML and buffer_contains(view[:500], BR'<!DOCTYPE plist'):
+            return Fmt.PLIST
         return format
     if is_likely_json(view):
         return Fmt.JSON
@@ -1327,6 +1345,18 @@ def is_likely_email(data: buf):
 def is_likely_doc(data: buf):
     if get_microsoft_format(data) == Fmt.DOC:
         return True
-    if get_office_xml_type(data) == Fmt.DOCX:
+    if get_office_xml_type(data) in (Fmt.DOCX, Fmt.ODT):
         return True
+    return False
+
+
+def is_likely_plist(data: buf):
+    """
+    Checks whether the input data is likely an Apple property list, either in binary or XML format.
+    """
+    if data[:6] == B'bplist':
+        return True
+    if view := ascii_view(data, window_size=0):
+        if xml_or_html(view) == Fmt.XML and buffer_contains(view[:500], BR'<!DOCTYPE plist'):
+            return True
     return False

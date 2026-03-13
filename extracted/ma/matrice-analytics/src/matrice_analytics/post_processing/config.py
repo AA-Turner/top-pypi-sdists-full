@@ -98,6 +98,7 @@ APP_NAME_TO_USECASE = {
     "Animal Detection": "animal_detection",
     "Burglary Detection": "burglary_detection",
     "Landslide Detection": "landslide_detection",
+    "Bottle Defect Detection": "bottle_defect_detection",
 }
 
 APP_NAME_TO_CATEGORY = {
@@ -201,6 +202,7 @@ APP_NAME_TO_CATEGORY = {
     "Animal Detection": "general",
     "Burglary Detection": "security",
     "Landslide Detection": "environmental",
+    "Bottle Defect Detection": "industrial",
 }
 
 def get_usecase_from_app_name(app_name: str) -> str:

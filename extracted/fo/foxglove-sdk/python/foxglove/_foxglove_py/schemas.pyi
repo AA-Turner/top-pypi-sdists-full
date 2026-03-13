@@ -144,6 +144,7 @@ class CircleAnnotation:
         thickness: float = 0.0,
         fill_color: Color | None = None,
         outline_color: Color | None = None,
+        metadata: list[KeyValuePair] | None = None,
     ) -> None: ...
     @staticmethod
     def get_schema() -> Schema:
@@ -261,7 +262,7 @@ class CylinderPrimitive:
 
 class FrameTransform:
     """
-        A transform between two reference frames in 3D space. The transform defines the position and orientation of a child frame within a parent frame. Translation moves the origin of the child frame relative to the parent origin. The rotation changes the orientiation of the child frame around its origin.
+        A transform between two reference frames in 3D space. The transform defines the position and orientation of a child frame within a parent frame. Translation moves the origin of the child frame relative to the parent origin. The rotation changes the orientation of the child frame around its origin.
 
     Examples:
 
@@ -636,6 +637,7 @@ class PointsAnnotation:
         outline_colors: list[Color] | None = None,
         fill_color: Color | None = None,
         thickness: float = 0.0,
+        metadata: list[KeyValuePair] | None = None,
     ) -> None: ...
     @staticmethod
     def get_schema() -> Schema:
@@ -878,6 +880,7 @@ class TextAnnotation:
         font_size: float = 0.0,
         text_color: Color | None = None,
         background_color: Color | None = None,
+        metadata: list[KeyValuePair] | None = None,
     ) -> None: ...
     @staticmethod
     def get_schema() -> Schema:

@@ -245,8 +245,9 @@ TEST(UrlTest, NoRootKvStore) {
   EXPECT_THAT(
       kvstore::Spec::FromJson("zip:abc"),
       StatusIs(absl::StatusCode::kInvalidArgument,
-               HasSubstr("\"zip\" is a kvstore adapter URL scheme: "
-                         "unsupported URL scheme \"zip\" in \"zip:abc\"")));
+               testing::StrEq("Parsing spec from url: \"zip:abc\": unsupported "
+                              "URL scheme \"zip\" in \"zip:abc\": \"zip\" is a "
+                              "kvstore adapter URL scheme")));
 }
 
 }  // namespace

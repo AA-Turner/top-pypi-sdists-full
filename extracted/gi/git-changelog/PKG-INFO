@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: git-changelog
-Version: 2.7.1
+Version: 2.8.1
 Summary: Automatic Changelog generator using Jinja2 templates.
 Keywords: git,changelog,changelog-generator,commit-style,commit-convention
 Author-Email: =?utf-8?q?Timoth=C3=A9e_Mazzucotelli?= <dev@pawamoy.fr>
@@ -41,7 +41,7 @@ Description-Content-Type: text/markdown
 # git-changelog
 
 [![ci](https://github.com/pawamoy/git-changelog/workflows/ci/badge.svg)](https://github.com/pawamoy/git-changelog/actions?query=workflow%3Aci)
-[![documentation](https://img.shields.io/badge/docs-mkdocs-708FCC.svg?style=flat)](https://pawamoy.github.io/git-changelog/)
+[![documentation](https://img.shields.io/badge/docs-zensical-FF9100.svg?style=flat)](https://pawamoy.github.io/git-changelog/)
 [![pypi version](https://img.shields.io/pypi/v/git-changelog.svg)](https://pypi.org/project/git-changelog/)
 [![gitter](https://img.shields.io/badge/matrix-chat-4DB798.svg?style=flat)](https://app.gitter.im/#/room/#git-changelog:gitter.im)
 
@@ -123,7 +123,6 @@ To show the different options and their descriptions, use `git-changelog -h`.
 
 <div id="silver-sponsors"><b>Silver sponsors</b><p>
 <a href="https://fastapi.tiangolo.com/"><img alt="FastAPI" src="https://raw.githubusercontent.com/tiangolo/fastapi/master/docs/en/docs/img/logo-margin/logo-teal.png" style="height: 200px; "></a><br>
-<a href="https://docs.pydantic.dev/latest/"><img alt="Pydantic" src="https://pydantic.dev/assets/for-external/pydantic_logfire_logo_endorsed_lithium_rgb.svg" style="height: 180px; "></a><br>
 </p></div>
 
 <div id="bronze-sponsors"><b>Bronze sponsors</b><p>

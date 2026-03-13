@@ -128,7 +128,7 @@ impl Channel {
 
             let mut next_conn_no = 1;
 
-            while !should_exit.load(std::sync::atomic::Ordering::Relaxed) {
+            while !should_exit.load(std::sync::atomic::Ordering::Acquire) {
                 // Accept a new connection
                 match listener_clone.accept().await {
                     Ok((stream, peer_addr)) => {

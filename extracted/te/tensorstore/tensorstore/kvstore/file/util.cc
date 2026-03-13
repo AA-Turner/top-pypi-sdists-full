@@ -36,6 +36,7 @@
 #include "tensorstore/util/division.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
+#include "tensorstore/util/status_builder.h"
 
 using ::tensorstore::internal_os::FileDescriptor;
 using ::tensorstore::internal_os::FileDescriptorTraits;
@@ -170,8 +171,8 @@ Result<absl::Cord> ReadFromFileDescriptor(FileDescriptor fd,
         internal_os::PReadFromFile(fd, buffer.available_span(),
                                    adjusted_byte_range.inclusive_min + offset);
     if (!n.ok()) {
-      return MaybeAnnotateStatus(std::move(n).status(),
-                                 "Failed to read from file");
+      return StatusBuilder(std::move(n).status())
+          .Format("Failed to read from file");
     }
     if (auto read = *n; read > 0) {
       offset += read;

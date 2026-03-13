@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.19.21.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-03-12T00:19:49.805149                                                            #
+# Generated on 2026-03-12T21:59:19.423149                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,8 +9,8 @@ from __future__ import annotations
 import typing
 import metaflow
 if typing.TYPE_CHECKING:
-    import pathlib
     import metaflow.exception
+    import pathlib
 
 from ...exception import MetaflowException as MetaflowException
 from ...plugins.perimeters import get_perimeter_config_url_if_set_in_ob_config as get_perimeter_config_url_if_set_in_ob_config

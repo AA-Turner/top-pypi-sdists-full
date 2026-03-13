@@ -391,9 +391,10 @@ class KvsBackedCache : public Parent {
             read_future.ExecuteWhenReady(
                 [receiver_impl =
                      std::move(*this)](Future<const void> future) mutable {
-                  TENSORSTORE_RETURN_IF_ERROR(
-                      future.status(),
-                      execution::set_error(receiver_impl, std::move(_)));
+                  TENSORSTORE_RETURN_IF_ERROR(future.status())
+                      .With([&receiver_impl](absl::Status status) {
+                        execution::set_error(receiver_impl, std::move(status));
+                      });
                   auto update = AsyncCache::ReadLock<void>{*receiver_impl.self_}
                                     .read_state();
                   execution::set_value(receiver_impl, std::move(update));

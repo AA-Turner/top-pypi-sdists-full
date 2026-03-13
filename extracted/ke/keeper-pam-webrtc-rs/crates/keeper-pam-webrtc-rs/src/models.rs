@@ -156,64 +156,28 @@ impl Conn {
 
     /// Gracefully shutdown the connection, ensuring TCP cleanup completes
     ///
-    /// This method ensures that:
-    /// 1. The backend task receives signal to exit (data_tx is closed)
-    /// 2. The backend task has time to complete TCP shutdown (line 257-263 in backend_task_runner)
-    /// 3. Guacd receives proper TCP FIN packet (not abrupt RST)
-    ///
-    /// After this completes, the connection can be dropped safely.
-    /// Gracefully shutdown the connection, ensuring TCP cleanup completes
+    /// CRITICAL ORDER: Backend (write half) must shutdown FIRST so guacd receives FIN.
+    /// Then guacd closes its write, and to_webrtc (read half) gets EOF and exits.
+    /// Reversing this order leaves the TCP connection open - guacd keeps writing
+    /// to ses/tys/tim pipes and they never see EOF (tunnel close timeout).
     ///
     /// This method ensures that:
-    /// 1. The backend task receives signal to exit (data_tx is closed)
-    /// 2. The backend task has time to complete TCP shutdown (proper FIN packet)
-    /// 3. Guacd receives proper disconnect notification
-    ///
-    /// Uses proper Rust async patterns (no polling loop!)
+    /// 1. Backend task receives signal to exit (data_tx closed) and sends TCP FIN to guacd
+    /// 2. to_webrtc receives EOF from guacd and exits (pipes see EOF, clean teardown)
+    /// 3. If to_webrtc doesn't get EOF in time, we cancel as fallback
     pub async fn graceful_shutdown(&mut self, conn_no: u32, channel_id: &str) {
         // Step 1: Close data_tx channel to signal backend_task to exit naturally
-        // When data_rx.recv() returns None, backend_task will run its cleanup code
+        // When data_rx.recv() returns None, backend_task will run its cleanup and shutdown TCP write
+        debug!(
+            "graceful_shutdown: Dropping data_tx to signal backend (channel_id: {}, conn_no: {})",
+            channel_id, conn_no
+        );
         let (dummy_tx, _dummy_rx) = mpsc::unbounded_channel();
         let old_tx = std::mem::replace(&mut self.data_tx, dummy_tx);
         drop(old_tx); // Dropping the sender signals the receiver to close
 
-        // Step 2: Cancel to_webrtc read task and wait for graceful exit (releases buffers!)
-        // CRITICAL: Use cancellation token instead of abort() to allow buffer cleanup
-        // The task checks cancellation token in read loop and exits gracefully, releasing buffers
-        if let Some(task) = self.to_webrtc.take() {
-            // Cancel the read task (signals it to exit via cancellation token)
-            self.cancel_read_task.cancel();
-
-            // Wait for task to exit gracefully (allows buffer cleanup)
-            // Timeout after 1 second - read cancellation check interval is 500ms, so 1s is safe
-            let task_handle = task.abort_handle(); // Get abort handle before consuming task
-            match tokio::time::timeout(Duration::from_secs(1), task).await {
-                Ok(Ok(())) => {
-                    debug!(
-                        "to_webrtc task completed gracefully with buffer cleanup (channel_id: {}, conn_no: {})",
-                        channel_id, conn_no
-                    );
-                }
-                Ok(Err(join_err)) => {
-                    warn!(
-                        "to_webrtc task panicked during shutdown: {:?} (channel_id: {}, conn_no: {})",
-                        join_err, channel_id, conn_no
-                    );
-                }
-                Err(_elapsed) => {
-                    warn!(
-                        "to_webrtc shutdown timeout (1s), aborting (channel_id: {}, conn_no: {})",
-                        channel_id, conn_no
-                    );
-                    // Abort the task if graceful shutdown timed out
-                    // This is a fallback - buffers may leak in this rare case
-                    task_handle.abort();
-                }
-            }
-        }
-
-        // Step 3: Await backend_task to complete TCP shutdown (with timeout)
-        // Proper Rust way: consume JoinHandle via take() and await it
+        // Step 2: Await backend_task FIRST - it sends TCP FIN to guacd
+        // Guacd receives FIN, closes its write, and to_webrtc will get EOF on next read
         if let Some(backend_task) = self.backend_task.take() {
             match tokio::time::timeout(Duration::from_secs(2), backend_task).await {
                 Ok(Ok(())) => {
@@ -233,7 +197,6 @@ impl Conn {
                         "Backend shutdown timeout (2s) (channel_id: {}, conn_no: {})",
                         channel_id, conn_no
                     );
-                    // Task is automatically cancelled by timeout wrapper
                 }
             }
         } else {
@@ -241,6 +204,38 @@ impl Conn {
                 "Backend task already consumed or aborted (channel_id: {}, conn_no: {})",
                 channel_id, conn_no
             );
+        }
+
+        // Step 3: Wait for to_webrtc - it should get EOF from guacd now that we sent FIN
+        // Give it 3s for guacd to close; if not, cancel to prevent indefinite hang
+        debug!(
+            "graceful_shutdown: Waiting for to_webrtc task (channel_id: {}, conn_no: {})",
+            channel_id, conn_no
+        );
+        if let Some(task) = self.to_webrtc.take() {
+            self.cancel_read_task.cancel();
+            let task_handle = task.abort_handle();
+            match tokio::time::timeout(Duration::from_secs(3), task).await {
+                Ok(Ok(())) => {
+                    debug!(
+                        "to_webrtc task completed (channel_id: {}, conn_no: {})",
+                        channel_id, conn_no
+                    );
+                }
+                Ok(Err(join_err)) => {
+                    warn!(
+                        "to_webrtc task panicked during shutdown: {:?} (channel_id: {}, conn_no: {})",
+                        join_err, channel_id, conn_no
+                    );
+                }
+                Err(_elapsed) => {
+                    warn!(
+                        "to_webrtc shutdown timeout (3s), aborting (channel_id: {}, conn_no: {})",
+                        channel_id, conn_no
+                    );
+                    task_handle.abort();
+                }
+            }
         }
     }
 }
@@ -307,6 +302,10 @@ pub(crate) async fn backend_task_runner(
             }
             ConnectionMessage::Eof => {
                 // Handle EOF - call real TCP shutdown
+                debug!(
+                    "Backend received EOF, shutting down TCP write to guacd (channel_id: {}, conn_no: {})",
+                    channel_id, conn_no
+                );
                 if let Err(e) = AsyncReadWrite::shutdown(&mut backend).await {
                     warn!("Failed to shutdown backend on EOF (channel_id: {}, conn_no: {}, error: {})", channel_id, conn_no, e);
                 } else {

@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include "riegeli/bytes/reader.h"
 #include "riegeli/bytes/writer.h"
 #include "tensorstore/array.h"
@@ -52,26 +53,29 @@
 #include "tensorstore/kvstore/zarr3_sharding_indexed/zarr3_sharding_indexed.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/util/executor.h"
+#include "tensorstore/util/generic_stringify.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_zarr3 {
 
-absl::Status SubChunkRankMismatch(span<const Index> sub_chunk_shape,
-                                  DimensionIndex outer_rank) {
-  return absl::InvalidArgumentError(tensorstore::StrCat(
-      "sharding_indexed sub-chunk shape of ", sub_chunk_shape,
-      " is not compatible with array of rank ", outer_rank));
+absl::Status SubChunkRankMismatch(
+    tensorstore::span<const Index> sub_chunk_shape, DimensionIndex outer_rank) {
+  return absl::InvalidArgumentError(
+      absl::StrFormat("sharding_indexed sub-chunk shape of %v is not "
+                      "compatible with array of rank %d",
+                      GenericStringify(sub_chunk_shape), outer_rank));
 }
 
-absl::Status SubChunkShapeMismatch(span<const Index> sub_chunk_shape,
-                                   span<const Index> chunk_shape) {
-  return absl::InvalidArgumentError(tensorstore::StrCat(
-      "sharding_indexed sub-chunk shape of ", sub_chunk_shape,
-      " does not evenly divide chunk shape of  ", chunk_shape));
+absl::Status SubChunkShapeMismatch(
+    tensorstore::span<const Index> sub_chunk_shape,
+    tensorstore::span<const Index> chunk_shape) {
+  return absl::InvalidArgumentError(absl::StrFormat(
+      "sharding_indexed sub-chunk shape of %v does not evenly divide chunk "
+      "shape of %v",
+      GenericStringify(sub_chunk_shape), GenericStringify(chunk_shape)));
 }
 
 namespace {
@@ -176,12 +180,12 @@ absl::Status ShardingIndexedCodecSpec::MergeFrom(const ZarrCodecSpec& other,
       "chunk_shape", options, other_options));
   TENSORSTORE_RETURN_IF_ERROR(
       internal_zarr3::MergeZarrCodecSpecs(options.index_codecs,
-                                          other_options.index_codecs, strict),
-      tensorstore::MaybeAnnotateStatus(_, "Incompatible \"index_codecs\""));
+                                          other_options.index_codecs, strict))
+      .Format("Incompatible \"index_codecs\"");
   TENSORSTORE_RETURN_IF_ERROR(
       internal_zarr3::MergeZarrCodecSpecs(
-          options.sub_chunk_codecs, other_options.sub_chunk_codecs, strict),
-      tensorstore::MaybeAnnotateStatus(_, "Incompatible sub-chunk \"codecs\""));
+          options.sub_chunk_codecs, other_options.sub_chunk_codecs, strict))
+      .Format("Incompatible sub-chunk \"codecs\"");
   TENSORSTORE_RETURN_IF_ERROR(MergeConstraint<&Options::index_location>(
       "index_location", options, other_options));
   return absl::OkStatus();
@@ -320,10 +324,10 @@ Result<ZarrArrayToBytesCodec::Ptr> ShardingIndexedCodecSpec::Resolve(
     }
     return absl::OkStatus();
   };
-  TENSORSTORE_RETURN_IF_ERROR(
-      set_up_codecs(options.sub_chunk_codecs ? *options.sub_chunk_codecs
-                                             : ZarrCodecChainSpec{}),
-      tensorstore::MaybeAnnotateStatus(_, "Error resolving sub-chunk codecs"));
+  TENSORSTORE_RETURN_IF_ERROR(set_up_codecs(options.sub_chunk_codecs
+                                                ? *options.sub_chunk_codecs
+                                                : ZarrCodecChainSpec{}))
+      .Format("Error resolving sub-chunk codecs");
 
   auto set_up_index_codecs =
       [&](const ZarrCodecChainSpec& index_codecs) -> absl::Status {
@@ -337,8 +341,8 @@ Result<ZarrArrayToBytesCodec::Ptr> ShardingIndexedCodecSpec::Resolve(
   };
   TENSORSTORE_RETURN_IF_ERROR(
       set_up_index_codecs(options.index_codecs ? *options.index_codecs
-                                               : DefaultIndexCodecChainSpec()),
-      tensorstore::MaybeAnnotateStatus(_, "Error resolving index_codecs"));
+                                               : DefaultIndexCodecChainSpec()))
+      .Format("Error resolving index_codecs");
   return {std::in_place, std::move(codec)};
 }
 

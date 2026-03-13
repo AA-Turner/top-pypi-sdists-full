@@ -1869,6 +1869,88 @@ print(
 }
 
 #[test]
+fn add_noqa_top_of_file() -> Result<()> {
+    let fixture = CliTest::new()?;
+    fixture.write_file(
+        "ruff.toml",
+        r#"
+[lint]
+select = ["D100"]
+"#,
+    )?;
+
+    fixture.write_file(
+        "noqa.py", r"
+",
+    )?;
+
+    assert_cmd_snapshot!(fixture
+        .check_command()
+        .args(["--config", "ruff.toml"])
+        .arg("noqa.py")
+        .arg("--preview")
+        .args(["--add-noqa"])
+        , @"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Added 1 noqa directive.
+    ");
+
+    let test_code =
+        fs::read_to_string(fixture.root().join("noqa.py")).expect("should read test file");
+
+    insta::assert_snapshot!(test_code, @"# noqa: D100");
+
+    Ok(())
+}
+
+#[test]
+fn add_noqa_top_of_file_with_shebang() -> Result<()> {
+    let fixture = CliTest::new()?;
+    fixture.write_file(
+        "ruff.toml",
+        r#"
+[lint]
+select = ["D100"]
+"#,
+    )?;
+
+    fixture.write_file(
+        "noqa.py",
+        r"#!/usr/bin/env fake command
+",
+    )?;
+
+    assert_cmd_snapshot!(fixture
+        .check_command()
+        .args(["--config", "ruff.toml"])
+        .arg("noqa.py")
+        .arg("--preview")
+        .args(["--add-noqa"])
+        , @"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Added 1 noqa directive.
+    ");
+
+    let test_code =
+        fs::read_to_string(fixture.root().join("noqa.py")).expect("should read test file");
+
+    insta::assert_snapshot!(test_code, @"
+    #!/usr/bin/env fake command
+    # noqa: D100
+    ");
+
+    Ok(())
+}
+
+#[test]
 fn add_noqa_exclude() -> Result<()> {
     let fixture = CliTest::new()?;
     fixture.write_file(
@@ -4104,7 +4186,6 @@ fn preview_default_rules() -> Result<()> {
     	pytest-use-fixtures-without-parameters (PT026),
     	pytest-warns-with-multiple-statements (PT031),
     	unnecessary-return-none (RET501),
-    	unnecessary-assign (RET504),
     	duplicate-isinstance-call (SIM101),
     	collapsible-if (SIM102),
     	needless-bool (SIM103),
@@ -4137,9 +4218,7 @@ fn preview_default_rules() -> Result<()> {
     	invalid-module-name (N999),
     	unnecessary-list-cast (PERF101),
     	incorrect-dict-iterator (PERF102),
-    	manual-list-comprehension (PERF401),
     	manual-list-copy (PERF402),
-    	manual-dict-comprehension (PERF403),
     	bare-except (E722),
     	io-error (E902),
     	invalid-escape-sequence (W605),
@@ -4230,7 +4309,6 @@ fn preview_default_rules() -> Result<()> {
     	manual-from-import (PLR0402),
     	redefined-argument-from-local (PLR1704),
     	useless-return (PLR1711),
-    	repeated-equality-comparison (PLR1714),
     	boolean-chained-comparison (PLR1716),
     	sys-exit-alias (PLR1722),
     	if-stmt-min-max (PLR1730),
@@ -4353,7 +4431,6 @@ fn preview_default_rules() -> Result<()> {
     	type-check-without-type-error (TRY004),
     	verbose-raise (TRY201),
     	useless-try-except (TRY203),
-    	try-consider-else (TRY300),
     	verbose-log-message (TRY401),
     ]
     ",

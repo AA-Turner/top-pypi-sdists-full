@@ -30,6 +30,7 @@
 #include "absl/log/absl_log.h"
 #include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/clock.h"
@@ -57,7 +58,6 @@
 #include "tensorstore/proto/encode_time.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace ocdbt {
@@ -149,10 +149,12 @@ grpc::ServerUnaryReactor* CoordinatorServer::Impl::RequestLease(
   TENSORSTORE_ASSIGN_OR_RETURN(
       auto lease_duration,
       internal::ProtoToAbslDuration(request->lease_duration()),
-      (reactor->Finish(grpc::Status(
-           grpc::StatusCode::INVALID_ARGUMENT,
-           tensorstore::StrCat("Invalid lease duration: ", _.message()))),
-       reactor));
+      _.With([&](absl::Status status) {
+        reactor->Finish(grpc::Status(
+            grpc::StatusCode::INVALID_ARGUMENT,
+            absl::StrCat("Invalid lease duration: ", status.message())));
+        return reactor;
+      }));
 
   // Lookup lease.
   {
@@ -189,8 +191,8 @@ grpc::ServerUnaryReactor* CoordinatorServer::Impl::RequestLease(
       if (assign_new_lease) {
         node->lease_id = static_cast<uint64_t>(
             absl::ToInt64Nanoseconds(cur_time - absl::UnixEpoch()));
-        node->owner = tensorstore::StrCat(peer_address->first, ":",
-                                          request->cooperator_port());
+        node->owner =
+            absl::StrCat(peer_address->first, ":", request->cooperator_port());
       }
       response->set_is_owner(true);
       leases_by_expiration_time_.FindOrInsert(

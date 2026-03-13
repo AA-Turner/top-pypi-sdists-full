@@ -26,6 +26,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
 #include <nlohmann/json_fwd.hpp>
 #include "tensorstore/box.h"
 #include "tensorstore/codec_spec.h"
@@ -38,7 +39,6 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace {
 
@@ -52,7 +52,6 @@ using ::tensorstore::kDataTypes;
 using ::tensorstore::MatchesJson;
 using ::tensorstore::span;
 using ::tensorstore::StatusIs;
-using ::tensorstore::StrCat;
 using ::tensorstore::internal::ParseJson;
 using ::tensorstore::internal_neuroglancer_precomputed::EncodeCompressedZIndex;
 using ::tensorstore::internal_neuroglancer_precomputed::
@@ -973,10 +972,11 @@ TEST(ValidateMetadataCompatibilityTest, Basic) {
   const auto Validate = [](const MultiscaleMetadata& a,
                            const MultiscaleMetadata& b, size_t scale_index,
                            std::array<Index, 3> chunk_size) -> absl::Status {
-    SCOPED_TRACE(StrCat("a=", ::nlohmann::json(a).dump()));
-    SCOPED_TRACE(StrCat("b=", ::nlohmann::json(b).dump()));
-    SCOPED_TRACE(StrCat("scale_index=", scale_index));
-    SCOPED_TRACE(StrCat("chunk_size=", ::nlohmann::json(chunk_size).dump()));
+    SCOPED_TRACE(absl::StrCat("a=", ::nlohmann::json(a).dump()));
+    SCOPED_TRACE(absl::StrCat("b=", ::nlohmann::json(b).dump()));
+    SCOPED_TRACE(absl::StrCat("scale_index=", scale_index));
+    SCOPED_TRACE(
+        absl::StrCat("chunk_size=", ::nlohmann::json(chunk_size).dump()));
     auto status = ValidateMetadataCompatibility(a, b, scale_index, chunk_size);
     auto key_a = GetMetadataCompatibilityKey(a, scale_index, chunk_size);
     auto key_b = GetMetadataCompatibilityKey(b, scale_index, chunk_size);
@@ -1580,9 +1580,9 @@ TEST(CreateScaleTest, ExistingScale) {
     EXPECT_THAT(
         CreateScale(&existing_metadata, OpenConstraints::FromJson(j).value(),
                     /*schema=*/{}),
-        StatusIs(
-            absl::StatusCode::kAlreadyExists,
-            HasSubstr(StrCat("Scale index ", scale_index, " already exists"))));
+        StatusIs(absl::StatusCode::kAlreadyExists,
+                 HasSubstr(absl::StrCat("Scale index ", scale_index,
+                                        " already exists"))));
   }
 
   {
@@ -1829,7 +1829,7 @@ TEST(ValidateDataTypeTest, Basic) {
     EXPECT_THAT(
         ValidateDataType(dtype),
         StatusIs(absl::StatusCode::kInvalidArgument,
-                 HasSubstr(StrCat(
+                 HasSubstr(absl::StrCat(
                      dtype.name(),
                      " data type is not one of the supported data types:"))));
   }

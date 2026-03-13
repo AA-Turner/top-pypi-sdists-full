@@ -30,7 +30,6 @@
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_json_binding {
@@ -73,10 +72,9 @@ struct ArrayBinderImpl {
     for (size_t i = 0, size = j_arr->size(); i < size; ++i) {
       auto&& element = get_element(*obj, i);
       TENSORSTORE_RETURN_IF_ERROR(
-          element_binder(is_loading, options, &element, &(*j_arr)[i]),
-          MaybeAnnotateStatus(
-              _, absl::StrFormat("Error %s value at position %d",
-                                 is_loading ? "parsing" : "converting", i)));
+          element_binder(is_loading, options, &element, &(*j_arr)[i]))
+          .Format("Error %s value at position %d",
+                  is_loading ? "parsing" : "converting", i);
     }
     return absl::OkStatus();
   }

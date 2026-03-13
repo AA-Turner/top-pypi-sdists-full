@@ -3,50 +3,61 @@
 import datetime as dt
 import typing
 
-from ..core.datetime_utils import serialize_datetime
+import pydantic
+import typing_extensions
+from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from ..core.serialization import FieldMetadata
 from .trigger_type import TriggerType
-
-try:
-    import pydantic.v1 as pydantic  # type: ignore
-except ImportError:
-    import pydantic  # type: ignore
+from .webhook_filter import WebhookFilter
 
 
-class Webhook(pydantic.BaseModel):
-    id: typing.Optional[str] = pydantic.Field(
-        default=None, description="Unique identifier for the Webhook registration"
-    )
-    workspace_id: typing.Optional[str] = pydantic.Field(
-        alias="workspaceId",
-        default=None,
-        description="Unique identifier for the Workspace the Webhook is registered in",
-    )
-    site_id: typing.Optional[str] = pydantic.Field(
-        alias="siteId", default=None, description="Unique identifier for the Site the Webhook is registered in"
-    )
-    trigger_type: typing.Optional[TriggerType] = pydantic.Field(alias="triggerType", default=None)
-    filter: typing.Optional[typing.Dict[str, typing.Any]] = pydantic.Field(
-        default=None,
-        description="Filter for selecting which events you want Webhooks to be sent for. Only supported for form_submission trigger types.",
-    )
-    last_triggered: typing.Optional[dt.datetime] = pydantic.Field(
-        alias="lastTriggered", default=None, description="Date the Webhook instance was last triggered"
-    )
-    created_on: typing.Optional[dt.datetime] = pydantic.Field(
-        alias="createdOn", default=None, description="Date the Webhook registration was created"
-    )
-    url: typing.Optional[str] = pydantic.Field(default=None, description="URL to send the Webhook payload to")
+class Webhook(UniversalBaseModel):
+    id: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Unique identifier for the Webhook registration
+    """
 
-    def json(self, **kwargs: typing.Any) -> str:
-        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
-        return super().json(**kwargs_with_defaults)
+    trigger_type: typing_extensions.Annotated[
+        typing.Optional[TriggerType], FieldMetadata(alias="triggerType"), pydantic.Field(alias="triggerType")
+    ] = None
+    url: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    URL to send the Webhook payload to
+    """
 
-    def dict(self, **kwargs: typing.Any) -> typing.Dict[str, typing.Any]:
-        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
-        return super().dict(**kwargs_with_defaults)
+    workspace_id: typing_extensions.Annotated[
+        typing.Optional[str],
+        FieldMetadata(alias="workspaceId"),
+        pydantic.Field(
+            alias="workspaceId", description="Unique identifier for the Workspace the Webhook is registered in"
+        ),
+    ] = None
+    site_id: typing_extensions.Annotated[
+        typing.Optional[str],
+        FieldMetadata(alias="siteId"),
+        pydantic.Field(alias="siteId", description="Unique identifier for the Site the Webhook is registered in"),
+    ] = None
+    filter: typing.Optional[WebhookFilter] = pydantic.Field(default=None)
+    """
+    Only supported for the `form_submission` trigger type. Filter for the form you want Webhooks to be sent for.
+    """
 
-    class Config:
-        frozen = True
-        smart_union = True
-        allow_population_by_field_name = True
-        json_encoders = {dt.datetime: serialize_datetime}
+    last_triggered: typing_extensions.Annotated[
+        typing.Optional[dt.datetime],
+        FieldMetadata(alias="lastTriggered"),
+        pydantic.Field(alias="lastTriggered", description="Date the Webhook instance was last triggered"),
+    ] = None
+    created_on: typing_extensions.Annotated[
+        typing.Optional[dt.datetime],
+        FieldMetadata(alias="createdOn"),
+        pydantic.Field(alias="createdOn", description="Date the Webhook registration was created"),
+    ] = None
+
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2
+    else:
+
+        class Config:
+            frozen = True
+            smart_union = True
+            extra = pydantic.Extra.allow

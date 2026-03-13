@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: geocif
-Version: 0.4.180
+Version: 0.4.210
 Summary: Models to visualize and forecast crop conditions and yields
 Author-email: Ritvik Sahajpal <ritvik@umd.edu>
 License: MIT
@@ -226,7 +226,7 @@ The yield outlook runner produces a diverging choropleth map showing current for
     └── analysis/
         └── {MMMM_DD_YYYY}/
             └── outlook/
-                ├── yield_outlook_{country}_{crop}_{model}_{year}.png
+                ├── yield_outlook_{country}_{crop}_{model}_{stage}_{year}.png
                 └── yield_outlook_{year}.csv
 ```
 

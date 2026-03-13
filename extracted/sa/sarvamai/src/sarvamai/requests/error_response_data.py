@@ -12,7 +12,7 @@ class ErrorResponseDataParams(typing_extensions.TypedDict):
     Optional error code for programmatic error handling
     """
 
-    details: typing_extensions.NotRequired[typing.Dict[str, typing.Optional[typing.Any]]]
+    details: typing_extensions.NotRequired[typing.Dict[str, typing.Any]]
     """
     Additional error details and context information
     """

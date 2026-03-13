@@ -22,8 +22,10 @@ import itertools
 import json
 import random
 import threading
+import time
 import urllib.parse
 from concurrent.futures import Future
+from concurrent.futures import TimeoutError as FutureTimeoutError
 from datetime import datetime, timezone
 from logging import Logger
 from typing import Any, Callable, Optional
@@ -39,6 +41,7 @@ from .landroid_class import LDict
 
 QOS_FLAG = awscrt.mqtt.QoS.AT_LEAST_ONCE
 DEFAULT_RESPONSE_TIMEOUT = 30.0
+DEFAULT_SHUTDOWN_TIMEOUT = 5.0
 
 
 class MQTTMsgType(LDict):
@@ -151,6 +154,7 @@ class MQTT(LDict):
             f"{self._brandprefix}/USER/{self._user_id}/homeassistant/{self._uuid}"
         )
         self._shutdown_event = False
+        self._shutdown_timeout = DEFAULT_SHUTDOWN_TIMEOUT
 
         # Create event loop group and connection
         self._event_loop_group = awscrt.io.EventLoopGroup(1)
@@ -202,11 +206,15 @@ class MQTT(LDict):
             f"Connection resumed. return_code: {return_code}, session_present: {session_present}"
         )
 
-        if (
-            return_code == awscrt.mqtt.ConnectReturnCode.ACCEPTED
-            and not session_present
-        ):
-            logger.debug("Session did not persist. Resubscribing to existing topics...")
+        if return_code == awscrt.mqtt.ConnectReturnCode.ACCEPTED:
+            if session_present:
+                logger.debug(
+                    "Session resumed. Resubscribing to existing topics defensively..."
+                )
+            else:
+                logger.debug(
+                    "Session did not persist. Resubscribing to existing topics..."
+                )
             for topic in self._topic:
                 logger.debug(f"Resubscribing to '{topic}'")
                 self.subscribe(topic, False)
@@ -372,9 +380,12 @@ class MQTT(LDict):
 
             try:
                 if self._is_connected:
+                    started = time.perf_counter()
                     disconnect_future = client.disconnect()
                     disconnect_future.result()
-                    logger.debug("MQTT disconnected")
+                    logger.debug(
+                        "MQTT disconnected in %.3fs", time.perf_counter() - started
+                    )
             except Exception as err:  # pragma: no cover - defensive
                 logger.debug("MQTT disconnect raised during teardown: %s", err)
             finally:
@@ -388,6 +399,7 @@ class MQTT(LDict):
 
     def shutdown(self) -> None:
         """Release background AWS CRT resources."""
+        logger = self._log.getChild("MQTT_Shutdown")
         with self._lifecycle_lock:
             if self._shutdown_event:
                 return
@@ -409,17 +421,36 @@ class MQTT(LDict):
         # Disconnect after detaching internals, so concurrent calls see teardown state.
         if client is not None and was_connected:
             try:
+                started = time.perf_counter()
                 disconnect_future = client.disconnect()
-                disconnect_future.result()
+                disconnect_future.result(
+                    timeout=getattr(self, "_shutdown_timeout", DEFAULT_SHUTDOWN_TIMEOUT)
+                )
+                logger.debug(
+                    "Shutdown disconnect completed in %.3fs",
+                    time.perf_counter() - started,
+                )
+            except FutureTimeoutError:  # pragma: no cover - defensive
+                logger.debug(
+                    "Shutdown disconnect timed out after %.3fs",
+                    time.perf_counter() - started,
+                )
             except Exception:  # pragma: no cover - defensive
-                pass
-
-        if host_resolver is not None and hasattr(host_resolver, "shutdown_event"):
-            host_resolver.shutdown_event.wait(5)
-        if client_bootstrap is not None and hasattr(client_bootstrap, "shutdown_event"):
-            client_bootstrap.shutdown_event.wait(5)
-        if event_loop_group is not None and hasattr(event_loop_group, "shutdown_event"):
-            event_loop_group.shutdown_event.wait(5)
+                logger.debug(
+                    "Shutdown disconnect raised after %.3fs",
+                    time.perf_counter() - started,
+                    exc_info=True,
+                )
+        for name, resource in (
+            ("host_resolver", host_resolver),
+            ("client_bootstrap", client_bootstrap),
+            ("event_loop_group", event_loop_group),
+        ):
+            if resource is not None:
+                # Rollback point: if repeated connect/disconnect cycles start leaking
+                # native AWS CRT resources again, restore the old shutdown_event.wait()
+                # logic here and re-enable the corresponding lifecycle wait test.
+                logger.debug("Detached %s without waiting for shutdown_event", name)
 
     async def ashutdown(self) -> None:
         """Async shutdown wrapper."""

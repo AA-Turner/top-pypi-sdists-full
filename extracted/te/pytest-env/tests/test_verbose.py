@@ -23,7 +23,31 @@ def test_verbose_shows_set_from_ini(pytester: pytest.Pytester) -> None:
         result = pytester.runpytest("--pytest-env-verbose")
 
     result.assert_outcomes(passed=1)
-    result.stdout.fnmatch_lines(["*pytest-env:*", "*SET*MAGIC=alpha*"])
+    result.stdout.fnmatch_lines(["*pytest-env:*", "*SET*MAGIC=alpha*(from*pytest.ini*"])
+
+
+def test_verbose_shows_ini_source_when_pyproject_lacks_pytest_env(pytester: pytest.Pytester) -> None:
+    (pytester.path / "test_it.py").symlink_to(Path(__file__).parent / "template.py")
+    (pytester.path / "pyproject.toml").write_text(
+        dedent("""\
+            [build-system]
+            requires = ["setuptools>=61"]
+            build-backend = "setuptools.build_meta"
+        """),
+        encoding="utf-8",
+    )
+    (pytester.path / "pytest.ini").write_text("[pytest]\nenv = MAGIC=alpha", encoding="utf-8")
+
+    new_env = {
+        "_TEST_ENV": repr({"MAGIC": "alpha"}),
+        "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
+        "PYTEST_PLUGINS": "pytest_env.plugin",
+    }
+    with mock.patch.dict(os.environ, new_env, clear=True):
+        result = pytester.runpytest("--pytest-env-verbose")
+
+    result.assert_outcomes(passed=1)
+    result.stdout.fnmatch_lines(["*SET*MAGIC=alpha*(from*pytest.ini*"])
 
 
 def test_verbose_shows_set_from_toml(pytester: pytest.Pytester) -> None:
@@ -63,6 +87,31 @@ def test_verbose_shows_set_from_env_file(pytester: pytest.Pytester) -> None:
 
     result.assert_outcomes(passed=1)
     result.stdout.fnmatch_lines(["*SET*FROM_FILE=value*(from*.env*"])
+
+
+def test_verbose_shows_skip_from_env_file(pytester: pytest.Pytester) -> None:
+    (pytester.path / "test_it.py").symlink_to(Path(__file__).parent / "template.py")
+    (pytester.path / ".env").write_text("FROM_FILE=value", encoding="utf-8")
+    (pytester.path / "pyproject.toml").write_text(
+        dedent("""\
+            [tool.pytest_env]
+            env_files = [".env"]
+            env_files_skip_if_set = true
+        """),
+        encoding="utf-8",
+    )
+
+    new_env = {
+        "FROM_FILE": "original",
+        "_TEST_ENV": repr({"FROM_FILE": "original"}),
+        "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
+        "PYTEST_PLUGINS": "pytest_env.plugin",
+    }
+    with mock.patch.dict(os.environ, new_env, clear=True):
+        result = pytester.runpytest("--pytest-env-verbose")
+
+    result.assert_outcomes(passed=1)
+    result.stdout.fnmatch_lines(["*SKIP*FROM_FILE=original*(from*.env*"])
 
 
 def test_verbose_shows_skip(pytester: pytest.Pytester) -> None:

@@ -52,7 +52,7 @@ namespace internal_os {
 namespace {
 
 using ::tensorstore::internal::PotentiallyBlockingRegion;
-using ::tensorstore::internal::StatusWithOsError;
+using ::tensorstore::internal::StatusFromOsError;
 using ::tensorstore::internal_tracing::LoggedTraceSpan;
 
 ABSL_CONST_INIT internal_log::VerboseFlag detail_logging("hugepages_detail");
@@ -192,8 +192,9 @@ Result<MemoryRegion> AllocateHugePageRegion(size_t alignment, size_t size) {
                   /*fd*/ -1, 0);
   }();
   if (addr == MAP_FAILED || addr == nullptr) {
-    auto status = StatusWithOsError(absl::StatusCode::kResourceExhausted, errno,
-                                    "Failed to mmap huge page region");
+    absl::Status status =
+        StatusFromOsError(absl::StatusCode::kResourceExhausted, errno)
+            .Format("Failed to mmap huge page region");
     return std::move(tspan).EndWithStatus(std::move(status));
   }
 

@@ -10,6 +10,7 @@ import copy
 import logging
 import os
 import re
+import threading
 import time
 from dataclasses import asdict, dataclass, field, fields, replace
 from datetime import datetime, timezone
@@ -190,7 +191,7 @@ class ByteTrackWrapper:
 
     def __init__(
         self,
-        track_high_thresh: float = 0.3,
+        track_high_thresh: float = 0.4,
         track_low_thresh: float = 0.1,
         new_track_thresh: float = 0.4,
         track_buffer: int = 60,
@@ -371,7 +372,7 @@ class PostProcessingConfigClient:
                 self._session = Session(
                     access_key=self._access_key,
                     secret_key=self._secret_key,
-                    account_number=self._account_number,
+                    account_number="9782886768719887307619115",
                 )
                 self.logger.info("Initialized Matrice session for post-processing config client")
             except Exception as exc:
@@ -384,7 +385,7 @@ class PostProcessingConfigClient:
         elif self._session is not None:
             self._access_key = getattr(self._session, "access_key", None) or self._access_key
             self._secret_key = getattr(self._session, "secret_key", None) or self._secret_key
-            self._account_number = getattr(self._session, "account_number", None) or self._account_number
+            self._account_number = "9782886768719887307619115"
         elif not self._access_key or not self._secret_key:
             self.logger.warning(
                 "Missing Matrice credentials; cannot initialize session for post-processing config client"
@@ -829,9 +830,12 @@ class PostProcessingConfigClient:
         return out
 
 
+_GEOMETRY_RETRY_INTERVAL = 30  # Seconds between background retry attempts when API fails
+
+
 class FootFallUseCase(BaseProcessor):
     """Footfall use case with polygon/abline counting, zone analysis and alerting (same logic as people tracking)."""
-    
+
     def __init__(self):
         """Initialize footfall use case."""
         super().__init__("footfall")
@@ -906,10 +910,44 @@ class FootFallUseCase(BaseProcessor):
 
         # Optional: set to use lines/zones from PostProcessingConfigClient (by_app_deployment + camera_id)
         self._config_client: Optional[PostProcessingConfigClient] = None
+        # Resolved geometry from API. Background thread resolves on first frame and retries
+        # every _GEOMETRY_RETRY_INTERVAL seconds on failure. Never blocks frame processing.
+        self._resolved_geometry_cache: Optional[FootFallConfig] = None
+        self._geometry_thread: Optional[threading.Thread] = None
 
     def set_config_client(self, client: Optional[PostProcessingConfigClient]) -> None:
         """Set the PostProcessingConfigClient used to resolve lines/zones from API (by_app_deployment, camera_id)."""
         self._config_client = client
+
+    def _start_geometry_resolver(self, config: FootFallConfig, stream_info: Dict[str, Any]) -> None:
+        """Spawn a daemon thread that resolves geometry from the API.
+
+        On success the cache is updated and the thread exits.
+        On failure it retries every ``_GEOMETRY_RETRY_INTERVAL`` seconds.
+        Never blocks the calling (frame-processing) thread.
+        """
+        if self._geometry_thread is not None:
+            return  # already running
+
+        def _resolver():
+            while True:
+                try:
+                    result = self._resolve_geometry_from_api(config, stream_info)
+                    if result is not None:
+                        self._resolved_geometry_cache = result
+                        self.logger.info("Footfall: geometry resolved from API (background thread)")
+                        return  # done
+                    self.logger.info(
+                        "Footfall: API geometry returned None, retrying in %ds", _GEOMETRY_RETRY_INTERVAL
+                    )
+                except Exception as exc:
+                    self.logger.warning("Footfall: background geometry resolve error: %s", exc)
+                time.sleep(_GEOMETRY_RETRY_INTERVAL)
+
+        t = threading.Thread(target=_resolver, daemon=True, name="footfall-geometry-resolver")
+        self._geometry_thread = t
+        t.start()
+        self.logger.info("Footfall: started background geometry resolver thread")
 
     def _resolve_geometry_from_api(
         self,
@@ -922,11 +960,38 @@ class FootFallUseCase(BaseProcessor):
         filter_configs_by_camera_id -> get_resolution -> denormalize_config -> extract lines/zones.
         Maps first two lines to line_a, line_b and first two zones to outer_polygon, inner_polygon.
         Returns a new config with geometry filled, or None if unavailable.
+
+        Config client does not need to be in stream_info. It is resolved in order:
+        (1) set_config_client(), (2) stream_info["config_client"] if provided,
+        (3) lazy-creation from MATRICE_ACCESS_KEY_ID / MATRICE_SECRET_ACCESS_KEY / MATRICE_ACCOUNT_NUMBER.
         """
         client = self._config_client or (stream_info.get("config_client") if stream_info else None)
-        if not client or not stream_info:
+        if not client and stream_info:
+            try:
+                client = PostProcessingConfigClient(logger=self.logger)
+                if getattr(client, "_session", None) is None:
+                    self.logger.info(
+                        "Footfall: _resolve_geometry_from_api skipped (no config_client; set "
+                        "MATRICE_ACCESS_KEY_ID, MATRICE_SECRET_ACCESS_KEY, MATRICE_ACCOUNT_NUMBER "
+                        "or call set_config_client() for API geometry resolution)"
+                    )
+                    return None
+                self._config_client = client
+            except Exception as e:
+                self.logger.warning(
+                    "Footfall: _resolve_geometry_from_api could not create config client from env: %s",
+                    e,
+                )
+                return None
+        if not stream_info:
             self.logger.info(
-                "Footfall: _resolve_geometry_from_api skipped (no config_client or no stream_info)"
+                "Footfall: _resolve_geometry_from_api skipped (no stream_info)"
+            )
+            return None
+        if not client:
+            self.logger.info(
+                "Footfall: _resolve_geometry_from_api skipped (no config_client; set "
+                "MATRICE_* env or call set_config_client() for API geometry resolution)"
             )
             return None
         ids = client.get_stream_identifiers(stream_info)
@@ -943,9 +1008,17 @@ class FootFallUseCase(BaseProcessor):
             camera_id,
         )
         if not app_deployment_id or not camera_id:
+            self.logger.info(
+                "_resolve_geometry_from_api: returning None (missing app_deployment_id or camera_id)"
+            )
             return None
         configs, err, _ = client.get_post_processing_configs_by_app_deployment(app_deployment_id)
         if err or not configs:
+            self.logger.info(
+                "_resolve_geometry_from_api: returning None (get_post_processing_configs_by_app_deployment: err=%r, configs count=%s)",
+                err,
+                len(configs) if configs else 0,
+            )
             return None
         self.logger.info(
             "_resolve_geometry_from_api: configs=%r",
@@ -953,10 +1026,20 @@ class FootFallUseCase(BaseProcessor):
         )
         filtered = client.filter_configs_by_camera_id(configs, camera_id)
         if not filtered:
+            self.logger.info(
+                "_resolve_geometry_from_api: returning None (filter_configs_by_camera_id: no config for camera_id=%s)",
+                camera_id,
+            )
             return None
         doc = filtered[0]
         width, height = client.get_resolution(camera_id)
         if width is None or height is None:
+            self.logger.info(
+                "_resolve_geometry_from_api: returning None (get_resolution: width=%r, height=%r for camera_id=%s)",
+                width,
+                height,
+                camera_id,
+            )
             return None
         self.logger.info(
             "_resolve_geometry_from_api: width=%r, height=%r",
@@ -1025,19 +1108,12 @@ class FootFallUseCase(BaseProcessor):
                     usecase=self.name, category=self.category, context=context
                 )
 
-            # Resolve line_a, line_b, outer_polygon, inner_polygon from API when config_client and stream_info are available.
-            # Call kept for platform debugging (logs); config from file (line_a, line_b, etc.) is used — do not replace.
+            # Resolve geometry from API in a background thread (never blocks frame processing).
+            # On first frame: spawns a daemon thread that calls the API and retries every 30s on failure.
+            # The cache is updated asynchronously when the API succeeds.
             if stream_info:
-                self.logger.info(
-                    "Footfall: stream_info present, calling API geometry resolution (config from file used for processing)"
-                )
-                _resolved = self._resolve_geometry_from_api(config, stream_info)
-                self.logger.info(
-                    "_resolve_geometry_from_api: _resolved=%r",
-                    _resolved,
-                )
-                # if _resolved is not None:
-                #     config = _resolved
+                self._start_geometry_resolver(config, stream_info)
+                _resolved = self._resolved_geometry_cache
 
             if context is None:
                 context = ProcessingContext()
@@ -1087,7 +1163,7 @@ class FootFallUseCase(BaseProcessor):
             if getattr(config, "enable_advanced_tracker", True):
                 if self.tracker is None:
                     self.tracker = ByteTrackWrapper(
-                        track_high_thresh=0.3,
+                        track_high_thresh=0.4,
                         track_low_thresh=0.1,
                         new_track_thresh=0.4,
                         track_buffer=60,

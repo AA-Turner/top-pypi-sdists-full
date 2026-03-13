@@ -3,55 +3,85 @@
 import datetime as dt
 import typing
 
-from ..core.datetime_utils import serialize_datetime
+import pydantic
+import typing_extensions
+from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from ..core.serialization import FieldMetadata
 from .form_field import FormField
 from .form_response_settings import FormResponseSettings
 
-try:
-    import pydantic.v1 as pydantic  # type: ignore
-except ImportError:
-    import pydantic  # type: ignore
 
+class Form(UniversalBaseModel):
+    """
+    A Webflow form
+    """
 
-class Form(pydantic.BaseModel):
-    id: typing.Optional[str] = pydantic.Field(default=None, description="The unique id for the Form")
-    display_name: typing.Optional[str] = pydantic.Field(
-        alias="displayName", default=None, description="The Form name displayed on the site"
-    )
-    site_id: typing.Optional[str] = pydantic.Field(
-        alias="siteId", default=None, description="The unique id of the Site the Form belongs to"
-    )
-    site_domain_id: typing.Optional[str] = pydantic.Field(
-        alias="siteDomainId", default=None, description="The unique id corresponding to the site's Domain name"
-    )
-    page_id: typing.Optional[str] = pydantic.Field(
-        alias="pageId", default=None, description="The unique id for the Page on which the Form is placed"
-    )
-    page_name: typing.Optional[str] = pydantic.Field(
-        alias="pageName", default=None, description="The user-visible name of the Page where the Form is placed"
-    )
-    workspace_id: typing.Optional[str] = pydantic.Field(
-        alias="workspaceId", default=None, description="The unique id of the Workspace the Site belongs to"
-    )
-    created_on: typing.Optional[dt.datetime] = pydantic.Field(
-        alias="createdOn", default=None, description="Date that the Form was created on"
-    )
-    last_updated: typing.Optional[dt.datetime] = pydantic.Field(
-        alias="lastUpdated", default=None, description="Date that the Form was last updated on"
-    )
-    fields: typing.Optional[typing.List[FormField]] = None
-    response_settings: typing.Optional[FormResponseSettings] = pydantic.Field(alias="responseSettings", default=None)
+    display_name: typing_extensions.Annotated[
+        typing.Optional[str],
+        FieldMetadata(alias="displayName"),
+        pydantic.Field(alias="displayName", description="The Form name displayed on the site"),
+    ] = None
+    created_on: typing_extensions.Annotated[
+        typing.Optional[dt.datetime],
+        FieldMetadata(alias="createdOn"),
+        pydantic.Field(alias="createdOn", description="Date that the Form was created on"),
+    ] = None
+    last_updated: typing_extensions.Annotated[
+        typing.Optional[dt.datetime],
+        FieldMetadata(alias="lastUpdated"),
+        pydantic.Field(alias="lastUpdated", description="Date that the Form was last updated on"),
+    ] = None
+    fields: typing.Optional[FormField] = pydantic.Field(default=None)
+    """
+    A collection of form field objects
+    """
 
-    def json(self, **kwargs: typing.Any) -> str:
-        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
-        return super().json(**kwargs_with_defaults)
+    response_settings: typing_extensions.Annotated[
+        typing.Optional[FormResponseSettings],
+        FieldMetadata(alias="responseSettings"),
+        pydantic.Field(alias="responseSettings", description="Settings for form responses"),
+    ] = None
+    id: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    The unique ID for the Form
+    """
 
-    def dict(self, **kwargs: typing.Any) -> typing.Dict[str, typing.Any]:
-        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
-        return super().dict(**kwargs_with_defaults)
+    site_id: typing_extensions.Annotated[
+        typing.Optional[str],
+        FieldMetadata(alias="siteId"),
+        pydantic.Field(alias="siteId", description="The unique ID of the Site the Form belongs to"),
+    ] = None
+    site_domain_id: typing_extensions.Annotated[
+        typing.Optional[str],
+        FieldMetadata(alias="siteDomainId"),
+        pydantic.Field(alias="siteDomainId", description="The unique ID corresponding to the site's Domain name"),
+    ] = None
+    page_id: typing_extensions.Annotated[
+        typing.Optional[str],
+        FieldMetadata(alias="pageId"),
+        pydantic.Field(alias="pageId", description="The unique ID for the Page on which the Form is placed"),
+    ] = None
+    page_name: typing_extensions.Annotated[
+        typing.Optional[str],
+        FieldMetadata(alias="pageName"),
+        pydantic.Field(alias="pageName", description="The user-visible name of the Page where the Form is placed"),
+    ] = None
+    form_element_id: typing_extensions.Annotated[
+        typing.Optional[str],
+        FieldMetadata(alias="formElementId"),
+        pydantic.Field(alias="formElementId", description="The unique ID of the Form element"),
+    ] = None
+    workspace_id: typing_extensions.Annotated[
+        typing.Optional[str],
+        FieldMetadata(alias="workspaceId"),
+        pydantic.Field(alias="workspaceId", description="The unique ID of the Workspace the Site belongs to"),
+    ] = None
 
-    class Config:
-        frozen = True
-        smart_union = True
-        allow_population_by_field_name = True
-        json_encoders = {dt.datetime: serialize_datetime}
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2
+    else:
+
+        class Config:
+            frozen = True
+            smart_union = True
+            extra = pydantic.Extra.allow

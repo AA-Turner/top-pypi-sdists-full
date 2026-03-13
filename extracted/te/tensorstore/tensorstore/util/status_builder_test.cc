@@ -23,8 +23,8 @@
 namespace {
 
 using ::tensorstore::IsOk;
+using ::tensorstore::StatusBuilder;
 using ::tensorstore::StatusIs;
-using ::tensorstore::internal::StatusBuilder;
 using ::testing::HasSubstr;
 
 TEST(StatusBuilder, OkStatus) {

@@ -111,14 +111,19 @@ if patch_lmdb_source:
     # Copy away the lmdb source then patch it
     if sys.platform.startswith('win'):
 
-        for patchfile in ['lib\\py-lmdb\\env-copy-txn.patch', 'lib\\py-lmdb\\its-10346.patch']:
+        for patchfile in ['lib\\py-lmdb\\env-copy-txn.patch', 'lib\\py-lmdb\\cursor-next-prev-uninitialized.patch', 'lib\\py-lmdb\\win32-semaphore-lock.patch']:
             patchset = patch.fromfile(patchfile)
             rv = patchset.apply(2, root=dest)
             if not rv:
                 raise Exception('Applying patch failed')
     else:
         rv = os.system('patch -N -p3 -d build/lib < lib/py-lmdb/env-copy-txn.patch')
-        rv = os.system('patch -N -p3 -d build/lib < lib/py-lmdb/its-10346.patch')
+        if rv:
+            raise Exception('Applying patch failed')
+        rv = os.system('patch -N -p3 -d build/lib < lib/py-lmdb/cursor-next-prev-uninitialized.patch')
+        if rv:
+            raise Exception('Applying patch failed')
+        rv = os.system('patch -N -p3 -d build/lib < lib/py-lmdb/win32-semaphore-lock.patch')
         if rv:
             raise Exception('Applying patch failed')
 
@@ -179,18 +184,20 @@ if use_cpython:
     )]
 else:
     print('Using cffi extension.')
-    install_requires = ['cffi>=0.8']
-    if platform.python_implementation() == 'PyPy':
-        print('Using cffi with PyPy, no extension module to build.')
+    install_requires = ['cffi>=0.8; implementation_name=="cpython"']
+    print('Using cffi, building extension module.')
+    # Ensure the source directory is on sys.path so that `import lmdb.cffi`
+    # works in build-isolated environments where pip runs setup.py from a
+    # temporary directory.
+    _source_dir = os.path.dirname(os.path.abspath(__file__))
+    if _source_dir not in sys.path:
+        sys.path.insert(0, _source_dir)
+    try:
+        import lmdb.cffi
+        ext_modules = [lmdb.cffi._ffi.verifier.get_extension()]
+    except ImportError:
+        sys.stderr.write('Could not import lmdb; ensure cffi is installed!\n')
         ext_modules = []
-    else:
-        print('Using cffi with CPython, building extension module.')
-        try:
-            import lmdb.cffi
-            ext_modules = [lmdb.cffi._ffi.verifier.get_extension()]
-        except ImportError:
-            sys.stderr.write('Could not import lmdb; ensure cffi is installed!\n')
-            ext_modules = []
 
 def grep_version():
     path = os.path.join(os.path.dirname(__file__), 'lmdb/__init__.py')

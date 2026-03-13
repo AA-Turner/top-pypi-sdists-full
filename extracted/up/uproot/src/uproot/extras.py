@@ -7,6 +7,7 @@ required by an Uproot installation. (Uproot only requires NumPy).
 If a library cannot be imported, these functions raise ``ModuleNotFoundError`` with
 error messages containing instructions on how to install the library.
 """
+
 from __future__ import annotations
 
 import atexit
@@ -16,30 +17,6 @@ import os
 from uproot._util import parse_version
 
 
-def awkward():
-    """
-    Imports and returns ``awkward``.
-    """
-    try:
-        import awkward
-    except ModuleNotFoundError as err:
-        raise ModuleNotFoundError(
-            """install the 'awkward' package with:
-
-    pip install awkward
-
-Alternatively, you can use ``library="np"`` or globally set ``uproot.default_library``
-to output as NumPy arrays, rather than Awkward arrays.
-"""
-        ) from err
-    if parse_version(awkward.__version__) >= parse_version("2.4.6"):
-        return awkward
-    else:
-        raise ModuleNotFoundError(
-            f"Uproot 5.1+ can only be used with Awkward 2.4.6 or newer; you have Awkward {awkward.__version__}"
-        )
-
-
 def pandas():
     """
     Imports and returns ``pandas``.
@@ -47,15 +24,13 @@ def pandas():
     try:
         import pandas
     except ModuleNotFoundError as err:
-        raise ModuleNotFoundError(
-            """install the 'pandas' package with:
+        raise ModuleNotFoundError("""install the 'pandas' package with:
 
     pip install pandas
 
 or
 
-    conda install pandas"""
-        ) from err
+    conda install pandas""") from err
     else:
         return pandas
 
@@ -145,15 +120,13 @@ def isal():
     try:
         import isal
     except ModuleNotFoundError as err:
-        raise ModuleNotFoundError(
-            """install the 'isal' package with:
+        raise ModuleNotFoundError("""install the 'isal' package with:
 
     pip install isal
 
 or
 
-    conda install python-isal"""
-        ) from err
+    conda install python-isal""") from err
     else:
         return isal
 
@@ -165,57 +138,15 @@ def deflate():
     try:
         import deflate
     except ModuleNotFoundError as err:
-        raise ModuleNotFoundError(
-            """install the 'deflate' package with:
+        raise ModuleNotFoundError("""install the 'deflate' package with:
 
     pip install deflate
 
 or
 
-    conda install libdeflate"""
-        ) from err
+    conda install libdeflate""") from err
     else:
         return deflate
-
-
-def cramjam():
-    """
-    Import and returns ``cramjam``.
-    """
-    try:
-        import cramjam
-    except ModuleNotFoundError as err:
-        raise ModuleNotFoundError(
-            """install the 'cramjam' package with:
-
-    pip install cramjam
-
-or
-
-    conda install cramjam"""
-        ) from err
-    else:
-        return cramjam
-
-
-def xxhash():
-    """
-    Imports and returns ``xxhash``.
-    """
-    try:
-        import xxhash
-    except ModuleNotFoundError as err:
-        raise ModuleNotFoundError(
-            """install the `xxhash` packages with:
-
-    pip install xxhash
-
-or
-
-    conda install python-xxhash"""
-        ) from err
-    else:
-        return xxhash
 
 
 def boost_histogram():
@@ -225,15 +156,13 @@ def boost_histogram():
     try:
         import boost_histogram
     except ModuleNotFoundError as err:
-        raise ModuleNotFoundError(
-            """install the 'boost-histogram' package with:
+        raise ModuleNotFoundError("""install the 'boost-histogram' package with:
 
     pip install boost-histogram
 
 or
 
-    conda install -c conda-forge boost-histogram"""
-        ) from err
+    conda install -c conda-forge boost-histogram""") from err
     else:
         return boost_histogram
 
@@ -245,11 +174,9 @@ def hist():
     try:
         import hist
     except ModuleNotFoundError as err:
-        raise ModuleNotFoundError(
-            """install the 'hist' package with:
+        raise ModuleNotFoundError("""install the 'hist' package with:
 
-    pip install hist"""
-        ) from err
+    pip install hist""") from err
     else:
         return hist
 
@@ -317,12 +244,10 @@ def awkward_pandas():
     try:
         import awkward_pandas
     except ModuleNotFoundError as err:
-        raise ModuleNotFoundError(
-            """install the 'awkward-pandas' package with:
+        raise ModuleNotFoundError("""install the 'awkward-pandas' package with:
     pip install awkward-pandas
 or
-    conda install -c conda-forge awkward-pandas"""
-        ) from err
+    conda install -c conda-forge awkward-pandas""") from err
     else:
         return awkward_pandas
 
@@ -353,23 +278,23 @@ def kvikio():
         raise ModuleNotFoundError(
             """Kvikio is required for GDS reading to work. Please install GDS dependencies with:
     `python3 -m pip install uproot[GDS_cuX]`
-where X is the cuda major version on user's system (11 and 12 currently supported). Cuda major version can be checked by calling `nvidia-smi --version` or `nvcc --version` if available."""
+where X is the cuda major version on user's system (12 currently supported, 13 is untested). Cuda major version can be checked by calling `nvidia-smi --version` or `nvcc --version` if available."""
         ) from err
     else:
         return kvikio
 
 
-def kvikio_nvcomp_codec():
+def nvcomp():
     """
     Imports and returns ``kvikio.nvcomp_codec`` which is not exposed by ``kvikio`` alone.
     """
     try:
-        import kvikio.nvcomp_codec as kvikio_nvcomp_codec
+        from nvidia import nvcomp
     except ModuleNotFoundError as err:
         raise ModuleNotFoundError(
-            """Kvikio is required for GDS reading to work. Please install GDS dependencies with:
+            """nvCOMP is required for GDS reading to work. Please install GDS dependencies with:
     `python3 -m pip install uproot[GDS_cuX]`
-where X is the cuda major version on user's system (11 and 12 currently supported). Cuda major version can be checked by calling `nvidia-smi --version` or `nvcc --version` if available."""
+where X is the cuda major version on user's system (12 currently supported, 13 is untested). Cuda major version can be checked by calling `nvidia-smi --version` or `nvcc --version` if available."""
         ) from err
     else:
-        return kvikio_nvcomp_codec
+        return nvcomp

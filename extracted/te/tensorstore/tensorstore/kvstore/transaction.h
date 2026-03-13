@@ -88,6 +88,7 @@
 #include <stdint.h>
 
 #include <atomic>
+#include <cassert>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -95,6 +96,7 @@
 
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/container/intrusive_red_black_tree.h"
@@ -849,41 +851,39 @@ Future<TimestampedStorageGeneration> WriteViaTransaction(
 /// Logs a message associated with a `MutationEntry` when debugging is enabled.
 ///
 /// The first parameter must be a `MutationEntry` reference.  The remaining
-/// parameters must be compatible with `tensorstore::StrCat`.
+/// parameters must be compatible with `absl::StrCat`.
 ///
 /// Usage:
 ///
 ///     MutationEntry &entry = ...;
 ///     TENSORSTORE_KVSTORE_DEBUG_LOG(entry, "Information", to, "include");
-#define TENSORSTORE_KVSTORE_DEBUG_LOG(...)                    \
-  do {                                                        \
-    tensorstore::internal_kvstore::KvstoreDebugLog(           \
-        tensorstore::SourceLocation::current(), __VA_ARGS__); \
+#define TENSORSTORE_KVSTORE_DEBUG_LOG(...)                                    \
+  do {                                                                        \
+    tensorstore::internal_kvstore::KvstoreDebugLog(SourceLocation::current(), \
+                                                   __VA_ARGS__);              \
   } while (false)
 
 template <typename... T>
-void KvstoreDebugLog(tensorstore::SourceLocation loc, MutationEntry& entry,
+void KvstoreDebugLog(SourceLocation loc, MutationEntry& entry,
                      const T&... arg) {
   std::string message;
-  tensorstore::StrAppend(
-      &message, "[", typeid(entry.multi_phase()).name(),
-      ": multi_phase=", &entry.multi_phase(), ", entry=", &entry,
-      ", phase=", entry.single_phase_mutation().phase_number_,
-      ", key=", tensorstore::QuoteString(entry.key_));
+  absl::StrAppend(&message, "[", typeid(entry.multi_phase()).name(),
+                  ": multi_phase=", &entry.multi_phase(), ", entry=", &entry,
+                  ", phase=", entry.single_phase_mutation().phase_number_,
+                  ", key=", tensorstore::QuoteString(entry.key_));
   if (entry.entry_type() == kDeleteRange) {
-    tensorstore::StrAppend(
-        &message, ", exclusive_max=",
-        tensorstore::QuoteString(
-            static_cast<DeleteRangeEntry&>(entry).exclusive_max_));
+    absl::StrAppend(&message, ", exclusive_max=",
+                    tensorstore::QuoteString(
+                        static_cast<DeleteRangeEntry&>(entry).exclusive_max_));
   } else {
     size_t seq = 0;
     for (auto* e = static_cast<ReadModifyWriteEntry*>(&entry)->prev_; e;
          e = e->prev_) {
       ++seq;
     }
-    tensorstore::StrAppend(&message, ", seq=", seq);
+    absl::StrAppend(&message, ", seq=", seq);
   }
-  tensorstore::StrAppend(&message, "] ", arg...);
+  absl::StrAppend(&message, "] ", arg...);
   ABSL_LOG(INFO).AtLocation(loc.file_name(), loc.line()) << message;
 }
 #else

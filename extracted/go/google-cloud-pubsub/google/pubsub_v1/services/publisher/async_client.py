@@ -14,11 +14,11 @@
 # limitations under the License.
 #
 import logging as std_logging
-from collections import OrderedDict
 import re
+from collections import OrderedDict
 from typing import (
-    Dict,
     Callable,
+    Dict,
     Mapping,
     MutableMapping,
     MutableSequence,
@@ -29,32 +29,34 @@ from typing import (
     Union,
 )
 
-from google.pubsub_v1 import gapic_version as package_version
-
-from google.api_core.client_options import ClientOptions
+import google.protobuf
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
 from google.api_core import retry_async as retries
+from google.api_core.client_options import ClientOptions
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
 
+from google.pubsub_v1 import gapic_version as package_version
 
 try:
     OptionalRetry = Union[retries.AsyncRetry, gapic_v1.method._MethodDefault, None]
 except AttributeError:  # pragma: NO COVER
     OptionalRetry = Union[retries.AsyncRetry, object, None]  # type: ignore
 
-from google.iam.v1 import iam_policy_pb2  # type: ignore
-from google.iam.v1 import policy_pb2  # type: ignore
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+from google.iam.v1 import (
+    iam_policy_pb2,  # type: ignore
+    policy_pb2,  # type: ignore
+)
+
 from google.pubsub_v1.services.publisher import pagers
-from google.pubsub_v1.types import pubsub
-from google.pubsub_v1.types import TimeoutType
-from .transports.base import PublisherTransport, DEFAULT_CLIENT_INFO
-from .transports.grpc_asyncio import PublisherGrpcAsyncIOTransport
+from google.pubsub_v1.types import TimeoutType, pubsub
+
 from .client import PublisherClient
+from .transports.base import DEFAULT_CLIENT_INFO, PublisherTransport
+from .transports.grpc_asyncio import PublisherGrpcAsyncIOTransport
 
 try:
     from google.api_core import client_logging  # type: ignore
@@ -122,7 +124,10 @@ class PublisherAsyncClient:
         Returns:
             PublisherAsyncClient: The constructed client.
         """
-        return PublisherClient.from_service_account_info.__func__(PublisherAsyncClient, info, *args, **kwargs)  # type: ignore
+        sa_info_func = (
+            PublisherClient.from_service_account_info.__func__  # type: ignore
+        )
+        return sa_info_func(PublisherAsyncClient, info, *args, **kwargs)
 
     @classmethod
     def from_service_account_file(cls, filename: str, *args, **kwargs):
@@ -138,7 +143,10 @@ class PublisherAsyncClient:
         Returns:
             PublisherAsyncClient: The constructed client.
         """
-        return PublisherClient.from_service_account_file.__func__(PublisherAsyncClient, filename, *args, **kwargs)  # type: ignore
+        sa_file_func = (
+            PublisherClient.from_service_account_file.__func__  # type: ignore
+        )
+        return sa_file_func(PublisherAsyncClient, filename, *args, **kwargs)
 
     from_service_account_json = from_service_account_file
 

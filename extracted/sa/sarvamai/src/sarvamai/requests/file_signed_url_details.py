@@ -7,4 +7,4 @@ import typing_extensions
 
 class FileSignedUrlDetailsParams(typing_extensions.TypedDict):
     file_url: str
-    file_metadata: typing_extensions.NotRequired[typing.Dict[str, typing.Optional[typing.Any]]]
+    file_metadata: typing_extensions.NotRequired[typing.Dict[str, typing.Any]]

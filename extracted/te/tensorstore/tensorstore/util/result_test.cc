@@ -30,8 +30,8 @@
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "tensorstore/internal/meta/type_traits.h"
-#include "tensorstore/util/status.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
@@ -641,7 +641,7 @@ TEST(ResultTest, OkPrinting) {
   Result<PrintTestStruct> print_me = PrintTestStruct{};
   std::stringstream stream;
   stream << print_me;
-  EXPECT_EQ(stream.str(), "ostream");
+  EXPECT_EQ(stream.str(), "stringify");
   EXPECT_EQ(absl::StrCat(print_me), "stringify");
 }
 
@@ -653,6 +653,14 @@ TEST(ResultTest, ErrorPrinting) {
                                    StartsWith("("), EndsWith(")"));
   EXPECT_THAT(stream.str(), error_matcher);
   EXPECT_THAT(absl::StrCat(print_me), error_matcher);
+}
+
+TEST(ResultTest, VoidOkPrinting) {
+  Result<void> result_void = absl::OkStatus();
+  std::stringstream stream;
+  stream << result_void;
+  EXPECT_THAT(stream.str(), "OK");
+  EXPECT_THAT(absl::StrCat(result_void), "OK");
 }
 
 TEST(UnwrapResult, Basic) {
@@ -1026,7 +1034,7 @@ TEST(ResultTest, MakeResult) {
 }
 
 TEST(ResultTest, AssignOrReturn) {
-  const auto Helper = [](Result<int> r) {
+  const auto Helper = [](Result<int> r) -> absl::Status {
     TENSORSTORE_ASSIGN_OR_RETURN(auto x, r);
     static_assert(std::is_same_v<decltype(x), int>);
     EXPECT_EQ(3, x);
@@ -1039,9 +1047,8 @@ TEST(ResultTest, AssignOrReturn) {
 }
 
 TEST(ResultTest, AssignOrReturnAnnotate) {
-  const auto Helper = [](Result<int> r) {
-    TENSORSTORE_ASSIGN_OR_RETURN(
-        auto x, r, tensorstore::MaybeAnnotateStatus(_, "Annotated"));
+  const auto Helper = [](Result<int> r) -> absl::Status {
+    TENSORSTORE_ASSIGN_OR_RETURN(auto x, r, _.SetPrepend().Format("Annotated"));
     static_assert(std::is_same_v<decltype(x), int>);
     EXPECT_EQ(3, x);
     return absl::UnknownError("No error");

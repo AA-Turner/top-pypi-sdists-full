@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: hstrat
-Version: 1.24.1
+Version: 1.25.0
 Summary: hstrat enables phylogenetic inference on distributed digital evolution populations
 Keywords: hstrat
 Author-Email: Matthew Andres Moreno <m.more500@gmail.com>
@@ -24,7 +24,7 @@ Requires-Dist: bitarray>=2.6.2
 Requires-Dist: bitstring>=3.1.9
 Requires-Dist: dendropy>=4.5.2
 Requires-Dist: Deprecated>=1.2.13
-Requires-Dist: downstream>=1.21.8
+Requires-Dist: downstream>=1.21.10
 Requires-Dist: fishersrc>=0.1.15
 Requires-Dist: iterpop>=0.3.4
 Requires-Dist: interval_search>=0.3.1
@@ -41,9 +41,9 @@ Requires-Dist: more-itertools>=8.13.0
 Requires-Dist: mpmath>=1.1.0
 Requires-Dist: opytional>=0.1.0
 Requires-Dist: ordered_set>=4.1.0
-Requires-Dist: polars[pyarrow,rt64]!=1.37.*,>=1.10.0
+Requires-Dist: polars[pyarrow,rt64]!=1.37.*,!=1.39.*,>=1.10.0
 Requires-Dist: packaging>=23.0
-Requires-Dist: phyloframe>=0.1.1
+Requires-Dist: phyloframe>=0.2.0
 Requires-Dist: pandas<3,>=2
 Requires-Dist: pandera>=0.21.0
 Requires-Dist: prettytable>=3.5.0
@@ -140,7 +140,7 @@ _hstrat_ enables phylogenetic inference on distributed digital evolution populat
 A containerized release of `hstrat` is available via [ghcr.io](https://ghcr.io/mmore500/hstrat)
 
 ```bash
-singularity exec docker://ghcr.io/mmore500/hstrat:v1.24.1 python3 -m hstrat --help
+singularity exec docker://ghcr.io/mmore500/hstrat:v1.25.0 python3 -m hstrat --help
 ```
 
 ## Features

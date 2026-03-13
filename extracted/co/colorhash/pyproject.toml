@@ -1,9 +1,9 @@
 [project]
-requires-python = ">=3.7"
+requires-python = ">=3.8,<3.16"
 name = "colorhash"
 description = "Generate color based on any object"
 license = { text = "MIT" }
-version = "2.1.0"
+version = "2.3.0"
 readme = "README.md"
 authors = [
   { name = "dimostenis", email = "dimosh3k@gmail.com" },
@@ -15,12 +15,18 @@ dependencies = []
 Homepage = "https://github.com/dimostenis/color-hash-python"
 "Bug Tracker" = "https://github.com/dimostenis/color-hash-python/issues"
 [dependency-groups]
-dev = ["pytest", "pillow"]
+dev = [
+  "pytest",
+  "pillow",
+  "hatch",
+  "twine",
+  "zipp>=3.19.1", # to fix vuln
+]
 
 [tool.ruff]
 line-length = 88        # as black
 indent-width = 4
-target-version = "py37"
+target-version = "py38"
 
 [tool.ruff.format]
 docstring-code-format = true
@@ -95,8 +101,14 @@ select = [
   "TRY",  # tryceratops (TRY)
 ]
 ignore = [
-  "A001", # Function argument `hex` is shadowing a Python builtin
-  "A002", # Function argument `hex` is shadowing a Python builtin
+  "A001",   # Function argument `hex` is shadowing a Python builtin
+  "A002",   # Function argument `hex` is shadowing a Python builtin
+  "RUF067", # False positive for version detection in __init__.py
+]
+
+[tool.ruff.lint.per-file-ignores]
+"test/**" = [
+  "PLR6301", # Test methods in classes don't need to use self
 ]
 
 [tool.ruff.lint.isort]
@@ -116,6 +128,11 @@ ignore-property-decorators = true
 fail-under = 60
 exclude = ["test"]
 
+[tool.mypy]
+python_version = "3.9"
+strict = true
+warn_unused_ignores = true
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
@@ -123,10 +140,14 @@ build-backend = "hatchling.build"
 [tool.hatch.build]
 exclude = [
   ".*",
+  ",*",
+  "*.md",
   "/docs",
   "/test",
+  "/tmp",
   "makefile",
   "uv.lock",
+  "dist",     # automatic, but better be safe
 ]
 
 [tool.hatch.envs.test]
@@ -134,4 +155,4 @@ dependencies = ["pytest"]
 [tool.hatch.envs.test.scripts]
 test = "pytest"
 [[tool.hatch.envs.test.matrix]]
-python = ["3.7", "3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
+python = ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14", "3.15"]

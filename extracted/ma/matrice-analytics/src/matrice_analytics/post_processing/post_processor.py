@@ -850,15 +850,17 @@ class PostProcessor:
         """
         Process data using the specified configuration.
 
+        The uploaded config (from the inference pipeline) is passed via the config parameter
+        and takes precedence. If config is not provided, self.post_processing_config is used.
+
         Args:
             data: Raw model output (detection, tracking, classification results)
-            config: Configuration object, dict, or path to config file
+            config: Configuration object, dict, or path to config file (uploaded config from pipeline)
             input_bytes: Optional input bytes for certain use cases
-            custom_post_processing_config: Optional custom post processing configuration
             stream_key: Stream key for the inference
             stream_info: Stream info for the inference (optional)
             context: Optional processing context
-            custom_post_processing_config: Optional custom post processing configuration
+            custom_post_processing_config: Deprecated. Do not use; config parameter is used for uploaded config.
         Returns:
             ProcessingResult: Standardized result object
         """
@@ -872,6 +874,7 @@ class PostProcessor:
         logger.info("Stream info: %s", stream_info)
 
         try:
+            # Uploaded config from pipeline is passed as config; parse and use it (overrides default)
             if config:
                 try:
                     config = self._parse_config(config)

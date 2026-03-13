@@ -26,7 +26,6 @@ class WBCore:
         FSMExtension(),
     ]
 
-    WBCORE_NOTIFICATION_TEMPLATE = values.Value("notifications/email_template.html", environ_prefix=None)
     WBCORE_NOTIFICATION_EMAIL_FROM = values.Value("no-reply@stainly-bench.com", environ_prefix=None)
 
     WBCORE_PLOTLY_CDN_URL = values.Value("https://cdn.plot.ly/plotly-latest.min.js", environ_prefix=None)

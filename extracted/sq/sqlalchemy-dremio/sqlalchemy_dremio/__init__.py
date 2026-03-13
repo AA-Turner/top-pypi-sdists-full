@@ -1,6 +1,6 @@
-__version__ = '3.0.2'
+__version__ = '3.0.5'
 
-from .db import Connection, connect
+from .db import Connection as Connection, connect as connect
 from sqlalchemy.dialects import registry
 
 # Register the Flight end point

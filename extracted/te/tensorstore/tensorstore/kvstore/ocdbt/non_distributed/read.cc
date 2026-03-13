@@ -203,8 +203,9 @@ struct ReadOperation : public internal::AtomicReferenceCount<ReadOperation> {
         ReadyFuture<const std::shared_ptr<const BtreeNode>> read_future) {
       auto node = read_future.value();
       TENSORSTORE_RETURN_IF_ERROR(
-          ValidateBtreeNodeReference(*node, node_height, inclusive_min_key),
-          static_cast<void>(promise.SetResult(_)));
+          ValidateBtreeNodeReference(*node, node_height, inclusive_min_key))
+          .With(
+              [&](absl::Status error) { promise.SetResult(std::move(error)); });
       auto unmatched_key_suffix =
           std::string_view(op->key).substr(op->matched_length);
       std::string_view node_key_prefix = node->key_prefix;

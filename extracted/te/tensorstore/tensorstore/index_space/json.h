@@ -135,15 +135,21 @@
 #include <type_traits>
 
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include <nlohmann/json.hpp>
+#include "tensorstore/container_kind.h"
 #include "tensorstore/index.h"
+#include "tensorstore/index_interval.h"
+#include "tensorstore/index_space/index_domain.h"
 #include "tensorstore/index_space/index_transform.h"
+#include "tensorstore/index_space/internal/transform_rep.h"
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/json_binding/std_array.h"
 #include "tensorstore/json_serialization_options.h"
+#include "tensorstore/rank.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/str_cat.h"
+#include "tensorstore/util/status.h"
 
 namespace tensorstore {
 
@@ -268,12 +274,10 @@ constexpr auto BoundsBinder() {
         *obj = *value;
         return absl::OkStatus();
       }
-      // Uses the same format as internal_json::ExpectedError
-      return absl::InvalidArgumentError(
-          tensorstore::StrCat("Expected 64-bit signed integer",
-                              kNegInfinity != 0 ? " or \"-inf\"" : "",
-                              kPosInfinity != 0 ? " or \"+inf\"" : "",
-                              ", but received: ", j->dump()));
+      return absl::InvalidArgumentError(absl::StrFormat(
+          "Expected 64-bit signed integer%s%s, but received: %s",
+          kNegInfinity != 0 ? " or \"-inf\"" : "",
+          kPosInfinity != 0 ? " or \"+inf\"" : "", j->dump()));
     } else {
       if (kNegInfinity != 0 && *obj == kNegInfinity) {
         *j = "-inf";
@@ -316,37 +320,39 @@ inline constexpr auto IndexTransformBinder = [](auto is_loading,
 // https://bugs.llvm.org/show_bug.cgi?id=45213
 namespace index_domain_binder {
 /// JSON object binder for `IndexDomain`.
-inline constexpr auto IndexDomainBinder =
-    [](auto is_loading, const auto& options, auto* obj, auto* j) {
-      if constexpr (is_loading) {
-        using T = std::decay_t<decltype(*obj)>;
-        TENSORSTORE_ASSIGN_OR_RETURN(
-            *obj, (tensorstore::ParseIndexDomain<T::static_rank>(*j)));
-      } else {
-        tensorstore::to_json(*j, *obj);
-      }
-      return absl::OkStatus();
-    };
+inline constexpr auto IndexDomainBinder = [](auto is_loading,
+                                             const auto& options, auto* obj,
+                                             auto* j) -> absl::Status {
+  if constexpr (is_loading) {
+    using T = std::decay_t<decltype(*obj)>;
+    TENSORSTORE_ASSIGN_OR_RETURN(
+        *obj, (tensorstore::ParseIndexDomain<T::static_rank>(*j)));
+  } else {
+    tensorstore::to_json(*j, *obj);
+  }
+  return absl::OkStatus();
+};
 }  // namespace index_domain_binder
 
 // Defined in separate namespace to work around clang-cl bug
 // https://bugs.llvm.org/show_bug.cgi?id=45213
 namespace index_interval_binder {
-inline constexpr auto IndexIntervalBinder =
-    [](auto is_loading, const auto& options, auto* obj, auto* j) {
-      Index bounds[2];
-      if constexpr (!is_loading) {
-        bounds[0] = obj->inclusive_min();
-        bounds[1] = obj->inclusive_max();
-      }
-      TENSORSTORE_RETURN_IF_ERROR(
-          FixedSizeArray(IndexBinder)(is_loading, options, &bounds, j));
-      if constexpr (is_loading) {
-        TENSORSTORE_ASSIGN_OR_RETURN(
-            *obj, IndexInterval::Closed(bounds[0], bounds[1]));
-      }
-      return absl::OkStatus();
-    };
+inline constexpr auto IndexIntervalBinder = [](auto is_loading,
+                                               const auto& options, auto* obj,
+                                               auto* j) -> absl::Status {
+  Index bounds[2];
+  if constexpr (!is_loading) {
+    bounds[0] = obj->inclusive_min();
+    bounds[1] = obj->inclusive_max();
+  }
+  TENSORSTORE_RETURN_IF_ERROR(
+      FixedSizeArray(IndexBinder)(is_loading, options, &bounds, j));
+  if constexpr (is_loading) {
+    TENSORSTORE_ASSIGN_OR_RETURN(*obj,
+                                 IndexInterval::Closed(bounds[0], bounds[1]));
+  }
+  return absl::OkStatus();
+};
 }  // namespace index_interval_binder
 /// JSON object binder for `IndexInterval`.
 ///

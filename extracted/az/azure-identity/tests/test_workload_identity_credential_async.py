@@ -2,6 +2,8 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 # ------------------------------------
+# cspell:ignore cafile aexit ests
+import os
 from unittest.mock import mock_open, patch, MagicMock
 
 import pytest

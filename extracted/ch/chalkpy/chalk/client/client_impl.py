@@ -2359,6 +2359,7 @@ https://docs.chalk.ai/cli/apply
         use_job_queue: bool = False,
         *,
         input_sql: str | None = None,
+        use_metaplanner: bool | None = None,
     ) -> DatasetImpl:
         run_asynchronously = (
             use_multiple_computers
@@ -2366,6 +2367,7 @@ https://docs.chalk.ai/cli/apply
             or run_asynchronously
             or num_shards is not None
             or num_workers is not None
+            or (use_metaplanner is not None and use_metaplanner)
         )
 
         lower_bound = _convert_datetime_or_timedelta_param("lower_bound", lower_bound)
@@ -2505,6 +2507,7 @@ https://docs.chalk.ai/cli/apply
             use_job_queue=use_job_queue,
             query_name=query_name,
             query_name_version=query_name_version,
+            use_metaplanner=use_metaplanner,
         )
 
         initialized_dataset = dataset_from_response(response, self)
@@ -3799,6 +3802,7 @@ https://docs.chalk.ai/cli/apply
         use_job_queue: bool = False,
         query_name: str | None = None,
         query_name_version: str | None = None,
+        use_metaplanner: bool | None = False,
     ) -> DatasetResponse:
         if not (
             isinstance(recompute_features, list)
@@ -3881,6 +3885,7 @@ https://docs.chalk.ai/cli/apply
             overlay_graph=_get_overlay_graph_b64(),
             query_name=query_name,
             query_name_version=query_name_version,
+            use_metaplanner=use_metaplanner,
         )
 
         response = self._create_dataset_request(

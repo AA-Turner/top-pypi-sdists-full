@@ -228,6 +228,7 @@ class AsyncCodewordsClient:
         in_background: Literal[False] = False,
         run_as_template: Optional[bool] = False,
         print_logs: bool = False,
+        method: str = "POST",
     ) -> httpx.Response: ...
 
     @overload
@@ -241,6 +242,7 @@ class AsyncCodewordsClient:
         in_background: Literal[True] = True,
         run_as_template: Optional[bool] = False,
         print_logs: bool = False,
+        method: str = "POST",
     ) -> AsyncCodewordsResponse: ...
 
     async def run(
@@ -253,12 +255,14 @@ class AsyncCodewordsClient:
         in_background: bool = False,
         run_as_template: Optional[bool] = False,
         print_logs: bool = False,
+        method: str = "POST",
     ) -> Union[httpx.Response, AsyncCodewordsResponse]:
         """
-        POST /run/{service_id}/{path} or /run_async/{service_id}/{path} for background runs.
+        Send a request to /run/{service_id}/{path} or /run_async/{service_id}/{path} for background runs.
 
         :param service_id: Target service ID.
-        :param inputs: Payload sent in the POST body. If dict, sent as JSON; str => text; bytes => raw.
+        :param inputs: Payload sent in the request body. If dict, sent as JSON; str => text; bytes => raw.
+                       Ignored for GET requests.
         :param path: Optional path appended after service_id (e.g. 'predict' => /run/{service_id}/predict).
         :param request_id: If provided, sends as 'X-Provisioned-Request-Id'.
         :param correlation_id: If provided, sends as 'X-Correlation-Id'.
@@ -270,8 +274,13 @@ class AsyncCodewordsClient:
         :param print_logs: If True, prints logs to stdout while the request is running.
                           For in_background=True, logs will continue to print until the request completes.
                           For in_background=False, logs will print until the response is received.
+        :param method: HTTP method to use (default: "POST"). Use "GET" for read-only queries.
+                       Only "POST" is supported with in_background=True.
         :return: Depends on `in_background`. See above.
         """
+        method = method.upper()
+        if in_background and method != "POST":
+            raise ValueError(f"in_background=True only supports method='POST', got '{method}'")
         effective_request_id = request_id
 
         if in_background:
@@ -305,6 +314,8 @@ class AsyncCodewordsClient:
         if run_as_template:
             headers["Run-As-Template"] = "yes"
 
+        body_kwargs = {"json": inputs} if method != "GET" else {}
+
         if in_background:
             resp = await self.client.post(url, headers=headers, json=inputs, timeout=self.default_timeout)
             self._raise_for_status(resp)
@@ -319,13 +330,10 @@ class AsyncCodewordsClient:
             return response
         else:
             if print_logs and effective_request_id:
-                # For foreground requests with print_logs, we'll print logs while waiting for the response
-                # Start the main request
                 task = asyncio.create_task(
-                    self.client.post(url, headers=headers, json=inputs, timeout=self.default_timeout)
+                    self.client.request(method, url, headers=headers, timeout=self.default_timeout, **body_kwargs)
                 )
 
-                # Print logs until the main request completes
                 try:
                     async for log_entry in self.get_logs(effective_request_id):
                         print(json.dumps(log_entry))
@@ -334,12 +342,11 @@ class AsyncCodewordsClient:
                 except Exception as e:
                     print(f"Error streaming logs: {e}")
 
-                # Get the response
                 resp = await task
                 self._raise_for_status(resp)
                 return resp
             else:
-                resp = await self.client.post(url, headers=headers, json=inputs, timeout=self.default_timeout)
+                resp = await self.client.request(method, url, headers=headers, timeout=self.default_timeout, **body_kwargs)
                 self._raise_for_status(resp)
                 return resp
 
@@ -721,6 +728,7 @@ class CodewordsClient:
         correlation_id: Optional[str] = None,
         in_background: Literal[False] = False,
         run_as_template: Optional[bool] = False,
+        method: str = "POST",
     ) -> httpx.Response: ...
 
     @overload
@@ -733,6 +741,7 @@ class CodewordsClient:
         correlation_id: Optional[str] = None,
         in_background: Literal[True] = True,
         run_as_template: Optional[bool] = False,
+        method: str = "POST",
     ) -> CodewordsResponse: ...
 
     def run(
@@ -744,12 +753,14 @@ class CodewordsClient:
         correlation_id: Optional[str] = None,
         in_background: bool = False,
         run_as_template: Optional[bool] = False,
+        method: str = "POST",
     ) -> Union[httpx.Response, CodewordsResponse]:
         """
-        Synchronous POST /run/{service_id}/{path}, optionally with a pre-provisioned request_id.
+        Synchronous request to /run/{service_id}/{path}, optionally with a pre-provisioned request_id.
 
         :param service_id: Target service ID.
-        :param inputs: Payload sent in the POST body. If dict, sent as JSON; str => text; bytes => raw.
+        :param inputs: Payload sent in the request body. If dict, sent as JSON; str => text; bytes => raw.
+                       Ignored for GET requests.
         :param path: Optional path appended after service_id (e.g. 'predict' => /run/{service_id}/predict).
         :param request_id: If provided, sends as 'X-Provisioned-Request-Id'.
         :param correlation_id: If provided, sends as 'X-Correlation-Id'.
@@ -758,8 +769,14 @@ class CodewordsClient:
                               If False (default), waits for the request to complete and returns the final
                               httpx.Response.
         :param run_as_template: If True, runs the service as a template, so caller will be like owner (default: False).
+        :param method: HTTP method to use (default: "POST"). Use "GET" for read-only queries.
+                       Only "POST" is supported with in_background=True.
         :return: Depends on `in_background`. See above.
         """
+        method = method.upper()
+        if in_background and method != "POST":
+            raise ValueError(f"in_background=True only supports method='POST', got '{method}'")
+
         path = path.lstrip("/")
         if in_background:
             url = f"{self.base_url}/run_async/{service_id}/{path}"
@@ -784,6 +801,8 @@ class CodewordsClient:
         if run_as_template:
             headers["Run-As-Template"] = "yes"
 
+        body_kwargs = {"json": inputs} if method != "GET" else {}
+
         if in_background:
             resp = self.client.post(url, headers=headers, json=inputs, timeout=self.default_timeout)
             self._raise_for_status(resp)
@@ -791,7 +810,7 @@ class CodewordsClient:
             req_id = data["request_id"]
             return CodewordsResponse(req_id, self)
         else:
-            r = self.client.post(url, headers=headers, json=inputs, timeout=self.default_timeout)
+            r = self.client.request(method, url, headers=headers, timeout=self.default_timeout, **body_kwargs)
             self._raise_for_status(r)
             return r
 

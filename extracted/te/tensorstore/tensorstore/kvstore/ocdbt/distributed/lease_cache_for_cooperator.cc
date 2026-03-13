@@ -29,6 +29,7 @@
 #include "absl/log/absl_check.h"
 #include "absl/log/absl_log.h"
 #include "absl/meta/type_traits.h"
+#include "absl/strings/str_cat.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
 #include "grpc/grpc.h"
@@ -50,7 +51,7 @@
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
+#include "tensorstore/util/status_builder.h"
 
 namespace tensorstore {
 namespace internal_ocdbt_cooperator {
@@ -133,8 +134,8 @@ void FinishLeaseRequest(internal::IntrusivePtr<LeaseRequestState> state,
     if (expiration_time_result.ok()) {
       expiration_time = *expiration_time_result;
     } else {
-      status = MaybeAnnotateStatus(std::move(expiration_time_result).status(),
-                                   "Invalid expiration_time");
+      status = StatusBuilder(std::move(expiration_time_result).status())
+                   .Format("Invalid expiration_time");
     }
   }
   if (!status.ok()) {
@@ -179,10 +180,9 @@ LeaseCacheForCooperator::GetLease(std::string_view key,
                                   const LeaseNode* uncooperative_lease) const {
   ABSL_LOG_IF(INFO, ocdbt_logging)
       << "GetLease: " << node_identifier
-      << (uncooperative_lease
-              ? tensorstore::StrCat(", uncooperative_lease_id=",
-                                    uncooperative_lease->lease_id)
-              : "");
+      << (uncooperative_lease ? absl::StrCat(", uncooperative_lease_id=",
+                                             uncooperative_lease->lease_id)
+                              : "");
   assert(impl_);
 
   // Holds stale future removed from `leases_by_key_` to be destroyed after the

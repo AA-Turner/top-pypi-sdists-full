@@ -134,7 +134,7 @@ and falls back to using :class:`~.TrivialLayout` if
 
 The second step is to expose the :class:`~.PassManagerStagePlugin`
 subclass as a setuptools entry point in the package metadata. This can be done
-an ``entry-points`` table in ``pyproject.toml`` for the plugin package with the necessary entry
+in an ``entry-points`` table in ``pyproject.toml`` for the plugin package with the necessary entry
 points under the appropriate namespace for the stage your plugin is for. You can see the list of
 stages, entry points, and expectations from the stage in :ref:`stage_table`.  For example,
 continuing from the example plugin above:
@@ -184,7 +184,7 @@ class PassManagerStagePlugin(abc.ABC):
     @abc.abstractmethod
     def pass_manager(
         self, pass_manager_config: PassManagerConfig, optimization_level: Optional[int] = None
-    ) -> PassManager:
+    ) -> PassManager | None:
         """This method is designed to return a :class:`~.PassManager` for the stage this implements
 
         Args:
@@ -195,8 +195,12 @@ class PassManagerStagePlugin(abc.ABC):
                 should be used to set values for any tunable parameters to trade off runtime
                 for potential optimization. Valid values should be ``0``, ``1``, ``2``, or ``3``
                 and the higher the number the more optimization is expected.
+
+        Returns:
+            the :class:`.PassManager` to run, or ``None`` if nothing is needed for this
+            configuration (for example, an optimization plugin might return ``None`` at
+            ``optimization_level=0``).
         """
-        pass
 
 
 class PassManagerStagePluginManager:
@@ -229,7 +233,7 @@ class PassManagerStagePluginManager:
         plugin_name: str,
         pm_config: PassManagerConfig,
         optimization_level=None,
-    ) -> PassManager:
+    ) -> PassManager | None:
         """Get a stage"""
         if stage_name == "init":
             return self._build_pm(

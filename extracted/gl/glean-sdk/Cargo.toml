@@ -1,12 +1,7 @@
 [workspace]
 resolver = "2"
 
-members = ["glean-core", "glean-core/bundle"]
-
-default-members = [
-  "glean-core",
-  "tools/embedded-uniffi-bindgen",
-]
+members = ["glean-core", "glean-core/bundle", "tools/embedded-uniffi-bindgen"]
 
 [profile.release]
 opt-level = 2

@@ -18,6 +18,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include "absl/log/absl_check.h"  // IWYU pragma: keep
@@ -28,6 +29,7 @@
 #include "tensorstore/internal/os/file_lister.h"
 #include "tensorstore/internal/os/file_util.h"
 #include "tensorstore/util/status.h"
+#include "tensorstore/util/status_builder.h"
 
 namespace tensorstore {
 namespace internal_os {
@@ -66,10 +68,12 @@ absl::Status RemoveAll(const std::string& root_directory) {
       [&](auto entry) {
         auto status = entry.Delete();
         if (!status.ok() && !absl::IsNotFound(status)) {
-          ABSL_LOG(INFO) << "Failed to remove " << entry.GetFullPath() << ": "
-                         << status;
-          MaybeAddSourceLocation(status);
-          result.Update(status);
+          result.Update(StatusBuilder(status)
+                            .Format("Failed to remove %s", entry.GetFullPath())
+                            .With([](absl::Status s) {
+                              ABSL_LOG(INFO) << s;
+                              return s;
+                            }));
         }
         return absl::OkStatus();
       });
@@ -86,10 +90,9 @@ absl::Status EnumeratePaths(
       root_directory, /*recurse_into=*/[](std::string_view) { return true; },
       /*on_item=*/
       [&](auto entry) {
-        auto status =
-            on_directory_entry(entry.GetFullPath(), entry.IsDirectory());
-        MaybeAddSourceLocation(status);
-        result.Update(status);
+        StatusBuilder status_builder(
+            on_directory_entry(entry.GetFullPath(), entry.IsDirectory()));
+        result.Update(std::move(status_builder).BuildStatus());
         return absl::OkStatus();
       });
   result.Update(status);

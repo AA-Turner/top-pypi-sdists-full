@@ -21,5 +21,5 @@ class ChoiceParams(typing_extensions.TypedDict):
     The index of the choice in the list of choices.
     """
 
-    logprobs: typing_extensions.NotRequired[typing.Dict[str, typing.Optional[typing.Any]]]
+    logprobs: typing_extensions.NotRequired[typing.Dict[str, typing.Any]]
     message: ChatCompletionResponseMessageParams

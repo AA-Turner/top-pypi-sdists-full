@@ -129,7 +129,7 @@ struct TiffSpecialization : public TiffReadOptions {
     }();
     if (!status.ok()) {
       if (status.code() == absl::StatusCode::kInvalidArgument) {
-        return internal::StatusBuilder(std::move(status))
+        return StatusBuilder(std::move(status))
             .SetCode(absl::StatusCode::kDataLoss);
       }
       return status;

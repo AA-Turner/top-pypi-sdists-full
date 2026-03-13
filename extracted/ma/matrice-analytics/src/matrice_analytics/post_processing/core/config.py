@@ -936,6 +936,7 @@ class ConfigManager:
             'animal_detection': None,
             'burglary_detection': None,
             'landslide_detection': None,
+            'bottle_defect_detection': None,
 
             #Put all image based usecases here::
             'blood_cancer_detection_img': None,
@@ -1619,6 +1620,13 @@ class ConfigManager:
         try:
             from ..usecases.landslide_detection import LandslideDetectionConfig
             return LandslideDetectionConfig
+        except ImportError:
+            return None
+        
+    def bottle_defect_detection_config_class(self):
+        try:
+            from ..usecases.bottle_defect_detection import BottleDefectDetectionConfig
+            return BottleDefectDetectionConfig
         except ImportError:
             return None
         
@@ -3300,6 +3308,22 @@ class ConfigManager:
                 **kwargs
             )
 
+        elif usecase == "bottle_defect_detection":
+            # Import here to avoid circular import
+            from ..usecases.bottle_defect_detection import BottleDefectDetectionConfig
+
+            # Handle nested configurations
+            alert_config = kwargs.pop("alert_config", None)
+            if alert_config and isinstance(alert_config, dict):
+                alert_config = AlertConfig(**alert_config)
+
+            config = BottleDefectDetectionConfig(
+                category=category or "industrial",
+                usecase=usecase,
+                alert_config=alert_config,
+                **kwargs
+            )
+
         #Add IMAGE based usecases here::
         elif usecase == "blood_cancer_detection_img":
             # Import here to avoid circular import
@@ -4000,6 +4024,12 @@ class ConfigManager:
             # Import here to avoid circular import
             from ..usecases.landslide_detection import LandslideDetectionConfig
             default_config = LandslideDetectionConfig()
+            return default_config.to_dict()
+        
+        elif usecase == "bottle_defect_detection":
+            # Import here to avoid circular import
+            from ..usecases.bottle_defect_detection import BottleDefectDetectionConfig
+            default_config = BottleDefectDetectionConfig()
             return default_config.to_dict()
             
         #Add all image based usecases here

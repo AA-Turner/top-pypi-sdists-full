@@ -70,7 +70,8 @@ constexpr auto DimensionIndexedVector(
     GetElement get_element, ElementBinder element_binder = DefaultBinder<>) {
   return internal_json_binding::Array(
       std::move(get_size),
-      [rank, set_size = std::move(set_size)](auto& c, size_t size) {
+      [rank, set_size = std::move(set_size)](auto& c,
+                                             size_t size) -> absl::Status {
         TENSORSTORE_RETURN_IF_ERROR(ValidateRank(size));
         if (rank) {
           if (*rank == dynamic_rank) {
@@ -135,7 +136,8 @@ constexpr auto ChunkShapeVector(DimensionIndex* rank,
 /// When converting to JSON, if all labels are empty strings, a discarded JSON
 /// value is returned.
 constexpr auto DimensionLabelVector(DimensionIndex* rank) {
-  return [rank](auto is_loading, const auto& options, auto* obj, auto* j) {
+  return [rank](auto is_loading, const auto& options, auto* obj,
+                auto* j) -> absl::Status {
     if constexpr (is_loading) {
       if (rank && *rank != dynamic_rank) {
         if (j->is_discarded()) {

@@ -16,6 +16,7 @@ from ..output.table import (
 )
 
 from .. import resource_helpers
+from .. import get_many_entries
 
 
 def add_label(ctx, name, navigation_enabled=None, **kwargs):
@@ -40,7 +41,11 @@ def list_labels(ctx, name, **kwargs):
     if name is not None:
         kwargs["label_name"] = agilicus.LabelName(name)
 
-    return apiclient.labels_api.list_object_labels(**kwargs).labels
+    return get_many_entries(
+        apiclient.labels_api.list_object_labels,
+        "labels",
+        **kwargs,
+    )
 
 
 def _get_label(ctx, apiclient, label_id, **kwargs):
@@ -128,7 +133,11 @@ def list_labelled_objects(
     if object_type is not None:
         kwargs["object_type"] = agilicus.ObjectType(object_type)
 
-    return apiclient.labels_api.list_labelled_objects(**kwargs).labelled_objects
+    return get_many_entries(
+        apiclient.labels_api.list_labelled_objects,
+        "labelled_objects",
+        **kwargs,
+    )
 
 
 def _label_associations_to_list(labels, org_id):

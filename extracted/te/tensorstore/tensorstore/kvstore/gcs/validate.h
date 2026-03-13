@@ -38,7 +38,7 @@ bool IsValidStorageGeneration(const StorageGeneration& gen);
 /// Constructs an absl::Status from an Aws HttpResponse.
 absl::Status GcsHttpResponseToStatus(
     const internal_http::HttpResponse& response, bool& retryable,
-    SourceLocation loc = ::tensorstore::SourceLocation::current());
+    SourceLocation loc = SourceLocation::current());
 
 }  // namespace internal_storage_gcs
 }  // namespace tensorstore

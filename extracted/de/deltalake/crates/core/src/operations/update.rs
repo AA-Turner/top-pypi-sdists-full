@@ -367,7 +367,7 @@ async fn execute(
         physical_plan.clone(),
         table_partition_cols.clone(),
         log_store.object_store(Some(operation_id)).clone(),
-        Some(snapshot.table_properties().target_file_size().get() as usize),
+        Some(snapshot.table_properties().target_file_size()),
         None,
         writer_properties.clone(),
         writer_stats_config.clone(),
@@ -417,7 +417,7 @@ async fn execute(
                     cdc_exec,
                     table_partition_cols,
                     log_store.object_store(Some(operation_id)),
-                    Some(snapshot.table_properties().target_file_size().get() as usize),
+                    Some(snapshot.table_properties().target_file_size()),
                     None,
                     writer_properties,
                     writer_stats_config,
@@ -460,7 +460,7 @@ impl std::future::IntoFuture for UpdateBuilder {
                     cdc: false,
                 },
             )?;
-            update_datafusion_session(&this.log_store, &state, Some(operation_id))?;
+            update_datafusion_session(&state, &this.log_store, Some(operation_id))?;
             state.ensure_log_store_registered(this.log_store.as_ref())?;
 
             if this.updates.is_empty() {

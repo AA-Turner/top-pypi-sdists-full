@@ -278,7 +278,8 @@ Result<UnlockFn> AcquireFdLock(FileDescriptor fd) {
                    /*lpOverlapped=*/&lock_offset)) {
     return UnlockWin32Lock;
   }
-  auto status = StatusFromOsError(::GetLastError(), "Failed to lock file");
+  auto status =
+      StatusFromOsError(::GetLastError()).Format("Failed to lock file");
   return std::move(tspan).EndWithStatus(std::move(status));
 }
 
@@ -299,8 +300,8 @@ Result<UniqueFileDescriptor> OpenFileWrapper(const std::string& path,
   FileDescriptor fd = OpenFileImpl(wpath, flags);
 
   if (fd == FileDescriptorTraits::Invalid()) {
-    auto status = StatusFromOsError(::GetLastError(),
-                                    "Failed to open: ", QuoteString(path));
+    auto status = StatusFromOsError(::GetLastError())
+                      .Format("Failed to open: %v", QuoteString(path));
     return std::move(tspan).EndWithStatus(std::move(status));
   }
   tspan.Log("fd", fd);
@@ -327,7 +328,7 @@ Result<ptrdiff_t> ReadFromFile(FileDescriptor fd,
   if (err == ERROR_HANDLE_EOF || err == ERROR_NO_DATA) {
     return 0;
   }
-  auto status = StatusFromOsError(err, "Failed to read from file");
+  auto status = StatusFromOsError(err).Format("Failed to read from file");
   return std::move(tspan).EndWithStatus(std::move(status));
 }
 
@@ -350,7 +351,7 @@ Result<ptrdiff_t> PReadFromFile(FileDescriptor fd,
   if (err == ERROR_HANDLE_EOF) {
     return 0;
   }
-  auto status = StatusFromOsError(err, "Failed to read from file");
+  auto status = StatusFromOsError(err).Format("Failed to read from file");
   return std::move(tspan).EndWithStatus(std::move(status));
 }
 
@@ -367,8 +368,8 @@ Result<ptrdiff_t> WriteToFile(FileDescriptor fd, const void* buf,
                   /*lpOverlapped=*/nullptr)) {
     return static_cast<size_t>(num_written);
   }
-  auto status = StatusFromOsError(::GetLastError(), "Failed to write ", count,
-                                  " bytes to file ", fd);
+  auto status = StatusFromOsError(::GetLastError())
+                    .Format("Failed to write %d bytes to file %v", count, fd);
   return std::move(tspan).EndWithStatus(std::move(status));
 }
 
@@ -398,7 +399,8 @@ absl::Status TruncateFile(FileDescriptor fd) {
   if (::SetEndOfFile(fd)) {
     return absl::OkStatus();
   }
-  auto status = StatusFromOsError(::GetLastError(), "Failed to truncate file");
+  auto status =
+      StatusFromOsError(::GetLastError()).Format("Failed to truncate file");
   return std::move(tspan).EndWithStatus(std::move(status));
 }
 
@@ -417,9 +419,10 @@ absl::Status RenameOpenFile(FileDescriptor fd, const std::string& old_name,
   }
 
 #ifndef NDEBUG
-  ABSL_LOG_FIRST_N(INFO, 1) << StatusFromOsError(
-      ::GetLastError(), "Failed to rename: ", QuoteString(old_name),
-      " using posix; using move file.");
+  ABSL_LOG_FIRST_N(INFO, 1)
+      << StatusFromOsError(::GetLastError())
+             .Format("Failed to rename: %v using posix; using move file.",
+                     QuoteString(old_name));
 #endif
 
   std::wstring wpath_old;
@@ -431,9 +434,9 @@ absl::Status RenameOpenFile(FileDescriptor fd, const std::string& old_name,
     return absl::OkStatus();
   }
 
-  auto status = StatusFromOsError(::GetLastError(),
-                                  "Failed to rename: ", QuoteString(old_name),
-                                  " to: ", QuoteString(new_name));
+  auto status = StatusFromOsError(::GetLastError())
+                    .Format("Failed to rename: %v to: %v",
+                            QuoteString(old_name), QuoteString(new_name));
   return std::move(tspan).EndWithStatus(std::move(status));
 }
 
@@ -468,9 +471,11 @@ absl::Status DeleteOpenFile(FileDescriptor fd, const std::string& path) {
 
   if (!RenameFilePosix(fd, wpath_temp)) {
 #ifndef NDEBUG
-    ABSL_LOG_FIRST_N(INFO, 1) << StatusFromOsError(
-        ::GetLastError(), "Failed to rename for delete: ", QuoteString(path),
-        " using posix; using fallback delete.");
+    ABSL_LOG_FIRST_N(INFO, 1) << StatusFromOsError(::GetLastError())
+                                     .Format(
+                                         "Failed to rename for delete: %v "
+                                         "using posix; using fallback delete.",
+                                         QuoteString(path));
 #endif
     // Fallback to original path.
     TENSORSTORE_RETURN_IF_ERROR(ConvertUTF8ToWindowsWide(path, wpath_temp));
@@ -480,16 +485,17 @@ absl::Status DeleteOpenFile(FileDescriptor fd, const std::string& path) {
     return absl::OkStatus();
   }
 #ifndef NDEBUG
-  ABSL_LOG_FIRST_N(INFO, 1) << StatusFromOsError(
-      ::GetLastError(), "Failed to delete: ", QuoteString(path),
-      " using posix; using fallback delete.");
+  ABSL_LOG_FIRST_N(INFO, 1)
+      << StatusFromOsError(::GetLastError())
+             .Format("Failed to delete: %v using posix; using fallback delete.",
+                     QuoteString(path));
 #endif
   // The file has been renamed, so delete the renamed file.
   if (::DeleteFileW(wpath_temp.c_str())) {
     return absl::OkStatus();
   }
-  auto status = StatusFromOsError(::GetLastError(),
-                                  "Failed to delete: ", QuoteString(path));
+  auto status = StatusFromOsError(::GetLastError())
+                    .Format("Failed to delete: %v", QuoteString(path));
   return std::move(tspan).EndWithStatus(std::move(status));
 }
 
@@ -512,8 +518,9 @@ absl::Status DeleteFile(const std::string& path) {
   if (delete_fd.valid()) {
     return DeleteOpenFile(delete_fd.get(), path);
   }
-  return std::move(tspan).EndWithStatus(StatusFromOsError(
-      ::GetLastError(), "Failed to delete: ", QuoteString(path)));
+  return std::move(tspan).EndWithStatus(
+      StatusFromOsError(::GetLastError())
+          .Format("Failed to delete: %v", QuoteString(path)));
 }
 
 uint32_t GetDefaultPageSize() {
@@ -533,8 +540,8 @@ size_t GetDirectIoBlockAlignment(FileDescriptor fd) {
 namespace {
 void UnmapFileWin32(char* data, size_t size) {
   if (!::UnmapViewOfFile(data)) {
-    ABSL_LOG(FATAL) << StatusFromOsError(::GetLastError(),
-                                         "Failed in UnmapViewOfFile");
+    ABSL_LOG(FATAL) << StatusFromOsError(::GetLastError())
+                           .Format("Failed in UnmapViewOfFile");
   }
   mmap_active.Decrement();
 }
@@ -551,8 +558,9 @@ Result<MemoryRegion> MemmapFileReadOnly(FileDescriptor fd, size_t offset,
 
   ::BY_HANDLE_FILE_INFORMATION info;
   if (!::GetFileInformationByHandle(fd, &info)) {
-    return std::move(tspan).EndWithStatus(StatusFromOsError(
-        ::GetLastError(), "Failed in GetFileInformationByHandle"));
+    return std::move(tspan).EndWithStatus(
+        StatusFromOsError(::GetLastError())
+            .Format("Failed in GetFileInformationByHandle"));
   }
   uint64_t file_size = (static_cast<int64_t>(info.nFileSizeHigh) << 32) +
                        static_cast<int64_t>(info.nFileSizeLow);
@@ -572,7 +580,8 @@ Result<MemoryRegion> MemmapFileReadOnly(FileDescriptor fd, size_t offset,
       ::CreateFileMappingW(fd, nullptr, PAGE_READONLY, 0, 0, nullptr));
   if (!map_fd.valid()) {
     return std::move(tspan).EndWithStatus(
-        StatusFromOsError(::GetLastError(), "Failed in CreateFileMappingW"));
+        StatusFromOsError(::GetLastError())
+            .Format("Failed in CreateFileMappingW"));
   }
 
   void* address = ::MapViewOfFile(
@@ -580,7 +589,7 @@ Result<MemoryRegion> MemmapFileReadOnly(FileDescriptor fd, size_t offset,
       static_cast<DWORD>(offset & 0xffffffff), size);
   if (!address) {
     return std::move(tspan).EndWithStatus(
-        StatusFromOsError(::GetLastError(), "Failed in MapViewOfFile"));
+        StatusFromOsError(::GetLastError()).Format("Failed in MapViewOfFile"));
   }
 
   {
@@ -600,7 +609,7 @@ absl::Status FsyncFile(FileDescriptor fd) {
   if (::FlushFileBuffers(fd)) {
     return absl::OkStatus();
   }
-  auto status = StatusFromOsError(::GetLastError());
+  auto status = StatusFromOsError(::GetLastError()).Default();
   return std::move(tspan).EndWithStatus(std::move(status));
 }
 
@@ -620,7 +629,7 @@ absl::Status AwaitReadablePipe(FileDescriptor fd, absl::Time deadline) {
   while (true) {
     DWORD bytes_avail = 0;
     if (!::PeekNamedPipe(fd, NULL, 0, NULL, &bytes_avail, NULL)) {
-      return StatusFromOsError(::GetLastError(), "Failed to peek pipe");
+      return StatusFromOsError(::GetLastError()).Format("Failed to peek pipe");
     }
     if (bytes_avail > 0) {
       return absl::OkStatus();
@@ -644,8 +653,9 @@ Result<UniqueFileDescriptor> OpenDirectoryDescriptor(const std::string& path) {
       /*dwFlagsAndAttributes=*/FILE_FLAG_BACKUP_SEMANTICS,
       /*hTemplateFile=*/nullptr);
   if (fd == FileDescriptorTraits::Invalid()) {
-    auto status = StatusFromOsError(
-        ::GetLastError(), "Failed to open directory: ", QuoteString(path));
+    auto status =
+        StatusFromOsError(::GetLastError())
+            .Format("Failed to open directory: %v", QuoteString(path));
     return std::move(tspan).EndWithStatus(std::move(status));
   }
   tspan.Log("fd", fd);
@@ -661,8 +671,9 @@ absl::Status MakeDirectory(const std::string& path) {
       ::GetLastError() == ERROR_ALREADY_EXISTS) {
     return absl::OkStatus();
   }
-  auto status = StatusFromOsError(
-      ::GetLastError(), "Failed to create directory: ", QuoteString(path));
+  auto status =
+      StatusFromOsError(::GetLastError())
+          .Format("Failed to create directory: %v", QuoteString(path));
   return std::move(tspan).EndWithStatus(std::move(status));
 }
 
@@ -675,7 +686,8 @@ Result<std::string> GetWindowsTempDir() {
   wchar_t buf[MAX_PATH + 1];
   DWORD retval = GetTempPathW(MAX_PATH + 1, buf);
   if (retval == 0) {
-    return StatusFromOsError(::GetLastError(), "Failed to get temp directory");
+    return StatusFromOsError(::GetLastError())
+        .Format("Failed to get temp directory");
   }
   assert(retval <= MAX_PATH);
   if (buf[retval - 1] == L'\\') {

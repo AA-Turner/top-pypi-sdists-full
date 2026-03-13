@@ -32,8 +32,6 @@
 #include "absl/log/absl_log.h"  // IWYU pragma: keep
 #include "absl/status/status.h"
 #include "absl/strings/match.h"
-#include "absl/strings/str_cat.h"
-#include "absl/strings/str_format.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"  // IWYU pragma: keep
 #include <nlohmann/json.hpp>
@@ -425,8 +423,8 @@ absl::Status Driver::AnnotateErrorWithKeyDescription(
   if (absl::StrContains(error.message(), key_description)) {
     return error;
   }
-  return tensorstore::MaybeAnnotateStatus(
-      error, absl::StrFormat("Error %s %s", action, key_description), loc);
+  return StatusBuilder(std::move(error), loc)
+      .Format("Error %s %s", action, key_description);
 }
 
 bool operator==(const KvStore& a, const KvStore& b) {

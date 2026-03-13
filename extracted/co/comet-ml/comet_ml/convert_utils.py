@@ -41,6 +41,7 @@ from .logging_messages import (
     CONVERT_UTILS_ARRAY_TO_IMAGE_INVALID_IMAGE_COLORMAP_INFO,
     CONVERT_UTILS_ARRAY_TO_IMAGE_INVALID_IMAGE_SHAPE_EXCEPTION,
     CONVERT_UTILS_ARRAY_TO_IMAGE_INVALID_IMAGE_SHAPE_INFO,
+    CONVERT_UTILS_CONVERT_LIST_TO_STRING_TRUNCATED_WARNING,
     CONVERT_UTILS_CONVERT_MODEL_TO_STRING_FAILED_RETURN,
     CONVERT_UTILS_CONVERT_MODEL_TO_STRING_TF_TO_JSON_FAILED_WARNING,
     CONVERT_UTILS_CONVERT_TO_LIST_SHOULD_BE_ONE_DIMENSIONAL_EXCEPTION,
@@ -847,6 +848,42 @@ def convert_to_string(
                 log_once_at_level(logging.WARNING, message)
 
     return str(user_data)
+
+
+def convert_list_to_string(user_data: Any, raise_on_warning: bool = False) -> str:
+    try:
+        return json.dumps(user_data, separators=(",", ":"))
+    except TypeError as e:
+        message = "Failed to convert list to string: %s" % e
+        if raise_on_warning:
+            raise StringConversionException(message)
+        else:
+            log_once_at_level(logging.WARNING, message)
+
+    return str(user_data)
+
+
+def convert_list_to_string_truncated(
+    user_data: Any,
+    size: int,
+    source: Optional[str] = None,
+    raise_on_warning: bool = False,
+) -> StringResult:
+    value = convert_list_to_string(user_data, raise_on_warning=raise_on_warning)
+    full_value = value
+    truncated = len(value) > size
+    if truncated:
+        value = value[: size - len(TRUNCATED_INDICATOR)] + TRUNCATED_INDICATOR
+        message = CONVERT_UTILS_CONVERT_LIST_TO_STRING_TRUNCATED_WARNING % (
+            size,
+            user_data,
+        )
+        if raise_on_warning:
+            raise StringValueTruncatedException(message)
+        else:
+            LOGGER.warning(message)
+
+    return StringResult(value, truncated, full_value=full_value)
 
 
 def convert_to_string_truncated(

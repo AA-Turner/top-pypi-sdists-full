@@ -19,6 +19,7 @@ from .pubsub import (
     AcknowledgeRequest,
     AIInference,
     BigQueryConfig,
+    BigtableConfig,
     CloudStorageConfig,
     CreateSnapshotRequest,
     DeadLetterPolicy,
@@ -74,6 +75,7 @@ from .schema import (
     CreateSchemaRequest,
     DeleteSchemaRequest,
     DeleteSchemaRevisionRequest,
+    Encoding,
     GetSchemaRequest,
     ListSchemaRevisionsRequest,
     ListSchemaRevisionsResponse,
@@ -81,12 +83,11 @@ from .schema import (
     ListSchemasResponse,
     RollbackSchemaRequest,
     Schema,
+    SchemaView,
     ValidateMessageRequest,
     ValidateMessageResponse,
     ValidateSchemaRequest,
     ValidateSchemaResponse,
-    Encoding,
-    SchemaView,
 )
 
 TimeoutType = Union[
@@ -102,6 +103,7 @@ __all__ = (
     "AcknowledgeRequest",
     "AIInference",
     "BigQueryConfig",
+    "BigtableConfig",
     "CloudStorageConfig",
     "CreateSnapshotRequest",
     "DeadLetterPolicy",

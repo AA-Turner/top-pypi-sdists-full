@@ -654,6 +654,7 @@ class AsyncChalkClient:
         query_name_version: str | None = None,
         *,
         input_sql: str | None = None,
+        use_metaplanner: bool | None = None,
     ) -> Dataset:
         """Compute feature values from the offline store or by running offline/online resolvers.
         See `Dataset` for more information.
@@ -758,6 +759,8 @@ class AsyncChalkClient:
             The name of the query to execute. If provided, will create a new named query or fill in missing parameters from a preexisting execution.
         query_name_version
             The version of the named query to execute.
+        use_metaplanner
+            Controls whether the query will use the metaplanner: https://docs.chalk.ai/docs/metaplanning
 
         Other Parameters
         ----------------

@@ -334,8 +334,14 @@ class ApbMaster(ApbPause, Region, Reset):
     async def _run(self):
         clock_edge_event = RisingEdge(self.clock)
 
+        await clock_edge_event
+
         while True:
-            cmd = await self.command_queue.get()
+            if self.command_queue.empty():
+                cmd = await self.command_queue.get()
+                await clock_edge_event
+            else:
+                cmd = self.command_queue.get_nowait()
             self.current_command = cmd
 
             length = 0
@@ -370,9 +376,6 @@ class ApbMaster(ApbPause, Region, Reset):
                     self.log.info("Read start addr: 0x%08x prot: %s length: %d",
                             cmd.address, cmd.prot, cmd.length)
 
-            await clock_edge_event
-            self.bus.psel.value = True
-
             for k in range(cycles):
                 start = 0
                 stop = self.byte_lanes
@@ -399,20 +402,24 @@ class ApbMaster(ApbPause, Region, Reset):
                 while self.pause:
                     await clock_edge_event
 
-                await clock_edge_event
-
                 if k == 0:
                     self.bus.paddr.value = cmd.address
                 else:
                     self.bus.paddr.value = word_addr + k*self.byte_lanes
-                self.bus.pprot.value = cmd.prot
-                self.bus.penable.value = True
+
+                if self.pprot_present:
+                    self.bus.pprot.value = cmd.prot
+
                 self.bus.pwrite.value = pwrite
                 self.bus.pwdata.value = val
                 self.bus.pstrb.value = strb
 
-                await clock_edge_event
+                self.bus.psel.value = True
 
+                await clock_edge_event
+                self.bus.penable.value = True
+
+                await clock_edge_event
                 while not int(self.bus.pready.value):
                     await clock_edge_event
 
@@ -433,7 +440,7 @@ class ApbMaster(ApbPause, Region, Reset):
                 for j in range(start, stop):
                     read_data.append((cycle_data >> j*8) & 0xff)
 
-            self.bus.psel.value = False
+                self.bus.psel.value = False
 
             if pwrite:
                 self.log.info("Write complete addr: 0x%08x prot: %s resp: %s length: %d",
@@ -579,8 +586,6 @@ class ApbSlave(ApbPause, Reset):
 
                 if start_offset is not None and offset != start_offset:
                     write_ops.append((addr+start_offset, data[start_offset:offset]))
-
-                print(write_ops)
 
                 # perform writes
                 try:

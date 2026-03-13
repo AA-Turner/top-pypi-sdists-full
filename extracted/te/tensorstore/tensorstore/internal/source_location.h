@@ -57,12 +57,13 @@ class SourceLocation {
   // accept a `SourceLocation` as a default parameter can use this to capture
   // their caller's locations.
   //
-  // Example:
+  // Example::
   //
   //   void TracedAdd(int i, SourceLocation loc = SourceLocation::current()) {
   //     std::cout << loc.file_name() << ":" << loc.line() << " added " << i;
   //     ...
   //   }
+  //
   static constexpr SourceLocation current(
       PrivateTag = PrivateTag{}, std::uint_least32_t line = __builtin_LINE(),
       const char* file_name = __builtin_FILE()) {

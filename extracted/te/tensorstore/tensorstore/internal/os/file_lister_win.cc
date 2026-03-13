@@ -38,6 +38,7 @@
 #include "tensorstore/internal/os/wstring.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/status.h"
+#include "tensorstore/util/status_builder.h"
 
 // Include system headers last to reduce impact of macros.
 #include "tensorstore/internal/os/file_util.h"
@@ -72,8 +73,8 @@ absl::Status ListerEntry::Delete() {
     if (::RemoveDirectoryW(impl_->wpath.c_str())) {
       return absl::OkStatus();
     }
-    return StatusFromOsError(::GetLastError(), "Failed to remove directory: ",
-                             QuoteString(impl_->path));
+    return StatusFromOsError(::GetLastError())
+        .Format("Failed to remove directory: %v", QuoteString(impl_->path));
   }
   return DeleteFile(impl_->path);
 }
@@ -181,8 +182,8 @@ absl::Status RecursiveListImpl(
                              /*dwAdditionalFlags=*/0);
 
       if (entry.find_handle == INVALID_HANDLE_VALUE) {
-        return StatusFromOsError(::GetLastError(), "Failed listing directory: ",
-                                 QuoteString(entry.path));
+        return StatusFromOsError(::GetLastError())
+            .Format("Failed listing directory: %v", QuoteString(entry.path));
       }
     } else {
       // Try to advance to next entry.
@@ -208,8 +209,8 @@ absl::Status RecursiveListImpl(
       path_component_utf8[utf8_size] = 0;
       path_component_size = utf8_size - 1;
     } else if (utf8_size == 0) {
-      return StatusFromOsError(::GetLastError(), "Failed listing directory: ",
-                               QuoteString(entry.path));
+      return StatusFromOsError(::GetLastError())
+          .Format("Failed listing directory: %v", QuoteString(entry.path));
     }
     std::string_view subdir_component(path_component_utf8, path_component_size);
     std::wstring_view subdir_wcomponent(find_data.cFileName);
@@ -258,13 +259,12 @@ absl::Status RecursiveFileList(
     }
     if (!(attributes & FILE_ATTRIBUTE_DIRECTORY)) {
       return absl::NotFoundError(absl::StrFormat(
-          "Cannot list non-directory: %s", QuoteString(root_directory)));
+          "Cannot list non-directory: %v", QuoteString(root_directory)));
     }
   }
 
-  auto status = RecursiveListImpl(recurse_into, on_item, root_directory, wpath);
-  MaybeAddSourceLocation(status);
-  return status;
+  return StatusBuilder(
+      RecursiveListImpl(recurse_into, on_item, root_directory, wpath));
 }
 
 }  // namespace internal_os

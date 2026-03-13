@@ -2,6 +2,7 @@
 // Create a new file for Guacd handshake tests.
 
 use bytes::{Buf, BytesMut};
+use parking_lot::Mutex;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
@@ -212,7 +213,7 @@ async fn recv_and_get_instruction(stream: &mut DuplexStream) -> Result<GuacdInst
 #[tokio::test]
 async fn test_guacd_handshake_successful() {
     let (client_stream, mut server_stream): (DuplexStream, DuplexStream) = tokio::io::duplex(4096);
-    let (_dc_tx_for_channel, dc_rx_for_channel) = tokio::sync::mpsc::unbounded_channel();
+    let (dc_tx_for_channel, dc_rx_for_channel) = tokio::sync::mpsc::unbounded_channel();
     let mock_webrtc_dc_for_channel = create_mock_webrtc_data_channel_for_channel_new().await;
     let mut guacd_params = HashMap::new();
     guacd_params.insert("protocol".to_string(), "rdp".to_string());
@@ -238,6 +239,7 @@ async fn test_guacd_handshake_successful() {
     let channel = Channel::new(crate::channel::core::ChannelParams {
         webrtc: mock_webrtc_dc_for_channel,
         rx_from_dc: dc_rx_for_channel,
+        tx_from_dc: Arc::new(Mutex::new(Some(dc_tx_for_channel))),
         channel_id: "test_channel_id".to_string(),
         timeouts: Some(TunnelTimeouts::default()),
         protocol_settings,
@@ -437,7 +439,7 @@ async fn test_guacd_handshake_successful() {
 #[tokio::test]
 async fn test_guacd_handshake_join_existing_connection_readonly() {
     let (client_stream, mut server_stream): (DuplexStream, DuplexStream) = tokio::io::duplex(4096);
-    let (_dc_tx_for_channel, dc_rx_for_channel) = tokio::sync::mpsc::unbounded_channel();
+    let (dc_tx_for_channel, dc_rx_for_channel) = tokio::sync::mpsc::unbounded_channel();
     let mock_webrtc_dc_for_channel = create_mock_webrtc_data_channel_for_channel_new().await;
     let connection_id_to_join = "existing-session-123".to_string();
     let mut guacd_params = HashMap::new();
@@ -460,6 +462,7 @@ async fn test_guacd_handshake_join_existing_connection_readonly() {
     let channel = Channel::new(crate::channel::core::ChannelParams {
         webrtc: mock_webrtc_dc_for_channel,
         rx_from_dc: dc_rx_for_channel,
+        tx_from_dc: Arc::new(Mutex::new(Some(dc_tx_for_channel))),
         channel_id: "test_channel_join_id".to_string(),
         timeouts: Some(TunnelTimeouts::default()),
         protocol_settings,
@@ -539,7 +542,7 @@ async fn test_guacd_handshake_join_existing_connection_readonly() {
 #[tokio::test]
 async fn test_guacd_handshake_join_existing_connection_not_readonly() {
     let (client_stream, mut server_stream): (DuplexStream, DuplexStream) = tokio::io::duplex(4096);
-    let (_dc_tx_for_channel, dc_rx_for_channel) = tokio::sync::mpsc::unbounded_channel();
+    let (dc_tx_for_channel, dc_rx_for_channel) = tokio::sync::mpsc::unbounded_channel();
     let mock_webrtc_dc_for_channel = create_mock_webrtc_data_channel_for_channel_new().await;
     let connection_id_to_join = "existing-session-456".to_string();
     let mut guacd_params = HashMap::new();
@@ -561,6 +564,7 @@ async fn test_guacd_handshake_join_existing_connection_not_readonly() {
     let channel = Channel::new(crate::channel::core::ChannelParams {
         webrtc: mock_webrtc_dc_for_channel,
         rx_from_dc: dc_rx_for_channel,
+        tx_from_dc: Arc::new(Mutex::new(Some(dc_tx_for_channel))),
         channel_id: "test_channel_join_nr_id".to_string(),
         timeouts: Some(TunnelTimeouts::default()),
         protocol_settings,
@@ -638,7 +642,7 @@ async fn test_guacd_handshake_join_existing_connection_not_readonly() {
 #[tokio::test]
 async fn test_guacd_handshake_failure_wrong_opcode_instead_of_args() {
     let (client_stream, mut server_stream): (DuplexStream, DuplexStream) = tokio::io::duplex(4096);
-    let (_dc_tx_for_channel, dc_rx_for_channel) = tokio::sync::mpsc::unbounded_channel();
+    let (dc_tx_for_channel, dc_rx_for_channel) = tokio::sync::mpsc::unbounded_channel();
     let mock_webrtc_dc_for_channel = create_mock_webrtc_data_channel_for_channel_new().await;
     let mut guacd_params = HashMap::new();
     guacd_params.insert("protocol".to_string(), "rdp".to_string());
@@ -658,6 +662,7 @@ async fn test_guacd_handshake_failure_wrong_opcode_instead_of_args() {
     let channel = Channel::new(crate::channel::core::ChannelParams {
         webrtc: mock_webrtc_dc_for_channel,
         rx_from_dc: dc_rx_for_channel,
+        tx_from_dc: Arc::new(Mutex::new(Some(dc_tx_for_channel))),
         channel_id: "test_channel_fail_args_id".to_string(),
         timeouts: Some(TunnelTimeouts::default()),
         protocol_settings,
@@ -722,7 +727,7 @@ async fn test_guacd_handshake_failure_wrong_opcode_instead_of_args() {
 #[tokio::test]
 async fn test_guacd_handshake_failure_wrong_opcode_instead_of_ready() {
     let (client_stream, mut server_stream): (DuplexStream, DuplexStream) = tokio::io::duplex(4096);
-    let (_dc_tx_for_channel, dc_rx_for_channel) = tokio::sync::mpsc::unbounded_channel();
+    let (dc_tx_for_channel, dc_rx_for_channel) = tokio::sync::mpsc::unbounded_channel();
     let mock_webrtc_dc_for_channel = create_mock_webrtc_data_channel_for_channel_new().await;
     let mut guacd_params = HashMap::new();
     guacd_params.insert("protocol".to_string(), "rdp".to_string());
@@ -747,6 +752,7 @@ async fn test_guacd_handshake_failure_wrong_opcode_instead_of_ready() {
     let channel = Channel::new(crate::channel::core::ChannelParams {
         webrtc: mock_webrtc_dc_for_channel,
         rx_from_dc: dc_rx_for_channel,
+        tx_from_dc: Arc::new(Mutex::new(Some(dc_tx_for_channel))),
         channel_id: "test_channel_fail_ready_id".to_string(),
         timeouts: Some(TunnelTimeouts::default()),
         protocol_settings,
@@ -913,7 +919,7 @@ async fn test_guacd_handshake_failure_wrong_opcode_instead_of_ready() {
 #[tokio::test]
 async fn test_guacd_handshake_failure_timeout_waiting_for_args() {
     let (client_stream, mut server_stream): (DuplexStream, DuplexStream) = tokio::io::duplex(4096);
-    let (_dc_tx_for_channel, dc_rx_for_channel) = tokio::sync::mpsc::unbounded_channel();
+    let (dc_tx_for_channel, dc_rx_for_channel) = tokio::sync::mpsc::unbounded_channel();
     let mock_webrtc_dc_for_channel = create_mock_webrtc_data_channel_for_channel_new().await;
     let mut guacd_params = HashMap::new();
     guacd_params.insert("protocol".to_string(), "rdp".to_string());
@@ -937,6 +943,7 @@ async fn test_guacd_handshake_failure_timeout_waiting_for_args() {
     let channel = Channel::new(crate::channel::core::ChannelParams {
         webrtc: mock_webrtc_dc_for_channel,
         rx_from_dc: dc_rx_for_channel,
+        tx_from_dc: Arc::new(Mutex::new(Some(dc_tx_for_channel))),
         channel_id: "test_channel_timeout_args_id".to_string(),
         timeouts: Some(timeouts),
         protocol_settings,
@@ -1002,7 +1009,7 @@ async fn test_guacd_handshake_failure_timeout_waiting_for_args() {
 #[tokio::test]
 async fn test_guacd_handshake_failure_timeout_waiting_for_ready() {
     let (client_stream, mut server_stream): (DuplexStream, DuplexStream) = tokio::io::duplex(4096);
-    let (_dc_tx_for_channel, dc_rx_for_channel) = tokio::sync::mpsc::unbounded_channel();
+    let (dc_tx_for_channel, dc_rx_for_channel) = tokio::sync::mpsc::unbounded_channel();
     let mock_webrtc_dc_for_channel = create_mock_webrtc_data_channel_for_channel_new().await;
     let mut guacd_params = HashMap::new();
     guacd_params.insert("protocol".to_string(), "rdp".to_string());
@@ -1034,6 +1041,7 @@ async fn test_guacd_handshake_failure_timeout_waiting_for_ready() {
     let channel = Channel::new(crate::channel::core::ChannelParams {
         webrtc: mock_webrtc_dc_for_channel,
         rx_from_dc: dc_rx_for_channel,
+        tx_from_dc: Arc::new(Mutex::new(Some(dc_tx_for_channel))),
         channel_id: "test_channel_timeout_ready_id".to_string(),
         timeouts: Some(timeouts),
         protocol_settings,

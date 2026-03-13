@@ -953,6 +953,12 @@ class CreateOfflineQueryJobRequest(BaseModel):
     query_name: Optional[str] = None
     query_name_version: Optional[str] = None
 
+    use_metaplanner: bool | None = None
+    """Tells the API server whether we want this query to use the metaplanner.
+
+    None means the server chooses whether to use the metaplanner.
+    """
+
     @root_validator
     def _validate_multiple_computers(cls, values: Dict[str, Any]):
         if values["input"] is None or isinstance(

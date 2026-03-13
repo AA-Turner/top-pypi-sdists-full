@@ -1157,6 +1157,7 @@ class AgentStep(BaseModel):
         extra="allow",
     )
     step_id: Annotated[int, Field(title="Step Id")]
+    span_id: Annotated[str | None, Field(title="Span Id")] = None
     source: Annotated[str, Field(title="Source")]
     message: Annotated[str | None, Field(title="Message")] = ""
     model_name: Annotated[str | None, Field(title="Model Name")] = None
@@ -1250,6 +1251,7 @@ class WorldStep(BaseModel):
         extra="allow",
     )
     number: Annotated[int, Field(title="Number")]
+    span_id: Annotated[str | None, Field(title="Span Id")] = None
     done: Annotated[bool | None, Field(title="Done")] = False
     observation: Annotated[str | None, Field(title="Observation")] = None
     agents: Annotated[list[AgentTrace] | None, Field(title="Agents")] = None

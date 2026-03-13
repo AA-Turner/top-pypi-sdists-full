@@ -190,8 +190,6 @@ class PathExtractorUnit(Unit, abstract=True):
                 else:
                     return t
             paths = [check_pattern(p) for p in paths]
-        for path in paths:
-            self.log_debug('path:', path)
         return [
             PathPattern(
                 path,
@@ -306,7 +304,10 @@ class PathExtractorUnit(Unit, abstract=True):
                     except Exception as error:
                         if self.log_debug():
                             raise
-                        self.log_warn(F'extraction failure for {path}: {exception_to_string(error)}')
+                        message = exception_to_string(error)
+                        if path not in message:
+                            message = F'extraction failure for {path}: {exception_to_string(error)}'
+                        self.log_warn(message)
                     else:
                         self.log_debug(F'extraction success for {path}')
                         yield self.labelled(chunk, **result.meta)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: arize-phoenix
-Version: 13.14.0
+Version: 13.15.0
 Summary: AI Observability and Evaluation
 Project-URL: Documentation, https://arize.com/docs/phoenix/
 Project-URL: Issues, https://github.com/Arize-ai/phoenix/issues
@@ -19,7 +19,7 @@ Requires-Python: <3.14,>=3.10
 Requires-Dist: aioitertools
 Requires-Dist: aiosqlite
 Requires-Dist: alembic<2,>=1.3.0
-Requires-Dist: arize-phoenix-client>=1.31.0
+Requires-Dist: arize-phoenix-client>=2.0.0
 Requires-Dist: arize-phoenix-evals>=2.11.0
 Requires-Dist: arize-phoenix-otel>=0.15.0
 Requires-Dist: authlib

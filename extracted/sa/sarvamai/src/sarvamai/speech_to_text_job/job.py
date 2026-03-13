@@ -6,7 +6,7 @@ import typing
 import httpx
 from http import HTTPStatus
 
-from ..types import JobStatusV1Response
+from ..types import JobStatusResponse
 
 if typing.TYPE_CHECKING:
     from .client import AsyncSpeechToTextJobClient, SpeechToTextJobClient
@@ -96,7 +96,7 @@ class AsyncSpeechToTextJob:
 
     async def wait_until_complete(
         self, poll_interval: int = 5, timeout: int = 600
-    ) -> JobStatusV1Response:
+    ) -> JobStatusResponse:
         """
         Polls job status until it completes or fails.
 
@@ -110,7 +110,7 @@ class AsyncSpeechToTextJob:
 
         Returns
         -------
-        JobStatusV1Response
+        JobStatusResponse
             Final job status.
 
         Raises
@@ -240,23 +240,23 @@ class AsyncSpeechToTextJob:
                     f.write(response.content)
         return True
 
-    async def get_status(self) -> JobStatusV1Response:
+    async def get_status(self) -> JobStatusResponse:
         """
         Retrieve the current status of the job.
 
         Returns
         -------
-        JobStatusV1Response
+        JobStatusResponse
         """
         return await self._client.get_status(self._job_id)
 
-    async def start(self) -> JobStatusV1Response:
+    async def start(self) -> JobStatusResponse:
         """
         Start the speech-to-text job processing.
 
         Returns
         -------
-        JobStatusV1Response
+        JobStatusResponse
         """
         return await self._client.start(job_id=self._job_id)
 
@@ -386,7 +386,7 @@ class SpeechToTextJob:
 
     def wait_until_complete(
         self, poll_interval: int = 5, timeout: int = 600
-    ) -> JobStatusV1Response:
+    ) -> JobStatusResponse:
         """
         Polls job status until it completes or fails.
 
@@ -400,7 +400,7 @@ class SpeechToTextJob:
 
         Returns
         -------
-        JobStatusV1Response
+        JobStatusResponse
             Final job status.
 
         Raises
@@ -530,23 +530,23 @@ class SpeechToTextJob:
                     f.write(response.content)
         return True
 
-    def get_status(self) -> JobStatusV1Response:
+    def get_status(self) -> JobStatusResponse:
         """
         Retrieve the current status of the job.
 
         Returns
         -------
-        JobStatusV1Response
+        JobStatusResponse
         """
         return self._client.get_status(self._job_id)
 
-    def start(self) -> JobStatusV1Response:
+    def start(self) -> JobStatusResponse:
         """
         Start the speech-to-text job processing.
 
         Returns
         -------
-        JobStatusV1Response
+        JobStatusResponse
         """
         return self._client.start(job_id=self._job_id)
 

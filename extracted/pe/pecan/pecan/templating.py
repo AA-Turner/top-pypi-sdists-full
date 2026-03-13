@@ -24,6 +24,7 @@ class JsonRenderer(object):
 
     # TODO: add error formatter for json (pass it through json lint?)
 
+
 _builtin_renderers['json'] = JsonRenderer
 
 #
@@ -197,12 +198,12 @@ def format_line_context(filename, lineno, context=10):
         start_lineno = max(lineno - context, 0)
         end_lineno = lineno + context
 
-        lines = [escape(l, True) for l in lines[start_lineno:end_lineno]]
+        lines = [escape(line, True) for line in lines[start_lineno:end_lineno]]
         i = lineno - start_lineno
         lines[i] = '<strong>%s</strong>' % lines[i]
 
     else:
-        lines = [escape(l, True) for l in lines[:context]]
+        lines = [escape(line, True) for line in lines[:context]]
     msg = '<pre style="background-color:#ccc;padding:2em;">%s</pre>'
     return msg % ''.join(lines)
 
@@ -217,7 +218,8 @@ class ExtraNamespace(object):
 
     :param extras: dictionary of extra parameters. Defaults to an empty dict.
     '''
-    def __init__(self, extras={}):
+    def __init__(self, extras=None):
+        extras = extras or {}
         self.namespace = dict(extras)
 
     def update(self, d):
@@ -249,10 +251,10 @@ class RendererFactory(object):
     :param custom_renderers: custom-defined renderers to manufacture
     :param extra_vars: extra vars for the template namespace
     '''
-    def __init__(self, custom_renderers={}, extra_vars={}):
+    def __init__(self, custom_renderers=None, extra_vars=None):
         self._renderers = {}
         self._renderer_classes = dict(_builtin_renderers)
-        self.add_renderers(custom_renderers)
+        self.add_renderers(custom_renderers or {})
         self.extra_vars = ExtraNamespace(extra_vars)
 
     def add_renderers(self, custom_dict):

@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "absl/strings/str_format.h"
 #ifdef _WIN32
 #error "Use file_lister_win.cc instead."
 #endif
@@ -39,10 +38,12 @@
 #include "absl/status/status.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "tensorstore/internal/os/error_code.h"
 #include "tensorstore/internal/os/potentially_blocking_region.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/status.h"
+#include "tensorstore/util/status_builder.h"
 
 // Include system headers last to reduce impact of macros.
 #include "tensorstore/internal/os/file_util.h"
@@ -74,9 +75,9 @@ absl::Status ListerEntry::Delete() {
                  impl_->is_directory ? AT_REMOVEDIR : 0) == 0) {
     return absl::OkStatus();
   }
-  return StatusFromOsError(errno, "Failed to remove ",
-                           impl_->is_directory ? "directory: " : "file: ",
-                           QuoteString(GetFullPath()));
+  return StatusFromOsError(errno).Format(
+      "Failed to remove %s: %v", impl_->is_directory ? "directory" : "file",
+      QuoteString(GetFullPath()));
 }
 
 namespace {
@@ -163,8 +164,8 @@ absl::Status RecursiveListImpl(
           stack.pop_back();
           continue;
         }
-        return StatusFromOsError(
-            errno, "Failed while listing: ", QuoteString(entry.path));
+        return StatusFromOsError(errno).Format("Failed while listing: %v",
+                                               QuoteString(entry.path));
       }
     }
 
@@ -178,8 +179,8 @@ absl::Status RecursiveListImpl(
 
       entry.dir = ::fdopendir(entry.fd);
       if (entry.dir == nullptr) {
-        return StatusFromOsError(
-            errno, "Failed while listing: ", QuoteString(entry.path));
+        return StatusFromOsError(errno).Format("Failed while listing: %v",
+                                               QuoteString(entry.path));
       }
     }
 
@@ -221,17 +222,15 @@ absl::Status RecursiveFileList(
   if (::fstatat(AT_FDCWD, root_directory.empty() ? "." : root_directory.c_str(),
                 &dir_stat, 0) != 0) {
     if (errno == ENOENT) return absl::OkStatus();
-    return StatusFromOsError(errno,
-                             "Failed to stat: ", QuoteString(root_directory));
+    return StatusFromOsError(errno).Format("Failed to stat: %v",
+                                           QuoteString(root_directory));
   }
   if (!S_ISDIR(dir_stat.st_mode)) {
     return absl::NotFoundError(absl::StrFormat("Cannot list non-directory: %v",
                                                QuoteString(root_directory)));
   }
-
-  auto status = RecursiveListImpl(recurse_into, on_item, root_directory);
-  MaybeAddSourceLocation(status);
-  return status;
+  return StatusBuilder(
+      RecursiveListImpl(recurse_into, on_item, root_directory));
 }
 
 }  // namespace internal_os

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dbt-artifacts-parser
-Version: 0.12.0
+Version: 0.13.0
 Summary: A dbt artifacts parser in python
 Project-URL: Home, https://github.com/yu-iskw/dbt-artifacts-parser
 Author: yu-iskw
@@ -225,17 +225,15 @@ Classifier: Typing :: Typed
 Requires-Python: >=3.9.0
 Requires-Dist: pydantic<3.0,>=2.0
 Provides-Extra: dev
-Requires-Dist: black>=25.9.0; extra == 'dev'
 Requires-Dist: build>=1.3.0; extra == 'dev'
-Requires-Dist: datamodel-code-generator>=0.35.0; extra == 'dev'
-Requires-Dist: flake8>=7.3.0; extra == 'dev'
-Requires-Dist: isort>=6.1.0; extra == 'dev'
-Requires-Dist: mypy>=1.18.2; extra == 'dev'
+Requires-Dist: datamodel-code-generator>=0.45.0; extra == 'dev'
+Requires-Dist: mypy>=1.19.1; extra == 'dev'
 Requires-Dist: pdoc3>=0.11.6; extra == 'dev'
 Requires-Dist: pre-commit>=4.3.0; extra == 'dev'
 Requires-Dist: pylint>=3.3.9; extra == 'dev'
 Requires-Dist: pytest>=8.4.2; extra == 'dev'
 Requires-Dist: pyyaml>=6.0.3; extra == 'dev'
+Requires-Dist: ruff>=0.14.10; extra == 'dev'
 Description-Content-Type: text/markdown
 
 [![Test python](https://github.com/yu-iskw/dbt-artifacts-parser/actions/workflows/test.yml/badge.svg)](https://github.com/yu-iskw/dbt-artifacts-parser/actions/workflows/test.yml)
@@ -248,7 +246,7 @@ Description-Content-Type: text/markdown
 
 # dbt-artifacts-parser
 
-This is a dbt artifacts parse in python.
+This is a dbt artifacts parser in python.
 It enables us to deal with `catalog.json`, `manifest.json`, `run-results.json` and `sources.json` as python objects.
 
 This package is primarily designed for dbt-core, enabling seamless interaction with dbt artifacts as Python objects. While dbt Cloud provides additional artifact types beyond those of dbt-core, this package does not offer comprehensive support for them.
@@ -263,6 +261,7 @@ This package is primarily designed for dbt-core, enabling seamless interaction w
 
 | Version | Supported dbt Version | Supported pydantic Version |
 |---------|-----------------------|----------------------------|
+|  0.12   | dbt 0.19 to 1.11      | pydantic v2                |
 |  0.9    | dbt 1.7 to 1.10       | pydantic v2                |
 |  0.8    | dbt 1.5 to 1.9        | pydantic v2                |
 |  0.7    | dbt 1.5 to 1.8        | pydantic v2                |
@@ -300,12 +299,12 @@ Those are the classes to parse dbt artifacts.
 
 ### Run Results
 
-- [RunResultsV1](dbt_artifacts_parser/parsers/manifest/manifest_v1.py) for run_results.json v1
-- [RunResultsV2](dbt_artifacts_parser/parsers/manifest/manifest_v2.py) for run_results.json v2
-- [RunResultsV3](dbt_artifacts_parser/parsers/manifest/manifest_v3.py) for run_results.json v3
-- [RunResultsV4](dbt_artifacts_parser/parsers/manifest/manifest_v4.py) for run_results.json v4
-- [RunResultsV5](dbt_artifacts_parser/parsers/manifest/manifest_v5.py) for run_results.json v5
-- [RunResultsV6](dbt_artifacts_parser/parsers/manifest/manifest_v6.py) for run_results.json v6
+- [RunResultsV1](dbt_artifacts_parser/parsers/run_results/run_results_v1.py) for run_results.json v1
+- [RunResultsV2](dbt_artifacts_parser/parsers/run_results/run_results_v2.py) for run_results.json v2
+- [RunResultsV3](dbt_artifacts_parser/parsers/run_results/run_results_v3.py) for run_results.json v3
+- [RunResultsV4](dbt_artifacts_parser/parsers/run_results/run_results_v4.py) for run_results.json v4
+- [RunResultsV5](dbt_artifacts_parser/parsers/run_results/run_results_v5.py) for run_results.json v5
+- [RunResultsV6](dbt_artifacts_parser/parsers/run_results/run_results_v6.py) for run_results.json v6
 
 ### Sources
 
@@ -567,14 +566,28 @@ If you are interested in contributing to this package, please check out the [CON
                 </a>
             </td>
             <td align="center">
+                <a href="https://github.com/kiliantscherny">
+                    <img src="https://avatars.githubusercontent.com/u/90620239?v=4" width="100;" alt="kiliantscherny"/>
+                    <br />
+                    <sub><b>Kilian Tscherny</b></sub>
+                </a>
+            </td>
+		</tr>
+		<tr>
+            <td align="center">
+                <a href="https://github.com/mattcristal">
+                    <img src="https://avatars.githubusercontent.com/u/33809495?v=4" width="100;" alt="mattcristal"/>
+                    <br />
+                    <sub><b>Matteo Renoldi</b></sub>
+                </a>
+            </td>
+            <td align="center">
                 <a href="https://github.com/ulixius9">
                     <img src="https://avatars.githubusercontent.com/u/39544459?v=4" width="100;" alt="ulixius9"/>
                     <br />
                     <sub><b>Mayur Singal</b></sub>
                 </a>
             </td>
-		</tr>
-		<tr>
             <td align="center">
                 <a href="https://github.com/nabilm">
                     <img src="https://avatars.githubusercontent.com/u/987369?v=4" width="100;" alt="nabilm"/>
@@ -603,6 +616,8 @@ If you are interested in contributing to this package, please check out the [CON
                     <sub><b>asafalina</b></sub>
                 </a>
             </td>
+		</tr>
+		<tr>
             <td align="center">
                 <a href="https://github.com/meyer-glean">
                     <img src="https://avatars.githubusercontent.com/u/134302890?v=4" width="100;" alt="meyer-glean"/>

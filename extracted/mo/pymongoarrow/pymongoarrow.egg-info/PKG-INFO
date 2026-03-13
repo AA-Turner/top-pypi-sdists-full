@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pymongoarrow
-Version: 1.12.0
+Version: 1.13.0
 Summary: Tools for using NumPy, Pandas, Polars, and PyArrow with MongoDB
 Author: Prashant Mital
 Maintainer: MongoDB, Inc.

@@ -2,14 +2,11 @@
 
 use std::sync::LazyLock;
 
+use parquet::file::properties::WriterProperties;
 use url::Url;
 
-use arrow::compute::filter_record_batch;
-use arrow_array::{BooleanArray, RecordBatch};
 use chrono::{TimeZone, Utc};
 use delta_kernel::FileMeta;
-use delta_kernel::engine::arrow_data::ArrowEngineData;
-use delta_kernel::engine_data::FilteredEngineData;
 use delta_kernel::snapshot::Snapshot;
 use futures::{StreamExt, TryStreamExt};
 use object_store::ObjectStore;
@@ -22,6 +19,7 @@ use uuid::Uuid;
 
 use crate::kernel::spawn_blocking_with_span;
 use crate::logstore::{DELTA_LOG_REGEX, LogStore};
+use crate::protocol::to_rb;
 use crate::table::config::TablePropertiesExt as _;
 use crate::{DeltaResult, DeltaTableError};
 use crate::{DeltaTable, open_table_with_version};
@@ -65,7 +63,15 @@ pub(crate) async fn create_checkpoint_for(
 
     let root_store = log_store.root_object_store(operation_id);
     let object_store_writer = ParquetObjectWriter::new(root_store.clone(), cp_path.clone());
-    let mut writer = AsyncArrowWriter::try_new(object_store_writer, first_batch.schema(), None)?;
+    let mut writer = AsyncArrowWriter::try_new(
+        object_store_writer,
+        first_batch.schema(),
+        Some(
+            WriterProperties::builder()
+                .set_compression(parquet::basic::Compression::SNAPPY)
+                .build(),
+        ),
+    )?;
     writer.write(&first_batch).await?;
 
     // Hold onto the schema used for future batches.
@@ -116,14 +122,6 @@ pub(crate) async fn create_checkpoint_for(
         .map_err(|e| DeltaTableError::Generic(e.to_string()))??;
 
     Ok(())
-}
-
-fn to_rb(data: FilteredEngineData) -> DeltaResult<RecordBatch> {
-    let (underlying_data, selection_vector) = data.into_parts();
-    let engine_data = ArrowEngineData::try_from_engine_data(underlying_data)?;
-    let predicate = BooleanArray::from(selection_vector);
-    let batch = filter_record_batch(engine_data.record_batch(), &predicate)?;
-    Ok(batch)
 }
 
 /// Creates checkpoint at current table version

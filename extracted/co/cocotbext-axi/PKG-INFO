@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cocotbext-axi
-Version: 0.1.26
+Version: 0.1.28
 Summary: AXI, AXI lite, and AXI stream modules for cocotb
 Home-page: https://github.com/alexforencich/cocotbext-axi
 Download-URL: https://github.com/alexforencich/cocotbext-axi/tarball/master

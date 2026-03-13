@@ -15,6 +15,7 @@
 #include "tensorstore/index_space/internal/inverse_transform.h"
 
 #include <limits>
+#include <utility>
 
 #include "absl/status/status.h"
 #include "absl/strings/str_format.h"
@@ -24,7 +25,7 @@
 #include "tensorstore/index_space/output_index_method.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
+#include "tensorstore/util/status_builder.h"
 
 namespace tensorstore {
 namespace internal_index_space {
@@ -86,11 +87,11 @@ Result<TransformRep::Ptr<>> InverseTransform(TransformRep* transform) {
             transform->input_dimension(input_dim).optionally_implicit_domain(),
             map.offset(), map.stride());
         if (!new_domain_result.ok()) {
-          return MaybeAnnotateStatus(
-              new_domain_result.status(),
-              absl::StrFormat("Error inverting map from input dimension %d -> "
-                              "output dimension %d",
-                              input_dim, output_dim));
+          return StatusBuilder(std::move(new_domain_result).status())
+              .Format(
+                  "Error inverting map from input dimension %d -> "
+                  "output dimension %d",
+                  input_dim, output_dim);
         }
         if (map.offset() == std::numeric_limits<Index>::min()) {
           return absl::InvalidArgumentError(absl::StrFormat(

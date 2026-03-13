@@ -21,5 +21,5 @@ class CompletionUsageParams(typing_extensions.TypedDict):
     Total number of tokens used in the request (prompt + completion).
     """
 
-    completion_tokens_details: typing_extensions.NotRequired[typing.Dict[str, typing.Optional[typing.Any]]]
-    prompt_tokens_details: typing_extensions.NotRequired[typing.Dict[str, typing.Optional[typing.Any]]]
+    completion_tokens_details: typing_extensions.NotRequired[typing.Dict[str, typing.Any]]
+    prompt_tokens_details: typing_extensions.NotRequired[typing.Dict[str, typing.Any]]

@@ -15,12 +15,16 @@
 #ifndef TENSORSTORE_INDEX_SPACE_INTERNAL_TRANSFORM_REP_IMPL_H_
 #define TENSORSTORE_INDEX_SPACE_INTERNAL_TRANSFORM_REP_IMPL_H_
 
+#include <cassert>
+#include <string>
+
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
+#include "tensorstore/box.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_interval.h"
 #include "tensorstore/index_space/internal/transform_rep.h"
 #include "tensorstore/util/iterate.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_index_space {
@@ -55,16 +59,16 @@ absl::Status ValidateAndIntersectBounds(BoxView<> inner,
     IndexIntervalRef outer_bounds = combined[dim];
     auto inner_bounds = inner[dim];
     if (!predicate(outer_bounds, inner_bounds)) {
-      tensorstore::StrAppend(&error, error.empty() ? "" : ", ", "in dimension ",
-                             dim, " bounds ", inner_bounds,
-                             " vs. propagated bounds, ", outer_bounds);
+      absl::StrAppend(&error, error.empty() ? "" : ", ", "in dimension ", dim,
+                      " bounds ", inner_bounds, " vs. propagated bounds, ",
+                      outer_bounds);
     } else {
       outer_bounds = Intersect(outer_bounds, inner_bounds);
     }
   }
   if (!error.empty()) {
-    return absl::OutOfRangeError(tensorstore::StrCat(
-        "Propagated bounds are incompatible with existing bounds ", error));
+    return absl::OutOfRangeError(absl::StrFormat(
+        "Propagated bounds are incompatible with existing bounds %s", error));
   }
   return absl::OkStatus();
 }

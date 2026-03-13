@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mindroom
-Version: 2026.3.84
+Version: 2026.3.92
 Summary: A universal interface for AI agents with persistent memory, where every conversation has a home
 Project-URL: documentation, https://github.com/mindroom-ai/mindroom
 Project-URL: homepage, https://github.com/mindroom-ai/mindroom
@@ -216,6 +216,8 @@ Provides-Extra: searxng
 Provides-Extra: self-config
 Requires-Dist: pydantic>=2; extra == 'self-config'
 Requires-Dist: pyyaml>=6; extra == 'self-config'
+Provides-Extra: sentence-transformers
+Requires-Dist: sentence-transformers; extra == 'sentence-transformers'
 Provides-Extra: serpapi
 Requires-Dist: google-search-results>=2.4.2; extra == 'serpapi'
 Provides-Extra: serper
@@ -467,6 +469,8 @@ cd mindroom
 uv sync --all-extras
 ```
 
+MindRoom auto-installs the fully local sentence-transformers embedder runtime on first use when `memory.embedder.provider: sentence_transformers` is configured.
+
 ```bash
 # Start MindRoom (agents + API + web dashboard)
 uv run mindroom run
@@ -540,7 +544,7 @@ agents:
 models:
   default:
     provider: anthropic
-    id: claude-sonnet-4-5-latest
+    id: claude-sonnet-4-6
 
 mindroom_user:
   username: mindroom_user  # Set this before first run; username is immutable after bootstrap
@@ -590,6 +594,13 @@ voice:
   stt:
     provider: openai
     model: whisper-1
+
+memory:
+  backend: mem0
+  embedder:
+    provider: sentence_transformers
+    config:
+      model: sentence-transformers/all-MiniLM-L6-v2
 
 mindroom_user:
   username: mindroom_user  # Set this before first run; username is immutable after bootstrap

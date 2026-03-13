@@ -13,43 +13,45 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
-from http import HTTPStatus
 import json
-import logging as std_logging
 import functools
+import grpc
+import logging as std_logging
+import re
+import warnings
 import os
 import re
+import warnings
+from collections import OrderedDict
+from http import HTTPStatus
 from typing import (
-    Dict,
     Callable,
+    Dict,
+    Iterable,
+    Iterator,
     Mapping,
     MutableMapping,
     MutableSequence,
     Optional,
-    Iterable,
-    Iterator,
     Sequence,
     Tuple,
     Type,
     Union,
     cast,
 )
-import warnings
 
-import warnings
-from google.pubsub_v1 import gapic_version as package_version
-
+import google.protobuf
 from google.api_core import client_options as client_options_lib
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
 from google.api_core import retry as retries
 from google.auth import credentials as ga_credentials  # type: ignore
+from google.auth.exceptions import MutualTLSChannelError  # type: ignore
 from google.auth.transport import mtls  # type: ignore
 from google.auth.transport.grpc import SslCredentials  # type: ignore
-from google.auth.exceptions import MutualTLSChannelError  # type: ignore
 from google.oauth2 import service_account  # type: ignore
-import google.protobuf
+
+from google.pubsub_v1 import gapic_version as package_version
 
 try:
     OptionalRetry = Union[retries.Retry, gapic_v1.method._MethodDefault, None]
@@ -65,16 +67,18 @@ except ImportError:  # pragma: NO COVER
 
 _LOGGER = std_logging.getLogger(__name__)
 
-from google.iam.v1 import iam_policy_pb2  # type: ignore
-from google.iam.v1 import policy_pb2  # type: ignore
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+from google.iam.v1 import (
+    iam_policy_pb2,  # type: ignore
+    policy_pb2,  # type: ignore
+)
+
 from google.pubsub_v1.services.subscriber import pagers
 from google.pubsub_v1.types import pubsub
 
-import grpc
-from .transports.base import SubscriberTransport, DEFAULT_CLIENT_INFO
+from .transports.base import DEFAULT_CLIENT_INFO, SubscriberTransport
 from .transports.grpc import SubscriberGrpcTransport
 from .transports.grpc_asyncio import SubscriberGrpcAsyncIOTransport
 from .transports.rest import SubscriberRestTransport
@@ -153,17 +157,12 @@ class SubscriberClient(metaclass=SubscriberClientMeta):
         return api_endpoint.replace(".googleapis.com", ".mtls.googleapis.com")
 
     # Note: DEFAULT_ENDPOINT is deprecated. Use _DEFAULT_ENDPOINT_TEMPLATE instead.
-
-    # The scopes needed to make gRPC calls to all of the methods defined in
-    # this service
     _DEFAULT_SCOPES = (
         "https://www.googleapis.com/auth/cloud-platform",
         "https://www.googleapis.com/auth/pubsub",
     )
-
     SERVICE_ADDRESS = "pubsub.googleapis.com:443"
     """The default address of the service."""
-
     DEFAULT_ENDPOINT = "pubsub.googleapis.com"
     DEFAULT_MTLS_ENDPOINT = _get_default_mtls_endpoint.__func__(  # type: ignore
         DEFAULT_ENDPOINT
@@ -698,11 +697,9 @@ class SubscriberClient(metaclass=SubscriberClientMeta):
 
         universe_domain_opt = getattr(self._client_options, "universe_domain", None)
 
-        (
-            self._use_client_cert,
-            self._use_mtls_endpoint,
-            self._universe_domain_env,
-        ) = SubscriberClient._read_environment_variables()
+        self._use_client_cert, self._use_mtls_endpoint, self._universe_domain_env = (
+            SubscriberClient._read_environment_variables()
+        )
         self._client_cert_source = SubscriberClient._get_client_cert_source(
             self._client_options.client_cert_source, self._use_client_cert
         )
@@ -737,8 +734,7 @@ class SubscriberClient(metaclass=SubscriberClientMeta):
                 )
             if self._client_options.scopes:
                 raise ValueError(
-                    "When providing a transport instance, provide its scopes "
-                    "directly."
+                    "When providing a transport instance, provide its scopes directly."
                 )
             self._transport = cast(SubscriberTransport, transport)
             self._api_endpoint = self._transport.host
@@ -768,7 +764,6 @@ class SubscriberClient(metaclass=SubscriberClientMeta):
                 else cast(Callable[..., SubscriberTransport], transport)
             )
             # initialize with the provided callable or the passed in class
-
             emulator_host = os.environ.get("PUBSUB_EMULATOR_HOST")
             if emulator_host:
                 if issubclass(transport_init, type(self)._transport_registry["grpc"]):  # type: ignore
@@ -776,7 +771,6 @@ class SubscriberClient(metaclass=SubscriberClientMeta):
                 else:
                     channel = grpc.aio.insecure_channel(target=emulator_host)
                 transport_init = functools.partial(transport_init, channel=channel)
-
             self._transport = transport_init(
                 credentials=credentials,
                 credentials_file=self._client_options.credentials_file,

@@ -82,7 +82,7 @@ absl::Status GetFileInfo(FileDescriptor fd, FileInfo* info) {
   if (::fstat(fd, &info->impl) == 0) {
     return absl::OkStatus();
   }
-  auto status = StatusFromOsError(errno, "Failed to get file info");
+  auto status = StatusFromOsError(errno).Format("Failed to get file info");
   return std::move(tspan).EndWithStatus(std::move(status));
 }
 
@@ -93,7 +93,7 @@ absl::Status GetFileInfo(const std::string& path, FileInfo* info) {
   if (::stat(path.c_str(), &info->impl) == 0) {
     return absl::OkStatus();
   }
-  auto status = StatusFromOsError(errno);
+  absl::Status status = StatusFromOsError(errno).Default();
   return std::move(tspan).EndWithStatus(std::move(status));
 }
 

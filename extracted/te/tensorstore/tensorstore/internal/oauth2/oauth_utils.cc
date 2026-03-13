@@ -36,7 +36,6 @@
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/util/result.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace jb = tensorstore::internal_json_binding;
 
@@ -108,9 +107,8 @@ Result<std::string> SignWithRSA256(std::string_view private_key,
   }
 
   std::string signature;
-  absl::WebSafeBase64Escape(
-      std::string_view(reinterpret_cast<char*>(sig.get()), sig_len),
-      &signature);
+  signature = absl::WebSafeBase64Escape(
+      std::string_view(reinterpret_cast<char*>(sig.get()), sig_len));
 
   return std::move(signature);
 }
@@ -125,7 +123,7 @@ std::string BuildJWTHeader(std::string_view key_id) {
   };
 
   std::string encoded_header;
-  absl::WebSafeBase64Escape(assertion_header.dump(), &encoded_header);
+  encoded_header = absl::WebSafeBase64Escape(assertion_header.dump());
   return encoded_header;
 }
 
@@ -144,20 +142,20 @@ std::string BuildJWTClaimBody(std::string_view client_email,
   };
 
   std::string encoded_payload;
-  absl::WebSafeBase64Escape(assertion_payload.dump(), &encoded_payload);
+  encoded_payload = absl::WebSafeBase64Escape(assertion_payload.dump());
   return encoded_payload;
 }
 
 Result<std::string> BuildSignedJWTRequest(std::string_view private_key,
                                           std::string_view header,
                                           std::string_view body) {
-  auto claim = tensorstore::StrCat(header, ".", body);
+  auto claim = absl::StrCat(header, ".", body);
   auto result = SignWithRSA256(private_key, claim);
   if (!result) {
     return result.status();
   }
-  return tensorstore::StrCat("grant_type=", kGrantType, "&assertion=", claim,
-                             ".", *result);
+  return absl::StrCat("grant_type=", kGrantType, "&assertion=", claim, ".",
+                      *result);
 }
 
 constexpr static auto ErrorResponseBinder = jb::Object(
@@ -241,7 +239,7 @@ Result<RefreshToken> ParseRefreshTokenImpl(
       jb::FromJson<RefreshToken>(credentials, RefreshTokenBinder);
   if (!refresh_token.ok()) {
     return absl::UnauthenticatedError(
-        tensorstore::StrCat("Invalid RefreshToken: ", credentials.dump()));
+        absl::StrFormat("Invalid RefreshToken: %s", credentials.dump()));
   }
   return refresh_token;
 }
@@ -250,7 +248,7 @@ Result<RefreshToken> ParseRefreshToken(std::string_view source) {
   auto credentials = internal::ParseJson(source);
   if (credentials.is_discarded()) {
     return absl::UnauthenticatedError(
-        tensorstore::StrCat("Invalid RefreshToken: ", source));
+        absl::StrFormat("Invalid RefreshToken: %s", source));
   }
   return ParseRefreshTokenImpl(credentials);
 }
@@ -273,7 +271,7 @@ Result<OAuthResponse> ParseOAuthResponseImpl(
       jb::FromJson<OAuthResponse>(credentials, OAuthResponseBinder);
   if (!response_token.ok()) {
     return absl::UnauthenticatedError(
-        tensorstore::StrCat("Invalid OAuthResponse: ", credentials.dump()));
+        absl::StrFormat("Invalid OAuthResponse: %s", credentials.dump()));
   }
   return response_token;
 }
@@ -282,7 +280,7 @@ Result<OAuthResponse> ParseOAuthResponse(std::string_view source) {
   auto credentials = internal::ParseJson(source);
   if (credentials.is_discarded()) {
     return absl::UnauthenticatedError(
-        tensorstore::StrCat("Invalid OAuthResponse: ", source));
+        absl::StrFormat("Invalid OAuthResponse: %s", source));
   }
   return ParseOAuthResponseImpl(credentials);
 }

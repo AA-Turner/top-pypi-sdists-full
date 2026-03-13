@@ -3,6 +3,7 @@ from __future__ import annotations
 import datetime
 import re
 import types
+import warnings
 from collections import defaultdict
 from typing import Callable, List, Optional, Union
 
@@ -1655,17 +1656,17 @@ def _yield_materialized_table_rows(session: Session, table_id, pd_start, pd_end,
     page_count = 1
 
     while True:
-        graphql_output = graphql_get_evidence(session, table_id, pd_start, pd_end, cursor_key, limit,
-                                              include_extinct)
+        table_result = query_vantage_evidence_table(
+            session, table_id, pd_start, pd_end, cursor_key, limit, include_extinct
+        )
+        has_more = table_result.has_more
+        cursor_key = table_result.cursor_key
 
-        table = graphql_output['data']['table']
-        has_more = table['hasMore']
-        cursor_key = table.get('cursorKey')
-
-        rows = table['rows']
+        rows = table_result.rows
+        headers = [h.to_dict() for h in table_result.headers]
 
         for row in rows:
-            yield table['headers'], row, page_count
+            yield headers, row, page_count
 
         page_count += 1
 
@@ -1673,120 +1674,74 @@ def _yield_materialized_table_rows(session: Session, table_id, pd_start, pd_end,
             break
 
     # Final yield to indicate completion
-    yield table['headers'], None, page_count
+    yield headers, None, page_count
 
 
-def graphql_get_evidence(session, table_id, pd_start, pd_end, cursor_key, limit, include_extinct) -> dict:
-    graphql_api = GraphQLApi(session.client)
+def query_vantage_evidence_table(
+        session, table_id, pd_start, pd_end, cursor_key, limit, include_extinct
+) -> TableResultOutputV1:
+    tables_api = TablesApi(session.client)
 
-    # noinspection PyTypeChecker
-    graphql_output: dict = graphql_api.graphql(body=GraphQLInputV1(
-        query="""
-    query GetTable($id: String!, $filter: FilterInput, $limit: Int!, $columnsToInclude: [String!], $cursor: CursorInput) {
-        table(id: $id, filter: $filter, limit: $limit, columnsToInclude: $columnsToInclude, cursor: $cursor) {
-            rows, headers { name, type }, hasMore, cursorKey
-        }
-    }
-    """, variables={
-            "id": table_id,
-            "limit": limit,
-            "cursor": {"cursorKey": cursor_key} if cursor_key is not None else None,
-            "filter": {
-                "compositeFilter": {
-                    "operation": "AND",
-                    "filter1": {
-                        "compositeFilter": {
-                            "operation": "OR",
-                            "filter1": {
-                                "compositeFilter": {
-                                    "operation": "OR",
-                                    "filter1": {
-                                        "compositeFilter": {
-                                            "operation": "AND",
-                                            "filter1": {
-                                                "valueFilter": {
-                                                    "columnName": "Start",
-                                                    "filterType": "GREATER_THAN_OR_EQUAL",
-                                                    "value": pd_start.value
-                                                }
-                                            },
-                                            "filter2": {
-                                                "valueFilter": {
-                                                    "columnName": "Start",
-                                                    "filterType": "LESS_THAN_OR_EQUAL",
-                                                    "value": pd_end.value
-                                                }
-                                            }
-                                        }
-                                    },
-                                    "filter2": {
-                                        "compositeFilter": {
-                                            "operation": "AND",
-                                            "filter1": {
-                                                "valueFilter": {
-                                                    "columnName": "End",
-                                                    "filterType": "GREATER_THAN_OR_EQUAL",
-                                                    "value": pd_start.value
-                                                }
-                                            },
-                                            "filter2": {
-                                                "valueFilter": {
-                                                    "columnName": "End",
-                                                    "filterType": "LESS_THAN_OR_EQUAL",
-                                                    "value": pd_end.value
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            },
-                            "filter2": {
-                                "compositeFilter": {
-                                    "operation": "AND",
-                                    "filter1": {
-                                        "valueFilter": {
-                                            "columnName": "Start",
-                                            "filterType": "LESS_THAN_OR_EQUAL",
-                                            "value": pd_start.value
-                                        }
-                                    },
-                                    "filter2": {
-                                        "valueFilter": {
-                                            "columnName": "End",
-                                            "filterType": "GREATER_THAN_OR_EQUAL",
-                                            "value": pd_end.value
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "filter2": {
-                        "compositeFilter": {
-                            "operation": "AND",
-                            "filter1": {
-                                "simpleFilter": {
-                                    "columnName": "Deleted at",
-                                    "filterType": "IS_NULL"
-                                }
-                            },
-                            "filter2": {
-                                "valueFilter": {
-                                    "columnName": "Last Capsule State",
-                                    "filterType": "NOT_IN",
-                                    "value": [] if include_extinct else ["EXTINCT"]
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            "columnsToInclude": None  # Include all columns
-        }),
-        _response_type='json'
+    def _value_filter(column_name: str, filter_type: str, value):
+        return Filter(value_filter=ValueFilter(
+            column_name=column_name,
+            filter_type=filter_type,
+            value=value
+        ))
+
+    def _simple_filter(column_name: str, filter_type: str):
+        return Filter(simple_filter=SimpleFilter(
+            column_name=column_name,
+            filter_type=filter_type
+        ))
+
+    def _and(filter1: Filter, filter2: Filter):
+        return Filter(composite_filter=CompositeFilter(
+            operation='AND',
+            filter1=filter1,
+            filter2=filter2
+        ))
+
+    def _or(filter1: Filter, filter2: Filter):
+        return Filter(composite_filter=CompositeFilter(
+            operation='OR',
+            filter1=filter1,
+            filter2=filter2
+        ))
+
+    start_in_range = _and(
+        _value_filter('Start', 'GREATER_THAN_OR_EQUAL', pd_start.value),
+        _value_filter('Start', 'LESS_THAN_OR_EQUAL', pd_end.value)
+    )
+    end_in_range = _and(
+        _value_filter('End', 'GREATER_THAN_OR_EQUAL', pd_start.value),
+        _value_filter('End', 'LESS_THAN_OR_EQUAL', pd_end.value)
+    )
+    overlaps_range = _and(
+        _value_filter('Start', 'LESS_THAN_OR_EQUAL', pd_start.value),
+        _value_filter('End', 'GREATER_THAN_OR_EQUAL', pd_end.value)
+    )
+    time_filter = _or(_or(start_in_range, end_in_range), overlaps_range)
+
+    lifecycle_filter = _and(
+        _simple_filter('Deleted at', 'IS_NULL'),
+        _value_filter('Last Capsule State', 'NOT_IN', [] if include_extinct else ['EXTINCT'])
     )
 
-    return graphql_output
+    with warnings.catch_warnings():
+        # The SDK wraps this experimental endpoint in a deprecation decorator.
+        warnings.simplefilter('ignore', DeprecationWarning)
+        table_output = tables_api.query_table_data(
+            table_id=table_id,
+            body=TableDataQueryInputV1(
+                limit=limit,
+                cursor=Cursor(cursor_key=cursor_key) if cursor_key is not None else None,
+                filter=_and(time_filter, lifecycle_filter),
+                columns_to_include=None  # Include all columns
+            ),
+        )
+
+    return table_output
 
 
 def _get_user_output(session: Session, user_id: str, user_map: dict) -> Optional[UserOutputV1]:

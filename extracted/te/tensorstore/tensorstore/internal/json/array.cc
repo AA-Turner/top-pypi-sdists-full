@@ -35,11 +35,11 @@
 #include "tensorstore/rank.h"
 #include "tensorstore/strided_layout.h"
 #include "tensorstore/util/byte_strided_pointer.h"
+#include "tensorstore/util/generic_stringify.h"
 #include "tensorstore/util/iterate.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_json {
@@ -170,19 +170,17 @@ Result<SharedArray<void>> JsonParseNestedArrayImpl(
       // The new element is not an array: handle leaf case.
       if (!array.data()) allocate_array();
       if (nesting_level != array.rank()) {
-        return absl::InvalidArgumentError(absl::StrFormat(
-            "Expected rank-%d array, but found non-array "
-            "element %s at position "
-            "%s.",
-            array.rank(), j->dump(),
-            absl::FormatStreamed(span(&shape_or_position[0], nesting_level))));
+        return absl::InvalidArgumentError(
+            absl::StrFormat("Expected rank-%d array, but found non-array "
+                            "element %s at position %v.",
+                            array.rank(), j->dump(),
+                            GenericStringify(tensorstore::span(
+                                &shape_or_position[0], nesting_level))));
       }
-      TENSORSTORE_RETURN_IF_ERROR(
-          decode_element(*j, pointer.get()),
-          MaybeAnnotateStatus(
-              _, absl::StrFormat("Error parsing array element at position %s",
-                                 absl::FormatStreamed(span(
-                                     &shape_or_position[0], nesting_level)))));
+      TENSORSTORE_RETURN_IF_ERROR(decode_element(*j, pointer.get()))
+          .Format("Error parsing array element at position %v",
+                  GenericStringify(
+                      tensorstore::span(&shape_or_position[0], nesting_level)));
       pointer += byte_stride;
     } else {
       // The new element is an array: handle another nesting level.
@@ -201,18 +199,16 @@ Result<SharedArray<void>> JsonParseNestedArrayImpl(
         }
       } else if (nesting_level > static_cast<size_t>(array.rank())) {
         return absl::InvalidArgumentError(absl::StrFormat(
-            "Expected rank-%d array, but found array element %s at position "
-            "%s.",
+            "Expected rank-%d array, but found array element %s "
+            "at position %v.",
             array.rank(), j->dump(),
-            absl::FormatStreamed(
-                span(&shape_or_position[0], nesting_level - 1))));
+            GenericStringify(span(&shape_or_position[0], nesting_level - 1))));
       } else if (array.shape()[nesting_level - 1] != size) {
         return absl::InvalidArgumentError(absl::StrFormat(
-            "Expected array of shape %s, but found array "
-            "element %s of length %d at position %s.",
-            absl::FormatStreamed(array.shape()), j->dump(), size,
-            absl::FormatStreamed(
-                span(&shape_or_position[0], nesting_level - 1))));
+            "Expected array of shape %v, but found array "
+            "element %s of length %d at position %v.",
+            GenericStringify(array.shape()), j->dump(), size,
+            GenericStringify(span(&shape_or_position[0], nesting_level - 1))));
       }
 
       // Process first element of the array.

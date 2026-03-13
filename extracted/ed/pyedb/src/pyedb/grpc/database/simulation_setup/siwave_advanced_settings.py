@@ -20,10 +20,12 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+from typing import TYPE_CHECKING
 
-from ansys.edb.core.simulation_setup.siwave_simulation_settings import (
-    SIWaveAdvancedSettings as CoreSIWaveAdvancedSettings,
-)
+if TYPE_CHECKING:
+    from ansys.edb.core.simulation_setup.siwave_simulation_settings import (
+        SIWaveAdvancedSettings as CoreSIWaveAdvancedSettings,
+    )
 
 
 class SIWaveAdvancedSettings:
@@ -282,11 +284,13 @@ class SIWaveAdvancedSettings:
         float
             Minimum void area.
         """
-        return self.core.min_void_area
+        value = self.core.min_void_area
+        return self._pedb.value(value)
 
     @min_void_area.setter
-    def min_void_area(self, value: str):
-        self.core.min_void_area = str(self._pedb.value(value))
+    def min_void_area(self, value: str | float):
+        value = str(self._pedb.value(value))
+        self.core.min_void_area = value
 
     @property
     def perform_erc(self) -> bool:

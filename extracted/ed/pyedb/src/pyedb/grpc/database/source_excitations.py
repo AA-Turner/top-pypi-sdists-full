@@ -19,8 +19,8 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
+import warnings
 
 from ansys.edb.core.database import ProductIdType as CoreProductIdType
 from ansys.edb.core.geometry.point_data import PointData as CorePointData
@@ -30,10 +30,11 @@ from ansys.edb.core.terminal.terminal import BoundaryType as CoreBoundaryType
 from ansys.edb.core.utility.rlc import Rlc as CoreRlc
 
 from pyedb.generic.general_methods import generate_unique_name
+from pyedb.generic.geometry_operators import GeometryOperators
 from pyedb.grpc.database.components import Component
 from pyedb.grpc.database.layers.stackup_layer import StackupLayer
 from pyedb.grpc.database.net.net import Net
-from pyedb.grpc.database.ports.ports import BundleWavePort, WavePort
+from pyedb.grpc.database.ports.ports import BundleWavePort, CircuitPort, CoaxPort, GapPort, WavePort
 from pyedb.grpc.database.primitive.padstack_instance import PadstackInstance
 from pyedb.grpc.database.primitive.primitive import Primitive
 from pyedb.grpc.database.terminal.bundle_terminal import BundleTerminal
@@ -45,8 +46,6 @@ from pyedb.grpc.database.terminal.pingroup_terminal import PinGroupTerminal
 from pyedb.grpc.database.terminal.point_terminal import PointTerminal
 from pyedb.grpc.database.terminal.terminal import Terminal
 from pyedb.grpc.database.utility.sources import Source, SourceType
-from pyedb.grpc.database.utility.value import Value
-from pyedb.modeler.geometry_operators import GeometryOperators
 
 
 class SourceExcitationInternal:
@@ -103,7 +102,6 @@ class SourceExcitationInternal:
         for term in list(self._pedb.terminals.values()):
             if term.name == term_name:
                 return term
-        self._pedb.padstacks.clear_instances_cache()
         return PadstackInstanceTerminal.create(
             layout=self._pedb.layout, name=term_name, padstack_instance=pin, layer=from_layer, net=pin.net, is_ref=False
         )
@@ -218,7 +216,7 @@ class SourceExcitationInternal:
             terminal_name = generate_unique_name("Terminal_")
         if isinstance(point_on_edge, tuple):
             point_on_edge = CorePointData(point_on_edge)
-        prim = [i for i in self._pedb.modeler.primitives if i.edb_uid == prim_id]
+        prim = [i for i in self._pedb.layout.primitives if i.edb_uid == prim_id]
         if not prim:
             self._pedb.logger.error(f"No primitive found for ID {prim_id}")
             return False
@@ -367,13 +365,61 @@ class SourceExcitation(SourceExcitationInternal):
         self._pedb = pedb
 
     @property
+    def pin_groups(self) -> Dict[str, Any]:
+        """All layout pin groups.
+
+        Returns
+        -------
+        dict
+            Dictionary of pin groups with names as keys and pin group objects as values.
+
+        Examples
+        --------
+        >>> from pyedb import Edb
+        >>> edbapp = Edb("myaedbfolder", edbversion="2021.2")
+        >>> pin_groups = edbapp.siwave.pin_groups
+        >>> for name, group in pin_groups.items():
+        ...     print(f"Pin group {name} has {len(group.pins)} pins")
+        """
+        _pingroups = {}
+        for el in self._pedb.layout.pin_groups:
+            _pingroups[el.name] = el
+        return _pingroups
+
+    @property
     def _logger(self) -> Any:
         return self._pedb.logger
 
     @property
-    def excitations(self) -> Dict[str, Any]:
-        """Get all excitations."""
-        return self._pedb.excitations
+    def excitations(self) -> Dict[str, Union[BundleWavePort, GapPort, CircuitPort, CoaxPort, WavePort]]:
+        """Get all ports.
+
+        Returns
+        -------
+        port dictionary : Dict[str, [:class:`pyedb.grpc.database.ports.ports.ports.GapPort`,
+                   :class:`pyedb.grpc.database.ports.ports.ports.WavePort`,
+                   :class:`pyedb.grpc.database.ports.ports.CircuitPort`,
+                   :class:`pyedb.grpc.database.ports.ports.CoaxPort`,
+                   :class:`pyedb.grpc.database.ports.ports.BundleWavePort`]]
+
+        """
+        warnings.warn("Use property ''ports'' instead.", DeprecationWarning)
+        return self.ports
+
+    @property
+    def ports(self) -> Dict[str, Union[BundleWavePort, GapPort, CircuitPort, CoaxPort, WavePort]]:
+        """Get all ports.
+
+        Returns
+        -------
+        port dictionary : Dict[str, [:class:`pyedb.grpc.database.ports.ports.ports.GapPort`,
+                   :class:`pyedb.grpc.database.ports.ports.ports.WavePort`,
+                   :class:`pyedb.grpc.database.ports.ports.CircuitPort`,
+                   :class:`pyedb.grpc.database.ports.ports.CoaxPort`,
+                   :class:`pyedb.grpc.database.ports.ports.BundleWavePort`]]
+
+        """
+        return self._pedb.ports
 
     @property
     def sources(self) -> Dict[str, Any]:
@@ -401,10 +447,10 @@ class SourceExcitation(SourceExcitationInternal):
         Examples
         --------
         >>> from pyedb import Edb
-        >>> from pyedb.grpc.utility.sources import Source, SourceType
+        >>> from pyedb.grpc.database.utility.sources import Source, SourceType
         >>> edb = Edb()
         >>> source = Source(source_type=SourceType.Vsource, amplitude="1V", ...)
-        >>> edb.source_excitation.create_source_on_component([source])
+        >>> edb.excitation_manager.create_source_on_component([source])
         """
 
         if not sources:  # pragma: no cover
@@ -439,12 +485,12 @@ class SourceExcitation(SourceExcitationInternal):
                 term_name = source.name
                 positive_pin_group_term.SetName(term_name)
                 negative_pin_group_term.SetName("{}_ref".format(term_name))
-                positive_pin_group_term.source_amplitude = Value(source.amplitude)
-                negative_pin_group_term.source_amplitude = Value(source.amplitude)
-                positive_pin_group_term.source_phase = Value(source.phase)
-                negative_pin_group_term.source_phase = Value(source.phase)
-                positive_pin_group_term.impedance = Value(source.impedance)
-                negative_pin_group_term.impedance = Value(source.impedance)
+                positive_pin_group_term.source_amplitude = self._pedb._value_setter(source.amplitude)
+                negative_pin_group_term.source_amplitude = self._pedb._value_setter(source.amplitude)
+                positive_pin_group_term.source_phase = self._pedb._value_setter(source.phase)
+                negative_pin_group_term.source_phase = self._pedb._value_setter(source.phase)
+                positive_pin_group_term.impedance = self._pedb._value_setter(source.impedance)
+                negative_pin_group_term.impedance = self._pedb._value_setter(source.impedance)
                 positive_pin_group_term.reference_terminal = negative_pin_group_term
             elif source.source_type == SourceType.Isource:  # pragma: no cover
                 positive_pin_group_term = self._pedb.components._create_pin_group_terminal(
@@ -457,12 +503,12 @@ class SourceExcitation(SourceExcitationInternal):
                 negative_pin_group_term.boundary_type = CoreBoundaryType.CURRENT_SOURCE
                 positive_pin_group_term.name = source.name
                 negative_pin_group_term.name = "{}_ref".format(source.name)
-                positive_pin_group_term.source_amplitude = Value(source.amplitude)
-                negative_pin_group_term.source_amplitude = Value(source.amplitude)
-                positive_pin_group_term.source_phase = Value(source.phase)
-                negative_pin_group_term.source_phase = Value(source.phase)
-                positive_pin_group_term.impedance = Value(source.impedance)
-                negative_pin_group_term.impedance = Value(source.impedance)
+                positive_pin_group_term.source_amplitude = self._pedb._value_setter(source.amplitude)
+                negative_pin_group_term.source_amplitude = self._pedb._value_setter(source.amplitude)
+                positive_pin_group_term.source_phase = self._pedb._value_setter(source.phase)
+                negative_pin_group_term.source_phase = self._pedb._value_setter(source.phase)
+                positive_pin_group_term.impedance = self._pedb._value_setter(source.impedance)
+                negative_pin_group_term.impedance = self._pedb._value_setter(source.impedance)
                 positive_pin_group_term.reference_terminal = negative_pin_group_term
             elif source.source_type == SourceType.Rlc:  # pragma: no cover
                 self._pedb.components.create(
@@ -512,7 +558,7 @@ class SourceExcitation(SourceExcitationInternal):
         >>> edb = Edb()
         >>> term = edb.terminals["MyTerminal"]
         >>> ref_term = edb.terminals["RefTerminal"]
-        >>> port = edb.source_excitation.create_port(term, ref_term, name="Port1")
+        >>> port = edb.excitation_manager.create_port(term, ref_term, name="Port1")
         """
 
         from ansys.edb.core.terminal.terminal import BoundaryType as GrpcBoundaryType
@@ -624,7 +670,7 @@ class SourceExcitation(SourceExcitationInternal):
             ref_term = self._create_terminal(reference_pins[0], term_name=port_name + "_ref")
         ref_term.is_circuit_port = True
 
-        term.impedance = Value(impedance)
+        term.impedance = self._pedb._value_setter(impedance)
         term.reference_terminal = ref_term
         if pec_boundary:
             term.is_circuit_port = False
@@ -755,7 +801,7 @@ class SourceExcitation(SourceExcitationInternal):
             pad_params = self._pedb.padstacks.get_pad_parameters(pin=cmp_pins[0], layername=pin_layers[0], pad_type=0)
             if not pad_params[0] == 7:
                 if not solder_balls_size:  # pragma no cover
-                    sball_diam = min([Value(val) for val in pad_params[1]])
+                    sball_diam = min([self._pedb._value_setter(val) for val in pad_params[1]])
                     sball_mid_diam = sball_diam
                 else:  # pragma no cover
                     sball_diam = solder_balls_size
@@ -788,7 +834,7 @@ class SourceExcitation(SourceExcitationInternal):
                 shape=sball_shape,
             )
             for pin in cmp_pins:
-                self._pedb.source_excitation.create_coax_port(padstackinstance=pin, name=port_name)
+                self._pedb.excitation_manager.create_coax_port(padstackinstance=pin, name=port_name)
 
         elif port_type == "circuit_port":  # pragma no cover
             ref_pins = [p for p in list(component.pins.values()) if p.net_name in reference_net]
@@ -891,7 +937,7 @@ class SourceExcitation(SourceExcitationInternal):
         --------
         >>> from pyedb import Edb
         >>> edb = Edb()
-        >>> edb.source_excitation.add_port_on_rlc_component("R1")
+        >>> edb.excitation_manager.add_port_on_rlc_component("R1")
         """
         from pyedb.grpc.database.components import Component
 
@@ -1007,13 +1053,13 @@ class SourceExcitation(SourceExcitationInternal):
             rlc = CoreRlc()
             if rlc_values[0]:
                 rlc.r_enabled = True
-                rlc.r = Value(rlc_values[0])
+                rlc.r = self._pedb._value_setter(rlc_values[0])
             if rlc_values[1]:
                 rlc.l_enabled = True
-                rlc.l = Value(rlc_values[1])
+                rlc.l = self._pedb._value_setter(rlc_values[1])
             if rlc_values[2]:
                 rlc.c_enabled = True
-                rlc.c = Value(rlc_values[2])
+                rlc.c = self._pedb._value_setter(rlc_values[2])
             rlc.is_parallel = component.is_parallel_rlc
             pos_pin_term.rlc_boundary = rlc
             self._logger.info("Component {} has been replaced by port".format(component.refdes))
@@ -1054,7 +1100,7 @@ class SourceExcitation(SourceExcitationInternal):
         >>> from pyedb import Edb
         >>> edb = Edb()
         >>> pin = edb.padstacks.instances[0]
-        >>> edb.source_excitation.create_coax_port(pin, name="CoaxPort1")
+        >>> edb.excitation_manager.create_coax_port(pin, name="CoaxPort1")
         """
         if isinstance(padstackinstance, int):
             padstackinstance = self._pedb.padstacks.instances[padstackinstance]
@@ -1092,7 +1138,7 @@ class SourceExcitation(SourceExcitationInternal):
         return port_name
 
     def _port_exist(self, port_name: str) -> bool:
-        return any(port for port in list(self._pedb.excitations.keys()) if port == port_name)
+        return any(port for port in list(self._pedb.ports.keys()) if port == port_name)
 
     def create_circuit_port_on_pin(
         self,
@@ -1125,7 +1171,7 @@ class SourceExcitation(SourceExcitationInternal):
         >>> from pyedb import Edb
         >>> edbapp = Edb("myaedbfolder", "project name", "release version")
         >>> pins = edbapp.components.get_pin_from_component("U2A5")
-        >>> edbapp.siwave.create_circuit_port_on_pin(pins[0], pins[1], 50, "port_name")
+        >>> edbapp.excitation_manager.create_circuit_port_on_pin(pins[0], pins[1], 50, "port_name")
         """
         if not port_name:
             port_name = f"Port_{pos_pin.component.name}_{pos_pin.net_name}_{neg_pin.component.name}_{neg_pin.net_name}"
@@ -1207,7 +1253,7 @@ class SourceExcitation(SourceExcitationInternal):
         if source_type in ["circuit_port", "lumped_port"]:
             pos_terminal.boundary_type = CoreBoundaryType.PORT
             neg_terminal.boundary_type = CoreBoundaryType.PORT
-            pos_terminal.impedance = Value(impedance)
+            pos_terminal.impedance = self._pedb._value_setter(impedance)
             if source_type == "lumped_port":
                 pos_terminal.is_circuit_port = False
                 neg_terminal.is_circuit_port = False
@@ -1220,18 +1266,18 @@ class SourceExcitation(SourceExcitationInternal):
         elif source_type == "current_source":
             pos_terminal.boundary_type = CoreBoundaryType.CURRENT_SOURCE
             neg_terminal.boundary_type = CoreBoundaryType.CURRENT_SOURCE
-            pos_terminal.source_amplitude = Value(magnitude)
-            pos_terminal.source_phase = Value(phase)
-            pos_terminal.impedance = Value(impedance)
+            pos_terminal.source_amplitude = self._pedb._value_setter(magnitude)
+            pos_terminal.source_phase = self._pedb._value_setter(phase)
+            pos_terminal.impedance = self._pedb._value_setter(impedance)
             pos_terminal.reference_terminal = neg_terminal
             pos_terminal.name = name
 
         elif source_type == "voltage_source":
             pos_terminal.boundary_type = CoreBoundaryType.VOLTAGE_SOURCE
             neg_terminal.boundary_type = CoreBoundaryType.VOLTAGE_SOURCE
-            pos_terminal.source_amplitude = Value(magnitude)
-            pos_terminal.impedance = Value(impedance)
-            pos_terminal.source_phase = Value(phase)
+            pos_terminal.source_amplitude = self._pedb._value_setter(magnitude)
+            pos_terminal.impedance = self._pedb._value_setter(impedance)
+            pos_terminal.source_phase = self._pedb._value_setter(phase)
             pos_terminal.reference_terminal = neg_terminal
             pos_terminal.name = name
 
@@ -1243,17 +1289,15 @@ class SourceExcitation(SourceExcitationInternal):
             rlc.r_enabled = bool(r)
             rlc.l_enabled = bool(l)
             rlc.c_enabled = bool(c)
-            rlc.r = Value(r)
-            rlc.l = Value(l)
-            rlc.c = Value(c)
+            rlc.r = self._pedb._value_setter(r)
+            rlc.l = self._pedb._value_setter(l)
+            rlc.c = self._pedb._value_setter(c)
             pos_terminal.rlc_boundary_parameters = rlc
             pos_terminal.name = name
 
         else:
             self._pedb.logger.error("No valid source type specified.")
             return False
-        # clear cache to reflect new terminal in the padstack instances
-        self._pedb.padstacks.clear_instances_cache()
         return pos_terminal.name
 
     def create_voltage_source_on_pin(
@@ -1290,7 +1334,7 @@ class SourceExcitation(SourceExcitationInternal):
         >>> edb = Edb()
         >>> pin1 = edb.components["U1"].pins["VCC"]
         >>> pin2 = edb.components["U1"].pins["GND"]
-        >>> edb.source_excitation.create_voltage_source_on_pin(pin1, pin2, 3.3, name="VSource1")
+        >>> edb.excitation_manager.create_voltage_source_on_pin(pin1, pin2, 3.3, name="VSource1")
         """
 
         if not source_name:
@@ -1342,7 +1386,7 @@ class SourceExcitation(SourceExcitationInternal):
         >>> edb = Edb()
         >>> pin1 = edb.components["U1"].pins["IN"]
         >>> pin2 = edb.components["U1"].pins["GND"]
-        >>> edb.source_excitation.create_current_source_on_pin(pin1, pin2, 0.1, name="ISource1")
+        >>> edb.excitation_manager.create_current_source_on_pin(pin1, pin2, 0.1, name="ISource1")
         """
 
         if not source_name:
@@ -1389,7 +1433,7 @@ class SourceExcitation(SourceExcitationInternal):
         >>> edb = Edb()
         >>> pin1 = edb.components["U1"].pins["R1_p"]
         >>> pin2 = edb.components["U1"].pins["R1_n"]
-        >>> edb.source_excitation.create_resistor_on_pin(pin1, pin2, 50, "R1")
+        >>> edb.excitation_manager.create_resistor_on_pin(pin1, pin2, 50, "R1")
         """
         if not resistor_name:
             resistor_name = (
@@ -1403,7 +1447,7 @@ class SourceExcitation(SourceExcitationInternal):
         self,
         positive_component_name: str,
         positive_net_name: str,
-        negative_component_name: str,
+        negative_component_name: str = None,
         negative_net_name: Optional[str] = None,
         impedance_value: Union[int, float] = 50,
         port_name: Optional[str] = None,
@@ -1437,7 +1481,7 @@ class SourceExcitation(SourceExcitationInternal):
         --------
         >>> from pyedb import Edb
         >>> edb = Edb()
-        >>> edb.source_excitation.create_circuit_port_on_net("U1", "VCC", "U1", "GND", 50, "PowerPort")
+        >>> edb.excitation_manager.create_circuit_port_on_net("U1", "VCC", "U1", "GND", 50, "PowerPort")
         """
         if not negative_component_name:
             negative_component_name = positive_component_name
@@ -1548,7 +1592,7 @@ class SourceExcitation(SourceExcitationInternal):
             )
         if source_type in ["circuit_port", "lumped_port"]:
             pos_pingroup_terminal.core.boundary_type = CoreBoundaryType.PORT
-            pos_pingroup_terminal.impedance = Value(impedance)
+            pos_pingroup_terminal.impedance = self._pedb._value_setter(impedance)
             if len(positive_pins) > 1 and len(negatives_pins) > 1:
                 if source_type == "lumped_port":
                     source_type = "circuit_port"
@@ -1564,16 +1608,16 @@ class SourceExcitation(SourceExcitationInternal):
         elif source_type == "current_source":
             pos_pingroup_terminal.core.boundary_type = CoreBoundaryType.CURRENT_SOURCE
             neg_pingroup_terminal.core.boundary_type = CoreBoundaryType.CURRENT_SOURCE
-            pos_pingroup_terminal.core.source_amplitude = Value(magnitude)
-            pos_pingroup_terminal.core.source_phase = Value(phase)
+            pos_pingroup_terminal.core.source_amplitude = self._pedb._value_setter(magnitude)
+            pos_pingroup_terminal.core.source_phase = self._pedb._value_setter(phase)
             pos_pingroup_terminal.reference_terminal = neg_pingroup_terminal
             pos_pingroup_terminal.core.name = name
 
         elif source_type == "voltage_source":
             pos_pingroup_terminal.core.boundary_type = CoreBoundaryType.VOLTAGE_SOURCE
             neg_pingroup_terminal.core.boundary_type = CoreBoundaryType.VOLTAGE_SOURCE
-            pos_pingroup_terminal.core.source_amplitude = Value(magnitude)
-            pos_pingroup_terminal.core.source_phase = Value(phase)
+            pos_pingroup_terminal.core.source_amplitude = self._pedb._value_setter(magnitude)
+            pos_pingroup_terminal.core.source_phase = self._pedb._value_setter(phase)
             pos_pingroup_terminal.reference_terminal = neg_pingroup_terminal
             pos_pingroup_terminal.core.name = name
 
@@ -1585,9 +1629,9 @@ class SourceExcitation(SourceExcitationInternal):
             Rlc.r_enabled = bool(r)
             Rlc.l_enabled = bool(l)
             Rlc.c_enabled = bool(c)
-            Rlc.r = Value(r)
-            Rlc.l = Value(l)
-            Rlc.c = Value(c)
+            Rlc.r = self._pedb._value_setter(r)
+            Rlc.l = self._pedb._value_setter(l)
+            Rlc.c = self._pedb._value_setter(c)
             pos_pingroup_terminal.core.rlc_boundary_parameters = Rlc
 
         elif source_type == "dc_terminal":
@@ -1649,7 +1693,7 @@ class SourceExcitation(SourceExcitationInternal):
         --------
         >>> from pyedb import Edb
         >>> edb = Edb()
-        >>> edb.source_excitation.create_voltage_source_on_net("U1", "VCC", "U1", "GND", 3.3, name="VCC_Source")
+        >>> edb.excitation_manager.create_voltage_source_on_net("U1", "VCC", "U1", "GND", 3.3, name="VCC_Source")
         """
         if not negative_component_name:
             negative_component_name = positive_component_name
@@ -1711,7 +1755,7 @@ class SourceExcitation(SourceExcitationInternal):
         --------
         >>> from pyedb import Edb
         >>> edb = Edb()
-        >>> edb.source_excitation.create_current_source_on_net("U1", "INPUT", "U1", "GND", 0.1, name="InputCurrent")
+        >>> edb.excitation_manager.create_current_source_on_net("U1", "INPUT", "U1", "GND", 0.1, name="InputCurrent")
         "InputCurrent"
         """
         if not negative_component_name:
@@ -1765,7 +1809,7 @@ class SourceExcitation(SourceExcitationInternal):
         --------
         >>> from pyedb import Edb
         >>> edb = Edb()
-        >>> edb.source_excitation.create_coax_port_on_component(["U1"], ["RF1", "RF2"])
+        >>> edb.excitation_manager.create_coax_port_on_component(["U1"], ["RF1", "RF2"])
         """
         coax = []
         if not isinstance(ref_des_list, list):
@@ -1867,7 +1911,7 @@ class SourceExcitation(SourceExcitationInternal):
         --------
         >>> from pyedb import Edb
         >>> edb = Edb()
-        >>> port_name, port = edb.source_excitation.create_differential_wave_port(0, [0, 0], 1, [0, 0.2])
+        >>> port_name, port = edb.excitation_manager.create_differential_wave_port(0, [0, 0], 1, [0, 0.2])
         """
         if not port_name:
             port_name = generate_unique_name("diff")
@@ -1937,7 +1981,7 @@ class SourceExcitation(SourceExcitationInternal):
         --------
         >>> from pyedb import Edb
         >>> edb = Edb()
-        >>> port_name, port = edb.source_excitation.create_wave_port(0, [0, 0])
+        >>> port_name, port = edb.excitation_manager.create_wave_port(0, [0, 0])
         """
         if not port_name:
             port_name = generate_unique_name("Terminal_")
@@ -1945,7 +1989,7 @@ class SourceExcitation(SourceExcitationInternal):
         if isinstance(prim_id, Primitive):
             prim_id = prim_id.id
         pos_edge_term = self._create_edge_terminal(prim_id, point_on_edge, port_name)
-        pos_edge_term.impedance = Value(impedance)
+        pos_edge_term.impedance = self._pedb._value_setter(impedance)
         wave_port = WavePort(self._pedb, pos_edge_term.core)
         wave_port.horizontal_extent_factor = horizontal_extent_factor
         wave_port.vertical_extent_factor = vertical_extent_factor
@@ -2005,12 +2049,12 @@ class SourceExcitation(SourceExcitationInternal):
         --------
         >>> from pyedb import Edb
         >>> edb = Edb()
-        >>> term = edb.source_excitation.create_edge_port_vertical(0, [0, 0], reference_layer="TopLayer")
+        >>> term = edb.excitation_manager.create_edge_port_vertical(0, [0, 0], reference_layer="TopLayer")
         """
         if not port_name:
             port_name = generate_unique_name("Terminal_")
         pos_edge_term = self._create_edge_terminal(prim_id, point_on_edge, port_name)
-        pos_edge_term.impedance = Value(impedance)
+        pos_edge_term.impedance = self._pedb._value_setter(impedance)
         if reference_layer:
             reference_layer = self._pedb.stackup.signal_layers[reference_layer]
             pos_edge_term.reference_layer = reference_layer
@@ -2077,12 +2121,12 @@ class SourceExcitation(SourceExcitationInternal):
         --------
         >>> from pyedb import Edb
         >>> edb = Edb()
-        >>> edb.source_excitation.create_edge_port_horizontal(0, [0, 0], 1, [0, 0.1], "EdgePort")
+        >>> edb.excitation_manager.create_edge_port_horizontal(0, [0, 0], 1, [0, 0.1], "EdgePort")
         """
         pos_edge_term = self._create_edge_terminal(prim_id, point_on_edge, port_name)
         neg_edge_term = self._create_edge_terminal(ref_prim_id, point_on_ref_edge, port_name + "_ref", is_ref=True)
 
-        pos_edge_term.impedance = Value(impedance)
+        pos_edge_term.impedance = self._pedb._value_setter(impedance)
         pos_edge_term.reference_terminal = neg_edge_term
         if not layer_alignment == "Upper":
             layer_alignment = "Lower"
@@ -2136,7 +2180,7 @@ class SourceExcitation(SourceExcitationInternal):
         --------
         >>> from pyedb import Edb
         >>> edb = Edb()
-        >>> points = edb.source_excitation.create_lumped_port_on_net(["Net1"], return_points_only=True)
+        >>> points = edb.excitation_manager.create_lumped_port_on_net(["Net1"], return_points_only=True)
         """
         if isinstance(nets, str):
             nets = [self._pedb.nets.signal[nets]]
@@ -2157,11 +2201,11 @@ class SourceExcitation(SourceExcitationInternal):
             layout_extent_segments = [pt for pt in list(layout_bbox.arc_data) if pt.is_segment]
             first_pt = layout_extent_segments[0]
             layout_extent_points = [
-                [Value(first_pt.start.x), Value(first_pt.end.x)],
-                [Value(first_pt.Start.y), Value(first_pt.end.y)],
+                [self._pedb._value_setter(first_pt.start.x), self._pedb._value_setter(first_pt.end.x)],
+                [self._pedb._value_setter(first_pt.Start.y), self._pedb._value_setter(first_pt.end.y)],
             ]
             for segment in layout_extent_segments[1:]:
-                end_point = (Value(segment.end.x), Value(segment.end.y))
+                end_point = (self._pedb._value_setter(segment.end.x), self._pedb._value_setter(segment.end.y))
                 layout_extent_points[0].append(end_point[0])
                 layout_extent_points[1].append(end_point[1])
             for net in nets:
@@ -2172,8 +2216,8 @@ class SourceExcitation(SourceExcitationInternal):
                     port_name = f"{net.name}_{path.id}"
                     for pt in trace_path_pts:
                         _pt = [
-                            round(Value(pt.x), digit_resolution),
-                            round(Value(pt.y), digit_resolution),
+                            round(self._pedb._value_setter(pt.x), digit_resolution),
+                            round(self._pedb._value_setter(pt.y), digit_resolution),
                         ]
                         if at_bounding_box:
                             if GeometryOperators.point_in_polygon(_pt, layout_extent_points) == 0:
@@ -2196,7 +2240,11 @@ class SourceExcitation(SourceExcitationInternal):
                     for segment in poly_segment:
                         if (
                             GeometryOperators.point_in_polygon(
-                                [Value(segment.mid_point.x), Value(segment.mid_point.y)], layout_extent_points
+                                [
+                                    self._pedb._value_setter(segment.mid_point.x),
+                                    self._pedb._value_setter(segment.mid_point.y),
+                                ],
+                                layout_extent_points,
                             )
                             == 0
                         ):
@@ -2242,7 +2290,7 @@ class SourceExcitation(SourceExcitationInternal):
         --------
         >>> from pyedb import Edb
         >>> edb = Edb()
-        >>> terminals = edb.source_excitation.create_vertical_circuit_port_on_clipped_traces(["Net1"], "GND")
+        >>> terminals = edb.excitation_manager.create_vertical_circuit_port_on_clipped_traces(["Net1"], "GND")
         """
         if not isinstance(nets, list):
             if isinstance(nets, str):
@@ -2261,15 +2309,18 @@ class SourceExcitation(SourceExcitationInternal):
                     _x = []
                     _y = []
                     for pt in _points:
-                        if Value(pt.x) < 1e100 and Value(pt.y) < 1e100:
-                            _x.append(Value(pt.x))
-                            _y.append(Value(pt.y))
+                        if self._pedb._value_setter(pt.x) < 1e100 and self._pedb._value_setter(pt.y) < 1e100:
+                            _x.append(self._pedb._value_setter(pt.x))
+                            _y.append(self._pedb._value_setter(pt.y))
                     user_defined_extent = [_x, _y]
             terminal_info = []
             for net in nets:
                 net_polygons = [prim for prim in self._pedb.modeler.primitives if prim.type in ["polygon", "rectangle"]]
                 for poly in net_polygons:
-                    mid_points = [[Value(arc.midpoint.x), Value(arc.midpoint.y)] for arc in poly.arcs]
+                    mid_points = [
+                        [self._pedb._value_setter(arc.midpoint.x), self._pedb._value_setter(arc.midpoint.y)]
+                        for arc in poly.arcs
+                    ]
                     for mid_point in mid_points:
                         if GeometryOperators.point_in_polygon(mid_point, user_defined_extent) == 0:
                             port_name = generate_unique_name(f"{poly.net_name}_{poly.id}")
@@ -2348,7 +2399,7 @@ class SourceExcitation(SourceExcitationInternal):
         --------
         >>> from pyedb import Edb
         >>> edb = Edb()
-        >>> port_name, port = edb.source_excitation.create_bundle_wave_port([0, 1], [[0, 0], [0, 0.2]])
+        >>> port_name, port = edb.excitation_manager.create_bundle_wave_port([0, 1], [[0, 0], [0, 0.2]])
         """
         if not port_name:
             port_name = generate_unique_name("bundle_port")
@@ -2395,7 +2446,7 @@ class SourceExcitation(SourceExcitationInternal):
         >>> from pyedb import Edb
         >>> edb = Edb()
         >>> pin = edb.padstacks.instances[0]
-        >>> edb.source_excitation.create_hfss_ports_on_padstack(pin, "Port1")
+        >>> edb.excitation_manager.create_hfss_ports_on_padstack(pin, "Port1")
         """
         top_layer, bottom_layer = pinpos.get_layer_range()
 
@@ -2425,7 +2476,7 @@ class SourceExcitation(SourceExcitationInternal):
         --------
         >>> from pyedb import Edb
         >>> edb = Edb()
-        >>> num_ports = edb.source_excitation.get_ports_number()
+        >>> num_ports = edb.excitation_manager.get_ports_number()
         """
         terms = [term for term in self._pedb.layout.terminals]
         return len([i for i in terms if not i.is_reference_terminal])
@@ -2452,7 +2503,7 @@ class SourceExcitation(SourceExcitationInternal):
         --------
         >>> from pyedb import Edb
         >>> edb = Edb()
-        >>> term = edb.source_excitation.get_point_terminal("Term1", "Net1", [0, 0], "TopLayer")
+        >>> term = edb.excitation_manager.get_point_terminal("Term1", "Net1", [0, 0], "TopLayer")
         """
         from pyedb.grpc.database.terminal.point_terminal import PointTerminal
 
@@ -2495,7 +2546,7 @@ class SourceExcitation(SourceExcitationInternal):
         >>> edb = Edb()
         >>> pin1 = edb.components["U1"].pins["Pin1"]
         >>> pin2 = edb.components["U1"].pins["Pin2"]
-        >>> term = edb.source_excitation.create_rlc_boundary_on_pins(pin1, pin2, rvalue=50)
+        >>> term = edb.excitation_manager.create_rlc_boundary_on_pins(pin1, pin2, rvalue=50)
         """
 
         if positive_pin and negative_pin:
@@ -2508,9 +2559,9 @@ class SourceExcitation(SourceExcitationInternal):
             rlc.r_enabled = True
             rlc.l_enabled = True
             rlc.c_enabled = True
-            rlc.r = Value(rvalue)
-            rlc.l = Value(lvalue)
-            rlc.c = Value(cvalue)
+            rlc.r = self._pedb._value_setter(rvalue)
+            rlc.l = self._pedb._value_setter(lvalue)
+            rlc.c = self._pedb._value_setter(cvalue)
             positive_pin_term.rlc_boundary_parameters = rlc
             term_name = f"{positive_pin.component.name}_{positive_pin.net.name}_{positive_pin.name}"
             positive_pin_term.name = term_name
@@ -2518,6 +2569,48 @@ class SourceExcitation(SourceExcitationInternal):
             positive_pin_term.reference_terminal = negative_pin_term
             return positive_pin_term
         return False
+
+    def get_edge_from_port(self, port):
+        if port.core.edges:
+            primitive = port.core.edges[0].primitive
+            point = port.core.edges[0].point
+            primitive = Primitive(self._pedb, primitive)
+            point = [str(point.x.value), str(point.y.value)]
+            return True, primitive, point
+        return False, None, None
+
+    def create_edge_port(
+        self,
+        location,
+        primitive_name,
+        name,
+        impedance=50,
+        is_wave_port=True,
+        horizontal_extent_factor=1,
+        vertical_extent_factor=1,
+        pec_launch_width=0.0001,
+    ):
+        from ansys.edb.core.terminal.edge_terminal import (
+            EdgeTerminal as GrpcEdgeTerminal,
+        )
+
+        point_on_edge = CorePointData([self._pedb.value(i) for i in location])
+        primitive = self._pedb.layout.find_primitive(name=primitive_name)[0]
+        pos_edge = CorePrimitiveEdge.create(primitive.core, point_on_edge)
+        edge_term = GrpcEdgeTerminal.create(
+            layout=primitive.core.layout, edges=[pos_edge], net=primitive.core.net, name=name, is_ref=False
+        )
+
+        edge_term.impedance = self._pedb._value_setter(impedance)
+        edge_term.name = name
+        wave_port = WavePort(self._pedb, edge_term)
+        wave_port.horizontal_extent_factor = horizontal_extent_factor
+        wave_port.vertical_extent_factor = vertical_extent_factor
+        wave_port.pec_launch_width = pec_launch_width
+        wave_port.hfss_type = "Wave" if is_wave_port else "Gap"
+        wave_port.do_renormalize = True
+
+        return wave_port
 
     def create_edge_port_on_polygon(
         self,
@@ -2570,7 +2663,7 @@ class SourceExcitation(SourceExcitationInternal):
         >>> edb = Edb()
         >>> poly = edb.modeler.primitives[0]
         >>> ref_poly = edb.modeler.primitives[1]
-        >>> edb.source_excitation.create_edge_port_on_polygon(poly, ref_poly, [0, 0], [0.1, 0])
+        >>> edb.excitation_manager.create_edge_port_on_polygon(poly, ref_poly, [0, 0], [0.1, 0])
         """
         from ansys.edb.core.terminal.edge_terminal import (
             EdgeTerminal as GrpcEdgeTerminal,
@@ -2602,7 +2695,7 @@ class SourceExcitation(SourceExcitationInternal):
             edge_term.is_circuit_port = False
 
         if port_impedance:
-            edge_term.impedance = Value(port_impedance)
+            edge_term.impedance = self._pedb._value_setter(port_impedance)
         edge_term.name = port_name
         if reference_polygon and reference_point:
             ref_edge = CorePrimitiveEdge.create(reference_polygon.core, reference_point)
@@ -2622,7 +2715,7 @@ class SourceExcitation(SourceExcitationInternal):
                 ref_edge_term.is_circuit_port = False
 
             if port_impedance:
-                ref_edge_term.impedance = Value(port_impedance)
+                ref_edge_term.impedance = self._pedb._value_setter(port_impedance)
             edge_term.reference_terminal = ref_edge_term
         return True
 
@@ -2658,7 +2751,7 @@ class SourceExcitation(SourceExcitationInternal):
         --------
         >>> from pyedb import Edb
         >>> edb = Edb()
-        >>> terms = edb.source_excitation.create_port_between_pin_and_layer("U1", "Pin1", "GND", "GND")
+        >>> terms = edb.excitation_manager.create_port_between_pin_and_layer("U1", "Pin1", "GND", "GND")
         """
         if not pins_name:
             pins_name = []
@@ -2689,7 +2782,7 @@ class SourceExcitation(SourceExcitationInternal):
                             layout=pin.layout, net=pin.net, padstack_instance=pin, name=term_name, layer=start_layer
                         )
                         positive_terminal.boundary_type = CoreBoundaryType.PORT
-                        positive_terminal.impedance = Value(impedance)
+                        positive_terminal.impedance = self._pedb._value_setter(impedance)
                         positive_terminal.Is_circuit_port = True
                         position = CorePointData(self._pedb.components.get_pin_position(pin))
                         negative_terminal = PointTerminal.create(
@@ -2700,7 +2793,7 @@ class SourceExcitation(SourceExcitationInternal):
                             point=position,
                         )
                         negative_terminal.boundary_type = CoreBoundaryType.PORT
-                        negative_terminal.impedance = Value(impedance)
+                        negative_terminal.impedance = self._pedb._value_setter(impedance)
                         negative_terminal.is_circuit_port = True
                         positive_terminal.reference_terminal = negative_terminal
                         self._logger.info("Port {} successfully created".format(term_name))
@@ -2746,7 +2839,7 @@ class SourceExcitation(SourceExcitationInternal):
         --------
         >>> from pyedb import Edb
         >>> edb = Edb()
-        >>> edb.source_excitation.create_current_source_on_pin_group("PG1", "PG2", 0.1, name="ISource1")
+        >>> edb.excitation_manager.create_current_source_on_pin_group("PG1", "PG2", 0.1, name="ISource1")
         """
         from pyedb.grpc.database.terminal.terminal import Terminal
 
@@ -2853,7 +2946,7 @@ class SourceExcitation(SourceExcitationInternal):
         --------
         >>> from pyedb import Edb
         >>> edb = Edb()
-        >>> edb.source_excitation.create_voltage_source("pin1", "pin2", 3.3, name="VSource1")
+        >>> edb.excitation_manager.create_voltage_source("pin1", "pin2", 3.3, name="VSource1")
         """
         from pyedb.grpc.database.terminal.terminal import Terminal
 
@@ -2906,7 +2999,7 @@ class SourceExcitation(SourceExcitationInternal):
         --------
         >>> from pyedb import Edb
         >>> edb = Edb()
-        >>> edb.source_excitation.create_voltage_probe_on_pin_group("Probe1", "PG1", "PG2")
+        >>> edb.excitation_manager.create_voltage_probe_on_pin_group("Probe1", "PG1", "PG2")
         """
         pos_pin_group = next(pg for pg in self._pedb.layout.pin_groups if pg.name == pos_pin_group_name)
         if not pos_pin_group:
@@ -3031,7 +3124,7 @@ class SourceExcitation(SourceExcitationInternal):
         --------
         >>> from pyedb import Edb
         >>> edb = Edb()
-        >>> edb.source_excitation.create_dc_terminal("U1", "VCC", "DC_VCC")
+        >>> edb.excitation_manager.create_dc_terminal("U1", "VCC", "DC_VCC")
         """
 
         node_pin = self._pedb.components.get_pin_from_component(component_name, net_name)
@@ -3071,7 +3164,7 @@ class SourceExcitation(SourceExcitationInternal):
         --------
         >>> from pyedb import Edb
         >>> edb = Edb()
-        >>> edb.source_excitation.create_circuit_port_on_pin_group("PG1", "PG2", 50, "Port1")
+        >>> edb.excitation_manager.create_circuit_port_on_pin_group("PG1", "PG2", 50, "Port1")
         """
         pos_pin_group = next(pg for pg in self._pedb.layout.pin_groups if pg.name == pos_pin_group_name)
         if not pos_pin_group:
@@ -3122,7 +3215,7 @@ class SourceExcitation(SourceExcitationInternal):
         --------
         >>> from pyedb import Edb
         >>> edb = Edb()
-        >>> probe = edb.source_excitation.place_voltage_probe(
+        >>> probe = edb.excitation_manager.place_voltage_probe(
         ...     "Probe1", "Net1", [0, 0], "TopLayer", "GND", [0.1, 0], "TopLayer"
         ... )
         """
@@ -3141,7 +3234,7 @@ class SourceExcitation(SourceExcitationInternal):
             point=CorePointData(negative_location),
         )
         p_terminal.reference_terminal = n_terminal
-        return self._pedb.create_voltage_probe(p_terminal, n_terminal)
+        return self._pedb.excitation_manager.create_voltage_probe(p_terminal, n_terminal)
 
     def create_padstack_instance_terminal(self, name="", padstack_instance_id=None, padstack_instance_name=None):
         pds = self._pedb.layout.find_padstack_instances(
@@ -3191,9 +3284,19 @@ class SourceExcitation(SourceExcitationInternal):
 
     def create_bundle_terminal(self, terminals, name=""):
         _name = name if name else f"{generate_unique_name('bundle')}"
-        BundleTerminal.create(self._pedb, _name, terminals)
+        ter = BundleTerminal.create(self._pedb, _name, terminals)
+        try:
+            ter._hfss_port_property = terminals[0]._hfss_port_property
+        except AttributeError:
+            pass
 
-    def create_pin_group_terminal(self, pin_group, name=""):
+    def create_pin_group_terminal(
+        self,
+        pin_group,
+    ):
+        return self._pedb.create_pin_group_terminal(pin_group)
+
+    def create_terminal_from_pin_group(self, pin_group, name=""):
         _name = name if name else generate_unique_name(pin_group)
         pg = self._pedb.siwave.pin_groups[pin_group]
         terminal = pg.create_terminal(name=_name)

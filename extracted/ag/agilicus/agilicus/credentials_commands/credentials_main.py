@@ -18,6 +18,7 @@ from ..output.table import output_entry
 @click.option("--oauth2-client-id", default=None, type=str)
 @click.option("--oauth2-scopes", default=None, multiple=True, type=str)
 @click.option("--oauth2-federated-audience", default=None, type=str)
+@click.option("--oauth2-bearer-fingerprint", default=None, type=str)
 @click.pass_context
 def cli_command_add_object_credential(
     ctx, private_key, username, password, encrypt, private_key_passphrase, **kwargs
@@ -39,6 +40,7 @@ def cli_command_add_object_credential(
 @click.option("--oauth2-client-id", default=None, type=str)
 @click.option("--oauth2-scopes", default=None, multiple=True, type=str)
 @click.option("--oauth2-federated-audience", default=None, type=str)
+@click.option("--oauth2-bearer-fingerprint", default=None, type=str)
 @click.option("--object-id")
 @click.option("--object-type")
 @click.option("--org-id", default=None)

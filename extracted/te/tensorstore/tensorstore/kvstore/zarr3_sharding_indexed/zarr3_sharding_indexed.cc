@@ -29,6 +29,7 @@
 #include "absl/base/optimization.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/clock.h"
@@ -79,7 +80,7 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
+#include "tensorstore/util/status_builder.h"
 
 // specializations
 #include "tensorstore/internal/cache_key/std_vector.h"  // IWYU pragma: keep
@@ -128,13 +129,14 @@ class ShardIndexKeyValueStore : public kvstore::Driver {
     return MapFutureError(
         InlineExecutor{},
         [](const absl::Status& status) {
-          return internal::ConvertInvalidArgumentToFailedPrecondition(status);
+          return StatusBuilder(status).With(
+              internal::ConvertInvalidArgumentToFailedPrecondition);
         },
         base_->Read(std::move(key), std::move(options)));
   }
 
   std::string DescribeKey(std::string_view key) override {
-    return tensorstore::StrCat("shard index in ", base_->DescribeKey(key));
+    return absl::StrCat("shard index in ", base_->DescribeKey(key));
   }
 
   void GarbageCollectionVisit(
@@ -390,7 +392,7 @@ class ShardedKeyValueStoreWriteCache
 
     std::string DescribeKey(std::string_view key) override {
       auto& cache = GetOwningCache(*this);
-      return tensorstore::StrCat(
+      return absl::StrCat(
           DescribeInternalKey(key, cache.shard_index_params().grid_shape()),
           " in ",
           cache.kvstore_driver()->DescribeKey(cache.base_kvstore_path()));
@@ -1201,8 +1203,11 @@ class ReadOperationState
         return;
       }
       TENSORSTORE_RETURN_IF_ERROR(
-          index_entry.Validate(request.entry_id, read_result.value.size()),
-          static_cast<void>(request.promise.SetResult(_)));
+          index_entry.Validate(request.entry_id, read_result.value.size()))
+          .With([&](absl::Status error) {
+            request.promise.SetResult(std::move(error));
+          });
+
       TENSORSTORE_ASSIGN_OR_RETURN(
           auto validated_byte_range,
           request.byte_range.Validate(index_entry.length),
@@ -1264,12 +1269,13 @@ class ReadOperationState
         return;
       }
 
-      TENSORSTORE_RETURN_IF_ERROR(
-          index_entry.Validate(request.entry_id),
-          static_cast<void>(request.promise.SetResult(
-              self->shard_index_cache_entry_->AnnotateError(
-                  _,
-                  /*reading=*/true))));
+      TENSORSTORE_RETURN_IF_ERROR(index_entry.Validate(request.entry_id))
+          .With([&](absl::Status error) {
+            request.promise.SetResult(
+                self->shard_index_cache_entry_->AnnotateError(
+                    error,
+                    /*reading=*/true));
+          });
 
       assert(request.byte_range.SatisfiesInvariants());
 
@@ -1461,10 +1467,10 @@ Future<const void> ShardedKeyValueStore::DeleteRange(KeyRange range) {
 }
 
 std::string ShardedKeyValueStore::DescribeKey(std::string_view key) {
-  return tensorstore::StrCat(
-      zarr3_sharding_indexed::DescribeKey(key,
-                                          shard_index_params().grid_shape()),
-      " in ", base_kvstore_driver()->DescribeKey(base_kvstore_path()));
+  return absl::StrCat(zarr3_sharding_indexed::DescribeKey(
+                          key, shard_index_params().grid_shape()),
+                      " in ",
+                      base_kvstore_driver()->DescribeKey(base_kvstore_path()));
 }
 
 kvstore::SupportedFeatures ShardedKeyValueStore::GetSupportedFeatures(

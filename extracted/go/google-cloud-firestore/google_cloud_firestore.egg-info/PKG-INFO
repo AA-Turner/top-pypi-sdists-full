@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-cloud-firestore
-Version: 2.24.0
+Version: 2.25.0
 Summary: Google Cloud Firestore API client library
 Home-page: https://github.com/googleapis/google-cloud-python/tree/main/packages/google-cloud-firestore
 Author: Google LLC

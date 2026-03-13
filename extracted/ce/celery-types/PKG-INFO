@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: celery-types
-Version: 0.25.0
+Version: 0.26.0
 Summary: Type stubs for Celery and its related packages
 Keywords: celery,kombu,vine,amqp,billiard,django_celery_results,types,mypy,stubs
 Author: Steve Dignam

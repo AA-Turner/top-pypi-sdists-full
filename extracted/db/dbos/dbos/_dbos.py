@@ -15,6 +15,7 @@ from typing import (
     TYPE_CHECKING,
     Any,
     AsyncGenerator,
+    Awaitable,
     Callable,
     Coroutine,
     Dict,
@@ -31,6 +32,7 @@ from typing import (
     Union,
     overload,
 )
+from zoneinfo import ZoneInfo
 
 from dbos._conductor.conductor import ConductorWebsocket
 from dbos._debouncer import debouncer_workflow
@@ -38,6 +40,8 @@ from dbos._serialization import (
     DefaultSerializer,
     Serializer,
     WorkflowSerializationFormat,
+    deserialize_value,
+    serialize_value,
 )
 from dbos._sys_db import SystemDatabase, WorkflowStatus
 from dbos._utils import INTERNAL_QUEUE_NAME, GlobalParams, generate_uuid
@@ -265,12 +269,18 @@ class DBOSRegistry:
         This is guaranteed to be stable given identical source code because it uses an MD5 hash
         and because it iterates through the workflows in sorted order.
         This way, if the app's workflows are updated (which would break recovery), its version changes.
-        App version can be manually set through the DBOS__APPVERSION environment variable.
+        App version can be manually set through the application_version field in DBOSConfig.
         """
         hasher = hashlib.md5()
-        sources = sorted(
-            [inspect.getsource(wf) for wf in self.workflow_info_map.values()]
-        )
+        try:
+            sources = sorted(
+                [inspect.getsource(wf) for wf in self.workflow_info_map.values()]
+            )
+        except Exception:
+            dbos_logger.warning(
+                "Could not get workflow source code to compute an application version, defaulting application version to 'DEFAULT_VERSION'. Set a custom version through the 'application_version' field in DBOSConfig"
+            )
+            return "DEFAULT_VERSION"
         # Different DBOS versions should produce different app versions
         sources.append(GlobalParams.dbos_version)
         for source in sources:
@@ -285,11 +295,13 @@ class DBOSRegistry:
         return Queue(INTERNAL_QUEUE_NAME)
 
 
-class ScheduleInput(TypedDict):
+class ScheduleInput(TypedDict, total=False):
     schedule_name: str
     workflow_fn: Callable[[datetime, Any], None]
     schedule: str
     context: Any
+    automatic_backfill: bool
+    cron_timezone: Optional[str]
 
 
 class DBOS:
@@ -1284,6 +1296,80 @@ class DBOS:
         await asyncio.sleep(duration)
 
     @classmethod
+    async def asyncio_wait(
+        cls,
+        fs: List[Awaitable[Any]],
+        *,
+        timeout: Optional[float] = None,
+        return_when: str = asyncio.ALL_COMPLETED,
+    ) -> tuple[set[asyncio.Task[Any]], set[asyncio.Task[Any]]]:
+        """
+        Durable version of asyncio.wait.
+
+        Checkpoints which tasks are done vs pending so the result is
+        deterministic during workflow recovery.
+
+        When called outside a workflow, falls back to regular `asyncio.wait`.
+        """
+        cur_ctx = snapshot_step_context()
+        fs_list = [asyncio.ensure_future(f) for f in fs]
+        if cur_ctx is None or not cur_ctx.is_workflow():
+            result: tuple[set[Any], set[Any]] = await asyncio.wait(
+                fs_list, timeout=timeout, return_when=return_when
+            )
+            return result
+
+        await cls._configure_asyncio_thread_pool()
+        dbos = _get_dbos_instance()
+        attributes: TracedAttributes = {"name": "asyncio_wait"}
+
+        with EnterDBOSStepCtx(attributes, cur_ctx) as ctx:
+            recorded = await asyncio.to_thread(
+                dbos._sys_db.check_operation_execution,
+                ctx.workflow_id,
+                ctx.curr_step_function_id,
+                "DBOS.asyncio_wait",
+            )
+
+            if recorded is not None:
+                recorded_indices: set[int] = set(
+                    deserialize_value(
+                        recorded["output"],
+                        recorded["serialization"],
+                        dbos._serializer,
+                    )
+                    or []
+                )
+                done = {fs_list[i] for i in recorded_indices}
+                pending = {
+                    fs_list[i] for i in range(len(fs_list)) if i not in recorded_indices
+                }
+                if done:
+                    await asyncio.wait(done)
+                return done, pending
+            else:
+                done, pending = await asyncio.wait(
+                    fs_list, timeout=timeout, return_when=return_when
+                )
+                done_idx_list = [i for i, f in enumerate(fs_list) if f in done]
+                serialized_output, serialization = serialize_value(
+                    done_idx_list, None, dbos._serializer
+                )
+                await asyncio.to_thread(
+                    dbos._sys_db.record_operation_result,
+                    {
+                        "workflow_uuid": ctx.workflow_id,
+                        "function_id": ctx.curr_step_function_id,
+                        "function_name": "DBOS.asyncio_wait",
+                        "output": serialized_output,
+                        "error": None,
+                        "serialization": serialization,
+                        "started_at_epoch_ms": int(time.time() * 1000),
+                    },
+                )
+                return done, pending
+
+    @classmethod
     def set_event(
         cls,
         key: str,
@@ -1468,25 +1554,35 @@ class DBOS:
     @classmethod
     def cancel_workflow(cls, workflow_id: str) -> None:
         """Cancel a workflow by ID."""
-        check_async("cancel_workflow")
+        cls.cancel_workflows([workflow_id])
+
+    @classmethod
+    async def cancel_workflow_async(cls, workflow_id: str) -> None:
+        """Cancel a workflow by ID."""
+        await cls.cancel_workflows_async([workflow_id])
+
+    @classmethod
+    def cancel_workflows(cls, workflow_ids: List[str]) -> None:
+        """Cancel multiple workflows by ID."""
+        check_async("cancel_workflows")
 
         def fn() -> None:
-            dbos_logger.info(f"Cancelling workflow: {workflow_id}")
-            _get_dbos_instance()._sys_db.cancel_workflow(workflow_id)
+            dbos_logger.info(f"Cancelling workflow(s): {workflow_ids}")
+            _get_dbos_instance()._sys_db.cancel_workflows(workflow_ids)
 
         return _get_dbos_instance()._sys_db.call_function_as_step(
             fn, "DBOS.cancelWorkflow", snapshot_step_context(reserve_sleep_id=False)
         )
 
     @classmethod
-    async def cancel_workflow_async(cls, workflow_id: str) -> None:
-        """Cancel a workflow by ID."""
+    async def cancel_workflows_async(cls, workflow_ids: List[str]) -> None:
+        """Cancel multiple workflows by ID."""
         step_ctx = snapshot_step_context(reserve_sleep_id=False)
         await cls._configure_asyncio_thread_pool()
 
         def fn() -> None:
-            dbos_logger.info(f"Cancelling workflow: {workflow_id}")
-            _get_dbos_instance()._sys_db.cancel_workflow(workflow_id)
+            dbos_logger.info(f"Cancelling workflow(s): {workflow_ids}")
+            _get_dbos_instance()._sys_db.cancel_workflows(workflow_ids)
 
         return await asyncio.to_thread(
             _get_dbos_instance()._sys_db.call_function_as_step,
@@ -1499,16 +1595,30 @@ class DBOS:
     def delete_workflow(
         cls, workflow_id: str, *, delete_children: bool = False
     ) -> None:
-        """Delete a workflow and all its associated data by ID.
+        """Delete a workflow and all its associated data by ID."""
+        cls.delete_workflows([workflow_id], delete_children=delete_children)
+
+    @classmethod
+    async def delete_workflow_async(
+        cls, workflow_id: str, *, delete_children: bool = False
+    ) -> None:
+        """Delete a workflow and all its associated data by ID."""
+        await cls.delete_workflows_async([workflow_id], delete_children=delete_children)
+
+    @classmethod
+    def delete_workflows(
+        cls, workflow_ids: List[str], *, delete_children: bool = False
+    ) -> None:
+        """Delete multiple workflows and all their associated data by ID.
 
         If delete_children is True, also deletes all child workflows recursively.
         """
-        check_async("delete_workflow")
+        check_async("delete_workflows")
 
         def fn() -> None:
-            dbos_logger.info(f"Deleting workflow: {workflow_id}")
+            dbos_logger.info(f"Deleting workflow(s): {workflow_ids}")
             delete_workflow(
-                _get_dbos_instance(), workflow_id, delete_children=delete_children
+                _get_dbos_instance(), workflow_ids, delete_children=delete_children
             )
 
         return _get_dbos_instance()._sys_db.call_function_as_step(
@@ -1516,10 +1626,10 @@ class DBOS:
         )
 
     @classmethod
-    async def delete_workflow_async(
-        cls, workflow_id: str, *, delete_children: bool = False
+    async def delete_workflows_async(
+        cls, workflow_ids: List[str], *, delete_children: bool = False
     ) -> None:
-        """Delete a workflow and all its associated data by ID.
+        """Delete multiple workflows and all their associated data by ID.
 
         If delete_children is True, also deletes all child workflows recursively.
         """
@@ -1527,9 +1637,9 @@ class DBOS:
         await cls._configure_asyncio_thread_pool()
 
         def fn() -> None:
-            dbos_logger.info(f"Deleting workflow: {workflow_id}")
+            dbos_logger.info(f"Deleting workflow(s): {workflow_ids}")
             delete_workflow(
-                _get_dbos_instance(), workflow_id, delete_children=delete_children
+                _get_dbos_instance(), workflow_ids, delete_children=delete_children
             )
 
         return await asyncio.to_thread(
@@ -1550,29 +1660,94 @@ class DBOS:
         loop.set_default_executor(_get_dbos_instance()._executor)
 
     @classmethod
-    def resume_workflow(cls, workflow_id: str) -> WorkflowHandle[Any]:
+    def resume_workflow(
+        cls,
+        workflow_id: str,
+        *,
+        queue_name: Optional[str] = None,
+    ) -> WorkflowHandle[Any]:
         """Resume a workflow by ID."""
         check_async("resume_workflow")
 
         def fn() -> None:
             dbos_logger.info(f"Resuming workflow: {workflow_id}")
-            _get_dbos_instance()._sys_db.resume_workflow(workflow_id)
+            _get_dbos_instance()._sys_db.resume_workflows(
+                [workflow_id],
+                queue_name=queue_name,
+            )
 
         _get_dbos_instance()._sys_db.call_function_as_step(
             fn, "DBOS.resumeWorkflow", snapshot_step_context(reserve_sleep_id=False)
         )
-        return cls.retrieve_workflow(workflow_id)
+        return WorkflowHandlePolling(workflow_id, _get_dbos_instance())
 
     @classmethod
-    async def resume_workflow_async(cls, workflow_id: str) -> WorkflowHandleAsync[Any]:
+    async def resume_workflow_async(
+        cls,
+        workflow_id: str,
+        *,
+        queue_name: Optional[str] = None,
+    ) -> WorkflowHandleAsync[Any]:
         """Resume a workflow by ID."""
         step_ctx_res = snapshot_step_context(reserve_sleep_id=False)
-        step_ctx_ret = snapshot_step_context(reserve_sleep_id=False)
         await cls._configure_asyncio_thread_pool()
 
         def fnres() -> None:
             dbos_logger.info(f"Resuming workflow: {workflow_id}")
-            _get_dbos_instance()._sys_db.resume_workflow(workflow_id)
+            _get_dbos_instance()._sys_db.resume_workflows(
+                [workflow_id],
+                queue_name=queue_name,
+            )
+
+        await asyncio.to_thread(
+            _get_dbos_instance()._sys_db.call_function_as_step,
+            fnres,
+            "DBOS.resumeWorkflow",
+            step_ctx_res,
+        )
+        return WorkflowHandleAsyncPolling(workflow_id, _get_dbos_instance())
+
+    @classmethod
+    def resume_workflows(
+        cls,
+        workflow_ids: List[str],
+        *,
+        queue_name: Optional[str] = None,
+    ) -> List[WorkflowHandle[Any]]:
+        """Resume multiple workflows by ID."""
+        check_async("resume_workflows")
+
+        def fn() -> None:
+            dbos_logger.info(f"Resuming workflows: {workflow_ids}")
+            _get_dbos_instance()._sys_db.resume_workflows(
+                workflow_ids,
+                queue_name=queue_name,
+            )
+
+        _get_dbos_instance()._sys_db.call_function_as_step(
+            fn, "DBOS.resumeWorkflow", snapshot_step_context(reserve_sleep_id=False)
+        )
+        return [
+            WorkflowHandlePolling(wfid, _get_dbos_instance()) for wfid in workflow_ids
+        ]
+
+    @classmethod
+    async def resume_workflows_async(
+        cls,
+        workflow_ids: List[str],
+        *,
+        queue_name: Optional[str] = None,
+    ) -> List[WorkflowHandleAsync[Any]]:
+        """Resume multiple workflows by ID."""
+        step_ctx_res = snapshot_step_context(reserve_sleep_id=False)
+        await cls._configure_asyncio_thread_pool()
+
+        def fnres() -> None:
+            dbos_logger.info(f"Resuming workflows: {workflow_ids}")
+            _get_dbos_instance()._sys_db.resume_workflows(
+                workflow_ids,
+                queue_name=queue_name,
+            )
 
         await asyncio.to_thread(
             _get_dbos_instance()._sys_db.call_function_as_step,
@@ -1581,18 +1756,10 @@ class DBOS:
             step_ctx_res,
         )
 
-        def fnret() -> Optional[WorkflowStatus]:
-            return get_workflow(_get_dbos_instance()._sys_db, workflow_id)
-
-        stat = await asyncio.to_thread(
-            _get_dbos_instance()._sys_db.call_function_as_step,
-            fnret,
-            "DBOS.getStatus",
-            step_ctx_ret,
-        )
-        if stat is None:
-            raise DBOSNonExistentWorkflowError("target", workflow_id)
-        return WorkflowHandleAsyncPolling(workflow_id, _get_dbos_instance())
+        return [
+            WorkflowHandleAsyncPolling(wfid, _get_dbos_instance())
+            for wfid in workflow_ids
+        ]
 
     @classmethod
     def fork_workflow(
@@ -1601,6 +1768,8 @@ class DBOS:
         start_step: int,
         *,
         application_version: Optional[str] = None,
+        queue_name: Optional[str] = None,
+        queue_partition_key: Optional[str] = None,
     ) -> WorkflowHandle[Any]:
         """Restart a workflow with a new workflow ID from a specific step"""
         check_async("fork_workflow")
@@ -1612,6 +1781,8 @@ class DBOS:
                 workflow_id,
                 start_step,
                 application_version=application_version,
+                queue_name=queue_name,
+                queue_partition_key=queue_partition_key,
             )
 
         new_id = _get_dbos_instance()._sys_db.call_function_as_step(
@@ -1626,6 +1797,8 @@ class DBOS:
         start_step: int,
         *,
         application_version: Optional[str] = None,
+        queue_name: Optional[str] = None,
+        queue_partition_key: Optional[str] = None,
     ) -> WorkflowHandleAsync[Any]:
         """Restart a workflow with a new workflow ID from a specific step"""
         step_ctx_res = snapshot_step_context(reserve_sleep_id=False)
@@ -1639,6 +1812,8 @@ class DBOS:
                 workflow_id,
                 start_step,
                 application_version=application_version,
+                queue_name=queue_name,
+                queue_partition_key=queue_partition_key,
             )
 
         new_id = await asyncio.to_thread(
@@ -1909,6 +2084,8 @@ class DBOS:
         workflow_fn: ScheduledWorkflow,
         schedule: str,
         context: Any = None,
+        automatic_backfill: bool = False,
+        cron_timezone: Optional[str] = None,
     ) -> None:
         """
         Create a cron schedule that periodically invokes a workflow function.
@@ -1922,6 +2099,8 @@ class DBOS:
             workflow_fn: The workflow function to invoke. Must accept ``(datetime, context)``.
             schedule: A cron expression (supports seconds with 6 fields).
             context: A context object passed as the second argument to every invocation. Defaults to ``None``.
+            automatic_backfill: If ``True``, on startup the scheduler will automatically backfill missed executions since the last time the schedule fired. Defaults to ``False``.
+            cron_timezone: IANA timezone name (e.g. ``"America/New_York"``) in which to evaluate the cron expression. Defaults to ``None`` (UTC).
 
         Raises:
             DBOSException: If the cron expression is invalid, the workflow is not registered, or a schedule with the same name already exists
@@ -1944,6 +2123,11 @@ class DBOS:
             if fi and fi.class_info and fi.func_type == DBOSFuncType.Class
             else None
         )
+        if cron_timezone is not None:
+            try:
+                ZoneInfo(cron_timezone)
+            except (KeyError, Exception):
+                raise DBOSException(f"Invalid timezone: '{cron_timezone}'")
         sched = WorkflowSchedule(
             schedule_id=generate_uuid(),
             schedule_name=schedule_name,
@@ -1952,6 +2136,9 @@ class DBOS:
             schedule=schedule,
             status="ACTIVE",
             context=dbos._sys_db.serializer.serialize(context),
+            last_fired_at=None,
+            automatic_backfill=automatic_backfill,
+            cron_timezone=cron_timezone,
         )
         ctx = snapshot_step_context(reserve_sleep_id=False)
         if ctx and ctx.is_workflow():
@@ -2051,6 +2238,8 @@ class DBOS:
         workflow_fn: ScheduledWorkflow,
         schedule: str,
         context: Any = None,
+        automatic_backfill: bool = False,
+        cron_timezone: Optional[str] = None,
     ) -> None:
         """Async version of :meth:`create_schedule`."""
         await cls._configure_asyncio_thread_pool()
@@ -2060,6 +2249,8 @@ class DBOS:
             workflow_fn=workflow_fn,
             schedule=schedule,
             context=context,
+            automatic_backfill=automatic_backfill,
+            cron_timezone=cron_timezone,
         )
 
     @classmethod
@@ -2144,7 +2335,19 @@ class DBOS:
             )
         dbos = _get_dbos_instance()
         to_apply: List[WorkflowSchedule] = []
-        for entry in schedules:
+        for i, entry in enumerate(schedules):
+            if "schedule_name" not in entry:
+                raise DBOSException(
+                    f"Schedule entry {i} is missing required field 'schedule_name'"
+                )
+            if "workflow_fn" not in entry:
+                raise DBOSException(
+                    f"Schedule entry {i} is missing required field 'workflow_fn'"
+                )
+            if "schedule" not in entry:
+                raise DBOSException(
+                    f"Schedule entry {i} is missing required field 'schedule'"
+                )
             cron = entry["schedule"]
             if not croniter.is_valid(cron, second_at_beginning=True):
                 raise DBOSException(f"Invalid cron schedule: '{cron}'")
@@ -2173,6 +2376,9 @@ class DBOS:
                     schedule=cron,
                     status="ACTIVE",
                     context=dbos._sys_db.serializer.serialize(entry["context"]),
+                    last_fired_at=None,
+                    automatic_backfill=entry.get("automatic_backfill", False),
+                    cron_timezone=entry.get("cron_timezone"),
                 )
             )
         with dbos._sys_db.engine.begin() as c:

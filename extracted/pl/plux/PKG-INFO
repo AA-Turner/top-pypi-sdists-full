@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: plux
-Version: 1.14.0
+Version: 1.15.0
 Summary: A dynamic code loading framework for building pluggable Python distributions
 Project-URL: Repository, https://github.com/localstack/plux
 Author-email: Thomas Rausch <info@localstack.cloud>
@@ -18,6 +18,7 @@ Classifier: Topic :: Utilities
 Requires-Python: >=3.10
 Provides-Extra: dev
 Requires-Dist: build; extra == 'dev'
+Requires-Dist: mypy; extra == 'dev'
 Requires-Dist: pytest==8.4.1; extra == 'dev'
 Requires-Dist: ruff==0.9.1; extra == 'dev'
 Requires-Dist: setuptools; extra == 'dev'
@@ -33,7 +34,7 @@ Plux
   <a href="https://github.com/astral-sh/ruff"><img alt="Code style: ruff" src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json"></a>
 </p>
 
-plux is the dynamic code loading framework used in [LocalStack](https://github.com/localstack/localstack).
+plux is the dynamic code loading framework used in [LocalStack](https://www.localstack.cloud/).
 
 
 Overview
@@ -97,16 +98,28 @@ python -m plux entrypoints
 
 This creates a `plux.ini` file in your working directory with the discovered plugins. You can then include this file in your distribution by configuring your `pyproject.toml`:
 
-```toml
-[project]
-dynamic = ["entry-points"]
+- **setuptools:**
+  ```toml
+  [project]
+  dynamic = ["entry-points"]
 
-[tool.setuptools.package-data]
-"*" = ["plux.ini"]
+  [tool.setuptools.package-data]
+  "*" = ["plux.ini"]
 
-[tool.setuptools.dynamic]
-entry-points = {file = ["plux.ini"]}
-```
+  [tool.setuptools.dynamic]
+  entry-points = {file = ["plux.ini"]}
+  ```
+
+- **hatchling:**
+  ```toml
+  [project]
+  dynamic = ["entry-points"]
+
+  [tool.setuptools.package-data]
+  "*" = ["plux.ini"]
+
+  [tool.hatch.metadata.hooks.plux]
+  ```
 
 You can also manually control the output format and location:
 

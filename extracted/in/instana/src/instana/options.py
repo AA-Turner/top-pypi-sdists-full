@@ -27,10 +27,10 @@ from instana.util.config import (
     get_disable_trace_configurations_from_yaml,
     get_stack_trace_config_from_yaml,
     is_truthy,
-    parse_filtered_endpoints,
-    parse_filtered_endpoints_from_yaml,
+    parse_filter_rules,
+    parse_filter_rules_yaml,
     parse_span_disabling,
-    parse_span_filter_env_vars,
+    parse_filter_rules_env_vars,
     parse_technology_stack_trace_config,
     validate_stack_trace_length,
     validate_stack_trace_level,
@@ -106,23 +106,6 @@ class BaseOptions(object):
         ):
             self.allow_exit_as_root = True
 
-        # The priority is as follows:
-        # environment variables > in-code configuration >
-        # > agent config (configuration.yaml) > default value
-        if any(k.startswith("INSTANA_TRACING_FILTER_") for k in os.environ):
-            # Check for new span filtering env vars
-            parsed_filter = parse_span_filter_env_vars()
-            if parsed_filter["exclude"] or parsed_filter["include"]:
-                self.span_filters = parsed_filter
-        elif "INSTANA_CONFIG_PATH" in os.environ:
-            self.span_filters = parse_filtered_endpoints_from_yaml(
-                os.environ["INSTANA_CONFIG_PATH"]
-            )
-        elif isinstance(config.get("tracing"), dict) and "filter" in config["tracing"]:
-            self.span_filters = parse_filtered_endpoints(
-                config["tracing"]["filter"],
-            )
-
         if "INSTANA_KAFKA_TRACE_CORRELATION" in os.environ:
             self.kafka_trace_correlation = is_truthy(
                 os.environ["INSTANA_KAFKA_TRACE_CORRELATION"]
@@ -134,6 +117,36 @@ class BaseOptions(object):
 
         self.set_disable_trace_configurations()
         self.set_stack_trace_configurations()
+        self.set_span_filter_configurations()
+
+    def _add_instana_agent_span_filter(self) -> None:
+        """Add Instana agent span filter to exclude internal spans."""
+        if "exclude" not in self.span_filters:
+            self.span_filters["exclude"] = []
+        self.span_filters["exclude"].extend(
+            [
+                {
+                    "name": "filter-internal-spans-by-url",
+                    "attributes": [
+                        {
+                            "key": "http.url",
+                            "values": ["com.instana"],
+                            "match_type": "contains",
+                        }
+                    ],
+                },
+                {
+                    "name": "filter-internal-spans-by-host",
+                    "attributes": [
+                        {
+                            "key": "http.host",
+                            "values": ["com.instana"],
+                            "match_type": "contains",
+                        }
+                    ],
+                },
+            ]
+        )
 
     def _apply_env_stack_trace_config(self) -> None:
         """Apply stack trace configuration from environment variables."""
@@ -234,6 +247,26 @@ class BaseOptions(object):
 
         self.disabled_spans.extend(disabled_spans)
         self.enabled_spans.extend(enabled_spans)
+
+    def set_span_filter_configurations(self) -> None:
+        # The precedence is as follows:
+        # environment variables > in-code configuration >
+        # > agent config (configuration.yaml) > default value
+        if any(k.startswith("INSTANA_TRACING_FILTER_") for k in os.environ):
+            # Check for new span filtering env vars
+            parsed_filter = parse_filter_rules_env_vars()
+            if parsed_filter["exclude"] or parsed_filter["include"]:
+                self.span_filters = parsed_filter
+        elif "INSTANA_CONFIG_PATH" in os.environ:
+            self.span_filters = parse_filter_rules_yaml(
+                os.environ["INSTANA_CONFIG_PATH"]
+            )
+        elif isinstance(config.get("tracing"), dict) and "filter" in config["tracing"]:
+            self.span_filters = parse_filter_rules(
+                config["tracing"]["filter"],
+            )
+
+        self._add_instana_agent_span_filter()
 
     def is_span_disabled(self, category=None, span_type=None) -> bool:
         """
@@ -342,7 +375,7 @@ class StandardOptions(BaseOptions):
         @return: None
         """
         if "filter" in tracing and not self.span_filters:
-            self.span_filters = parse_filtered_endpoints(tracing["filter"])
+            self.span_filters = parse_filter_rules(tracing["filter"])
 
         if "kafka" in tracing:
             if (

@@ -33,6 +33,7 @@ dev = [
     "setuptools",
     "pytest==8.4.1",
     "ruff==0.9.1",
+    "mypy",
 ]
 
 [tool.hatch.build.hooks.vcs]
@@ -53,4 +54,7 @@ plugins = "plux.build.setuptools:plugins"
 [project.entry-points."egg_info.writers"]
 # this is actually not a writer, it's a reader :-)
 "plux.json" = "plux.build.setuptools:load_plux_entrypoints"
+
+[project.entry-points.hatch]
+plux = "plux.build.hatchling"
 

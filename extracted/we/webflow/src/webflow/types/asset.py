@@ -3,49 +3,79 @@
 import datetime as dt
 import typing
 
-from ..core.datetime_utils import serialize_datetime
+import pydantic
+import typing_extensions
+from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from ..core.serialization import FieldMetadata
 from .asset_variant import AssetVariant
 
-try:
-    import pydantic.v1 as pydantic  # type: ignore
-except ImportError:
-    import pydantic  # type: ignore
 
+class Asset(UniversalBaseModel):
+    """
+    Asset details
+    """
 
-class Asset(pydantic.BaseModel):
-    id: typing.Optional[str] = pydantic.Field(default=None, description="Unique identifier for this asset")
-    content_type: typing.Optional[str] = pydantic.Field(
-        alias="contentType", default=None, description="File format type"
-    )
-    size: typing.Optional[int] = pydantic.Field(default=None, description="size in bytes")
-    site_id: typing.Optional[str] = pydantic.Field(
-        alias="siteId", default=None, description="Unique identifier for the site that hosts this asset"
-    )
-    hosted_url: typing.Optional[str] = pydantic.Field(alias="hostedUrl", default=None, description="Link to the asset")
-    original_file_name: typing.Optional[str] = pydantic.Field(
-        alias="originalFileName", default=None, description="Original file name at the time of upload"
-    )
-    display_name: typing.Optional[str] = pydantic.Field(
-        alias="displayName", default=None, description="Display name of the asset"
-    )
-    last_updated: typing.Optional[dt.datetime] = pydantic.Field(
-        alias="lastUpdated", default=None, description="Date the asset metadata was last updated"
-    )
-    created_on: typing.Optional[dt.datetime] = pydantic.Field(
-        alias="createdOn", default=None, description="Date the asset metadata was created"
-    )
-    variants: typing.Optional[typing.List[AssetVariant]] = None
+    id: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Unique identifier for this asset
+    """
 
-    def json(self, **kwargs: typing.Any) -> str:
-        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
-        return super().json(**kwargs_with_defaults)
+    content_type: typing_extensions.Annotated[
+        typing.Optional[str],
+        FieldMetadata(alias="contentType"),
+        pydantic.Field(alias="contentType", description="File format type"),
+    ] = None
+    size: typing.Optional[int] = pydantic.Field(default=None)
+    """
+    size in bytes
+    """
 
-    def dict(self, **kwargs: typing.Any) -> typing.Dict[str, typing.Any]:
-        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
-        return super().dict(**kwargs_with_defaults)
+    site_id: typing_extensions.Annotated[
+        typing.Optional[str],
+        FieldMetadata(alias="siteId"),
+        pydantic.Field(alias="siteId", description="Unique identifier for the site that hosts this asset"),
+    ] = None
+    hosted_url: typing_extensions.Annotated[
+        typing.Optional[str],
+        FieldMetadata(alias="hostedUrl"),
+        pydantic.Field(alias="hostedUrl", description="Link to the asset"),
+    ] = None
+    original_file_name: typing_extensions.Annotated[
+        typing.Optional[str],
+        FieldMetadata(alias="originalFileName"),
+        pydantic.Field(alias="originalFileName", description="Original file name at the time of upload"),
+    ] = None
+    display_name: typing_extensions.Annotated[
+        str,
+        FieldMetadata(alias="displayName"),
+        pydantic.Field(alias="displayName", description="Display name of the asset"),
+    ]
+    last_updated: typing_extensions.Annotated[
+        typing.Optional[dt.datetime],
+        FieldMetadata(alias="lastUpdated"),
+        pydantic.Field(alias="lastUpdated", description="Date the asset metadata was last updated"),
+    ] = None
+    created_on: typing_extensions.Annotated[
+        typing.Optional[dt.datetime],
+        FieldMetadata(alias="createdOn"),
+        pydantic.Field(alias="createdOn", description="Date the asset metadata was created"),
+    ] = None
+    variants: typing.List[AssetVariant] = pydantic.Field()
+    """
+    A list of [asset variants](https://help.webflow.com/hc/en-us/articles/33961378697107-Responsive-images) created by Webflow to serve your site responsively.
+    """
 
-    class Config:
-        frozen = True
-        smart_union = True
-        allow_population_by_field_name = True
-        json_encoders = {dt.datetime: serialize_datetime}
+    alt_text: typing_extensions.Annotated[
+        typing.Optional[str],
+        FieldMetadata(alias="altText"),
+        pydantic.Field(alias="altText", description="The visual description of the asset"),
+    ] = None
+
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2
+    else:
+
+        class Config:
+            frozen = True
+            smart_union = True
+            extra = pydantic.Extra.allow

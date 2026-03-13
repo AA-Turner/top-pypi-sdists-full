@@ -69,11 +69,11 @@
 #include "tensorstore/util/execution/flow_sender_operation_state.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
+#include "tensorstore/util/generic_stringify.h"
 #include "tensorstore/util/iterate_over_index_range.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 /// Support for ApplyMembers protocols
 #include "tensorstore/internal/context_binding_vector.h"  // IWYU pragma: keep
@@ -212,10 +212,7 @@ template <typename Callback>
 absl::Status ForEachLayer(size_t num_layers, Callback&& callback) {
   for (size_t layer_i = 0; layer_i < num_layers; ++layer_i) {
     absl::Status status = callback(layer_i);
-    if (!status.ok()) {
-      return tensorstore::MaybeAnnotateStatus(
-          status, absl::StrFormat("Layer %d", layer_i));
-    }
+    TENSORSTORE_RETURN_IF_ERROR(status).Format("Layer %d", layer_i);
   }
   return absl::OkStatus();
 }
@@ -240,17 +237,16 @@ Result<std::vector<IndexDomain<>>> GetEffectiveDomainsForLayers(
         auto effective_domain,
         internal_stack::GetEffectiveDomain(layers[layer_i]));
     if (!effective_domain.valid()) {
-      return absl::InvalidArgumentError(
-          tensorstore::StrCat("Domain must be specified"));
+      return absl::InvalidArgumentError("Domain must be specified");
     }
     domains.emplace_back(std::move(effective_domain));
     // validate rank.
     if (layer_i == 0) {
       rank = domains.back().rank();
     } else if (domains.back().rank() != rank) {
-      return absl::InvalidArgumentError(tensorstore::StrCat(
-          "Layer domain ", domains.back(), " of rank ", domains.back().rank(),
-          " does not match layer 0 rank of ", rank));
+      return absl::InvalidArgumentError(absl::StrFormat(
+          "Layer domain %v of rank %d does not match layer 0 rank of %d",
+          absl::FormatStreamed(domains.back()), domains.back().rank(), rank));
     }
     return absl::OkStatus();
   });
@@ -364,15 +360,15 @@ absl::Status ApplyLayerOptions(tensorstore::span<Layer> layers, Schema& schema,
     return absl::InvalidArgumentError(
         "chunk layout option not supported by \"stack\" driver");
   }
-  return ForEachLayer(layers.size(), [&](size_t layer_i) {
+  return ForEachLayer(layers.size(), [&](size_t layer_i) -> absl::Status {
     auto& layer = layers[layer_i];
     if constexpr (std::is_same_v<Layer, StackLayer>) {
       if (layer.is_open()) {
         if (options.open_mode != OpenMode{} &&
             !(options.open_mode & OpenMode::open)) {
-          return absl::InvalidArgumentError(tensorstore::StrCat(
-              "Open mode of ", options.open_mode,
-              " is not compatible with already-open layer"));
+          return absl::InvalidArgumentError(absl::StrFormat(
+              "Open mode of %v is not compatible with already-open layer",
+              options.open_mode));
         }
         if (options.recheck_cached_data.specified() ||
             options.recheck_cached_metadata.specified()) {
@@ -415,13 +411,13 @@ class StackDriverSpec
   };
 
   absl::Status InitializeLayerRankAndDtype() {
-    return ForEachLayer(layers.size(), [&](size_t layer_i) {
+    return ForEachLayer(layers.size(), [&](size_t layer_i) -> absl::Status {
       auto& layer = layers[layer_i];
       DimensionIndex layer_rank = internal::GetRank(layer);
       if (schema.rank() != dynamic_rank && layer_rank != schema.rank()) {
-        return absl::InvalidArgumentError(tensorstore::StrCat(
-            "Rank of ", layer_rank, " does not match existing rank of ",
-            schema.rank()));
+        return absl::InvalidArgumentError(
+            absl::StrFormat("Rank of %d does not match existing rank of %d",
+                            layer_rank, schema.rank()));
       }
       schema.Set(RankConstraint{layer_rank}).IgnoreError();
       TENSORSTORE_RETURN_IF_ERROR(
@@ -434,7 +430,7 @@ class StackDriverSpec
       jb::Member(DataCopyConcurrencyResource::id,
                  jb::Projection<&StackDriverSpec::data_copy_concurrency>()),
       jb::Member("layers", jb::Projection<&StackDriverSpec::layers>()),
-      jb::Initialize([](auto* obj) {
+      jb::Initialize([](auto* obj) -> absl::Status {
         TENSORSTORE_RETURN_IF_ERROR(obj->InitializeLayerRankAndDtype());
         SpecOptions base_options;
         static_cast<Schema&>(base_options) = std::exchange(obj->schema, {});
@@ -600,7 +596,8 @@ absl::Status StackDriver::InitializeGridIndices(
   IterateOverIndexRange<>(
       grid_.shape(), [this](tensorstore::span<const Index> key) {
         if (auto it = grid_to_layer_.find(key); it == grid_to_layer_.end()) {
-          ABSL_LOG(INFO) << "\"stack\" driver missing grid cell: " << key;
+          ABSL_LOG(INFO) << "\"stack\" driver missing grid cell: "
+                         << GenericStringify(key);
         }
       });
 #endif
@@ -700,12 +697,9 @@ struct AfterOpenOp {
   }
 
   void operator()(Promise<void>, ReadyFuture<internal::Driver::Handle> f) {
-    absl::Status status = ComposeAndDispatch(std::move(f));
-    if (!status.ok()) {
-      state->SetError(MaybeAnnotateStatus(
-          std::move(status),
-          absl::StrFormat("While opening layer %d", layer_id)));
-    }
+    TENSORSTORE_RETURN_IF_ERROR(ComposeAndDispatch(std::move(f)))
+        .Format("While opening layer %d", layer_id)
+        .With([&](absl::Status status) { state->SetError(std::move(status)); });
   }
 };
 
@@ -746,9 +740,8 @@ struct OpenLayerOp {
             TENSORSTORE_RETURN_IF_ERROR(
                 ComposeAndDispatchOperation(
                     *state, layer.GetDriverHandle(state->request.transaction),
-                    iterator.cell_transform()),
-                tensorstore::MaybeAnnotateStatus(
-                    _, absl::StrFormat("Layer %d", layer_i)));
+                    iterator.cell_transform()))
+                .Format("Layer %d", layer_i);
           } else {
             layers_to_load[it->second].emplace_back(iterator.cell_transform());
           }
@@ -756,9 +749,9 @@ struct OpenLayerOp {
           // This cell is not backed by a layer, so report an error.
           auto origin =
               self->grid_.cell_origin(iterator.output_grid_cell_indices());
-          return absl::InvalidArgumentError(tensorstore::StrCat(
-              "Cell with origin=", tensorstore::span(origin),
-              " missing layer mapping in \"stack\" driver"));
+          return absl::InvalidArgumentError(absl::StrFormat(
+              "Cell with origin=%v missing layer mapping in \"stack\" driver",
+              GenericStringify(origin)));
         }
         iterator.Advance();
       }
@@ -875,58 +868,59 @@ Result<internal::ReadWritePtr<StackDriver>> MakeDriverFromLayerSpecs(
   Transaction common_transaction{no_transaction};
   ReadWriteMode common_read_write_mode = ReadWriteMode::dynamic;
   DimensionIndex common_rank = dynamic_rank;
-  auto status = ForEachLayer(layer_specs.size(), [&](size_t layer_i) {
-    auto& layer = driver->layers_[layer_i];
-    const auto& layer_spec = layer_specs[layer_i];
-    const auto& layer_transaction =
-        layer_spec.is_open() ? layer_spec.transaction : transaction;
-    if (layer_i == 0) {
-      common_transaction = layer_transaction;
-    } else if (layer_transaction != common_transaction) {
-      return absl::InvalidArgumentError("Transaction mismatch");
-    }
-    layer.transform = layer_spec.transform;
-    layer.driver_spec = layer_spec.driver_spec;
-    layer.driver = layer_spec.driver;
-    DataType layer_dtype;
-    if (layer_spec.is_open()) {
-      common_read_write_mode |= layer_spec.driver.read_write_mode();
-      layer_dtype = layer_spec.driver->dtype();
-    } else {
-      common_read_write_mode = ReadWriteMode::read_write;
-      TENSORSTORE_RETURN_IF_ERROR(
-          DriverSpecBindContext(layer.driver_spec, context));
-      layer_dtype = layer_spec.driver_spec->schema.dtype();
-      if (!layer.transform.valid()) {
-        TENSORSTORE_ASSIGN_OR_RETURN(
-            auto domain,
-            internal::GetEffectiveDomain(layer.GetTransformedDriverSpec()));
-        if (!domain.valid()) {
-          return absl::InvalidArgumentError(
-              tensorstore::StrCat("Domain must be specified"));
+  auto status =
+      ForEachLayer(layer_specs.size(), [&](size_t layer_i) -> absl::Status {
+        auto& layer = driver->layers_[layer_i];
+        const auto& layer_spec = layer_specs[layer_i];
+        const auto& layer_transaction =
+            layer_spec.is_open() ? layer_spec.transaction : transaction;
+        if (layer_i == 0) {
+          common_transaction = layer_transaction;
+        } else if (layer_transaction != common_transaction) {
+          return absl::InvalidArgumentError("Transaction mismatch");
         }
-        layer.transform = IdentityTransform(domain);
-      }
-    }
-    if (layer_dtype.valid()) {
-      if (!dtype.valid()) {
-        dtype = layer_dtype;
-      } else if (dtype != layer_dtype) {
-        return absl::InvalidArgumentError(
-            tensorstore::StrCat("Layer dtype of ", layer_dtype,
-                                " does not match existing dtype of ", dtype));
-      }
-    }
-    DimensionIndex layer_rank = layer.transform.input_rank();
-    if (common_rank == dynamic_rank) {
-      common_rank = layer_rank;
-    } else if (common_rank != layer_rank) {
-      return absl::InvalidArgumentError(tensorstore::StrCat(
-          "Layer domain ", layer.transform.domain(), " of rank ", layer_rank,
-          " does not match layer 0 rank of ", common_rank));
-    }
-    return absl::OkStatus();
-  });
+        layer.transform = layer_spec.transform;
+        layer.driver_spec = layer_spec.driver_spec;
+        layer.driver = layer_spec.driver;
+        DataType layer_dtype;
+        if (layer_spec.is_open()) {
+          common_read_write_mode |= layer_spec.driver.read_write_mode();
+          layer_dtype = layer_spec.driver->dtype();
+        } else {
+          common_read_write_mode = ReadWriteMode::read_write;
+          TENSORSTORE_RETURN_IF_ERROR(
+              DriverSpecBindContext(layer.driver_spec, context));
+          layer_dtype = layer_spec.driver_spec->schema.dtype();
+          if (!layer.transform.valid()) {
+            TENSORSTORE_ASSIGN_OR_RETURN(
+                auto domain,
+                internal::GetEffectiveDomain(layer.GetTransformedDriverSpec()));
+            if (!domain.valid()) {
+              return absl::InvalidArgumentError("Domain must be specified");
+            }
+            layer.transform = IdentityTransform(domain);
+          }
+        }
+        if (layer_dtype.valid()) {
+          if (!dtype.valid()) {
+            dtype = layer_dtype;
+          } else if (dtype != layer_dtype) {
+            return absl::InvalidArgumentError(absl::StrFormat(
+                "Layer dtype of %v does not match existing dtype of %v",
+                layer_dtype, dtype));
+          }
+        }
+        DimensionIndex layer_rank = layer.transform.input_rank();
+        if (common_rank == dynamic_rank) {
+          common_rank = layer_rank;
+        } else if (common_rank != layer_rank) {
+          return absl::InvalidArgumentError(absl::StrFormat(
+              "Layer domain %v of rank %d does not match layer 0 rank of %d",
+              absl::FormatStreamed(layer.transform.domain()), layer_rank,
+              common_rank));
+        }
+        return absl::OkStatus();
+      });
   if (!status.ok()) return status;
 
   if (common_read_write_mode == ReadWriteMode::dynamic) {
@@ -1001,7 +995,7 @@ Result<internal::DriverHandle> Stack(
                                    layer_specs, options, orig_rank));
   if (orig_rank == kMaxRank) {
     return absl::InvalidArgumentError(
-        tensorstore::StrCat("stack would exceed maximum rank of ", kMaxRank));
+        absl::StrFormat("stack would exceed maximum rank of %d", kMaxRank));
   }
   const DimensionIndex new_rank = orig_rank + 1;
   TENSORSTORE_RETURN_IF_ERROR(options.Set(RankConstraint{new_rank}));
@@ -1048,14 +1042,13 @@ Result<internal::DriverHandle> Concat(
     }
     if (auto status = ForEachLayer(
             driver->layers_.size(),
-            [&](size_t layer_i) {
+            [&](size_t layer_i) -> absl::Status {
               auto layer_labels =
                   driver->layers_[layer_i].transform.domain().labels();
               for (DimensionIndex i = 0; i < rank; ++i) {
                 TENSORSTORE_ASSIGN_OR_RETURN(
                     labels[i], MergeDimensionLabels(labels[i], layer_labels[i]),
-                    tensorstore::MaybeAnnotateStatus(
-                        _, absl::StrFormat("Mismatch in dimension %d", i)));
+                    _.Format("Mismatch in dimension %d", i));
               }
               return absl::OkStatus();
             });

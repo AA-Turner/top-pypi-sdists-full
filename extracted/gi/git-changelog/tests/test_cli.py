@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import os
+import re
 import sys
 from textwrap import dedent
 from typing import TYPE_CHECKING, Any
@@ -17,6 +18,7 @@ import tomli_w
 
 from git_changelog import DEFAULT_SETTINGS, get_version, main, parse_settings, read_config
 from git_changelog._internal import debug
+from git_changelog._internal.cli import _DEFAULT_DEBIAN_VERSION_REGEX
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -33,7 +35,7 @@ else:
 
     @contextmanager
     def chdir(path: str) -> Iterator[None]:
-        old_wd = os.getcwd()
+        old_wd = os.getcwd()  # noqa: PTH109
         os.chdir(path)
         try:
             yield
@@ -361,3 +363,32 @@ def test_include_all_config_option(tmp_path: Path) -> None:
         )
         settings = read_config()
         assert settings["include_all"] is False
+
+
+@pytest.mark.parametrize(
+    ("line", "version"),
+    [
+        ("minarca-server (4.2.0~dev) UNRELEASED; urgency=medium", None),
+        ("minarca-server (4.2.0~dev) stable; urgency=medium", "4.2.0"),
+        ("minarca-server (4.2.0) stable; urgency=medium", "4.2.0"),
+        ("minarca-server (4.2.0-1) stable; urgency=medium", "4.2.0"),
+        ("minarca-server (4.2.0+dfsg-1) stable; urgency=medium", "4.2.0"),
+        ("minarca-server (4.2.0-alpha1-1) stable; urgency=medium", "4.2.0-alpha1"),
+        ("minarca-server (1:4.2.0-1) stable; urgency=medium", "4.2.0"),
+    ],
+)
+def test_debian_version_regex(line: str, version: str) -> None:
+    """Test that the Debian version regex matches the expected version string."""
+    pattern = re.compile(_DEFAULT_DEBIAN_VERSION_REGEX)
+    m = pattern.match(line)
+    if version is None:
+        assert m is None
+    else:
+        assert m is not None
+        assert m.group("version") == version
+
+
+def test_outputting_release_notes() -> None:
+    """Test that the CLI option to output release notes works as expected."""
+    # We make sure that default loaded settings are valid.
+    assert main(["--release-notes"]) == 0

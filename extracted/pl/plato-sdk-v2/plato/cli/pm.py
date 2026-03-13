@@ -162,6 +162,60 @@ def validate_status_transition(current_status: str, expected_status: str, comman
         raise typer.Exit(1)
 
 
+def _extract_review_comment_texts(review: dict) -> list[str]:
+    """Extract comment text from a review, supporting both sim_comments and legacy comments."""
+    sim_comments = review.get("sim_comments")
+    if isinstance(sim_comments, list):
+        comments = []
+        for item in sim_comments:
+            if not isinstance(item, dict):
+                continue
+            comment_text = (item.get("comment") or "").strip()
+            if comment_text:
+                comments.append(comment_text)
+        return comments
+
+    legacy_comments = (review.get("comments") or "").strip()
+    return [legacy_comments] if legacy_comments else []
+
+
+def _get_latest_rejected_data_review_comments(reviews: list[dict]) -> list[str]:
+    """Get the latest rejected data-review comments."""
+    rejected_data_reviews = [
+        review
+        for review in reviews
+        if isinstance(review, dict) and review.get("review_type") == "data" and review.get("outcome") == "reject"
+    ]
+    rejected_data_reviews.sort(key=lambda review: review.get("timestamp_iso", ""), reverse=True)
+    if not rejected_data_reviews:
+        return []
+
+    return _extract_review_comment_texts(rejected_data_reviews[0])
+
+
+def _build_datagen_review_prompt(simulator_name: str, comments: list[str], base_prompt: str) -> str:
+    """Wrap the base datagen prompt with reviewer feedback, matching the review extension."""
+    comment_lines = "\n".join(f"  {i + 1}. {comment}" for i, comment in enumerate(comments))
+
+    return (
+        f"This is a REVIEW FOLLOW-UP for {simulator_name}. The application was previously populated with data, "
+        "but a reviewer found issues that need to be fixed.\n\n"
+        "== REVIEW COMMENTS (all must be addressed) ==\n\n"
+        f"{comment_lines or '  (No specific comments)'}\n\n"
+        "== YOUR TASK ==\n\n"
+        "1. First, screenshot every major section of the app to see the current state.\n"
+        "2. Address EVERY review comment above - add missing data, fix issues, fill gaps.\n"
+        "3. After fixing, do a FULL pass through the entire UI:\n"
+        "   - Every section should have realistic, diverse data\n"
+        "   - Every column in list views should be populated (no blank columns)\n"
+        "   - Dropdown/enum fields should use the full range of values\n"
+        "   - All data should look like a real business has been using this app\n"
+        "4. Screenshot each section after your changes to verify.\n\n"
+        "== ORIGINAL DATA GENERATION INSTRUCTIONS ==\n\n"
+        f"{base_prompt}"
+    )
+
+
 # =============================================================================
 # LIST COMMANDS
 # =============================================================================
@@ -418,7 +472,7 @@ async def _launch_env_world(
     """Launch a structured world (fresh or resume) after env reject. Returns session_id or None.
 
     action_inputs: Pre-collected inputs from the caller. For fresh: {"github_url": "..."}.
-                   For resume: {"resume_session": "..."}.
+                   For resume: {"resume_from": "..."}.
     """
     datagen_api_key = DEFAULT_DATAGEN_API_KEY
     world_package = DEFAULT_WORLD_PACKAGE_STRUCTURED
@@ -449,7 +503,7 @@ async def _launch_env_world(
                 console.print("[red]Simulator has no base_artifact_id. Cannot launch resume.[/red]")
                 return None
 
-            resume_session = inputs.get("resume_session", "")
+            resume_from = inputs.get("resume_from", "")
 
             template = _load_template("env-fix-launch.json")
             config = template["world"]["config"]
@@ -460,7 +514,7 @@ async def _launch_env_world(
             config["anthropic_api_key"] = DEFAULT_ANTHROPIC_KEY
             config["skill_runner"]["config"]["plato_api_key"] = datagen_api_key
             config["skill_runner"]["config"]["anthropic_api_key"] = DEFAULT_ANTHROPIC_KEY
-            config["state"]["resume_session"] = resume_session
+            config["state"]["resume_from"] = resume_from
             template["world"]["package"] = world_package
             template["tags"].append(simulator_name)
 
@@ -481,6 +535,7 @@ async def _launch_datagen_world(
     artifact_id: str,
     api_key: str,
     iterations: int = 2,
+    review_comments: list[str] | None = None,
 ) -> str | None:
     """Launch an interactive datagen world. Returns session_id or None."""
     datagen_api_key = DEFAULT_DATAGEN_API_KEY
@@ -528,6 +583,9 @@ async def _launch_datagen_world(
         # Update iterations
         msg = config["initial_messages"][0]
         msg["iterations"] = iterations
+        if review_comments is not None:
+            base_prompt = msg["message"]
+            msg["message"] = _build_datagen_review_prompt(simulator_name, review_comments, base_prompt)
         prompt = msg["message"]
         msg["continuation_prompt"] = (
             f"Continue working on the task below. Review what you've done so far, then pick up where you left off.\n\n---\n\n{prompt}"
@@ -602,8 +660,8 @@ def start_env(
                 # For resume, find the last simcreator session
                 if resume:
                     last = _get_last_chronos_session(tags=["simcreator", sim_name], api_key=api_key)
-                    entry["resume_session"] = last["public_id"] if last else ""
-                    if not entry["resume_session"]:
+                    entry["resume_from"] = last["public_id"] if last else ""
+                    if not entry["resume_from"]:
                         console.print(
                             f"[yellow]⚠️  {sim_name}: no previous simcreator session found, will start fresh[/yellow]"
                         )
@@ -619,7 +677,7 @@ def start_env(
         mode = "resume" if resume else "fresh"
         console.print(f"\n[bold]Will launch simcreator ({mode}) for {len(to_launch)} simulator(s):[/bold]")
         for s in to_launch:
-            extra = f"resume={s.get('resume_session', '')[:12]}" if resume else s["github_url"]
+            extra = f"resume={s.get('resume_from', '')[:12]}" if resume else s["github_url"]
             console.print(f"  {s['name']} ({s['status']}) — {extra}")
 
         if not typer.confirm("\nProceed?", default=True):
@@ -645,7 +703,7 @@ def start_env(
                 config["skill_runner"]["config"]["plato_api_key"] = datagen_api_key
                 config["skill_runner"]["config"]["anthropic_api_key"] = DEFAULT_ANTHROPIC_KEY
                 if resume:
-                    config["state"]["resume_session"] = s.get("resume_session", "")
+                    config["state"]["resume_from"] = s.get("resume_from", "")
                 template["world"]["package"] = world_package
                 template["tags"].append(s["name"])
 
@@ -660,7 +718,12 @@ def start_env(
 @start_app.command(name="data")
 def start_data(
     simulators: list[str] = typer.Argument(..., help="Simulator name(s)"),
-    resume: bool = typer.Option(False, "--resume", "-r", help="Resume datagen from review comments instead of fresh"),
+    resume: bool = typer.Option(
+        False,
+        "--resume",
+        "-r",
+        help="Rerun datagen from the current data artifact using the latest rejected data review comments",
+    ),
     iterations: int = typer.Option(2, "--iterations", "-i", help="Datagen iterations"),
 ):
     """Start datagen (data pipeline) for one or more simulators.
@@ -671,7 +734,7 @@ def start_data(
     Examples:
         plato pm start data aureus memos
         plato pm start data aureus -i 3
-        plato pm start data aureus -r    # resume with review comments
+        plato pm start data aureus -r    # rerun from current data_artifact_id with latest reject comments
     """
     api_key = require_api_key()
 
@@ -690,10 +753,18 @@ def start_data(
                     )
                 current_config = sim.config or {}
                 status = current_config.get("status", "not_started")
-                artifact_id = current_config.get("base_artifact_id", "")
+                base_artifact_id = current_config.get("base_artifact_id", "")
+                data_artifact_id = current_config.get("data_artifact_id", "")
+                artifact_id = data_artifact_id if resume and data_artifact_id else base_artifact_id
+
+                if resume and (not data_artifact_id) and base_artifact_id:
+                    console.print(
+                        f"[yellow]⚠️  {sim_name}: no data_artifact_id, falling back to base_artifact_id for resume[/yellow]"
+                    )
 
                 if not artifact_id:
-                    console.print(f"[yellow]⚠️  {sim_name}: no base_artifact_id, skipping[/yellow]")
+                    missing_field = "data_artifact_id/base_artifact_id" if resume else "base_artifact_id"
+                    console.print(f"[yellow]⚠️  {sim_name}: no {missing_field}, skipping[/yellow]")
                     continue
 
                 to_launch.append(
@@ -704,8 +775,20 @@ def start_data(
                         "artifact_id": artifact_id,
                         "data_assignees": current_config.get("data_assignees"),
                         "data_review_assignees": current_config.get("data_review_assignees"),
+                        "review_comments": None,
                     }
                 )
+
+                if resume:
+                    reviews = current_config.get("reviews") or []
+                    latest_reject_comments = _get_latest_rejected_data_review_comments(reviews)
+
+                    if latest_reject_comments:
+                        to_launch[-1]["review_comments"] = latest_reject_comments
+                    else:
+                        console.print(
+                            f"[yellow]⚠️  {sim_name}: no rejected data review found, will launch with the base datagen prompt[/yellow]"
+                        )
             except Exception as e:
                 console.print(f"[red]❌ {sim_name}: {e}[/red]")
 
@@ -713,12 +796,17 @@ def start_data(
             console.print("[yellow]Nothing to launch.[/yellow]")
             return
 
-        mode = "resume" if resume else "fresh"
+        mode = "rerun" if resume else "fresh"
         console.print(
             f"\n[bold]Will launch datagen ({mode}, {iterations} iterations) for {len(to_launch)} simulator(s):[/bold]"
         )
         for s in to_launch:
-            console.print(f"  {s['name']} ({s['status']}) — artifact {s['artifact_id'][:8]}...")
+            extra = f"artifact {s['artifact_id'][:8]}..."
+            if resume:
+                comments = s.get("review_comments")
+                if comments is not None:
+                    extra += f", review_comments={len(comments)}"
+            console.print(f"  {s['name']} ({s['status']}) — {extra}")
 
         if not typer.confirm("\nProceed?", default=True):
             console.print("[yellow]Cancelled.[/yellow]")
@@ -755,6 +843,7 @@ def start_data(
                     artifact_id=s["artifact_id"],
                     api_key=api_key,
                     iterations=iterations,
+                    review_comments=s.get("review_comments") if resume else None,
                 )
                 if launched:
                     console.print(f"[green]✅ {s['name']}:[/green] {launched}")
@@ -1288,12 +1377,12 @@ def review_env(
                         created = last_session.get("created_at", "")[:16].replace("T", " ")
                         console.print(f"[cyan]Last simcreator session:[/cyan] {sid} ({status}, {created})")
                         default_resume = sid
-                    resume_session = typer.prompt(
+                    resume_from = typer.prompt(
                         "Resume session (enter for above, 'none' for fresh)", default=default_resume
                     ).strip()
-                    if resume_session.lower() == "none":
-                        resume_session = ""
-                    reject_action_inputs["resume_session"] = resume_session
+                    if resume_from.lower() == "none":
+                        resume_from = ""
+                    reject_action_inputs["resume_from"] = resume_from
 
             # --- All inputs collected. Confirm before submitting. ---
 
@@ -1308,7 +1397,7 @@ def review_env(
                 if reject_action == "fresh":
                     action_desc += f" ({reject_action_inputs.get('github_url', '')})"
                 elif reject_action == "resume":
-                    rs = reject_action_inputs.get("resume_session", "")
+                    rs = reject_action_inputs.get("resume_from", "")
                     action_desc += f" ({rs[:12]}...)" if rs else " (fresh state)"
                 console.print(f"  World: {action_desc}")
             if pass_start_datagen:
@@ -1641,10 +1730,12 @@ def review_data(
 
             # Reset environment (non-fatal — browser should still open)
             console.print("[cyan]Resetting environment...[/cyan]")
+            reset_error = None
             try:
                 await env.reset()
                 console.print("[green]✅ Environment reset complete![/green]")
             except Exception as e:
+                reset_error = e
                 console.print(f"[yellow]⚠️  Reset failed: {e}[/yellow]")
                 console.print("[yellow]   Continuing without reset...[/yellow]")
 
@@ -1717,28 +1808,32 @@ def review_data(
 
             # Check state after login to verify no mutations
             console.print("\n[cyan]Checking environment state after login...[/cyan]")
-            try:
-                state_data = await env.get_state(merge_mutations=True)
-                console.print(f"\n[bold cyan]Environment {env.id}:[/bold cyan]")
+            if reset_error is not None:
+                console.print("[yellow]⚠️  Skipping state check because reset did not complete successfully.[/yellow]")
+                console.print(f"[yellow]   Reset failure: {reset_error}[/yellow]")
+            else:
+                try:
+                    state_data = await env.get_state(merge_mutations=True)
+                    console.print(f"\n[bold cyan]Environment {env.id}:[/bold cyan]")
 
-                if isinstance(state_data, dict):
-                    if state_data.get("error"):
-                        console.print("\n[bold red]❌ State API Error:[/bold red]")
-                        console.print(f"[red]{state_data['error']}[/red]")
-                        console.print("[yellow]The worker may not be properly connected.[/yellow]")
-                    else:
-                        mutations = state_data.pop("mutations", [])
-                        console.print("\n[bold]State:[/bold]")
-                        console.print(json.dumps(state_data, indent=2, default=str))
-                        if mutations:
-                            console.print(f"\n[bold red]⚠️  Mutations ({len(mutations)}):[/bold red]")
-                            console.print(json.dumps(mutations, indent=2, default=str))
+                    if isinstance(state_data, dict):
+                        if state_data.get("error"):
+                            console.print("\n[bold red]❌ State API Error:[/bold red]")
+                            console.print(f"[red]{state_data['error']}[/red]")
+                            console.print("[yellow]The worker may not be properly connected.[/yellow]")
                         else:
-                            console.print("\n[green]No mutations recorded[/green]")
-                else:
-                    console.print(f"[yellow]Unexpected state format: {type(state_data)}[/yellow]")
-            except Exception as e:
-                console.print(f"[red]❌ Error getting state: {e}[/red]")
+                            mutations = state_data.pop("mutations", [])
+                            console.print("\n[bold]State:[/bold]")
+                            console.print(json.dumps(state_data, indent=2, default=str))
+                            if mutations:
+                                console.print(f"\n[bold red]⚠️  Mutations ({len(mutations)}):[/bold red]")
+                                console.print(json.dumps(mutations, indent=2, default=str))
+                            else:
+                                console.print("\n[green]No mutations recorded[/green]")
+                    else:
+                        console.print(f"[yellow]Unexpected state format: {type(state_data)}[/yellow]")
+                except Exception as e:
+                    console.print(f"[red]❌ Error getting state: {e}[/red]")
 
             # Use options page to set API key
             if extension_id:

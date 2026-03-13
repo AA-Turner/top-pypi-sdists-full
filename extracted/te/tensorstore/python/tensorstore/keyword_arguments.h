@@ -56,12 +56,12 @@
 #include <string_view>
 
 #include "absl/strings/ascii.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/str_split.h"
 #include "python/tensorstore/status.h"
 #include "python/tensorstore/type_name_override.h"  // IWYU pragma: keep
-#include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
+#include "tensorstore/util/status_builder.h"
 
 namespace tensorstore {
 namespace internal_python {
@@ -101,11 +101,11 @@ using KeywordArgument = KeywordArgumentPlaceholder<typename ParamDef::type>;
 /// Appends the documentation for a single keyword argument.
 template <typename ParamDef>
 void AppendKeywordArgumentDoc(std::string& doc) {
-  tensorstore::StrAppend(&doc, "  ", ParamDef::name, ": ");
+  absl::StrAppend(&doc, "  ", ParamDef::name, ": ");
   std::string_view delim = "";
   for (std::string_view line :
        absl::StrSplit(absl::StripAsciiWhitespace(ParamDef::doc), '\n')) {
-    tensorstore::StrAppend(&doc, delim, line, "\n");
+    absl::StrAppend(&doc, delim, line, "\n");
     delim = "    ";
   }
 }
@@ -167,8 +167,8 @@ void SetKeywordArgumentOrThrow(Target& target, KeywordArgument<ParamDef>& arg) {
       target,
       pybind11::detail::cast_op<typename ParamDef::type&&>(std::move(caster)));
   if (!status.ok()) {
-    ThrowStatusException(MaybeAnnotateStatus(
-        status, absl::StrFormat("Invalid %s", ParamDef::name)));
+    ThrowStatusException(
+        StatusBuilder(std::move(status)).Format("Invalid %s", ParamDef::name));
   }
 }
 

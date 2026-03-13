@@ -3,5 +3,5 @@
 import typing
 
 SarvamModelIds = typing.Union[
-    typing.Literal["sarvam-m", "gemma-4b", "gemma-12b", "sarvam-30b", "sarvam-100b"], typing.Any
+    typing.Literal["sarvam-m", "sarvam-30b", "sarvam-30b-16k", "sarvam-105b", "sarvam-105b-32k"], typing.Any
 ]

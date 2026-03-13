@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import codecs
+
 from collections import OrderedDict
 from io import StringIO
 from typing import TYPE_CHECKING, Callable
@@ -10,20 +12,22 @@ if TYPE_CHECKING:
     from xml.etree.ElementTree import Element
 
 from refinery.lib.frame import Chunk
-from refinery.lib.structures import MemoryFile, StructReader
+from refinery.lib.ole.file import OleFile
+from refinery.lib.structures import StructReader
 from refinery.units.formats import Unit
 from refinery.units.formats.archive.xtzip import xtzip
 
 
 class doctxt(Unit):
     """
-    Extracts the text body from Word documents.
+    Extracts the text body from Word documents. Handles both legacy .doc (OLE) and modern .docx
+    (OOXML) Microsoft Word file formats.
     """
-
-    @Unit.Requires('olefile', ['formats', 'office', 'extended'])
-    def _olefile():
-        import olefile
-        return olefile
+    @classmethod
+    def handles(cls, data) -> bool | None:
+        from refinery.lib.id import is_likely_doc
+        if is_likely_doc(data):
+            return True
 
     def process(self, data: bytearray):
         extractors: dict[str, Callable[[bytearray], str]] = OrderedDict(
@@ -104,8 +108,7 @@ class doctxt(Unit):
             raise ValueError('found no text')
 
     def _extract_ole(self, data: bytearray) -> str:
-        stream = MemoryFile(data)
-        with self._olefile.OleFileIO(stream) as ole:
+        with OleFile(data) as ole:
             doc = ole.openstream('WordDocument').read()
             with StructReader(doc) as reader:
                 table_name = F'{(doc[11] >> 1) & 1}Table'
@@ -149,5 +152,5 @@ class doctxt(Unit):
                         encoding = 'utf16'
                         cb *= 2
                     raw = doc[fc : fc + cb]
-                    text.write(raw.decode(encoding).replace('\r', '\n'))
+                    text.write(codecs.decode(raw, encoding).replace('\r', '\n'))
             return text.getvalue()

@@ -27,7 +27,7 @@ namespace internal_testing {
 void RegisterGoogleTestCaseDynamically(
     std::string test_suite_name, std::string test_name,
     std::function<void()> test_func,
-    SourceLocation loc = tensorstore::SourceLocation::current());
+    SourceLocation loc = SourceLocation::current());
 
 }  // namespace internal_testing
 }  // namespace tensorstore

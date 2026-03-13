@@ -18,12 +18,12 @@ class SpeechToTextTranscriptionData(UniversalBaseModel):
     Transcript of the provided speech in original language
     """
 
-    timestamps: typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]] = pydantic.Field(default=None)
+    timestamps: typing.Optional[typing.Dict[str, typing.Any]] = pydantic.Field(default=None)
     """
     Timestamp information (if available)
     """
 
-    diarized_transcript: typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]] = pydantic.Field(default=None)
+    diarized_transcript: typing.Optional[typing.Dict[str, typing.Any]] = pydantic.Field(default=None)
     """
     Diarized transcript of the provided speech
     """

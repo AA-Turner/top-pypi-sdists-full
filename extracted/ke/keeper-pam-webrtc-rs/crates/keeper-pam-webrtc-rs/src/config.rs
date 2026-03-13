@@ -174,14 +174,14 @@ pub fn peer_connection_close_timeout() -> Duration {
 ///
 /// **Default**: 2 seconds
 ///
-/// **Rationale**: After signaling channels to shut down, we must wait for channel.run() tasks
-/// to exit gracefully and release their buffers. Channel tasks check shutdown notification
-/// every 500ms (READ_CANCELLATION_CHECK_INTERVAL), so 2s provides 4 check cycles.
-/// This prevents memory leaks when connections are created/closed rapidly.
+/// **Rationale**: Channel tasks typically complete quickly when guacd disconnect is sent first
+/// (backend and to_webrtc exit within ~200ms). The tube also exits early when all data channels
+/// are closed (e.g. client closed after receiving CloseConnection), avoiding most of this wait.
+/// 2s covers slow networks; use env override for high-load or slow-teardown scenarios.
 ///
 /// **Tuning**:
-/// - Fast networks: 1-1.5s (faster cleanup)
-/// - Slow networks or high load: 3-4s (more buffer release time)
+/// - Fast AI-close flow: early exit when data channels closed (typical)
+/// - Slow networks or high load: 4-6s via env
 ///
 /// **Env**: `KEEPER_GATEWAY_CHANNEL_TASK_COMPLETION_TIMEOUT_SECS`
 pub fn channel_task_completion_timeout() -> Duration {

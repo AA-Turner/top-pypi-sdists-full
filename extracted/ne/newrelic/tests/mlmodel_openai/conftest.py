@@ -193,9 +193,11 @@ def wrap_httpx_client_send(extract_shortened_prompt):
 
         headers = dict(
             filter(
-                lambda k: k[0].lower() in RECORDED_HEADERS
-                or k[0].lower().startswith("openai")
-                or k[0].lower().startswith("x-ratelimit"),
+                lambda k: (
+                    k[0].lower() in RECORDED_HEADERS
+                    or k[0].lower().startswith("openai")
+                    or k[0].lower().startswith("x-ratelimit")
+                ),
                 rheaders.items(),
             )
         )
@@ -217,9 +219,11 @@ def wrap_openai_api_requestor_interpret_response():
         rbody, rcode, rheaders = bind_request_interpret_response_params(*args, **kwargs)
         headers = dict(
             filter(
-                lambda k: k[0].lower() in RECORDED_HEADERS
-                or k[0].lower().startswith("openai")
-                or k[0].lower().startswith("x-ratelimit"),
+                lambda k: (
+                    k[0].lower() in RECORDED_HEADERS
+                    or k[0].lower().startswith("openai")
+                    or k[0].lower().startswith("x-ratelimit")
+                ),
                 rheaders.items(),
             )
         )
@@ -251,9 +255,11 @@ def wrap_openai_api_requestor_request(extract_shortened_prompt):
             headers = result[0]._headers
             headers = dict(
                 filter(
-                    lambda k: k[0].lower() in RECORDED_HEADERS
-                    or k[0].lower().startswith("openai")
-                    or k[0].lower().startswith("x-ratelimit"),
+                    lambda k: (
+                        k[0].lower() in RECORDED_HEADERS
+                        or k[0].lower().startswith("openai")
+                        or k[0].lower().startswith("x-ratelimit")
+                    ),
                     headers.items(),
                 )
             )
@@ -274,8 +280,8 @@ def bind_request_interpret_response_params(result, stream):
 
 
 @pytest.fixture(scope="session")
-def generator_proxy(openai_version):
-    class GeneratorProxy(ObjectProxy):
+def audit_log_generator_proxy(openai_version):
+    class LLMStreamAuditLogProxy(ObjectProxy):
         def __init__(self, wrapped):
             super().__init__(wrapped)
 
@@ -302,9 +308,11 @@ def generator_proxy(openai_version):
                     if openai_version < (1, 0):
                         headers = dict(
                             filter(
-                                lambda k: k[0].lower() in RECORDED_HEADERS
-                                or k[0].lower().startswith("openai")
-                                or k[0].lower().startswith("x-ratelimit"),
+                                lambda k: (
+                                    k[0].lower() in RECORDED_HEADERS
+                                    or k[0].lower().startswith("openai")
+                                    or k[0].lower().startswith("x-ratelimit")
+                                ),
                                 return_val._nr_response_headers.items(),
                             )
                         )
@@ -320,11 +328,11 @@ def generator_proxy(openai_version):
         def close(self):
             return self.__wrapped__.close()
 
-    return GeneratorProxy
+    return LLMStreamAuditLogProxy
 
 
 @pytest.fixture(scope="session")
-def wrap_engine_api_resource_create(generator_proxy):
+def wrap_engine_api_resource_create(audit_log_generator_proxy):
     def _wrap_engine_api_resource_create(wrapped, instance, args, kwargs):
         transaction = current_transaction()
 
@@ -337,7 +345,7 @@ def wrap_engine_api_resource_create(generator_proxy):
         return_val = wrapped(*args, **kwargs)
 
         if stream:
-            return generator_proxy(return_val)
+            return audit_log_generator_proxy(return_val)
         else:
             return return_val
 
@@ -345,7 +353,7 @@ def wrap_engine_api_resource_create(generator_proxy):
 
 
 @pytest.fixture(scope="session")
-def wrap_stream_iter_events(generator_proxy):
+def wrap_stream_iter_events(audit_log_generator_proxy):
     def _wrap_stream_iter_events(wrapped, instance, args, kwargs):
         transaction = current_transaction()
 
@@ -353,7 +361,7 @@ def wrap_stream_iter_events(generator_proxy):
             return wrapped(*args, **kwargs)
 
         return_val = wrapped(*args, **kwargs)
-        proxied_return_val = generator_proxy(return_val)
+        proxied_return_val = audit_log_generator_proxy(return_val)
         return proxied_return_val
 
     return _wrap_stream_iter_events

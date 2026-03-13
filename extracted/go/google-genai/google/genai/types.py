@@ -5568,7 +5568,6 @@ class GenerateContentConfig(_common.BaseModel):
         - `application/json`: JSON response in the candidates.
       The model needs to be prompted to output the appropriate response type,
       otherwise the behavior is undefined.
-      This is a preview feature.
       """,
   )
   response_schema: Optional[SchemaUnion] = Field(
@@ -5801,7 +5800,6 @@ class GenerateContentConfigDict(TypedDict, total=False):
         - `application/json`: JSON response in the candidates.
       The model needs to be prompted to output the appropriate response type,
       otherwise the behavior is undefined.
-      This is a preview feature.
       """
 
   response_schema: Optional[SchemaUnionDict]
@@ -11454,6 +11452,9 @@ class EvaluationConfig(_common.BaseModel):
   autorater_config: Optional[AutoraterConfig] = Field(
       default=None, description="""Autorater config for evaluation."""
   )
+  inference_generation_config: Optional[GenerationConfig] = Field(
+      default=None, description="""Generation config for inference."""
+  )
 
 
 class EvaluationConfigDict(TypedDict, total=False):
@@ -11467,6 +11468,9 @@ class EvaluationConfigDict(TypedDict, total=False):
 
   autorater_config: Optional[AutoraterConfigDict]
   """Autorater config for evaluation."""
+
+  inference_generation_config: Optional[GenerationConfigDict]
+  """Generation config for inference."""
 
 
 EvaluationConfigOrDict = Union[EvaluationConfig, EvaluationConfigDict]
@@ -17990,13 +17994,19 @@ ContextWindowCompressionConfigOrDict = Union[
 class AudioTranscriptionConfig(_common.BaseModel):
   """The audio transcription configuration in Setup."""
 
-  pass
+  language_codes: Optional[list[str]] = Field(
+      default=None,
+      description="""The language codes of the audio. BCP-47 language code. If not set, the transcription will be in the language detected by the model. If set, the server will use the language code specified in the model config as a hint for the language of the audio
+      """,
+  )
 
 
 class AudioTranscriptionConfigDict(TypedDict, total=False):
   """The audio transcription configuration in Setup."""
 
-  pass
+  language_codes: Optional[list[str]]
+  """The language codes of the audio. BCP-47 language code. If not set, the transcription will be in the language detected by the model. If set, the server will use the language code specified in the model config as a hint for the language of the audio
+      """
 
 
 AudioTranscriptionConfigOrDict = Union[
@@ -18025,6 +18035,33 @@ class ProactivityConfigDict(TypedDict, total=False):
 
 
 ProactivityConfigOrDict = Union[ProactivityConfig, ProactivityConfigDict]
+
+
+class HistoryConfig(_common.BaseModel):
+  """Configuration for history exchange between client and server."""
+
+  initial_history_in_client_content: Optional[bool] = Field(
+      default=None,
+      description="""If true, after sending `setup_complete`, the server will wait
+      and at first process `client_content` messages until `turn_complete` is
+      `true`. This initial history will not trigger a model call and
+      may end with model content. After `turn_complete` is `true`, the client
+      can start the realtime conversation via `realtime_input`.""",
+  )
+
+
+class HistoryConfigDict(TypedDict, total=False):
+  """Configuration for history exchange between client and server."""
+
+  initial_history_in_client_content: Optional[bool]
+  """If true, after sending `setup_complete`, the server will wait
+      and at first process `client_content` messages until `turn_complete` is
+      `true`. This initial history will not trigger a model call and
+      may end with model content. After `turn_complete` is `true`, the client
+      can start the realtime conversation via `realtime_input`."""
+
+
+HistoryConfigOrDict = Union[HistoryConfig, HistoryConfigDict]
 
 
 class AutomaticActivityDetection(_common.BaseModel):
@@ -18174,6 +18211,10 @@ class LiveClientSetup(_common.BaseModel):
       description="""Configures the proactivity of the model. This allows the model to respond proactively to
     the input and to ignore irrelevant input.""",
   )
+  history_config: Optional[HistoryConfig] = Field(
+      default=None,
+      description="""Configures the exchange of history between the client and the server.""",
+  )
   explicit_vad_signal: Optional[bool] = Field(
       default=None,
       description="""Configures the explicit VAD signal. If enabled, the client will send
@@ -18230,6 +18271,9 @@ class LiveClientSetupDict(TypedDict, total=False):
   proactivity: Optional[ProactivityConfigDict]
   """Configures the proactivity of the model. This allows the model to respond proactively to
     the input and to ignore irrelevant input."""
+
+  history_config: Optional[HistoryConfigDict]
+  """Configures the exchange of history between the client and the server."""
 
   explicit_vad_signal: Optional[bool]
   """Configures the explicit VAD signal. If enabled, the client will send
@@ -18720,6 +18764,10 @@ If included the server will send SessionResumptionUpdate messages.""",
       description="""Configures the proactivity of the model. This allows the model to respond proactively to
     the input and to ignore irrelevant input.""",
   )
+  history_config: Optional[HistoryConfig] = Field(
+      default=None,
+      description="""Configures the exchange of history between the client and the server.""",
+  )
   explicit_vad_signal: Optional[bool] = Field(
       default=None,
       description="""Configures the explicit VAD signal. If enabled, the client will send
@@ -18827,6 +18875,9 @@ If included the server will send SessionResumptionUpdate messages."""
   proactivity: Optional[ProactivityConfigDict]
   """Configures the proactivity of the model. This allows the model to respond proactively to
     the input and to ignore irrelevant input."""
+
+  history_config: Optional[HistoryConfigDict]
+  """Configures the exchange of history between the client and the server."""
 
   explicit_vad_signal: Optional[bool]
   """Configures the explicit VAD signal. If enabled, the client will send

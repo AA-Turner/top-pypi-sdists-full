@@ -17,12 +17,12 @@ class SpeechToTextTranscriptionDataParams(typing_extensions.TypedDict):
     Transcript of the provided speech in original language
     """
 
-    timestamps: typing_extensions.NotRequired[typing.Dict[str, typing.Optional[typing.Any]]]
+    timestamps: typing_extensions.NotRequired[typing.Dict[str, typing.Any]]
     """
     Timestamp information (if available)
     """
 
-    diarized_transcript: typing_extensions.NotRequired[typing.Dict[str, typing.Optional[typing.Any]]]
+    diarized_transcript: typing_extensions.NotRequired[typing.Dict[str, typing.Any]]
     """
     Diarized transcript of the provided speech
     """

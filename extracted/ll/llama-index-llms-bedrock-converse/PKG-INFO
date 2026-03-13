@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: llama-index-llms-bedrock-converse
-Version: 0.13.0
+Version: 0.14.0
 Summary: llama-index llms bedrock converse integration
 Author-email: Your Name <you@example.com>
 License-Expression: MIT
 License-File: LICENSE
-Requires-Python: <4.0,>=3.9
+Requires-Python: <4.0,>=3.10
 Requires-Dist: aioboto3<16,>=15.0.0
 Requires-Dist: boto3<2,>=1.38.27
 Requires-Dist: llama-index-core<0.15,>=0.14.5

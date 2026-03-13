@@ -55,7 +55,6 @@
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal {
@@ -308,7 +307,7 @@ TENSORSTORE_DEFINE_JSON_BINDER(
                                : static_cast<DimensionIndex>(
                                      obj.driver_spec->schema.rank());
                   },
-                  [](const auto& obj, DimensionIndex rank) {
+                  [](const auto& obj, DimensionIndex rank) -> absl::Status {
                     if (rank != dynamic_rank) {
                       if (obj.transform.valid()) {
                         if (obj.transform.input_rank() != rank) {

@@ -53,6 +53,7 @@
 #include "tensorstore/util/iterate.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
+#include "tensorstore/util/status_builder.h"
 
 namespace tensorstore {
 namespace {
@@ -136,7 +137,7 @@ struct ImplicitArrayBinderImpl {
                           ::nlohmann::json* j) const {
     return jb::OptionalArray(
         [this](const auto& obj) { return std::invoke(values_ptr, obj).size(); },
-        [this](auto& obj, size_t size) {
+        [this](auto& obj, size_t size) -> absl::Status {
           TENSORSTORE_RETURN_IF_ERROR(ValidateRank(size));
           auto&& rank = std::invoke(rank_ptr, obj);
           if (rank == dynamic_rank) {
@@ -565,8 +566,8 @@ Result<TransformRep::Ptr<>> ParseIndexTransformFromJson(
   }();
 
   if (result) return result;
-  return MaybeAnnotateStatus(result.status(),
-                             "Error parsing index transform from JSON");
+  return StatusBuilder(std::move(result).status())
+      .Format("Error parsing index transform from JSON");
 }
 
 Result<TransformRep::Ptr<>> ParseIndexDomainFromJson(
@@ -580,8 +581,8 @@ Result<TransformRep::Ptr<>> ParseIndexDomainFromJson(
   }();
 
   if (result) return result;
-  return MaybeAnnotateStatus(result.status(),
-                             "Error parsing index domain from JSON");
+  return StatusBuilder(std::move(result).status())
+      .Format("Error parsing index domain from JSON");
 }
 
 }  // namespace internal_index_space
@@ -590,7 +591,8 @@ namespace internal_json_binding {
 
 TENSORSTORE_DEFINE_JSON_BINDER(
     ConstrainedRankJsonBinder,
-    [](auto is_loading, const auto& options, auto* obj, auto* j) {
+    [](auto is_loading, const auto& options, auto* obj,
+       auto* j) -> absl::Status {
       if constexpr (is_loading) {
         if (j->is_discarded()) {
           *obj = options.rank().rank;

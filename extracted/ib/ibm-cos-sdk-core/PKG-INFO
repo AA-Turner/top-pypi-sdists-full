@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: ibm-cos-sdk-core
-Version: 2.16.0
+Version: 2.16.1
 Summary: Low-level, data-driven core of IBM SDK for Python
 Home-page: https://github.com/ibm/ibm-cos-sdk-python-core
 Author: IBM

@@ -40,6 +40,39 @@ class PrimitiveCaster:
         return value
 
 
+class AnyCaster(PrimitiveCaster):
+    def cast(self, value: Any) -> Any:
+        if "allOf" in self.schema:
+            for subschema in self.schema / "allOf":
+                try:
+                    # Note: Mutates `value` iteratively. This sequentially
+                    # resolves standard overlapping types but can cause edge cases
+                    # if a string is casted to an int and passed to a string schema.
+                    value = self.schema_caster.evolve(subschema).cast(value)
+                except (ValueError, TypeError, CastError):
+                    pass
+
+        if "oneOf" in self.schema:
+            for subschema in self.schema / "oneOf":
+                try:
+                    # Note: Greedy resolution. Will return the first successful
+                    # cast based on the order of the oneOf array.
+                    return self.schema_caster.evolve(subschema).cast(value)
+                except (ValueError, TypeError, CastError):
+                    pass
+
+        if "anyOf" in self.schema:
+            for subschema in self.schema / "anyOf":
+                try:
+                    # Note: Greedy resolution. Will return the first successful
+                    # cast based on the order of the anyOf array.
+                    return self.schema_caster.evolve(subschema).cast(value)
+                except (ValueError, TypeError, CastError):
+                    pass
+
+        return value
+
+
 PrimitiveType = TypeVar("PrimitiveType")
 
 
@@ -132,9 +165,7 @@ class ObjectCaster(PrimitiveCaster):
         if schema_only:
             return value
 
-        additional_properties = self.schema.getkey(
-            "additionalProperties", True
-        )
+        additional_properties = self.schema.get("additionalProperties", True)
         if additional_properties is not False:
             # free-form object
             if additional_properties is True:
@@ -199,11 +230,12 @@ class SchemaCaster:
 
     def cast(self, value: Any) -> Any:
         # skip casting for nullable in OpenAPI 3.0
-        if value is None and self.schema.getkey("nullable", False):
+        if value is None and (self.schema / "nullable").read_bool(
+            default=False
+        ):
             return value
 
-        schema_type = self.schema.getkey("type")
-
+        schema_type = (self.schema / "type").read_str(None)
         type_caster = self.get_type_caster(schema_type)
 
         if value is None:
@@ -211,8 +243,8 @@ class SchemaCaster:
 
         try:
             return type_caster(value)
-        except (ValueError, TypeError):
-            raise CastError(value, schema_type)
+        except (ValueError, TypeError) as exc:
+            raise CastError(value, schema_type) from exc
 
     def get_type_caster(
         self,

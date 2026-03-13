@@ -28,6 +28,8 @@ class UpdateKafkaTriggerJsonBody:
         is_flow (bool): True if script_path points to a flow, false if it points to a script
         auto_offset_reset (Union[Unset, UpdateKafkaTriggerJsonBodyAutoOffsetReset]): Initial offset behavior when
             consumer group has no committed offset. Default: UpdateKafkaTriggerJsonBodyAutoOffsetReset.LATEST.
+        auto_commit (Union[Unset, bool]): When true (default), offsets are committed automatically after receiving each
+            message. When false, you must manually commit offsets using the commit_offsets endpoint. Default: True.
         error_handler_path (Union[Unset, str]): Path to a script or flow to run when the triggered job fails
         error_handler_args (Union[Unset, UpdateKafkaTriggerJsonBodyErrorHandlerArgs]): The arguments to pass to the
             script or flow
@@ -48,6 +50,7 @@ class UpdateKafkaTriggerJsonBody:
     auto_offset_reset: Union[
         Unset, UpdateKafkaTriggerJsonBodyAutoOffsetReset
     ] = UpdateKafkaTriggerJsonBodyAutoOffsetReset.LATEST
+    auto_commit: Union[Unset, bool] = True
     error_handler_path: Union[Unset, str] = UNSET
     error_handler_args: Union[Unset, "UpdateKafkaTriggerJsonBodyErrorHandlerArgs"] = UNSET
     retry: Union[Unset, "UpdateKafkaTriggerJsonBodyRetry"] = UNSET
@@ -73,6 +76,7 @@ class UpdateKafkaTriggerJsonBody:
         if not isinstance(self.auto_offset_reset, Unset):
             auto_offset_reset = self.auto_offset_reset.value
 
+        auto_commit = self.auto_commit
         error_handler_path = self.error_handler_path
         error_handler_args: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.error_handler_args, Unset):
@@ -100,6 +104,8 @@ class UpdateKafkaTriggerJsonBody:
         )
         if auto_offset_reset is not UNSET:
             field_dict["auto_offset_reset"] = auto_offset_reset
+        if auto_commit is not UNSET:
+            field_dict["auto_commit"] = auto_commit
         if error_handler_path is not UNSET:
             field_dict["error_handler_path"] = error_handler_path
         if error_handler_args is not UNSET:
@@ -148,6 +154,8 @@ class UpdateKafkaTriggerJsonBody:
         else:
             auto_offset_reset = UpdateKafkaTriggerJsonBodyAutoOffsetReset(_auto_offset_reset)
 
+        auto_commit = d.pop("auto_commit", UNSET)
+
         error_handler_path = d.pop("error_handler_path", UNSET)
 
         _error_handler_args = d.pop("error_handler_args", UNSET)
@@ -177,6 +185,7 @@ class UpdateKafkaTriggerJsonBody:
             script_path=script_path,
             is_flow=is_flow,
             auto_offset_reset=auto_offset_reset,
+            auto_commit=auto_commit,
             error_handler_path=error_handler_path,
             error_handler_args=error_handler_args,
             retry=retry,

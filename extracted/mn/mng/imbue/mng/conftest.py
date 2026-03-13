@@ -6,7 +6,6 @@ from datetime import datetime
 from datetime import timezone
 from pathlib import Path
 from typing import Generator
-from typing import cast
 from uuid import uuid4
 
 import docker
@@ -32,8 +31,6 @@ from imbue.mng.primitives import ProviderInstanceName
 from imbue.mng.primitives import UserId
 from imbue.mng.providers.docker.testing import remove_docker_container_and_volume
 from imbue.mng.providers.docker.volume import LABEL_PROVIDER
-from imbue.mng.providers.docker.volume import STATE_CONTAINER_TYPE_LABEL
-from imbue.mng.providers.docker.volume import STATE_CONTAINER_TYPE_VALUE
 from imbue.mng.providers.local.instance import LocalProviderInstance
 from imbue.mng.providers.modal.backend import ModalProviderBackend
 from imbue.mng.providers.registry import load_local_backend_only
@@ -137,7 +134,7 @@ def mng_test_root_name(mng_test_id: str) -> str:
     Format: mng-test-{test_id}
 
     This ensures tests don't load the project's .mng/settings.toml config,
-    which might have settings like add_command that would interfere with tests.
+    which might have settings like extra_window that would interfere with tests.
     """
     return f"mng-test-{mng_test_id}"
 
@@ -486,7 +483,7 @@ def local_host(local_provider: LocalProviderInstance) -> Host:
     (the concrete OnlineHostInterface implementation).
     """
     host = local_provider.create_host(HostName("localhost"))
-    return cast(Host, host)
+    return host
 
 
 _REPO_ROOT = Path(__file__).resolve().parents[4]
@@ -632,10 +629,10 @@ def _kill_tmux_sessions(sessions: list[str]) -> None:
         cleanup_tmux_session(session)
 
 
-def _is_xdist_worker_process(proc: psutil.Process) -> bool:
+def _is_xdist_worker_process(process: psutil.Process) -> bool:
     """Check if a process is a pytest-xdist worker process."""
     try:
-        cmdline = proc.cmdline()
+        cmdline = process.cmdline()
         cmdline_str = " ".join(cmdline)
         # xdist workers are python processes running pytest with gw* identifiers
         return "pytest" in cmdline_str.lower() and "gw" in cmdline_str
@@ -643,19 +640,19 @@ def _is_xdist_worker_process(proc: psutil.Process) -> bool:
         return False
 
 
-def _format_process_info(proc: psutil.Process) -> str:
+def _format_process_info(process: psutil.Process) -> str:
     """Format process information for error messages."""
     try:
-        cmdline = proc.cmdline()[:5]
-        return f"  PID {proc.pid}: {proc.name()} - {' '.join(cmdline)}"
+        cmdline = process.cmdline()[:5]
+        return f"  PID {process.pid}: {process.name()} - {' '.join(cmdline)}"
     except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-        return f"  PID {proc.pid}: <process info unavailable>"
+        return f"  PID {process.pid}: <process info unavailable>"
 
 
-def _is_alive_non_zombie(proc: psutil.Process) -> bool:
+def _is_alive_non_zombie(process: psutil.Process) -> bool:
     """Check if a process is alive and not a zombie."""
     try:
-        return proc.is_running() and proc.status() != psutil.STATUS_ZOMBIE
+        return process.is_running() and process.status() != psutil.STATUS_ZOMBIE
     except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
         return False
 
@@ -839,14 +836,15 @@ def _delete_modal_environments(environment_names: list[str]) -> None:
             pass
 
 
-def _get_stale_docker_state_containers(max_age_seconds: int = 3600) -> list[tuple[str, str]]:
-    """Get Docker state containers from tests that are older than max_age_seconds.
+def _get_stale_docker_test_containers(max_age_seconds: int = 3600) -> list[tuple[str, str]]:
+    """Get Docker containers from tests that are older than max_age_seconds.
 
-    Returns a list of (container_id, container_name) tuples for state containers
-    that appear to originate from tests and are older than the threshold.
-    This catches containers leaked by crashed or interrupted test runs.
+    Returns a list of (container_id, container_name) tuples for containers
+    (both state containers and host containers) that appear to originate
+    from tests and are older than the threshold.  This catches containers
+    leaked by crashed or interrupted test runs.
 
-    A state container is considered test-originated if any of:
+    A container is considered test-originated if any of:
     - Its provider label starts with "docker-test-" (from make_docker_provider_with_cleanup), or
     - Its name starts with "mng_test-" (from generate_test_environment_name), or
     - Its name contains a test prefix pattern (mng_ followed by a hex UUID, as
@@ -858,12 +856,11 @@ def _get_stale_docker_state_containers(max_age_seconds: int = 3600) -> list[tupl
         return []
 
     try:
+        # Find ALL containers with LABEL_PROVIDER set (both state and host containers).
         containers = client.containers.list(
             all=True,
             filters={
-                "label": [
-                    f"{STATE_CONTAINER_TYPE_LABEL}={STATE_CONTAINER_TYPE_VALUE}",
-                ]
+                "label": [LABEL_PROVIDER],
             },
         )
     except docker.errors.DockerException:
@@ -878,7 +875,7 @@ def _get_stale_docker_state_containers(max_age_seconds: int = 3600) -> list[tupl
         provider_name = labels.get(LABEL_PROVIDER, "")
         container_name = container.name or ""
 
-        # Identify test-originated state containers by either:
+        # Identify test-originated containers by either:
         # 1. Provider label starting with "docker-test-" (SDK-based tests)
         # 2. Container name starting with "mng_" followed by a hex UUID
         #    (subprocess tests that use the autouse mng_test_prefix fixture)
@@ -966,7 +963,8 @@ def session_cleanup() -> Generator[None, None, None]:
     3. Leftover Modal apps created by this worker's tests
     4. Leftover Modal volumes created by this worker's tests
     5. Leftover Modal environments created by this worker's tests
-    6. Stale Docker state containers from tests (older than 1 hour)
+    6. Stale Docker containers from tests (older than 1 hour), including
+       both state containers and host containers
 
     If any leaked resources are found:
     - An error is raised to fail the test suite (except for stale Docker
@@ -1054,16 +1052,16 @@ def session_cleanup() -> Generator[None, None, None]:
             "Tests should delete their Modal environments before completing.\n" + "\n".join(env_info)
         )
 
-    # 6. Check for stale Docker state containers from tests (older than 1 hour).
-    # These are containers that were leaked by crashed or interrupted test runs.
-    # We don't fail the test suite for these (they may be from other sessions),
-    # but we do clean them up.
-    stale_docker_containers = _get_stale_docker_state_containers(max_age_seconds=3600)
+    # 6. Check for stale Docker containers from tests (older than 1 hour).
+    # This catches both state containers and host containers that were leaked
+    # by crashed or interrupted test runs.  We don't fail the test suite for
+    # these (they may be from other sessions), but we do clean them up.
+    stale_docker_containers = _get_stale_docker_test_containers(max_age_seconds=3600)
 
     # 7. Clean up leaked resources (last-ditch safety measure)
-    for proc in leftover_processes:
+    for process in leftover_processes:
         try:
-            proc.kill()
+            process.kill()
         except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
             pass
 

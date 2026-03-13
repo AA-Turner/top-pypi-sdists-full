@@ -3,41 +3,49 @@
 import datetime as dt
 import typing
 
-from ..core.datetime_utils import serialize_datetime
+import pydantic
+import typing_extensions
+from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from ..core.serialization import FieldMetadata
+from .site_activity_log_item_event import SiteActivityLogItemEvent
 from .site_activity_log_item_resource_operation import SiteActivityLogItemResourceOperation
 from .site_activity_log_item_user import SiteActivityLogItemUser
 
-try:
-    import pydantic.v1 as pydantic  # type: ignore
-except ImportError:
-    import pydantic  # type: ignore
 
-
-class SiteActivityLogItem(pydantic.BaseModel):
+class SiteActivityLogItem(UniversalBaseModel):
     id: typing.Optional[str] = None
-    created_on: typing.Optional[dt.datetime] = pydantic.Field(alias="createdOn", default=None)
-    last_updated: typing.Optional[dt.datetime] = pydantic.Field(alias="lastUpdated", default=None)
-    event: typing.Optional[str] = None
-    resource_operation: typing.Optional[SiteActivityLogItemResourceOperation] = pydantic.Field(
-        alias="resourceOperation", default=None
-    )
+    created_on: typing_extensions.Annotated[
+        typing.Optional[dt.datetime], FieldMetadata(alias="createdOn"), pydantic.Field(alias="createdOn")
+    ] = None
+    last_updated: typing_extensions.Annotated[
+        typing.Optional[dt.datetime], FieldMetadata(alias="lastUpdated"), pydantic.Field(alias="lastUpdated")
+    ] = None
+    event: typing.Optional[SiteActivityLogItemEvent] = None
+    resource_operation: typing_extensions.Annotated[
+        typing.Optional[SiteActivityLogItemResourceOperation],
+        FieldMetadata(alias="resourceOperation"),
+        pydantic.Field(alias="resourceOperation"),
+    ] = None
     user: typing.Optional[SiteActivityLogItemUser] = None
-    resource_id: typing.Optional[str] = pydantic.Field(alias="resourceId", default=None)
-    resource_name: typing.Optional[str] = pydantic.Field(alias="resourceName", default=None)
-    new_value: typing.Optional[str] = pydantic.Field(alias="newValue", default=None)
-    previous_value: typing.Optional[str] = pydantic.Field(alias="previousValue", default=None)
+    resource_id: typing_extensions.Annotated[
+        typing.Optional[str], FieldMetadata(alias="resourceId"), pydantic.Field(alias="resourceId")
+    ] = None
+    resource_name: typing_extensions.Annotated[
+        typing.Optional[str], FieldMetadata(alias="resourceName"), pydantic.Field(alias="resourceName")
+    ] = None
+    new_value: typing_extensions.Annotated[
+        typing.Optional[str], FieldMetadata(alias="newValue"), pydantic.Field(alias="newValue")
+    ] = None
+    previous_value: typing_extensions.Annotated[
+        typing.Optional[str], FieldMetadata(alias="previousValue"), pydantic.Field(alias="previousValue")
+    ] = None
     payload: typing.Optional[typing.Dict[str, typing.Any]] = None
 
-    def json(self, **kwargs: typing.Any) -> str:
-        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
-        return super().json(**kwargs_with_defaults)
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2
+    else:
 
-    def dict(self, **kwargs: typing.Any) -> typing.Dict[str, typing.Any]:
-        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
-        return super().dict(**kwargs_with_defaults)
-
-    class Config:
-        frozen = True
-        smart_union = True
-        allow_population_by_field_name = True
-        json_encoders = {dt.datetime: serialize_datetime}
+        class Config:
+            frozen = True
+            smart_union = True
+            extra = pydantic.Extra.allow

@@ -79,7 +79,6 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_zarr3 {
@@ -112,8 +111,8 @@ std::string GetSupportedDataTypes() {
 
 absl::Status ValidateDataType(DataType dtype) {
   if (!absl::c_linear_search(kSupportedDataTypes, dtype.id())) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        dtype, " data type is not one of the supported data types: ",
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "%v data type is not one of the supported data types: %s", dtype,
         GetSupportedDataTypes()));
   }
   return absl::OkStatus();
@@ -317,9 +316,10 @@ constexpr auto UnknownExtensionAttributesJsonBinder =
             continue;
           }
         }
-        return absl::InvalidArgumentError(tensorstore::StrCat(
-            "Unsupported metadata field ", tensorstore::QuoteString(key),
-            " is not marked {\"must_understand\": false}"));
+        return absl::InvalidArgumentError(
+            absl::StrFormat("Unsupported metadata field %v is not marked "
+                            "{\"must_understand\": false}",
+                            QuoteString(key)));
       }
       return absl::OkStatus();
     });
@@ -541,8 +541,8 @@ absl::Status ValidateMetadata(const ZarrMetadata& metadata,
   if (constraints.codec_specs) {
     ZarrCodecChainSpec codecs_copy = metadata.codec_specs;
     TENSORSTORE_RETURN_IF_ERROR(
-        codecs_copy.MergeFrom(*constraints.codec_specs, /*strict=*/true),
-        tensorstore::MaybeAnnotateStatus(_, "Mismatch in \"codecs\""));
+        codecs_copy.MergeFrom(*constraints.codec_specs, /*strict=*/true))
+        .Format("Mismatch in \"codecs\"");
   }
   if (constraints.dimension_names &&
       *constraints.dimension_names != metadata.dimension_names) {
@@ -552,8 +552,8 @@ absl::Status ValidateMetadata(const ZarrMetadata& metadata,
   }
   TENSORSTORE_RETURN_IF_ERROR(
       internal::ValidateMetadataSubset(constraints.user_attributes,
-                                       metadata.user_attributes),
-      tensorstore::MaybeAnnotateStatus(_, "Mismatch in \"attributes\""));
+                                       metadata.user_attributes))
+      .Format("Mismatch in \"attributes\"");
   if (constraints.dimension_units) {
     for (DimensionIndex i = 0, rank = metadata.rank; i < rank; ++i) {
       const auto& constraint_unit = (*constraints.dimension_units)[i];
@@ -614,9 +614,8 @@ Result<IndexDomain<>> GetEffectiveDomain(
   TENSORSTORE_ASSIGN_OR_RETURN(auto domain_from_metadata, builder.Finalize());
   TENSORSTORE_ASSIGN_OR_RETURN(
       domain, MergeIndexDomains(domain, domain_from_metadata),
-      internal::ConvertInvalidArgumentToFailedPrecondition(
-          tensorstore::MaybeAnnotateStatus(
-              _, "Mismatch between metadata and schema")));
+      _.Format("Mismatch between metadata and schema")
+          .With(internal::ConvertInvalidArgumentToFailedPrecondition));
   return WithImplicitDimensions(domain, false, true);
 }
 
@@ -733,9 +732,10 @@ CodecSpec GetCodecFromMetadata(const ZarrMetadata& metadata) {
 absl::Status ValidateMetadataSchema(const ZarrMetadata& metadata,
                                     const Schema& schema) {
   if (!RankConstraint::EqualOrUnspecified(metadata.rank, schema.rank())) {
-    return absl::FailedPreconditionError(tensorstore::StrCat(
-        "Rank specified by schema (", schema.rank(),
-        ") does not match rank specified by metadata (", metadata.rank, ")"));
+    return absl::FailedPreconditionError(absl::StrFormat(
+        "Rank specified by schema (%v) does not match rank specified by "
+        "metadata (%v)",
+        schema.rank(), metadata.rank));
   }
 
   if (schema.domain().valid()) {
@@ -745,9 +745,9 @@ absl::Status ValidateMetadataSchema(const ZarrMetadata& metadata,
 
   if (auto dtype = schema.dtype();
       !IsPossiblySameDataType(metadata.data_type, dtype)) {
-    return absl::FailedPreconditionError(
-        tensorstore::StrCat("data_type from metadata (", metadata.data_type,
-                            ") does not match dtype in schema (", dtype, ")"));
+    return absl::FailedPreconditionError(absl::StrFormat(
+        "data_type from metadata (%v) does not match dtype in schema (%v)",
+        metadata.data_type, dtype));
   }
 
   if (schema.chunk_layout().rank() != dynamic_rank) {
@@ -774,30 +774,28 @@ absl::Status ValidateMetadataSchema(const ZarrMetadata& metadata,
       auto binder = FillValueJsonBinder{metadata.data_type};
       auto schema_json = jb::ToJson(converted_fill_value, binder).value();
       auto metadata_json = jb::ToJson(metadata.fill_value, binder).value();
-      return absl::FailedPreconditionError(tensorstore::StrCat(
-          "Invalid fill_value: schema requires fill value of ",
-          schema_json.dump(), ", but metadata specifies fill value of ",
-          metadata_json.dump()));
+      return absl::FailedPreconditionError(absl::StrFormat(
+          "Invalid fill_value: schema requires fill value of %s, but metadata "
+          "specifies fill value of %s",
+          schema_json.dump(), metadata_json.dump()));
     }
   }
 
   if (auto schema_codec = schema.codec(); schema_codec.valid()) {
     auto codec = GetCodecFromMetadata(metadata);
-    TENSORSTORE_RETURN_IF_ERROR(
-        codec.MergeFrom(schema_codec),
-        tensorstore::MaybeAnnotateStatus(
-            _, "codec from metadata does not match codec in schema"));
+    TENSORSTORE_RETURN_IF_ERROR(codec.MergeFrom(schema_codec))
+        .Format("codec from metadata does not match codec in schema");
   }
 
   if (auto schema_dimension_units = schema.dimension_units();
       schema_dimension_units.valid()) {
     TENSORSTORE_RETURN_IF_ERROR(
         GetEffectiveDimensionUnits(metadata.rank, metadata.dimension_units,
-                                   schema_dimension_units),
-        tensorstore::MaybeAnnotateStatus(
-            internal::ConvertInvalidArgumentToFailedPrecondition(_),
+                                   schema_dimension_units))
+        .Format(
             "dimension_units from metadata does not match dimension_units in "
-            "schema"));
+            "schema")
+        .With(internal::ConvertInvalidArgumentToFailedPrecondition);
   }
 
   return absl::OkStatus();
@@ -868,8 +866,7 @@ Result<std::shared_ptr<const ZarrMetadata>> GetNewMetadata(
       metadata->fill_value = std::move(converted_fill_value);
       return absl::OkStatus();
     }();
-    TENSORSTORE_RETURN_IF_ERROR(
-        status, tensorstore::MaybeAnnotateStatus(_, "Invalid fill_value"));
+    TENSORSTORE_RETURN_IF_ERROR(status).Format("Invalid fill_value");
   } else {
     metadata->fill_value = tensorstore::AllocateArray(
         /*shape=*/span<const Index>(), c_order, value_init,
@@ -885,7 +882,7 @@ Result<std::shared_ptr<const ZarrMetadata>> GetNewMetadata(
       auto dimension_units,
       GetEffectiveDimensionUnits(rank, metadata_constraints.dimension_units,
                                  schema.dimension_units()),
-      tensorstore::MaybeAnnotateStatus(_, "Invalid dimension_units"));
+      _.Format("Invalid dimension_units"));
   if (std::any_of(dimension_units.begin(), dimension_units.end(),
                   [](const auto& unit) { return unit.has_value(); })) {
     metadata->dimension_units = std::move(dimension_units);

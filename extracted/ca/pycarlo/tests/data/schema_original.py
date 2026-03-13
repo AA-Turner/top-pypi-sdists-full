@@ -1497,6 +1497,20 @@ class ConversationStatus(sgqlc.types.Enum):
     __choices__ = ("ERROR", "OK")
 
 
+class Criticality(sgqlc.types.Enum):
+    """Criticality assessment.
+
+    Enumeration Choices:
+
+    * `HIGH`None
+    * `LOW`None
+    * `MEDIUM`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("HIGH", "LOW", "MEDIUM")
+
+
 class CustomDashboardWidgetDataSourceType(sgqlc.types.Enum):
     """Enumeration Choices:
 
@@ -3178,6 +3192,18 @@ class FivetranConnectorUpdateStates(sgqlc.types.Enum):
 Float = sgqlc.types.Float
 
 
+class FrequencyType(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `DAILY`None
+    * `MONTHLY`None
+    * `WEEKLY`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("DAILY", "MONTHLY", "WEEKLY")
+
+
 class GenericScalar(sgqlc.types.Scalar):
     """The `GenericScalar` scalar type represents a generic GraphQL
     scalar value that could be: String, Boolean, Int, Float, List or
@@ -4166,6 +4192,17 @@ class MonitoredTableRuleType(sgqlc.types.Enum):
     )
 
 
+class MonthlyPosition(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `FIRST`None
+    * `LAST`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("FIRST", "LAST")
+
+
 class MutedEventType(sgqlc.types.Enum):
     """Enumeration Choices:
 
@@ -4539,6 +4576,16 @@ class PiiFilteringFailModeType(sgqlc.types.Enum):
 
     __schema__ = schema
     __choices__ = ("CLOSE", "OPEN")
+
+
+class PlatformAgentType(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `SNOWFLAKE`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("SNOWFLAKE",)
 
 
 class PlatformServiceSupportCode(sgqlc.types.Enum):
@@ -5126,6 +5173,17 @@ class ScheduleType(sgqlc.types.Enum):
 
     __schema__ = schema
     __choices__ = ("DYNAMIC", "FIXED", "LOOSE", "MANUAL")
+
+
+class ScheduledDashboardType(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `CUSTOM`None
+    * `OPS`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("CUSTOM", "OPS")
 
 
 class SearchCategoryEnum(sgqlc.types.Enum):
@@ -16243,6 +16301,16 @@ class AvailableFilterAggregatedValue(sgqlc.types.Type):
     """Count of the filter value"""
 
 
+class AvailablePlatformAgentData(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("name", "database_name", "schema_name")
+    name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
+
+    database_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="databaseName")
+
+    schema_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="schemaName")
+
+
 class AwsAgentInfraDetailsResult(sgqlc.types.Type):
     """Infrastructure information for an AWS Agent."""
 
@@ -17238,6 +17306,7 @@ class BillingMonitorUsage(sgqlc.types.Type):
         "freshness_rule_monitor_credits",
         "volume_rule_monitor_credits",
         "metric_comparison_monitor_credits",
+        "troubleshooting_agent_monitor_credits",
     )
     date = sgqlc.types.Field(Date, graphql_name="date")
     """The date for this data point"""
@@ -17280,6 +17349,11 @@ class BillingMonitorUsage(sgqlc.types.Type):
         Float, graphql_name="metricComparisonMonitorCredits"
     )
     """Credits used by metric comparison monitors"""
+
+    troubleshooting_agent_monitor_credits = sgqlc.types.Field(
+        Float, graphql_name="troubleshootingAgentMonitorCredits"
+    )
+    """Credits used by troubleshooting agent monitors"""
 
 
 class BillingMonitorUsageResults(sgqlc.types.Type):
@@ -19158,6 +19232,13 @@ class CreateCustomUser(sgqlc.types.Type):
     custom_user = sgqlc.types.Field("CustomUser", graphql_name="customUser")
 
 
+class CreateDashboardScheduleMutation(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("schedule",)
+    schedule = sgqlc.types.Field("DashboardScheduleType", graphql_name="schedule")
+    """The created dashboard schedule."""
+
+
 class CreateDataMaintenanceWindowFromHolidays(sgqlc.types.Type):
     """Create a data maintenance window for a set of holidays"""
 
@@ -19785,6 +19866,15 @@ class CreateOrUpdateMonteCarloConfigTemplateAsync(sgqlc.types.Type):
         "MonteCarloConfigTemplateUpdateAsyncResponse", graphql_name="response"
     )
     """Response"""
+
+
+class CreateOrUpdateNotebook(sgqlc.types.Type):
+    """Create or update a notebook"""
+
+    __schema__ = schema
+    __field_names__ = ("notebook",)
+    notebook = sgqlc.types.Field(sgqlc.types.non_null("Notebook"), graphql_name="notebook")
+    """The created/updated notebook"""
 
 
 class CreateOrUpdateNotificationSetting(sgqlc.types.Type):
@@ -20599,6 +20689,50 @@ class DailyUsage(sgqlc.types.Type):
     )
 
 
+class DashboardScheduleType(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = (
+        "id",
+        "frequency_type",
+        "hour",
+        "timezone",
+        "day_of_week",
+        "monthly_position",
+        "next_execution_time",
+        "subscribers",
+    )
+    id = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="id")
+    """UUID of the schedule."""
+
+    frequency_type = sgqlc.types.Field(
+        sgqlc.types.non_null(FrequencyType), graphql_name="frequencyType"
+    )
+    """Recurrence frequency."""
+
+    hour = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="hour")
+    """Hour of day (0–23) to deliver."""
+
+    timezone = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="timezone")
+    """IANA timezone, e.g. America/New_York."""
+
+    day_of_week = sgqlc.types.Field(Int, graphql_name="dayOfWeek")
+    """Day of week (0=Mon, 6=Sun). Set for WEEKLY/MONTHLY."""
+
+    monthly_position = sgqlc.types.Field(MonthlyPosition, graphql_name="monthlyPosition")
+    """FIRST or LAST occurrence of day_of_week in month. Set for MONTHLY."""
+
+    next_execution_time = sgqlc.types.Field(
+        sgqlc.types.non_null(DateTime), graphql_name="nextExecutionTime"
+    )
+    """UTC time of next scheduled delivery."""
+
+    subscribers = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("UserInfoOutput"))),
+        graphql_name="subscribers",
+    )
+    """Users subscribed to this schedule."""
+
+
 class DataAssetDashboard(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = (
@@ -21222,6 +21356,7 @@ class DataOperationsDashboardOutput(sgqlc.types.Type):
         "description",
         "created_time",
         "updated_time",
+        "schedules",
     )
     uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
     """UUID of the Data Operations Dashboard."""
@@ -21246,6 +21381,12 @@ class DataOperationsDashboardOutput(sgqlc.types.Type):
 
     updated_time = sgqlc.types.Field(DateTime, graphql_name="updatedTime")
     """When the dashboard's created."""
+
+    schedules = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(DashboardScheduleType))),
+        graphql_name="schedules",
+    )
+    """Recurring delivery schedules for this dashboard."""
 
 
 class DataPoint(sgqlc.types.Type):
@@ -22592,6 +22733,13 @@ class DeleteDashboard(sgqlc.types.Type):
     deleted = sgqlc.types.Field(Boolean, graphql_name="deleted")
 
 
+class DeleteDashboardScheduleMutation(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("success",)
+    success = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="success")
+    """True if the schedule was deleted."""
+
+
 class DeleteDataExplorerComparisonDashboardMutation(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("success",)
@@ -22814,6 +22962,15 @@ class DeleteNetworkAccessControl(sgqlc.types.Type):
     __field_names__ = ("deleted",)
     deleted = sgqlc.types.Field(Boolean, graphql_name="deleted")
     """Whether the IP allow list was deleted successfully"""
+
+
+class DeleteNotebook(sgqlc.types.Type):
+    """Delete a notebook"""
+
+    __schema__ = schema
+    __field_names__ = ("deleted",)
+    deleted = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="deleted")
+    """Whether the notebook was deleted"""
 
 
 class DeleteNotificationSetting(sgqlc.types.Type):
@@ -29788,6 +29945,9 @@ class Mutation(sgqlc.types.Type):
         "bulk_add_monitor_data_quality_dimension",
         "create_or_update_tag",
         "create_or_update_tag_assignments",
+        "create_dashboard_schedule",
+        "update_dashboard_schedule",
+        "delete_dashboard_schedule",
         "create_or_update_data_operations_dashboard",
         "delete_data_operations_dashboard",
         "create_or_update_agent_validation",
@@ -29858,6 +30018,8 @@ class Mutation(sgqlc.types.Type):
         "create_or_update_data_product_v2",
         "update_data_product_sharing",
         "toggle_data_product_monitoring",
+        "create_or_update_notebook",
+        "delete_notebook",
         "save_network_access_control",
         "delete_network_access_control",
         "link_ms_teams_installation",
@@ -31436,6 +31598,142 @@ class Mutation(sgqlc.types.Type):
     * `object_type` (`TagAssignmentObjectType`): Object type.
     * `tag_type` (`TagType!`): Tag Type.
     * `tag_uuids` (`[UUID]!`): UUIDs of tags to assign to the objects.
+    """
+
+    create_dashboard_schedule = sgqlc.types.Field(
+        CreateDashboardScheduleMutation,
+        graphql_name="createDashboardSchedule",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "dashboard_type",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(ScheduledDashboardType),
+                        graphql_name="dashboardType",
+                        default=None,
+                    ),
+                ),
+                (
+                    "dashboard_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="dashboardUuid", default=None
+                    ),
+                ),
+                ("day_of_week", sgqlc.types.Arg(Int, graphql_name="dayOfWeek", default=None)),
+                (
+                    "frequency_type",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(FrequencyType),
+                        graphql_name="frequencyType",
+                        default=None,
+                    ),
+                ),
+                (
+                    "hour",
+                    sgqlc.types.Arg(sgqlc.types.non_null(Int), graphql_name="hour", default=None),
+                ),
+                (
+                    "monthly_position",
+                    sgqlc.types.Arg(MonthlyPosition, graphql_name="monthlyPosition", default=None),
+                ),
+                (
+                    "subscriber_user_ids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+                        graphql_name="subscriberUserIds",
+                        default=None,
+                    ),
+                ),
+                (
+                    "timezone",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="timezone", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Create a recurring delivery schedule for a
+    dashboard.
+
+    Arguments:
+
+    * `dashboard_type` (`ScheduledDashboardType!`): Dashboard type.
+    * `dashboard_uuid` (`UUID!`): UUID of the dashboard to schedule.
+    * `day_of_week` (`Int`): Day of week (0=Mon, 6=Sun). Required for
+      WEEKLY and MONTHLY.
+    * `frequency_type` (`FrequencyType!`): Recurrence frequency.
+    * `hour` (`Int!`): Hour of day (0–23) to deliver.
+    * `monthly_position` (`MonthlyPosition`): FIRST or LAST occurrence
+      of day_of_week. Required for MONTHLY.
+    * `subscriber_user_ids` (`[String!]!`): IDs of users to subscribe.
+    * `timezone` (`String!`): IANA timezone, e.g. America/New_York.
+    """
+
+    update_dashboard_schedule = sgqlc.types.Field(
+        "UpdateDashboardScheduleMutation",
+        graphql_name="updateDashboardSchedule",
+        args=sgqlc.types.ArgDict(
+            (
+                ("day_of_week", sgqlc.types.Arg(Int, graphql_name="dayOfWeek", default=None)),
+                ("hour", sgqlc.types.Arg(Int, graphql_name="hour", default=None)),
+                (
+                    "monthly_position",
+                    sgqlc.types.Arg(MonthlyPosition, graphql_name="monthlyPosition", default=None),
+                ),
+                (
+                    "schedule_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="scheduleUuid", default=None
+                    ),
+                ),
+                (
+                    "subscriber_user_ids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="subscriberUserIds",
+                        default=None,
+                    ),
+                ),
+                ("timezone", sgqlc.types.Arg(String, graphql_name="timezone", default=None)),
+            )
+        ),
+    )
+    """(experimental) Update a recurring delivery schedule for a
+    dashboard.
+
+    Arguments:
+
+    * `day_of_week` (`Int`): Day of week (0=Mon, 6=Sun).
+    * `hour` (`Int`): Hour of day (0–23) to deliver.
+    * `monthly_position` (`MonthlyPosition`): FIRST or LAST occurrence
+      of day_of_week in month.
+    * `schedule_uuid` (`UUID!`): UUID of the schedule to update.
+    * `subscriber_user_ids` (`[String!]`): Replacement list of
+      subscriber user IDs.
+    * `timezone` (`String`): IANA timezone.
+    """
+
+    delete_dashboard_schedule = sgqlc.types.Field(
+        DeleteDashboardScheduleMutation,
+        graphql_name="deleteDashboardSchedule",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "schedule_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="scheduleUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Delete a recurring delivery schedule for a
+    dashboard.
+
+    Arguments:
+
+    * `schedule_uuid` (`UUID!`): UUID of the schedule to delete.
     """
 
     create_or_update_data_operations_dashboard = sgqlc.types.Field(
@@ -34071,6 +34369,56 @@ class Mutation(sgqlc.types.Type):
     * `enabled` (`Boolean!`): True of false to enable or disable
       automatic monitoring on all upstream tables
     * `uuid` (`UUID!`): UUID of data product to monitor
+    """
+
+    create_or_update_notebook = sgqlc.types.Field(
+        CreateOrUpdateNotebook,
+        graphql_name="createOrUpdateNotebook",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "definition",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(JSONString), graphql_name="definition", default=None
+                    ),
+                ),
+                (
+                    "name",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="name", default=None
+                    ),
+                ),
+                ("uuid", sgqlc.types.Arg(UUID, graphql_name="uuid", default=None)),
+            )
+        ),
+    )
+    """(experimental) Create or update a notebook
+
+    Arguments:
+
+    * `definition` (`JSONString!`): Notebook definition
+    * `name` (`String!`): Display title for the notebook
+    * `uuid` (`UUID`): UUID of existing notebook to update. Omit to
+      create new.
+    """
+
+    delete_notebook = sgqlc.types.Field(
+        DeleteNotebook,
+        graphql_name="deleteNotebook",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "uuid",
+                    sgqlc.types.Arg(sgqlc.types.non_null(UUID), graphql_name="uuid", default=None),
+                ),
+            )
+        ),
+    )
+    """(experimental) Delete a notebook
+
+    Arguments:
+
+    * `uuid` (`UUID!`): UUID of the notebook to delete
     """
 
     save_network_access_control = sgqlc.types.Field(
@@ -49601,6 +49949,27 @@ class NotMonitoredReason(sgqlc.types.Type):
     """The rule that caused the asset to be not monitored"""
 
 
+class Notebook(sgqlc.types.Type):
+    """A validation notebook."""
+
+    __schema__ = schema
+    __field_names__ = ("uuid", "name", "definition", "created_time", "updated_time")
+    uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
+    """Notebook UUID"""
+
+    name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
+    """Display title for the notebook"""
+
+    definition = sgqlc.types.Field(sgqlc.types.non_null(JSONString), graphql_name="definition")
+    """Notebook definition"""
+
+    created_time = sgqlc.types.Field(DateTime, graphql_name="createdTime")
+    """Creation timestamp"""
+
+    updated_time = sgqlc.types.Field(DateTime, graphql_name="updatedTime")
+    """Last update timestamp"""
+
+
 class NotificationAudience(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = (
@@ -51177,6 +51546,7 @@ class Query(sgqlc.types.Type):
         "get_agent_metadata",
         "get_agent_trace_tables",
         "get_platform_agents",
+        "get_available_platform_agents",
         "get_traces_filters",
         "get_traces_filters_data",
         "get_traces",
@@ -51280,6 +51650,8 @@ class Query(sgqlc.types.Type):
         "get_data_product_dry_run_counts",
         "parse_query",
         "ping_data_collector",
+        "get_notebook",
+        "get_notebooks",
         "get_network_access_control_lists",
         "get_ms_teams_integrations",
         "get_ms_teams_channels",
@@ -51601,6 +51973,9 @@ class Query(sgqlc.types.Type):
         "get_tsa_availability",
         "is_tsa_available_for_alert",
         "get_user_settings",
+        "get_use_cases",
+        "get_use_case_table_summary",
+        "get_use_case_tables",
         "get_shared_query",
         "favorite_assets",
         "is_favorite",
@@ -51941,6 +52316,38 @@ class Query(sgqlc.types.Type):
         graphql_name="getPlatformAgents",
     )
     """(experimental) Get all platform agents"""
+
+    get_available_platform_agents = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(AvailablePlatformAgentData))),
+        graphql_name="getAvailablePlatformAgents",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "platform_agent_type",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(PlatformAgentType),
+                        graphql_name="platformAgentType",
+                        default=None,
+                    ),
+                ),
+                (
+                    "warehouse_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="warehouseUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Get available agents in a warehouse by querying the
+    platform directly
+
+    Arguments:
+
+    * `platform_agent_type` (`PlatformAgentType!`): Platform type to
+      filter agents by
+    * `warehouse_uuid` (`UUID!`): Warehouse UUID to filter agents by
+    """
 
     get_traces_filters = sgqlc.types.Field(
         sgqlc.types.list_of("TraceFilter"), graphql_name="getTracesFilters"
@@ -54777,6 +55184,43 @@ class Query(sgqlc.types.Type):
       ping.
     * `trace_id` (`UUID!`): A unique identifier for correlating the
       data collector ping.
+    """
+
+    get_notebook = sgqlc.types.Field(
+        Notebook,
+        graphql_name="getNotebook",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "uuid",
+                    sgqlc.types.Arg(sgqlc.types.non_null(UUID), graphql_name="uuid", default=None),
+                ),
+            )
+        ),
+    )
+    """(experimental) Get a notebook by UUID
+
+    Arguments:
+
+    * `uuid` (`UUID!`): Notebook UUID
+    """
+
+    get_notebooks = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(Notebook)),
+        graphql_name="getNotebooks",
+        args=sgqlc.types.ArgDict(
+            (
+                ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=100)),
+                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=0)),
+            )
+        ),
+    )
+    """(experimental) List all notebooks
+
+    Arguments:
+
+    * `limit` (`Int`): Max notebooks to return (default: `100`)
+    * `offset` (`Int`): Starting index for pagination (default: `0`)
     """
 
     get_network_access_control_lists = sgqlc.types.Field(
@@ -67454,6 +67898,118 @@ class Query(sgqlc.types.Type):
     * `keys` (`[String]!`): User setting's keys
     """
 
+    get_use_cases = sgqlc.types.Field(
+        "UseCaseConnection",
+        graphql_name="getUseCases",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "warehouse_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="warehouseId", default=None
+                    ),
+                ),
+                (
+                    "first",
+                    sgqlc.types.Arg(sgqlc.types.non_null(Int), graphql_name="first", default=None),
+                ),
+                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
+                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
+                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
+            )
+        ),
+    )
+    """(experimental) Get all use cases for a warehouse
+
+    Arguments:
+
+    * `warehouse_id` (`UUID!`): The warehouse UUID
+    * `first` (`Int!`): Number of items to return (page size)
+    * `before` (`String`)None
+    * `after` (`String`)None
+    * `last` (`Int`)None
+    """
+
+    get_use_case_table_summary = sgqlc.types.Field(
+        "UseCaseTableSummaryOutput",
+        graphql_name="getUseCaseTableSummary",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "warehouse_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="warehouseId", default=None
+                    ),
+                ),
+                (
+                    "use_case_name",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="useCaseName", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Get table criticality counts for a use case
+
+    Arguments:
+
+    * `warehouse_id` (`UUID!`): The warehouse UUID
+    * `use_case_name` (`String!`): The use case name
+    """
+
+    get_use_case_tables = sgqlc.types.Field(
+        "UseCaseTableConnection",
+        graphql_name="getUseCaseTables",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "warehouse_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="warehouseId", default=None
+                    ),
+                ),
+                (
+                    "use_case_name",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="useCaseName", default=None
+                    ),
+                ),
+                (
+                    "first",
+                    sgqlc.types.Arg(sgqlc.types.non_null(Int), graphql_name="first", default=None),
+                ),
+                (
+                    "golden_tables_only",
+                    sgqlc.types.Arg(Boolean, graphql_name="goldenTablesOnly", default=True),
+                ),
+                (
+                    "criticality",
+                    sgqlc.types.Arg(Criticality, graphql_name="criticality", default=None),
+                ),
+                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
+                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
+                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
+            )
+        ),
+    )
+    """(experimental) Get all tables associated with a use case
+
+    Arguments:
+
+    * `warehouse_id` (`UUID!`): The warehouse UUID
+    * `use_case_name` (`String!`): The use case name
+    * `first` (`Int!`): Number of items to return (page size)
+    * `golden_tables_only` (`Boolean`): When true, excludes non-golden
+      tables (those with reasoning starting with 'Criticality for
+      golden tables'). Defaults to true. (default: `true`)
+    * `criticality` (`Criticality`): When set, only return tables with
+      this criticality level.
+    * `before` (`String`)None
+    * `after` (`String`)None
+    * `last` (`Int`)None
+    """
+
     get_shared_query = sgqlc.types.Field(
         "SharedQueryOutput",
         graphql_name="getSharedQuery",
@@ -76387,6 +76943,8 @@ class Trace(sgqlc.types.Type):
         "workflows",
         "tasks",
         "conversation_id",
+        "root_has_error",
+        "errors_count",
     )
     agent_uuid = sgqlc.types.Field(UUID, graphql_name="agentUuid")
     """Agent UUID (nullable for now, will be required in the future)"""
@@ -76452,6 +77010,12 @@ class Trace(sgqlc.types.Type):
 
     conversation_id = sgqlc.types.Field(String, graphql_name="conversationId")
     """Conversation ID"""
+
+    root_has_error = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="rootHasError")
+    """Whether the root span had an error"""
+
+    errors_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="errorsCount")
+    """Number of spans with errors in this trace"""
 
 
 class TraceConnection(sgqlc.types.relay.Connection):
@@ -76598,6 +77162,9 @@ class TraceNode(sgqlc.types.Type):
         "child_span_ids",
         "start_extra_ns",
         "end_extra_ns",
+        "status",
+        "is_tool_call",
+        "is_llm_call",
     )
     node_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="nodeName")
 
@@ -76643,6 +77210,12 @@ class TraceNode(sgqlc.types.Type):
     start_extra_ns = sgqlc.types.Field(Int, graphql_name="startExtraNs")
 
     end_extra_ns = sgqlc.types.Field(Int, graphql_name="endExtraNs")
+
+    status = sgqlc.types.Field(Int, graphql_name="status")
+
+    is_tool_call = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isToolCall")
+
+    is_llm_call = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isLlmCall")
 
 
 class TraceOverviewMetrics(sgqlc.types.Type):
@@ -77429,6 +78002,13 @@ class UpdateDailyUsageAlertConfig(sgqlc.types.Type):
     """Whether the mutation succeeded."""
 
 
+class UpdateDashboardScheduleMutation(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("schedule",)
+    schedule = sgqlc.types.Field(DashboardScheduleType, graphql_name="schedule")
+    """The updated dashboard schedule."""
+
+
 class UpdateDataProductSharing(sgqlc.types.Type):
     """Create or update sharing definition on a data product"""
 
@@ -78009,6 +78589,120 @@ class UsageAlertConfigOutput(sgqlc.types.Type):
 
     disabled = sgqlc.types.Field(Boolean, graphql_name="disabled")
     """Disable the alert (optional)"""
+
+
+class UseCaseConnection(sgqlc.types.relay.Connection):
+    """Paginated list of use cases."""
+
+    __schema__ = schema
+    __field_names__ = ("page_info", "edges", "total_count")
+    page_info = sgqlc.types.Field(sgqlc.types.non_null(PageInfo), graphql_name="pageInfo")
+    """Pagination data for this connection."""
+
+    edges = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of("UseCaseEdge")), graphql_name="edges"
+    )
+    """Contains the nodes in this connection."""
+
+    total_count = sgqlc.types.Field(Int, graphql_name="totalCount")
+    """Total number of use cases matching the query"""
+
+
+class UseCaseEdge(sgqlc.types.Type):
+    """A Relay edge containing a `UseCase` and its cursor."""
+
+    __schema__ = schema
+    __field_names__ = ("node", "cursor")
+    node = sgqlc.types.Field("UseCaseOutput", graphql_name="node")
+    """The item at the end of the edge"""
+
+    cursor = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="cursor")
+    """A cursor for use in pagination"""
+
+
+class UseCaseOutput(sgqlc.types.Type):
+    """A business use case scoped to a warehouse."""
+
+    __schema__ = schema
+    __field_names__ = ("id", "name", "description", "criticality", "table_count")
+    id = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="id")
+    """Stable use case identifier"""
+
+    name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
+    """Human-readable use case name"""
+
+    description = sgqlc.types.Field(String, graphql_name="description")
+    """Use case description"""
+
+    criticality = sgqlc.types.Field(Criticality, graphql_name="criticality")
+    """Business-level criticality"""
+
+    table_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="tableCount")
+    """Total number of tables assigned to this use case"""
+
+
+class UseCaseTableConnection(sgqlc.types.relay.Connection):
+    """Paginated list of use case tables."""
+
+    __schema__ = schema
+    __field_names__ = ("page_info", "edges", "total_count")
+    page_info = sgqlc.types.Field(sgqlc.types.non_null(PageInfo), graphql_name="pageInfo")
+    """Pagination data for this connection."""
+
+    edges = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of("UseCaseTableEdge")), graphql_name="edges"
+    )
+    """Contains the nodes in this connection."""
+
+    total_count = sgqlc.types.Field(Int, graphql_name="totalCount")
+    """Total number of tables matching the query"""
+
+
+class UseCaseTableEdge(sgqlc.types.Type):
+    """A Relay edge containing a `UseCaseTable` and its cursor."""
+
+    __schema__ = schema
+    __field_names__ = ("node", "cursor")
+    node = sgqlc.types.Field("UseCaseTableOutput", graphql_name="node")
+    """The item at the end of the edge"""
+
+    cursor = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="cursor")
+    """A cursor for use in pagination"""
+
+
+class UseCaseTableOutput(sgqlc.types.Type):
+    """A table associated with a use case."""
+
+    __schema__ = schema
+    __field_names__ = ("mcon", "criticality", "reasoning", "is_golden_table")
+    mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="mcon")
+    """Unique table identifier (MCON)"""
+
+    criticality = sgqlc.types.Field(sgqlc.types.non_null(Criticality), graphql_name="criticality")
+    """Table criticality"""
+
+    reasoning = sgqlc.types.Field(String, graphql_name="reasoning")
+    """Explanation for the criticality assessment"""
+
+    is_golden_table = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isGoldenTable")
+    """Whether this table is a golden table"""
+
+
+class UseCaseTableSummaryOutput(sgqlc.types.Type):
+    """Counts of tables by criticality level for a use case."""
+
+    __schema__ = schema
+    __field_names__ = ("total_tables_high", "total_tables_medium", "total_tables_low")
+    total_tables_high = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="totalTablesHigh")
+    """Number of HIGH criticality tables"""
+
+    total_tables_medium = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="totalTablesMedium"
+    )
+    """Number of MEDIUM criticality tables"""
+
+    total_tables_low = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="totalTablesLow")
+    """Number of LOW criticality tables"""
 
 
 class UserAttribute(sgqlc.types.Type):
@@ -80040,6 +80734,7 @@ class Alert(sgqlc.types.Type, NodeWithUUID):
         "invalid_rows",
         "domains",
         "comment_count",
+        "last_comment_text",
         "jira_tickets",
         "service_now_incidents",
         "opsgenie_incidents",
@@ -80098,6 +80793,9 @@ class Alert(sgqlc.types.Type, NodeWithUUID):
 
     comment_count = sgqlc.types.Field(Int, graphql_name="commentCount")
     """Number of user comments associated with the alert"""
+
+    last_comment_text = sgqlc.types.Field(String, graphql_name="lastCommentText")
+    """Text of the most recent user comment on the alert"""
 
     jira_tickets = sgqlc.types.Field(sgqlc.types.list_of("JiraTicket"), graphql_name="jiraTickets")
     """Jira tickets associated with the alert"""
@@ -85794,6 +86492,10 @@ class Incident(sgqlc.types.Type, Node):
         "merged_into_incident",
         "account",
         "asset_mcons",
+        "slo_status",
+        "slo_breach_at",
+        "slo_type",
+        "slo_notify_on_breach",
         "merged_alerts",
         "events",
         "original_events",
@@ -85890,6 +86592,20 @@ class Incident(sgqlc.types.Type, Node):
         sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="assetMcons"
     )
     """MCONs of tables/jobs associated with the incident"""
+
+    slo_status = sgqlc.types.Field(String, graphql_name="sloStatus")
+    """SLO status: "not_breached" or "breached". null = no policy."""
+
+    slo_breach_at = sgqlc.types.Field(DateTime, graphql_name="sloBreachAt")
+    """Absolute timestamp when SLO breaches: created_time +
+    threshold_minutes
+    """
+
+    slo_type = sgqlc.types.Field(String, graphql_name="sloType")
+    '''Which SLO policy type was applied: "tta" or "ttr"'''
+
+    slo_notify_on_breach = sgqlc.types.Field(Boolean, graphql_name="sloNotifyOnBreach")
+    """Snapshotted from policy — whether to notify on breach"""
 
     merged_alerts = sgqlc.types.Field(
         sgqlc.types.non_null(IncidentConnection),

@@ -81,7 +81,15 @@ impl Channel {
         let should_exit_for_close = self.should_exit.clone();
         let active_protocol_for_close = self.active_protocol;
 
+        // KCM-style teardown: take and drop tx_from_dc when DataChannel closes so rx_from_dc.recv()
+        // returns None and channel.run() can exit. The sender is shared with on_message; we take
+        // the single owner here so dropping it closes the channel.
+        let tx_from_dc_for_close = self.tx_from_dc.clone();
+
         data_channel.on_close(Box::new(move || {
+            // Take and drop the sender so rx_from_dc.recv() returns None and channel.run() exits
+            let _ = tx_from_dc_for_close.lock().take();
+
             let tx = state_tx_close.clone();
             let channel_id_log = channel_id_for_close.clone(); // Clone for async block
 
@@ -212,20 +220,29 @@ impl Channel {
         Ok(())
     }
 
-    /// Handle a CloseConnection control message
+    /// Handle a CloseConnection control message.
+    /// Wire format: [conn_no: 4 bytes][reason: 1 byte][optional msg_len: 2][optional msg].
+    /// When the remote (e.g. gateway) closes due to guacd disconnect, the channel may be
+    /// torn down before the full payload is received. We treat short payloads as graceful
+    /// close (conn_no=0, Normal) to avoid GuacdError and MPSC cascade on the receiver.
     async fn handle_close_connection(&mut self, data: &[u8]) -> Result<()> {
-        if data.len() < CONN_NO_LEN {
-            return Err(anyhow!("CloseConnection message too short"));
-        }
-
-        let target_connection_no = u32::from_be_bytes([data[0], data[1], data[2], data[3]]);
-
-        // Extract reason if available
-        let reason = if data.len() > CONN_NO_LEN {
-            let reason_code = data[CONN_NO_LEN] as u16;
-            CloseConnectionReason::from_code(reason_code)
+        let (target_connection_no, reason) = if data.len() < CONN_NO_LEN {
+            // Short payload: remote likely closed before sending full 4-byte conn_no + 1-byte reason.
+            // Treat as control connection closed normally to avoid error propagation and MPSC failure.
+            warn!(
+                "Channel({}): CloseConnection payload shorter than {} bytes (got {}), treating as conn_no=0, reason=Normal",
+                self.channel_id, CONN_NO_LEN, data.len()
+            );
+            (0u32, CloseConnectionReason::Normal)
         } else {
-            CloseConnectionReason::Normal
+            let target_connection_no = u32::from_be_bytes([data[0], data[1], data[2], data[3]]);
+            let reason = if data.len() > CONN_NO_LEN {
+                let reason_code = data[CONN_NO_LEN] as u16;
+                CloseConnectionReason::from_code(reason_code)
+            } else {
+                CloseConnectionReason::Normal
+            };
+            (target_connection_no, reason)
         };
 
         // Extract optional error message (backward compatible extension)
@@ -242,17 +259,31 @@ impl Channel {
             None
         };
 
-        // Log error message if present (always log errors, not just in verbose mode)
+        // Log closure: error level only for critical reasons, debug otherwise
         if let Some(ref msg) = error_message {
-            error!(
-                "Connection {} closed with error: {} (reason: {:?}, channel_id: {})",
-                target_connection_no, msg, reason, self.channel_id
-            );
+            if reason.is_critical() {
+                error!(
+                    "Connection {} closed with error: {} (reason: {:?}, channel_id: {})",
+                    target_connection_no, msg, reason, self.channel_id
+                );
+            } else if unlikely!(crate::logger::is_verbose_logging()) {
+                debug!(
+                    "Connection {} closed: {} (reason: {:?}, channel_id: {})",
+                    target_connection_no, msg, reason, self.channel_id
+                );
+            }
         } else if unlikely!(crate::logger::is_verbose_logging()) {
             debug!(
                 "Endpoint Closing connection {} (reason: {:?}) (channel_id: {})",
                 target_connection_no, reason, self.channel_id
             );
+        }
+
+        // CRITICAL: Send guacd disconnect FIRST when frontend closes from UI.
+        // Do this before any other processing so guacd closes recording FIFOs and Python
+        // readers see EOF. Prevents session cleanup from hanging on 300s drain timeout.
+        if self.active_protocol == super::types::ActiveProtocol::Guacd {
+            self.send_guacd_disconnect_immediate().await;
         }
 
         // Handle PythonHandler mode - notify Python and clean up virtual connection
@@ -292,6 +323,8 @@ impl Channel {
 
             // For PythonHandler, connection 0 still means channel close
             if target_connection_no == 0 {
+                self.control_connection_closed
+                    .store(true, std::sync::atomic::Ordering::Release);
                 self.should_exit
                     .store(true, std::sync::atomic::Ordering::Release);
                 if let Ok(mut guard) = self.channel_close_reason.try_lock() {
@@ -304,18 +337,34 @@ impl Channel {
 
         // Special case for connection 0 (control connection)
         if target_connection_no == 0 {
+            self.control_connection_closed
+                .store(true, std::sync::atomic::Ordering::Release);
             self.should_exit
                 .store(true, std::sync::atomic::Ordering::Release);
             // Store the close reason for the channel - use try_lock to avoid blocking
-            // Don't overwrite a critical error reason (like GuacdError) with Normal
+            // Don't overwrite a critical error reason with Normal.
+            // GuacdError without an error message means guacd disconnected cleanly (e.g. logout);
+            // downgrade to Normal so it is not treated as a critical failure upstream.
+            let effective_reason =
+                if reason == CloseConnectionReason::GuacdError && error_message.is_none() {
+                    CloseConnectionReason::Normal
+                } else {
+                    reason
+                };
             if let Ok(mut guard) = self.channel_close_reason.try_lock() {
                 let should_store = match &*guard {
                     None => true,
-                    Some(existing) => !existing.is_critical() || reason.is_critical(),
+                    Some(existing) => !existing.is_critical() || effective_reason.is_critical(),
                 };
                 if should_store {
-                    *guard = Some(reason);
+                    *guard = Some(effective_reason);
                 }
+            }
+            // CRITICAL: When frontend closes from UI, it sends CloseConnection(conn 0).
+            // We must send guacd disconnect so guacd closes recording FIFOs and Python
+            // readers see EOF. Without this, guacd stays open and session cleanup hangs.
+            if self.active_protocol == super::types::ActiveProtocol::Guacd {
+                self.close_tunnel_channel(0, reason).await;
             }
             // Even if we can't store the reason, we still need to exit
             return Ok(());

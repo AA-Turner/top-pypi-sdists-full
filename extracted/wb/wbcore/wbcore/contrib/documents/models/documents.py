@@ -1,6 +1,7 @@
 import datetime
 import json
 import os
+from collections import namedtuple
 from contextlib import suppress
 from datetime import timedelta
 from typing import Dict, Generator, List, Optional
@@ -12,7 +13,6 @@ from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
 from django.core.mail import EmailMultiAlternatives
 from django.db import models
-from django.template import Context, Template
 from django.template.loader import get_template
 from django.utils import timezone
 from django.utils.functional import cached_property
@@ -268,26 +268,26 @@ def send_email_as_task(
         from_email = settings.DEFAULT_FROM_EMAIL
     if not subject:
         subject = document.name
-    context = {"title": gettext("A file was shared with you")}
+    title = gettext("A file was shared with you")
+    shareable_link = None
     if as_link:
-        link = document.generate_shareable_link(sharing_seconds_duration=0).link
-        context["endpoint"] = link
-        context["message"] = gettext(
+        shareable_link = document.generate_shareable_link(sharing_seconds_duration=0).link
+        body = gettext(
             """
-        <p>Please find your {document_type} \"{filename}\" under this <a href={link}>link</a></p>
+        <p>Please find your {document_type} \"{filename}\" in the link bellow</p>
         """
-        ).format(document_type=document.document_type, filename=document.filename, link=link)
+        ).format(document_type=document.document_type, filename=document.filename, link=shareable_link)
     else:
-        context["message"] = gettext(
+        body = gettext(
             """
         <p>Please find the {document_type} \"{filename}\" attached to this mail.</p>
         """
         ).format(document_type=document.document_type, filename=document.filename)
-    if body:
-        html_content = Template(body).render(Context(context))
-    else:
-        template = get_template(settings.WBCORE_NOTIFICATION_TEMPLATE)
-        html_content = template.render(context)
+    context = {
+        "notification": namedtuple("Notification", ["title", "body", "shareable_link"])(title, body, shareable_link)
+    }
+    template = get_template("notifications/notification_template.html")
+    html_content = template.render(context)
 
     if not isinstance(to_emails, list):
         to_emails = [to_emails]

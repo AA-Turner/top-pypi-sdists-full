@@ -1,13 +1,11 @@
 Metadata-Version: 2.4
 Name: peewee-migrate
-Version: 1.14.3
+Version: 1.15.0
 Summary: Support for migrations in Peewee ORM
-License: MIT
-License-File: LICENSE
 Keywords: peewee,migrations,orm
 Author: Kirill Klenov
-Author-email: horneds@gmail.com
-Requires-Python: >=3.10,<4.0
+Author-email: Kirill Klenov <horneds@gmail.com>
+License-Expression: MIT
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
@@ -20,8 +18,9 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Utilities
+Requires-Dist: peewee
 Requires-Dist: click
-Requires-Dist: peewee (>=3,<4)
+Requires-Python: >=3.10, <4
 Project-URL: Homepage, https://github.com/klen/peewee_migrate
 Project-URL: Repository, https://github.com/klen/peewee_migrate
 Description-Content-Type: text/x-rst
@@ -211,4 +210,3 @@ Development of starter happens at github: https://github.com/klen/peewee_migrate
 .. _Flask: http://flask.pocoo.org/
 .. _Flask-PW: https://github.com/klen/flask-pw
 .. _Peewee: http://docs.peewee-orm.com/en/latest
-

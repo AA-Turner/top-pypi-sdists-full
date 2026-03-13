@@ -40,7 +40,6 @@ using ::tensorstore::kImplicit;
 using ::tensorstore::kInfIndex;
 using ::tensorstore::kInfSize;
 using ::tensorstore::MakeArray;
-using ::tensorstore::StrCat;
 using ::tensorstore::internal_index_space::EquivalentIndices;
 using ::tensorstore::internal_index_space::TestDimExpression;
 using ::tensorstore::internal_index_space::TestDimExpressionError;

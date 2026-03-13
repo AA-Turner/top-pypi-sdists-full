@@ -36,7 +36,6 @@
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 using ::tensorstore::internal::IntrusivePtr;
 
@@ -112,7 +111,7 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(
       return jb::NestedContextJsonBinder(jb::Object(
           jb::Member("driver",
                      jb::Projection<&Spec::driver>(registry.KeyBinder(
-                         [](std::string_view unregistered_id) {
+                         [](std::string_view unregistered_id) -> absl::Status {
                            auto kind = internal::GetDriverKind(unregistered_id);
                            if (kind) {
                              return absl::InvalidArgumentError(absl::StrFormat(
@@ -138,7 +137,8 @@ TENSORSTORE_DEFINE_JSON_DEFAULT_BINDER(
               "path",
               jb::Projection([](auto& p) -> decltype(auto) { return (p.path); },
                              jb::DefaultInitializedValue())),
-          [&](auto is_loading, const auto& options, auto* obj, auto* j) {
+          [&](auto is_loading, const auto& options, auto* obj,
+              auto* j) -> absl::Status {
             if constexpr (is_loading) {
               TENSORSTORE_RETURN_IF_ERROR(registry.RegisteredObjectBinder()(
                   is_loading, {options, obj->path}, &obj->driver, j));

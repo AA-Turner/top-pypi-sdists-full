@@ -237,9 +237,9 @@ absl::Status JpegReader::Context::Initialize(riegeli::Reader* reader) {
   }();
 
   if (!ok || !riegeli_src_.reader->ok()) {
-    return internal::StatusBuilder(riegeli_src_.reader->ok()
-                                       ? error_.last_error
-                                       : riegeli_src_.reader->status())
+    return StatusBuilder(riegeli_src_.reader->ok()
+                             ? error_.last_error
+                             : riegeli_src_.reader->status())
         .SetCode(absl::StatusCode::kDataLoss);
   }
 
@@ -288,9 +288,9 @@ absl::Status JpegReader::Context::Decode(tensorstore::span<unsigned char> dest,
   }();
 
   if (!ok || !riegeli_src_.reader->ok()) {
-    return internal::StatusBuilder(riegeli_src_.reader->ok()
-                                       ? error_.last_error
-                                       : riegeli_src_.reader->status())
+    return StatusBuilder(riegeli_src_.reader->ok()
+                             ? error_.last_error
+                             : riegeli_src_.reader->status())
         .SetCode(absl::StatusCode::kDataLoss);
   }
   return absl::OkStatus();

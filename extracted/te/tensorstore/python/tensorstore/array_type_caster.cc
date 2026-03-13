@@ -45,9 +45,9 @@
 #include "tensorstore/internal/elementwise_function.h"
 #include "tensorstore/rank.h"
 #include "tensorstore/strided_layout.h"
+#include "tensorstore/util/generic_stringify.h"
 #include "tensorstore/util/iterate.h"
 #include "tensorstore/util/span.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_python {
@@ -247,8 +247,8 @@ void AssignArrayLayout(pybind11::array array_obj, DimensionIndex rank,
   std::copy_n(array_obj.shape(), rank, shape);
   for (DimensionIndex i = 0; i < rank; ++i) {
     if (shape[i] < 0 || shape[i] > kMaxFiniteIndex) {
-      throw std::out_of_range(tensorstore::StrCat(
-          "Array shape[", i, "]=", shape[i], " is not valid"));
+      throw std::out_of_range(
+          absl::StrFormat("Array shape[%d]=%d is not valid", i, shape[i]));
     }
   }
   std::copy_n(array_obj.strides(), rank, byte_strides);
@@ -257,9 +257,10 @@ void AssignArrayLayout(pybind11::array array_obj, DimensionIndex rank,
 pybind11::object GetNumpyArrayImpl(SharedArrayView<const void> value,
                                    bool is_const) {
   if (value.rank() > NPY_MAXDIMS) {
-    throw std::out_of_range(tensorstore::StrCat(
-        "Array of rank ", value.rank(), " (which is greater than ", NPY_MAXDIMS,
-        ") cannot be converted to NumPy array"));
+    throw std::out_of_range(
+        absl::StrFormat("Array of rank %d (which is greater than %d) cannot be "
+                        "converted to NumPy array",
+                        value.rank(), NPY_MAXDIMS));
   }
   if (const DataTypeId id = value.dtype().id();
       id != DataTypeId::custom &&
@@ -299,9 +300,10 @@ void CopyFromNumpyArray(pybind11::handle src, ArrayView<void> out) {
   ConvertToArray(src, &temp_src, /*data_type_constraint=*/out.dtype(),
                  /*min_rank=*/out.rank(), /*max_rank=*/out.rank());
   if (!internal::RangesEqual(temp_src.shape(), out.shape())) {
-    throw py::value_error(tensorstore::StrCat(
-        "Cannot copy source array of shape ", temp_src.shape(),
-        " to target array of shape ", out.shape()));
+    throw py::value_error(absl::StrFormat(
+        "Cannot copy source array of shape %v"
+        " to target array of shape %v",
+        GenericStringify(temp_src.shape()), GenericStringify(out.shape())));
   }
   CopyArray(temp_src, out);
 }
@@ -378,8 +380,8 @@ bool ConvertToArrayImpl(pybind11::handle src,
     if (max_rank == 0 && obj.ndim() != 0) {
       if (data_type_constraint != dtype_v<::tensorstore::dtypes::json_t>) {
         if (no_throw) return false;
-        throw pybind11::value_error(tensorstore::StrCat(
-            "Expected array of rank 0, but received array of rank ",
+        throw pybind11::value_error(absl::StrFormat(
+            "Expected array of rank 0, but received array of rank %d",
             obj.ndim()));
       }
       // For json data type, the user may have specified a Python value like

@@ -7,23 +7,24 @@ from refinery.units import Arg, Unit
 
 class officecrypt(Unit):
     """
-    A simple proxy for the `msoffcrypto` package to decrypt office documents.
+    Decrypt encrypted Microsoft Office documents, including Word, Excel, and PowerPoint.
     """
+    @classmethod
+    def handles(cls, data) -> bool | None:
+        from refinery.lib.id import Fmt, get_microsoft_format
+        if get_microsoft_format(data) == Fmt.OFFICECRYPT:
+            return True
 
     def __init__(self, password: Param[buf, Arg.Binary(help=(
         'The document password. By default, the Excel default password "{default}" is used.'
     ))] = b'VelvetSweatshop'):
         super().__init__(password=password)
 
-    @Unit.Requires('msoffcrypto-tool', ['formats', 'office'])
-    def _msoffcrypto():
-        import msoffcrypto
-        return msoffcrypto
-
     def process(self, data):
+        from refinery.lib.ole.crypto import OfficeFile
         password: bytes = self.args.password
         with MemoryFile(data) as stream:
-            doc = self._msoffcrypto.OfficeFile(stream)
+            doc = OfficeFile(stream)
             if not doc.is_encrypted():
                 self.log_warn('the document is not encrypted; returning input')
                 return data

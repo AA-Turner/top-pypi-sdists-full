@@ -64,6 +64,8 @@ class BaseValidator:
         extra_media_type_deserializers: Optional[
             MediaTypeDeserializersDict
         ] = None,
+        forbid_unspecified_additional_properties: bool = False,
+        enforce_properties_required: bool = False,
     ):
         self.spec = spec
         self.base_url = base_url
@@ -101,6 +103,10 @@ class BaseValidator:
         self.format_validators = format_validators
         self.extra_format_validators = extra_format_validators
         self.extra_media_type_deserializers = extra_media_type_deserializers
+        self.forbid_unspecified_additional_properties = (
+            forbid_unspecified_additional_properties
+        )
+        self.enforce_properties_required = enforce_properties_required
 
     @cached_property
     def path_finder(self) -> BasePathFinder:
@@ -137,11 +143,15 @@ class BaseValidator:
         schema_validator = None
         if schema is not None:
             schema_validator = self.schema_validators_factory.create(
+                self.spec,
                 schema,
                 format_validators=self.format_validators,
                 extra_format_validators=self.extra_format_validators,
+                forbid_unspecified_additional_properties=self.forbid_unspecified_additional_properties,
+                enforce_properties_required=self.enforce_properties_required,
             )
         deserializer = self.media_type_deserializers_factory.create(
+            self.spec,
             mimetype,
             schema=schema,
             schema_validator=schema_validator,
@@ -157,19 +167,22 @@ class BaseValidator:
         location: Mapping[str, Any],
         name: Optional[str] = None,
     ) -> Any:
-        name = name or param_or_header["name"]
+        name = name or (param_or_header / "name").read_str()
         style, explode = get_style_and_explode(param_or_header)
         schema = param_or_header / "schema"
         deserializer = self.style_deserializers_factory.create(
-            style, explode, schema, name=name
+            self.spec, schema, style, explode, name=name
         )
         return deserializer.deserialize(location)
 
     def _validate_schema(self, schema: SchemaPath, value: Any) -> None:
         validator = self.schema_validators_factory.create(
+            self.spec,
             schema,
             format_validators=self.format_validators,
             extra_format_validators=self.extra_format_validators,
+            forbid_unspecified_additional_properties=self.forbid_unspecified_additional_properties,
+            enforce_properties_required=self.enforce_properties_required,
         )
         validator.validate(value)
 
@@ -202,7 +215,9 @@ class BaseValidator:
         location: Mapping[str, Any],
         name: Optional[str] = None,
     ) -> Tuple[Any, SchemaPath]:
-        allow_empty_values = param_or_header.getkey("allowEmptyValue")
+        allow_empty_values = (param_or_header / "allowEmptyValue").read_bool(
+            default=None
+        )
         if allow_empty_values:
             warnings.warn(
                 "Use of allowEmptyValue property is deprecated",
@@ -225,13 +240,13 @@ class BaseValidator:
             )
         if allow_empty_values is None or not allow_empty_values:
             # if "in" not defined then it's a Header
-            location_name = param_or_header.getkey("in", "header")
+            location_name = (param_or_header / "in").read_str("header")
             if (
                 location_name == "query"
                 and deserialised == ""
                 and not allow_empty_values
             ):
-                param_or_header_name = param_or_header["name"]
+                param_or_header_name = (param_or_header / "name").read_str()
                 raise EmptyQueryParameterValue(param_or_header_name)
         return deserialised, schema
 
@@ -283,7 +298,7 @@ class BaseValidator:
         location: Mapping[str, Any],
         name: Optional[str] = None,
     ) -> Any:
-        name = name or param_or_header["name"]
+        name = name or (param_or_header / "name").read_str()
         return location[name]
 
 

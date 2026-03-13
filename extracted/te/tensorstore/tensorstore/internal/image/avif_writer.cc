@@ -26,6 +26,7 @@
 #include "absl/log/absl_check.h"
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/string_view.h"
 #include "riegeli/base/external_ref.h"
@@ -36,7 +37,7 @@
 #include "tensorstore/internal/image/image_view.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
+#include "tensorstore/util/status_builder.h"
 
 // Include libavif last
 #include <avif/avif.h>
@@ -249,7 +250,7 @@ absl::Status AvifFinish(avifEncoder* encoder, riegeli::Writer* writer) {
             avifRWDataFree(&avif_output);
           },
           buffer))) {
-    return MaybeAnnotateStatus(writer->status(), "Encoding AVIF");
+    return StatusBuilder(writer->status()).Format("Encoding AVIF");
   }
   return absl::OkStatus();
 }
@@ -328,7 +329,7 @@ absl::Status AvifWriter::InitializeImpl(riegeli::Writer* writer,
 
   /// Use the codec specific cq-level option rather than the global
   /// quantizer setting for quality.
-  std::string quantizer = tensorstore::StrCat(options.quantizer);
+  std::string quantizer = absl::StrCat(options.quantizer);
 #if AVIF_VERSION_MAJOR >= 1
   if (avifEncoderSetCodecSpecificOption(encoder.get(), "cq-level",
                                         quantizer.c_str()) != AVIF_RESULT_OK) {

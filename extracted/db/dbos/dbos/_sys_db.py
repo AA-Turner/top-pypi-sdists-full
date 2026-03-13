@@ -251,6 +251,9 @@ class WorkflowSchedule(TypedDict):
     schedule: str
     status: str
     context: Any
+    last_fired_at: Optional[str]
+    automatic_backfill: bool
+    cron_timezone: Optional[str]  # IANA timezone name, stored as string in DB
 
 
 class ClientScheduleInput(TypedDict, total=False):
@@ -259,6 +262,8 @@ class ClientScheduleInput(TypedDict, total=False):
     workflow_class_name: Optional[str]
     schedule: str
     context: Any
+    automatic_backfill: bool
+    cron_timezone: Optional[str]
 
 
 class VersionInfo(TypedDict):
@@ -283,6 +288,13 @@ class StepInfo(TypedDict):
     started_at_epoch_ms: Optional[int]
     # The Unix epoch timestamp at which this step completed
     completed_at_epoch_ms: Optional[int]
+
+
+class NotificationInfo(TypedDict):
+    topic: Optional[str]
+    message: Any
+    created_at_epoch_ms: int
+    consumed: bool
 
 
 _dbos_null_topic = "__null__topic__"
@@ -687,16 +699,16 @@ class SystemDatabase(ABC):
                 .where(SystemSchema.workflow_status.c.workflow_uuid == workflow_id)
             )
 
-    def cancel_workflow(
+    def cancel_workflows(
         self,
-        workflow_id: str,
+        workflow_ids: list[str],
     ) -> None:
         with self.engine.begin() as c:
-            # Set the workflow's status to CANCELLED and remove it from any queue it is on,
+            # Set the workflows' status to CANCELLED and remove them from any queue,
             # but only if the workflow is not already complete.
             c.execute(
                 sa.update(SystemSchema.workflow_status)
-                .where(SystemSchema.workflow_status.c.workflow_uuid == workflow_id)
+                .where(SystemSchema.workflow_status.c.workflow_uuid.in_(workflow_ids))
                 .where(
                     SystemSchema.workflow_status.c.status.notin_(
                         [
@@ -714,13 +726,18 @@ class SystemDatabase(ABC):
                 )
             )
 
-    def resume_workflow(self, workflow_id: str) -> None:
+    def resume_workflows(
+        self,
+        workflow_ids: list[str],
+        *,
+        queue_name: Optional[str] = None,
+    ) -> None:
         with self.engine.begin() as c:
-            # Set the workflow's status to ENQUEUED and clear its recovery attempts and deadline,
+            # Set the workflows' status to ENQUEUED and clear recovery attempts and deadline,
             # but only if the workflow is not already complete.
             c.execute(
                 sa.update(SystemSchema.workflow_status)
-                .where(SystemSchema.workflow_status.c.workflow_uuid == workflow_id)
+                .where(SystemSchema.workflow_status.c.workflow_uuid.in_(workflow_ids))
                 .where(
                     SystemSchema.workflow_status.c.status.notin_(
                         [
@@ -731,7 +748,9 @@ class SystemDatabase(ABC):
                 )
                 .values(
                     status=WorkflowStatusString.ENQUEUED.value,
-                    queue_name=INTERNAL_QUEUE_NAME,
+                    queue_name=(
+                        queue_name if queue_name is not None else INTERNAL_QUEUE_NAME
+                    ),
                     recovery_attempts=0,
                     workflow_deadline_epoch_ms=None,
                     deduplication_id=None,
@@ -756,6 +775,8 @@ class SystemDatabase(ABC):
         start_step: int,
         *,
         application_version: Optional[str],
+        queue_name: Optional[str] = None,
+        queue_partition_key: Optional[str] = None,
     ) -> str:
 
         status = self.get_workflow_status(original_workflow_id)
@@ -777,7 +798,10 @@ class SystemDatabase(ABC):
                     authenticated_user=status["authenticated_user"],
                     authenticated_roles=status["authenticated_roles"],
                     serialization=status["serialization"],
-                    queue_name=INTERNAL_QUEUE_NAME,
+                    queue_name=(
+                        queue_name if queue_name is not None else INTERNAL_QUEUE_NAME
+                    ),
+                    queue_partition_key=queue_partition_key,
                     inputs=status["inputs"],
                     assumed_role=status["assumed_role"],
                     forked_from=original_workflow_id,
@@ -1426,11 +1450,14 @@ class SystemDatabase(ABC):
                     error=error,
                     serialization=result["serialization"],
                 )
-                .on_conflict_do_nothing(
+                .on_conflict_do_update(
                     index_elements=[
                         SystemSchema.operation_outputs.c.workflow_uuid,
                         SystemSchema.operation_outputs.c.function_id,
-                    ]
+                    ],
+                    set_={
+                        "completed_at_epoch_ms": SystemSchema.operation_outputs.c.completed_at_epoch_ms,
+                    },
                 )
                 .returning(SystemSchema.operation_outputs.c.completed_at_epoch_ms)
             )
@@ -1447,15 +1474,14 @@ class SystemDatabase(ABC):
 
     def record_operation_result(self, result: OperationResultInternal) -> None:
         completed_at_epoch_ms = int(time.time() * 1000)
-        self._record_operation_result_retry(result, completed_at_epoch_ms)
 
-    @db_retry()
-    def _record_operation_result_retry(
-        self, result: OperationResultInternal, completed_at_epoch_ms: int
-    ) -> None:
-        with self.engine.begin() as c:
-            self._record_operation_result_txn(result, completed_at_epoch_ms, c)
-        DebugTriggers.debug_trigger_point(DebugTriggers.DEBUG_TRIGGER_STEP_COMMIT)
+        @db_retry()
+        def record_operation_result_retry() -> None:
+            with self.engine.begin() as c:
+                self._record_operation_result_txn(result, completed_at_epoch_ms, c)
+            DebugTriggers.debug_trigger_point(DebugTriggers.DEBUG_TRIGGER_STEP_COMMIT)
+
+        record_operation_result_retry()
 
     @db_retry()
     def record_get_result(
@@ -2181,6 +2207,67 @@ class SystemDatabase(ABC):
                 events[key] = value
 
             return events
+
+    def get_all_notifications(self, workflow_id: str) -> List[NotificationInfo]:
+        """Get all notifications sent to a workflow."""
+        with self.engine.begin() as c:
+            rows = c.execute(
+                sa.select(
+                    SystemSchema.notifications.c.topic,
+                    SystemSchema.notifications.c.message,
+                    SystemSchema.notifications.c.serialization,
+                    SystemSchema.notifications.c.created_at_epoch_ms,
+                    SystemSchema.notifications.c.consumed,
+                )
+                .where(SystemSchema.notifications.c.destination_uuid == workflow_id)
+                .order_by(SystemSchema.notifications.c.created_at_epoch_ms)
+            ).fetchall()
+            results: List[NotificationInfo] = []
+            for row in rows:
+                topic = row[0]
+                if topic == _dbos_null_topic:
+                    topic = None
+                results.append(
+                    {
+                        "topic": topic,
+                        "message": deserialize_value(row[1], row[2], self.serializer),
+                        "created_at_epoch_ms": row[3],
+                        "consumed": row[4],
+                    }
+                )
+            return results
+
+    def get_all_stream_entries(self, workflow_id: str) -> Dict[str, List[Any]]:
+        """Get all stream entries for a workflow.
+
+        Returns a dict mapping stream keys to lists of deserialized values (ordered by offset).
+        """
+        with self.engine.begin() as c:
+            rows = c.execute(
+                sa.select(
+                    SystemSchema.streams.c.key,
+                    SystemSchema.streams.c.value,
+                    SystemSchema.streams.c.offset,
+                    SystemSchema.streams.c.serialization,
+                )
+                .where(SystemSchema.streams.c.workflow_uuid == workflow_id)
+                .order_by(
+                    SystemSchema.streams.c.key,
+                    SystemSchema.streams.c.offset,
+                )
+            ).fetchall()
+            streams: Dict[str, List[Any]] = {}
+            for row in rows:
+                key = row[0]
+                value_str = row[1]
+                serialization = row[3]
+                value = deserialize_value(value_str, serialization, self.serializer)
+                if value == _dbos_stream_closed_sentinel:
+                    continue
+                if key not in streams:
+                    streams[key] = []
+                streams[key].append(value)
+            return streams
 
     @db_retry()
     def get_event_setup(
@@ -3401,6 +3488,9 @@ class SystemDatabase(ABC):
                         schedule=schedule["schedule"],
                         status=schedule["status"],
                         context=schedule["context"],
+                        last_fired_at=schedule.get("last_fired_at"),
+                        automatic_backfill=schedule.get("automatic_backfill", False),
+                        cron_timezone=schedule.get("cron_timezone"),
                     )
                 )
             except sa.exc.IntegrityError:
@@ -3431,6 +3521,9 @@ class SystemDatabase(ABC):
                 SystemSchema.workflow_schedules.c.schedule,
                 SystemSchema.workflow_schedules.c.status,
                 SystemSchema.workflow_schedules.c.context,
+                SystemSchema.workflow_schedules.c.last_fired_at,
+                SystemSchema.workflow_schedules.c.automatic_backfill,
+                SystemSchema.workflow_schedules.c.cron_timezone,
             )
             if status is not None:
                 vals = [status] if isinstance(status, str) else status
@@ -3468,6 +3561,9 @@ class SystemDatabase(ABC):
                     schedule=row[4],
                     status=row[5],
                     context=row[6],
+                    last_fired_at=row[7],
+                    automatic_backfill=bool(row[8]),
+                    cron_timezone=row[9],
                 )
                 for row in rows
             ]
@@ -3490,6 +3586,9 @@ class SystemDatabase(ABC):
                     SystemSchema.workflow_schedules.c.schedule,
                     SystemSchema.workflow_schedules.c.status,
                     SystemSchema.workflow_schedules.c.context,
+                    SystemSchema.workflow_schedules.c.last_fired_at,
+                    SystemSchema.workflow_schedules.c.automatic_backfill,
+                    SystemSchema.workflow_schedules.c.cron_timezone,
                 ).where(SystemSchema.workflow_schedules.c.schedule_name == name)
             ).fetchone()
             if row is None:
@@ -3502,6 +3601,9 @@ class SystemDatabase(ABC):
                 schedule=row[4],
                 status=row[5],
                 context=row[6],
+                last_fired_at=row[7],
+                automatic_backfill=bool(row[8]),
+                cron_timezone=row[9],
             )
 
         if conn is not None:
@@ -3530,6 +3632,14 @@ class SystemDatabase(ABC):
 
     def resume_schedule(self, name: str, conn: Optional[sa.Connection] = None) -> None:
         self._set_schedule_status(name, "ACTIVE", conn)
+
+    def update_last_fired_at(self, name: str, last_fired_at: str) -> None:
+        with self.engine.begin() as c:
+            c.execute(
+                sa.update(SystemSchema.workflow_schedules)
+                .where(SystemSchema.workflow_schedules.c.schedule_name == name)
+                .values(last_fired_at=last_fired_at)
+            )
 
     def delete_schedule(self, name: str, conn: Optional[sa.Connection] = None) -> None:
         def _do(c: sa.Connection) -> None:

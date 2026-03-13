@@ -46,6 +46,9 @@ def _loop_execute(logger, parser, project_name, country, crop, season, model, in
     obj = geocif.Geocif(logger=logger, parser=parser, project_name=project_name)
     obj.read_data(country, crop, season)
 
+    if not hasattr(obj, 'df_inputs') or obj.df_inputs is None:
+        return
+
     # Store config file in database, only execute this for
     # the first iteration of the loop
     if index == 0:

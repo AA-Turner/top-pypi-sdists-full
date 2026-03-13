@@ -3,6 +3,7 @@ use crate::models::{NetworkAccessChecker, TunnelTimeouts};
 use crate::unlikely; // Branch prediction optimization
 use crate::webrtc_data_channel::WebRTCDataChannel;
 use log::{debug, error};
+use parking_lot::Mutex;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::mpsc;
@@ -57,12 +58,17 @@ pub(crate) async fn setup_channel_for_data_channel(
     // Create a channel to receive messages from the data channel
     let (tx, rx) = mpsc::unbounded_channel();
 
+    // Shared sender: on_message and on_close both use this. When DataChannel closes, on_close
+    // takes and drops the sender so rx_from_dc.recv() returns None and channel.run() exits.
+    let tx_from_dc = Arc::new(Mutex::new(Some(tx)));
+
     // Create shutdown notifier for clean async cancellation
     let shutdown_notify = Arc::new(tokio::sync::Notify::new());
 
     let channel_instance = Channel::new(crate::channel::core::ChannelParams {
         webrtc: data_channel.clone(),
         rx_from_dc: rx,
+        tx_from_dc: tx_from_dc.clone(),
         channel_id: label.clone(),
         timeouts,
         protocol_settings,
@@ -94,29 +100,26 @@ pub(crate) async fn setup_channel_for_data_channel(
     // Any messages arriving after step 1 go directly to the new handler.
     // Messages that arrived before step 1 are in the buffer and get forwarded in step 3.
     let peer_connection_clone = peer_connection.clone();
-    let tx_for_handler = tx.clone();
+    let tx_from_dc_for_handler = tx_from_dc.clone();
     let label_for_handler = label.clone();
     data_channel_ref.on_message(Box::new(move |msg| {
-        let tx_clone = tx_for_handler.clone(); // Clone tx for the async block
+        let tx_holder = tx_from_dc_for_handler.clone();
         let buffer_pool_clone = buffer_pool.clone();
-        let label_clone = label_for_handler.clone(); // Clone label for the async block
+        let label_clone = label_for_handler.clone();
         let pc_clone = peer_connection_clone.clone();
 
         Box::pin(async move {
-            // Update activity timestamp when receiving data
             pc_clone.update_activity();
             let data = &msg.data;
             let message_bytes = buffer_pool_clone.create_bytes(data);
             let message_len = message_bytes.len();
 
-            // Record metrics for message received (non-blocking, minimal performance impact)
             crate::metrics::METRICS_COLLECTOR.record_message_received(
-                &label_clone, // using label as conversation_id
+                &label_clone,
                 message_len as u64,
-                None, // latency calculation could be added later if needed
+                None,
             );
 
-            // HOT PATH: Only log WebRTC receives in verbose mode
             if unlikely!(crate::logger::is_verbose_logging()) {
                 debug!(
                     "Channel: Received bytes from WebRTC data channel (channel_id: {}, bytes_count: {})",
@@ -125,11 +128,13 @@ pub(crate) async fn setup_channel_for_data_channel(
                 );
             }
 
-            if let Err(_e) = tx_clone.send(message_bytes) {
-                error!(
-                    "Channel: Failed to send message to MPSC channel for processing (channel_id: {})",
-                    label_clone
-                );
+            if let Some(tx) = tx_holder.lock().as_ref() {
+                if let Err(_e) = tx.send(message_bytes) {
+                    error!(
+                        "Channel: Failed to send message to MPSC channel for processing (channel_id: {})",
+                        label_clone
+                    );
+                }
             }
         })
     }));
@@ -149,17 +154,18 @@ pub(crate) async fn setup_channel_for_data_channel(
         );
         for msg in early_messages {
             let message_len = msg.len();
-            // Record metrics for early messages too
             crate::metrics::METRICS_COLLECTOR.record_message_received(
                 &label,
                 message_len as u64,
                 None,
             );
-            if let Err(_e) = tx.send(msg) {
-                error!(
-                    "Channel: Failed to forward early message to MPSC channel (channel_id: {})",
-                    label
-                );
+            if let Some(tx) = tx_from_dc.lock().as_ref() {
+                if let Err(_e) = tx.send(msg) {
+                    error!(
+                        "Channel: Failed to forward early message to MPSC channel (channel_id: {})",
+                        label
+                    );
+                }
             }
         }
         debug!(

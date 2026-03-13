@@ -9,6 +9,7 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
 
 
 def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -164,7 +165,7 @@ def add_neighbor_features(
     # Pre-compute per-region yield medians for nbr_mean_yield_hist
     yield_medians = df.groupby(admin_col)[yield_col].median()
 
-    for (region, year), indices in grouped_idx.items():
+    for (region, year), indices in tqdm(grouped_idx.items(), desc="Neighbor features", leave=False):
         edges = neighbor_graph.get(region, [])
         active_edges = [(nbr, w) for nbr, w in edges if w > 0]
         n_nbrs = len(active_edges)

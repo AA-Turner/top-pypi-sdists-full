@@ -7,6 +7,7 @@ import pytest
 from dbos import DBOS, Queue, SetWorkflowID
 from dbos._error import DBOSAwaitedWorkflowCancelledError
 from dbos._sys_db import StepInfo, WorkflowStatus
+from dbos._utils import INTERNAL_QUEUE_NAME
 from tests.conftest import queue_entries_are_cleaned_up
 
 
@@ -78,19 +79,22 @@ async def test_resume_workflow_async(dbos: DBOS) -> None:
     # Start the workflow and cancel it
     wfid = str(uuid.uuid4())
     with SetWorkflowID(wfid):
-        handle = await DBOS.start_workflow_async(simple_workflow, input_val)
+        cancelled_handle = await DBOS.start_workflow_async(simple_workflow, input_val)
     await main_event.wait()
     await DBOS.cancel_workflow_async(wfid)
     workflow_event.set()
 
     with pytest.raises(DBOSAwaitedWorkflowCancelledError):
-        await handle.get_result()
+        await cancelled_handle.get_result()
     assert steps_completed == 1
 
     # Resume the workflow async
     async_handle = await DBOS.resume_workflow_async(wfid)
     assert (await async_handle.get_result()) == input_val
     assert steps_completed == 2
+
+    # The cancelled handle should still work after resumption
+    assert (await cancelled_handle.get_result()) == input_val
 
 
 @pytest.mark.asyncio
@@ -242,3 +246,65 @@ async def test_list_workflow_steps_async(dbos: DBOS) -> None:
     step_names = {step["function_name"] for step in steps}
     assert any("step_one" in name for name in step_names)
     assert any("step_two" in name for name in step_names)
+
+
+@pytest.mark.asyncio
+async def test_bulk_async_workflow_management(dbos: DBOS) -> None:
+    """Test that all bulk async workflow management methods work and are checkpointed."""
+
+    @DBOS.workflow()
+    async def target_workflow(x: int) -> int:
+        return x
+
+    # Create target workflows
+    cancel_ids: list[str] = []
+    resume_ids: list[str] = []
+    delete_ids: list[str] = []
+    for i in range(2):
+        for ids in [cancel_ids, resume_ids, delete_ids]:
+            wfid = str(uuid.uuid4())
+            ids.append(wfid)
+            with SetWorkflowID(wfid):
+                h = await DBOS.start_workflow_async(target_workflow, i)
+                await h.get_result()
+
+    # Pick one workflow to fork
+    fork_target_id = resume_ids[0]
+
+    @DBOS.workflow()
+    async def management_workflow() -> None:
+        await DBOS.cancel_workflows_async(cancel_ids)
+        handles = await DBOS.resume_workflows_async(resume_ids)
+        assert len(handles) == 2
+        for i, h in enumerate(handles):
+            assert (await h.get_result()) == i
+        await DBOS.delete_workflows_async(delete_ids)
+        workflows = await DBOS.list_workflows_async(workflow_ids=cancel_ids)
+        assert len(workflows) == 2
+        for wf in workflows:
+            assert wf.workflow_id in cancel_ids
+        steps = await DBOS.list_workflow_steps_async(fork_target_id)
+        assert isinstance(steps, list)
+        forked = await DBOS.fork_workflow_async(fork_target_id, 1)
+        assert (await forked.get_result()) == 0
+
+    mgmt_wfid = str(uuid.uuid4())
+    with SetWorkflowID(mgmt_wfid):
+        handle = await DBOS.start_workflow_async(management_workflow)
+    await handle.get_result()
+
+    # Verify the management operations are checkpointed as steps
+    steps = await DBOS.list_workflow_steps_async(mgmt_wfid)
+    step_names = [step["function_name"] for step in steps]
+    assert "DBOS.cancelWorkflow" in step_names
+    assert "DBOS.resumeWorkflow" in step_names
+    assert "DBOS.deleteWorkflow" in step_names
+    assert "DBOS.listWorkflows" in step_names
+    assert "DBOS.listWorkflowSteps" in step_names
+    assert "DBOS.forkWorkflow" in step_names
+
+    # Verify delete actually took effect
+    for did in delete_ids:
+        assert await DBOS.get_workflow_status_async(did) is None
+
+    assert queue_entries_are_cleaned_up(dbos)

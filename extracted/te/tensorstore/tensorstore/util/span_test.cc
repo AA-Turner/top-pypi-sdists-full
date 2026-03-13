@@ -16,20 +16,19 @@
 
 #include "tensorstore/util/span.h"
 
+#include <stddef.h>
+
 #include <array>
 #include <numeric>
 #include <string>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include "absl/base/attributes.h"
-#include "absl/types/span.h"
-#include "tensorstore/util/str_cat.h"
 
 using ::tensorstore::span;
-using ::tensorstore::StrCat;
 using ::tensorstore::internal::ConstSpanType;
 using ::tensorstore::internal::SpanType;
 using ::tensorstore::internal_span::IsSpanImplicitlyConvertible;
@@ -48,16 +47,16 @@ static_assert(
 namespace {
 
 MATCHER_P(DataIs, data,
-          StrCat("data() ", negation ? "is " : "isn't ",
-                 testing::PrintToString(data))) {
+          absl::StrCat("data() ", negation ? "is " : "isn't ",
+                       testing::PrintToString(data))) {
   return arg.data() == data;
 }
 
 // GMock native testing::SizeIs relies on type::size_type, which span does
 // not have.
 MATCHER_P(SizeIs, size,
-          StrCat("size() ", negation ? "is " : "isn't ",
-                 testing::PrintToString(size))) {
+          absl::StrCat("size() ", negation ? "is " : "isn't ",
+                       testing::PrintToString(size))) {
   return arg.size() == size;
 }
 

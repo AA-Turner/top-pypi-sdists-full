@@ -43,6 +43,7 @@
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
+#include "tensorstore/util/status_builder.h"
 
 namespace tensorstore {
 namespace internal_kvstore {
@@ -309,8 +310,8 @@ struct AutoDetectOperationState {
 
   void SetMatches(Promise<Value> promise, Value&& matches) {
     if (matches.empty() && !error.ok()) {
-      promise.SetResult(tensorstore::MaybeAnnotateStatus(
-          error, "Format auto-detection failed"));
+      promise.SetResult(StatusBuilder(std::move(error))
+                            .Format("Format auto-detection failed"));
       return;
     }
 

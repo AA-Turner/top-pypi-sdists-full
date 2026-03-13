@@ -3,53 +3,90 @@
 import datetime as dt
 import typing
 
-from ..core.datetime_utils import serialize_datetime
+import pydantic
+import typing_extensions
+from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from ..core.serialization import FieldMetadata
 from .domain import Domain
-
-try:
-    import pydantic.v1 as pydantic  # type: ignore
-except ImportError:
-    import pydantic  # type: ignore
+from .locales import Locales
+from .site_data_collection_type import SiteDataCollectionType
 
 
-class Site(pydantic.BaseModel):
-    id: str = pydantic.Field(description="Unique identifier for the Site")
-    workspace_id: typing.Optional[str] = pydantic.Field(
-        alias="workspaceId", default=None, description="Unique identifier for the Workspace"
-    )
-    created_on: typing.Optional[dt.datetime] = pydantic.Field(
-        alias="createdOn", default=None, description="Date the Site was created"
-    )
-    display_name: typing.Optional[str] = pydantic.Field(
-        alias="displayName", default=None, description="Name given to Site"
-    )
-    short_name: typing.Optional[str] = pydantic.Field(
-        alias="shortName", default=None, description="Slugified version of name"
-    )
-    last_published: typing.Optional[dt.datetime] = pydantic.Field(
-        alias="lastPublished", default=None, description="Date the Site was last published"
-    )
-    last_updated: typing.Optional[dt.datetime] = pydantic.Field(
-        alias="lastUpdated", default=None, description="Date the Site was last updated"
-    )
-    preview_url: typing.Optional[str] = pydantic.Field(
-        alias="previewUrl", default=None, description="URL of a generated image for the given Site"
-    )
-    time_zone: typing.Optional[str] = pydantic.Field(
-        alias="timeZone", default=None, description="Site timezone set under Site Settings"
-    )
-    custom_domains: typing.Optional[typing.List[Domain]] = pydantic.Field(alias="customDomains", default=None)
+class Site(UniversalBaseModel):
+    id: str = pydantic.Field()
+    """
+    Unique identifier for the Site
+    """
 
-    def json(self, **kwargs: typing.Any) -> str:
-        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
-        return super().json(**kwargs_with_defaults)
+    workspace_id: typing_extensions.Annotated[
+        typing.Optional[str],
+        FieldMetadata(alias="workspaceId"),
+        pydantic.Field(alias="workspaceId", description="Unique identifier for the Workspace"),
+    ] = None
+    created_on: typing_extensions.Annotated[
+        typing.Optional[dt.datetime],
+        FieldMetadata(alias="createdOn"),
+        pydantic.Field(alias="createdOn", description="Date the Site was created"),
+    ] = None
+    display_name: typing_extensions.Annotated[
+        typing.Optional[str],
+        FieldMetadata(alias="displayName"),
+        pydantic.Field(alias="displayName", description="Name given to Site"),
+    ] = None
+    short_name: typing_extensions.Annotated[
+        typing.Optional[str],
+        FieldMetadata(alias="shortName"),
+        pydantic.Field(alias="shortName", description="Slugified version of name"),
+    ] = None
+    last_published: typing_extensions.Annotated[
+        typing.Optional[dt.datetime],
+        FieldMetadata(alias="lastPublished"),
+        pydantic.Field(alias="lastPublished", description="Date the Site was last published"),
+    ] = None
+    last_updated: typing_extensions.Annotated[
+        typing.Optional[dt.datetime],
+        FieldMetadata(alias="lastUpdated"),
+        pydantic.Field(alias="lastUpdated", description="Date the Site was last updated"),
+    ] = None
+    preview_url: typing_extensions.Annotated[
+        typing.Optional[str],
+        FieldMetadata(alias="previewUrl"),
+        pydantic.Field(alias="previewUrl", description="URL of a generated image for the given Site"),
+    ] = None
+    time_zone: typing_extensions.Annotated[
+        typing.Optional[str],
+        FieldMetadata(alias="timeZone"),
+        pydantic.Field(alias="timeZone", description="Site timezone set under Site Settings"),
+    ] = None
+    parent_folder_id: typing_extensions.Annotated[
+        typing.Optional[str],
+        FieldMetadata(alias="parentFolderId"),
+        pydantic.Field(alias="parentFolderId", description="The ID of the parent folder the Site exists in"),
+    ] = None
+    custom_domains: typing_extensions.Annotated[
+        typing.Optional[typing.List[Domain]],
+        FieldMetadata(alias="customDomains"),
+        pydantic.Field(alias="customDomains"),
+    ] = None
+    locales: typing.Optional[Locales] = None
+    data_collection_enabled: typing_extensions.Annotated[
+        typing.Optional[bool],
+        FieldMetadata(alias="dataCollectionEnabled"),
+        pydantic.Field(
+            alias="dataCollectionEnabled", description="Indicates if data collection is enabled for the site."
+        ),
+    ] = None
+    data_collection_type: typing_extensions.Annotated[
+        typing.Optional[SiteDataCollectionType],
+        FieldMetadata(alias="dataCollectionType"),
+        pydantic.Field(alias="dataCollectionType", description="The type of data collection enabled for the site."),
+    ] = None
 
-    def dict(self, **kwargs: typing.Any) -> typing.Dict[str, typing.Any]:
-        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
-        return super().dict(**kwargs_with_defaults)
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2
+    else:
 
-    class Config:
-        frozen = True
-        smart_union = True
-        allow_population_by_field_name = True
-        json_encoders = {dt.datetime: serialize_datetime}
+        class Config:
+            frozen = True
+            smart_union = True
+            extra = pydantic.Extra.allow

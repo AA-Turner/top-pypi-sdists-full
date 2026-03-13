@@ -1,24 +1,22 @@
 Metadata-Version: 2.1
 Name: pystan
-Version: 3.10.0
+Version: 3.10.1
 Summary: Python interface to Stan, a package for Bayesian inference
 Home-page: https://mc-stan.org
 License: ISC
 Author: Allen Riddell
 Author-email: riddella@indiana.edu
-Requires-Python: >=3.10,<4.0
+Requires-Python: >=3.12,<4.0
 Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved
 Classifier: License :: OSI Approved :: ISC License (ISCL)
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Requires-Dist: aiohttp (>=3.6,<4.0)
 Requires-Dist: clikit (>=0.6,<0.7)
 Requires-Dist: httpstan (>=4.13,<4.14)
 Requires-Dist: numpy (>=1.19)
-Requires-Dist: pysimdjson (>=5.0.2,<7)
+Requires-Dist: pysimdjson (>=5.0.2)
 Requires-Dist: setuptools
 Project-URL: Documentation, https://pystan.readthedocs.io
 Project-URL: Repository, https://github.com/stan-dev/pystan

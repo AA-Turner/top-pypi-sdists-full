@@ -62,7 +62,7 @@ impl SpawningToolType {
     /// Check if a tool name is a spawning tool and return its type
     pub fn from_name(name: &str) -> Option<SpawningToolType> {
         match name {
-            "Task" => Some(SpawningToolType::Task),
+            "Task" | "Agent" => Some(SpawningToolType::Task),
             "WebSearch" => Some(SpawningToolType::WebSearch),
             "Bash" => Some(SpawningToolType::Bash),
             _ => None,

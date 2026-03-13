@@ -43,7 +43,7 @@ namespace tensorstore {
 namespace internal_os {
 namespace {
 
-using ::tensorstore::internal::StatusWithOsError;
+using ::tensorstore::internal::StatusFromOsError;
 using ::tensorstore::internal_tracing::LoggedTraceSpan;
 
 ABSL_CONST_INIT internal_log::VerboseFlag detail_logging("hugepages_detail");
@@ -93,10 +93,10 @@ const LargePageInfo& GetLargePageInfo() {
     }
     DWORD error = EnableLockMemoryPrivilege();
     if (error != 0) {
-      return {0, StatusWithOsError(
-                     absl::StatusCode::kPermissionDenied, error,
-                     "Failed to enable SeLockMemoryPrivilege (required for "
-                     "large pages)")};
+      return {
+          0, StatusFromOsError(absl::StatusCode::kPermissionDenied, error)
+                 .Format("Failed to enable SeLockMemoryPrivilege (required for "
+                         "large pages)")};
     }
     return {page_size, absl::OkStatus()};
   }();
@@ -141,9 +141,10 @@ Result<MemoryRegion> AllocateHugePageRegion(size_t alignment, size_t size) {
                              PAGE_READWRITE);
 
   if (ptr == NULL) {
-    auto status = StatusWithOsError(absl::StatusCode::kResourceExhausted,
-                                    ::GetLastError(),
-                                    "VirtualAlloc with MEM_LARGE_PAGES failed");
+    absl::Status status =
+        StatusFromOsError(absl::StatusCode::kResourceExhausted,
+                          ::GetLastError())
+            .Format("VirtualAlloc with MEM_LARGE_PAGES failed");
     return std::move(tspan).EndWithStatus(std::move(status));
   }
   return MemoryRegion(static_cast<char*>(ptr), aligned_size,

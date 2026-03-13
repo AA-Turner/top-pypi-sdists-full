@@ -442,7 +442,11 @@ class Geocif:
         file_path = self._get_statistics_file_path(country, crop)
         
         if not file_path.exists() or self.update_input_file:
-            self._create_statistics_file(country, crop, file_path)
+            try:
+                self._create_statistics_file(country, crop, file_path)
+            except FileNotFoundError as e:
+                self.logger.warning(f"Skipping {country} {crop}: {e}")
+                return
         else:
             self.df_inputs = pd.read_csv(file_path)
         

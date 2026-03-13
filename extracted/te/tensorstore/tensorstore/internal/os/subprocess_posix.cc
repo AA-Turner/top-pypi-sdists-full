@@ -83,7 +83,7 @@ absl::Status SetCloseOnExec(FileDescriptor fd, bool close_on_exec) {
       return absl::OkStatus();
     }
   }
-  return StatusFromOsError(errno, "fcntl");
+  return StatusFromOsError(errno).Format("fcntl");
 }
 
 // Open all the files used in spawn-process stdin/stdout/stderr
@@ -109,7 +109,7 @@ absl::Status AddPosixFileActions(const SubprocessOptions& options,
                              UniqueFileDescriptor& read_fd) -> absl::Status {
     int pipefd[2];
     if (pipe(pipefd) != 0) {
-      return StatusFromOsError(errno, "pipe");
+      return StatusFromOsError(errno).Format("pipe");
     }
     // TENSORSTORE_RETURN_IF_ERROR(SetNonblock(pipefd[0]));
     // TENSORSTORE_RETURN_IF_ERROR(SetNonblock(pipefd[1]));
@@ -214,17 +214,17 @@ absl::Status AddPosixFileActions(const SubprocessOptions& options,
   r = posix_spawn_file_actions_adddup2(file_actions, fds[STDIN_FILENO],
                                        STDIN_FILENO);
   if (r != 0) {
-    return StatusFromOsError(r, "posix_spawn_file_actions_adddup2");
+    return StatusFromOsError(r).Format("posix_spawn_file_actions_adddup2");
   }
   r = posix_spawn_file_actions_adddup2(file_actions, fds[STDOUT_FILENO],
                                        STDOUT_FILENO);
   if (r != 0) {
-    return StatusFromOsError(r, "posix_spawn_file_actions_adddup2");
+    return StatusFromOsError(r).Format("posix_spawn_file_actions_adddup2");
   }
   r = posix_spawn_file_actions_adddup2(file_actions, fds[STDERR_FILENO],
                                        STDERR_FILENO);
   if (r != 0) {
-    return StatusFromOsError(r, "posix_spawn_file_actions_adddup2");
+    return StatusFromOsError(r).Format("posix_spawn_file_actions_adddup2");
   }
 
   // Add close actions.
@@ -272,7 +272,7 @@ absl::Status Subprocess::Impl::Kill(int signal) {
   if (0 == kill(pid, signal)) {
     return absl::OkStatus();
   }
-  return StatusFromOsError(GetLastErrorCode(), "On Subprocess::Kill");
+  return StatusFromOsError(GetLastErrorCode()).Format("On Subprocess::Kill");
 }
 
 Result<int> Subprocess::Impl::Join(bool block) {
@@ -287,7 +287,8 @@ Result<int> Subprocess::Impl::Join(bool block) {
     }
     int result = waitpid(pid, &status, block ? 0 : WNOHANG);
     if ((result < 0) && !retry(errno)) {
-      return StatusFromOsError(GetLastErrorCode(), "Subprocess::Join failed");
+      return StatusFromOsError(GetLastErrorCode())
+          .Format("Subprocess::Join failed");
     }
     if (!block && result == 0) {
       return absl::UnavailableError("");
@@ -362,8 +363,8 @@ Result<Subprocess> SpawnSubprocess(const SubprocessOptions& options) {
     ABSL_LOG(INFO) << "posix_spawn " << argv[0] << " err:" << err
                    << " pid:" << child_pid;
     if (err != 0) {
-      status = StatusFromOsError(GetLastErrorCode(), "posix_spawn ",
-                                 options.executable, " failed");
+      status = StatusFromOsError(GetLastErrorCode())
+                   .Format("posix_spawn %s failed", options.executable);
     }
   }
 

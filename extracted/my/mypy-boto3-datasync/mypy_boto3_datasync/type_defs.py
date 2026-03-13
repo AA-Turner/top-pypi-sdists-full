@@ -3,7 +3,7 @@ Type annotations for datasync service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_datasync/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -547,14 +547,6 @@ class UpdateLocationFsxLustreRequestTypeDef(TypedDict):
     Subdirectory: NotRequired[str]
 
 
-class UpdateLocationFsxWindowsRequestTypeDef(TypedDict):
-    LocationArn: str
-    Subdirectory: NotRequired[str]
-    Domain: NotRequired[str]
-    User: NotRequired[str]
-    Password: NotRequired[str]
-
-
 class AgentListEntryTypeDef(TypedDict):
     AgentArn: NotRequired[str]
     Name: NotRequired[str]
@@ -576,16 +568,6 @@ class CreateLocationFsxLustreRequestTypeDef(TypedDict):
     SecurityGroupArns: Sequence[str]
     Subdirectory: NotRequired[str]
     Tags: NotRequired[Sequence[TagListEntryTypeDef]]
-
-
-class CreateLocationFsxWindowsRequestTypeDef(TypedDict):
-    FsxFilesystemArn: str
-    SecurityGroupArns: Sequence[str]
-    User: str
-    Password: str
-    Subdirectory: NotRequired[str]
-    Tags: NotRequired[Sequence[TagListEntryTypeDef]]
-    Domain: NotRequired[str]
 
 
 class TagResourceRequestTypeDef(TypedDict):
@@ -666,16 +648,6 @@ class DescribeLocationFsxLustreResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-class DescribeLocationFsxWindowsResponseTypeDef(TypedDict):
-    LocationArn: str
-    LocationUri: str
-    SecurityGroupArns: list[str]
-    CreationTime: datetime
-    User: str
-    Domain: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
 class ListTagsForResourceResponseTypeDef(TypedDict):
     Tags: list[TagListEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -696,6 +668,18 @@ class CreateLocationAzureBlobRequestTypeDef(TypedDict):
     Subdirectory: NotRequired[str]
     AgentArns: NotRequired[Sequence[str]]
     Tags: NotRequired[Sequence[TagListEntryTypeDef]]
+    CmkSecretConfig: NotRequired[CmkSecretConfigTypeDef]
+    CustomSecretConfig: NotRequired[CustomSecretConfigTypeDef]
+
+
+class CreateLocationFsxWindowsRequestTypeDef(TypedDict):
+    FsxFilesystemArn: str
+    SecurityGroupArns: Sequence[str]
+    User: str
+    Subdirectory: NotRequired[str]
+    Tags: NotRequired[Sequence[TagListEntryTypeDef]]
+    Domain: NotRequired[str]
+    Password: NotRequired[str]
     CmkSecretConfig: NotRequired[CmkSecretConfigTypeDef]
     CustomSecretConfig: NotRequired[CustomSecretConfigTypeDef]
 
@@ -723,6 +707,16 @@ class UpdateLocationAzureBlobRequestTypeDef(TypedDict):
     BlobType: NotRequired[Literal["BLOCK"]]
     AccessTier: NotRequired[AzureAccessTierType]
     AgentArns: NotRequired[Sequence[str]]
+    CmkSecretConfig: NotRequired[CmkSecretConfigTypeDef]
+    CustomSecretConfig: NotRequired[CustomSecretConfigTypeDef]
+
+
+class UpdateLocationFsxWindowsRequestTypeDef(TypedDict):
+    LocationArn: str
+    Subdirectory: NotRequired[str]
+    Domain: NotRequired[str]
+    User: NotRequired[str]
+    Password: NotRequired[str]
     CmkSecretConfig: NotRequired[CmkSecretConfigTypeDef]
     CustomSecretConfig: NotRequired[CustomSecretConfigTypeDef]
 
@@ -755,22 +749,8 @@ class CreateLocationHdfsRequestTypeDef(TypedDict):
     KerberosKeytab: NotRequired[BlobTypeDef]
     KerberosKrb5Conf: NotRequired[BlobTypeDef]
     Tags: NotRequired[Sequence[TagListEntryTypeDef]]
-
-
-class DescribeLocationHdfsResponseTypeDef(TypedDict):
-    LocationArn: str
-    LocationUri: str
-    NameNodes: list[HdfsNameNodeTypeDef]
-    BlockSize: int
-    ReplicationFactor: int
-    KmsKeyProviderUri: str
-    QopConfiguration: QopConfigurationTypeDef
-    AuthenticationType: HdfsAuthenticationTypeType
-    SimpleUser: str
-    KerberosPrincipal: str
-    AgentArns: list[str]
-    CreationTime: datetime
-    ResponseMetadata: ResponseMetadataTypeDef
+    CmkSecretConfig: NotRequired[CmkSecretConfigTypeDef]
+    CustomSecretConfig: NotRequired[CustomSecretConfigTypeDef]
 
 
 class UpdateLocationHdfsRequestTypeDef(TypedDict):
@@ -787,6 +767,8 @@ class UpdateLocationHdfsRequestTypeDef(TypedDict):
     KerberosKeytab: NotRequired[BlobTypeDef]
     KerberosKrb5Conf: NotRequired[BlobTypeDef]
     AgentArns: NotRequired[Sequence[str]]
+    CmkSecretConfig: NotRequired[CmkSecretConfigTypeDef]
+    CustomSecretConfig: NotRequired[CustomSecretConfigTypeDef]
 
 
 class FsxProtocolNfsTypeDef(TypedDict):
@@ -837,18 +819,13 @@ class CreateLocationSmbRequestTypeDef(TypedDict):
     KerberosKrb5Conf: NotRequired[BlobTypeDef]
 
 
-class FsxProtocolSmbTypeDef(TypedDict):
-    Password: str
-    User: str
-    Domain: NotRequired[str]
-    MountOptions: NotRequired[SmbMountOptionsTypeDef]
-
-
 class FsxUpdateProtocolSmbTypeDef(TypedDict):
     Domain: NotRequired[str]
     MountOptions: NotRequired[SmbMountOptionsTypeDef]
     Password: NotRequired[str]
     User: NotRequired[str]
+    CmkSecretConfig: NotRequired[CmkSecretConfigTypeDef]
+    CustomSecretConfig: NotRequired[CustomSecretConfigTypeDef]
 
 
 class UpdateLocationSmbRequestTypeDef(TypedDict):
@@ -900,6 +877,38 @@ class DescribeLocationAzureBlobResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class DescribeLocationFsxWindowsResponseTypeDef(TypedDict):
+    LocationArn: str
+    LocationUri: str
+    SecurityGroupArns: list[str]
+    CreationTime: datetime
+    User: str
+    Domain: str
+    ManagedSecretConfig: ManagedSecretConfigTypeDef
+    CmkSecretConfig: CmkSecretConfigTypeDef
+    CustomSecretConfig: CustomSecretConfigTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DescribeLocationHdfsResponseTypeDef(TypedDict):
+    LocationArn: str
+    LocationUri: str
+    NameNodes: list[HdfsNameNodeTypeDef]
+    BlockSize: int
+    ReplicationFactor: int
+    KmsKeyProviderUri: str
+    QopConfiguration: QopConfigurationTypeDef
+    AuthenticationType: HdfsAuthenticationTypeType
+    SimpleUser: str
+    KerberosPrincipal: str
+    AgentArns: list[str]
+    CreationTime: datetime
+    ManagedSecretConfig: ManagedSecretConfigTypeDef
+    CmkSecretConfig: CmkSecretConfigTypeDef
+    CustomSecretConfig: CustomSecretConfigTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class DescribeLocationObjectStorageResponseTypeDef(TypedDict):
     LocationArn: str
     LocationUri: str
@@ -930,6 +939,16 @@ class DescribeLocationSmbResponseTypeDef(TypedDict):
     CmkSecretConfig: CmkSecretConfigTypeDef
     CustomSecretConfig: CustomSecretConfigTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class FsxProtocolSmbTypeDef(TypedDict):
+    User: str
+    Domain: NotRequired[str]
+    MountOptions: NotRequired[SmbMountOptionsTypeDef]
+    Password: NotRequired[str]
+    ManagedSecretConfig: NotRequired[ManagedSecretConfigTypeDef]
+    CmkSecretConfig: NotRequired[CmkSecretConfigTypeDef]
+    CustomSecretConfig: NotRequired[CustomSecretConfigTypeDef]
 
 
 class DescribeLocationEfsResponseTypeDef(TypedDict):
@@ -1033,14 +1052,14 @@ class ListAgentsResponseTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
-class FsxProtocolTypeDef(TypedDict):
-    NFS: NotRequired[FsxProtocolNfsTypeDef]
-    SMB: NotRequired[FsxProtocolSmbTypeDef]
-
-
 class FsxUpdateProtocolTypeDef(TypedDict):
     NFS: NotRequired[FsxProtocolNfsTypeDef]
     SMB: NotRequired[FsxUpdateProtocolSmbTypeDef]
+
+
+class FsxProtocolTypeDef(TypedDict):
+    NFS: NotRequired[FsxProtocolNfsTypeDef]
+    SMB: NotRequired[FsxProtocolSmbTypeDef]
 
 
 class CreateLocationEfsRequestTypeDef(TypedDict):
@@ -1083,6 +1102,14 @@ class ManifestConfigTypeDef(TypedDict):
     Source: NotRequired[SourceManifestConfigTypeDef]
 
 
+UpdateLocationFsxOntapRequestTypeDef = TypedDict(
+    "UpdateLocationFsxOntapRequestTypeDef",
+    {
+        "LocationArn": str,
+        "Protocol": NotRequired[FsxUpdateProtocolTypeDef],
+        "Subdirectory": NotRequired[str],
+    },
+)
 CreateLocationFsxOntapRequestTypeDef = TypedDict(
     "CreateLocationFsxOntapRequestTypeDef",
     {
@@ -1132,14 +1159,6 @@ UpdateLocationFsxOpenZfsRequestTypeDef = TypedDict(
     {
         "LocationArn": str,
         "Protocol": NotRequired[FsxProtocolTypeDef],
-        "Subdirectory": NotRequired[str],
-    },
-)
-UpdateLocationFsxOntapRequestTypeDef = TypedDict(
-    "UpdateLocationFsxOntapRequestTypeDef",
-    {
-        "LocationArn": str,
-        "Protocol": NotRequired[FsxUpdateProtocolTypeDef],
         "Subdirectory": NotRequired[str],
     },
 )

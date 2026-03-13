@@ -122,7 +122,8 @@
 #include "tensorstore/internal/os/memory_region.h"
 #include "tensorstore/internal/os/unique_handle.h"
 #include "tensorstore/internal/path.h"
-#include "tensorstore/internal/uri_utils.h"
+#include "tensorstore/internal/uri/parse.h"
+#include "tensorstore/internal/uri/path.h"
 #include "tensorstore/kvstore/batch_util.h"
 #include "tensorstore/kvstore/byte_range.h"
 #include "tensorstore/kvstore/common_metrics.h"
@@ -150,6 +151,7 @@
 #include "tensorstore/internal/os/file_lister.h"
 #include "tensorstore/internal/os/file_lock.h"
 #include "tensorstore/internal/os/file_util.h"
+#include "tensorstore/util/status_builder.h"
 
 /// This implementation does not currently support cancellation.  On Linux, most
 /// filesystem operations, like `open`, `read`, `write`, and `fsync` cannot be
@@ -270,7 +272,7 @@ class FileKeyValueStoreSpec
   Future<kvstore::DriverPtr> DoOpen() const override;
 
   Result<std::string> ToUrl(std::string_view path) const override {
-    return internal::OsPathToFileUri(path);
+    return internal_uri::OsPathToFileUri(path);
   }
 };
 
@@ -406,10 +408,9 @@ class BatchReadTask final
         absl::ToInt64Milliseconds(absl::Now() - start_time));
 
     if (!read_result.ok()) {
-      return MaybeAnnotateStatus(
-          std::move(read_result).status(),
-          absl::StrFormat("Error reading from open file %s",
-                          std::get<std::string>(batch_entry_key)));
+      return StatusBuilder(std::move(read_result).status())
+          .Format("Error reading from open file %s",
+                  std::get<std::string>(batch_entry_key));
     }
     return kvstore::ReadResult::Value(*std::move(read_result), stamp_);
   }
@@ -572,8 +573,7 @@ absl::Status WriteWithSync(FileDescriptor fd, const std::string& fd_path,
   while (!value.empty()) {
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto n, internal_os::WriteCordToFile(fd, value),
-        MaybeAnnotateStatus(
-            _, absl::StrFormat("Failed writing: %v", QuoteString(fd_path))));
+        _.Format("Failed writing: %v", QuoteString(fd_path)));
     file_metrics.bytes_written.IncrementBy(n);
     if (n == value.size()) break;
     value.RemovePrefix(n);
@@ -639,7 +639,7 @@ struct WriteTask {
 
     bool delete_lock_file = true;
 
-    absl::Status status = [&]() {
+    absl::Status status = [&]() -> absl::Status {
       // Check condition.
       if (!is_non_atomic_mode && !StorageGeneration::IsUnknown(
                                      options.generation_conditions.if_equal)) {
@@ -668,11 +668,9 @@ struct WriteTask {
       r.generation = GetFileGeneration(info);
       if (sync) {
         // fsync the parent directory to ensure the `rename` is durable.
-        TENSORSTORE_RETURN_IF_ERROR(
-            internal_os::FsyncDirectory(dir_fd.get()),
-            MaybeAnnotateStatus(
-                _, absl::StrCat("Error calling fsync on parent directory of: ",
-                                full_path)));
+        TENSORSTORE_RETURN_IF_ERROR(internal_os::FsyncDirectory(dir_fd.get()))
+            .Format("Error calling fsync on parent directory of: %s",
+                    full_path);
       }
       return absl::OkStatus();
     }();
@@ -749,11 +747,9 @@ struct DeleteTask {
 
     // fsync the parent directory to ensure the `rename` is durable.
     if (fsync_directory) {
-      TENSORSTORE_RETURN_IF_ERROR(
-          internal_os::FsyncDirectory(dir_fd.get()),
-          MaybeAnnotateStatus(
-              _, absl::StrCat("Error calling fsync on parent directory of: ",
-                              QuoteString(full_path))));
+      TENSORSTORE_RETURN_IF_ERROR(internal_os::FsyncDirectory(dir_fd.get()))
+          .Format("Error calling fsync on parent directory of: %v",
+                  QuoteString(full_path));
     }
     if (!generation_result) {
       return std::move(generation_result).status();
@@ -898,8 +894,8 @@ Future<kvstore::DriverPtr> FileKeyValueStoreSpec::DoOpen() const {
 }
 
 Result<kvstore::Spec> ParseFileUrl(std::string_view url) {
-  auto parsed = internal::ParseGenericUri(url);
-  TENSORSTORE_ASSIGN_OR_RETURN(auto path, internal::FileUriToOsPath(parsed));
+  auto parsed = internal_uri::ParseGenericUri(url);
+  TENSORSTORE_ASSIGN_OR_RETURN(auto path, FileUriToOsPath(parsed));
   auto driver_spec = internal::MakeIntrusivePtr<FileKeyValueStoreSpec>();
   driver_spec->data_.file_io_concurrency =
       Context::Resource<internal::FileIoConcurrencyResource>::DefaultSpec();

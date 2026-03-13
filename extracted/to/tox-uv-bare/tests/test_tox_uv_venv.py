@@ -29,6 +29,16 @@ def test_uv_venv_self(tox_project: ToxProjectCreator) -> None:
     result.assert_success()
 
 
+@pytest.mark.parametrize("env_name", ["doc8", "flake8", "check2"])
+def test_uv_venv_non_python_env_name_with_trailing_digit(tox_project: ToxProjectCreator, env_name: str) -> None:
+    project = tox_project({
+        "tox.ini": f"[testenv:{env_name}]\nskip_install = true\ncommands = python --version",
+    })
+    result = project.run("-vve", env_name)
+    result.assert_success()
+    assert f"-p {env_name}" not in result.out
+
+
 def test_uv_venv_pass_env(tox_project: ToxProjectCreator) -> None:
     project = tox_project({"tox.ini": "[testenv]\npackage=skip"})
     result = project.run("c", "-k", "pass_env")
@@ -182,7 +192,6 @@ def test_uv_venv_spec_pypy(
 @pytest.mark.parametrize(
     ("implementation", "expected_implementation", "expected_name"),
     [
-        ("", "cpython", "cpython"),
         ("py", "cpython", "cpython"),
         ("pypy", "pypy", "pypy"),
     ],
@@ -284,6 +293,15 @@ def test_uv_venv_spec_abs_path_conflict_impl(
     result = project.run("-vv", "-e", env)
     result.assert_failed()
     assert f"failed with env name {env} conflicting with base python {other_interpreter_exe}" in result.out
+
+
+@pytest.mark.parametrize("env_name", ["control2", "build3", "lint", "myenv"])
+def test_uv_venv_non_python_env_name(tox_project: ToxProjectCreator, env_name: str) -> None:
+    project = tox_project({
+        "tox.ini": f"[testenv:{env_name}]\npackage=skip\nskip_install=true\ncommands=python --version"
+    })
+    result = project.run("-vve", env_name)
+    result.assert_success()
 
 
 def test_uv_venv_na(tox_project: ToxProjectCreator) -> None:
@@ -528,6 +546,16 @@ class _TestUvVenv(UvVenv):
         return self._get_python([base_python])
 
 
+def test_get_python_abs_path_with_python_env_name() -> None:  # pragma: win32 no cover
+    uv_venv = _TestUvVenv(create_args=mock.Mock())
+    with mock.patch.object(type(uv_venv), "name", new_callable=mock.PropertyMock, return_value="py999"):
+        python_info = uv_venv.get_python_info(sys.executable)
+    assert python_info is not None
+    assert python_info.version_info.major == 9
+    assert python_info.version_info.minor == 99
+    assert python_info.implementation == "CPython"
+
+
 @pytest.mark.parametrize(
     ("base_python", "architecture"), [("python3.11", None), ("python3.11-32", 32), ("python3.11-64", 64)]
 )
@@ -544,6 +572,18 @@ def test_get_python_free_threaded(base_python: str, is_free_threaded: int | None
     python_info = uv_venv.get_python_info(base_python)
     assert python_info is not None
     assert python_info.free_threaded == is_free_threaded
+
+
+@pytest.mark.parametrize("env_name", ["pypy", "cpython"])
+def test_get_python_abs_path_with_impl(env_name: str) -> None:
+    create_args = mock.Mock()
+    create_args.conf = mock.MagicMock()
+    create_args.conf.__getitem__.return_value = env_name
+    uv_venv = _TestUvVenv(create_args=create_args)
+    python_info = uv_venv.get_python_info(sys.executable)
+    assert python_info is not None
+    expected_impl = "CPython" if env_name == "cpython" else env_name
+    assert python_info.implementation.lower() == expected_impl.lower()
 
 
 def test_env_version_spec_no_architecture() -> None:

@@ -113,7 +113,7 @@ Future<Driver::Handle> OpenDriver(TransformedDriverSpec bound_spec,
 
         /// On failure, annotate status with spec.
         if (!status.ok()) {
-          internal::StatusBuilder builder(std::move(status));
+          StatusBuilder builder(std::move(status));
           builder.Format(
               "Error opening %v driver",
               tensorstore::QuoteString(bound_spec.driver_spec->GetId()));

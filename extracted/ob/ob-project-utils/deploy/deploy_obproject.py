@@ -6,6 +6,7 @@ import json
 import sys
 import glob
 import requests
+import yaml
 
 try:
     # python >= 3.11
@@ -796,10 +797,34 @@ def deploy_flows(flows):
         subprocess.run(cmd, check=True, cwd=flow_dir, env=env)
 
 
+# Whatever docker image (custom/fast-bakery built) we use for the deployment, 
+# it may define its own PYTHONPATH, which is often impossible to know in advance. 
+# At the same time, given that obproject-deploy is run from the root, and per project
+# structure a lot of common python packages may live in a separate folder, we want to include 
+# the special dirs in the PYTHONPATH also. 
+# We record these special dirs in the env var called EXTRA_PYTHONPATH. 
+# Then we need to do export PYTHONPATH=$EXTRA_PYTHONPATH:$PYTHONPATH before the actual command is 
+# run to achieve our desired behavior. So we take the config YAML, and override the commands section
+# to run the export before the actual command. Then save it in a hidden folder and use that config to deploy.
+def prepare_app_config(config_path, app_dir):
+    """Copy app config to .updated_app_configs/, injecting PYTHONPATH export if commands exist."""
+    with open(config_path) as f:
+        config_data = yaml.safe_load(f)
+    if config_data and "commands" in config_data:
+        config_data["commands"].insert(0, "export PYTHONPATH=$EXTRA_PYTHONPATH:$PYTHONPATH")
+    updated_configs_dir = os.path.join(os.path.dirname(config_path), ".updated_app_configs")
+    os.makedirs(updated_configs_dir, exist_ok=True)
+    safe_app_dir = app_dir.replace(os.sep, "_").replace("/", "_")
+    unique_suffix = f"{safe_app_dir}"
+    updated_config_path = os.path.join(updated_configs_dir, f"app_config_{unique_suffix}.yaml")
+    with open(updated_config_path, "w") as f:
+        yaml.dump(config_data, f, default_flow_style=False)
+    return updated_config_path
+
+
 def app_config_has_dependencies(config_path):
     """Check if app config.yml has a dependencies section."""
     try:
-        import yaml
         with open(config_path) as f:
             config = yaml.safe_load(f)
         return config and "dependencies" in config
@@ -850,6 +875,10 @@ def deploy_apps():
                     continue
             else:
                 continue
+
+
+
+        updated_config_path = prepare_app_config(app_config, app_dir)
 
         num_apps += 1
         cmd = [

@@ -25,6 +25,7 @@
 #include "grpcpp/support/status.h"  // third_party
 #include "tensorstore/internal/source_location.h"
 #include "tensorstore/util/status.h"
+#include "tensorstore/util/status_builder.h"
 
 // Verify that the grpc and absl status codes are equivalent.
 
@@ -87,9 +88,7 @@ absl::Status ToAbslStatusImpl(const T& s) {
 
 absl::Status GrpcStatusToAbslStatus(grpc::Status s, SourceLocation loc) {
   if (s.ok()) return absl::OkStatus();
-  absl::Status status = ToAbslStatusImpl(s);
-  MaybeAddSourceLocation(status, loc);
-  return status;
+  return StatusBuilder(ToAbslStatusImpl(s), loc);
 }
 
 grpc::Status AbslStatusToGrpcStatus(const absl::Status& status) {

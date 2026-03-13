@@ -1,100 +1,130 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pip_upgrader
-Version: 1.4.15
+Version: 2.0.1
 Summary: An interactive pip requirements upgrader. It also updates the version in your requirements.txt file.
-Home-page: https://github.com/simion/pip-upgrader
-Author: Simion Baws
-Author-email: simion.agv@gmail.com
-License: Apache License 2.0
-Description: # pip-upgrader [![Build Status](https://travis-ci.org/simion/pip-upgrader.svg?branch=master)](https://travis-ci.org/simion/pip-upgrader)
-        
-        An interactive pip requirements upgrader. Because upgrading
-        requirements, package by package, is a pain in the ass. It also updates
-        the version in your requirements.txt file.
-        
-        ## Purpose
-        
-        This cli tools helps you interactively(or not) upgrade packages from
-        requirements file, and also **update the pinned version from
-        requirements file(s)**.
-        
-        If no requirements are given, the command **attempts to detect the
-        requirements file(s)** in the current directory.
-        
-        Quick preview:
-        
-        ![image](https://raw.githubusercontent.com/simion/pip-upgrader/master/demo.gif)
-        
-        ## Installation
-        
-            pip install pip-upgrader
-        
-        **Note:** this packages installs the following requirements: `'docopt',
-        'packaging', 'requests', 'terminaltables', 'colorclass'`
-        
-        To avoid installing all these dependencies in your project, you can
-        install `pip-upgrader` in your system, rather than your virtualenv. If
-        you install it in your system, and need to upgrade it, run `pip install
-        -U pip-upgrader`
-        
-        ## Usage
-        
-        **Activate your virtualenv** (important, because it will also install
-        the new versions of upgraded packages in current virtualenv)
-        
-        **CD into your project.** Then: :
-        
-            $ pip-upgrade
-        
-        Arguments: :
-        
-            requirements_file(s)          The requirement FILE, or WILDCARD PATH to multiple files. (positional arguments)
-            --prerelease                  Include prerelease versions for upgrade, when querying pypi repositories.
-            -p <package>                  Pre-choose which packages tp upgrade. Skips any prompt.
-            --dry-run                     Simulates the upgrade, but does not execute the actual upgrade.
-            --skip-package-installation   Only upgrade the version in requirements files, don't install the new package.
-            --skip-virtualenv-check       Disable virtualenv check. Allows installing the new packages outside the virtualenv.
-            --use-default-index           Skip searching for custom index-url in pip configuration file(s).
-        
-        Examples:
-        
-            pip-upgrade             # auto discovers requirements file. Prompts for selecting upgrades
-            pip-upgrade requirements.txt
-            pip-upgrade requirements/dev.txt requirements/production.txt
-        
-            # skip prompt and manually choose some/all packages for upgrade
-            pip-upgrade requirements.txt -p django -p celery
-            pip-upgrade requirements.txt -p all
-        
-            # include pre-release versions
-            pip-upgrade --prerelease
-        
-        To use `pip-upgrader` on install requirements located in a `setup.py`
-        file, try this:
-        
-        ``` sh
-        ./setup.py egg_info
-        pip-upgrade $(./setup.py --name | tr -- - _)*.egg-info/requires.txt
-        ```
-        
-        This will display any versions that can be upgraded, and helps you to
-        manually main
-        
+Project-URL: Homepage, https://github.com/simion/pip-upgrader
+Author-email: Simion Baws <simion.agv@gmail.com>
+License-Expression: Apache-2.0
+License-File: LICENSE
 Keywords: cli,pip,pypi,requirements,upgrade
-Platform: UNKNOWN
 Classifier: Intended Audience :: Developers
-Classifier: Topic :: Utilities
-Classifier: License :: Public Domain
+Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 2
-Classifier: Programming Language :: Python :: 2.6
-Classifier: Programming Language :: Python :: 2.7
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.2
-Classifier: Programming Language :: Python :: 3.3
-Classifier: Programming Language :: Python :: 3.4
-Classifier: Programming Language :: Python :: 3.5
-Classifier: Programming Language :: Python :: 3.6
-Description-Content-Type: text/markdown
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Utilities
+Requires-Python: >=3.10
+Requires-Dist: docopt-ng
+Requires-Dist: packaging
+Requires-Dist: questionary>=2.0.0
+Requires-Dist: requests
+Requires-Dist: tomli>=1.0.0; python_version < '3.11'
+Provides-Extra: dev
+Requires-Dist: ruff; extra == 'dev'
 Provides-Extra: test
+Requires-Dist: coverage; extra == 'test'
+Requires-Dist: pytest; extra == 'test'
+Requires-Dist: pytest-cov; extra == 'test'
+Requires-Dist: responses; extra == 'test'
+Description-Content-Type: text/markdown
+
+# pip-upgrader [![CI](https://github.com/simion/pip-upgrader/actions/workflows/ci.yml/badge.svg)](https://github.com/simion/pip-upgrader/actions/workflows/ci.yml)
+
+An interactive pip requirements upgrader. Because upgrading
+requirements, package by package, is a pain in the ass. It also updates
+the version in your requirements.txt and pyproject.toml files.
+
+## Purpose
+
+This cli tool helps you interactively(or not) upgrade packages from
+requirements files or **pyproject.toml**, and also **update the pinned
+version in-place**.
+
+If no requirements are given, the command **attempts to detect
+requirements file(s) and pyproject.toml** in the current directory.
+
+Quick preview:
+
+![image](https://raw.githubusercontent.com/simion/pip-upgrader/master/demo.gif)
+
+## Installation
+
+    uv tool install pip-upgrader
+
+or with pip:
+
+    pip install pip-upgrader
+
+**Requires Python 3.10+**
+
+To avoid installing all these dependencies in your project, you can
+install `pip-upgrader` as a tool (via `uv tool install`) or in your
+system Python, rather than your virtualenv.
+
+## Usage
+
+**CD into your project.** Then:
+
+    $ pip-upgrade
+
+This will update the pinned versions in your requirements files. You then install yourself with `uv sync`, `pip install -r requirements.txt`, or whatever you use.
+
+Arguments:
+
+    requirements_file(s)          The requirement FILE, WILDCARD PATH to multiple files, or pyproject.toml. (positional arguments)
+    --prerelease                  Include prerelease versions for upgrade, when querying pypi repositories.
+    -p <package>                  Pre-choose which packages to upgrade. Skips any prompt.
+    --dry-run                     Simulates the upgrade, but does not execute the actual upgrade.
+    --skip-greater-equal          Skip packages with >= pins (by default both == and >= are checked).
+    --use-default-index           Skip searching for custom index-url in pip configuration file(s).
+    --timeout <seconds>           Set a custom timeout for PyPI requests (default: 15 seconds).
+
+Examples:
+
+    pip-upgrade             # auto discovers requirements file(s) and pyproject.toml
+    pip-upgrade requirements.txt
+    pip-upgrade pyproject.toml
+    pip-upgrade requirements/dev.txt requirements/production.txt
+
+    # skip prompt and manually choose some/all packages for upgrade
+    pip-upgrade requirements.txt -p django -p celery
+    pip-upgrade requirements.txt -p all
+
+    # upgrade dependencies in pyproject.toml
+    pip-upgrade pyproject.toml -p all
+
+    # include pre-release versions
+    pip-upgrade --prerelease
+
+    # skip packages pinned with >= (only upgrade == pins)
+    pip-upgrade --skip-greater-equal
+
+    # set a custom timeout for PyPI requests
+    pip-upgrade --timeout 30
+
+## Development
+
+This project uses [uv](https://docs.astral.sh/uv/) for dependency management:
+
+```sh
+uv sync --extra test --extra dev   # install all dependencies
+uv run pytest                      # run tests
+uv run ruff check .                # lint
+uv run ruff format --check .       # check formatting
+```
+
+## Releasing
+
+Releases are published to PyPI automatically via GitHub Actions when a version tag is pushed:
+
+```sh
+git tag v2.1.0
+git push origin v2.1.0
+```
+
+This triggers the `publish.yml` workflow which builds and publishes to PyPI using trusted publishers (OIDC).

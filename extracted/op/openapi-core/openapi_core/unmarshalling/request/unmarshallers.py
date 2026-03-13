@@ -27,6 +27,9 @@ from openapi_core.unmarshalling.schemas import (
 from openapi_core.unmarshalling.schemas import (
     oas31_schema_unmarshallers_factory,
 )
+from openapi_core.unmarshalling.schemas import (
+    oas32_schema_unmarshallers_factory,
+)
 from openapi_core.unmarshalling.schemas.datatypes import (
     FormatUnmarshallersDict,
 )
@@ -71,6 +74,26 @@ from openapi_core.validation.request.validators import (
 from openapi_core.validation.request.validators import (
     V31WebhookRequestValidator,
 )
+from openapi_core.validation.request.validators import V32RequestBodyValidator
+from openapi_core.validation.request.validators import (
+    V32RequestParametersValidator,
+)
+from openapi_core.validation.request.validators import (
+    V32RequestSecurityValidator,
+)
+from openapi_core.validation.request.validators import V32RequestValidator
+from openapi_core.validation.request.validators import (
+    V32WebhookRequestBodyValidator,
+)
+from openapi_core.validation.request.validators import (
+    V32WebhookRequestParametersValidator,
+)
+from openapi_core.validation.request.validators import (
+    V32WebhookRequestSecurityValidator,
+)
+from openapi_core.validation.request.validators import (
+    V32WebhookRequestValidator,
+)
 from openapi_core.validation.request.validators import WebhookRequestValidator
 from openapi_core.validation.schemas.datatypes import FormatValidatorsDict
 from openapi_core.validation.schemas.factories import SchemaValidatorsFactory
@@ -97,6 +120,7 @@ class BaseRequestUnmarshaller(BaseRequestValidator, BaseUnmarshaller):
             MediaTypeDeserializersDict
         ] = None,
         security_provider_factory: SecurityProviderFactory = security_provider_factory,
+        forbid_unspecified_additional_properties: bool = False,
         schema_unmarshallers_factory: Optional[
             SchemaUnmarshallersFactory
         ] = None,
@@ -116,6 +140,7 @@ class BaseRequestUnmarshaller(BaseRequestValidator, BaseUnmarshaller):
             format_validators=format_validators,
             extra_format_validators=extra_format_validators,
             extra_media_type_deserializers=extra_media_type_deserializers,
+            forbid_unspecified_additional_properties=forbid_unspecified_additional_properties,
             schema_unmarshallers_factory=schema_unmarshallers_factory,
             format_unmarshallers=format_unmarshallers,
             extra_format_unmarshallers=extra_format_unmarshallers,
@@ -134,6 +159,7 @@ class BaseRequestUnmarshaller(BaseRequestValidator, BaseUnmarshaller):
             extra_format_validators=extra_format_validators,
             extra_media_type_deserializers=extra_media_type_deserializers,
             security_provider_factory=security_provider_factory,
+            forbid_unspecified_additional_properties=forbid_unspecified_additional_properties,
         )
 
     def _unmarshal(
@@ -198,7 +224,7 @@ class BaseRequestUnmarshaller(BaseRequestValidator, BaseUnmarshaller):
         self, request: BaseRequest, operation: SchemaPath, path: SchemaPath
     ) -> RequestUnmarshalResult:
         try:
-            params = self._get_parameters(request.parameters, path, operation)
+            params = self._get_parameters(request.parameters, operation, path)
         except ParametersError as exc:
             params = exc.parameters
             params_errors = exc.errors
@@ -434,3 +460,49 @@ class V31WebhookRequestUnmarshaller(
     V31WebhookRequestValidator, WebhookRequestUnmarshaller
 ):
     schema_unmarshallers_factory = oas31_schema_unmarshallers_factory
+
+
+class V32RequestBodyUnmarshaller(
+    V32RequestBodyValidator, APICallRequestBodyUnmarshaller
+):
+    schema_unmarshallers_factory = oas32_schema_unmarshallers_factory
+
+
+class V32RequestParametersUnmarshaller(
+    V32RequestParametersValidator, APICallRequestParametersUnmarshaller
+):
+    schema_unmarshallers_factory = oas32_schema_unmarshallers_factory
+
+
+class V32RequestSecurityUnmarshaller(
+    V32RequestSecurityValidator, APICallRequestSecurityUnmarshaller
+):
+    schema_unmarshallers_factory = oas32_schema_unmarshallers_factory
+
+
+class V32RequestUnmarshaller(V32RequestValidator, APICallRequestUnmarshaller):
+    schema_unmarshallers_factory = oas32_schema_unmarshallers_factory
+
+
+class V32WebhookRequestBodyUnmarshaller(
+    V32WebhookRequestBodyValidator, WebhookRequestBodyUnmarshaller
+):
+    schema_unmarshallers_factory = oas32_schema_unmarshallers_factory
+
+
+class V32WebhookRequestParametersUnmarshaller(
+    V32WebhookRequestParametersValidator, WebhookRequestParametersUnmarshaller
+):
+    schema_unmarshallers_factory = oas32_schema_unmarshallers_factory
+
+
+class V32WebhookRequestSecurityUnmarshaller(
+    V32WebhookRequestSecurityValidator, WebhookRequestSecuritysUnmarshaller
+):
+    schema_unmarshallers_factory = oas32_schema_unmarshallers_factory
+
+
+class V32WebhookRequestUnmarshaller(
+    V32WebhookRequestValidator, WebhookRequestUnmarshaller
+):
+    schema_unmarshallers_factory = oas32_schema_unmarshallers_factory

@@ -8,6 +8,7 @@ from .error_code import ErrorCode
 
 
 class ErrorDetails(UniversalBaseModel):
+    request_id: typing.Optional[str] = None
     message: str = pydantic.Field()
     """
     Message describing the error
@@ -16,11 +17,6 @@ class ErrorDetails(UniversalBaseModel):
     code: ErrorCode = pydantic.Field()
     """
     Error code for the specific error that has occured. Refer to the error code documentation for more details.
-    """
-
-    request_id: typing.Optional[str] = pydantic.Field(default=None)
-    """
-    Unique identifier for the request. Format: date_UUID4
     """
 
     if IS_PYDANTIC_V2:

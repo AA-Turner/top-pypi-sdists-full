@@ -28,6 +28,7 @@
 #include "absl/flags/marshalling.h"
 #include "absl/status/status.h"
 #include "absl/strings/numbers.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/str_split.h"
@@ -55,8 +56,6 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
-#include "tensorstore/util/utf8_string.h"
 
 namespace {
 
@@ -64,8 +63,6 @@ using ::tensorstore::AllDims;
 using ::tensorstore::Context;
 using ::tensorstore::Dims;
 using ::tensorstore::Index;
-using ::tensorstore::MaybeAnnotateStatus;
-using ::tensorstore::StrCat;
 using ::tensorstore::WriteFutures;
 using ::tensorstore_examples::DataTypeIdOf;
 using ::tensorstore_examples::MakeDataTypeInvoker;
@@ -113,8 +110,8 @@ absl::Status ComputeQuantilesValidator(const InputArray& input,
   }
   if (shape[0] != output.domain().shape()[0]) {
     errors.push_back(
-        tensorstore::StrCat("expected dimension 0 shape matching %d, got %d",
-                            shape[0], output.domain().shape()[0]));
+        absl::StrFormat("expected dimension 0 shape matching %d, got %d",
+                        shape[0], output.domain().shape()[0]));
   }
   if (output.domain().shape()[1] != quantiles.size()) {
     errors.push_back(
@@ -179,21 +176,20 @@ absl::Status ComputeQuantiles(InputArray& input,
     // Copy input[x, :] into the values.
     TENSORSTORE_RETURN_IF_ERROR(
         tensorstore::CopyTransformedArray(
-            input | Dims(0).TranslateTo(0).IndexSlice(x), values),
-        MaybeAnnotateStatus(_, "ComputeQuantiles copying values"));
+            input | Dims(0).TranslateTo(0).IndexSlice(x), values))
+        .Format("ComputeQuantiles copying values");
 
     // Sort the data.
-    TENSORSTORE_RETURN_IF_ERROR(
-        sort_values(DataTypeIdOf(values), values),
-        MaybeAnnotateStatus(_, "ComputeQuantiles sorting values"));
+    TENSORSTORE_RETURN_IF_ERROR(sort_values(DataTypeIdOf(values), values))
+        .Format("ComputeQuantiles sorting values");
 
     // Materialize the indices data into the output.
     TENSORSTORE_RETURN_IF_ERROR(
         tensorstore::CopyTransformedArray(
             values |
                 Dims(0).IndexArraySlice(tensorstore::UnownedToShared(indices)),
-            output | Dims(0).TranslateTo(0).IndexSlice(x)),
-        MaybeAnnotateStatus(_, "ComputeQuantiles copying output"));
+            output | Dims(0).TranslateTo(0).IndexSlice(x)))
+        .Format("ComputeQuantiles copying output");
   }
 
   return absl::OkStatus();
@@ -213,7 +209,7 @@ absl::Status ValidateRun(const InputArray& input, const OutputArray& output,
   }
   if (input.rank() != 4) {
     errors.push_back(
-        tensorstore::StrCat("expected input rank 4, not ", input.rank()));
+        absl::StrFormat("expected input rank 4, not %d", input.rank()));
   }
 
   // Validate data types
@@ -235,33 +231,33 @@ absl::Status ValidateRun(const InputArray& input, const OutputArray& output,
   auto input_shape = input.domain().shape();
   auto output_shape = output.domain().shape();
   if (output_shape[4] != quantiles.size()) {
-    errors.push_back(tensorstore::StrCat(
+    errors.push_back(absl::StrCat(
         "output shape[4] is ", output.domain().shape()[4],
         " which does not match the number of quantiles ", quantiles.size()));
   }
   if (output.rank() != 5) {
     errors.push_back(
-        tensorstore::StrCat("expected output rank 5, got ", output.rank()));
+        absl::StrFormat("expected output rank 5, got %d", output.rank()));
   }
 
   // Validate shapes
   if (output_shape[4] != quantiles.size()) {
-    errors.push_back(tensorstore::StrCat(
+    errors.push_back(absl::StrCat(
         "output shape[4] is ", output.domain().shape()[4],
         " which does not match the number of quantiles ", quantiles.size()));
   }
   for (int i = 0; i < 4; i++) {
     if (i < input_shape.size() && input.domain().shape()[i] == 0) {
-      errors.push_back(tensorstore::StrCat("input dimension ", i, " is 0"));
+      errors.push_back(absl::StrCat("input dimension %d is 0", i));
     }
     if (i < output_shape.size() && output.domain().shape()[i] == 0) {
-      errors.push_back(tensorstore::StrCat("output dimension ", i, " is 0"));
+      errors.push_back(absl::StrFormat("output dimension %d is 0", i));
     }
     if (i < output_shape.size() && i < input_shape.size() &&
         output_shape[i] > input_shape[i]) {
-      errors.push_back(tensorstore::StrCat(
-          "output dimension ", i, " is greater than the input dimension, ",
-          output_shape[i], " vs ", input_shape[i]));
+      errors.push_back(absl::StrCat("output dimension ", i,
+                                    " is greater than the input dimension, ",
+                                    output_shape[i], " vs ", input_shape[i]));
     }
   }
 
@@ -354,13 +350,13 @@ absl::Status Run(tensorstore::Spec input_spec, tensorstore::Spec output_spec,
         // staging_xq = staging_xt[:, t, :], shape(x, q)
         TENSORSTORE_ASSIGN_OR_RETURN(  //
             auto staging_xq, staging_xtq | Dims(1).IndexSlice(t),
-            MaybeAnnotateStatus(_, "staging_slice "));
+            _.Format("Error computing staging_xq"));
 
         // tile_slice = tile_xt[:, start:end], shape(x, t')
         TENSORSTORE_ASSIGN_OR_RETURN(
             auto tile_slice,
             tile_xt | Dims(1).HalfOpenInterval(start, end).TranslateTo(0),
-            MaybeAnnotateStatus(_, "staging_slice"));
+            _.Format("Error computing tile_slice"));
 
         TENSORSTORE_RETURN_IF_ERROR(
             ComputeQuantiles(tile_slice, quantiles, staging_xq));

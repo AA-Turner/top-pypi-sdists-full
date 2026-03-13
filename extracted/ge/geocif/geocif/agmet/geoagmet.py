@@ -46,7 +46,7 @@ class AgmetGeo(base.BaseGeo):
 
         self.countries = ast.literal_eval(self.parser.get("DEFAULT", "countries"))
         self.forecast_seasons = self._get_option(
-            "forecast_seasons", [ar.utcnow().year]
+            "agmet_seasons", [ar.utcnow().year]
         )
         self.plot_seasons = self._get_option(
             "plot_seasons", self.forecast_seasons
@@ -247,9 +247,9 @@ class AgmetGeo(base.BaseGeo):
 
         self.df_ccs = pd.read_csv(
             dir_ccs / f"{country}_{crop}_s{growing_season}.csv", index_col=0
-        )
+        ).copy()
 
-        self.df_ccs["datetime"] = pd.to_datetime(self.df_ccs.index)
+        self.df_ccs = self.df_ccs.assign(datetime=pd.to_datetime(self.df_ccs.index))
         self.df_ccs.index.name = None
 
         # Advance NDVI by 8 days to match GEOGLAM convention
@@ -260,9 +260,11 @@ class AgmetGeo(base.BaseGeo):
     def add_yield_statistics(self, country, crop):
         """Add yield data from FEWSNET/GEOGLAM stats to df_ccs."""
         # Add temporary columns expected by stats.add_statistics
-        self.df_ccs["Region"] = self.df_ccs["region"]
-        self.df_ccs["Harvest Year"] = self.df_ccs["harvest_season"]
-        self.df_ccs["Season"] = int(self.growing_season)
+        self.df_ccs = self.df_ccs.assign(
+            Region=self.df_ccs["region"],
+            **{"Harvest Year": self.df_ccs["harvest_season"]},
+            Season=int(self.growing_season),
+        )
 
         country_str = country.replace("_", " ").title()
         crop_str = utils.get_crop_name(crop)

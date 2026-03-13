@@ -43,6 +43,18 @@ pub(crate) struct DvMaskResult {
     pub should_remove: bool,
 }
 
+/// Consume the per-file deletion-vector keep-mask for the current batch.
+///
+/// The keep-mask is stored once per file and consumed incrementally as parquet
+/// batches are produced:
+/// - If the mask is shorter than the batch, missing trailing entries are
+///   treated as `true` (keep row).
+/// - If the mask is longer than the batch, the remainder is preserved for the
+///   next batch from the same file.
+///
+/// This function intentionally does not error when `selection_vector.len()` is
+/// greater than `batch_num_rows`; that is expected when one file spans multiple
+/// input batches.
 pub(crate) fn consume_dv_mask(
     selection_vector: &mut Vec<bool>,
     batch_num_rows: usize,
@@ -282,6 +294,7 @@ impl ExecutionPlan for DeltaScanExec {
             file_id_column: self.file_id_column.clone(),
             return_file_ids: self.retain_file_ids,
             pending: VecDeque::new(),
+            schema_adapter: super::SchemaAdapter::new(Arc::clone(&self.scan_plan.result_schema)),
         }))
     }
 
@@ -360,11 +373,16 @@ struct DeltaScanStream {
     /// Denotes if file ids should be returned as part of the output
     return_file_ids: bool,
     pending: VecDeque<RecordBatch>,
+    /// Cached schema adapter for efficient batch adaptation across batches
+    schema_adapter: super::SchemaAdapter,
 }
 
 impl DeltaScanStream {
-    fn batch_project(&self, batch: RecordBatch) -> Result<Vec<RecordBatch>> {
-        let _timer = self.baseline_metrics.elapsed_compute().timer();
+    fn batch_project(&mut self, batch: RecordBatch) -> Result<Vec<RecordBatch>> {
+        // Clone the metric so the timer guard does not immutably borrow `self`,
+        // which would conflict with the `&mut self` calls below.
+        let elapsed = self.baseline_metrics.elapsed_compute().clone();
+        let _timer = elapsed.timer();
 
         if batch.num_rows() == 0 {
             return Ok(vec![RecordBatch::new_empty(Arc::clone(
@@ -375,14 +393,15 @@ impl DeltaScanStream {
         let file_id_idx = file_id_column_idx(&batch, &self.file_id_column)?;
         let file_runs = split_by_file_id_runs(&batch, file_id_idx)?;
 
-        file_runs
-            .into_iter()
-            .map(|(file_id, slice)| self.batch_project_single_file(slice, file_id, file_id_idx))
-            .collect::<Result<Vec<_>>>()
+        let mut results = Vec::with_capacity(file_runs.len());
+        for (file_id, slice) in file_runs {
+            results.push(self.batch_project_single_file(slice, file_id, file_id_idx)?);
+        }
+        Ok(results)
     }
 
     fn batch_project_single_file(
-        &self,
+        &mut self,
         batch: RecordBatch,
         file_id: String,
         file_id_idx: usize,
@@ -431,9 +450,15 @@ impl DeltaScanStream {
                 result,
                 &self.scan_plan,
                 Some((file_id_col, Arc::new(file_id_field))),
+                &mut self.schema_adapter,
             )
         } else {
-            super::finalize_transformed_batch(result, &self.scan_plan, None)
+            super::finalize_transformed_batch(
+                result,
+                &self.scan_plan,
+                None,
+                &mut self.schema_adapter,
+            )
         }
     }
 }
@@ -1162,6 +1187,7 @@ mod tests {
             futures::stream::iter(input_batches.into_iter().map(Ok)),
         ));
 
+        let schema_adapter = super::super::SchemaAdapter::new(Arc::clone(&scan_plan.result_schema));
         DeltaScanStream {
             scan_plan,
             kernel_type,
@@ -1172,6 +1198,7 @@ mod tests {
             file_id_column: FILE_ID_COLUMN_DEFAULT.to_string(),
             return_file_ids,
             pending: VecDeque::new(),
+            schema_adapter,
         }
     }
 
@@ -1194,7 +1221,7 @@ mod tests {
         assert!(selection_vectors.contains_key("f1"));
         assert!(selection_vectors.contains_key("f2"));
 
-        let stream = test_scan_stream(
+        let mut stream = test_scan_stream(
             Arc::clone(&scan_plan),
             kernel_type,
             selection_vectors,
@@ -1265,7 +1292,7 @@ mod tests {
             false,
         )?;
 
-        let stream = test_scan_stream(
+        let mut stream = test_scan_stream(
             Arc::clone(&scan_plan),
             kernel_type,
             selection_vectors,
@@ -1325,6 +1352,60 @@ mod tests {
         let file_id_idx = file_id_column_idx(&batch, FILE_ID_COLUMN_DEFAULT)?;
         let err = split_by_file_id_runs(&batch, file_id_idx).unwrap_err();
         assert!(err.to_string().contains("file id value must not be null"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_split_by_file_id_runs_preserves_dictionary_key_mapping() -> TestResult {
+        use arrow::datatypes::{Field, Schema};
+        use arrow_array::{DictionaryArray, Int32Array, StringArray, UInt16Array};
+
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("value", DataType::Int32, false),
+            Field::new(
+                FILE_ID_COLUMN_DEFAULT,
+                DataType::Dictionary(DataType::UInt16.into(), DataType::Utf8.into()),
+                false,
+            ),
+        ]));
+
+        // Dictionary keys intentionally start with key=1 to ensure run labels are taken from keys,
+        // not from row indexes.
+        let keys = UInt16Array::from(vec![Some(1), Some(1), Some(0), Some(0), Some(1)]);
+        let values = StringArray::from(vec!["f0", "f1"]);
+        let file_ids = DictionaryArray::new(keys, Arc::new(values));
+
+        let batch = RecordBatch::try_new(
+            schema,
+            vec![
+                Arc::new(Int32Array::from(vec![10, 11, 20, 21, 12])),
+                Arc::new(file_ids),
+            ],
+        )?;
+
+        let file_id_idx = file_id_column_idx(&batch, FILE_ID_COLUMN_DEFAULT)?;
+        let runs = split_by_file_id_runs(&batch, file_id_idx)?;
+        assert_eq!(runs.len(), 3);
+        assert_eq!(runs[0].0, "f1");
+        assert_eq!(runs[1].0, "f0");
+        assert_eq!(runs[2].0, "f1");
+
+        let run0 = runs[0]
+            .1
+            .column(0)
+            .as_primitive::<arrow::datatypes::Int32Type>();
+        let run1 = runs[1]
+            .1
+            .column(0)
+            .as_primitive::<arrow::datatypes::Int32Type>();
+        let run2 = runs[2]
+            .1
+            .column(0)
+            .as_primitive::<arrow::datatypes::Int32Type>();
+        assert_eq!(run0.values(), &[10, 11]);
+        assert_eq!(run1.values(), &[20, 21]);
+        assert_eq!(run2.values(), &[12]);
 
         Ok(())
     }
@@ -1477,5 +1558,22 @@ mod tests {
                 should_remove: true,
             }
         );
+    }
+
+    #[test]
+    fn test_dv_long_mask_retains_remainder_for_next_batch() {
+        use super::{DvMaskResult, consume_dv_mask};
+
+        let mut sv = vec![true, false, false, true];
+        let result = consume_dv_mask(&mut sv, 2);
+
+        assert_eq!(
+            result,
+            DvMaskResult {
+                selection: Some(vec![true, false]),
+                should_remove: false,
+            }
+        );
+        assert_eq!(sv, vec![false, true]);
     }
 }

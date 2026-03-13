@@ -29,10 +29,12 @@ _type_map = {
     'time': types.TIME,
     'TIME': types.TIME,
     'datetime64[ns]': types.DATETIME,
+    'datetime64[ms]': types.DATETIME,
     'timestamp': types.TIMESTAMP,
     'TIMESTAMP': types.TIMESTAMP,
     'varchar': types.VARCHAR,
     'VARCHAR': types.VARCHAR,
+    'str': types.VARCHAR,
     'smallint': types.SMALLINT,
     'CHARACTER VARYING': types.VARCHAR,
     'object': types.VARCHAR

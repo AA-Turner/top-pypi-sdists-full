@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest-env
-Version: 1.5.0
+Version: 1.6.0
 Summary: pytest plugin that allows you to add environment variables.
 Project-URL: Homepage, https://github.com/pytest-dev/pytest-env
 Project-URL: Source, https://github.com/pytest-dev/pytest-env
@@ -44,7 +44,7 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
 Requires-Dist: pytest>=9.0.2
-Requires-Dist: python-dotenv>=1.2.1
+Requires-Dist: python-dotenv>=1.2.2
 Requires-Dist: tomli>=2.4; python_version < '3.11'
 Provides-Extra: testing
 Requires-Dist: covdefaults>=2.3; extra == 'testing'
@@ -147,6 +147,22 @@ pytest --envfile .env.local           # ignore configured env_files, load only t
 pytest --envfile +.env.override       # load configured env_files first, then this file on top
 ```
 
+To keep existing environment variables (including with `--envfile`), set `env_files_skip_if_set = true`:
+
+```toml
+[tool.pytest_env]
+env_files = [".env", ".env.test"]
+env_files_skip_if_set = true
+```
+
+```ini
+[pytest]
+env_files =
+    .env
+    .env.test
+env_files_skip_if_set = true
+```
+
 ### Control variable behavior
 
 Variables set as plain values are assigned directly. For more control, use inline tables with the `transform`,
@@ -161,7 +177,8 @@ TEMP_VAR = { unset = true }
 ```
 
 `transform` expands `{VAR}` placeholders using existing environment variables. `skip_if_set` leaves the variable
-unchanged when it already exists. `unset` removes it entirely (different from setting to empty string).
+unchanged when it already exists. For `.env` files, use `env_files_skip_if_set = true`. `unset` removes it entirely
+(different from setting to empty string).
 
 ### Set different environments for test suites
 
@@ -307,7 +324,8 @@ When multiple sources define the same variable, precedence applies in this order
 1. Inline variables in configuration files (TOML or INI format).
 1. Variables from `.env` files loaded via `env_files`. When using `--envfile`, CLI files take precedence over
    configuration-based `env_files`.
-1. Variables already present in the environment (preserved when `skip_if_set = true` or `D:` flag is used).
+1. Variables already present in the environment (preserved when `skip_if_set = true`, `D:` flag is used, or
+   `env_files_skip_if_set = true`).
 
 When multiple configuration formats are present, TOML native format (`[pytest_env]` / `[tool.pytest_env]`) takes
 precedence over INI format. Among TOML files, the first file with a `pytest_env` section wins, checked in order:

@@ -16,6 +16,7 @@ from typing import (
     TypeVar,
     Union,
 )
+from zoneinfo import ZoneInfo
 
 import sqlalchemy as sa
 
@@ -364,20 +365,100 @@ class DBOSClient:
         )
 
     def cancel_workflow(self, workflow_id: str) -> None:
-        self._sys_db.cancel_workflow(workflow_id)
+        self._sys_db.cancel_workflows([workflow_id])
 
     async def cancel_workflow_async(self, workflow_id: str) -> None:
         await asyncio.to_thread(self.cancel_workflow, workflow_id)
 
-    def resume_workflow(self, workflow_id: str) -> "WorkflowHandle[Any]":
-        self._sys_db.resume_workflow(workflow_id)
+    def cancel_workflows(self, workflow_ids: List[str]) -> None:
+        self._sys_db.cancel_workflows(workflow_ids)
+
+    async def cancel_workflows_async(self, workflow_ids: List[str]) -> None:
+        await asyncio.to_thread(self._sys_db.cancel_workflows, workflow_ids)
+
+    def delete_workflow(
+        self, workflow_id: str, *, delete_children: bool = False
+    ) -> None:
+        self.delete_workflows([workflow_id], delete_children=delete_children)
+
+    async def delete_workflow_async(
+        self, workflow_id: str, *, delete_children: bool = False
+    ) -> None:
+        await asyncio.to_thread(
+            self.delete_workflows, [workflow_id], delete_children=delete_children
+        )
+
+    def delete_workflows(
+        self, workflow_ids: List[str], *, delete_children: bool = False
+    ) -> None:
+        all_ids = list(workflow_ids)
+        if delete_children:
+            for wfid in workflow_ids:
+                all_ids.extend(self._sys_db.get_workflow_children(wfid))
+        self._sys_db.delete_workflows(all_ids)
+
+    async def delete_workflows_async(
+        self, workflow_ids: List[str], *, delete_children: bool = False
+    ) -> None:
+        await asyncio.to_thread(
+            self.delete_workflows, workflow_ids, delete_children=delete_children
+        )
+
+    def resume_workflow(
+        self,
+        workflow_id: str,
+        *,
+        queue_name: Optional[str] = None,
+    ) -> "WorkflowHandle[Any]":
+        self._sys_db.resume_workflows(
+            [workflow_id],
+            queue_name=queue_name,
+        )
         return WorkflowHandleClientPolling[Any](workflow_id, self._sys_db)
 
     async def resume_workflow_async(
-        self, workflow_id: str
+        self,
+        workflow_id: str,
+        *,
+        queue_name: Optional[str] = None,
     ) -> "WorkflowHandleAsync[Any]":
-        await asyncio.to_thread(self.resume_workflow, workflow_id)
+        await asyncio.to_thread(
+            self.resume_workflow,
+            workflow_id,
+            queue_name=queue_name,
+        )
         return WorkflowHandleClientAsyncPolling[Any](workflow_id, self._sys_db)
+
+    def resume_workflows(
+        self,
+        workflow_ids: List[str],
+        *,
+        queue_name: Optional[str] = None,
+    ) -> "List[WorkflowHandle[Any]]":
+        self._sys_db.resume_workflows(
+            workflow_ids,
+            queue_name=queue_name,
+        )
+        return [
+            WorkflowHandleClientPolling[Any](wfid, self._sys_db)
+            for wfid in workflow_ids
+        ]
+
+    async def resume_workflows_async(
+        self,
+        workflow_ids: List[str],
+        *,
+        queue_name: Optional[str] = None,
+    ) -> "List[WorkflowHandleAsync[Any]]":
+        await asyncio.to_thread(
+            self._sys_db.resume_workflows,
+            workflow_ids,
+            queue_name=queue_name,
+        )
+        return [
+            WorkflowHandleClientAsyncPolling[Any](wfid, self._sys_db)
+            for wfid in workflow_ids
+        ]
 
     def list_workflows(
         self,
@@ -562,12 +643,16 @@ class DBOSClient:
         start_step: int,
         *,
         application_version: Optional[str] = None,
+        queue_name: Optional[str] = None,
+        queue_partition_key: Optional[str] = None,
     ) -> "WorkflowHandle[Any]":
         forked_workflow_id = fork_workflow(
             self._sys_db,
             workflow_id,
             start_step,
             application_version=application_version,
+            queue_name=queue_name,
+            queue_partition_key=queue_partition_key,
         )
         return WorkflowHandleClientPolling[Any](forked_workflow_id, self._sys_db)
 
@@ -577,6 +662,8 @@ class DBOSClient:
         start_step: int,
         *,
         application_version: Optional[str] = None,
+        queue_name: Optional[str] = None,
+        queue_partition_key: Optional[str] = None,
     ) -> "WorkflowHandleAsync[Any]":
         forked_workflow_id = await asyncio.to_thread(
             fork_workflow,
@@ -584,6 +671,8 @@ class DBOSClient:
             workflow_id,
             start_step,
             application_version=application_version,
+            queue_name=queue_name,
+            queue_partition_key=queue_partition_key,
         )
         return WorkflowHandleClientAsyncPolling[Any](forked_workflow_id, self._sys_db)
 
@@ -665,6 +754,8 @@ class DBOSClient:
         schedule: str,
         context: Any = None,
         workflow_class_name: Optional[str] = None,
+        automatic_backfill: bool = False,
+        cron_timezone: Optional[str] = None,
     ) -> None:
         """
         Create a cron schedule that periodically invokes a workflow.
@@ -675,12 +766,19 @@ class DBOSClient:
             schedule: A cron expression (supports seconds with 6 fields).
             context: A context object passed as the second argument to every invocation. Defaults to ``None``.
             workflow_class_name: Class name for static class method workflows. Defaults to ``None``.
+            automatic_backfill: If ``True``, on startup the scheduler will automatically backfill missed executions since the last time the schedule fired. Defaults to ``False``.
+            cron_timezone: IANA timezone name (e.g. ``"America/New_York"``) in which to evaluate the cron expression. Defaults to ``None`` (UTC).
 
         Raises:
             DBOSException: If the cron expression is invalid or a schedule with the same name already exists.
         """
         if not croniter.is_valid(schedule, second_at_beginning=True):
             raise DBOSException(f"Invalid cron schedule: '{schedule}'")
+        if cron_timezone is not None:
+            try:
+                ZoneInfo(cron_timezone)
+            except (KeyError, Exception):
+                raise DBOSException(f"Invalid timezone: '{cron_timezone}'")
         self._sys_db.create_schedule(
             WorkflowSchedule(
                 schedule_id=generate_uuid(),
@@ -690,6 +788,9 @@ class DBOSClient:
                 schedule=schedule,
                 status="ACTIVE",
                 context=self._sys_db.serializer.serialize(context),
+                last_fired_at=None,
+                automatic_backfill=automatic_backfill,
+                cron_timezone=cron_timezone,
             )
         )
 
@@ -738,6 +839,8 @@ class DBOSClient:
         schedule: str,
         context: Any = None,
         workflow_class_name: Optional[str] = None,
+        automatic_backfill: bool = False,
+        cron_timezone: Optional[str] = None,
     ) -> None:
         """Async version of :meth:`create_schedule`."""
         await asyncio.to_thread(
@@ -747,6 +850,8 @@ class DBOSClient:
             schedule=schedule,
             context=context,
             workflow_class_name=workflow_class_name,
+            automatic_backfill=automatic_backfill,
+            cron_timezone=cron_timezone,
         )
 
     async def list_schedules_async(
@@ -794,7 +899,19 @@ class DBOSClient:
             DBOSException: If a cron expression is invalid
         """
         to_apply: List[WorkflowSchedule] = []
-        for entry in schedules:
+        for i, entry in enumerate(schedules):
+            if "schedule_name" not in entry:
+                raise DBOSException(
+                    f"Schedule entry {i} is missing required field 'schedule_name'"
+                )
+            if "workflow_name" not in entry:
+                raise DBOSException(
+                    f"Schedule entry {i} is missing required field 'workflow_name'"
+                )
+            if "schedule" not in entry:
+                raise DBOSException(
+                    f"Schedule entry {i} is missing required field 'schedule'"
+                )
             cron = entry["schedule"]
             if not croniter.is_valid(cron, second_at_beginning=True):
                 raise DBOSException(f"Invalid cron schedule: '{cron}'")
@@ -807,6 +924,9 @@ class DBOSClient:
                     schedule=cron,
                     status="ACTIVE",
                     context=self._sys_db.serializer.serialize(entry["context"]),
+                    last_fired_at=None,
+                    automatic_backfill=entry.get("automatic_backfill", False),
+                    cron_timezone=entry.get("cron_timezone"),
                 )
             )
         with self._sys_db.engine.begin() as c:

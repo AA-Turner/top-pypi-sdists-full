@@ -463,7 +463,6 @@ async def setup_venv(
             [
                 f"# Generated at {datetime.now(tz=timezone.utc).isoformat()}",
                 venv_config.get_acryl_datahub_requirement_line(),
-                *venv_config.extra_pip_requirements,
             ]
         )
         requirements_file = venv_loc / "requirements.txt"
@@ -471,23 +470,36 @@ async def setup_venv(
     else:
         requirements_file = venv_config.requirements_file
 
-    # Install the requirements.
+    # Pass 1: Install datahub with constraints to pin transitive deps.
     runner._logs.append(f"Installing requirements from: {requirements_file}\n")
     await runner.execute(["cat", str(requirements_file)])
-    await runner.execute(
-        [
-            _find_uv(),
-            "pip",
-            "install",
-            "-r",
-            str(requirements_file),
-        ],
-        env={
-            **os.environ,
-            **venv_config.extra_env_vars,
-            "VIRTUAL_ENV": str(venv_loc),
-        },
-    )
+
+    venv_env = {
+        **os.environ,
+        **venv_config.extra_env_vars,
+        "VIRTUAL_ENV": str(venv_loc),
+    }
+
+    install_cmd = [_find_uv(), "pip", "install", "-r", str(requirements_file)]
+    constraints_path_str = os.environ.get("UV_CONSTRAINT", "")
+    if constraints_path_str and pathlib.Path(constraints_path_str).exists():
+        install_cmd.extend(["--constraint", constraints_path_str])
+
+    runner._logs.append(f"Installing datahub: {' '.join(install_cmd)}\n")
+    await runner.execute(install_cmd, env=venv_env)
+
+    # Pass 2: Install extra_pip_requirements without constraints.
+    # Unset UV_CONSTRAINT so customer versions can override pinned deps.
+    if venv_config.requirements_file is None and venv_config.extra_pip_requirements:
+        extra_req_file = venv_loc / "extra-requirements.txt"
+        extra_req_file.write_text("\n".join(venv_config.extra_pip_requirements))
+        runner._logs.append(f"Installing extra requirements from: {extra_req_file}\n")
+        await runner.execute(["cat", str(extra_req_file)])
+        unconstrained_env = {k: v for k, v in venv_env.items() if k != "UV_CONSTRAINT"}
+        await runner.execute(
+            [_find_uv(), "pip", "install", "-r", str(extra_req_file)],
+            env=unconstrained_env,
+        )
 
     return venv_reference
 

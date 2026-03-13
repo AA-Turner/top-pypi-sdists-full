@@ -1431,6 +1431,8 @@ CONVERT_UTILS_CONVERT_TO_STRING_WARNING = (
 
 CONVERT_UTILS_CONVERT_TO_STRING_TRUNCATED_WARNING = "String value length exceeds %d characters and will be truncated. Provided value: '%s'"
 
+CONVERT_UTILS_CONVERT_LIST_TO_STRING_TRUNCATED_WARNING = "List values length exceeds %d characters and will be truncated. Provided value: '%s'"
+
 CONVERT_UTILS_CONVERT_MODEL_TO_STRING_TF_TO_JSON_FAILED_WARNING = (
     "Failed to convert Tensorflow graph to JSON"
 )

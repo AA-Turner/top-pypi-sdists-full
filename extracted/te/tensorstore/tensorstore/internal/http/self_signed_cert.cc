@@ -76,7 +76,7 @@ std::unique_ptr<X509_NAME, X509NameFree> CreateName(
 // Append the OpenSSL error strings to the status message.
 absl::Status OpenSslError(std::string message,
                           SourceLocation loc = SourceLocation::current()) {
-  internal::StatusBuilder builder(absl::StatusCode::kInternal, loc);
+  StatusBuilder builder(absl::StatusCode::kInternal, loc);
   for (int line = 0; line < 4; ++line) {
     if (line > 0) {
       builder.Format("\n");

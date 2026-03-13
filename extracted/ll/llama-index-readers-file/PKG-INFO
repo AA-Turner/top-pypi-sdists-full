@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: llama-index-readers-file
-Version: 0.5.6
+Version: 0.6.0
 Summary: llama-index readers file integration
 Author-email: Your Name <you@example.com>
 Maintainer: FarisHijazi, Haowjy, ephe-meral, hursh-desai, iamarunbrahma, jon-chuang, mmaatouk, ravi03071991, sangwongenip, thejessezhang
 License-Expression: MIT
 License-File: LICENSE
 Keywords: 10k,10q,chart,eml,figure,html,hwp,image,invoice,ipynb,jupyter,notebook,pdf,pymupdf,receipt,sec,spreadsheet,tabular,unstructured.io,yaml,yml
-Requires-Python: <4.0,>=3.9
+Requires-Python: <4.0,>=3.10
 Requires-Dist: beautifulsoup4<5,>=4.12.3
 Requires-Dist: defusedxml>=0.7.1
 Requires-Dist: llama-index-core<0.15,>=0.13.0

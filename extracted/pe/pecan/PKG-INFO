@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pecan
-Version: 1.7.0
+Version: 1.8.0
 Summary: A WSGI object-dispatching web framework, designed to be lean and fast, with few dependencies.
 Home-page: http://github.com/pecan/pecan
 Author: Jonathan LaCour
@@ -19,15 +19,13 @@ Classifier: Operating System :: POSIX
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Internet :: WWW/HTTP :: WSGI
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 License-File: LICENSE
 License-File: AUTHORS
 Requires-Dist: WebOb>=1.8

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: microsoft-kiota-http
-Version: 1.9.9
+Version: 1.9.10
 Summary: Core abstractions for kiota generated libraries in Python
 License: MIT
 License-File: LICENSE
@@ -18,7 +18,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Dist: httpx[http2] (>=0.25,<1.0.0)
-Requires-Dist: microsoft-kiota-abstractions (>=1.9.9,<1.10.0)
+Requires-Dist: microsoft-kiota-abstractions (>=1.9.10,<1.10.0)
 Requires-Dist: opentelemetry-api (>=1.27.0)
 Requires-Dist: opentelemetry-sdk (>=1.27.0)
 Project-URL: Documentation, https://learn.microsoft.com/openapi/kiota/

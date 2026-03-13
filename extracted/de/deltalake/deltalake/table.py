@@ -14,7 +14,7 @@ from typing import (
     Union,
 )
 
-from arro3.core import RecordBatch, RecordBatchReader
+from arro3.core import RecordBatchReader, Table
 from arro3.core.types import (
     ArrowArrayExportable,
     ArrowSchemaExportable,
@@ -554,7 +554,9 @@ class DeltaTable:
         keep_versions: list[int] | None = None,
     ) -> list[str]:
         """
-        Run the Vacuum command on the Delta Table: list and delete files no longer referenced by the Delta table and are older than the retention threshold.
+        Run the Vacuum command on the Delta Table: list and delete files no longer referenced by the Delta table.
+        Here "not referenced" means all removed files (from vacuum/delete/update/merge) older than the retention threshold,
+        plus any files not mentioned in the logs (unless they start with underscore).
 
         Args:
             retention_hours: the retention threshold in hours, if none then the value from `delta.deletedFileRetentionDuration` is used or default of 1 week otherwise.
@@ -562,7 +564,8 @@ class DeltaTable:
             enforce_retention_duration: when disabled, accepts retention hours smaller than the value from `delta.deletedFileRetentionDuration`.
             post_commithook_properties: properties for the post commit hook. If None, default values are used.
             commit_properties: properties of the transaction commit. If None, default values are used.
-            full: when set to True, will perform a "full" vacuum and remove all files not referenced in the transaction log
+            full: when set to True, will perform a "full" vacuum and remove all files not referenced the transaction log.
+                when False, it will only vacuum not referenced files since last log checkpoint (or since genesis if no checkpoint exists).
             keep_versions: An optional list of versions to keep. If provided, files from these versions will not be deleted.
         Returns:
             the list of files no longer referenced by the Delta Table and are older than the retention threshold.
@@ -717,6 +720,8 @@ class DeltaTable:
         error_on_type_mismatch: bool = True,
         writer_properties: WriterProperties | None = None,
         streamed_exec: bool = True,
+        max_spill_size: int | None = None,
+        max_temp_directory_size: int | None = None,
         post_commithook_properties: PostCommitHookProperties | None = None,
         commit_properties: CommitProperties | None = None,
     ) -> TableMerger:
@@ -734,6 +739,10 @@ class DeltaTable:
             writer_properties: Pass writer properties to the Rust parquet writer
             streamed_exec: Will execute MERGE using a LazyMemoryExec plan, this improves memory pressure for large source tables. Enabling streamed_exec
                 implicitly disables source table stats to derive an early_pruning_predicate
+            max_spill_size: The maximum number of bytes allowed in memory before spilling to disk.
+                If not specified, uses DataFusion's default.
+                Set this to avoid OOM when merging into large tables with a source table which touches a large number of files.
+            max_temp_directory_size: The maximum disk space for temporary spill files. If not specified, uses DataFusion's default.
             post_commithook_properties: properties for the post commit hook. If None, default values are used.
             commit_properties: properties for the commit. If None, default values are used.
 
@@ -753,6 +762,8 @@ class DeltaTable:
             merge_schema=merge_schema,
             safe_cast=not error_on_type_mismatch,
             streamed_exec=streamed_exec,
+            max_spill_size=max_spill_size,
+            max_temp_directory_size=max_temp_directory_size,
             writer_properties=writer_properties,
             commit_properties=commit_properties,
             post_commithook_properties=post_commithook_properties,
@@ -1006,6 +1017,12 @@ class DeltaTable:
         """
         self._table.create_checkpoint()
 
+    def compact_logs(self, starting_version: int, ending_version: int) -> None:
+        """
+        Create a compaction log for a given version range.
+        """
+        self._table.compact_logs(starting_version, ending_version)
+
     def cleanup_metadata(self) -> None:
         """
         Delete expired log files before current version from table. The table log retention is based on
@@ -1028,43 +1045,49 @@ class DeltaTable:
             out.append((field, op, str_value))
         return out
 
-    def get_add_actions(self, flatten: bool = False) -> RecordBatch:
-        """
-        Return a dataframe with all current add actions.
+    def get_add_actions(self, flatten: bool = False) -> Table:
+        """Return an Arrow table describing every file currently in the table.
 
-        Add actions represent the files that currently make up the table. This
-        data is a low-level representation parsed from the transaction log.
+        Each row corresponds to one data file (an *add* action in the
+        Delta transaction log).  The returned columns always include:
+
+        - ``path`` relative file path
+        - ``size_bytes`` file size in bytes
+        - ``modification_time`` last modification timestamp (ms)
+        - ``num_records`` row count (when stats are available)
+
+        When ``flatten=False`` (default), partition values and column
+        statistics are returned as nested struct columns (``partition``,
+        ``null_count``, ``min``, ``max``).
+
+        When ``flatten=True``, those structs are flattened into
+        top-level columns with dot-separated prefixes, e.g.
+        ``partition.year``, ``null_count.value``, ``min.value``.
 
         Args:
-            flatten: whether to flatten the schema. Partition values columns are
-                        given the prefix `partition.`, statistics (null_count, min, and max) are
-                        given the prefix `null_count.`, `min.`, and `max.`, and tags the
-                        prefix `tags.`. Nested field names are concatenated with `.`.
+            flatten: If True, flatten nested partition and statistics
+                columns into dot-separated top-level columns.
 
         Returns:
-            a PyArrow RecordBatch containing the add action data.
+            An arro3 Table containing one row per data file.
 
         Example:
             ```python
-            from pprint import pprint
             from deltalake import DeltaTable, write_deltalake
             import pyarrow as pa
-            data = pa.table({"x": [1, 2, 3], "y": [4, 5, 6]})
-            write_deltalake("tmp", data, partition_by=["x"])
-            dt = DeltaTable("tmp")
-            df = dt.get_add_actions().to_pandas()
-            df["path"].sort_values(ignore_index=True)
-            0    x=1/0
-            1    x=2/0
-            2    x=3/0
-            ```
 
-            ```python
-            df = dt.get_add_actions(flatten=True).to_pandas()
-            df["partition.x"].sort_values(ignore_index=True)
-            0    1
-            1    2
-            2    3
+            data = pa.table({"x": [1, 2, 3], "y": [4, 5, 6]})
+            write_deltalake("/tmp/my_table", data, partition_by=["x"])
+            dt = DeltaTable("/tmp/my_table")
+
+            # Default: partition values in a nested struct column
+            actions = dt.get_add_actions()
+            actions.column("path")
+            actions.column("partition").field("x")
+
+            # Flattened: partition values as top-level columns
+            flat = dt.get_add_actions(flatten=True)
+            flat.column("partition.x")
             ```
         """
         return self._table.get_add_actions(flatten)
@@ -1181,12 +1204,12 @@ class DeltaTable:
             post_commithook_properties=post_commithook_properties,
         )
 
-    def __datafusion_table_provider__(self) -> Any:
+    def __datafusion_table_provider__(self, session: Any | None = None) -> Any:
         """Return the DataFusion table provider PyCapsule interface.
 
         To support DataFusion features such as push down filtering, this function will return a PyCapsule
         interface that conforms to the FFI Table Provider required by DataFusion. From an end user perspective
-        you should not need to call this function directly. Instead you can use ``register_table_provider`` in
+        you should not need to call this function directly. Instead you can use ``register_table`` in
         the DataFusion SessionContext.
 
         Returns:
@@ -1201,7 +1224,7 @@ class DeltaTable:
             write_deltalake("tmp", data)
             dt = DeltaTable("tmp")
             ctx = SessionContext()
-            ctx.register_table_provider("test", table)
+            ctx.register_table("test", dt)
             ctx.table("test").show()
             ```
             Results in
@@ -1216,7 +1239,7 @@ class DeltaTable:
             +----+----+----+
             ```
         """
-        return self._table.__datafusion_table_provider__()
+        return self._table.__datafusion_table_provider__(session)
 
 
 class TableMerger:
@@ -1830,6 +1853,7 @@ class TableAlterer:
         properties: dict[str, str],
         raise_if_not_exists: bool = True,
         commit_properties: CommitProperties | None = None,
+        post_commithook_properties: PostCommitHookProperties | None = None,
     ) -> None:
         """
         Set properties from the table.
@@ -1838,6 +1862,7 @@ class TableAlterer:
             properties: properties which set
             raise_if_not_exists: set if should raise if not exists.
             commit_properties: properties of the transaction commit. If None, default values are used.
+            post_commithook_properties: properties for the post commit hook. If None, default values are used.
 
         Example:
             ```python
@@ -1858,12 +1883,14 @@ class TableAlterer:
             properties,
             raise_if_not_exists,
             commit_properties,
+            post_commithook_properties,
         )
 
     def set_table_name(
         self,
         name: str,
         commit_properties: CommitProperties | None = None,
+        post_commithook_properties: PostCommitHookProperties | None = None,
     ) -> None:
         """
         Set the name of the table.
@@ -1871,7 +1898,7 @@ class TableAlterer:
         Args:
             name: the name of the table
             commit_properties: properties of the transaction commit. If None, default values are used.
-                              Note: This parameter is not yet implemented and will be ignored.
+            post_commithook_properties: properties for the post commit hook. If None, default values are used.
 
         Example:
             ```python
@@ -1880,12 +1907,15 @@ class TableAlterer:
             dt.alter.set_table_name("new_table_name")
             ```
         """
-        self.table._table.set_table_name(name, commit_properties)
+        self.table._table.set_table_name(
+            name, commit_properties, post_commithook_properties
+        )
 
     def set_table_description(
         self,
         description: str,
         commit_properties: CommitProperties | None = None,
+        post_commithook_properties: PostCommitHookProperties | None = None,
     ) -> None:
         """
         Set the description of the table.
@@ -1893,7 +1923,7 @@ class TableAlterer:
         Args:
             description: the description of the table
             commit_properties: properties of the transaction commit. If None, default values are used.
-                              Note: This parameter is not yet implemented and will be ignored.
+            post_commithook_properties: properties for the post commit hook. If None, default values are used.
 
         Example:
             ```python
@@ -1902,7 +1932,9 @@ class TableAlterer:
             dt.alter.set_table_description("new_table_description")
             ```
         """
-        self.table._table.set_table_description(description, commit_properties)
+        self.table._table.set_table_description(
+            description, commit_properties, post_commithook_properties
+        )
 
     def set_column_metadata(
         self,

@@ -4,10 +4,10 @@
 
 [project]
 name = "mypy-boto3-ecr"
-version = "1.42.57"
+version = "1.42.67"
 license = "MIT"
 authors = [{ name = "Vlad Emelianov", email = "vlad.emelianov.nz@gmail.com" }]
-description = "Type annotations for boto3 ECR 1.42.57 service generated with mypy-boto3-builder 8.12.0"
+description = "Type annotations for boto3 ECR 1.42.67 service generated with mypy-boto3-builder 8.12.0"
 readme = "README.md"
 classifiers = [
     "Development Status :: 5 - Production/Stable",

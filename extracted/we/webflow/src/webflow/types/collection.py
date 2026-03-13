@@ -3,47 +3,61 @@
 import datetime as dt
 import typing
 
-from ..core.datetime_utils import serialize_datetime
+import pydantic
+import typing_extensions
+from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from ..core.serialization import FieldMetadata
+from .field import Field
 
-try:
-    import pydantic.v1 as pydantic  # type: ignore
-except ImportError:
-    import pydantic  # type: ignore
 
-
-class Collection(pydantic.BaseModel):
+class Collection(UniversalBaseModel):
     """
     A collection object
     """
 
-    id: str = pydantic.Field(description="Unique identifier for a Collection")
-    display_name: typing.Optional[str] = pydantic.Field(
-        alias="displayName", default=None, description="Name given to the Collection"
-    )
-    singular_name: typing.Optional[str] = pydantic.Field(
-        alias="singularName",
-        default=None,
-        description="The name of one Item in Collection (e.g. ”Blog Post” if the Collection is called “Blog Posts”)",
-    )
-    slug: typing.Optional[str] = pydantic.Field(default=None, description="Slug of Collection in Site URL structure")
-    created_on: typing.Optional[dt.datetime] = pydantic.Field(
-        alias="createdOn", default=None, description="The date the collection was created"
-    )
-    last_updated: typing.Optional[dt.datetime] = pydantic.Field(
-        alias="lastUpdated", default=None, description="The date the collection was last updated"
-    )
-    fields: typing.Dict[str, typing.Any] = pydantic.Field(description="The list of fields in the Collection")
+    id: str = pydantic.Field()
+    """
+    Unique identifier for a Collection
+    """
 
-    def json(self, **kwargs: typing.Any) -> str:
-        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
-        return super().json(**kwargs_with_defaults)
+    display_name: typing_extensions.Annotated[
+        str,
+        FieldMetadata(alias="displayName"),
+        pydantic.Field(alias="displayName", description="Name given to the Collection"),
+    ]
+    singular_name: typing_extensions.Annotated[
+        str,
+        FieldMetadata(alias="singularName"),
+        pydantic.Field(
+            alias="singularName",
+            description="The name of one Item in Collection (e.g. ”Blog Post” if the Collection is called “Blog Posts”)",
+        ),
+    ]
+    slug: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Slug of Collection in Site URL structure
+    """
 
-    def dict(self, **kwargs: typing.Any) -> typing.Dict[str, typing.Any]:
-        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
-        return super().dict(**kwargs_with_defaults)
+    created_on: typing_extensions.Annotated[
+        typing.Optional[dt.datetime],
+        FieldMetadata(alias="createdOn"),
+        pydantic.Field(alias="createdOn", description="The date the collection was created"),
+    ] = None
+    last_updated: typing_extensions.Annotated[
+        typing.Optional[dt.datetime],
+        FieldMetadata(alias="lastUpdated"),
+        pydantic.Field(alias="lastUpdated", description="The date the collection was last updated"),
+    ] = None
+    fields: typing.List[Field] = pydantic.Field()
+    """
+    The list of fields in the Collection
+    """
 
-    class Config:
-        frozen = True
-        smart_union = True
-        allow_population_by_field_name = True
-        json_encoders = {dt.datetime: serialize_datetime}
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2
+    else:
+
+        class Config:
+            frozen = True
+            smart_union = True
+            extra = pydantic.Extra.allow

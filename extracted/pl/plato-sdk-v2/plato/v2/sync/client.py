@@ -28,17 +28,26 @@ class SessionManager:
         self,
         *,
         envs: list[EnvFromSimulator | EnvFromArtifact | EnvFromResource] | None = None,
-        task: str | None = None,
+        testcase: str | None = None,
+        artifacts: list[str] | None = None,
         timeout: int = 1800,
         connect_network: bool = True,
     ) -> Session:
         """Create a new session.
 
-        Provide either `envs` or `task`, not both.
+        Provide exactly one of ``testcase``, ``envs``, or ``artifacts``.
+
+        - **testcase**: Derives environments from the test case's artifacts,
+          waits for readiness, and automatically resets for mutation logging.
+        - **envs**: Creates from explicit environment configs. Does NOT
+          auto-reset; call ``session.reset()`` when ready.
+        - **artifacts**: Creates from artifact IDs directly. Does NOT
+          auto-reset; call ``session.reset()`` when ready.
 
         Args:
             envs: List of environment configurations (use Env.simulator(), Env.artifact(), or Env.resource())
-            task: Task public ID to create session from
+            testcase: Test case public ID to create session from (auto-resets)
+            artifacts: List of simulator artifact IDs to create session from
             timeout: VM timeout in seconds
             connect_network: If True, automatically connect all VMs to a WireGuard network
 
@@ -46,7 +55,7 @@ class SessionManager:
             A new Session instance with all environments ready
 
         Raises:
-            ValueError: If both envs and task are provided, or neither
+            ValueError: If more than one of envs/testcase/artifacts is provided, or none
             RuntimeError: If any environment fails to create or become ready
             TimeoutError: If environments don't become ready within timeout
 
@@ -54,23 +63,33 @@ class SessionManager:
             >>> from plato.v2 import Plato, Env
             >>> plato = Plato()
             >>>
-            >>> # From environments
+            >>> # From test case (auto-resets)
+            >>> session = plato.sessions.create(testcase="tc_abc123")
+            >>>
+            >>> # From environments (manual reset)
             >>> session = plato.sessions.create(envs=[Env.simulator("espocrm")])
+            >>> session.reset()
             >>>
-            >>> # From task
-            >>> session = plato.sessions.create(task="abc123")
-            >>>
-            >>> # With networking enabled automatically
-            >>> session = plato.sessions.create(envs=[...], connect_network=True)
+            >>> # From artifacts (manual reset)
+            >>> session = plato.sessions.create(artifacts=["artifact-1", "artifact-2"])
+            >>> session.reset()
         """
-        if envs is not None and task is not None:
-            raise ValueError("Cannot specify both envs and task")
+        provided = sum(x is not None for x in (envs, testcase, artifacts))
+        if provided != 1:
+            raise ValueError("Must specify exactly one of: envs, testcase, or artifacts")
 
-        if task is not None:
-            session = Session.from_task(
+        if testcase is not None:
+            session = Session.from_testcase(
                 http_client=self._http,
                 api_key=self._api_key,
-                task_id=task,
+                testcase_id=testcase,
+                timeout=timeout,
+            )
+        elif artifacts is not None:
+            session = Session.from_artifacts(
+                http_client=self._http,
+                api_key=self._api_key,
+                artifact_ids=artifacts,
                 timeout=timeout,
             )
         elif envs is not None:
@@ -81,13 +100,12 @@ class SessionManager:
                 timeout=timeout,
             )
         else:
-            raise ValueError("Must specify either envs or task")
+            raise ValueError("Must specify exactly one of: envs, testcase, or artifacts")
 
         if connect_network:
             try:
                 session.connect_network()
             except Exception:
-                # Clean up session if network connection fails
                 import logging
 
                 logging.getLogger(__name__).info(f"Network connection failed, closing session {session.session_id}")

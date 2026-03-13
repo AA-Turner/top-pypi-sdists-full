@@ -22,11 +22,11 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/dimension_index_buffer.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace {
 
@@ -39,7 +39,6 @@ using ::tensorstore::NormalizeDimensionIdentifier;
 using ::tensorstore::NormalizeDimensionIndex;
 using ::tensorstore::span;
 using ::tensorstore::StatusIs;
-using ::tensorstore::StrCat;
 using ::testing::HasSubstr;
 
 TEST(DimensionIdentifierTest, ConstructDefault) {
@@ -82,8 +81,8 @@ TEST(DimensionIdentifierTest, Compare) {
 }
 
 TEST(DimensionIdentifierTest, PrintToOstream) {
-  EXPECT_EQ("3", StrCat(DimensionIdentifier(3)));
-  EXPECT_EQ("\"a\"", StrCat(DimensionIdentifier("a")));
+  EXPECT_EQ("3", absl::StrCat(DimensionIdentifier(3)));
+  EXPECT_EQ("\"a\"", absl::StrCat(DimensionIdentifier("a")));
 }
 
 TEST(NormalizeDimensionIndexTest, ValidNonNegative) {
@@ -174,12 +173,12 @@ TEST(DimRangeSpecTest, Comparison) {
 }
 
 TEST(DimRangeSpecTest, PrintToOstream) {
-  EXPECT_EQ("1:5", StrCat(DimRangeSpec{1, 5, 1}));
-  EXPECT_EQ("1:5:2", StrCat(DimRangeSpec{1, 5, 2}));
-  EXPECT_EQ(":5", StrCat(DimRangeSpec{std::nullopt, 5, 1}));
-  EXPECT_EQ("1:", StrCat(DimRangeSpec{1, std::nullopt, 1}));
-  EXPECT_EQ(":", StrCat(DimRangeSpec{std::nullopt, std::nullopt, 1}));
-  EXPECT_EQ("::-1", StrCat(DimRangeSpec{std::nullopt, std::nullopt, -1}));
+  EXPECT_EQ("1:5", absl::StrCat(DimRangeSpec{1, 5, 1}));
+  EXPECT_EQ("1:5:2", absl::StrCat(DimRangeSpec{1, 5, 2}));
+  EXPECT_EQ(":5", absl::StrCat(DimRangeSpec{std::nullopt, 5, 1}));
+  EXPECT_EQ("1:", absl::StrCat(DimRangeSpec{1, std::nullopt, 1}));
+  EXPECT_EQ(":", absl::StrCat(DimRangeSpec{std::nullopt, std::nullopt, 1}));
+  EXPECT_EQ("::-1", absl::StrCat(DimRangeSpec{std::nullopt, std::nullopt, -1}));
 }
 
 TEST(NormalizeDimRangeSpecTest, ValidFullySpecifiedStep1) {

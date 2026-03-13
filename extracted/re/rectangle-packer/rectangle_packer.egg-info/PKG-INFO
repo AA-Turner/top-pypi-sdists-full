@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rectangle-packer
-Version: 2.0.6
+Version: 2.1.0
 Summary: Pack a set of rectangles into a bounding box with minimum area
 Home-page: https://github.com/Penlect/rectangle-packer
 Author: Daniel Andersson

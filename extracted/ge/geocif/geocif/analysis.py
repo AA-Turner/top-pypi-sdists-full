@@ -837,7 +837,7 @@ class Geoanalysis:
                     if idx == 0:
                         fname = f"{self.country}_{self.crop}_{model}_perc_area.png"
                         col = "% of total Area (ha)"
-                        plot.plot_df_shpfile(
+                        plot.plot_map(
                             self.dg,  # dataframe containing adm1 name and polygon
                             df_model,  # dataframe containing information that will be mapped
                             merge_col="Country Region",  # Column on which to merge
@@ -850,7 +850,7 @@ class Geoanalysis:
                             vmax=df_model[col].max(),
                             cmap=pal.scientific.sequential.Bamako_20_r,
                             series="sequential",
-                            show_bg=False,
+
                             annotate_regions=self.annotate_regions,
                             annotate_region_column=annotate_region_column,
                             loc_legend="lower left",
@@ -867,7 +867,7 @@ class Geoanalysis:
                             for key in df_time_period["Region_ID"].unique()
                         }
 
-                        plot.plot_df_shpfile(
+                        plot.plot_map(
                             self.dg,  # dataframe containing adm1 name and polygon
                             df_model,  # dataframe containing information that will be mapped
                             dict_lup=dict_region,
@@ -881,7 +881,7 @@ class Geoanalysis:
                             vmax=df_model[col].max(),
                             cmap=pal.tableau.Tableau_20.mpl_colors,
                             series="qualitative",
-                            show_bg=False,
+
                             alpha_feature=1,
                             use_key=True,
                             annotate_regions=self.annotate_regions,
@@ -894,7 +894,7 @@ class Geoanalysis:
                     # fname = (
                     #     f"{fname_prefix}_{self.crop}_{time_period}_{year}_anomaly.png"
                     # )
-                    # plot.plot_df_shpfile(
+                    # plot.plot_map(
                     #     self.dg,  # dataframe containing adm1 name and polygon
                     #     df_harvest_year,  # dataframe containing information that will be mapped
                     #     merge_col="Country Region",  # Column on which to merge
@@ -921,7 +921,7 @@ class Geoanalysis:
                         df_country = df_model[df_model["Country"] == country_key]
                         fname = f"perc_area_{country_key}_{self.crop}_{model}.png"
                         col = "% of total Area (ha)"
-                        plot.plot_df_shpfile(
+                        plot.plot_map(
                             self.dg,  # dataframe containing adm1 name and polygon
                             df_country,  # dataframe containing information that will be mapped
                             merge_col="Country Region",  # Column on which to merge
@@ -934,7 +934,7 @@ class Geoanalysis:
                             vmax=df_country[col].max(),
                             cmap=pal.scientific.sequential.Bamako_20_r,
                             series="sequential",
-                            show_bg=False,
+
                             annotate_regions=self.annotate_regions,
                             annotate_region_column=annotate_region_column,
                             loc_legend="lower left",
@@ -945,7 +945,7 @@ class Geoanalysis:
                         country_latest_stage = df_country["Stage Name"].unique()[-1]
                         country_time_label = country_latest_stage.split("-")[0].strip()
                         fname = f"predicted_yield_{country_key}_{self.crop}_{model}_{country_time_label}_{year}.png"
-                        plot.plot_df_shpfile(
+                        plot.plot_map(
                             self.dg,  # dataframe containing adm1 name and polygon
                             df_country,  # dataframe containing information that will be mapped
                             merge_col="Country Region",  # Column on which to merge
@@ -958,7 +958,7 @@ class Geoanalysis:
                             vmax=df_country[self.predicted].max(),
                             cmap=pal.scientific.sequential.Bamako_20_r,
                             series="sequential",
-                            show_bg=False,
+
                             annotate_regions=self.annotate_regions,
                             annotate_region_column=annotate_region_column,
                             loc_legend="lower left",
@@ -975,7 +975,10 @@ class Geoanalysis:
                             ("10yr", "Anomaly (10yr)"),
                         ]:
                             fname = f"anomaly_{country_key}_{self.crop}_{model}_{country_time_label}_{year}.png"
-                            plot.plot_df_shpfile(
+                            _amin = df_country[anomaly_col].min()
+                            _amax = df_country[anomaly_col].max()
+                            _extend = "both" if _amin < -40 and _amax > 40 else "min" if _amin < -40 else "max" if _amax > 40 else "neither"
+                            plot.plot_map(
                                 self.dg,
                                 df_country,
                                 merge_col="Country Region",
@@ -988,10 +991,10 @@ class Geoanalysis:
                                 vmax=40,
                                 cmap=pal.colorbrewer.diverging.BrBG_11,
                                 series="diverging",
-                                show_bg=False,
                                 annotate_regions=self.annotate_regions,
                                 annotate_region_column=annotate_region_column,
                                 loc_legend="lower left",
+                                extend=_extend,
                             )
 
                     # Consolidated multi-country maps
@@ -1005,7 +1008,7 @@ class Geoanalysis:
                         consolidated_prefix = f"{len(countries_with_data)}_countries"
 
                         fname = f"{consolidated_prefix}_{self.crop}_{model}_predicted_yield_{time_period_label}_{year}.png"
-                        plot.plot_df_shpfile(
+                        plot.plot_map(
                             self.dg,
                             df_time_period,
                             merge_col="Country Region",
@@ -1018,7 +1021,7 @@ class Geoanalysis:
                             vmax=df_time_period[self.predicted].max(),
                             cmap=pal.scientific.sequential.Bamako_20_r,
                             series="sequential",
-                            show_bg=False,
+
                             annotate_regions=self.annotate_regions,
                             annotate_region_column=annotate_region_column,
                             loc_legend="lower left",
@@ -1030,7 +1033,10 @@ class Geoanalysis:
                             ("10yr", "Anomaly (10yr)"),
                         ]:
                             fname = f"{consolidated_prefix}_{self.crop}_{model}_anomaly_{time_period_label}_{year}.png"
-                            plot.plot_df_shpfile(
+                            _amin = df_time_period[anomaly_col].min()
+                            _amax = df_time_period[anomaly_col].max()
+                            _extend = "both" if _amin < -40 and _amax > 40 else "min" if _amin < -40 else "max" if _amax > 40 else "neither"
+                            plot.plot_map(
                                 self.dg,
                                 df_time_period,
                                 merge_col="Country Region",
@@ -1043,15 +1049,15 @@ class Geoanalysis:
                                 vmax=40,
                                 cmap=pal.colorbrewer.diverging.BrBG_11,
                                 series="diverging",
-                                show_bg=False,
                                 annotate_regions=self.annotate_regions,
                                 annotate_region_column=annotate_region_column,
                                 loc_legend="lower left",
+                                extend=_extend,
                             )
 
                     """ Ratio of Predicted to last Year Yield """
                     # fname = f"{self.country}_{self.crop}_{time_period}_{year}_ratio_last_year_yield.png"
-                    # plot.plot_df_shpfile(
+                    # plot.plot_map(
                     #     self.dg,  # dataframe containing adm1 name and polygon
                     #     df_time_period,  # dataframe containing information that will be mapped
                     #     merge_col="Country Region",  # Column on which to merge
@@ -1074,7 +1080,7 @@ class Geoanalysis:
                     # breakpoint()
                     if df_time_period["Area (ha)"].notna().all():
                         fname = f"{self.country}_{self.crop}_{model}_{year}_area.png"
-                        plot.plot_df_shpfile(
+                        plot.plot_map(
                             self.dg,  # dataframe containing adm1 name and polygon
                             df_time_period,  # dataframe containing information that will be mapped
                             merge_col="Country Region",  # Column on which to merge
@@ -1087,7 +1093,7 @@ class Geoanalysis:
                             vmax=df_time_period["Area (ha)"].max(),
                             cmap=pal.scientific.sequential.Bamako_20_r,
                             series="sequential",
-                            show_bg=False,
+
                             annotate_regions=self.annotate_regions,
                             loc_legend="lower left",
                         )
@@ -1273,14 +1279,14 @@ class RegionalMapper(Geoanalysis):
         try:
             self.df_regional = pd.read_sql_query(query, con)
         except (pd.errors.DatabaseError, sqlite3.OperationalError) as e:
-            self.logger.error("Failed to read data from regional_metrics: %s", e)
+            self.logger.error(f"Failed to read data from regional_metrics: {e}")
             self.df_regional = pd.DataFrame()
 
         query = "SELECT * FROM regional_metrics_by_year"
         try:
             self.df_regional_by_year = pd.read_sql_query(query, con)
         except (pd.errors.DatabaseError, sqlite3.OperationalError) as e:
-            self.logger.error("Failed to read data from regional_metrics_by_year: %s", e)
+            self.logger.error(f"Failed to read data from regional_metrics_by_year: {e}")
             self.df_regional_by_year = pd.DataFrame()
 
         con.close()
@@ -1434,7 +1440,7 @@ class RegionalMapper(Geoanalysis):
             self.dg = self.dg[self.dg["ADM0_NAME"].isin(countries)]
 
             fname = f"map_{crop}_{df_model['Model'].iloc[0]}_mape.png"
-            plot.plot_df_shpfile(
+            plot.plot_map(
                 self.dg,
                 df,
                 merge_col="Country Region",
@@ -1447,7 +1453,6 @@ class RegionalMapper(Geoanalysis):
                 vmax=df[col].max(),
                 cmap=pal.scientific.sequential.Bamako_20_r,
                 series="sequential",
-                show_bg=False,
                 annotate_regions=self.annotate_regions,
                 loc_legend="lower left",
             )

@@ -58,7 +58,7 @@ absl::StatusCode HttpResponseCodeToStatusCode(const HttpResponse& response);
 /// HttpResponse.status_code.
 absl::Status HttpResponseCodeToStatus(
     const HttpResponse& response,
-    SourceLocation loc = ::tensorstore::SourceLocation::current());
+    SourceLocation loc = SourceLocation::current());
 
 struct ParsedContentRange {
   // Inclusive min byte, always >= `0`.

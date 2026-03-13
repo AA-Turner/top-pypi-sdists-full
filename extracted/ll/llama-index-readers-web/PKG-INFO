@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: llama-index-readers-web
-Version: 0.5.6
+Version: 0.6.0
 Summary: llama-index readers web integration
 Author-email: Your Name <you@example.com>
 Maintainer: HawkClaws, Hironsan, NA, an-bluecat, bborn, jasonwcfan, kravetsmic, pandazki, ruze00, selamanse, thejessezhang
 License-Expression: GPL-3.0-or-later
 License-File: LICENSE
 Keywords: BFS,article,atom,documentation,feed,main content extractor,news,readthedocs,rss,scraper,selenium,seo,sitemap,substack,trafilatura,unstructured.io,url,web,web reader,website
-Requires-Python: <4.0,>=3.9
+Requires-Python: <4.0,>=3.10
 Requires-Dist: aiohttp<4,>=3.9.1
 Requires-Dist: beautifulsoup4<5,>=4.12.3
 Requires-Dist: chromedriver-autoinstaller<0.7,>=0.6.3
@@ -23,7 +23,7 @@ Requires-Dist: newspaper3k<0.3,>=0.2.8
 Requires-Dist: oxylabs>=2.0.0
 Requires-Dist: playwright<2.0,>=1.30
 Requires-Dist: requests<3,>=2.31.0
-Requires-Dist: scrapy>=2.10.0
+Requires-Dist: scrapy>=2.13.3
 Requires-Dist: selenium<5,>=4.17.2
 Requires-Dist: spider-client<0.0.28,>=0.0.27
 Requires-Dist: urllib3>=1.1.0

@@ -13,7 +13,7 @@ class ErrorResponseData(UniversalBaseModel):
     Optional error code for programmatic error handling
     """
 
-    details: typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]] = pydantic.Field(default=None)
+    details: typing.Optional[typing.Dict[str, typing.Any]] = pydantic.Field(default=None)
     """
     Additional error details and context information
     """

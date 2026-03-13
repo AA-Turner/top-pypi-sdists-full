@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tox-uv-bare
-Version: 1.33.2
+Version: 1.33.4
 Summary: Integration of uv with tox (bare package, bring your own uv).
 Project-URL: Changelog, https://github.com/tox-dev/tox-uv/releases
 Project-URL: Documentation, https://github.com/tox-dev/tox-uv#tox-uv

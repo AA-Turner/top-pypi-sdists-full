@@ -851,7 +851,8 @@ std::enable_if_t<(IsCompatibleOptionSequence<WriteOptions, Option...> &&
 Write(SourceArray&& source, Target&& target, Option&&... option) {
   WriteOptions options;
   TENSORSTORE_RETURN_IF_ERROR(
-      internal::SetAll(options, std::forward<Option>(option)...));
+      internal::SetAll(options, std::forward<Option>(option)...))
+      .BuildStatus();
   return tensorstore::Write(std::forward<SourceArray>(source),
                             std::forward<Target>(target), std::move(options));
 }
@@ -933,7 +934,8 @@ std::enable_if_t<(IsCompatibleOptionSequence<CopyOptions, Option...> &&
 Copy(Source&& source, Target&& target, Option&&... option) {
   CopyOptions options;
   TENSORSTORE_RETURN_IF_ERROR(
-      internal::SetAll(options, std::forward<Option>(option)...));
+      internal::SetAll(options, std::forward<Option>(option)...))
+      .BuildStatus();
   return tensorstore::Copy(std::forward<Source>(source),
                            std::forward<Target>(target), std::move(options));
 }

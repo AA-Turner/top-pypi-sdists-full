@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vtlengine
-Version: 1.5.0
+Version: 1.6.0
 Summary: Run and Validate VTL Scripts
 License-Expression: AGPL-3.0
 License-File: LICENSE.md
@@ -24,6 +24,7 @@ Requires-Dist: networkx (>=2.8,<3.0)
 Requires-Dist: numpy (>=2.0.2,<2.1) ; python_version < "3.10"
 Requires-Dist: numpy (>=2.2.0,<2.3) ; python_version >= "3.10"
 Requires-Dist: pandas (>=2.1.4,<3.0)
+Requires-Dist: pyarrow (>=14.0,<20.0)
 Requires-Dist: pysdmx[xml] (>=1.5.2,<2.0)
 Requires-Dist: s3fs (>=2022.11.0) ; extra == "all"
 Requires-Dist: s3fs (>=2022.11.0) ; extra == "s3"

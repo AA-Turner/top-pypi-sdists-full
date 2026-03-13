@@ -31,6 +31,7 @@ __all__ = (
     "BucketExistsWaiterName",
     "BucketLocationConstraintType",
     "BucketLogsPermissionType",
+    "BucketNamespaceType",
     "BucketNotExistsWaiterName",
     "BucketTypeType",
     "BucketVersioningStatusType",
@@ -157,6 +158,7 @@ BucketLocationConstraintType = Literal[
     "us-west-2",
 ]
 BucketLogsPermissionType = Literal["FULL_CONTROL", "READ", "WRITE"]
+BucketNamespaceType = Literal["account-regional", "global"]
 BucketNotExistsWaiterName = Literal["bucket_not_exists"]
 BucketTypeType = Literal["Directory"]
 BucketVersioningStatusType = Literal["Enabled", "Suspended"]

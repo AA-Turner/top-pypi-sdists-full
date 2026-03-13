@@ -33,6 +33,7 @@
 #include <gtest/gtest.h>
 #include "absl/random/bit_gen_ref.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
 #include "tensorstore/box.h"
 #include "tensorstore/container_kind.h"
 #include "tensorstore/contiguous_layout.h"
@@ -52,7 +53,6 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status_testutil.h"
-#include "tensorstore/util/str_cat.h"
 
 /// TENSORSTORE_EXPECT_DEATH_DEBUG_ONLY behaves similarly to
 /// `EXPECT_DEBUG_DEATH` except that `stmt` is not executed when not in debug
@@ -102,7 +102,6 @@ using ::tensorstore::StaticCast;
 using ::tensorstore::StaticDataTypeCast;
 using ::tensorstore::StaticRankCast;
 using ::tensorstore::StatusIs;
-using ::tensorstore::StrCat;
 using ::tensorstore::StridedLayout;
 using ::tensorstore::SubArray;
 using ::tensorstore::SubArrayStaticRank;
@@ -984,11 +983,13 @@ TEST(AllocateAndConstructSharedElementsTest, DynamicType) {
 
 TEST(ToStringTest, Basic) {
   EXPECT_EQ("1", ToString(MakeScalarArrayView(1)));
+  EXPECT_EQ("1", absl::StrCat(MakeScalarArrayView(1)));
   EXPECT_EQ("{1}", ToString(MakeArrayView({1})));
   EXPECT_EQ("{1, 2, 3}", ToString(MakeArrayView({1, 2, 3})));
   EXPECT_EQ("{{1, 2, 3}, {4, 5, 6}}",
             ToString(MakeArrayView({{1, 2, 3}, {4, 5, 6}})));
   EXPECT_EQ("<null>", ToString(ArrayView<const void>()));
+  EXPECT_EQ("<null>", absl::StrCat(ArrayView<const void>()));
 
   // Printing of type-erased arrays.
   int arr[] = {1, 2, 3};
@@ -1628,10 +1629,11 @@ TEST(ArrayOriginCastTest, OffsetOriginToZeroOriginFailure) {
   array.byte_strides()[0] = 0;
   array.origin()[0] = -kInfIndex;
   array.shape()[0] = kInfSize;
-  EXPECT_THAT(tensorstore::ArrayOriginCast<zero_origin>(array),
-              StatusIs(absl::StatusCode::kInvalidArgument,
-                       HasSubstr(StrCat("Cannot translate array with shape {",
-                                        kInfSize, "} to have zero origin."))));
+  EXPECT_THAT(
+      tensorstore::ArrayOriginCast<zero_origin>(array),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr(absl::StrCat("Cannot translate array with shape {",
+                                      kInfSize, "} to have zero origin."))));
 }
 
 TEST(ArrayOriginCastTest, ImplicitCaseOffsetOriginSource) {

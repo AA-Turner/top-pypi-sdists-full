@@ -3,27 +3,34 @@
 import datetime as dt
 import typing
 
-from ..core.datetime_utils import serialize_datetime
-
-try:
-    import pydantic.v1 as pydantic  # type: ignore
-except ImportError:
-    import pydantic  # type: ignore
+import pydantic
+import typing_extensions
+from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from ..core.serialization import FieldMetadata
 
 
-class Domain(pydantic.BaseModel):
-    id: str = pydantic.Field(description="Unique identifier for the Domain")
-    url: typing.Optional[str] = pydantic.Field(default=None, description="The registered Domain name")
+class Domain(UniversalBaseModel):
+    id: str = pydantic.Field()
+    """
+    Unique identifier for the Domain
+    """
 
-    def json(self, **kwargs: typing.Any) -> str:
-        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
-        return super().json(**kwargs_with_defaults)
+    url: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    The registered Domain name
+    """
 
-    def dict(self, **kwargs: typing.Any) -> typing.Dict[str, typing.Any]:
-        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
-        return super().dict(**kwargs_with_defaults)
+    last_published: typing_extensions.Annotated[
+        typing.Optional[dt.datetime],
+        FieldMetadata(alias="lastPublished"),
+        pydantic.Field(alias="lastPublished", description="The date the custom domain was last published to"),
+    ] = None
 
-    class Config:
-        frozen = True
-        smart_union = True
-        json_encoders = {dt.datetime: serialize_datetime}
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2
+    else:
+
+        class Config:
+            frozen = True
+            smart_union = True
+            extra = pydantic.Extra.allow

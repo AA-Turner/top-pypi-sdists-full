@@ -70,10 +70,8 @@ absl::Status JsonParseArray(
   TENSORSTORE_RETURN_IF_ERROR(size_callback(size));
   for (DimensionIndex i = 0; i < size; ++i) {
     auto status = element_callback(j[i], i);
-    if (!status.ok()) {
-      return MaybeAnnotateStatus(
-          status, absl::StrFormat("Error parsing value at position %d", i));
-    }
+    TENSORSTORE_RETURN_IF_ERROR(status).Format(
+        "Error parsing value at position %d", i);
   }
   return absl::OkStatus();
 }

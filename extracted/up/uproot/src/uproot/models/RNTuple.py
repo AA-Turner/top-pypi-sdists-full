@@ -3,15 +3,18 @@
 """
 This module defines a versionless model for ``ROOT::RNTuple``.
 """
+
 from __future__ import annotations
 
 import dataclasses
 import re
 import struct
 import sys
-from collections import defaultdict
+from collections import Counter, defaultdict
+from itertools import groupby
 from typing import NamedTuple
 
+import awkward as ak
 import numpy
 import xxhash
 
@@ -51,6 +54,8 @@ _rntuple_alias_column_format = struct.Struct("<II")
 _rntuple_extra_type_info_format = struct.Struct("<II")
 # https://github.com/root-project/root/blob/8cd9eed6f3a32e55ef1f0f1df8e5462e753c735d/tree/ntuple/v7/doc/BinaryFormatSpecification.md#cluster-group-record-frame
 _rntuple_cluster_group_format = struct.Struct("<QQI")
+# https://github.com/root-project/root/blob/2c80bed03dbe28610c5825d8cd417db2ffc3e1d6/tree/ntuple/doc/BinaryFormatSpecification.md#linked-attribute-set-record-frame
+_rntuple_linked_attribute_set_format = struct.Struct("<HHI")
 # https://github.com/root-project/root/blob/8cd9eed6f3a32e55ef1f0f1df8e5462e753c735d/tree/ntuple/v7/doc/BinaryFormatSpecification.md#cluster-summary-record-frame
 _rntuple_cluster_summary_format = struct.Struct("<QQ")
 # https://github.com/root-project/root/blob/8cd9eed6f3a32e55ef1f0f1df8e5462e753c735d/tree/ntuple/v7/doc/BinaryFormatSpecification.md#page-locations
@@ -64,12 +69,13 @@ compression_settings_dict = {
     uproot.const.kLZMA: "LZMA",  # nvCOMP unsupported
     uproot.const.kOldCompressionAlgo: "deflate",  # nvCOMP support
     uproot.const.kLZ4: "LZ4",  # nvCOMP support
-    uproot.const.kZSTD: "zstd",  # nvCOMP support
+    uproot.const.kZSTD: "Zstd",  # nvCOMP support
 }
 
 
 def _from_zigzag(n):
-    return n >> 1 ^ -(n & 1)
+    u = n.view(numpy.dtype(f"uint{n.dtype.itemsize * 8}"))
+    return ((u >> 1) ^ -(u & 1)).view(n.dtype)
 
 
 def _envelop_header(chunk, cursor, context):
@@ -155,6 +161,101 @@ in file {self.file.file_path}"""
         """
         if self._all_fields is None:
             self._all_fields = [RField(i, self) for i in range(len(self.field_records))]
+
+            # Collect fields that have the same path
+            def _sort_key(f):
+                return f.path if f.path else ""
+
+            sorted_by_path = sorted(self._all_fields, key=_sort_key)
+            for path, group in groupby(sorted_by_path, key=_sort_key):
+                if path == "":
+                    continue
+
+                group_list = list(group)
+                if len(group_list) < 2:
+                    continue
+
+                # Step 1: Generate ancestor stack and remove top common parts
+                ancestor_stacks = []
+                for field in group_list:
+                    f = field
+                    tmp_stack = []
+                    while isinstance(f, RField):
+                        tmp_stack.append(f)
+                        f = f.parent
+                    ancestor_stacks.append(tmp_stack)
+
+                while all(
+                    stack[-1] == ancestor_stacks[0][-1] for stack in ancestor_stacks[1:]
+                ):
+                    for stack in ancestor_stacks:
+                        stack.pop()
+
+                # Step 2: Generate ancestor name stacks (e.g. ['member', 'Base', 'Child'])
+                ancestor_name_stacks = []
+                for name_stack in ancestor_stacks:
+                    ancestor_name_stacks.append(
+                        [name_stack[0].name]
+                        + [field.record.type_name for field in name_stack[1:]]
+                    )
+
+                # Step 3: Generate unique field names by adding prefixes like `Base::` until the names are unique
+                def _generate_fieldname(name_stack, n_prefix):
+                    """
+                    ['member'] -> 'member'
+                    ['member', 'Base', 'Child', 'GrandChild'], n_prefix=0 -> 'member'
+                    ['member', 'Base', 'Child', 'GrandChild'], n_prefix=1 -> 'GrandChild::member'
+                    ['member', 'Base', 'Child', 'GrandChild'], n_prefix=2 -> 'GrandChild::Child::member'
+                    """
+                    if len(name_stack) < 2:
+                        return name_stack[0]
+
+                    field_name = name_stack[0]
+
+                    n_prefix = min(n_prefix, len(name_stack) - 1)
+                    prefixes = name_stack[::-1][:n_prefix]
+
+                    if prefixes:
+                        return "::".join(prefixes) + "::" + field_name
+                    else:
+                        return field_name
+
+                n_prefixes = [0 for _ in range(len(group_list))]
+                new_names = [
+                    _generate_fieldname(name_stack, n_prefix)
+                    for name_stack, n_prefix in zip(
+                        ancestor_name_stacks, n_prefixes, strict=True
+                    )
+                ]
+
+                name_counter = Counter(new_names)
+                while len(new_names) != len(name_counter):
+                    for i in range(len(n_prefixes)):
+                        # For non-unique names, add one more prefix and regenerate the name
+                        if name_counter[new_names[i]] > 1:
+                            n_prefixes[i] += 1
+
+                            if n_prefixes[i] >= len(ancestor_name_stacks[i]):
+                                raise RuntimeError(
+                                    "Ran out of prefixes to add, but names are still not unique."
+                                )
+
+                            new_names[i] = _generate_fieldname(
+                                ancestor_name_stacks[i], n_prefixes[i]
+                            )
+                    name_counter = Counter(new_names)
+
+                # Step 4: Rename fields
+                for field, new_name in zip(group_list, new_names, strict=True):
+                    field._name = new_name
+
+                    # invalidate path cache
+                    to_invalidate = [field]
+                    while to_invalidate:
+                        f = to_invalidate.pop()
+                        f._path = None
+                        to_invalidate.extend(f.fields)
+
         return self._all_fields
 
     def _prepare_header_chunk(self):
@@ -302,7 +403,14 @@ in file {self.file.file_path}"""
             cursor = self._footer_cursor.copy()
             context = {}
 
-            f = FooterReader().read(self._footer_chunk, cursor, context)
+            # Pass version information to FooterReader for version-dependent parsing
+            version = (
+                self._members["fVersionEpoch"],
+                self._members["fVersionMajor"],
+                self._members["fVersionMinor"],
+                self._members["fVersionPatch"],
+            )
+            f = FooterReader(version).read(self._footer_chunk, cursor, context)
             assert (
                 f.header_checksum == self.header.checksum
             ), f"checksum={self.header.checksum}, header_checksum={f.header_checksum}"
@@ -382,7 +490,6 @@ in file {self.file.file_path}"""
 
         Returns an Awkward Form describing the column if applicable, or a form key otherwise.
         """
-        ak = uproot.extras.awkward()
 
         form_key = f"column-{cr.idx}" + ("-cardinality" if is_cardinality else "")
         dtype_byte = cr.type
@@ -408,7 +515,6 @@ in file {self.file.file_path}"""
 
         Returns an Awkward Form describing the column if applicable, or a form key otherwise.
         """
-        ak = uproot.extras.awkward()
 
         cfid = field_id
         if self.field_records[cfid].source_field_id is not None:
@@ -459,7 +565,6 @@ in file {self.file.file_path}"""
 
         Returns an Awkward Form describing the field.
         """
-        ak = uproot.extras.awkward()
 
         field_records = self.field_records
         this_record = field_records[this_id]
@@ -518,7 +623,7 @@ in file {self.file.file_path}"""
                             or key == self.all_fields[i].path
                             for key in keys
                         )
-                        or self.all_fields[i].is_anonymous
+                        or self.all_fields[i].in_variant
                     ):
                         recordlist.append(
                             self.field_form(i, keys, ak_add_doc=ak_add_doc)
@@ -557,11 +662,20 @@ in file {self.file.file_path}"""
             )
         elif structural_role == uproot.const.RNTupleFieldRole.RECORD:
             newids = []
-            if this_id in self._related_ids:
-                newids = self._related_ids[this_id]
+            to_check = [this_id]
+            while to_check:
+                current_id = to_check.pop()
+                if current_id in self._related_ids:
+                    children = self._related_ids[current_id]
+                    for child in children:
+                        if self.all_fields[child].is_anonymous:
+                            to_check.append(child)
+                        else:
+                            newids.append(child)
             # go find N in the rest, N is the # of fields in struct
             recordlist = []
             namelist = []
+            record_names = []
             for i in newids:
                 if (
                     any(
@@ -569,11 +683,12 @@ in file {self.file.file_path}"""
                         or key == self.all_fields[i].path
                         for key in keys
                     )
-                    or self.all_fields[i].is_anonymous
+                    or self.all_fields[i].in_variant
                 ):
                     recordlist.append(self.field_form(i, keys, ak_add_doc=ak_add_doc))
-                    namelist.append(field_records[i].field_name)
-            if all(re.fullmatch(r"_[0-9]+", name) is not None for name in namelist):
+                    namelist.append(self.all_fields[i].name)
+                    record_names.append(field_records[i].field_name)
+            if all(re.fullmatch(r"_[0-9]+", name) is not None for name in record_names):
                 namelist = None
             return ak.forms.RecordForm(
                 recordlist, namelist, form_key="whatever", parameters=parameters
@@ -749,7 +864,7 @@ in file {self.file.file_path}"""
                 cluster_idx,
                 col_idx,
                 field_metadata,
-                destination=res[starts[i] : stop].view(field_metadata.dtype),
+                destination=res[starts[i] : stop],
                 array_cache=array_cache,
             )
 
@@ -799,7 +914,7 @@ in file {self.file.file_path}"""
         total_len = numpy.sum([desc.num_elements for desc in pagelist], dtype=int)
         if destination is None:
             return_buffer = True
-            destination = numpy.empty(total_len, dtype=field_metadata.dtype)
+            destination = numpy.empty(total_len, dtype=field_metadata.dtype_result)
         else:
             return_buffer = False
             assert len(destination) == total_len
@@ -834,7 +949,7 @@ in file {self.file.file_path}"""
         if return_buffer:
             return destination
 
-    def gpu_read_clusters(self, fields, start_cluster_idx, stop_cluster_idx):
+    def gpu_read_cluster_range(self, fields, start_cluster_idx, stop_cluster_idx):
         """
         Args:
             fields (list: str): The target fields to read.
@@ -860,8 +975,11 @@ in file {self.file.file_path}"""
                     ncol = int(key.split("-")[1])
                     field_metadata = self.get_field_metadata(ncol)
                     if ncol not in colrefs_cluster.fieldpayloads.keys():
-                        Col_ClusterBuffers = self.gpu_read_col_cluster_pages(
-                            ncol, cluster_i, filehandle, field_metadata
+                        Col_ClusterBuffers = self.gpu_read_cluster_pages(
+                            cluster_i,
+                            ncol,
+                            filehandle,
+                            field_metadata,
                         )
                         colrefs_cluster._add_field(Col_ClusterBuffers)
             clusters_datas._add_cluster(colrefs_cluster)
@@ -869,11 +987,17 @@ in file {self.file.file_path}"""
         filehandle.get_all()
         return clusters_datas
 
-    def gpu_read_col_cluster_pages(self, ncol, cluster_i, filehandle, field_metadata):
+    def gpu_read_cluster_pages(
+        self,
+        cluster_idx,
+        col_idx,
+        filehandle,
+        field_metadata,
+    ):
         """
         Args:
-            ncol (int): The target column's key number.
-            cluster_i (int): The cluster to read column data from.
+            cluster_idx (int): The cluster index.
+            col_idx (int): The column index.
             filehandle (uproot.source.cufile_interface.CuFileSource): CuFile
             filehandle interface which performs CuFile API calls.
             field_metadata (:doc:`uproot.models.RNTuple.FieldClusterMetadata`):
@@ -884,14 +1008,18 @@ in file {self.file.file_path}"""
         """
         # Get cluster and pages metadatas
         cupy = uproot.extras.cupy()
-        linklist = self.page_link_list[cluster_i]
-        ncol_orig = ncol
-        if ncol < len(linklist):
-            if linklist[ncol].suppressed:
-                rel_crs = self._column_records_dict[self.column_records[ncol].field_id]
-                ncol = next(cr.idx for cr in rel_crs if not linklist[cr.idx].suppressed)
-                field_metadata = self.get_field_metadata(ncol)
-            linklist_col = linklist[ncol]
+        linklist = self._ntuple.page_link_list[cluster_idx]
+        col_idx_orig = col_idx
+        if col_idx < len(linklist):
+            if linklist[col_idx].suppressed:
+                rel_crs = self._column_records_dict[
+                    self.column_records[col_idx].field_id
+                ]
+                col_idx = next(
+                    cr.idx for cr in rel_crs if not linklist[cr.idx].suppressed
+                )
+                field_metadata = self.get_field_metadata(col_idx)
+            linklist_col = linklist[col_idx]
             pagelist = linklist_col.pages
             compression = linklist_col.compression_settings
             compression_level = compression % 100
@@ -917,7 +1045,7 @@ in file {self.file.file_path}"""
         )
 
         cluster_contents = FieldPayload(
-            ncol_orig,
+            col_idx_orig,
             full_output_buffer,
             page_is_compressed,
             algorithm_str,
@@ -976,6 +1104,7 @@ in file {self.file.file_path}"""
         Returns a dictionary containing contiguous buffers of deserialized data
         across requested clusters organized by column key.
         """
+        cupy = uproot.extras.cupy()
         clusters = self.ntuple.cluster_summaries
         cluster_starts = numpy.array([c.num_first_entry for c in clusters])
         cluster_range = range(start_cluster_idx, stop_cluster_idx)
@@ -983,6 +1112,7 @@ in file {self.file.file_path}"""
         col_arrays = {}  # collect content for each col
         for key_nr in clusters_datas.columns:
             ncol = int(key_nr)
+            field_metadata = self.get_field_metadata(ncol)
             # Find how many elements should be padded at the beginning
             n_padding = self.column_records[key_nr].first_element_index
             n_padding -= cluster_starts[start_cluster_idx]
@@ -990,18 +1120,25 @@ in file {self.file.file_path}"""
             total_length, starts, _ = self._expected_array_length_starts_dtype(
                 ncol, start_cluster_idx, stop_cluster_idx, n_padding
             )
-            field_metadata = self.get_field_metadata(ncol)
-            res = numpy.empty(total_length, field_metadata.dtype_result)
+
+            res = cupy.empty(total_length, field_metadata.dtype_result)
+            res[: starts[0]] = 0
             # Get uncompressed array for key for all clusters
             col_decompressed_buffers = clusters_datas._grab_field_output(ncol)
             for i, cluster_i in enumerate(cluster_range):
-                stop = starts[i + 1] if i + 1 < len(starts) else None
+                stop = starts[i + 1] if i + 1 < len(starts) else total_length
                 cluster_buffer = col_decompressed_buffers[cluster_i]
                 cluster_buffer = self.gpu_deserialize_pages(
                     cluster_buffer, ncol, cluster_i, field_metadata
                 )
+                # if field_metadata.dtype != field_metadata.dtype_result:
+                res[starts[i] : stop] = cluster_buffer
+
                 if field_metadata.dtype != field_metadata.dtype_result:
-                    res[starts[i] : stop] = cluster_buffer
+                    res[starts[i] : stop] = res[starts[i] : stop].view(
+                        field_metadata.dtype
+                    )[: stop - starts[i]]
+
             self.combine_cluster_arrays(res, starts, field_metadata)
             col_arrays[key_nr] = res
 
@@ -1056,7 +1193,7 @@ in file {self.file.file_path}"""
             field_metadata (:doc:`uproot.models.RNTuple.FieldClusterMetadata`):
                 The metadata needed to post_process buffer.
 
-        Performs some post-processing on the buffer in place.
+        Performs some post-processing on the buffer.
         """
         array_library_string = uproot._util.get_array_library(buffer)
         library = numpy if array_library_string == "numpy" else uproot.extras.cupy()
@@ -1064,14 +1201,11 @@ in file {self.file.file_path}"""
             buffer[:] = _from_zigzag(buffer)
         elif field_metadata.delta:
             buffer[:] = library.cumsum(buffer)
-        elif field_metadata.dtype_str == "real32trunc":
-            buffer.dtype = library.float32
         elif field_metadata.dtype_str == "real32quant" and field_metadata.ncol < len(
             self.column_records
         ):
             min_value = self.column_records[field_metadata.ncol].min_value
             max_value = self.column_records[field_metadata.ncol].max_value
-            buffer.dtype = library.float32
             buffer[:] = min_value + buffer.view(library.uint32) * (
                 max_value - min_value
             ) / ((1 << field_metadata.nbits) - 1)
@@ -1129,6 +1263,7 @@ in file {self.file.file_path}"""
             content = library.unpackbits(
                 destination.view(dtype=library.uint8), bitorder="little"
             )
+            destination[:] = content[:num_elements]
         elif field_metadata.dtype_str in ("real32trunc", "real32quant"):
             if field_metadata.nbits == 32:
                 content = library.copy(destination).view(library.uint32)
@@ -1137,9 +1272,10 @@ in file {self.file.file_path}"""
                 content = _extract_bits(content, field_metadata.nbits)
             if field_metadata.dtype_str == "real32trunc":
                 content <<= 32 - field_metadata.nbits
-
-        # needed to chop off extra bits incase we used `unpackbits`
-        destination[:] = content[:num_elements]
+            # TODO: check why this needs to be trimmed
+            destination.view(numpy.uint32)[:] = content[:num_elements]
+        else:
+            destination[:] = content
 
     def get_field_metadata(self, ncol):
         """
@@ -1157,7 +1293,7 @@ in file {self.file.file_path}"""
         elif dtype_str == "bit":
             dtype = numpy.dtype("bool")
         elif dtype_byte in uproot.const.rntuple_custom_float_types:
-            dtype = numpy.dtype("uint32")  # for easier bit manipulation
+            dtype = numpy.dtype("float32")
         else:
             dtype = numpy.dtype(dtype_str)
         split = dtype_byte in uproot.const.rntuple_split_types
@@ -1183,7 +1319,7 @@ in file {self.file.file_path}"""
             elif alt_dtype_str == "bit":
                 alt_dtype = numpy.dtype("bool")
             elif alt_dtype_byte in uproot.const.rntuple_custom_float_types:
-                alt_dtype = numpy.dtype("uint32")  # for easier bit manipulation
+                alt_dtype = numpy.dtype("float32")
             else:
                 alt_dtype = numpy.dtype(alt_dtype_str)
             alt_dtype_list.append(alt_dtype)
@@ -1192,8 +1328,6 @@ in file {self.file.file_path}"""
             "std::string"
         ):
             dtype_result = dtype
-        elif dtype_byte in uproot.const.rntuple_custom_float_types:
-            dtype_result = numpy.float32
         else:
             dtype_result = numpy.result_type(*alt_dtype_list)
         field_metadata = FieldClusterMetadata(
@@ -1202,12 +1336,12 @@ in file {self.file.file_path}"""
             dtype_str,
             dtype,
             dtype_toread,
+            dtype_result,
             split,
             zigzag,
             delta,
             isbit,
             nbits,
-            dtype_result,
         )
         return field_metadata
 
@@ -1569,6 +1703,20 @@ class ClusterGroupRecordReader:
         return out
 
 
+# https://github.com/root-project/root/blob/2c80bed03dbe28610c5825d8cd417db2ffc3e1d6/tree/ntuple/doc/BinaryFormatSpecification.md#linked-attribute-set-record-frame
+class LinkedAttributeSetRecordReader:
+    def read(self, chunk, cursor, context):
+        out = MetaData("LinkedAttributeSetRecord")
+        (
+            out.schema_version_major,
+            out.schema_version_minor,
+            out.anchor_uncompressed_size,
+        ) = cursor.fields(chunk, _rntuple_linked_attribute_set_format, context)
+        out.locator = LocatorReader().read(chunk, cursor, context)
+        out.name = cursor.rntuple_string(chunk, context)
+        return out
+
+
 # https://github.com/root-project/root/blob/8cd9eed6f3a32e55ef1f0f1df8e5462e753c735d/tree/ntuple/v7/doc/BinaryFormatSpecification.md#schema-extension-record-frame
 class RNTupleSchemaExtension:
     def read(self, chunk, cursor, context):
@@ -1592,11 +1740,19 @@ class RNTupleSchemaExtension:
 
 # https://github.com/root-project/root/blob/8cd9eed6f3a32e55ef1f0f1df8e5462e753c735d/tree/ntuple/v7/doc/BinaryFormatSpecification.md#footer-envelope
 class FooterReader:
-    def __init__(self):
+    def __init__(self, version=(1, 0, 0, 0)):
+        self.version = version
         self.extension_header_links = RNTupleSchemaExtension()
         self.cluster_group_record_frames = ListFrameReader(
             RecordFrameReader(ClusterGroupRecordReader())
         )
+        # Linked attribute sets were added in RNTuple v1.0.1.0
+        if version >= (1, 0, 1, 0):
+            self.linked_attribute_sets = ListFrameReader(
+                RecordFrameReader(LinkedAttributeSetRecordReader())
+            )
+        else:
+            self.linked_attribute_sets = None
 
     def read(self, chunk, cursor, context):
         out = MetaData("Footer")
@@ -1610,6 +1766,13 @@ class FooterReader:
         out.cluster_group_records = self.cluster_group_record_frames.read(
             chunk, cursor, context
         )
+        # Linked attribute sets only exist in v1.0.1.0 and later
+        if self.linked_attribute_sets is not None:
+            out.linked_attribute_sets = self.linked_attribute_sets.read(
+                chunk, cursor, context
+            )
+        else:
+            out.linked_attribute_sets = []
         out.checksum = cursor.field(chunk, _rntuple_checksum_format, context)
         return out
 
@@ -1623,7 +1786,8 @@ class RField(uproot.behaviors.RNTuple.HasFields):
         self._lookup = None
         self._path = None
         self._is_anonymous = None
-        self._is_ignored = None
+        self._in_variant = None
+        self._name = None
 
     def __repr__(self):
         if len(self) == 0:
@@ -1636,15 +1800,19 @@ class RField(uproot.behaviors.RNTuple.HasFields):
         """
         Name of the ``RField``.
         """
-        # We rename subfields of tuples to match Awkward
-        name = self._ntuple.field_records[self._fid].field_name
-        if (
-            not self.top_level
-            and self.parent.record.struct_role == uproot.const.RNTupleFieldRole.RECORD
-            and re.fullmatch(r"_[0-9]+", name) is not None
-        ):
-            name = name[1:]
-        return name
+        if self._name is None:
+            # We rename subfields of tuples to match Awkward
+            name = self._ntuple.field_records[self._fid].field_name
+            if (
+                not self.top_level
+                and self.parent.record.struct_role
+                == uproot.const.RNTupleFieldRole.RECORD
+                and re.fullmatch(r"_[0-9]+", name) is not None
+            ):
+                name = name[1:]
+
+            self._name = name
+        return self._name
 
     @property
     def description(self):
@@ -1672,12 +1840,11 @@ class RField(uproot.behaviors.RNTuple.HasFields):
         """
         There are some anonymous fields in the RNTuple specification that we hide from the user
         to simplify the interface. These are fields named `_0` that are children of a collection,
-        variant, or atomic field.
-
-        All children fields of variants are ignored, since they cannot be accessed directly
-        in a consistent manner. They can only be accessed through the parent variant field.
+        variant, or atomic field. Fields that encode hierarchy (i.e. fields named `:_[0-9]+` that
+        are children of a record) are also considered anonymous.
         """
         if self._is_anonymous is None:
+            # children of collections, variants, or atomic fields
             self._is_anonymous = not self.top_level and (
                 self.parent.record.struct_role
                 in (
@@ -1690,29 +1857,30 @@ class RField(uproot.behaviors.RNTuple.HasFields):
                     and self.record.field_name == "_0"
                 )
             )
-            field = self
-            while not field.top_level:
-                field = field.parent
-                if field.record.struct_role == uproot.const.RNTupleFieldRole.VARIANT:
-                    self._is_anonymous = True
-                    break
-        return self._is_anonymous
-
-    @property
-    def is_ignored(self):
-        """
-        There are some fields in the RNTuple specification named `:_i` (for `i=0,1,2,...`)
-        that encode class hierarchy. These are not useful in Uproot, so they are ignored.
-        """
-        if self._is_ignored is None:
-            self._is_ignored = (
+            # fields that encode hierarchy
+            self._is_anonymous |= (
                 not self.top_level
                 and self.parent.record.struct_role
                 == uproot.const.RNTupleFieldRole.RECORD
                 and re.fullmatch(r":_[0-9]+", self.name) is not None
             )
+        return self._is_anonymous
 
-        return self._is_ignored
+    @property
+    def in_variant(self):
+        """
+        All children fields of variants need special treatment, since they cannot be accessed directly
+        in a consistent manner. They can only be accessed through the parent variant field.
+        """
+        if self._in_variant is None:
+            self._in_variant = False
+            field = self
+            while not field.top_level:
+                field = field.parent
+                if field.record.struct_role == uproot.const.RNTupleFieldRole.VARIANT:
+                    self._in_variant = True
+                    break
+        return self._in_variant
 
     @property
     def parent(self):
@@ -1820,7 +1988,7 @@ class RField(uproot.behaviors.RNTuple.HasFields):
             entry_start=entry_start,
             entry_stop=entry_stop,
             array_cache=array_cache,
-            library=library,
+            library="ak",  # conversion needs to be done at the end
             interpreter=interpreter,
             backend=backend,
             ak_add_doc=ak_add_doc,
@@ -1837,6 +2005,14 @@ class RField(uproot.behaviors.RNTuple.HasFields):
                 raise AssertionError(
                     "The array was not constructed correctly. Please report this issue."
                 )
+        library = uproot.interpretation.library._regularize_library(library)
+        # TODO: The conversion would be ideally be fully handled by Awkward.
+        # However, jagged arrays fail to be converted.
+        # We still need to match the TTree behavior for jagged arrays, and implement
+        # the conversion to Pandas.
+        if library.name == "np":
+            return arrays.to_numpy()
+
         return arrays
 
 
@@ -1865,14 +2041,20 @@ class FieldClusterMetadata:
     ncol: int
     dtype_byte: type
     dtype_str: str
+    # This is the real dtype of the column.
     dtype: numpy.dtype
+    # This is for cases where a different dtype should be read in an intermetiate step.
+    # In particular, custom-length floats need to be read as uint8 since they length of
+    # the data may not be a multiple of 32-bit chunks.
     dtype_toread: numpy.dtype
+    # This is for cases where the column is part of a field with multiple representations.
+    # It is set to the dtype resulting from applying promotion rules among representations.
+    dtype_result: numpy.dtype
     split: bool
     zigzag: bool
     delta: bool
     isbit: bool
     nbits: int
-    dtype_result: numpy.dtype
 
 
 @dataclasses.dataclass
@@ -1900,9 +2082,15 @@ class FieldPayload:
 
     def _decompress(self):
         if self.page_is_compressed and self.algorithm is not None:
-            kvikio_nvcomp_codec = uproot.extras.kvikio_nvcomp_codec()
-            codec = kvikio_nvcomp_codec.NvCompBatchCodec(self.algorithm)
-            codec.decode_batch(self.pages, self.output)
+            nvcomp = uproot.extras.nvcomp()
+            cupy = uproot.extras.cupy()
+            codec = nvcomp.Codec(
+                algorithm=self.algorithm, bitstream_kind=nvcomp.BitstreamKind.RAW
+            )
+            batch_nv = nvcomp.as_arrays(self.pages)
+            batch = codec.decode(batch_nv)
+            for i, _array in enumerate(batch):
+                self.output[i][:] = cupy.array(_array).view(self.output[i].dtype)
 
 
 @dataclasses.dataclass
@@ -1959,11 +2147,20 @@ class ClusterRefs:
                         to_decompress[fieldpayload.algorithm].extend(fieldpayload.pages)
                         target[fieldpayload.algorithm].extend(fieldpayload.output)
 
-        # Batch decompress
-        kvikio_nvcomp_codec = uproot.extras.kvikio_nvcomp_codec()
+        # batch decompress
+        nvcomp = uproot.extras.nvcomp()
+        cupy = uproot.extras.cupy()
         for algorithm, batch in to_decompress.items():
-            codec = kvikio_nvcomp_codec.NvCompBatchCodec(algorithm)
-            codec.decode_batch(batch, target[algorithm])
+            if batch != []:
+                codec = nvcomp.Codec(
+                    algorithm=algorithm, bitstream_kind=nvcomp.BitstreamKind.RAW
+                )
+                batch_nv = nvcomp.as_arrays(batch)
+                batch_nv_dec = codec.decode(batch_nv)
+                for i, _array in enumerate(batch_nv_dec):
+                    target[algorithm][i][:] = cupy.array(_array).view(
+                        target[algorithm][i].dtype
+                    )
 
         # Clean up compressed buffers from memory after decompression
         for cluster in self.refs.values():
@@ -1972,7 +2169,6 @@ class ClusterRefs:
                 del fieldpayload.pages
                 fieldpayload.pages = []
                 # Tell GPU to free unused memory blocks
-                cupy = uproot.extras.cupy()
                 mempool = cupy.get_default_memory_pool()
                 mempool.free_all_blocks()
 

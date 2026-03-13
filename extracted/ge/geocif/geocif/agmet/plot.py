@@ -25,10 +25,13 @@ def _lowess(y, x, frac=0.2, it=3):
     if not valid.any():
         return y
     result = np.full_like(y, np.nan)
-    l = _loess(x[valid], y[valid], span=frac)
-    l.control.iterations = it
-    l.fit()
-    result[valid] = l.outputs.fitted_values
+    try:
+        l = _loess(x[valid], y[valid], span=frac)
+        l.control.iterations = it
+        l.fit()
+        result[valid] = l.outputs.fitted_values
+    except ValueError:
+        result[valid] = y[valid]  # fall back to unsmoothed
     return result
 
 

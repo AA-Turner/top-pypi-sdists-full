@@ -22,7 +22,7 @@ class Choice(UniversalBaseModel):
     The index of the choice in the list of choices.
     """
 
-    logprobs: typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]] = None
+    logprobs: typing.Optional[typing.Dict[str, typing.Any]] = None
     message: ChatCompletionResponseMessage
 
     if IS_PYDANTIC_V2:

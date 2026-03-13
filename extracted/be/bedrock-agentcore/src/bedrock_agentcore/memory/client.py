@@ -65,17 +65,32 @@ class MemoryClient:
         "list_memory_strategies",
     }
 
-    def __init__(self, region_name: Optional[str] = None, integration_source: Optional[str] = None):
-        """Initialize the Memory client."""
-        self.region_name = region_name or boto3.Session().region_name or "us-west-2"
+    def __init__(
+        self,
+        region_name: Optional[str] = None,
+        integration_source: Optional[str] = None,
+        boto3_session: Optional[boto3.Session] = None,
+    ):
+        """Initialize the Memory client.
+
+        Args:
+            region_name: AWS region name. If not provided, uses the session's region or "us-west-2".
+            integration_source: Optional integration source for user-agent telemetry.
+            boto3_session: Optional boto3 Session to use. If not provided, a default session
+                          is created. Useful for named profiles or custom credentials.
+        """
+        session = boto3_session if boto3_session else boto3.Session()
+        self.region_name = region_name or session.region_name or "us-west-2"
         self.integration_source = integration_source
 
         # Build config with user-agent for telemetry
         user_agent_extra = build_user_agent_suffix(integration_source)
         client_config = Config(user_agent_extra=user_agent_extra)
 
-        self.gmcp_client = boto3.client("bedrock-agentcore-control", region_name=self.region_name, config=client_config)
-        self.gmdp_client = boto3.client("bedrock-agentcore", region_name=self.region_name, config=client_config)
+        self.gmcp_client = session.client(
+            "bedrock-agentcore-control", region_name=self.region_name, config=client_config
+        )
+        self.gmdp_client = session.client("bedrock-agentcore", region_name=self.region_name, config=client_config)
 
         logger.info(
             "Initialized MemoryClient for control plane: %s, data plane: %s",
@@ -1929,6 +1944,20 @@ class MemoryClient:
         for namespace in namespaces:
             self._validate_namespace(namespace)
 
+    def _try_get_override_type(self, override_type: Optional[str]) -> Optional[OverrideType]:
+        """Safely convert override_type string to OverrideType enum.
+
+        Returns None if override_type is None or not a valid OverrideType value
+        (e.g., 'SELF_MANAGED' which is a valid configuration type but not in the enum).
+        """
+        if override_type is None:
+            return None
+        try:
+            return OverrideType(override_type)
+        except ValueError:
+            # Unknown override type (e.g., SELF_MANAGED), return None
+            return None
+
     def _wrap_configuration(
         self, config: Dict[str, Any], strategy_type: str, override_type: Optional[str] = None
     ) -> Dict[str, Any]:
@@ -1941,8 +1970,8 @@ class MemoryClient:
             builtin_config_keys = ["triggerEveryNMessages", "historicalContextWindowSize"]
 
             if strategy_type == "CUSTOM" and override_type:
-                override_enum = OverrideType(override_type)
-                if override_enum in CUSTOM_EXTRACTION_WRAPPER_KEYS:
+                override_enum = self._try_get_override_type(override_type)
+                if override_enum and override_enum in CUSTOM_EXTRACTION_WRAPPER_KEYS:
                     wrapped_config["extraction"] = {
                         "customExtractionConfiguration": {CUSTOM_EXTRACTION_WRAPPER_KEYS[override_enum]: extraction}
                     }
@@ -1970,13 +1999,16 @@ class MemoryClient:
                             }
                         }
                 elif strategy_type == "CUSTOM" and override_type:
-                    override_enum = OverrideType(override_type)
-                    if override_enum in CUSTOM_CONSOLIDATION_WRAPPER_KEYS:
+                    override_enum = self._try_get_override_type(override_type)
+                    if override_enum and override_enum in CUSTOM_CONSOLIDATION_WRAPPER_KEYS:
                         wrapped_config["consolidation"] = {
                             "customConsolidationConfiguration": {
                                 CUSTOM_CONSOLIDATION_WRAPPER_KEYS[override_enum]: consolidation
                             }
                         }
+                    else:
+                        # Unknown override type (e.g., SELF_MANAGED), pass through as-is
+                        wrapped_config["consolidation"] = consolidation
             else:
                 wrapped_config["consolidation"] = consolidation
 
@@ -1984,12 +2016,20 @@ class MemoryClient:
             reflection = config["reflection"]
 
             if strategy_type == "CUSTOM" and override_type:
-                override_enum = OverrideType(override_type)
-                if override_enum in CUSTOM_REFLECTION_WRAPPER_KEYS:
+                override_enum = self._try_get_override_type(override_type)
+                if override_enum and override_enum in CUSTOM_REFLECTION_WRAPPER_KEYS:
                     wrapped_config["reflection"] = {
                         "customReflectionConfiguration": {CUSTOM_REFLECTION_WRAPPER_KEYS[override_enum]: reflection}
                     }
+                else:
+                    # Unknown override type (e.g., SELF_MANAGED), pass through as-is
+                    wrapped_config["reflection"] = reflection
             else:
                 wrapped_config["reflection"] = reflection
+
+        # Pass through any keys the SDK doesn't know about (e.g., selfManagedConfiguration)
+        for key in config:
+            if key not in wrapped_config:
+                wrapped_config[key] = config[key]
 
         return wrapped_config

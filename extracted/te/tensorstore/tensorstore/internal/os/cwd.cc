@@ -104,8 +104,8 @@ Result<std::string> GetCwd() {
   }
   auto get_error = errno;
 #endif
-  return StatusFromOsError(get_error,
-                           "Failed to get current working directory");
+  return StatusFromOsError(get_error).Format(
+      "Failed to get current working directory");
 }
 
 absl::Status SetCwd(const std::string& path) {
@@ -122,9 +122,8 @@ absl::Status SetCwd(const std::string& path) {
   }
   auto set_error = errno;
 #endif
-  return StatusFromOsError(
-      set_error,
-      "Failed to set current working directory to: ", QuoteString(path));
+  return StatusFromOsError(set_error).Format(
+      "Failed to set current working directory to: %v", QuoteString(path));
 }
 
 }  // namespace internal_os

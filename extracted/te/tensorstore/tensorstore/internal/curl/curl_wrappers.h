@@ -50,14 +50,12 @@ using CurlHeaders = std::unique_ptr<curl_slist, CurlSlistCleanup>;
 std::string GetCurlUserAgentSuffix();
 
 /// Returns a absl::Status object for a corresponding CURLcode.
-absl::Status CurlCodeToStatus(
-    CURLcode code, std::string_view detail,
-    SourceLocation loc = tensorstore::SourceLocation::current());
+absl::Status CurlCodeToStatus(CURLcode code, std::string_view detail,
+                              SourceLocation loc = SourceLocation::current());
 
 /// Returns a absl::Status object for a corresponding CURLcode.
-absl::Status CurlMCodeToStatus(
-    CURLMcode code, std::string_view,
-    SourceLocation loc = tensorstore::SourceLocation::current());
+absl::Status CurlMCodeToStatus(CURLMcode code, std::string_view,
+                               SourceLocation loc = SourceLocation::current());
 
 /// Logs curl data to absl::Log.
 void SetLogToAbseil(CURL* handle);

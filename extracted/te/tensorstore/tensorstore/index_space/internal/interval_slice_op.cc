@@ -36,7 +36,6 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_index_space {
@@ -95,8 +94,8 @@ absl::Status GetIntervalSliceInfo(
   for (DimensionIndex input_dim = 0; input_dim < input_rank; ++input_dim) {
     dimension_info[input_dim] = InputDimensionIntervalSliceInfo{0, 1};
   }
-  auto compute_input_domain_slice = [&](DimensionIndex i,
-                                        DimensionIndex input_dim) {
+  auto compute_input_domain_slice =
+      [&](DimensionIndex i, DimensionIndex input_dim) -> absl::Status {
     const Index stride = stride_vector[i];
     const InputDimensionRef d = transform->input_dimension(input_dim);
     auto& info = dimension_info[input_dim];
@@ -113,12 +112,8 @@ absl::Status GetIntervalSliceInfo(
   };
   for (DimensionIndex i = 0; i < dimensions.size(); ++i) {
     const DimensionIndex input_dim = dimensions[i];
-    TENSORSTORE_RETURN_IF_ERROR(
-        compute_input_domain_slice(i, input_dim),
-        MaybeAnnotateStatus(
-            _,
-            absl::StrFormat("Computing interval slice for input dimension %d",
-                            input_dim)));
+    TENSORSTORE_RETURN_IF_ERROR(compute_input_domain_slice(i, input_dim))
+        .Format("Computing interval slice for input dimension %d", input_dim);
   }
   return absl::OkStatus();
 }
@@ -262,11 +257,8 @@ Result<IndexTransform<>> ApplyStrideOp(IndexTransform<> transform,
   };
   for (DimensionIndex i = 0; i < num_dims; ++i) {
     const DimensionIndex input_dim = (*dimensions)[i];
-    TENSORSTORE_RETURN_IF_ERROR(
-        compute_input_domain(i, input_dim),
-        MaybeAnnotateStatus(
-            _, absl::StrFormat("Applying stride to input dimension %d",
-                               input_dim)));
+    TENSORSTORE_RETURN_IF_ERROR(compute_input_domain(i, input_dim))
+        .Format("Applying stride to input dimension %d", input_dim);
   }
   TENSORSTORE_RETURN_IF_ERROR(ApplyOffsetsAndStridesToOutputIndexMaps(
       rep.get(), span(input_dimension_info).first(input_rank)));

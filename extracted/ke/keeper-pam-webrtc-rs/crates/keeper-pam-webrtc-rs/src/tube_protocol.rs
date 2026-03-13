@@ -41,6 +41,9 @@ bitflags! {
 
 pub(crate) const CONN_NO_LEN: usize = 4;
 pub(crate) const CTRL_NO_LEN: usize = 2;
+/// Minimum CloseConnection control payload: conn_no (4) + reason (1). Receiver expects at least this;
+/// sending less can cause GuacdError on logout (guacd-initiated disconnect).
+pub(crate) const CLOSE_CONNECTION_PAYLOAD_MIN_LEN: usize = CONN_NO_LEN + 1;
 #[cfg(test)]
 pub(crate) const PORT_LENGTH: usize = 2; // Standard u16 port numbers
 const TS_LEN: usize = 8;

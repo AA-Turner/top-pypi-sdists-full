@@ -32,12 +32,12 @@
 #include "tensorstore/internal/json_binding/bindable.h"
 #include "tensorstore/internal/json_binding/json_binding.h"
 #include "tensorstore/internal/meta/type_traits.h"
-#include "tensorstore/internal/uri_utils.h"
+#include "tensorstore/internal/uri/parse.h"
 #include "tensorstore/json_serialization_options_base.h"
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
+#include "tensorstore/util/status_builder.h"
 
 // specializations
 #include "tensorstore/internal/json_binding/absl_time.h"  // IWYU pragma: keep
@@ -99,10 +99,10 @@ constexpr auto kEcsRoleBinder =  //
                 "specified.");
           }
           if (!spec->endpoint.empty()) {
-            auto parsed = internal::ParseGenericUri(spec->endpoint);
+            auto parsed = internal_uri::ParseGenericUri(spec->endpoint);
             if (!parsed.authority.empty()) {
-              if (!internal::SplitHostPort(parsed.authority)) {
-                return absl::InvalidArgumentError(tensorstore::StrCat(
+              if (!internal_uri::SplitHostPort(parsed.authority)) {
+                return absl::InvalidArgumentError(absl::StrCat(
                     "Invalid endpoint: ", QuoteString(spec->endpoint)));
               }
             }
@@ -137,8 +137,10 @@ const auto kPartialBinder = jb::TaggedVariantBinder<std::string, 6>(
 absl::Status AwsCredentialsSpec::PartialBinder::operator()(
     std::true_type is_loading, const internal_json_binding::NoOptions& options,
     Spec* value, ::nlohmann::json::object_t* j) const {
-  auto status = kPartialBinder(is_loading, options, &value->config, j);
-  return MaybeAnnotateStatus(status, "Failed to parse AWS credentials spec");
+  TENSORSTORE_RETURN_IF_ERROR(
+      kPartialBinder(is_loading, options, &value->config, j))
+      .Format("Failed to parse AWS credentials spec");
+  return absl::OkStatus();
 }
 
 absl::Status AwsCredentialsSpec::PartialBinder::operator()(

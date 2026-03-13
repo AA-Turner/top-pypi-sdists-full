@@ -37,7 +37,6 @@
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
 #include "tensorstore/util/status_builder.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_index_space {
@@ -104,11 +103,11 @@ absl::Status PropagateBoundsImpl(BoxView<> b,
         // Validate the constant output index map.  We can't propagate bounds to
         // `a` in this case.
         TENSORSTORE_RETURN_IF_ERROR(
-            CheckContains(b_bounds_oi.effective_interval(), map.offset()),
-            MaybeAnnotateStatus(
-                _, absl::StrFormat("Checking bounds of constant output index "
-                                   "map for dimension %d",
-                                   b_dim)));
+            CheckContains(b_bounds_oi.effective_interval(), map.offset()))
+            .Format(
+                "Checking bounds of constant output index "
+                "map for dimension %d",
+                b_dim);
       }
       continue;
     }
@@ -120,10 +119,8 @@ absl::Status PropagateBoundsImpl(BoxView<> b,
     TENSORSTORE_ASSIGN_OR_RETURN(
         OptionallyImplicitIndexInterval propagated_a_bounds,
         GetAffineTransformDomain(b_bounds_oi, map.offset(), map.stride()),
-        MaybeAnnotateStatus(
-            _, absl::StrFormat(
-                   "Propagating bounds from dimension %d to input dimension %d",
-                   b_dim, a_dim)));
+        _.Format("Propagating bounds from dimension %d to input dimension %d",
+                 b_dim, a_dim));
     propagated_a_bounds = IntersectPreferringExplicit(
         propagated_a_bounds,
         OptionallyImplicitIndexInterval{a[a_dim],
@@ -242,13 +239,11 @@ absl::Status PropagateBounds(BoxView<> b, DimensionSet b_implicit_lower_bounds,
                                     b_implicit_upper_bounds, a_to_b, a);
   if (!status.ok()) {
     // Augment failed calls with transform and domain
-    std::ostringstream os;
-    internal_index_space::PrintToOstream(os, a_to_b);
-    std::string str = os.str();
+    std::string str = internal_index_space::PrintToString(a_to_b);
     absl::StrReplaceAll({{"\n", " "}}, &str);
-    return internal::StatusBuilder(std::move(status))
+    return StatusBuilder(std::move(status))
         .AddStatusPayload("transform", absl::Cord(str))
-        .AddStatusPayload("domain", absl::Cord(tensorstore::StrCat(b)));
+        .AddStatusPayload("domain", absl::Cord(absl::StrCat(b)));
   }
   return absl::OkStatus();
 }

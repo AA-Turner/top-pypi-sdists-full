@@ -34,7 +34,7 @@
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
+#include "tensorstore/util/status_builder.h"
 
 namespace tensorstore {
 namespace neuroglancer_uint64_sharded {
@@ -128,10 +128,9 @@ DecodeMinishardIndexAndAdjustByteRanges(const absl::Cord& encoded,
   for (auto& entry : minishard_index) {
     auto result = GetAbsoluteShardByteRange(entry.byte_range, sharding_spec);
     if (!result.ok()) {
-      return MaybeAnnotateStatus(
-          result.status(),
-          absl::StrFormat("Error decoding minishard index entry for chunk %d",
-                          entry.chunk_id.value));
+      return StatusBuilder(std::move(result).status())
+          .Format("Error decoding minishard index entry for chunk %d",
+                  entry.chunk_id.value);
     }
     entry.byte_range = std::move(result).value();
   }
@@ -161,9 +160,8 @@ absl::Status SplitMinishard(const ShardingSpec& sharding_spec,
     };
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto chunk_byte_range, GetChunkByteRange(),
-        tensorstore::MaybeAnnotateStatus(
-            _, absl::StrFormat("Invalid existing byte range for chunk %d",
-                               existing_entry.chunk_id.value)));
+        _.Format("Invalid existing byte range for chunk %d",
+                 existing_entry.chunk_id.value));
     chunks.push_back(
         EncodedChunk{{minishard, existing_entry.chunk_id},
                      internal::GetSubCord(shard_data, chunk_byte_range)});
@@ -200,19 +198,15 @@ Result<std::vector<EncodedChunk>> SplitShard(const ShardingSpec& sharding_spec,
     };
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto minishard_ibr, GetMinishardIndexByteRange(),
-        tensorstore::MaybeAnnotateStatus(
-            _, absl::StrFormat(
-                   "Error decoding existing shard index entry for minishard %d",
-                   minishard)));
+        _.Format("Error decoding existing shard index entry for minishard %d",
+                 minishard));
     if (minishard_ibr.size() == 0) continue;
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto minishard_index,
         DecodeMinishardIndexAndAdjustByteRanges(
             internal::GetSubCord(shard_data, minishard_ibr), sharding_spec),
-        tensorstore::MaybeAnnotateStatus(
-            _, absl::StrFormat(
-                   "Error decoding existing minishard index for minishard %d",
-                   minishard)));
+        _.Format("Error decoding existing minishard index for minishard %d",
+                 minishard));
     TENSORSTORE_RETURN_IF_ERROR(SplitMinishard(
         sharding_spec, shard_data, minishard, minishard_index, chunks));
   }

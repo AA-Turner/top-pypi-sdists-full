@@ -9,10 +9,12 @@ from typing import Optional
 from jsonschema_path import SchemaPath
 from openapi_spec_validator import OpenAPIV30SpecValidator
 from openapi_spec_validator import OpenAPIV31SpecValidator
+from openapi_spec_validator import OpenAPIV32SpecValidator
 from openapi_spec_validator.validation.types import SpecValidatorType
 
 from openapi_core.casting.schemas import oas30_write_schema_casters_factory
 from openapi_core.casting.schemas import oas31_schema_casters_factory
+from openapi_core.casting.schemas import oas32_schema_casters_factory
 from openapi_core.casting.schemas.factories import SchemaCastersFactory
 from openapi_core.datatypes import Parameters
 from openapi_core.datatypes import RequestParameters
@@ -55,6 +57,7 @@ from openapi_core.validation.schemas import (
     oas30_write_schema_validators_factory,
 )
 from openapi_core.validation.schemas import oas31_schema_validators_factory
+from openapi_core.validation.schemas import oas32_schema_validators_factory
 from openapi_core.validation.schemas.datatypes import FormatValidatorsDict
 from openapi_core.validation.schemas.factories import SchemaValidatorsFactory
 from openapi_core.validation.validators import BaseAPICallValidator
@@ -83,6 +86,7 @@ class BaseRequestValidator(BaseValidator):
             MediaTypeDeserializersDict
         ] = None,
         security_provider_factory: SecurityProviderFactory = security_provider_factory,
+        forbid_unspecified_additional_properties: bool = False,
     ):
 
         BaseValidator.__init__(
@@ -98,6 +102,7 @@ class BaseRequestValidator(BaseValidator):
             format_validators=format_validators,
             extra_format_validators=extra_format_validators,
             extra_media_type_deserializers=extra_media_type_deserializers,
+            forbid_unspecified_additional_properties=forbid_unspecified_additional_properties,
         )
         self.security_provider_factory = security_provider_factory
 
@@ -135,7 +140,7 @@ class BaseRequestValidator(BaseValidator):
         self, request: BaseRequest, operation: SchemaPath, path: SchemaPath
     ) -> Iterator[Exception]:
         try:
-            self._get_parameters(request.parameters, path, operation)
+            self._get_parameters(request.parameters, operation, path)
         except ParametersError as exc:
             yield from exc.errors
 
@@ -153,16 +158,20 @@ class BaseRequestValidator(BaseValidator):
         operation: SchemaPath,
         path: SchemaPath,
     ) -> Parameters:
-        operation_params = operation.get("parameters", [])
-        path_params = path.get("parameters", [])
+        operation_params: SchemaPath = operation.get(
+            "parameters", SchemaPath.from_dict({})
+        )
+        path_params: SchemaPath = path.get(
+            "parameters", SchemaPath.from_dict({})
+        )
 
         errors = []
         seen = set()
         validated = Parameters()
         params_iter = chainiters(operation_params, path_params)
         for param in params_iter:
-            param_name = param["name"]
-            param_location = param["in"]
+            param_name = (param / "name").read_str()
+            param_location = (param / "in").read_str()
             if (param_name, param_location) in seen:
                 # skip parameter already seen
                 # e.g. overriden path item paremeter on operation
@@ -193,22 +202,20 @@ class BaseRequestValidator(BaseValidator):
     def _get_parameter(
         self, parameters: RequestParameters, param: SchemaPath
     ) -> Any:
-        name = param["name"]
-        deprecated = param.getkey("deprecated", False)
-        if deprecated:
+        name = (param / "name").read_str()
+        param_location = (param / "in").read_str()
+        location = parameters[param_location]
+        deprecated = (param / "deprecated").read_bool(default=False)
+        if deprecated and name in location:
             warnings.warn(
                 f"{name} parameter is deprecated",
                 DeprecationWarning,
             )
 
-        param_location = param["in"]
-        location = parameters[param_location]
-
         try:
             value, _ = self._get_param_or_header_and_schema(param, location)
         except KeyError:
-            required = param.getkey("required", False)
-            if required:
+            if (param / "required").read_bool(default=False):
                 raise MissingRequiredParameter(name, param_location)
             raise MissingParameter(name, param_location)
         else:
@@ -230,7 +237,7 @@ class BaseRequestValidator(BaseValidator):
         schemes = []
         for security_requirement in security:
             try:
-                scheme_names = list(security_requirement.keys())
+                scheme_names = list(security_requirement.str_keys())
                 schemes.append(scheme_names)
                 return {
                     scheme_name: self._get_security_value(
@@ -272,7 +279,7 @@ class BaseRequestValidator(BaseValidator):
         self, body: Optional[bytes], request_body: SchemaPath
     ) -> bytes:
         if not body:
-            if request_body.getkey("required", False):
+            if (request_body / "required").read_bool(default=False):
                 raise MissingRequiredRequestBody
             raise MissingRequestBody
         return body
@@ -472,3 +479,51 @@ class V31WebhookRequestValidator(WebhookRequestValidator):
     spec_validator_cls = OpenAPIV31SpecValidator
     schema_casters_factory = oas31_schema_casters_factory
     schema_validators_factory = oas31_schema_validators_factory
+
+
+class V32RequestBodyValidator(APICallRequestBodyValidator):
+    spec_validator_cls = OpenAPIV32SpecValidator
+    schema_casters_factory = oas32_schema_casters_factory
+    schema_validators_factory = oas32_schema_validators_factory
+
+
+class V32RequestParametersValidator(APICallRequestParametersValidator):
+    spec_validator_cls = OpenAPIV32SpecValidator
+    schema_casters_factory = oas32_schema_casters_factory
+    schema_validators_factory = oas32_schema_validators_factory
+
+
+class V32RequestSecurityValidator(APICallRequestSecurityValidator):
+    spec_validator_cls = OpenAPIV32SpecValidator
+    schema_casters_factory = oas32_schema_casters_factory
+    schema_validators_factory = oas32_schema_validators_factory
+
+
+class V32RequestValidator(APICallRequestValidator):
+    spec_validator_cls = OpenAPIV32SpecValidator
+    schema_casters_factory = oas32_schema_casters_factory
+    schema_validators_factory = oas32_schema_validators_factory
+
+
+class V32WebhookRequestBodyValidator(WebhookRequestBodyValidator):
+    spec_validator_cls = OpenAPIV32SpecValidator
+    schema_casters_factory = oas32_schema_casters_factory
+    schema_validators_factory = oas32_schema_validators_factory
+
+
+class V32WebhookRequestParametersValidator(WebhookRequestParametersValidator):
+    spec_validator_cls = OpenAPIV32SpecValidator
+    schema_casters_factory = oas32_schema_casters_factory
+    schema_validators_factory = oas32_schema_validators_factory
+
+
+class V32WebhookRequestSecurityValidator(WebhookRequestSecurityValidator):
+    spec_validator_cls = OpenAPIV32SpecValidator
+    schema_casters_factory = oas32_schema_casters_factory
+    schema_validators_factory = oas32_schema_validators_factory
+
+
+class V32WebhookRequestValidator(WebhookRequestValidator):
+    spec_validator_cls = OpenAPIV32SpecValidator
+    schema_casters_factory = oas32_schema_casters_factory
+    schema_validators_factory = oas32_schema_validators_factory

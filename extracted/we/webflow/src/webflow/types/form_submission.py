@@ -3,42 +3,49 @@
 import datetime as dt
 import typing
 
-from ..core.datetime_utils import serialize_datetime
-
-try:
-    import pydantic.v1 as pydantic  # type: ignore
-except ImportError:
-    import pydantic  # type: ignore
+import pydantic
+import typing_extensions
+from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from ..core.serialization import FieldMetadata
 
 
-class FormSubmission(pydantic.BaseModel):
-    id: typing.Optional[str] = pydantic.Field(default=None, description="The unique id of the Form submission")
-    display_name: typing.Optional[str] = pydantic.Field(
-        alias="displayName", default=None, description="The Form name displayed on the site"
-    )
-    site_id: typing.Optional[str] = pydantic.Field(
-        alias="siteId", default=None, description="The unique id of the Site the Form belongs to"
-    )
-    workspace_id: typing.Optional[str] = pydantic.Field(
-        alias="workspaceId", default=None, description="The unique id of the Workspace the Site belongs to"
-    )
-    date_submitted: typing.Optional[dt.datetime] = pydantic.Field(
-        alias="dateSubmitted", default=None, description="Date that the Form was submitted on"
-    )
-    form_response: typing.Optional[typing.Dict[str, typing.Any]] = pydantic.Field(
-        alias="formResponse", default=None, description="The data submitted in the Form"
-    )
+class FormSubmission(UniversalBaseModel):
+    id: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    The unique ID of the Form submission
+    """
 
-    def json(self, **kwargs: typing.Any) -> str:
-        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
-        return super().json(**kwargs_with_defaults)
+    display_name: typing_extensions.Annotated[
+        typing.Optional[str],
+        FieldMetadata(alias="displayName"),
+        pydantic.Field(alias="displayName", description="The Form name displayed on the site"),
+    ] = None
+    site_id: typing_extensions.Annotated[
+        typing.Optional[str],
+        FieldMetadata(alias="siteId"),
+        pydantic.Field(alias="siteId", description="The unique ID of the Site the Form belongs to"),
+    ] = None
+    workspace_id: typing_extensions.Annotated[
+        typing.Optional[str],
+        FieldMetadata(alias="workspaceId"),
+        pydantic.Field(alias="workspaceId", description="The unique ID of the Workspace the Site belongs to"),
+    ] = None
+    date_submitted: typing_extensions.Annotated[
+        typing.Optional[dt.datetime],
+        FieldMetadata(alias="dateSubmitted"),
+        pydantic.Field(alias="dateSubmitted", description="Date that the Form was submitted on"),
+    ] = None
+    form_response: typing_extensions.Annotated[
+        typing.Optional[typing.Dict[str, typing.Any]],
+        FieldMetadata(alias="formResponse"),
+        pydantic.Field(alias="formResponse", description="The data submitted in the Form"),
+    ] = None
 
-    def dict(self, **kwargs: typing.Any) -> typing.Dict[str, typing.Any]:
-        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
-        return super().dict(**kwargs_with_defaults)
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2
+    else:
 
-    class Config:
-        frozen = True
-        smart_union = True
-        allow_population_by_field_name = True
-        json_encoders = {dt.datetime: serialize_datetime}
+        class Config:
+            frozen = True
+            smart_union = True
+            extra = pydantic.Extra.allow

@@ -34,9 +34,8 @@ namespace tensorstore {
 ///
 class ParseTextProtoOrDie {
  public:
-  ParseTextProtoOrDie(
-      std::string text_proto,
-      SourceLocation loc = tensorstore::SourceLocation::current())
+  ParseTextProtoOrDie(std::string text_proto,
+                      SourceLocation loc = SourceLocation::current())
       : text_proto_(std::move(text_proto)), loc_(std::move(loc)) {}
 
   template <class T>

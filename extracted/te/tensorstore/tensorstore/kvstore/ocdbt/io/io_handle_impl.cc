@@ -166,8 +166,10 @@ class IoHandleImpl : public IoHandle {
       // Retrieve the cached manifest to see if it can be used.
       ManifestWithTime manifest_with_time;
       TENSORSTORE_RETURN_IF_ERROR(
-          self->GetCachedTopLevelManifest(manifest_with_time),
-          static_cast<void>(promise.SetResult(_)));
+          self->GetCachedTopLevelManifest(manifest_with_time))
+          .With([&](absl::Status status) {
+            promise.SetResult(std::move(status));
+          });
 
       if (manifest_with_time.manifest &&
           manifest_with_time.manifest->config.manifest_kind !=
@@ -192,8 +194,10 @@ class IoHandleImpl : public IoHandle {
               ReadyFuture<const void> future) mutable {
             ManifestWithTime manifest_with_time;
             TENSORSTORE_RETURN_IF_ERROR(
-                self->GetCachedTopLevelManifest(manifest_with_time),
-                static_cast<void>(promise.SetResult(_)));
+                self->GetCachedTopLevelManifest(manifest_with_time))
+                .With([&](absl::Status status) {
+                  promise.SetResult(std::move(status));
+                });
             if (manifest_with_time.manifest &&
                 manifest_with_time.manifest->config.manifest_kind !=
                     ManifestKind::kSingle) {
@@ -212,8 +216,10 @@ class IoHandleImpl : public IoHandle {
                                         absl::Time staleness_bound) {
       ManifestWithTime manifest_with_time;
       TENSORSTORE_RETURN_IF_ERROR(
-          self->GetCachedNumberedManifest(manifest_with_time),
-          static_cast<void>(promise.SetResult(_)));
+          self->GetCachedNumberedManifest(manifest_with_time))
+          .With([&](absl::Status status) {
+            promise.SetResult(std::move(status));
+          });
       if (manifest_with_time.time >= staleness_bound &&
           manifest_with_time.time != absl::InfinitePast()) {
         ABSL_LOG_IF(INFO, ocdbt_logging)
@@ -231,8 +237,10 @@ class IoHandleImpl : public IoHandle {
                                    ReadyFuture<const void> future) {
             ManifestWithTime manifest_with_time;
             TENSORSTORE_RETURN_IF_ERROR(
-                self->GetCachedNumberedManifest(manifest_with_time),
-                static_cast<void>(promise.SetResult(_)));
+                self->GetCachedNumberedManifest(manifest_with_time))
+                .With([&](absl::Status status) {
+                  promise.SetResult(std::move(status));
+                });
             promise.SetResult(std::move(manifest_with_time));
           },
           std::move(promise), std::move(read_future));
@@ -299,8 +307,10 @@ class IoHandleImpl : public IoHandle {
         // written.
         ManifestWithTime manifest_with_time;
         TENSORSTORE_RETURN_IF_ERROR(
-            self->GetCachedTopLevelManifest(manifest_with_time),
-            static_cast<void>(promise.SetResult(_)));
+            self->GetCachedTopLevelManifest(manifest_with_time))
+            .With([&](absl::Status status) {
+              promise.SetResult(std::move(status));
+            });
         if (manifest_with_time.manifest && manifest_with_time.time >= time) {
           // Config-only `manifest.ocdbt` already present.  Note that
           // `GetCachedTopLevelManifest` already checked the `config`.
@@ -393,8 +403,10 @@ class IoHandleImpl : public IoHandle {
 
             TENSORSTORE_RETURN_IF_ERROR(
                 self->config_state->ValidateNewConfig(
-                    numbered_manifest->manifest->config),
-                static_cast<void>(promise.SetResult(_)));
+                    numbered_manifest->manifest->config))
+                .With([&](absl::Status status) {
+                  promise.SetResult(std::move(status));
+                });
 
             promise.SetResult(TryUpdateManifestResult{time, success});
           },

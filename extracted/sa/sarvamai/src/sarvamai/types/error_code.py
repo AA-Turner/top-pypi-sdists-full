@@ -10,8 +10,8 @@ ErrorCode = typing.Union[
         "insufficient_quota_error",
         "invalid_api_key_error",
         "authentication_error",
-        "rate_limit_exceeded_error",
         "not_found_error",
+        "rate_limit_exceeded_error",
     ],
     typing.Any,
 ]

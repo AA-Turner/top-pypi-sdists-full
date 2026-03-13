@@ -14,24 +14,27 @@
 
 #include "tensorstore/kvstore/ocdbt/distributed/btree_node_write_mutation.h"
 
+#include <stddef.h>
+
 #include <algorithm>
 #include <cassert>
 #include <limits>
-#include <optional>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include "riegeli/bytes/reader.h"
 #include "riegeli/bytes/writer.h"
 #include "tensorstore/internal/riegeli/delimited.h"
-#include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/ocdbt/format/btree.h"
 #include "tensorstore/kvstore/ocdbt/format/btree_codec.h"
 #include "tensorstore/kvstore/ocdbt/format/btree_node_encoder.h"
 #include "tensorstore/kvstore/ocdbt/format/codec_util.h"
+#include "tensorstore/kvstore/ocdbt/format/data_file_id_codec.h"
 #include "tensorstore/util/span.h"
 
 namespace tensorstore {

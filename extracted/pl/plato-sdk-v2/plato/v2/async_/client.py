@@ -28,7 +28,8 @@ class AsyncSessionManager:
         self,
         *,
         envs: list[EnvFromSimulator | EnvFromArtifact | EnvFromResource] | None = None,
-        task: str | None = None,
+        testcase: str | None = None,
+        artifacts: list[str] | None = None,
         timeout: int = 1800,
         agent_artifact_id: str | None = None,
         connect_network: bool = True,
@@ -36,25 +37,31 @@ class AsyncSessionManager:
     ) -> Session:
         """Create a new session.
 
-        Provide either `envs` or `task`, not both.
+        Provide exactly one of ``testcase``, ``envs``, or ``artifacts``.
+
+        - **testcase**: Derives environments from the test case's artifacts,
+          waits for readiness, and automatically resets for mutation logging.
+        - **envs**: Creates from explicit environment configs. Does NOT
+          auto-reset; call ``await session.reset()`` when ready.
+        - **artifacts**: Creates from artifact IDs directly. Does NOT
+          auto-reset; call ``await session.reset()`` when ready.
 
         Args:
             envs: List of environment configurations (use Env.simulator(), Env.artifact(), or Env.resource())
-            task: Task public ID to create session from
+            testcase: Test case public ID to create session from (auto-resets)
+            artifacts: List of simulator artifact IDs to create session from
             timeout: VM timeout in seconds
             agent_artifact_id: Optional agent artifact ID to associate with the session
             connect_network: If True, automatically connect all VMs to a WireGuard network
             wait: If True (default), block until all environments are ready. If False,
-                return immediately after session creation — the caller must call
-                ``await session.wait_until_ready()`` before accessing environments,
-                and ``await session.connect_network()`` / ``await session.start_heartbeat()``
-                manually.
+                return immediately after session creation -- the caller must call
+                ``await session.wait_until_ready()`` before accessing environments.
 
         Returns:
             A new Session instance. When ``wait=False`` environments may not be ready yet.
 
         Raises:
-            ValueError: If both envs and task are provided, or neither
+            ValueError: If more than one of envs/testcase/artifacts is provided, or none
             RuntimeError: If any environment fails to create or become ready
             TimeoutError: If environments don't become ready within timeout
 
@@ -62,25 +69,33 @@ class AsyncSessionManager:
             >>> from plato.v2 import AsyncPlato, Env
             >>> plato = AsyncPlato()
             >>>
-            >>> # From environments
+            >>> # From test case (auto-resets)
+            >>> session = await plato.sessions.create(testcase="tc_abc123")
+            >>>
+            >>> # From environments (manual reset)
             >>> session = await plato.sessions.create(envs=[Env.simulator("espocrm")])
+            >>> await session.reset()
             >>>
-            >>> # From task
-            >>> session = await plato.sessions.create(task="abc123")
-            >>>
-            >>> # Non-blocking: get session ID immediately, wait later
-            >>> session = await plato.sessions.create(envs=[...], wait=False)
-            >>> print(session.session_id)  # available immediately
-            >>> await session.wait()  # waits for VMs, starts heartbeat, connects network
+            >>> # From artifacts (manual reset)
+            >>> session = await plato.sessions.create(artifacts=["artifact-1", "artifact-2"])
+            >>> await session.reset()
         """
-        if envs is not None and task is not None:
-            raise ValueError("Cannot specify both envs and task")
+        provided = sum(x is not None for x in (envs, testcase, artifacts))
+        if provided != 1:
+            raise ValueError("Must specify exactly one of: envs, testcase, or artifacts")
 
-        if task is not None:
-            session = await Session.from_task(
+        if testcase is not None:
+            session = await Session.from_testcase(
                 http_client=self._http,
                 api_key=self._api_key,
-                task_id=task,
+                testcase_id=testcase,
+                timeout=timeout,
+            )
+        elif artifacts is not None:
+            session = await Session.from_artifacts(
+                http_client=self._http,
+                api_key=self._api_key,
+                artifact_ids=artifacts,
                 timeout=timeout,
             )
         elif envs is not None:
@@ -93,7 +108,7 @@ class AsyncSessionManager:
                 wait=wait,
             )
         else:
-            raise ValueError("Must specify either envs or task")
+            raise ValueError("Must specify exactly one of: envs, testcase, or artifacts")
 
         if not wait:
             return session
@@ -102,7 +117,6 @@ class AsyncSessionManager:
             try:
                 await session.connect_network()
             except Exception:
-                # Clean up session if network connection fails
                 import logging
 
                 logging.getLogger(__name__).info(f"Network connection failed, closing session {session.session_id}")

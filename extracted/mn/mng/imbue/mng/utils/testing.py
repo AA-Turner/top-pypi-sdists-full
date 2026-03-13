@@ -132,7 +132,7 @@ def isolate_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
 
     This is the minimal test isolation needed to prevent tests from reading
     or modifying the real home directory. Use this directly for lightweight
-    test suites (e.g. changelings). For full mng test isolation (MNG_HOST_DIR,
+    test suites (e.g. minds). For full mng test isolation (MNG_HOST_DIR,
     MNG_PREFIX, tmux server, etc.) use setup_test_mng_env instead.
     """
     monkeypatch.setenv("HOME", str(tmp_path))
@@ -205,7 +205,7 @@ def get_subprocess_test_env(
 
     Sets MNG_ROOT_NAME to a value that doesn't have a corresponding config directory,
     preventing subprocess tests from picking up .mng/settings.toml which might have
-    settings like add_command that would interfere with tests.
+    settings like extra_window that would interfere with tests.
 
     The root_name parameter defaults to "mng-test" but can be set to a descriptive
     name for your test category (e.g., "mng-acceptance-test", "mng-release-test").
@@ -363,6 +363,19 @@ def capture_tmux_pane_contents(session_name: str) -> str:
     return result.stdout
 
 
+def wait_for_agent_session(session_name: str, timeout: float = 15.0) -> None:
+    """Wait for an agent's tmux session to appear.
+
+    Use this after creating an agent with --no-connect in tests that invoke
+    the CLI via subprocess (where the session may take a moment to register).
+    """
+    wait_for(
+        lambda: tmux_session_exists(session_name),
+        timeout=timeout,
+        error_message=f"Expected tmux session {session_name} to exist",
+    )
+
+
 def tmux_session_exists(session_name: str) -> bool:
     """Check if a tmux session exists."""
     result = subprocess.run(
@@ -395,20 +408,24 @@ def create_test_agent_via_cli(
         [
             "--name",
             agent_name,
-            "--agent-cmd",
+            "--command",
             agent_cmd,
             "--source",
             str(temp_work_dir),
             "--no-connect",
-            "--await-ready",
-            "--no-copy-work-dir",
             "--no-ensure-clean",
         ],
         obj=plugin_manager,
         catch_exceptions=False,
     )
     assert create_result.exit_code == 0, f"Create source failed with: {create_result.output}"
-    assert tmux_session_exists(session_name), f"Expected source session {session_name} to exist"
+
+    # Wait for the tmux session to appear
+    wait_for(
+        lambda: tmux_session_exists(session_name),
+        timeout=15.0,
+        error_message=f"Expected source session {session_name} to exist",
+    )
 
     return session_name
 
@@ -468,6 +485,7 @@ def make_test_agent_details(
     name: str = "test-agent",
     state: AgentLifecycleState = AgentLifecycleState.RUNNING,
     create_time: datetime | None = None,
+    initial_branch: str | None = None,
     snapshots: list[SnapshotInfo] | None = None,
     host_plugin: dict | None = None,
     host_tags: dict[str, str] | None = None,
@@ -497,6 +515,7 @@ def make_test_agent_details(
         type="generic",
         command=CommandString("sleep 100"),
         work_dir=Path("/tmp/test"),
+        initial_branch=initial_branch,
         create_time=create_time or datetime.now(timezone.utc),
         start_on_boot=False,
         state=state,
@@ -951,7 +970,7 @@ AllowUsers {current_user}
     sshd_config_path.write_text(sshd_config)
 
     # Start sshd
-    proc = subprocess.Popen(
+    process = subprocess.Popen(
         [sshd_path, "-D", "-f", str(sshd_config_path), "-e"],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
@@ -969,12 +988,12 @@ AllowUsers {current_user}
 
     finally:
         # Stop sshd
-        proc.send_signal(signal.SIGTERM)
+        process.send_signal(signal.SIGTERM)
         try:
-            proc.wait(timeout=5)
+            process.wait(timeout=5)
         except subprocess.TimeoutExpired:
-            proc.kill()
-            proc.wait()
+            process.kill()
+            process.wait()
 
 
 # =============================================================================

@@ -43,6 +43,7 @@ from plato._generated.models import (
     AddJobRequest,
     AppApiV2SchemasSessionCreateSnapshotRequest,
     AppApiV2SchemasSessionCreateSnapshotResponse,
+    AppApiV2SchemasSessionEvaluateRequest,
     AppApiV2SchemasSessionEvaluateResponse,
     AppApiV2SchemasSessionHeartbeatResponse,
     AppApiV2SchemasSessionSetupSandboxRequest,
@@ -145,66 +146,25 @@ class Session:
         return self._context.task_public_id
 
     @classmethod
-    def from_envs(
+    def _make_session(
         cls,
         http_client: httpx.Client,
         api_key: str,
-        envs: list[EnvFromSimulator | EnvFromArtifact | EnvFromResource],
-        *,
-        timeout: int = 1800,
+        request_body,
+        timeout: int,
     ) -> Session:
-        """Create a new session from environment configurations.
+        """Shared session creation: POST /make, check failures, wait for ready, start heartbeat.
 
-        Waits for all environments to be ready (RUNNING status) before returning.
-
-        Args:
-            http_client: The httpx client for making requests.
-            api_key: API key for authentication.
-            envs: List of environment configurations (from Env.simulator() or Env.artifact()).
-            timeout: VM timeout in seconds (default: 1800).
-
-        Returns:
-            A new Session instance with all environments ready.
-
-        Raises:
-            RuntimeError: If any environment fails to create or become ready.
-            TimeoutError: If environments don't become ready within timeout.
-            ValueError: If duplicate aliases are provided.
+        All creation paths (from_envs, from_testcase, from_artifacts) funnel through here.
         """
-        # Normalize aliases - auto-generate unique ones if not set, validate no duplicates
-        seen_aliases: set[str] = set()
-        for env in envs:
-            if env.alias is not None:
-                if env.alias in seen_aliases:
-                    raise ValueError(f"Duplicate alias provided: '{env.alias}'")
-                seen_aliases.add(env.alias)
-
-        for env in envs:
-            if env.alias is None:
-                unique_alias = f"env-{uuid.uuid4().hex[:8]}"
-                while unique_alias in seen_aliases:
-                    unique_alias = f"env-{uuid.uuid4().hex[:8]}"
-                env.alias = unique_alias
-                seen_aliases.add(unique_alias)
-
-        # Build request using generated model
-        request_body = CreateSessionFromEnvs(
-            envs=[Envs(root=env) for env in envs],
-            timeout=timeout,
-            source=RunSessionSource.SDK,
-        )
-
-        # Use generated API function
         response = sessions_make.sync(
             client=http_client,
             body=request_body,
             x_api_key=api_key,
         )
 
-        # Check for any failures
         failures = [e for e in response.envs if not e.success]
         if failures:
-            # Close the session immediately
             try:
                 sessions_close.sync(
                     client=http_client,
@@ -214,11 +174,9 @@ class Session:
             except Exception as close_err:
                 logger.warning(f"Failed to close session after env creation failure: {close_err}")
 
-            # Raise error with details
             failure_details = ", ".join([f"{e.alias}: {e.error}" for e in failures])
             raise RuntimeError(f"Failed to create environments: {failure_details}")
 
-        # Wait for environments to be ready and get context
         try:
             ready_response = sessions_wait_for_ready.sync(
                 client=http_client,
@@ -228,7 +186,6 @@ class Session:
             )
             context = cls._check_ready_response(ready_response, timeout)
         except (TimeoutError, RuntimeError):
-            # Close session on failure
             try:
                 sessions_close.sync(
                     client=http_client,
@@ -249,22 +206,23 @@ class Session:
         return session
 
     @classmethod
-    def from_task(
+    def from_envs(
         cls,
         http_client: httpx.Client,
         api_key: str,
-        task_id: str,
+        envs: list[EnvFromSimulator | EnvFromArtifact | EnvFromResource],
         *,
         timeout: int = 1800,
     ) -> Session:
-        """Create a new session from a task public ID.
+        """Create a new session from environment configurations.
 
         Waits for all environments to be ready (RUNNING status) before returning.
+        Does NOT automatically reset -- call ``session.reset()`` when ready.
 
         Args:
             http_client: The httpx client for making requests.
             api_key: API key for authentication.
-            task_id: Task public ID to create session from.
+            envs: List of environment configurations (from Env.simulator() or Env.artifact()).
             timeout: VM timeout in seconds (default: 1800).
 
         Returns:
@@ -273,68 +231,104 @@ class Session:
         Raises:
             RuntimeError: If any environment fails to create or become ready.
             TimeoutError: If environments don't become ready within timeout.
+            ValueError: If duplicate aliases are provided.
         """
-        # Build request using generated model
-        request_body = CreateSessionFromTestCase(
-            testcase_id=task_id,
+        seen_aliases: set[str] = set()
+        for env in envs:
+            if env.alias is not None:
+                if env.alias in seen_aliases:
+                    raise ValueError(f"Duplicate alias provided: '{env.alias}'")
+                seen_aliases.add(env.alias)
+
+        for env in envs:
+            if env.alias is None:
+                unique_alias = f"env-{uuid.uuid4().hex[:8]}"
+                while unique_alias in seen_aliases:
+                    unique_alias = f"env-{uuid.uuid4().hex[:8]}"
+                env.alias = unique_alias
+                seen_aliases.add(unique_alias)
+
+        request_body = CreateSessionFromEnvs(
+            envs=[Envs(root=env) for env in envs],
             timeout=timeout,
             source=RunSessionSource.SDK,
         )
+        return cls._make_session(http_client, api_key, request_body, timeout)
 
-        # Use generated API function
-        # Note: API supports both env-based and testcase-based session creation via discriminator
-        response = sessions_make.sync(
+    @classmethod
+    def from_testcase(
+        cls,
+        http_client: httpx.Client,
+        api_key: str,
+        testcase_id: str,
+        *,
+        timeout: int = 1800,
+    ) -> Session:
+        """Create a new session from a test case.
+
+        Derives environments from the test case's artifacts, waits for all
+        VMs to be ready, and automatically resets them to set up mutation
+        logging. The returned session is fully ready for agent interaction.
+
+        Args:
+            http_client: The httpx client for making requests.
+            api_key: API key for authentication.
+            testcase_id: Test case public ID.
+            timeout: VM timeout in seconds (default: 1800).
+
+        Returns:
+            A new Session with all environments ready and reset.
+
+        Raises:
+            RuntimeError: If any environment fails to create or become ready.
+            TimeoutError: If environments don't become ready within timeout.
+        """
+        request_body = CreateSessionFromTestCase(
+            testcase_id=testcase_id,
+            timeout=timeout,
+            source=RunSessionSource.SDK,
+        )
+        session = cls._make_session(http_client, api_key, request_body, timeout)
+
+        sessions_reset.sync(
             client=http_client,
-            body=request_body,  # type: ignore[arg-type]
+            session_id=session.session_id,
+            body=ResetSessionRequest(),
             x_api_key=api_key,
         )
-
-        # Check for any failures
-        failures = [e for e in response.envs if not e.success]
-        if failures:
-            # Close the session immediately
-            try:
-                sessions_close.sync(
-                    client=http_client,
-                    session_id=response.session_id,
-                    x_api_key=api_key,
-                )
-            except Exception as close_err:
-                logger.warning(f"Failed to close session after env creation failure: {close_err}")
-
-            # Raise error with details
-            failure_details = ", ".join([f"{e.alias}: {e.error}" for e in failures])
-            raise RuntimeError(f"Failed to create environments: {failure_details}")
-
-        # Wait for environments to be ready and get context
-        try:
-            ready_response = sessions_wait_for_ready.sync(
-                client=http_client,
-                session_id=response.session_id,
-                timeout=int(timeout),
-                x_api_key=api_key,
-            )
-            context = cls._check_ready_response(ready_response, timeout)
-        except (TimeoutError, RuntimeError):
-            # Close session on failure
-            try:
-                sessions_close.sync(
-                    client=http_client,
-                    session_id=response.session_id,
-                    x_api_key=api_key,
-                )
-            except Exception as close_err:
-                logger.warning(f"Failed to close session after ready timeout: {close_err}")
-            raise
-
-        logger.info(f"All environments in session {response.session_id} are ready")
-        session = cls(
-            http_client=http_client,
-            api_key=api_key,
-            context=context,
-        )
-        session.start_heartbeat()
+        logger.info(f"Session {session.session_id} reset for mutation capture")
         return session
+
+    @classmethod
+    def from_artifacts(
+        cls,
+        http_client: httpx.Client,
+        api_key: str,
+        artifact_ids: list[str],
+        *,
+        timeout: int = 1800,
+    ) -> Session:
+        """Create a new session from artifact IDs.
+
+        Convenience method that wraps each artifact ID into an EnvFromArtifact
+        and delegates to from_envs(). Does NOT automatically reset -- call
+        ``session.reset()`` when ready to begin mutation logging.
+
+        Args:
+            http_client: The httpx client for making requests.
+            api_key: API key for authentication.
+            artifact_ids: List of simulator artifact public IDs.
+            timeout: VM timeout in seconds (default: 1800).
+
+        Returns:
+            A new Session with all environments ready (not reset).
+
+        Raises:
+            RuntimeError: If any environment fails to create or become ready.
+            TimeoutError: If environments don't become ready within timeout.
+        """
+        envs = [EnvFromArtifact(artifact_id=aid) for aid in artifact_ids]
+        return cls.from_envs(http_client, api_key, envs, timeout=timeout)
 
     @staticmethod
     def _check_ready_response(response: WaitForReadyResponse, timeout: float) -> SessionContext:
@@ -576,19 +570,31 @@ class Session:
             x_api_key=self._api_key,
         )
 
-    def evaluate(self, **kwargs) -> AppApiV2SchemasSessionEvaluateResponse:
-        """Evaluate the session against task criteria.
+    def evaluate(self, value: dict | None = None) -> AppApiV2SchemasSessionEvaluateResponse:
+        """Evaluate the session against its linked test case scoring config.
+
+        For mutation-only scoring, call with no arguments. For output scoring,
+        pass the agent's output as ``value``.
+
+        Args:
+            value: Optional output data for OUTPUT scoring. Not needed for
+                   mutation-only test cases.
 
         Returns:
-            Evaluation results.
+            Evaluation results including score and per-SIM results.
         """
         self._check_closed()
 
+        # Flush cached mutations from simulator VMs so they are
+        # in the DB before the evaluate endpoint reads them.
+        self.get_state()
+
+        body = AppApiV2SchemasSessionEvaluateRequest(value=value)
         return sessions_evaluate.sync(
             client=self._http,
             session_id=self.session_id,
+            body=body,
             x_api_key=self._api_key,
-            **kwargs,
         )
 
     def snapshot(self) -> AppApiV2SchemasSessionCreateSnapshotResponse:

@@ -378,6 +378,11 @@ external_cpp_references = {
         'object_type': 'function',
         'desc': 'C++ class',
     },
+    'absl::Status::SetPayload': {
+        'url': 'https://abseil.io/docs/cpp/guides/status',
+        'object_type': 'function',
+        'desc': 'C++ class',
+    },
     'absl::StatusOr': {
         'url': (
             'https://abseil.io/docs/cpp/guides/status#returning-a-status-or-a-value'
@@ -454,10 +459,20 @@ external_cpp_references = {
         'object_type': 'function',
         'desc': 'C++ function',
     },
+    'absl::FormatSpec': {
+        'url': 'https://abseil.io/docs/cpp/guides/format#advanced',
+        'object_type': 'class',
+        'desc': 'C++ class',
+    },
     'std::move': {
         'url': 'https://en.cppreference.com/w/cpp/utility/move.html',
         'object_type': 'function',
         'desc': 'C++ function',
+    },
+    'std::source_location': {
+        'url': 'https://en.cppreference.com/w/cpp/utility/source_location.html',
+        'object_type': 'class',
+        'desc': 'C++ class',
     },
 }
 

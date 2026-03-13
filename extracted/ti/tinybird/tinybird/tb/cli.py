@@ -16,6 +16,7 @@ import tinybird.tb.modules.job
 import tinybird.tb.modules.local
 import tinybird.tb.modules.login
 import tinybird.tb.modules.logout
+import tinybird.tb.modules.logs
 import tinybird.tb.modules.materialization
 import tinybird.tb.modules.open
 import tinybird.tb.modules.pipe

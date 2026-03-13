@@ -43,6 +43,7 @@ else:
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
+_MARKER_LINE_PREPEND = ":prepend:"
 
 DEFAULT_VERSIONING = "semver"
 """Default versioning strategy."""
@@ -63,6 +64,9 @@ DEFAULT_CONFIG_FILES = [
 ]
 """Default configuration files read by git-changelog."""
 
+_DEFAULT_DEBIAN_MARKER_LINE = _MARKER_LINE_PREPEND
+_DEFAULT_DEBIAN_VERSION_REGEX = r"^[\w-]+ \((?:\d+:)?(?P<version>.+?)(?:-\d+)?(?:\+[^)]*|~[^)]*)?\)(?!.*UNRELEASED)"
+
 DEFAULT_SETTINGS: dict[str, Any] = {
     "bump": None,
     # YORE: Bump 3: Remove line.
@@ -72,7 +76,7 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "in_place": False,
     "include_all": False,
     "input": DEFAULT_CHANGELOG_FILE,
-    "marker_line": DEFAULT_MARKER_LINE,
+    "marker_line": None,
     "omit_empty_versions": False,
     "output": sys.stdout,
     "parse_refs": False,
@@ -84,14 +88,14 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "sections": None,
     "template": "keepachangelog",
     "jinja_context": {},
-    "version_regex": DEFAULT_VERSION_REGEX,
+    "version_regex": None,
     "versioning": DEFAULT_VERSIONING,
     "zerover": True,
 }
 """Default settings for the CLI."""
 
 
-class Templates(tuple):  # (subclassing tuple)
+class Templates(tuple):  # noqa: SLOT001
     """Helper to pick a template on the command line."""
 
     def __contains__(self, item: object) -> bool:
@@ -364,7 +368,7 @@ def get_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "-t",
         "--template",
-        choices=Templates(("angular", "keepachangelog")),
+        choices=Templates(("angular", "keepachangelog", "debian")),
         metavar="TEMPLATE",
         dest="template",
         help="The Jinja2 template to use. Prefix it with `path:` to specify the path "
@@ -424,12 +428,12 @@ def get_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _latest(lines: list[str], regex: Pattern) -> str | None:
-    for line in lines:
+def _latest(lines: list[str], regex: Pattern) -> tuple[str | None, int]:
+    for idx, line in enumerate(lines):
         match = regex.search(line)
         if match:
-            return match.groupdict()["version"]
-    return None
+            return match.groupdict()["version"], idx
+    return None, 0
 
 
 def _unreleased(versions: list[Version], last_release: str) -> list[Version]:
@@ -458,7 +462,7 @@ def read_config(
         return project_config
 
     for filename in config_file if isinstance(config_file, (list, tuple)) else [config_file]:
-        _path = Path(filename)
+        _path = Path(filename)  # ty:ignore[invalid-argument-type]
 
         if not _path.exists():
             continue
@@ -635,8 +639,8 @@ def render(
     template: str,
     in_place: bool = False,  # noqa: FBT001,FBT002
     output: str | TextIO | None = None,
-    version_regex: str = DEFAULT_VERSION_REGEX,
-    marker_line: str = DEFAULT_MARKER_LINE,
+    version_regex: str | None = None,
+    marker_line: str | None = None,
     # YORE: Bump 3: Remove line.
     bump_latest: bool = False,  # noqa: FBT001,FBT002
     bump: str | None = None,
@@ -690,16 +694,17 @@ def render(
     # Render new entries in-place.
     if in_place:
         # Read current changelog lines.
-        with open(output, encoding="utf8") as changelog_file:  # type: ignore[arg-type]
+        with open(output, encoding="utf8") as changelog_file:  # ty:ignore[invalid-argument-type]
             lines = changelog_file.read().splitlines()
 
         # Prepare version regex and marker line.
-        if template in {"angular", "keepachangelog"}:
-            version_regex = DEFAULT_VERSION_REGEX
-            marker_line = DEFAULT_MARKER_LINE
+        if version_regex is None:
+            version_regex = _DEFAULT_DEBIAN_VERSION_REGEX if template == "debian" else DEFAULT_VERSION_REGEX
+        if marker_line is None:
+            marker_line = _DEFAULT_DEBIAN_MARKER_LINE if template == "debian" else DEFAULT_MARKER_LINE
 
         # Only keep new entries (missing from changelog).
-        last_released = _latest(lines, re.compile(version_regex))
+        last_released, last_released_line = _latest(lines, re.compile(version_regex))
         if last_released:
             # Check if the latest version is already in the changelog.
             if last_released in [
@@ -723,18 +728,22 @@ def render(
         )
 
         # Find marker line(s) in current changelog.
-        marker = lines.index(marker_line)
-        try:
-            marker2 = lines[marker + 1 :].index(marker_line)
-        except ValueError:
-            # Apply new entries at marker line.
-            lines[marker] = rendered
+        if marker_line == ":prepend:":
+            # With prepend mode, take account of last_released_line to replace unreleased changelog.
+            lines[0:last_released_line] = [rendered]
         else:
-            # Apply new entries between marker lines.
-            lines[marker : marker + marker2 + 2] = [rendered]
+            marker = lines.index(marker_line)
+            try:
+                marker2 = lines[marker + 1 :].index(marker_line)
+            except ValueError:
+                # Apply new entries at marker line.
+                lines[marker] = rendered
+            else:
+                # Apply new entries between marker lines.
+                lines[marker : marker + marker2 + 2] = [rendered]
 
         # Write back updated changelog lines.
-        with open(output, "w", encoding="utf8") as changelog_file:  # type: ignore[arg-type]
+        with open(output, "w", encoding="utf8") as changelog_file:  # ty:ignore[no-matching-overload]
             changelog_file.write("\n".join(lines).rstrip("\n") + "\n")
 
     # Overwrite output file.
@@ -745,7 +754,7 @@ def render(
         if output is sys.stdout:
             sys.stdout.write(rendered)
         else:
-            with open(output, "w", encoding="utf8") as stream:  # type: ignore[arg-type]
+            with open(output, "w", encoding="utf8") as stream:  # ty:ignore[no-matching-overload]
                 stream.write(rendered)
 
     return rendered
@@ -760,8 +769,8 @@ def build_and_render(
     sections: list[str] | None = None,
     in_place: bool = False,  # noqa: FBT001,FBT002
     output: str | TextIO | None = None,
-    version_regex: str = DEFAULT_VERSION_REGEX,
-    marker_line: str = DEFAULT_MARKER_LINE,
+    version_regex: str | None = None,
+    marker_line: str | None = None,
     # YORE: Bump 3: Remove line.
     bump_latest: bool = False,  # noqa: FBT001,FBT002
     omit_empty_versions: bool = False,  # noqa: FBT001,FBT002
@@ -877,8 +886,8 @@ def get_release_notes(
 
 def output_release_notes(
     input_file: str = "CHANGELOG.md",
-    version_regex: str = DEFAULT_VERSION_REGEX,
-    marker_line: str = DEFAULT_MARKER_LINE,
+    version_regex: str | None = None,
+    marker_line: str | None = None,
     output_file: str | TextIO | None = None,
 ) -> None:
     """Print release notes from existing changelog.
@@ -891,12 +900,14 @@ def output_release_notes(
         marker_line: The insertion marker line in the changelog.
         output_file: Where to print/write the release notes.
     """
+    version_regex = version_regex or DEFAULT_VERSION_REGEX
+    marker_line = marker_line or DEFAULT_MARKER_LINE
     output_file = output_file or sys.stdout
     release_notes = get_release_notes(input_file, version_regex, marker_line)
     try:
-        output_file.write(release_notes)  # type: ignore[union-attr]
+        output_file.write(release_notes)  # ty:ignore[unresolved-attribute]
     except AttributeError:
-        with open(output_file, "w") as file:  # type: ignore[arg-type]
+        with open(output_file, "w") as file:  # ty:ignore[no-matching-overload]
             file.write(release_notes)
 
 

@@ -109,7 +109,7 @@ absl::Status GcsHttpResponseToStatus(
   if (absl_status_code == absl::StatusCode::kOk) {
     return absl::OkStatus();
   }
-  internal::StatusBuilder builder(absl_status_code, loc);
+  StatusBuilder builder(absl_status_code, loc);
 
   // https://cloud.google.com/storage/docs/retry-strategy
   retryable = (response.status_code == 429 ||  // too many requests

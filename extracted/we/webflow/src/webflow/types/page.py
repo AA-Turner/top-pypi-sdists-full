@@ -3,68 +3,121 @@
 import datetime as dt
 import typing
 
-from ..core.datetime_utils import serialize_datetime
+import pydantic
+import typing_extensions
+from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from ..core.serialization import FieldMetadata
 from .page_open_graph import PageOpenGraph
 from .page_seo import PageSeo
 
-try:
-    import pydantic.v1 as pydantic  # type: ignore
-except ImportError:
-    import pydantic  # type: ignore
 
-
-class Page(pydantic.BaseModel):
+class Page(UniversalBaseModel):
     """
     The Page object
     """
 
-    id: typing.Optional[str] = pydantic.Field(default=None, description="Unique identifier for the Page")
-    site_id: typing.Optional[str] = pydantic.Field(
-        alias="siteId", default=None, description="Unique identifier for the Site"
-    )
-    title: typing.Optional[str] = pydantic.Field(default=None, description="Title of the Page")
-    slug: typing.Optional[str] = pydantic.Field(default=None, description="slug of the Page (derived from title)")
-    parent_id: typing.Optional[str] = pydantic.Field(
-        alias="parentId", default=None, description="Identifier of the parent folder"
-    )
-    collection_id: typing.Optional[str] = pydantic.Field(
-        alias="collectionId",
-        default=None,
-        description="Unique identifier for a linked Collection, value will be null if the Page is not part of a Collection.",
-    )
-    created_on: typing.Optional[dt.datetime] = pydantic.Field(
-        alias="createdOn", default=None, description="The date the Page was created"
-    )
-    last_updated: typing.Optional[dt.datetime] = pydantic.Field(
-        alias="lastUpdated", default=None, description="The date the Page was most recently updated"
-    )
-    archived: typing.Optional[bool] = pydantic.Field(default=None, description="Whether the Page has been archived")
-    draft: typing.Optional[bool] = pydantic.Field(default=None, description="Whether the Page is a draft")
-    can_branch: typing.Optional[bool] = pydantic.Field(
-        alias="canBranch",
-        default=None,
-        description="Indicates whether the Page supports [Page Branching](https://university.webflow.com/lesson/page-branching)",
-    )
-    is_members_only: typing.Optional[bool] = pydantic.Field(
-        alias="isMembersOnly",
-        default=None,
-        description="Indicates whether the Page is restricted by [Memberships Controls](https://university.webflow.com/lesson/webflow-memberships-overview#how-to-manage-page-restrictions)",
-    )
-    seo: typing.Optional[PageSeo] = pydantic.Field(default=None, description="SEO-related fields for the Page")
-    open_graph: typing.Optional[PageOpenGraph] = pydantic.Field(
-        alias="openGraph", default=None, description="Open Graph fields for the Page"
-    )
+    id: str = pydantic.Field()
+    """
+    Unique identifier for the Page
+    """
 
-    def json(self, **kwargs: typing.Any) -> str:
-        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
-        return super().json(**kwargs_with_defaults)
+    site_id: typing_extensions.Annotated[
+        typing.Optional[str],
+        FieldMetadata(alias="siteId"),
+        pydantic.Field(alias="siteId", description="Unique identifier for the Site"),
+    ] = None
+    title: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Title of the Page
+    """
 
-    def dict(self, **kwargs: typing.Any) -> typing.Dict[str, typing.Any]:
-        kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}
-        return super().dict(**kwargs_with_defaults)
+    slug: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    slug of the Page (derived from title)
+    """
 
-    class Config:
-        frozen = True
-        smart_union = True
-        allow_population_by_field_name = True
-        json_encoders = {dt.datetime: serialize_datetime}
+    parent_id: typing_extensions.Annotated[
+        typing.Optional[str],
+        FieldMetadata(alias="parentId"),
+        pydantic.Field(alias="parentId", description="Identifier of the parent folder"),
+    ] = None
+    collection_id: typing_extensions.Annotated[
+        typing.Optional[str],
+        FieldMetadata(alias="collectionId"),
+        pydantic.Field(
+            alias="collectionId",
+            description="Unique identifier for a linked Collection, value will be null if the Page is not part of a Collection.",
+        ),
+    ] = None
+    created_on: typing_extensions.Annotated[
+        typing.Optional[dt.datetime],
+        FieldMetadata(alias="createdOn"),
+        pydantic.Field(alias="createdOn", description="The date the Page was created"),
+    ] = None
+    last_updated: typing_extensions.Annotated[
+        typing.Optional[dt.datetime],
+        FieldMetadata(alias="lastUpdated"),
+        pydantic.Field(alias="lastUpdated", description="The date the Page was most recently updated"),
+    ] = None
+    archived: typing.Optional[bool] = pydantic.Field(default=None)
+    """
+    Whether the Page has been archived
+    """
+
+    draft: typing.Optional[bool] = pydantic.Field(default=None)
+    """
+    Whether the Page is a draft
+    """
+
+    can_branch: typing_extensions.Annotated[
+        typing.Optional[bool],
+        FieldMetadata(alias="canBranch"),
+        pydantic.Field(
+            alias="canBranch",
+            description="Indicates whether the Page supports [Page Branching](https://university.webflow.com/lesson/page-branching). Pages that are already branches cannot be branched again.",
+        ),
+    ] = None
+    is_branch: typing_extensions.Annotated[
+        typing.Optional[bool],
+        FieldMetadata(alias="isBranch"),
+        pydantic.Field(
+            alias="isBranch",
+            description="Indicates whether the Page is a Branch of another Page [Page Branching](https://university.webflow.com/lesson/page-branching)",
+        ),
+    ] = None
+    branch_id: typing_extensions.Annotated[
+        typing.Optional[str],
+        FieldMetadata(alias="branchId"),
+        pydantic.Field(
+            alias="branchId", description="If the Page is a Branch of another Page, this is the ID of the Branch"
+        ),
+    ] = None
+    seo: typing.Optional[PageSeo] = pydantic.Field(default=None)
+    """
+    SEO-related fields for the Page
+    """
+
+    open_graph: typing_extensions.Annotated[
+        typing.Optional[PageOpenGraph],
+        FieldMetadata(alias="openGraph"),
+        pydantic.Field(alias="openGraph", description="Open Graph fields for the Page"),
+    ] = None
+    locale_id: typing_extensions.Annotated[
+        typing.Optional[str],
+        FieldMetadata(alias="localeId"),
+        pydantic.Field(alias="localeId", description="Unique ID of the page locale"),
+    ] = None
+    published_path: typing_extensions.Annotated[
+        typing.Optional[str],
+        FieldMetadata(alias="publishedPath"),
+        pydantic.Field(alias="publishedPath", description="Relative path of the published page URL"),
+    ] = None
+
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2
+    else:
+
+        class Config:
+            frozen = True
+            smart_union = True
+            extra = pydantic.Extra.allow

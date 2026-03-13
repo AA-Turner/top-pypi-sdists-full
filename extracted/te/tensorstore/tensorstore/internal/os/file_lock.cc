@@ -34,6 +34,7 @@
 #include "tensorstore/util/quote_string.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
+#include "tensorstore/util/status_builder.h"
 
 namespace tensorstore {
 namespace internal_os {
@@ -58,7 +59,7 @@ absl::Status FileLock::Delete() && {
   auto status = DeleteOpenFile(fd, lock_path_);
   Unlock(fd);
   FileDescriptorTraits::Close(fd);
-  return MaybeAnnotateStatus(std::move(status), "Failed to clean lock file");
+  return StatusBuilder(std::move(status)).Format("Failed to clean lock file");
 }
 
 void FileLock::Close() && {
@@ -87,9 +88,7 @@ Result<FileLock> AcquireFileLock(std::string lock_path) {
     // Acquire lock.
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto unlock_fn, AcquireFdLock(fd.get()),
-        MaybeAnnotateStatus(
-            _, absl::StrFormat("Failed to acquire lock on file: %v",
-                               QuoteString(lock_path))));
+        _.Format("Failed to acquire lock on file: %v", QuoteString(lock_path)));
 
     // Reopening the file should give the same value since the lock is held.
     TENSORSTORE_ASSIGN_OR_RETURN(
@@ -120,7 +119,7 @@ Result<FileLock> AcquireExclusiveFile(std::string lock_path,
   auto start = absl::Now();
 
   // Determine whether the lock file is stale.
-  auto detect_stale_lock = [&]() mutable {
+  auto detect_stale_lock = [&]() mutable -> absl::Status {
     auto read_fd = OpenFileWrapper(
         lock_path, OpenFlags::OpenReadOnly | OpenFlags::CloseOnExec);
     if (read_fd.ok()) {

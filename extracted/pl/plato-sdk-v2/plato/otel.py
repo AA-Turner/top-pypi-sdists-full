@@ -364,14 +364,22 @@ def session_span(
     agent_name: str,
     agent_version: str,
     model_name: str | None = None,
+    system_prompt: str | None = None,
+    mcp_config: str | None = None,
 ) -> Iterator[Span]:
     """Create root session span with atif.agent.* attributes.
+
+    Optionally emits a system step (step_id=1) with the system prompt and/or
+    MCP config so that observability traces always capture what the agent was
+    instructed to do.
 
     Args:
         tracer: OTel tracer instance
         agent_name: Agent name (e.g., "claude-code")
         agent_version: Agent version string
         model_name: Default model used by the agent
+        system_prompt: Full system prompt sent to the agent (traced as step 1)
+        mcp_config: MCP config content string (traced alongside system prompt)
     """
     display_name = os.environ.get("PLATO_AGENT_DISPLAY_NAME") or agent_name
     with tracer.start_as_current_span("session") as span:
@@ -384,4 +392,14 @@ def session_span(
             span.set_attribute("plato.agent.display_name", display_name)
         if model_name is not None:
             span.set_attribute("atif.agent.model_name", model_name)
+
+        # Emit system context step if any system info was provided
+        system_parts = [
+            f"System prompt:\n{system_prompt}" if system_prompt else "",
+            f"MCP config:\n{mcp_config}" if mcp_config else "",
+        ]
+        system_message = "\n\n".join(p for p in system_parts if p)
+        if system_message:
+            emit_step(tracer, step_id=1, source="system", message=system_message)
+
         yield span

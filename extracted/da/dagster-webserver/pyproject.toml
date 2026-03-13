@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "dagster-webserver"
-version = "1.12.18"
+version = "1.12.19"
 description = "Web UI for dagster."
 authors = [
     { name = "Dagster Labs", email = "hello@dagsterlabs.com" },
@@ -24,8 +24,8 @@ classifiers = [
 ]
 dependencies = [
     "click>=7.0,<9.0",
-    "dagster==1.12.18",
-    "dagster-graphql==1.12.18",
+    "dagster==1.12.19",
+    "dagster-graphql==1.12.19",
     "starlette!=0.36.0",
     "uvicorn[standard]",
 ]

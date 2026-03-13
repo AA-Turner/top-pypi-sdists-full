@@ -16,6 +16,7 @@ use anyhow::{anyhow, Result};
 use bytes::Bytes;
 use bytes::{BufMut, BytesMut};
 use dashmap::DashMap;
+use futures::FutureExt;
 use log::{debug, error, info, warn};
 use parking_lot::Mutex;
 use serde::Deserialize;
@@ -34,7 +35,6 @@ use super::frame_handling::handle_incoming_frame;
 use crate::tube_protocol::Capabilities;
 use crate::tube_protocol::CloseConnectionReason as TubeCloseReason;
 use guacr_protocol::{GuacdInstruction, GuacdParser};
-
 /// Message types sent from Channel to Python handler
 #[derive(Debug, Clone)]
 #[allow(dead_code)] // Used by Python bindings
@@ -126,6 +126,8 @@ pub struct Channel {
     pub(crate) conns: Arc<DashMap<u32, Conn>>,
     pub(crate) conn_generations: Arc<DashMap<u32, std::sync::atomic::AtomicU64>>,
     pub(crate) rx_from_dc: mpsc::UnboundedReceiver<Bytes>,
+    /// Shared sender for rx_from_dc; taken and dropped in on_close when DataChannel closes.
+    pub(crate) tx_from_dc: Arc<Mutex<Option<mpsc::UnboundedSender<Bytes>>>>,
     pub(crate) channel_id: String,
     pub(crate) timeouts: TunnelTimeouts,
     pub(crate) network_checker: Option<NetworkAccessChecker>,
@@ -188,6 +190,8 @@ pub struct Channel {
 
     // Store the close reason when control connection closes
     pub(crate) channel_close_reason: Arc<AsyncMutex<Option<CloseConnectionReason>>>,
+    /// Set when conn_no 0 (control connection) is closed. Signals the tube to close itself.
+    pub(crate) control_connection_closed: Arc<std::sync::atomic::AtomicBool>,
     // Callback token for router communication
     pub(crate) callback_token: Option<String>,
     // KSM config for router communication
@@ -217,6 +221,10 @@ pub struct Channel {
 pub struct ChannelParams {
     pub webrtc: WebRTCDataChannel,
     pub rx_from_dc: mpsc::UnboundedReceiver<Bytes>,
+    /// Shared sender for rx_from_dc; taken and dropped in on_close to unblock channel.run().
+    /// Wrapped in Arc<Mutex<Option>> because on_message also holds a clone - we need a single
+    /// owner to drop so rx_from_dc.recv() returns None when DataChannel closes.
+    pub tx_from_dc: Arc<Mutex<Option<mpsc::UnboundedSender<Bytes>>>>,
     pub channel_id: String,
     pub timeouts: Option<TunnelTimeouts>,
     pub protocol_settings: HashMap<String, JsonValue>,
@@ -239,6 +247,7 @@ impl Channel {
         let ChannelParams {
             webrtc,
             rx_from_dc,
+            tx_from_dc,
             channel_id,
             timeouts,
             protocol_settings,
@@ -739,6 +748,7 @@ impl Channel {
             conns: Arc::new(DashMap::new()),
             conn_generations: Arc::new(DashMap::new()),
             rx_from_dc,
+            tx_from_dc,
             channel_id,
             timeouts: timeouts.unwrap_or_default(),
             network_checker,
@@ -780,6 +790,7 @@ impl Channel {
             conn_closed_rx: Some(conn_closed_rx),
             primary_guacd_conn_no: Arc::new(AsyncMutex::new(None)),
             channel_close_reason: Arc::new(AsyncMutex::new(None)),
+            control_connection_closed: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             callback_token,
             ksm_config,
             client_version,
@@ -869,7 +880,7 @@ impl Channel {
         })?;
 
         // Main processing loop - reads from WebRTC and dispatches frames
-        while !self.should_exit.load(std::sync::atomic::Ordering::Relaxed) {
+        while !self.should_exit.load(std::sync::atomic::Ordering::Acquire) {
             // Process any complete frames in the buffer
             while let Some(frame) = try_parse_frame(&mut buf) {
                 if let Err(e) = handle_incoming_frame(&mut self, frame).await {
@@ -884,6 +895,12 @@ impl Channel {
                 // Shutdown notification - highest priority, instant wakeup
                 _ = self.shutdown_notify.notified() => {
                     info!("Shutdown notification received, exiting channel run loop (channel_id: {})", self.channel_id);
+                    // CRITICAL: Send guacd disconnect IMMEDIATELY so guacd closes recording FIFOs
+                    // before we proceed to cleanup. This allows Python readers to see EOF and break
+                    // out of the upload loop without relying on the 300s drain timeout.
+                    if self.active_protocol == ActiveProtocol::Guacd {
+                        self.send_guacd_disconnect_immediate().await;
+                    }
                     break;
                 }
 
@@ -957,6 +974,13 @@ impl Channel {
                         Ok(None) => {
                           info!("WebRTC data channel closed or sender dropped. (channel_id: {})", self.channel_id);
 
+                          // CRITICAL: Send guacd disconnect when client disconnects (manual close).
+                          // Same flow as shutdown_notify path - guacd must close recording FIFOs so
+                          // Python readers see EOF and avoid the 300s drain timeout.
+                          if self.active_protocol == ActiveProtocol::Guacd {
+                              self.send_guacd_disconnect_immediate().await;
+                          }
+
                           // CRITICAL: Brief delay to allow in-flight connection closure signals to arrive
                           // When WebRTC closes during overload/failure, backend connections may be
                           // closing simultaneously. Without this delay, their signals are lost.
@@ -982,7 +1006,7 @@ impl Channel {
 
                           // If we found a critical closure, run cleanup before exiting
                           if let Some(closed_conn_no) = critical_conn_no {
-                              self.should_exit.store(true, std::sync::atomic::Ordering::Relaxed);
+                              self.should_exit.store(true, std::sync::atomic::Ordering::Release);
 
                               // Explicitly close the failed data connection first
                               info!("Closing failed data connection ({}) due to critical upstream closure. (channel_id: {})", closed_conn_no, self.channel_id);
@@ -1030,7 +1054,7 @@ impl Channel {
                         }
 
                         if is_critical_closure {
-                            self.should_exit.store(true, std::sync::atomic::Ordering::Relaxed);
+                            self.should_exit.store(true, std::sync::atomic::Ordering::Release);
 
                             // Read the actual close reason that was stored by the outbound task
                             // This preserves GuacdError vs UpstreamClosed distinction
@@ -1039,31 +1063,24 @@ impl Channel {
                                 guard.unwrap_or(CloseConnectionReason::UpstreamClosed)
                             };
 
-                            // Send disconnect to guacd backend so it doesn't wait 15s for user response
-                            // Don't send over WebRTC (that can hang if channel is closing)
-                            info!("Critical Guacd connection closed, sending disconnect to guacd (channel_id: {}, conn_no: {}, reason: {:?})", self.channel_id, closed_conn_no, actual_close_reason);
-
-                            // Send disconnect instruction to guacd backend (NOT to client over WebRTC)
+                            // Send Guacamole disconnect instruction then EOF to guacd backend
                             if let Some(conn_ref) = self.conns.get(&closed_conn_no) {
                                 if !conn_ref.data_tx.is_closed() {
-                                    // Send disconnect to guacd so it doesn't wait for user response
-                                    let disconnect_instruction = GuacdInstruction::new("disconnect".to_string(), vec![]);
-                                    let disconnect_bytes = GuacdParser::guacd_encode_instruction(&disconnect_instruction);
-                                    let disconnect_message = crate::models::ConnectionMessage::Data(disconnect_bytes);
-
-                                    if let Err(e) = conn_ref.data_tx.send(disconnect_message) {
-                                        debug!("Failed to send disconnect to guacd backend: {}", e);
-                                    } else {
-                                        debug!("Sent disconnect instruction to guacd backend");
-                                    }
-
-                                    // Send EOF for TCP-level shutdown
+                                    debug!(
+                                        "Critical closure: Sending Guacamole disconnect then EOF (channel_id: {}, conn_no: {})",
+                                        self.channel_id, closed_conn_no
+                                    );
+                                    let disconnect_instr =
+                                        GuacdInstruction::new("disconnect".to_string(), vec![]);
+                                    let disconnect_bytes =
+                                        GuacdParser::guacd_encode_instruction(&disconnect_instr);
+                                    let _ = conn_ref
+                                        .data_tx
+                                        .send(crate::models::ConnectionMessage::Data(disconnect_bytes));
+                                    tokio::time::sleep(crate::config::disconnect_to_eof_delay()).await;
                                     let _ = conn_ref.data_tx.send(crate::models::ConnectionMessage::Eof);
                                 }
                             }
-
-                            // Brief delay to let guacd receive the disconnect before we close TCP
-                            tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
 
                             // Now remove from DashMap
                             if let Some((_, mut conn)) = self.conns.remove(&closed_conn_no) {
@@ -1158,12 +1175,17 @@ impl Channel {
             }
         }
 
+        let close_reason = {
+            let guard = self.channel_close_reason.lock().await;
+            *guard
+        }
+        .unwrap_or(CloseConnectionReason::Normal);
+
         // Collect connection numbers from DashMap (TCP-based connections)
         let conn_keys = self.get_connection_ids();
         for conn_no in conn_keys {
             if conn_no != 0 {
-                self.close_backend(conn_no, CloseConnectionReason::Normal, None)
-                    .await?;
+                self.close_backend(conn_no, close_reason, None).await?;
             }
         }
         Ok(())
@@ -1248,259 +1270,22 @@ impl Channel {
             );
         }
 
-        // For control connections or explicit cleanup, remove immediately
-        let should_delay_removal = conn_no != 0 && reason != CloseConnectionReason::Normal;
+        // =========================================================================
+        // CONNECTION MODEL:
+        //
+        // TUNNEL MODE (PortForward, SOCKS5, DatabaseProxy): 2 to N+1 connections.
+        //   Each terminal session = one connection (conn 1, 2, 3, ...). conn 0 may exist
+        //   but is not special. Closing conn N does NOT close conn 0.
+        //
+        // GUACD MODE: conn 0 = control, conn 1 = primary Guacd data (always paired).
+        //   When closing conn 1 we close 0 to trigger the close of all channels
+        //
+        // When conn_no 0 (control connection) is closed, the channel sets should_exit.
+        // The Tube reacts when the control channel (label "control") exits by closing
+        // the tube via REGISTRY.close_tube() - see tube.rs create_channel spawn task.
+        // =========================================================================
 
-        if !should_delay_removal {
-            // Check if this is the primary guacd connection (before we cleared the reference)
-            let is_primary_guacd = if self.active_protocol == ActiveProtocol::Guacd {
-                let primary_opt = self.primary_guacd_conn_no.lock().await;
-                *primary_opt == Some(conn_no)
-            } else {
-                false
-            };
-
-            // Send Guacd disconnect message with specific reason before removing connection
-            if let Err(e) = self
-                .send_guacd_disconnect_message(conn_no, &reason.to_message(), is_primary_guacd)
-                .await
-            {
-                warn!("Failed to send Guacd disconnect message during immediate close (channel_id: {}, error: {})", self.channel_id, e);
-            }
-
-            // CRITICAL: Brief delay to allow backend write task to process disconnect instruction
-            // The disconnect was queued via data_tx.send() above, but the backend task needs
-            // time to dequeue it and write to TCP before we close the channel
-            if self.active_protocol == ActiveProtocol::Guacd {
-                debug!("Waiting 100ms for backend write task to transmit disconnect instruction (channel_id: {}, conn_no: {})", self.channel_id, conn_no);
-                tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-            }
-
-            if self.active_protocol == ActiveProtocol::Guacd {
-                // Take the to_webrtc handle before dropping the DashMap guard so we can .await it.
-                // to_webrtc exits naturally when guacd closes its side of TCP (EOF on read),
-                // which happens ~200ms after it processes the disconnect instruction.
-                let to_webrtc_handle = self
-                    .conns
-                    .get_mut(&conn_no)
-                    .and_then(|mut c| c.to_webrtc.take());
-                // DashMap guard dropped here
-
-                if let Some(handle) = to_webrtc_handle {
-                    Self::wait_for_guacd_eof(handle, &self.conns, conn_no, &self.channel_id).await;
-                }
-            } else {
-                // Non-guacd (tunnel, DB proxy): target host may still be alive, don't wait for EOF
-                tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
-                if let Some(conn_ref) = self.conns.get(&conn_no) {
-                    conn_ref.cancel_read_task.cancel();
-                    debug!(
-                        "Cancelled backend read task for immediate exit (channel_id: {}, conn_no: {})",
-                        self.channel_id, conn_no
-                    );
-                }
-            }
-
-            if let Some((_, mut conn)) = self.conns.remove(&conn_no) {
-                // Gracefully shutdown to ensure TCP cleanup completes (fixes guacd memory leak)
-                conn.graceful_shutdown(conn_no, &self.channel_id).await;
-                debug!(
-                    "Successfully closed connection with graceful TCP shutdown (channel_id: {})",
-                    self.channel_id
-                );
-            }
-        } else {
-            // Delayed removal - signal shutdown but keep in map briefly for pending messages
-            if let Some(conn_ref) = self.conns.get(&conn_no) {
-                // CRITICAL: Cancel the read task immediately for faster exit
-                conn_ref.cancel_read_task.cancel();
-                debug!(
-                    "Cancelled backend read task for delayed removal (channel_id: {}, conn_no: {})",
-                    self.channel_id, conn_no
-                );
-
-                // Signal the connection to close its data channel
-                // (dropping the sender will cause the backend task to exit)
-                if !conn_ref.data_tx.is_closed() {
-                    debug!(
-                        "Signaling connection to close data channel (channel_id: {})",
-                        self.channel_id
-                    );
-                }
-            }
-
-            // Schedule delayed cleanup
-            let conns_arc = Arc::clone(&self.conns);
-            let channel_id_clone = self.channel_id.clone();
-            let cleanup_tasks = self.cleanup_tasks.clone();
-            let shutdown_notify = self.shutdown_notify.clone();
-
-            // Proper resource handling: Store AbortHandle and make cancellable
-            let handle = tokio::spawn(async move {
-                // Wait with cancellation support
-                tokio::select! {
-                    _ = tokio::time::sleep(tokio::time::Duration::from_millis(500)) => {
-                        debug!(
-                            "Grace period elapsed, removing connection from maps (channel_id: {})",
-                            channel_id_clone
-                        );
-
-                        // Now remove from maps
-                        if let Some((_, mut conn)) = conns_arc.remove(&conn_no) {
-                            // Gracefully shutdown to ensure TCP cleanup completes
-                            conn.graceful_shutdown(conn_no, &channel_id_clone).await;
-                            debug!(
-                                "Connection {} removed with graceful TCP shutdown (channel_id: {})",
-                                conn_no, channel_id_clone
-                            );
-                        }
-                    }
-                    _ = shutdown_notify.notified() => {
-                        // Channel shutting down, cancel delayed cleanup
-                        debug!(
-                            "Cleanup cancelled due to channel shutdown (channel_id: {}, conn_no: {})",
-                            channel_id_clone, conn_no
-                        );
-                    }
-                }
-            });
-
-            // Store abort handle for explicit lifecycle management
-            let abort_handle = handle.abort_handle();
-            cleanup_tasks.lock().push(abort_handle);
-        }
-
-        if conn_no == 0 {
-            self.should_exit
-                .store(true, std::sync::atomic::Ordering::Relaxed);
-        }
-        Ok(())
-    }
-
-    /// Send Guacd disconnect message to both server and client before closing connection
-    async fn send_guacd_disconnect_message(
-        &self,
-        conn_no: u32,
-        reason: &str,
-        is_primary: bool,
-    ) -> Result<()> {
-        // Only send disconnect for Guacd connections
-        if self.active_protocol != ActiveProtocol::Guacd {
-            return Ok(());
-        }
-
-        // Use the is_primary flag passed by caller (don't check primary_guacd_conn_no again,
-        // as it may have been cleared by internal_handle_connection_close)
-        if !is_primary {
-            debug!(
-                "Not primary Guacd connection, skipping disconnect message (channel_id: {})",
-                self.channel_id
-            );
-            return Ok(());
-        }
-
-        debug!("Sending Guacd log and disconnect message to server and client (channel_id: {}, reason: {})", self.channel_id, reason);
-
-        // Create the log instruction first: log message for debugging
-        let log_instruction = GuacdInstruction::new("log".to_string(), vec![reason.to_string()]);
-        let log_bytes = GuacdParser::guacd_encode_instruction(&log_instruction);
-
-        // Create the disconnect instruction: "10.disconnect;"
-        let disconnect_instruction = GuacdInstruction::new("disconnect".to_string(), vec![]);
-        let disconnect_bytes = GuacdParser::guacd_encode_instruction(&disconnect_instruction);
-
-        // Send log message to server (backend) first
-        if let Some(conn_ref) = self.conns.get(&conn_no) {
-            if !conn_ref.data_tx.is_closed() {
-                let log_server_message = crate::models::ConnectionMessage::Data(log_bytes.clone());
-                if let Err(e) = conn_ref.data_tx.send(log_server_message) {
-                    warn!(
-                        "Failed to send log message to server (channel_id: {}, error: {})",
-                        self.channel_id, e
-                    );
-                } else {
-                    debug!("Successfully sent log message to Guacd server (channel_id: {}, reason: {})", self.channel_id, reason);
-                }
-
-                // Then send disconnect message to server
-                let disconnect_server_message =
-                    crate::models::ConnectionMessage::Data(disconnect_bytes.clone());
-                if let Err(e) = conn_ref.data_tx.send(disconnect_server_message) {
-                    warn!(
-                        "Failed to send disconnect message to server (channel_id: {}, error: {})",
-                        self.channel_id, e
-                    );
-                } else {
-                    debug!(
-                        "Successfully sent disconnect message to Guacd server (channel_id: {})",
-                        self.channel_id
-                    );
-                }
-
-                // Send EOF after disconnect for consistent TCP-level shutdown
-                if let Err(e) = conn_ref.data_tx.send(crate::models::ConnectionMessage::Eof) {
-                    debug!(
-                        "Failed to send EOF to guacd server after disconnect (channel_id: {}, error: {})",
-                        self.channel_id, e
-                    );
-                } else {
-                    debug!(
-                        "Successfully sent EOF to Guacd server after disconnect (channel_id: {})",
-                        self.channel_id
-                    );
-                }
-            }
-        }
-
-        // Send log message to client (via WebRTC) first
-        let log_data_frame = Frame::new_data_with_pool(conn_no, &log_bytes, &self.buffer_pool);
-        let log_encoded_frame = log_data_frame.encode_with_pool(&self.buffer_pool);
-
-        if let Err(e) = self.webrtc.send(log_encoded_frame).await {
-            if !e.contains("Channel is closing") {
-                warn!(
-                    "Failed to send log message to client (channel_id: {}, error: {})",
-                    self.channel_id, e
-                );
-            }
-        } else {
-            debug!(
-                "Successfully sent log message to client (channel_id: {}, reason: {})",
-                self.channel_id, reason
-            );
-        }
-
-        // Then send disconnect message to client (via WebRTC)
-        let disconnect_data_frame =
-            Frame::new_data_with_pool(conn_no, &disconnect_bytes, &self.buffer_pool);
-        let disconnect_encoded_frame = disconnect_data_frame.encode_with_pool(&self.buffer_pool);
-
-        let send_start = std::time::Instant::now();
-        match self.webrtc.send(disconnect_encoded_frame.clone()).await {
-            Ok(_) => {
-                let send_latency = send_start.elapsed();
-                crate::metrics::METRICS_COLLECTOR.record_message_sent(
-                    &self.channel_id,
-                    disconnect_encoded_frame.len() as u64,
-                    Some(send_latency),
-                );
-                debug!(
-                    "Successfully sent disconnect message to client (channel_id: {})",
-                    self.channel_id
-                );
-            }
-            Err(e) => {
-                if !e.contains("Channel is closing") {
-                    warn!(
-                        "Failed to send disconnect message to client (channel_id: {}, error: {})",
-                        self.channel_id, e
-                    );
-                    crate::metrics::METRICS_COLLECTOR
-                        .record_error(&self.channel_id, "disconnect_message_send_failed");
-                }
-            }
-        }
-
+        self.close_tunnel_channel(conn_no, reason).await;
         Ok(())
     }
 
@@ -1517,20 +1302,6 @@ impl Channel {
         debug!("Closing connection (no message) - Connection summary (channel_id: {}, conn_no: {}, reason: {:?}, total_connections: {}, remaining_connections: {:?})",
               self.channel_id, conn_no, reason, total_connections, remaining_connections);
 
-        // Save primary status BEFORE calling internal_handle_connection_close
-        // internal_handle_connection_close clears primary_guacd_conn_no, which breaks
-        // the later primary check in send_guacd_disconnect_message!
-        let is_primary_guacd = if self.active_protocol == ActiveProtocol::Guacd {
-            let primary_opt = self.primary_guacd_conn_no.lock().await;
-            let primary_val = *primary_opt;
-            primary_val == Some(conn_no)
-        } else {
-            false
-        };
-
-        // For control connections or explicit cleanup, remove immediately
-        let should_delay_removal = conn_no != 0 && reason != CloseConnectionReason::Normal;
-
         // Mark connection as CLOSING to prevent reuse during cleanup window
         if let Some(conn_ref) = self.conns.get(&conn_no) {
             conn_ref.state.store(
@@ -1543,131 +1314,11 @@ impl Channel {
             );
         }
 
-        // CRITICAL FIX: Send disconnect BEFORE internal_handle_connection_close
-        // The WebRTC channel can close during internal_handle_connection_close, causing the
-        // channel run loop to exit before we get a chance to send the disconnect.
-        // By sending it first, we ensure it's queued in the channel before anything else happens.
-        if !should_delay_removal && is_primary_guacd {
-            debug!(
-                "Sending disconnect to primary Guacd connection BEFORE cleanup (channel_id: {}, conn_no: {})",
-                self.channel_id, conn_no
-            );
-
-            if let Err(e) = self
-                .send_guacd_disconnect_message(conn_no, &reason.to_message(), is_primary_guacd)
-                .await
-            {
-                warn!(
-                    "Failed to send Guacd disconnect message (channel_id: {}, error: {})",
-                    self.channel_id, e
-                );
-            }
-
-            // Brief delay to allow backend write task to transmit disconnect
-            debug!(
-                "Waiting 100ms for backend write task to transmit disconnect (channel_id: {}, conn_no: {})",
-                self.channel_id, conn_no
-            );
-            tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-        }
-
         // Now safe to clean up internal state
         self.internal_handle_connection_close(conn_no, reason)
             .await?;
 
-        if !should_delay_removal && is_primary_guacd {
-            // Wait for guacd to close TCP from its side (~200ms after processing disconnect)
-            let to_webrtc_handle = self
-                .conns
-                .get_mut(&conn_no)
-                .and_then(|mut c| c.to_webrtc.take());
-
-            if let Some(handle) = to_webrtc_handle {
-                Self::wait_for_guacd_eof(handle, &self.conns, conn_no, &self.channel_id).await;
-            }
-        }
-
-        // ALWAYS remove connection from DashMap (don't skip based on primary status!)
-        // This is the critical fix - connection MUST be removed
-        if !should_delay_removal {
-            if let Some((_, mut conn)) = self.conns.remove(&conn_no) {
-                // Gracefully shutdown to ensure TCP cleanup completes
-                conn.graceful_shutdown(conn_no, &self.channel_id).await;
-                debug!(
-                    "Successfully closed connection with graceful TCP shutdown (channel_id: {}, conn_no: {})",
-                    self.channel_id, conn_no
-                );
-            } else {
-                warn!(
-                    "Connection {} not found in DashMap during removal (channel_id: {})",
-                    conn_no, self.channel_id
-                );
-            }
-        } else {
-            // Delayed removal - signal shutdown but keep in map briefly for pending messages
-            if let Some(conn_ref) = self.conns.get(&conn_no) {
-                // CRITICAL: Cancel the read task immediately for faster exit
-                conn_ref.cancel_read_task.cancel();
-                debug!(
-                    "Cancelled backend read task for delayed removal (channel_id: {}, conn_no: {})",
-                    self.channel_id, conn_no
-                );
-
-                // Signal the connection to close its data channel
-                // (dropping the sender will cause the backend task to exit)
-                if !conn_ref.data_tx.is_closed() {
-                    debug!(
-                        "Signaling connection to close data channel (channel_id: {})",
-                        self.channel_id
-                    );
-                }
-            }
-
-            // Schedule delayed cleanup
-            let conns_arc = Arc::clone(&self.conns);
-            let channel_id_clone = self.channel_id.clone();
-            let cleanup_tasks = self.cleanup_tasks.clone();
-            let shutdown_notify = self.shutdown_notify.clone();
-
-            // Proper resource handling: Store AbortHandle and make cancellable
-            let handle = tokio::spawn(async move {
-                // Wait with cancellation support
-                tokio::select! {
-                    _ = tokio::time::sleep(tokio::time::Duration::from_millis(500)) => {
-                        debug!(
-                            "Grace period elapsed, removing connection from maps (channel_id: {})",
-                            channel_id_clone
-                        );
-
-                        // Now remove from maps
-                        if let Some((_, mut conn)) = conns_arc.remove(&conn_no) {
-                            // Gracefully shutdown to ensure TCP cleanup completes
-                            conn.graceful_shutdown(conn_no, &channel_id_clone).await;
-                            debug!(
-                                "Connection {} removed with graceful TCP shutdown (channel_id: {})",
-                                conn_no, channel_id_clone
-                            );
-                        }
-                    }
-                    _ = shutdown_notify.notified() => {
-                        // Channel shutting down, cancel delayed cleanup
-                        debug!(
-                            "Cleanup cancelled due to channel shutdown (channel_id: {}, conn_no: {})",
-                            channel_id_clone, conn_no
-                        );
-                    }
-                }
-            });
-
-            // Store abort handle for explicit lifecycle management
-            let abort_handle = handle.abort_handle();
-            cleanup_tasks.lock().push(abort_handle);
-        }
-
-        if conn_no == 0 {
-            self.should_exit
-                .store(true, std::sync::atomic::Ordering::Relaxed);
-        }
+        self.close_tunnel_channel(conn_no, reason).await;
         Ok(())
     }
 
@@ -1708,11 +1359,12 @@ impl Channel {
                 // SOCKS5 connections are stateless after handshake, no special cleanup needed
             }
             ActiveProtocol::Guacd => {
-                // Check if this was the primary data connection
-                if let Some(primary_conn_no) = *self.primary_guacd_conn_no.lock().await {
+                // Check if this was the primary data connection (single lock to avoid deadlock)
+                let mut primary_guard = self.primary_guacd_conn_no.lock().await;
+                if let Some(primary_conn_no) = *primary_guard {
                     if primary_conn_no == conn_no {
                         debug!("Primary GuacD data connection closed, clearing reference (channel_id: {})", self.channel_id);
-                        *self.primary_guacd_conn_no.lock().await = None;
+                        *primary_guard = None;
                     }
                 }
             }
@@ -1744,6 +1396,114 @@ impl Channel {
         Ok(())
     }
 
+    /// Send Guacamole disconnect to all guacd connections immediately (no EOF, no remove).
+    /// Called on shutdown notification so guacd closes recording FIFOs before cleanup runs.
+    /// This allows Python readers to see EOF and break out of the upload loop promptly.
+    pub(crate) async fn send_guacd_disconnect_immediate(&self) {
+        let conn_keys: Vec<u32> = self.get_connection_ids();
+        for conn_no in conn_keys {
+            if let Some(conn_ref) = self.conns.get(&conn_no) {
+                if !conn_ref.data_tx.is_closed() {
+                    debug!(
+                        "send_guacd_disconnect_immediate: Sending disconnect (channel_id: {}, conn_no: {})",
+                        self.channel_id, conn_no
+                    );
+                    let disconnect_instr = GuacdInstruction::new("disconnect".to_string(), vec![]);
+                    let disconnect_bytes = GuacdParser::guacd_encode_instruction(&disconnect_instr);
+                    let _ = conn_ref
+                        .data_tx
+                        .send(crate::models::ConnectionMessage::Data(disconnect_bytes));
+                }
+            }
+        }
+    }
+
+    /// Close a single connection: send Guacamole disconnect (guacd only), then EOF, cancel read task, remove from map, graceful shutdown.
+    ///
+    /// For guacd: sends protocol-level disconnect instruction first so guacd initiates orderly
+    /// shutdown (flushes/closes recording FIFOs) before we send TCP FIN. Without this, guacd
+    /// may not react until the next read cycle, and ses/tys/tim pipes can hit timeout.
+    async fn close_single_connection(&self, conn_no: u32, _reason: CloseConnectionReason) {
+        if let Some(conn_ref) = self.conns.get(&conn_no) {
+            if self.active_protocol == ActiveProtocol::Guacd {
+                // Phase 1: Send Guacamole disconnect instruction - guacd reacts immediately
+                debug!(
+                    "close_single_connection: Sending Guacamole disconnect instruction (channel_id: {}, conn_no: {})",
+                    self.channel_id, conn_no
+                );
+                let disconnect_instr = GuacdInstruction::new("disconnect".to_string(), vec![]);
+                let disconnect_bytes = GuacdParser::guacd_encode_instruction(&disconnect_instr);
+                let _ = conn_ref
+                    .data_tx
+                    .send(crate::models::ConnectionMessage::Data(disconnect_bytes));
+                let delay = crate::config::disconnect_to_eof_delay();
+                debug!(
+                    "close_single_connection: Waiting {:?} for guacd to process disconnect (channel_id: {}, conn_no: {})",
+                    delay, self.channel_id, conn_no
+                );
+                tokio::time::sleep(delay).await;
+            }
+            // Phase 2: Send EOF for TCP-level shutdown
+            debug!(
+                "close_single_connection: Sending EOF for TCP shutdown (channel_id: {}, conn_no: {})",
+                self.channel_id, conn_no
+            );
+            let _ = conn_ref.data_tx.send(crate::models::ConnectionMessage::Eof);
+            conn_ref.cancel_read_task.cancel();
+        }
+        if let Some((_, mut conn)) = self.conns.remove(&conn_no) {
+            debug!(
+                "close_single_connection: Starting graceful_shutdown (channel_id: {}, conn_no: {})",
+                self.channel_id, conn_no
+            );
+            conn.graceful_shutdown(conn_no, &self.channel_id).await;
+            debug!(
+                "close_single_connection: graceful_shutdown complete (channel_id: {}, conn_no: {})",
+                self.channel_id, conn_no
+            );
+        }
+    }
+
+    /// Close tunnel channel(s). For guacd or conn 0: close all connections and set should_exit.
+    /// Otherwise: close only the specified connection.
+    pub(crate) async fn close_tunnel_channel(&self, conn_no: u32, reason: CloseConnectionReason) {
+        let is_guacd = self.active_protocol == ActiveProtocol::Guacd;
+        debug!(
+            "close_tunnel_channel: entry (channel_id: {}, conn_no: {}, reason: {:?}, is_guacd: {})",
+            self.channel_id, conn_no, reason, is_guacd
+        );
+
+        if is_guacd || conn_no == 0 {
+            self.control_connection_closed
+                .store(true, std::sync::atomic::Ordering::Release);
+            let channel_id = self.channel_id.clone();
+            let close_futures: Vec<_> = self
+                .get_connection_ids()
+                .into_iter()
+                .filter(|&c| c != 0)
+                .map(|c| {
+                    let channel_id = channel_id.clone();
+                    let fut = self.close_single_connection(c, reason);
+                    async move {
+                        if let Err(e) = std::panic::AssertUnwindSafe(fut).catch_unwind().await {
+                            error!(
+                                "Panic during close_single_connection (conn_no: {}, channel_id: {}): {:?}",
+                                c, channel_id, e
+                            );
+                        }
+                    }
+                })
+                .collect();
+            futures::future::join_all(close_futures).await;
+            self.close_single_connection(0, reason).await;
+            self.should_exit
+                .store(true, std::sync::atomic::Ordering::Release);
+            self.shutdown_notify.notify_waiters();
+        } else {
+            self.close_single_connection(conn_no, reason).await;
+        }
+    }
+
     /// Get a list of all active connection IDs
     pub(crate) fn get_connection_ids(&self) -> Vec<u32> {
         Self::extract_connection_ids(&self.conns)
@@ -1761,40 +1521,6 @@ impl Channel {
     /// Static helper to extract connection IDs from any DashMap reference
     fn extract_connection_ids(conns: &DashMap<u32, Conn>) -> Vec<u32> {
         conns.iter().map(|entry| *entry.key()).collect()
-    }
-
-    /// Wait for guacd's outbound task to finish (EOF on TCP read), with a 2s timeout.
-    /// If the task panics, errors, or times out, force-cancels the read task.
-    async fn wait_for_guacd_eof(
-        handle: tokio::task::JoinHandle<()>,
-        conns: &DashMap<u32, Conn>,
-        conn_no: u32,
-        channel_id: &str,
-    ) {
-        match tokio::time::timeout(tokio::time::Duration::from_secs(2), handle).await {
-            Ok(Ok(_)) => debug!(
-                "guacd closed TCP cleanly after disconnect (channel_id: {}, conn_no: {})",
-                channel_id, conn_no
-            ),
-            Ok(Err(e)) => {
-                warn!(
-                    "guacd task panicked/was cancelled during teardown (channel_id: {}, conn_no: {}): {}",
-                    channel_id, conn_no, e
-                );
-                if let Some(conn_ref) = conns.get(&conn_no) {
-                    conn_ref.cancel_read_task.cancel();
-                }
-            }
-            Err(_) => {
-                warn!(
-                    "guacd did not close TCP within 2s, forcing close (channel_id: {}, conn_no: {})",
-                    channel_id, conn_no
-                );
-                if let Some(conn_ref) = conns.get(&conn_no) {
-                    conn_ref.cancel_read_task.cancel();
-                }
-            }
-        }
     }
 
     /// Helper to extract host/port from guacd settings if not already set
@@ -1849,7 +1575,7 @@ impl Channel {
 impl Drop for Channel {
     fn drop(&mut self) {
         self.should_exit
-            .store(true, std::sync::atomic::Ordering::Relaxed);
+            .store(true, std::sync::atomic::Ordering::Release);
 
         // Proper resource handling: Abort all tracked tasks explicitly
         // This provides graceful shutdown instead of relying solely on RAII safety net
@@ -1910,26 +1636,24 @@ impl Drop for Channel {
                 // Send graceful shutdown message before aborting tasks
                 if let Some(conn_ref) = conns_clone.get(&conn_no) {
                     if active_protocol == ActiveProtocol::Guacd {
-                        // For guacd: send disconnect instruction first (protocol-level)
-                        let disconnect_instruction =
+                        debug!(
+                            "Channel Drop: Sending Guacamole disconnect instruction (channel_id: {}, conn_no: {})",
+                            channel_id, conn_no
+                        );
+                        let disconnect_instr =
                             GuacdInstruction::new("disconnect".to_string(), vec![]);
                         let disconnect_bytes =
-                            GuacdParser::guacd_encode_instruction(&disconnect_instruction);
-                        let disconnect_message =
-                            crate::models::ConnectionMessage::Data(disconnect_bytes);
-
-                        // Silently send - no logging to avoid fd race
-                        let _ = conn_ref.data_tx.send(disconnect_message);
-
-                        // THEN send EOF for TCP-level shutdown (consistent with other protocols)
-                        let _ = conn_ref.data_tx.send(crate::models::ConnectionMessage::Eof);
-                    } else {
-                        // For port forwarding/SOCKS5: send EOF for graceful TCP shutdown
-                        let _ = conn_ref.data_tx.send(crate::models::ConnectionMessage::Eof);
+                            GuacdParser::guacd_encode_instruction(&disconnect_instr);
+                        let _ = conn_ref
+                            .data_tx
+                            .send(crate::models::ConnectionMessage::Data(disconnect_bytes));
+                        tokio::time::sleep(crate::config::disconnect_to_eof_delay()).await;
                     }
-
-                    // Brief delay to allow shutdown message to be written before aborting tasks
-                    tokio::time::sleep(crate::config::disconnect_to_eof_delay()).await;
+                    debug!(
+                        "Channel Drop: Sending EOF for TCP shutdown (channel_id: {}, conn_no: {})",
+                        channel_id, conn_no
+                    );
+                    let _ = conn_ref.data_tx.send(crate::models::ConnectionMessage::Eof);
                 }
 
                 // Remove connection from registry with graceful shutdown

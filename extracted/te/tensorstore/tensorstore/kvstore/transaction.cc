@@ -34,6 +34,8 @@
 #include "absl/container/btree_map.h"
 #include "absl/functional/function_ref.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
 #include "absl/types/compare.h"
@@ -49,6 +51,7 @@
 #include "tensorstore/kvstore/key_range.h"
 #include "tensorstore/kvstore/operations.h"
 #include "tensorstore/kvstore/read_modify_write.h"
+#include "tensorstore/kvstore/read_result.h"
 #include "tensorstore/transaction.h"
 #include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/execution/execution.h"
@@ -57,7 +60,6 @@
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_kvstore {
@@ -720,7 +722,7 @@ void DeletedEntryDone(DeleteRangeEntry& dr_entry, bool error, size_t count) {
 }
 
 std::string DescribeEntry(MutationEntry& entry) {
-  return tensorstore::StrCat(
+  return absl::StrCat(
       entry.entry_type() == kReadModifyWrite ? "read/write " : "delete ",
       entry.multi_phase().DescribeKey(entry.key_));
 }
@@ -769,9 +771,10 @@ void RequestWritebackForRead(
               std::memory_order_relaxed);
         }
       }
-      TENSORSTORE_RETURN_IF_ERROR(
-          ApplyByteRange(read_result, byte_range_),
-          execution::set_error(receiver_, std::move(_)));
+      TENSORSTORE_RETURN_IF_ERROR(ApplyByteRange(read_result, byte_range_))
+          .With([&](absl::Status error) {
+            execution::set_error(receiver_, std::move(error));
+          });
       execution::set_value(receiver_, std::move(read_result));
     }
     void set_error(absl::Status error) {
@@ -2104,8 +2107,10 @@ class WriteViaExistingTransactionNode : public internal::TransactionState::Node,
 
       if (options.generation_conditions.Matches(read_result.stamp.generation)) {
         TENSORSTORE_RETURN_IF_ERROR(
-            ApplyByteRange(read_result, options.byte_range),
-            execution::set_error(receiver, std::move(_)));
+            ApplyByteRange(read_result, options.byte_range))
+            .With([&](absl::Status error) {
+              execution::set_error(receiver, std::move(error));
+            });
       } else {
         read_result.state = ReadResult::State::kUnspecified;
         read_result.value.Clear();
@@ -2163,8 +2168,10 @@ class WriteViaExistingTransactionNode : public internal::TransactionState::Node,
               read_result.state = ReadResult::kUnspecified;
             } else {
               TENSORSTORE_RETURN_IF_ERROR(
-                  ApplyByteRange(read_result, byte_range_),
-                  execution::set_error(receiver_, std::move(_)));
+                  ApplyByteRange(read_result, byte_range_))
+                  .With([&](absl::Status error) {
+                    execution::set_error(receiver_, std::move(error));
+                  });
             }
           } else {
             // Read generation does not match.  Since the constraint was
@@ -2348,10 +2355,9 @@ absl::Status Driver::TransactionalDeleteRange(
     const internal::OpenTransactionPtr& transaction, KeyRange range) {
   if (range.empty()) return absl::OkStatus();
   if (transaction && transaction->atomic()) {
-    auto error = absl::InvalidArgumentError(
-        tensorstore::StrCat("Cannot delete range starting at ",
-                            this->DescribeKey(range.inclusive_min),
-                            " as single atomic transaction"));
+    auto error = absl::InvalidArgumentError(absl::StrFormat(
+        "Cannot delete range starting at %v as single atomic transaction",
+        this->DescribeKey(range.inclusive_min)));
     transaction->RequestAbort(error);
     return error;
   }

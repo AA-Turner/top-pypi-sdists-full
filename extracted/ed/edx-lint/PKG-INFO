@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: edx-lint
-Version: 5.6.0
+Version: 6.0.0
 Summary: edX-authored pylint checkers
 Home-page: https://github.com/openedx/edx-lint
 Author: edX
@@ -22,6 +22,8 @@ Requires-Dist: pylint
 Requires-Dist: pylint-celery
 Requires-Dist: pylint-django
 Requires-Dist: six
+Dynamic: license-file
+Dynamic: requires-dist
 
 ========
 edx-lint

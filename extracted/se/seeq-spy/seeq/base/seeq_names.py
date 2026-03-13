@@ -14,6 +14,10 @@ class SeeqNames:
     
     class ModelNames:
         principal_component_analysis = 'Principal Component Analysis'
+        partial_least_squares = 'Partial Least Squares'
+        self_organizing_map = 'Self-Organizing Map'
+        isolation_forest = 'Isolation Forest'
+        clustering = 'Clustering'
     
     class AnalysisViewType:
         trend = 'trend'

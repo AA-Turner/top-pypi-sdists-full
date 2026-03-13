@@ -158,6 +158,7 @@ from .usecases.people_counting_in_zone import PeopleCountingInZoneConfig, People
 from .usecases.animal_detection import AnimalDetectionConfig, AnimalDetectionUseCase
 from .usecases.burglary_detection import BurglaryDetectionConfig, BurglaryDetectionUseCase
 from .usecases.landslide_detection import LandslideDetectionConfig, LandslideDetectionUseCase
+from .usecases.bottle_defect_detection import BottleDefectDetectionConfig, BottleDefectDetectionUseCase
 
 #Put all IMAGE based usecases here
 from .usecases.blood_cancer_detection_img import BloodCancerDetectionConfig, BloodCancerDetectionUseCase
@@ -260,6 +261,7 @@ from .usecases import (
     OvercrowdingDetectionUseCase,
     AnimalDetectionUseCase,
     LandslideDetectionUseCase,
+    BottleDefectDetectionUseCase,
 
     #Put all IMAGE based usecases here
     BloodCancerDetectionUseCase,
@@ -365,6 +367,7 @@ _overcrowding_detection = OvercrowdingDetectionUseCase()
 _animal_detection = AnimalDetectionUseCase()
 _burglary_detection = BurglaryDetectionUseCase()
 _landslide_detection = LandslideDetectionUseCase()
+_bottle_defect_detection = BottleDefectDetectionUseCase()
 # Face recognition with embeddings
 _face_recognition = FaceRecognitionEmbeddingUseCase()
 
@@ -472,6 +475,7 @@ registry.register_use_case(_overcrowding_detection.category, _overcrowding_detec
 registry.register_use_case(_animal_detection.category, _animal_detection.name, AnimalDetectionUseCase)
 registry.register_use_case(_burglary_detection.category, _burglary_detection.name, BurglaryDetectionUseCase)
 registry.register_use_case(_landslide_detection.category, _landslide_detection.name, LandslideDetectionUseCase)
+registry.register_use_case(_bottle_defect_detection.category, _bottle_defect_detection.name, BottleDefectDetectionUseCase)
 
 #Put all IMAGE based usecases here
 registry.register_use_case(_blood_cancer_detection.category, _blood_cancer_detection.name, BloodCancerDetectionUseCase)
@@ -756,6 +760,7 @@ __all__ = [
     'AnimalDetectionConfig',
     'BurglaryDetectionConfig',
     'LandslideDetectionConfig',
+    'BottleDefectDetectionConfig',
 
     #Put all IMAGE based usecase CONFIGS here
     'BloodCancerDetectionConfig',
@@ -853,6 +858,7 @@ __all__ = [
     'AnimalDetectionUseCase',
     'BurglaryDetectionUseCase',
     'LandslideDetectionUseCase',
+    'BottleDefectDetectionUseCase',
 
     #Put all IMAGE based usecases here
     'BloodCancerDetectionUseCase',

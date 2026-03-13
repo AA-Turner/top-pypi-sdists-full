@@ -14,17 +14,20 @@
 
 #include "tensorstore/kvstore/ocdbt/format/manifest.h"
 
+#include <stddef.h>
 #include <stdint.h>
 
 #include <cassert>
 #include <ostream>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include "absl/functional/function_ref.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "riegeli/bytes/reader.h"
 #include "riegeli/bytes/writer.h"
@@ -36,10 +39,10 @@
 #include "tensorstore/kvstore/ocdbt/format/indirect_data_reference_codec.h"
 #include "tensorstore/kvstore/ocdbt/format/version_tree.h"
 #include "tensorstore/kvstore/ocdbt/format/version_tree_codec.h"
+#include "tensorstore/util/generic_stringify.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_ocdbt {
@@ -155,8 +158,11 @@ bool ReadManifestVersionTreeNodes(
   }
   TENSORSTORE_RETURN_IF_ERROR(
       ValidateManifestVersionTreeNodes(
-          version_tree_arity_log2, last_generation_number, version_tree_nodes),
-      reader.Fail(_), false);
+          version_tree_arity_log2, last_generation_number, version_tree_nodes))
+      .With([&](absl::Status status) {
+        reader.Fail(std::move(status));
+        return false;
+      });
   return true;
 }
 
@@ -227,9 +233,7 @@ Result<Manifest> DecodeManifest(const absl::Cord& encoded) {
         }
         return true;
       });
-  if (!status.ok()) {
-    return tensorstore::MaybeAnnotateStatus(status, "Error decoding manifest");
-  }
+  TENSORSTORE_RETURN_IF_ERROR(status).Format("Error decoding manifest");
 #ifndef NDEBUG
   CheckManifestInvariants(manifest);
 #endif
@@ -242,16 +246,11 @@ bool operator==(const Manifest& a, const Manifest& b) {
 }
 
 std::ostream& operator<<(std::ostream& os, const Manifest& e) {
-  os << "{config=" << e.config;
-  if (e.config.manifest_kind == ManifestKind::kSingle) {
-    os << ", versions=" << tensorstore::span(e.versions)
-       << ", version_tree_nodes=" << tensorstore::span(e.version_tree_nodes);
-  }
-  return os << "}";
+  return os << absl::StreamFormat("%v", e);
 }
 
 std::string GetManifestPath(std::string_view base_path) {
-  return tensorstore::StrCat(base_path, kManifestFilename);
+  return absl::StrCat(base_path, kManifestFilename);
 }
 
 std::string GetNumberedManifestPath(std::string_view base_path,

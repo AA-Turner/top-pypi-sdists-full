@@ -39,9 +39,8 @@ absl::Status JsonSpecifiedCompressor::Encode(const absl::Cord& input,
       output, riegeli::CordWriterBase::Options().set_append(true));
   auto writer = GetWriter(base_writer, element_bytes);
 
-  TENSORSTORE_RETURN_IF_ERROR(
-      riegeli::Write(input, std::move(writer)),
-      internal::StatusBuilder(_).SetCode(absl::StatusCode::kInvalidArgument));
+  TENSORSTORE_RETURN_IF_ERROR(riegeli::Write(input, std::move(writer)))
+      .SetCode(absl::StatusCode::kInvalidArgument);
   if (!base_writer.Close()) return base_writer.status();
   return absl::OkStatus();
 }
@@ -53,8 +52,8 @@ absl::Status JsonSpecifiedCompressor::Decode(const absl::Cord& input,
   auto reader = GetReader(base_reader, element_bytes);
 
   TENSORSTORE_RETURN_IF_ERROR(
-      riegeli::ReadAndAppendAll(std::move(reader), *output),
-      internal::StatusBuilder(_).SetCode(absl::StatusCode::kInvalidArgument));
+      riegeli::ReadAndAppendAll(std::move(reader), *output))
+      .SetCode(absl::StatusCode::kInvalidArgument);
   if (!base_reader.VerifyEndAndClose()) return base_reader.status();
   return absl::OkStatus();
 }

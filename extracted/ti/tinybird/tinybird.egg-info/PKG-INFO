@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: tinybird
-Version: 4.1.1
+Version: 4.2.1
 Summary: Tinybird Command Line Tool
 Home-page: https://www.tinybird.co/docs/forward/commands
 Author: Tinybird
@@ -100,6 +100,16 @@ Changelog
 *******
 
 - `Changed` Prompt-based AI flows now print a deprecation warning (`tb --prompt`, `tb create --prompt`, `tb datasource create --prompt`, `tb test create`, `tb mock`) ahead of their removal in a future release.
+
+3.3.2
+*******
+
+- `Added` `tb logs` command to query service observability data sources from the CLI.
+- `Added` support for `--start`, `--end`, `--source`, `--limit`, and `--expand` in `tb logs`.
+- `Added` support for `--source '*'` in `tb logs` to query all supported sources.
+- `Changed` default `tb logs` sources to `tinybird.datasources_ops_log`, `tinybird.pipe_stats_rt`, and `tinybird.jobs_log`.
+- `Changed` `tb logs` table output to show full datetime (`YYYY-MM-DD HH:MM:SS`) in `TIME` and to hide temporal fields from `DETAILS`.
+- `Fixed` `tb logs` to correctly parse SQL responses returned as JSON strings.
 
 3.3.1
 *******

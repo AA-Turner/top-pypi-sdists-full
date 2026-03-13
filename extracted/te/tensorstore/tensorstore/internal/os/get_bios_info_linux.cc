@@ -26,7 +26,7 @@
 #include <string>
 
 #include "absl/status/status.h"
-#include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "tensorstore/internal/os/error_code.h"
 #include "tensorstore/internal/os/potentially_blocking_region.h"
 #include "tensorstore/util/quote_string.h"
@@ -47,8 +47,8 @@ Result<std::string> GetGcpProductName() {
   struct ::stat info;
   PotentiallyBlockingRegion region;
   if (::stat(path.c_str(), &info) != 0) {
-    return StatusFromOsError(errno, "error reading bios info in ",
-                             QuoteString(path));
+    return StatusFromOsError(errno).Format("error reading bios info in %v",
+                                           QuoteString(path));
   }
   if (!S_ISREG(info.st_mode)) {
     return absl::UnknownError(
@@ -60,7 +60,7 @@ Result<std::string> GetGcpProductName() {
   std::string contents;
   if (!product_name_file.is_open()) {
     return absl::UnknownError(
-        absl::StrCat("unable to open file ", QuoteString(path)));
+        absl::StrFormat("unable to open file %v", QuoteString(path)));
   }
 
   std::getline(product_name_file, contents);

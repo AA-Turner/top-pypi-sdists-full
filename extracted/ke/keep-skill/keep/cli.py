@@ -14,6 +14,7 @@ import platform
 import re
 import select
 import shutil
+import subprocess
 import signal
 import sys
 import tempfile
@@ -52,8 +53,6 @@ from .types import (
 )
 from .logging_config import configure_quiet_mode, enable_debug_mode
 
-# Maximum number of files to index from a directory at once
-MAX_DIR_FILES = 1000
 
 
 def _is_filesystem_path(source: str) -> Optional[Path]:
@@ -73,12 +72,61 @@ def _is_filesystem_path(source: str) -> Optional[Path]:
     return None
 
 
+def _git_visible_files(directory: Path, recurse: bool) -> list[Path] | None:
+    """Return files visible to git (tracked + untracked, excluding ignored).
+
+    Returns None if the directory is not inside a git repository or git
+    is not available, signalling the caller to fall back to plain walk.
+    """
+    try:
+        # Tracked files + untracked-but-not-ignored files
+        result = subprocess.run(
+            ["git", "ls-files", "-co", "--exclude-standard", "-z"],
+            cwd=directory, capture_output=True, timeout=10,
+        )
+        if result.returncode != 0:
+            return None
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return None
+
+    raw = result.stdout.decode("utf-8", errors="replace")
+    if not raw:
+        return []
+
+    files = []
+    for relpath in raw.split("\0"):
+        if not relpath:
+            continue
+        # Skip paths with any hidden component (.github/, .vscode/, etc.)
+        parts = relpath.split("/")
+        if any(p.startswith(".") for p in parts):
+            continue
+        entry = (directory / relpath).resolve()
+        # Scope to directory
+        if not str(entry).startswith(str(directory.resolve())):
+            continue
+        # Apply recurse constraint: without -r, only top-level files
+        if not recurse and len(parts) > 1:
+            continue
+        if entry.is_symlink() or not entry.is_file():
+            continue
+        files.append(entry)
+    return sorted(files)
+
+
 def _list_directory_files(directory: Path, *, recurse: bool = False) -> list[Path]:
     """List regular files in a directory, sorted by name.
 
+    Respects .gitignore when the directory is inside a git repository.
     Skips symlinks, hidden files/dirs (names starting with '.').
     When recurse=True, walks subdirectories.
     """
+    # Try git-aware listing first
+    git_files = _git_visible_files(directory, recurse)
+    if git_files is not None:
+        return git_files
+
+    # Fallback: plain walk (non-git directories)
     files = []
     if recurse:
         for root, dirs, filenames in os.walk(directory, followlinks=False):
@@ -1699,9 +1747,10 @@ def _put_store(
                 hint += "; use -r to recurse into subdirectories"
             typer.echo(f"Hint: {hint}", err=True)
             raise typer.Exit(1)
-        if len(files) > MAX_DIR_FILES:
-            typer.echo(f"Error: directory has {len(files)} files (max {MAX_DIR_FILES})", err=True)
-            typer.echo("Hint: use a smaller directory or index files individually", err=True)
+        max_files = kp.config.max_dir_files
+        if len(files) > max_files:
+            typer.echo(f"Error: directory has {len(files)} files (max {max_files})", err=True)
+            typer.echo("Hint: increase max_dir_files in keep.toml or index files individually", err=True)
             raise typer.Exit(1)
         results: list[Item] = []
         errors: list[str] = []
@@ -2840,6 +2889,7 @@ def _get_config_value(cfg, store_path: Path, path: str):
         file - config file location
         tool - package directory (SKILL.md location)
         openclaw-plugin - OpenClaw plugin directory
+        mcpb - generate .mcpb bundle for Claude Desktop
         store - store path
 
     Dotted paths into config:
@@ -2856,8 +2906,20 @@ def _get_config_value(cfg, store_path: Path, path: str):
     if path == "tool":
         return str(get_tool_directory())
     if path == "openclaw-plugin":
-
         return str(Path(str(importlib.resources.files("keep"))) / "data" / "openclaw-plugin")
+    if path == "mcpb":
+        from .mcpb import generate_mcpb
+        out = generate_mcpb()
+        if platform.system() == "Darwin":
+            subprocess.Popen(["open", str(out)])
+        elif platform.system() == "Windows":
+            os.startfile(str(out))
+        else:
+            subprocess.Popen(["xdg-open", str(out)])
+        return (
+            'After installation, just say to Claude:\n'
+            'Please read all the keep_help documentation, and then use keep_prompt(name="reflect")'
+        )
     if path == "docs":
         return str(get_tool_directory() / "docs")
     if path == "store":
@@ -3125,6 +3187,7 @@ def config(
         keep config tool         # Package directory (SKILL.md location)
         keep config docs         # Documentation directory
         keep config openclaw-plugin  # OpenClaw plugin directory
+        keep config mcpb         # Generate .mcpb for Claude Desktop
         keep config store        # Store path
         keep config providers    # All provider config
         keep config providers.embedding  # Embedding provider name
@@ -3235,6 +3298,25 @@ def config(
         typer.echo(_format_config_with_defaults(cfg, store_path))
 
 
+@app.command("help")
+def help_cmd(
+    topic: Annotated[Optional[str], typer.Argument(
+        help="Documentation topic (e.g. 'quickstart', 'keep-put', 'tagging'). Omit for index."
+    )] = None,
+):
+    """Browse keep documentation.
+
+    \b
+    Examples:
+        keep help              # Documentation index
+        keep help quickstart   # CLI Quick Start guide
+        keep help keep-put     # keep put reference
+        keep help tagging      # Tagging guide
+    """
+    from .help import get_help_topic
+    typer.echo(get_help_topic(topic or "index", link_style="cli"))
+
+
 @app.command("pending")
 def pending_cmd(
     store: StoreOption = None,
@@ -3266,15 +3348,26 @@ def pending_cmd(
     progress. Ctrl-C detaches without stopping the processor.
     Use --reindex to re-embed all items with the current embedding provider.
     """
-    kp = _get_keeper(store)
-
-    # --stop: send SIGTERM to the daemon
+    # --stop: send SIGTERM to the daemon (lightweight — no Keeper needed)
     if stop:
-        pid_path = kp._processor_pid_path
-        if not kp._is_processor_running():
+        from .model_lock import ModelLock
+        from .paths import get_default_store_path, get_config_dir
+        from .config import load_or_create_config
+        if store is not None:
+            store_path = Path(store).resolve()
+        else:
+            override = _get_store_override()
+            if override is not None:
+                store_path = Path(override).resolve()
+            else:
+                config_dir = get_config_dir()
+                cfg = load_or_create_config(config_dir)
+                store_path = get_default_store_path(cfg)
+        pid_path = store_path / "processor.pid"
+        lock = ModelLock(store_path / ".processor.lock")
+        if not lock.is_locked():
             typer.echo("No processor running.")
             pid_path.unlink(missing_ok=True)
-            kp.close()
             return
         if pid_path.exists():
             try:
@@ -3286,8 +3379,9 @@ def pending_cmd(
                 pid_path.unlink(missing_ok=True)
         else:
             typer.echo("Processor running but no PID file found.", err=True)
-        kp.close()
         return
+
+    kp = _get_keeper(store)
 
     # --daemon: run as the actual background processor
     if daemon:
@@ -3305,11 +3399,35 @@ def pending_cmd(
             kp.close()
             return
 
-        _daemon_logger.info("Daemon started (pid=%d)", os.getpid())
+        # Startup banner: version, paths, queue depth
+        try:
+            from importlib.metadata import version as _pkg_version
+            _ver = _pkg_version("keep-skill")
+        except Exception:
+            _ver = "unknown"
+        _daemon_logger.info(
+            "Daemon started (pid=%d) keep-skill=%s python=%s store=%s",
+            os.getpid(), _ver, sys.executable, kp._store_path,
+        )
+        _daemon_logger.info(
+            "Queue: %d pending, %d flow, %d failed",
+            kp._pending_queue.count(),
+            kp.pending_work_count() if hasattr(kp, "pending_work_count") else 0,
+            0,  # failed count not cheaply available
+        )
+        _daemon_logger.info(
+            "Embedding: %s/%s",
+            kp._config.embedding.name if kp._config.embedding else "none",
+            kp._config.embedding.params.get("model", "") if kp._config.embedding else "",
+        )
 
         def handle_signal(signum, frame):
             nonlocal shutdown_requested
             shutdown_requested = True
+            _daemon_logger.info("Received signal %d, shutting down after current item", signum)
+
+        def _is_shutdown():
+            return shutdown_requested
 
         signal.signal(signal.SIGTERM, handle_signal)
         signal.signal(signal.SIGINT, handle_signal)
@@ -3321,8 +3439,11 @@ def pending_cmd(
                     limit=50,
                     worker_id=flow_worker_id,
                     lease_seconds=180,
+                    shutdown_check=_is_shutdown,
                 )
-                result = kp.process_pending(limit=50)
+                if shutdown_requested:
+                    break
+                result = kp.process_pending(limit=50, shutdown_check=_is_shutdown)
                 delegated = result.get("delegated", 0)
                 _daemon_logger.info(
                     "Daemon batch: processed=%d failed=%d delegated=%d flow_processed=%d flow_failed=%d",
@@ -3340,6 +3461,7 @@ def pending_cmd(
                     # Check for outstanding delegated tasks before exiting
                     delegated_remaining = kp._pending_queue.count_delegated() if hasattr(kp._pending_queue, "count_delegated") else 0
                     flow_remaining = kp.pending_work_count() if hasattr(kp, "pending_work_count") else 0
+                    pending_remaining = kp._pending_queue.count()
                     if delegated_remaining > 0:
                         _daemon_logger.info("Waiting for %d delegated tasks", delegated_remaining)
                         time.sleep(5)
@@ -3348,17 +3470,24 @@ def pending_cmd(
                         _daemon_logger.info("Waiting for %d flow work items", flow_remaining)
                         time.sleep(1)
                         continue
+                    if pending_remaining > 0:
+                        _daemon_logger.info("Waiting for %d pending items (retry backoff)", pending_remaining)
+                        time.sleep(5)
+                        continue
 
                     # Items may have been enqueued after our last dequeue
                     # (e.g. OCR enqueued while we were processing a summarize).
                     # Wait briefly and check once more before exiting.
                     time.sleep(1)
+                    if shutdown_requested:
+                        break
                     flow_result = kp.process_pending_work(
                         limit=50,
                         worker_id=flow_worker_id,
                         lease_seconds=180,
+                        shutdown_check=_is_shutdown,
                     )
-                    result = kp.process_pending(limit=50)
+                    result = kp.process_pending(limit=50, shutdown_check=_is_shutdown)
                     flow_activity = (
                         int(flow_result.get("claimed", 0)) > 0
                         or int(flow_result.get("processed", 0)) > 0

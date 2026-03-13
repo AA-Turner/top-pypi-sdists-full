@@ -29,6 +29,8 @@ class NewKafkaTrigger:
         filters (List['NewKafkaTriggerFiltersItem']):
         auto_offset_reset (Union[Unset, NewKafkaTriggerAutoOffsetReset]): Initial offset behavior when consumer group
             has no committed offset. Default: NewKafkaTriggerAutoOffsetReset.LATEST.
+        auto_commit (Union[Unset, bool]): When true (default), offsets are committed automatically after receiving each
+            message. When false, you must manually commit offsets using the commit_offsets endpoint. Default: True.
         mode (Union[Unset, NewKafkaTriggerMode]): job trigger mode
         error_handler_path (Union[Unset, str]): Path to a script or flow to run when the triggered job fails
         error_handler_args (Union[Unset, NewKafkaTriggerErrorHandlerArgs]): The arguments to pass to the script or flow
@@ -47,6 +49,7 @@ class NewKafkaTrigger:
     topics: List[str]
     filters: List["NewKafkaTriggerFiltersItem"]
     auto_offset_reset: Union[Unset, NewKafkaTriggerAutoOffsetReset] = NewKafkaTriggerAutoOffsetReset.LATEST
+    auto_commit: Union[Unset, bool] = True
     mode: Union[Unset, NewKafkaTriggerMode] = UNSET
     error_handler_path: Union[Unset, str] = UNSET
     error_handler_args: Union[Unset, "NewKafkaTriggerErrorHandlerArgs"] = UNSET
@@ -73,6 +76,7 @@ class NewKafkaTrigger:
         if not isinstance(self.auto_offset_reset, Unset):
             auto_offset_reset = self.auto_offset_reset.value
 
+        auto_commit = self.auto_commit
         mode: Union[Unset, str] = UNSET
         if not isinstance(self.mode, Unset):
             mode = self.mode.value
@@ -104,6 +108,8 @@ class NewKafkaTrigger:
         )
         if auto_offset_reset is not UNSET:
             field_dict["auto_offset_reset"] = auto_offset_reset
+        if auto_commit is not UNSET:
+            field_dict["auto_commit"] = auto_commit
         if mode is not UNSET:
             field_dict["mode"] = mode
         if error_handler_path is not UNSET:
@@ -152,6 +158,8 @@ class NewKafkaTrigger:
         else:
             auto_offset_reset = NewKafkaTriggerAutoOffsetReset(_auto_offset_reset)
 
+        auto_commit = d.pop("auto_commit", UNSET)
+
         _mode = d.pop("mode", UNSET)
         mode: Union[Unset, NewKafkaTriggerMode]
         if isinstance(_mode, Unset):
@@ -188,6 +196,7 @@ class NewKafkaTrigger:
             topics=topics,
             filters=filters,
             auto_offset_reset=auto_offset_reset,
+            auto_commit=auto_commit,
             mode=mode,
             error_handler_path=error_handler_path,
             error_handler_args=error_handler_args,

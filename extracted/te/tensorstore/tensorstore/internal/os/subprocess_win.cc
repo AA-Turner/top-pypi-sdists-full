@@ -60,8 +60,8 @@ namespace {
 
 absl::Status SetHandleInherit(HANDLE pipe, bool inherit) {
   if (!::SetHandleInformation(pipe, HANDLE_FLAG_INHERIT, inherit ? 1 : 0)) {
-    return StatusFromOsError(::GetLastError(),
-                             "SpawnSubprocess: SetHandleInformation failed");
+    return StatusFromOsError(::GetLastError())
+        .Format("SpawnSubprocess: SetHandleInformation failed");
   }
   return absl::OkStatus();
 }
@@ -145,8 +145,8 @@ absl::Status SetupHandles(const SubprocessOptions& options, STARTUPINFOEXW& ex,
     HANDLE read;
     if (!CreatePipe(&read, &write_handle, &securityAttributes,
                     /*buffer*/ 64 * 1024)) {
-      return StatusFromOsError(::GetLastError(),
-                               "SpawnSubprocess: CreatePipe failed");
+      return StatusFromOsError(::GetLastError())
+          .Format("SpawnSubprocess: CreatePipe failed");
     }
     read_fd = UniqueFileDescriptor(read);
     handles_to_close.push_back(write_handle);
@@ -252,7 +252,7 @@ absl::Status Subprocess::Impl::Kill(int signal) {
   if (0 != TerminateProcess(pi_.hProcess, exit_code)) {
     return absl::OkStatus();
   }
-  return StatusFromOsError(::GetLastError(), "On Subprocess::Kill");
+  return StatusFromOsError(::GetLastError()).Format("On Subprocess::Kill");
 }
 
 Result<int> Subprocess::Impl::Join(bool block) {
@@ -274,7 +274,7 @@ Result<int> Subprocess::Impl::Join(bool block) {
       }
     }
   }
-  return StatusFromOsError(::GetLastError(), "Subprocess::Join failed");
+  return StatusFromOsError(::GetLastError()).Format("Subprocess::Join failed");
 }
 
 Result<Subprocess> SpawnSubprocess(const SubprocessOptions& options) {
@@ -342,7 +342,7 @@ Result<Subprocess> SpawnSubprocess(const SubprocessOptions& options) {
 
   // Initialize the ProcThreadAttributeList to pass on inheritable handles.
   // This avoids potential pitfalls caused by inheriting all handles.
-  status.Update([&]() {
+  status.Update([&]() -> absl::Status {
     SIZE_T size = 0;
     InitializeProcThreadAttributeList(nullptr, 1, 0, &size);
     ex_storage = std::make_unique<uint8_t[]>(size);
@@ -350,9 +350,8 @@ Result<Subprocess> SpawnSubprocess(const SubprocessOptions& options) {
         reinterpret_cast<PPROC_THREAD_ATTRIBUTE_LIST>(ex_storage.get());
     if (0 ==
         InitializeProcThreadAttributeList(ex.lpAttributeList, 1, 0, &size)) {
-      return StatusFromOsError(
-          ::GetLastError(),
-          "SpawnSubprocess: InitializeProcThreadAttributeList failed");
+      return StatusFromOsError(::GetLastError())
+          .Format("SpawnSubprocess: InitializeProcThreadAttributeList failed");
     }
     if (HANDLE self =
             OpenProcess(STANDARD_RIGHTS_REQUIRED | SYNCHRONIZE | 0xFFF, 1,
@@ -371,9 +370,8 @@ Result<Subprocess> SpawnSubprocess(const SubprocessOptions& options) {
                      sizeof(handles_to_inherit[0]),
                  /*lpPreviousValue=*/nullptr,
                  /*lpReturnSize=*/nullptr)) {
-      return StatusFromOsError(
-          ::GetLastError(),
-          "SpawnSubprocess: UpdateProcThreadAttribute failed");
+      return StatusFromOsError(::GetLastError())
+          .Format("SpawnSubprocess: UpdateProcThreadAttribute failed");
     }
     return absl::OkStatus();
   }());
@@ -394,9 +392,9 @@ Result<Subprocess> SpawnSubprocess(const SubprocessOptions& options) {
                  /*lpStartupInfo,=*/&ex.StartupInfo,
                  /*lpProcessInformation=*/&impl->pi_)) {
       // Create failed.
-      status = StatusFromOsError(::GetLastError(),
-                                 "SpawnSubprocess: CreateProcessW ",
-                                 options.executable, " failed");
+      status = StatusFromOsError(::GetLastError())
+                   .Format("SpawnSubprocess: CreateProcessW %s failed",
+                           options.executable);
     }
   }
 

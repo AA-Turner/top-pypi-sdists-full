@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: codewords-client
-Version: 0.4.5
+Version: 0.4.6
 Summary: Python client for CodeWords with auto-configured FastAPI integration.
 Author-email: Osman Ramadan <osman@agemo.ai>
 License-Expression: MIT

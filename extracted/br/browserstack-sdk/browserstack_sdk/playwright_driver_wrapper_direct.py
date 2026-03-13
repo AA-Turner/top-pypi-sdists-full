@@ -1,21 +1,19 @@
-"""
-PlaywrightDriverWrapperDirect - Selenium-like interface for Playwright in Direct Flow (Behave).
-This wrapper is used by Behave + Playwright (Direct Flow) where we don't have
-PlaywrightFramework.instances to store state. Instead, capabilities are stored
-directly in the wrapper.
-The session_id is captured from the CDP connection's bsParams dispatch.
-"""
 import json
 import logging
 import threading
+from bstack_utils import logger_utils
 logger = logging.getLogger(__name__)
+automation_logger = logger_utils.get_automation_logger(__name__)
 class PlaywrightDriverWrapperDirect:
-    """
-    Wrapper providing Selenium WebDriver-like interface for Playwright in Direct Flow.
-    Used by Behave hooks to access session_id and capabilities for O11y and A11y.
-    """
     _session_ids = {}
     _session_ids_lock = threading.Lock()
+    _A11Y_SCAN_EXCLUDE = {'evaluate', 'evaluate_handle', 'close'}
+    _LOCATOR_CREATING_METHODS = {
+        'locator', 'frameLocator',  # Core locator methods
+        'get_by_role', 'get_by_text', 'get_by_label',  # Query methods
+        'get_by_placeholder', 'get_by_alt_text', 'get_by_title', 'get_by_test_id',
+        'filter', 'first', 'last', 'nth',  # Filtering methods
+    }
     def __init__(self, browser, page, capabilities, config=None):
         self._browser = browser
         self._page = page
@@ -24,6 +22,8 @@ class PlaywrightDriverWrapperDirect:
         self._thread_id = threading.get_ident()
         self._cbt_info_sent = False
         self._setup_session_id_capture()
+        if page is not None:
+            self._wrap_page_for_a11y(page, self)
         logger.debug(f"PlaywrightDriverWrapperDirect created: thread={self._thread_id}")
     @classmethod
     def setup_dispatch_capture(cls):
@@ -40,6 +40,11 @@ class PlaywrightDriverWrapperDirect:
                     try:
                         if isinstance(msg, dict):
                             bs_params = msg.get('params', {}).get('bsParams', {})
+                            if not bs_params:
+                                bs_params = msg.get('bStackParams', {})
+                                if bs_params:
+                                    msg = dict(msg)
+                                    msg.pop('bStackParams', None)
                             if bs_params:
                                 session_id = bs_params.get('sessionId')
                                 if session_id:
@@ -56,6 +61,8 @@ class PlaywrightDriverWrapperDirect:
                                     error_normalized['name'] = 'Error'
                                 if 'message' not in error_normalized:
                                     error_normalized['message'] = str(error)
+                                if 'stack' not in error_normalized:
+                                    error_normalized['stack'] = ''
                                 msg = dict(msg)
                                 msg['error'] = {'error': error_normalized}
                     except Exception as e:
@@ -66,6 +73,183 @@ class PlaywrightDriverWrapperDirect:
                 logger.debug("Patched Connection.dispatch for session_id capture")
         except Exception as e:
             logger.debug(f"Could not setup dispatch capture: {e}")
+    @classmethod
+    def _perform_scan_with_fallback(cls, wrapper, cmd_name):
+        """Trigger an A11y scan for a single Playwright command.
+        Bypasses perform_scan's is_enabled_platform guard (which requires CONFIG
+        and PLATFORM_INDEX to be correctly set) by checking bstackA11yShouldScan
+        directly — the same flag that playwright.py sets when a11y_enabled is True
+        for this specific session/platform.
+        """
+        try:
+            if not getattr(wrapper, 'bstackA11yShouldScan', False):
+                return
+            from bstack_utils.accessibility_scripts import accessibility_scripts
+            scan_script = accessibility_scripts.perform_scan
+            if not scan_script:
+                return
+            result = wrapper.execute_async_script(scan_script, {'method': cmd_name})
+            try:
+                log_data = {
+                    "request": {
+                        "command": "A11Y_SCAN",
+                        "parameters": [
+                            {"method": cmd_name}
+                        ]
+                    },
+                    "response": {
+                        "body": {
+                            "msg": result.get("msg", "") if isinstance(result, dict) else "",
+                            "success": result.get("success", True) if isinstance(result, dict) else True
+                        }
+                    }
+                }
+                automation_logger.info(json.dumps(log_data, separators=(",", ":")))
+            except Exception:
+                pass
+        except Exception as e:
+            logger.debug(f"Per-command A11y scan failed ({cmd_name}): {e}")
+    @classmethod
+    def _wrap_locator_for_a11y(cls, locator, wrapper):
+        """Wrap a Playwright Locator's action methods to trigger A11y scans.
+        Also wraps locator-returning methods (locator.locator, .filter, .nth, etc.)
+        so that chained locators are covered automatically.
+        """
+        if locator is None:
+            return
+        if getattr(locator, '_bstack_a11y_loc_wrapped', False):
+            return
+        try:
+            locator._bstack_a11y_loc_wrapped = True
+        except Exception:
+            pass
+        try:
+            from bstack_utils.accessibility_scripts import accessibility_scripts
+            commands = accessibility_scripts.commands_to_wrap or []
+            cmd_names = set()
+            for cmd in commands:
+                name = cmd.get('name') if isinstance(cmd, dict) else cmd
+                if name and name not in cls._A11Y_SCAN_EXCLUDE:
+                    cmd_names.add(name)
+            for method_name in cmd_names:
+                original = getattr(locator, method_name, None)
+                if original is None or not callable(original):
+                    continue
+                if getattr(original, '_bstack_a11y_wrapped', False):
+                    continue
+                def make_action_wrapper(orig, cmd_name):
+                    def wrapped(*args, **kwargs):
+                        result = orig(*args, **kwargs)
+                        cls._perform_scan_with_fallback(wrapper, cmd_name)
+                        return result
+                    wrapped._bstack_a11y_wrapped = True
+                    return wrapped
+                setattr(locator, method_name, make_action_wrapper(original, method_name))
+            for method_name in cls._LOCATOR_CREATING_METHODS:
+                original = getattr(locator, method_name, None)
+                if original is None or not callable(original):
+                    continue
+                if getattr(original, '_bstack_a11y_loc_creator_wrapped', False):
+                    continue
+                def make_locator_creator_wrapper(orig):
+                    def wrapped(*args, **kwargs):
+                        sub_locator = orig(*args, **kwargs)
+                        cls._wrap_locator_for_a11y(sub_locator, wrapper)
+                        return sub_locator
+                    wrapped._bstack_a11y_loc_creator_wrapped = True
+                    return wrapped
+                setattr(locator, method_name, make_locator_creator_wrapper(original))
+            logger.debug("Wrapped Locator for A11y scanning")
+        except Exception as e:
+            logger.debug(f"Failed to wrap Locator for A11y: {e}")
+    @classmethod
+    def _wrap_page_for_a11y(cls, page, wrapper):
+        """Wrap Page action methods and locator-returning methods for A11y scanning.
+        Action methods (goto, click, fill, …) fire a scan AFTER each call.
+        Locator-returning methods (locator, get_by_role, …) wrap the returned
+        Locator so that ``page.locator('btn').click()`` also fires a scan.
+        """
+        try:
+            from bstack_utils.accessibility_scripts import accessibility_scripts
+            commands = accessibility_scripts.commands_to_wrap or []
+            wrapped_count = 0
+            for cmd in commands:
+                method_name = cmd.get('name') if isinstance(cmd, dict) else cmd
+                if not method_name or method_name in cls._A11Y_SCAN_EXCLUDE:
+                    continue
+                original = getattr(page, method_name, None)
+                if original is None or not callable(original):
+                    continue
+                if getattr(original, '_bstack_a11y_wrapped', False):
+                    continue
+                def make_wrapper(orig, cmd_name):
+                    def wrapped(*args, **kwargs):
+                        result = orig(*args, **kwargs)
+                        cls._perform_scan_with_fallback(wrapper, cmd_name)
+                        return result
+                    wrapped._bstack_a11y_wrapped = True
+                    return wrapped
+                setattr(page, method_name, make_wrapper(original, method_name))
+                wrapped_count += 1
+            locator_wrapped_count = 0
+            for method_name in cls._LOCATOR_CREATING_METHODS:
+                original = getattr(page, method_name, None)
+                if original is None or not callable(original):
+                    continue
+                if getattr(original, '_bstack_a11y_loc_creator_wrapped', False):
+                    continue
+                def make_locator_creator(orig):
+                    def wrapped(*args, **kwargs):
+                        locator = orig(*args, **kwargs)
+                        cls._wrap_locator_for_a11y(locator, wrapper)
+                        return locator
+                    wrapped._bstack_a11y_loc_creator_wrapped = True
+                    return wrapped
+                setattr(page, method_name, make_locator_creator(original))
+                locator_wrapped_count += 1
+            logger.debug(
+                f"Wrapped {wrapped_count} Page action methods and "
+                f"{locator_wrapped_count} locator-creating methods for A11y scanning"
+            )
+            if not getattr(page, '_bstack_a11y_assertion_methods_injected', False):
+                def _make_get_results_fn(wrapper_ref, script_attr, log_label):
+                    def _fn():
+                        try:
+                            if not getattr(wrapper_ref, 'bstackA11yShouldScan', False):
+                                logger.debug(
+                                    "Not an Accessibility Automation session, "
+                                    "cannot retrieve Accessibility " + log_label + "."
+                                )
+                                return {}
+                            script_code = getattr(accessibility_scripts, script_attr, None)
+                            if not script_code:
+                                logger.warning(
+                                    "Cannot retrieve Accessibility " + log_label +
+                                    " — script not available yet."
+                                )
+                                return {}
+                            logger.debug('Performing scan before getting ' + log_label)
+                            scan_script = accessibility_scripts.perform_scan
+                            if scan_script:
+                                try:
+                                    wrapper_ref.execute_async_script(scan_script)
+                                except Exception:
+                                    pass
+                            return wrapper_ref.execute_async_script(script_code)
+                        except Exception as e:
+                            logger.error("Accessibility " + log_label + " could not be retrieved: " + str(e))
+                            return {}
+                    return _fn
+                get_results_fn = _make_get_results_fn(wrapper, 'get_results', 'results')
+                get_summary_fn = _make_get_results_fn(wrapper, 'get_results_summary', 'results summary')
+                setattr(page, 'getAccessibilityResults', get_results_fn)
+                setattr(page, 'get_accessibility_results', get_results_fn)
+                setattr(page, 'getAccessibilityResultsSummary', get_summary_fn)
+                setattr(page, 'get_accessibility_results_summary', get_summary_fn)
+                page._bstack_a11y_assertion_methods_injected = True
+                logger.debug("Injected A11y assertion methods onto page object")
+        except Exception as e:
+            logger.debug(f"Failed to wrap Page for A11y: {e}")
     @classmethod
     def _send_cbt_info_on_session(cls):
         """Send CBT info when session_id becomes available."""
@@ -133,9 +317,11 @@ class PlaywrightDriverWrapperDirect:
         try:
             if "browserstack_executor" in script:
                 return page.evaluate("_ => {}", script)
-            if args:
-                return page.evaluate(script, *args)
-            return page.evaluate(script)
+            if not args:
+                return page.evaluate(script)
+            if len(args) == 1:
+                return page.evaluate(script, args[0])
+            return page.evaluate(script, list(args))
         except Exception as e:
             logger.debug(f"Script execution failed: {e}")
             raise
@@ -148,7 +334,11 @@ class PlaywrightDriverWrapperDirect:
         try:
             script_template = """(function (...bstackSdkArgs) {{
                 return new Promise((resolve, reject) => {{
-                    bstackSdkArgs.push(resolve);
+                    const _bstackTimeout = setTimeout(() => resolve(null), 30000);
+                    bstackSdkArgs.push(function(result) {{
+                        clearTimeout(_bstackTimeout);
+                        resolve(result);
+                    }});
                     {fn_body}
                 }});
             }})({arg_json})"""
@@ -169,9 +359,9 @@ class PlaywrightDriverWrapperDirect:
         except Exception:
             return False
     def update_page(self, page):
-        """Update the page reference."""
         if page is not None and hasattr(page, 'evaluate'):
             self._page = page
+            self._wrap_page_for_a11y(page, self)
             logger.debug("Updated page reference for wrapper")
     def quit(self):
         """Close the browser (Selenium-compatible interface for behave hooks)."""

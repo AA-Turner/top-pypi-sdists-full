@@ -25,6 +25,7 @@
 #include "absl/base/thread_annotations.h"
 #include "absl/container/inlined_vector.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include "absl/synchronization/mutex.h"
 #include "tensorstore/array.h"
 #include "tensorstore/array_storage_statistics.h"
@@ -71,16 +72,17 @@
 #include "tensorstore/serialization/std_vector.h"  // IWYU pragma: keep
 #include "tensorstore/spec.h"
 #include "tensorstore/transaction.h"
+#include "tensorstore/util/execution/any_receiver.h"
 #include "tensorstore/util/execution/execution.h"
 #include "tensorstore/util/execution/sender_util.h"
 #include "tensorstore/util/executor.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/garbage_collection/std_vector.h"  // IWYU pragma: keep
+#include "tensorstore/util/generic_stringify.h"
 #include "tensorstore/util/iterate.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/span.h"
 #include "tensorstore/util/status.h"
-#include "tensorstore/util/str_cat.h"
 
 namespace tensorstore {
 namespace internal_downsample {
@@ -255,9 +257,9 @@ class DownsampleDriverSpec
     }
     if (domain.rank() != downsample_factors.size()) {
       // Should have already been validated.
-      return absl::InternalError(tensorstore::StrCat(
-          "Domain of base TensorStore has rank (", domain.rank(),
-          ") but expected ", downsample_factors.size()));
+      return absl::InternalError(absl::StrFormat(
+          "Domain of base TensorStore has rank (%d) but expected %d",
+          domain.rank(), downsample_factors.size()));
     }
     auto downsampled_domain = internal_downsample::DownsampleDomain(
         domain, downsample_factors, downsample_method);
@@ -335,9 +337,8 @@ class DownsampleDriverSpec
           if (auto domain = spec->schema.domain(); domain.valid()) {
             TENSORSTORE_RETURN_IF_ERROR(
                 MergeIndexDomains(domain,
-                                  downsampled_handle.transform.domain()),
-                tensorstore::MaybeAnnotateStatus(
-                    _, "downsampled domain does not match domain in schema"));
+                                  downsampled_handle.transform.domain()))
+                .Format("downsampled domain does not match domain in schema");
           }
           return downsampled_handle;
         },
@@ -610,7 +611,7 @@ struct ReadState : public internal::AtomicReferenceCount<ReadState> {
   }
 
   /// Locks `mutex_`.
-  void lock() ABSL_NO_THREAD_SAFETY_ANALYSIS { mutex_.Lock(); }
+  void lock() ABSL_NO_THREAD_SAFETY_ANALYSIS { mutex_.lock(); }
 
   /// Unlocks `mutex_`, and then sends any deferred notifications.
   void unlock() ABSL_NO_THREAD_SAFETY_ANALYSIS {
@@ -622,7 +623,7 @@ struct ReadState : public internal::AtomicReferenceCount<ReadState> {
     if (canceled_ && on_cancel_) {
       on_cancel = std::move(on_cancel_);
     }
-    mutex_.Unlock();
+    mutex_.unlock();
     if (on_cancel) on_cancel();
     if (!send_done) return;
     if (has_error) {
@@ -844,7 +845,7 @@ bool MaybeEmitIndependentReadChunk(
   const Index num_elements = base_chunk.transform.domain().num_elements();
   bool emit_buffered_chunk;
   {
-    absl::MutexLock lock(&state.mutex_);
+    absl::MutexLock lock(state.mutex_);
     bool has_data_buffer =
         state.data_buffer_.byte_strided_origin_pointer() != nullptr;
     bool remaining_data = (state.remaining_elements_ -= num_elements) != 0;
@@ -892,7 +893,7 @@ struct ReadReceiverImpl {
 
   void set_starting(AnyCancelReceiver on_cancel) {
     {
-      absl::MutexLock lock(&state_->mutex_);
+      absl::MutexLock lock(state_->mutex_);
       if (!state_->canceled_) {
         state_->on_cancel_ = std::move(on_cancel);
         return;
@@ -904,7 +905,7 @@ struct ReadReceiverImpl {
   void set_value(ReadChunk chunk, IndexTransform<> cell_transform) {
     if (cell_transform.domain().box().is_empty()) return;
     {
-      absl::MutexLock lock(&state_->mutex_);
+      absl::MutexLock lock(state_->mutex_);
       if (state_->canceled_) return;
       ++state_->chunks_in_progress_;
     }
@@ -935,8 +936,10 @@ struct ReadReceiverImpl {
           state->SetError(_, 1));
       TENSORSTORE_RETURN_IF_ERROR(
           internal::CopyReadChunk(chunk.impl, chunk.transform,
-                                  transformed_data_buffer),
-          state->SetError(_, 1));
+                                  transformed_data_buffer))
+          .With([&](absl::Status error) {
+            state->SetError(std::move(error), 1);
+          });
       {
         std::lock_guard<ReadState> guard(*state);
         bool elements_done = (state->remaining_elements_ -= num_elements) == 0;
@@ -957,7 +960,7 @@ struct ReadReceiverImpl {
   }
 
   void set_stopping() {
-    absl::MutexLock lock(&state_->mutex_);
+    absl::MutexLock lock(state_->mutex_);
     state_->on_cancel_ = {};
   }
 };
@@ -994,8 +997,9 @@ void DownsampleDriver::Read(ReadRequest request, ReadChunkReceiver receiver) {
         TENSORSTORE_RETURN_IF_ERROR(
             internal_downsample::PropagateAndComposeIndexTransformDownsampling(
                 request.transform, base_transform,
-                state->self_->downsample_factors_, propagated),
-            state->SetError(_));
+                state->self_->downsample_factors_, propagated))
+            .With(
+                [&](absl::Status error) { state->SetError(std::move(error)); });
         // The domain of `propagated.transform`, when downsampled by
         // `propagated.input_downsample_factors`, matches
         // `transform.domain()`.
@@ -1040,8 +1044,10 @@ Future<ArrayStorageStatistics> DownsampleDriver::GetStorageStatistics(
                       internal_downsample::
                           PropagateAndComposeIndexTransformDownsampling(
                               request.transform, base_transform,
-                              self->downsample_factors_, propagated),
-                      static_cast<void>(promise.SetResult(_)));
+                              self->downsample_factors_, propagated))
+                      .With([&](absl::Status error) {
+                        promise.SetResult(std::move(error));
+                      });
                   // The domain of `propagated.transform`, when downsampled by
                   // `propagated.input_downsample_factors`, matches
                   // `transform.domain()`.
@@ -1065,10 +1071,10 @@ Result<Driver::Handle> MakeDownsampleDriver(
     Driver::Handle base, tensorstore::span<const Index> downsample_factors,
     DownsampleMethod downsample_method) {
   if (downsample_factors.size() != base.transform.input_rank()) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        "Number of downsample factors (", downsample_factors.size(),
-        ") does not match TensorStore rank (", base.transform.input_rank(),
-        ")"));
+    return absl::InvalidArgumentError(absl::StrFormat(
+        "Number of downsample factors (%d) does not match "
+        "TensorStore rank (%d)",
+        downsample_factors.size(), base.transform.input_rank()));
   }
   if (!(base.driver.read_write_mode() & ReadWriteMode::read)) {
     return absl::InvalidArgumentError(
@@ -1076,8 +1082,9 @@ Result<Driver::Handle> MakeDownsampleDriver(
   }
   if (std::any_of(downsample_factors.begin(), downsample_factors.end(),
                   [](Index factor) { return factor < 1; })) {
-    return absl::InvalidArgumentError(tensorstore::StrCat(
-        "Downsample factors ", downsample_factors, " are not all positive"));
+    return absl::InvalidArgumentError(
+        absl::StrFormat("Downsample factors %v are not all positive",
+                        GenericStringify(downsample_factors)));
   }
   TENSORSTORE_RETURN_IF_ERROR(internal_downsample::ValidateDownsampleMethod(
       base.driver->dtype(), downsample_method));

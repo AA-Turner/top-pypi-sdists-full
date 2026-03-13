@@ -179,6 +179,7 @@ __all__ = [
     'InstanceFromMachineImageSchedulingMaxRunDuration',
     'InstanceFromMachineImageSchedulingNodeAffinity',
     'InstanceFromMachineImageSchedulingOnInstanceStopAction',
+    'InstanceFromMachineImageSchedulingPreemptionNoticeDuration',
     'InstanceFromMachineImageScratchDisk',
     'InstanceFromMachineImageServiceAccount',
     'InstanceFromMachineImageShieldedInstanceConfig',
@@ -207,6 +208,7 @@ __all__ = [
     'InstanceFromTemplateSchedulingMaxRunDuration',
     'InstanceFromTemplateSchedulingNodeAffinity',
     'InstanceFromTemplateSchedulingOnInstanceStopAction',
+    'InstanceFromTemplateSchedulingPreemptionNoticeDuration',
     'InstanceFromTemplateScratchDisk',
     'InstanceFromTemplateServiceAccount',
     'InstanceFromTemplateShieldedInstanceConfig',
@@ -249,6 +251,7 @@ __all__ = [
     'InstanceSchedulingMaxRunDuration',
     'InstanceSchedulingNodeAffinity',
     'InstanceSchedulingOnInstanceStopAction',
+    'InstanceSchedulingPreemptionNoticeDuration',
     'InstanceScratchDisk',
     'InstanceServiceAccount',
     'InstanceSettingsMetadata',
@@ -276,6 +279,7 @@ __all__ = [
     'InstanceTemplateSchedulingMaxRunDuration',
     'InstanceTemplateSchedulingNodeAffinity',
     'InstanceTemplateSchedulingOnInstanceStopAction',
+    'InstanceTemplateSchedulingPreemptionNoticeDuration',
     'InstanceTemplateServiceAccount',
     'InstanceTemplateShieldedInstanceConfig',
     'InstantSnapshotIamBindingCondition',
@@ -473,6 +477,7 @@ __all__ = [
     'RegionInstanceTemplateSchedulingMaxRunDuration',
     'RegionInstanceTemplateSchedulingNodeAffinity',
     'RegionInstanceTemplateSchedulingOnInstanceStopAction',
+    'RegionInstanceTemplateSchedulingPreemptionNoticeDuration',
     'RegionInstanceTemplateServiceAccount',
     'RegionInstanceTemplateShieldedInstanceConfig',
     'RegionNetworkEndpointGroupAppEngine',
@@ -685,6 +690,7 @@ __all__ = [
     'RouterBgp',
     'RouterBgpAdvertisedIpRange',
     'RouterMd5AuthenticationKeys',
+    'RouterNamedSetElement',
     'RouterNatLogConfig',
     'RouterNatNat64Subnetwork',
     'RouterNatRule',
@@ -978,6 +984,7 @@ __all__ = [
     'GetInstanceSchedulingMaxRunDurationResult',
     'GetInstanceSchedulingNodeAffinityResult',
     'GetInstanceSchedulingOnInstanceStopActionResult',
+    'GetInstanceSchedulingPreemptionNoticeDurationResult',
     'GetInstanceScratchDiskResult',
     'GetInstanceServiceAccountResult',
     'GetInstanceShieldedInstanceConfigResult',
@@ -1002,6 +1009,7 @@ __all__ = [
     'GetInstanceTemplateSchedulingMaxRunDurationResult',
     'GetInstanceTemplateSchedulingNodeAffinityResult',
     'GetInstanceTemplateSchedulingOnInstanceStopActionResult',
+    'GetInstanceTemplateSchedulingPreemptionNoticeDurationResult',
     'GetInstanceTemplateServiceAccountResult',
     'GetInstanceTemplateShieldedInstanceConfigResult',
     'GetInterconnectLocationsLocationResult',
@@ -1094,6 +1102,7 @@ __all__ = [
     'GetRegionInstanceTemplateSchedulingMaxRunDurationResult',
     'GetRegionInstanceTemplateSchedulingNodeAffinityResult',
     'GetRegionInstanceTemplateSchedulingOnInstanceStopActionResult',
+    'GetRegionInstanceTemplateSchedulingPreemptionNoticeDurationResult',
     'GetRegionInstanceTemplateServiceAccountResult',
     'GetRegionInstanceTemplateShieldedInstanceConfigResult',
     'GetRegionNetworkEndpointGroupAppEngineResult',
@@ -5822,6 +5831,8 @@ class FirewallPolicyRuleMatch(dict):
             suggest = "dest_fqdns"
         elif key == "destIpRanges":
             suggest = "dest_ip_ranges"
+        elif key == "destNetworkContext":
+            suggest = "dest_network_context"
         elif key == "destNetworkScope":
             suggest = "dest_network_scope"
         elif key == "destRegionCodes":
@@ -5834,6 +5845,8 @@ class FirewallPolicyRuleMatch(dict):
             suggest = "src_fqdns"
         elif key == "srcIpRanges":
             suggest = "src_ip_ranges"
+        elif key == "srcNetworkContext":
+            suggest = "src_network_context"
         elif key == "srcNetworkScope":
             suggest = "src_network_scope"
         elif key == "srcNetworks":
@@ -5861,12 +5874,14 @@ class FirewallPolicyRuleMatch(dict):
                  dest_address_groups: Optional[Sequence[_builtins.str]] = None,
                  dest_fqdns: Optional[Sequence[_builtins.str]] = None,
                  dest_ip_ranges: Optional[Sequence[_builtins.str]] = None,
+                 dest_network_context: Optional[_builtins.str] = None,
                  dest_network_scope: Optional[_builtins.str] = None,
                  dest_region_codes: Optional[Sequence[_builtins.str]] = None,
                  dest_threat_intelligences: Optional[Sequence[_builtins.str]] = None,
                  src_address_groups: Optional[Sequence[_builtins.str]] = None,
                  src_fqdns: Optional[Sequence[_builtins.str]] = None,
                  src_ip_ranges: Optional[Sequence[_builtins.str]] = None,
+                 src_network_context: Optional[_builtins.str] = None,
                  src_network_scope: Optional[_builtins.str] = None,
                  src_networks: Optional[Sequence[_builtins.str]] = None,
                  src_region_codes: Optional[Sequence[_builtins.str]] = None,
@@ -5878,19 +5893,22 @@ class FirewallPolicyRuleMatch(dict):
         :param Sequence[_builtins.str] dest_address_groups: Address groups which should be matched against the traffic destination. Maximum number of destination address groups is 10.
         :param Sequence[_builtins.str] dest_fqdns: Fully Qualified Domain Name (FQDN) which should be matched against traffic destination. Maximum number of destination fqdn allowed is 100.
         :param Sequence[_builtins.str] dest_ip_ranges: CIDR IP address range. Maximum number of destination CIDR IP ranges allowed is 5000.
+        :param _builtins.str dest_network_context: Network context of the traffic destination.
+               Possible values are: `UNSPECIFIED`, `INTERNET`, `INTRA_VPC`, `NON_INTERNET`, `VPC_NETWORKS`.
         :param _builtins.str dest_network_scope: (Optional, Beta)
                Network scope of the traffic destination.
-               Possible values are: `INTERNET`, `INTRA_VPC`, `NON_INTERNET`, `VPC_NETWORKS`.
+               Possible values are: `UNSPECIFIED`, `INTERNET`, `INTRA_VPC`, `NON_INTERNET`, `VPC_NETWORKS`.
         :param Sequence[_builtins.str] dest_region_codes: Region codes whose IP addresses will be used to match for destination of traffic. Should be specified as 2 letter country code defined as per ISO 3166 alpha-2 country codes. ex."US" Maximum number of dest region codes allowed is 5000.
         :param Sequence[_builtins.str] dest_threat_intelligences: Names of Network Threat Intelligence lists. The IPs in these lists will be matched against traffic destination.
         :param Sequence[_builtins.str] src_address_groups: Address groups which should be matched against the traffic source. Maximum number of source address groups is 10.
         :param Sequence[_builtins.str] src_fqdns: Fully Qualified Domain Name (FQDN) which should be matched against traffic source. Maximum number of source fqdn allowed is 100.
         :param Sequence[_builtins.str] src_ip_ranges: CIDR IP address range. Maximum number of source CIDR IP ranges allowed is 5000.
+        :param _builtins.str src_network_context: Network context of the traffic source.
+               Possible values are: `UNSPECIFIED`, `INTERNET`, `INTRA_VPC`, `NON_INTERNET`, `VPC_NETWORKS`.
         :param _builtins.str src_network_scope: (Optional, Beta)
                Network scope of the traffic source.
-               Possible values are: `INTERNET`, `INTRA_VPC`, `NON_INTERNET`, `VPC_NETWORKS`.
-        :param Sequence[_builtins.str] src_networks: (Optional, Beta)
-               Networks of the traffic source. It can be either a full or partial url.
+               Possible values are: `UNSPECIFIED`, `INTERNET`, `INTRA_VPC`, `NON_INTERNET`, `VPC_NETWORKS`.
+        :param Sequence[_builtins.str] src_networks: Networks of the traffic source. It can be either a full or partial url.
         :param Sequence[_builtins.str] src_region_codes: Region codes whose IP addresses will be used to match for source of traffic. Should be specified as 2 letter country code defined as per ISO 3166 alpha-2 country codes. ex."US" Maximum number of source region codes allowed is 5000.
         :param Sequence['FirewallPolicyRuleMatchSrcSecureTagArgs'] src_secure_tags: List of secure tag values, which should be matched at the source of the traffic. For INGRESS rule, if all the srcSecureTag are INEFFECTIVE, and there is no srcIpRange, this rule will be ignored. Maximum number of source tag values allowed is 256.
                Structure is documented below.
@@ -5906,6 +5924,8 @@ class FirewallPolicyRuleMatch(dict):
             pulumi.set(__self__, "dest_fqdns", dest_fqdns)
         if dest_ip_ranges is not None:
             pulumi.set(__self__, "dest_ip_ranges", dest_ip_ranges)
+        if dest_network_context is not None:
+            pulumi.set(__self__, "dest_network_context", dest_network_context)
         if dest_network_scope is not None:
             pulumi.set(__self__, "dest_network_scope", dest_network_scope)
         if dest_region_codes is not None:
@@ -5918,6 +5938,8 @@ class FirewallPolicyRuleMatch(dict):
             pulumi.set(__self__, "src_fqdns", src_fqdns)
         if src_ip_ranges is not None:
             pulumi.set(__self__, "src_ip_ranges", src_ip_ranges)
+        if src_network_context is not None:
+            pulumi.set(__self__, "src_network_context", src_network_context)
         if src_network_scope is not None:
             pulumi.set(__self__, "src_network_scope", src_network_scope)
         if src_networks is not None:
@@ -5963,12 +5985,21 @@ class FirewallPolicyRuleMatch(dict):
         return pulumi.get(self, "dest_ip_ranges")
 
     @_builtins.property
+    @pulumi.getter(name="destNetworkContext")
+    def dest_network_context(self) -> Optional[_builtins.str]:
+        """
+        Network context of the traffic destination.
+        Possible values are: `UNSPECIFIED`, `INTERNET`, `INTRA_VPC`, `NON_INTERNET`, `VPC_NETWORKS`.
+        """
+        return pulumi.get(self, "dest_network_context")
+
+    @_builtins.property
     @pulumi.getter(name="destNetworkScope")
     def dest_network_scope(self) -> Optional[_builtins.str]:
         """
         (Optional, Beta)
         Network scope of the traffic destination.
-        Possible values are: `INTERNET`, `INTRA_VPC`, `NON_INTERNET`, `VPC_NETWORKS`.
+        Possible values are: `UNSPECIFIED`, `INTERNET`, `INTRA_VPC`, `NON_INTERNET`, `VPC_NETWORKS`.
         """
         return pulumi.get(self, "dest_network_scope")
 
@@ -6013,12 +6044,21 @@ class FirewallPolicyRuleMatch(dict):
         return pulumi.get(self, "src_ip_ranges")
 
     @_builtins.property
+    @pulumi.getter(name="srcNetworkContext")
+    def src_network_context(self) -> Optional[_builtins.str]:
+        """
+        Network context of the traffic source.
+        Possible values are: `UNSPECIFIED`, `INTERNET`, `INTRA_VPC`, `NON_INTERNET`, `VPC_NETWORKS`.
+        """
+        return pulumi.get(self, "src_network_context")
+
+    @_builtins.property
     @pulumi.getter(name="srcNetworkScope")
     def src_network_scope(self) -> Optional[_builtins.str]:
         """
         (Optional, Beta)
         Network scope of the traffic source.
-        Possible values are: `INTERNET`, `INTRA_VPC`, `NON_INTERNET`, `VPC_NETWORKS`.
+        Possible values are: `UNSPECIFIED`, `INTERNET`, `INTRA_VPC`, `NON_INTERNET`, `VPC_NETWORKS`.
         """
         return pulumi.get(self, "src_network_scope")
 
@@ -6026,7 +6066,6 @@ class FirewallPolicyRuleMatch(dict):
     @pulumi.getter(name="srcNetworks")
     def src_networks(self) -> Optional[Sequence[_builtins.str]]:
         """
-        (Optional, Beta)
         Networks of the traffic source. It can be either a full or partial url.
         """
         return pulumi.get(self, "src_networks")
@@ -13966,6 +14005,8 @@ class InstanceFromMachineImageScheduling(dict):
             suggest = "on_host_maintenance"
         elif key == "onInstanceStopAction":
             suggest = "on_instance_stop_action"
+        elif key == "preemptionNoticeDuration":
+            suggest = "preemption_notice_duration"
         elif key == "provisioningModel":
             suggest = "provisioning_model"
         elif key == "skipGuestOsShutdown":
@@ -13998,6 +14039,7 @@ class InstanceFromMachineImageScheduling(dict):
                  on_host_maintenance: Optional[_builtins.str] = None,
                  on_instance_stop_action: Optional['outputs.InstanceFromMachineImageSchedulingOnInstanceStopAction'] = None,
                  preemptible: Optional[_builtins.bool] = None,
+                 preemption_notice_duration: Optional['outputs.InstanceFromMachineImageSchedulingPreemptionNoticeDuration'] = None,
                  provisioning_model: Optional[_builtins.str] = None,
                  skip_guest_os_shutdown: Optional[_builtins.bool] = None,
                  termination_time: Optional[_builtins.str] = None):
@@ -14017,6 +14059,7 @@ class InstanceFromMachineImageScheduling(dict):
         :param _builtins.str on_host_maintenance: Describes maintenance behavior for the instance. One of MIGRATE or TERMINATE,
         :param 'InstanceFromMachineImageSchedulingOnInstanceStopActionArgs' on_instance_stop_action: Defines the behaviour for instances with the instance_termination_action.
         :param _builtins.bool preemptible: Whether the instance is preemptible.
+        :param 'InstanceFromMachineImageSchedulingPreemptionNoticeDurationArgs' preemption_notice_duration: The duration of the notice that the instance will receive before it is preempted.
         :param _builtins.str provisioning_model: Whether the instance is spot. If this is set as SPOT.
         :param _builtins.bool skip_guest_os_shutdown: Default is false and there will be 120 seconds between GCE ACPI G2 Soft Off and ACPI G3 Mechanical Off for Standard VMs and 30 seconds for Spot VMs.
         :param _builtins.str termination_time: Specifies the timestamp, when the instance will be terminated,
@@ -14049,6 +14092,8 @@ class InstanceFromMachineImageScheduling(dict):
             pulumi.set(__self__, "on_instance_stop_action", on_instance_stop_action)
         if preemptible is not None:
             pulumi.set(__self__, "preemptible", preemptible)
+        if preemption_notice_duration is not None:
+            pulumi.set(__self__, "preemption_notice_duration", preemption_notice_duration)
         if provisioning_model is not None:
             pulumi.set(__self__, "provisioning_model", provisioning_model)
         if skip_guest_os_shutdown is not None:
@@ -14159,6 +14204,14 @@ class InstanceFromMachineImageScheduling(dict):
         Whether the instance is preemptible.
         """
         return pulumi.get(self, "preemptible")
+
+    @_builtins.property
+    @pulumi.getter(name="preemptionNoticeDuration")
+    def preemption_notice_duration(self) -> Optional['outputs.InstanceFromMachineImageSchedulingPreemptionNoticeDuration']:
+        """
+        The duration of the notice that the instance will receive before it is preempted.
+        """
+        return pulumi.get(self, "preemption_notice_duration")
 
     @_builtins.property
     @pulumi.getter(name="provisioningModel")
@@ -14412,6 +14465,36 @@ class InstanceFromMachineImageSchedulingOnInstanceStopAction(dict):
         If true, the contents of any attached Local SSD disks will be discarded.
         """
         return pulumi.get(self, "discard_local_ssd")
+
+
+@pulumi.output_type
+class InstanceFromMachineImageSchedulingPreemptionNoticeDuration(dict):
+    def __init__(__self__, *,
+                 seconds: _builtins.int,
+                 nanos: Optional[_builtins.int] = None):
+        """
+        :param _builtins.int seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive.
+        :param _builtins.int nanos: Span of time that's a fraction of a second at nanosecond resolution. Durations less than one second are represented with a 0 seconds field and a positive nanos field. Must be from 0 to 999,999,999 inclusive.
+        """
+        pulumi.set(__self__, "seconds", seconds)
+        if nanos is not None:
+            pulumi.set(__self__, "nanos", nanos)
+
+    @_builtins.property
+    @pulumi.getter
+    def seconds(self) -> _builtins.int:
+        """
+        Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive.
+        """
+        return pulumi.get(self, "seconds")
+
+    @_builtins.property
+    @pulumi.getter
+    def nanos(self) -> Optional[_builtins.int]:
+        """
+        Span of time that's a fraction of a second at nanosecond resolution. Durations less than one second are represented with a 0 seconds field and a positive nanos field. Must be from 0 to 999,999,999 inclusive.
+        """
+        return pulumi.get(self, "nanos")
 
 
 @pulumi.output_type
@@ -16319,6 +16402,8 @@ class InstanceFromTemplateScheduling(dict):
             suggest = "on_host_maintenance"
         elif key == "onInstanceStopAction":
             suggest = "on_instance_stop_action"
+        elif key == "preemptionNoticeDuration":
+            suggest = "preemption_notice_duration"
         elif key == "provisioningModel":
             suggest = "provisioning_model"
         elif key == "skipGuestOsShutdown":
@@ -16351,6 +16436,7 @@ class InstanceFromTemplateScheduling(dict):
                  on_host_maintenance: Optional[_builtins.str] = None,
                  on_instance_stop_action: Optional['outputs.InstanceFromTemplateSchedulingOnInstanceStopAction'] = None,
                  preemptible: Optional[_builtins.bool] = None,
+                 preemption_notice_duration: Optional['outputs.InstanceFromTemplateSchedulingPreemptionNoticeDuration'] = None,
                  provisioning_model: Optional[_builtins.str] = None,
                  skip_guest_os_shutdown: Optional[_builtins.bool] = None,
                  termination_time: Optional[_builtins.str] = None):
@@ -16370,6 +16456,7 @@ class InstanceFromTemplateScheduling(dict):
         :param _builtins.str on_host_maintenance: Describes maintenance behavior for the instance. One of MIGRATE or TERMINATE,
         :param 'InstanceFromTemplateSchedulingOnInstanceStopActionArgs' on_instance_stop_action: Defines the behaviour for instances with the instance_termination_action.
         :param _builtins.bool preemptible: Whether the instance is preemptible.
+        :param 'InstanceFromTemplateSchedulingPreemptionNoticeDurationArgs' preemption_notice_duration: The duration of the notice that the instance will receive before it is preempted.
         :param _builtins.str provisioning_model: Whether the instance is spot. If this is set as SPOT.
         :param _builtins.bool skip_guest_os_shutdown: Default is false and there will be 120 seconds between GCE ACPI G2 Soft Off and ACPI G3 Mechanical Off for Standard VMs and 30 seconds for Spot VMs.
         :param _builtins.str termination_time: Specifies the timestamp, when the instance will be terminated,
@@ -16402,6 +16489,8 @@ class InstanceFromTemplateScheduling(dict):
             pulumi.set(__self__, "on_instance_stop_action", on_instance_stop_action)
         if preemptible is not None:
             pulumi.set(__self__, "preemptible", preemptible)
+        if preemption_notice_duration is not None:
+            pulumi.set(__self__, "preemption_notice_duration", preemption_notice_duration)
         if provisioning_model is not None:
             pulumi.set(__self__, "provisioning_model", provisioning_model)
         if skip_guest_os_shutdown is not None:
@@ -16512,6 +16601,14 @@ class InstanceFromTemplateScheduling(dict):
         Whether the instance is preemptible.
         """
         return pulumi.get(self, "preemptible")
+
+    @_builtins.property
+    @pulumi.getter(name="preemptionNoticeDuration")
+    def preemption_notice_duration(self) -> Optional['outputs.InstanceFromTemplateSchedulingPreemptionNoticeDuration']:
+        """
+        The duration of the notice that the instance will receive before it is preempted.
+        """
+        return pulumi.get(self, "preemption_notice_duration")
 
     @_builtins.property
     @pulumi.getter(name="provisioningModel")
@@ -16765,6 +16862,36 @@ class InstanceFromTemplateSchedulingOnInstanceStopAction(dict):
         If true, the contents of any attached Local SSD disks will be discarded.
         """
         return pulumi.get(self, "discard_local_ssd")
+
+
+@pulumi.output_type
+class InstanceFromTemplateSchedulingPreemptionNoticeDuration(dict):
+    def __init__(__self__, *,
+                 seconds: _builtins.int,
+                 nanos: Optional[_builtins.int] = None):
+        """
+        :param _builtins.int seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive.
+        :param _builtins.int nanos: Span of time that's a fraction of a second at nanosecond resolution. Durations less than one second are represented with a 0 seconds field and a positive nanos field. Must be from 0 to 999,999,999 inclusive.
+        """
+        pulumi.set(__self__, "seconds", seconds)
+        if nanos is not None:
+            pulumi.set(__self__, "nanos", nanos)
+
+    @_builtins.property
+    @pulumi.getter
+    def seconds(self) -> _builtins.int:
+        """
+        Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive.
+        """
+        return pulumi.get(self, "seconds")
+
+    @_builtins.property
+    @pulumi.getter
+    def nanos(self) -> Optional[_builtins.int]:
+        """
+        Span of time that's a fraction of a second at nanosecond resolution. Durations less than one second are represented with a 0 seconds field and a positive nanos field. Must be from 0 to 999,999,999 inclusive.
+        """
+        return pulumi.get(self, "nanos")
 
 
 @pulumi.output_type
@@ -18917,6 +19044,8 @@ class InstanceScheduling(dict):
             suggest = "on_host_maintenance"
         elif key == "onInstanceStopAction":
             suggest = "on_instance_stop_action"
+        elif key == "preemptionNoticeDuration":
+            suggest = "preemption_notice_duration"
         elif key == "provisioningModel":
             suggest = "provisioning_model"
         elif key == "skipGuestOsShutdown":
@@ -18949,6 +19078,7 @@ class InstanceScheduling(dict):
                  on_host_maintenance: Optional[_builtins.str] = None,
                  on_instance_stop_action: Optional['outputs.InstanceSchedulingOnInstanceStopAction'] = None,
                  preemptible: Optional[_builtins.bool] = None,
+                 preemption_notice_duration: Optional['outputs.InstanceSchedulingPreemptionNoticeDuration'] = None,
                  provisioning_model: Optional[_builtins.str] = None,
                  skip_guest_os_shutdown: Optional[_builtins.bool] = None,
                  termination_time: Optional[_builtins.str] = None):
@@ -18976,6 +19106,7 @@ class InstanceScheduling(dict):
         :param _builtins.bool preemptible: Specifies if the instance is preemptible.
                If this field is set to true, then `automatic_restart` must be
                set to false.  Defaults to false.
+        :param 'InstanceSchedulingPreemptionNoticeDurationArgs' preemption_notice_duration: Beta Specifies the Metadata Service preemption notice duration before the GCE ACPI G2 Soft Off signal is triggered for Spot VMs only. If not specified, there will be no wait before the G2 Soft Off signal is triggered. Structure is documented below.
         :param _builtins.str provisioning_model: Describe the type of preemptible VM. This field accepts the value `STANDARD` or `SPOT`. If the value is `STANDARD`, there will be no discount. If this   is set to `SPOT`,
                `preemptible` should be `true` and `automatic_restart` should be
                `false`. For more info about
@@ -19009,6 +19140,8 @@ class InstanceScheduling(dict):
             pulumi.set(__self__, "on_instance_stop_action", on_instance_stop_action)
         if preemptible is not None:
             pulumi.set(__self__, "preemptible", preemptible)
+        if preemption_notice_duration is not None:
+            pulumi.set(__self__, "preemption_notice_duration", preemption_notice_duration)
         if provisioning_model is not None:
             pulumi.set(__self__, "provisioning_model", provisioning_model)
         if skip_guest_os_shutdown is not None:
@@ -19129,6 +19262,14 @@ class InstanceScheduling(dict):
         set to false.  Defaults to false.
         """
         return pulumi.get(self, "preemptible")
+
+    @_builtins.property
+    @pulumi.getter(name="preemptionNoticeDuration")
+    def preemption_notice_duration(self) -> Optional['outputs.InstanceSchedulingPreemptionNoticeDuration']:
+        """
+        Beta Specifies the Metadata Service preemption notice duration before the GCE ACPI G2 Soft Off signal is triggered for Spot VMs only. If not specified, there will be no wait before the G2 Soft Off signal is triggered. Structure is documented below.
+        """
+        return pulumi.get(self, "preemption_notice_duration")
 
     @_builtins.property
     @pulumi.getter(name="provisioningModel")
@@ -19403,6 +19544,46 @@ class InstanceSchedulingOnInstanceStopAction(dict):
         Whether to discard local SSDs attached to the VM while terminating using `max_run_duration`. Only supports `true` at this point.
         """
         return pulumi.get(self, "discard_local_ssd")
+
+
+@pulumi.output_type
+class InstanceSchedulingPreemptionNoticeDuration(dict):
+    def __init__(__self__, *,
+                 seconds: _builtins.int,
+                 nanos: Optional[_builtins.int] = None):
+        """
+        :param _builtins.int seconds: Span of time at a resolution of a second. Must be from 0 to
+               315,576,000,000 inclusive. Note: these bounds are computed from: 60
+               sec/min * 60 min/hr * 24 hr/day * 365.25 days/year * 10000 years.
+        :param _builtins.int nanos: Span of time that's a fraction of a second at nanosecond
+               resolution. Durations less than one second are represented with a 0
+               `seconds` field and a positive `nanos` field. Must be from 0 to
+               999,999,999 inclusive.
+        """
+        pulumi.set(__self__, "seconds", seconds)
+        if nanos is not None:
+            pulumi.set(__self__, "nanos", nanos)
+
+    @_builtins.property
+    @pulumi.getter
+    def seconds(self) -> _builtins.int:
+        """
+        Span of time at a resolution of a second. Must be from 0 to
+        315,576,000,000 inclusive. Note: these bounds are computed from: 60
+        sec/min * 60 min/hr * 24 hr/day * 365.25 days/year * 10000 years.
+        """
+        return pulumi.get(self, "seconds")
+
+    @_builtins.property
+    @pulumi.getter
+    def nanos(self) -> Optional[_builtins.int]:
+        """
+        Span of time that's a fraction of a second at nanosecond
+        resolution. Durations less than one second are represented with a 0
+        `seconds` field and a positive `nanos` field. Must be from 0 to
+        999,999,999 inclusive.
+        """
+        return pulumi.get(self, "nanos")
 
 
 @pulumi.output_type
@@ -19782,6 +19963,8 @@ class InstanceTemplateDisk(dict):
             suggest = "source_snapshot"
         elif key == "sourceSnapshotEncryptionKey":
             suggest = "source_snapshot_encryption_key"
+        elif key == "storagePool":
+            suggest = "storage_pool"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in InstanceTemplateDisk. Access the value via the '{suggest}' property getter instead.")
@@ -19816,6 +19999,7 @@ class InstanceTemplateDisk(dict):
                  source_image_encryption_key: Optional['outputs.InstanceTemplateDiskSourceImageEncryptionKey'] = None,
                  source_snapshot: Optional[_builtins.str] = None,
                  source_snapshot_encryption_key: Optional['outputs.InstanceTemplateDiskSourceSnapshotEncryptionKey'] = None,
+                 storage_pool: Optional[_builtins.str] = None,
                  type: Optional[_builtins.str] = None):
         """
         :param _builtins.str architecture: The architecture of the attached disk. Valid values are `ARM64` or `x86_64`.
@@ -19878,6 +20062,10 @@ class InstanceTemplateDisk(dict):
         :param 'InstanceTemplateDiskSourceSnapshotEncryptionKeyArgs' source_snapshot_encryption_key: The customer-supplied encryption
                key of the source snapshot. Structure
                documented below.
+        :param _builtins.str storage_pool: The URL of the storage pool in which the new disk is created.
+               For example:
+               * `https://www.googleapis.com/compute/v1/projects/{project}/zones/{zone}/storagePools/{storagePool}`
+               * `/projects/{project}/zones/{zone}/storagePools/{storagePool}`
         :param _builtins.str type: The type of GCE disk, can be either `"SCRATCH"` or
                `"PERSISTENT"`.
         """
@@ -19923,6 +20111,8 @@ class InstanceTemplateDisk(dict):
             pulumi.set(__self__, "source_snapshot", source_snapshot)
         if source_snapshot_encryption_key is not None:
             pulumi.set(__self__, "source_snapshot_encryption_key", source_snapshot_encryption_key)
+        if storage_pool is not None:
+            pulumi.set(__self__, "storage_pool", storage_pool)
         if type is not None:
             pulumi.set(__self__, "type", type)
 
@@ -20132,6 +20322,17 @@ class InstanceTemplateDisk(dict):
         documented below.
         """
         return pulumi.get(self, "source_snapshot_encryption_key")
+
+    @_builtins.property
+    @pulumi.getter(name="storagePool")
+    def storage_pool(self) -> Optional[_builtins.str]:
+        """
+        The URL of the storage pool in which the new disk is created.
+        For example:
+        * `https://www.googleapis.com/compute/v1/projects/{project}/zones/{zone}/storagePools/{storagePool}`
+        * `/projects/{project}/zones/{zone}/storagePools/{storagePool}`
+        """
+        return pulumi.get(self, "storage_pool")
 
     @_builtins.property
     @pulumi.getter
@@ -21180,6 +21381,8 @@ class InstanceTemplateScheduling(dict):
             suggest = "on_host_maintenance"
         elif key == "onInstanceStopAction":
             suggest = "on_instance_stop_action"
+        elif key == "preemptionNoticeDuration":
+            suggest = "preemption_notice_duration"
         elif key == "provisioningModel":
             suggest = "provisioning_model"
         elif key == "skipGuestOsShutdown":
@@ -21212,6 +21415,7 @@ class InstanceTemplateScheduling(dict):
                  on_host_maintenance: Optional[_builtins.str] = None,
                  on_instance_stop_action: Optional['outputs.InstanceTemplateSchedulingOnInstanceStopAction'] = None,
                  preemptible: Optional[_builtins.bool] = None,
+                 preemption_notice_duration: Optional['outputs.InstanceTemplateSchedulingPreemptionNoticeDuration'] = None,
                  provisioning_model: Optional[_builtins.str] = None,
                  skip_guest_os_shutdown: Optional[_builtins.bool] = None,
                  termination_time: Optional[_builtins.str] = None):
@@ -21238,6 +21442,7 @@ class InstanceTemplateScheduling(dict):
         :param _builtins.bool preemptible: Allows instance to be preempted. This defaults to
                false. Read more on this
                [here](https://cloud.google.com/compute/docs/instances/preemptible).
+        :param 'InstanceTemplateSchedulingPreemptionNoticeDurationArgs' preemption_notice_duration: Beta Specifies the Metadata Service preemption notice duration before the GCE ACPI G2 Soft Off signal is triggered for Spot VMs only. If not specified, there will be no wait before the G2 Soft Off signal is triggered. Structure is documented below.
         :param _builtins.str provisioning_model: Describe the type of preemptible VM. This field accepts the value `STANDARD` or `SPOT`. If the value is `STANDARD`, there will be no discount. If this   is set to `SPOT`,
                `preemptible` should be `true` and `automatic_restart` should be
                `false`. For more info about
@@ -21271,6 +21476,8 @@ class InstanceTemplateScheduling(dict):
             pulumi.set(__self__, "on_instance_stop_action", on_instance_stop_action)
         if preemptible is not None:
             pulumi.set(__self__, "preemptible", preemptible)
+        if preemption_notice_duration is not None:
+            pulumi.set(__self__, "preemption_notice_duration", preemption_notice_duration)
         if provisioning_model is not None:
             pulumi.set(__self__, "provisioning_model", provisioning_model)
         if skip_guest_os_shutdown is not None:
@@ -21390,6 +21597,14 @@ class InstanceTemplateScheduling(dict):
         [here](https://cloud.google.com/compute/docs/instances/preemptible).
         """
         return pulumi.get(self, "preemptible")
+
+    @_builtins.property
+    @pulumi.getter(name="preemptionNoticeDuration")
+    def preemption_notice_duration(self) -> Optional['outputs.InstanceTemplateSchedulingPreemptionNoticeDuration']:
+        """
+        Beta Specifies the Metadata Service preemption notice duration before the GCE ACPI G2 Soft Off signal is triggered for Spot VMs only. If not specified, there will be no wait before the G2 Soft Off signal is triggered. Structure is documented below.
+        """
+        return pulumi.get(self, "preemption_notice_duration")
 
     @_builtins.property
     @pulumi.getter(name="provisioningModel")
@@ -21664,6 +21879,46 @@ class InstanceTemplateSchedulingOnInstanceStopAction(dict):
         Whether to discard local SSDs attached to the VM while terminating using `max_run_duration`. Only supports `true` at this point.
         """
         return pulumi.get(self, "discard_local_ssd")
+
+
+@pulumi.output_type
+class InstanceTemplateSchedulingPreemptionNoticeDuration(dict):
+    def __init__(__self__, *,
+                 seconds: _builtins.int,
+                 nanos: Optional[_builtins.int] = None):
+        """
+        :param _builtins.int seconds: Span of time at a resolution of a second. Must be from 0 to
+               315,576,000,000 inclusive. Note: these bounds are computed from: 60
+               sec/min * 60 min/hr * 24 hr/day * 365.25 days/year * 10000 years.
+        :param _builtins.int nanos: Span of time that's a fraction of a second at nanosecond
+               resolution. Durations less than one second are represented with a 0
+               `seconds` field and a positive `nanos` field. Must be from 0 to
+               999,999,999 inclusive.
+        """
+        pulumi.set(__self__, "seconds", seconds)
+        if nanos is not None:
+            pulumi.set(__self__, "nanos", nanos)
+
+    @_builtins.property
+    @pulumi.getter
+    def seconds(self) -> _builtins.int:
+        """
+        Span of time at a resolution of a second. Must be from 0 to
+        315,576,000,000 inclusive. Note: these bounds are computed from: 60
+        sec/min * 60 min/hr * 24 hr/day * 365.25 days/year * 10000 years.
+        """
+        return pulumi.get(self, "seconds")
+
+    @_builtins.property
+    @pulumi.getter
+    def nanos(self) -> Optional[_builtins.int]:
+        """
+        Span of time that's a fraction of a second at nanosecond
+        resolution. Durations less than one second are represented with a 0
+        `seconds` field and a positive `nanos` field. Must be from 0 to
+        999,999,999 inclusive.
+        """
+        return pulumi.get(self, "nanos")
 
 
 @pulumi.output_type
@@ -24450,6 +24705,8 @@ class NetworkFirewallPolicyRuleMatch(dict):
             suggest = "dest_fqdns"
         elif key == "destIpRanges":
             suggest = "dest_ip_ranges"
+        elif key == "destNetworkContext":
+            suggest = "dest_network_context"
         elif key == "destNetworkScope":
             suggest = "dest_network_scope"
         elif key == "destRegionCodes":
@@ -24462,6 +24719,8 @@ class NetworkFirewallPolicyRuleMatch(dict):
             suggest = "src_fqdns"
         elif key == "srcIpRanges":
             suggest = "src_ip_ranges"
+        elif key == "srcNetworkContext":
+            suggest = "src_network_context"
         elif key == "srcNetworkScope":
             suggest = "src_network_scope"
         elif key == "srcNetworks":
@@ -24489,12 +24748,14 @@ class NetworkFirewallPolicyRuleMatch(dict):
                  dest_address_groups: Optional[Sequence[_builtins.str]] = None,
                  dest_fqdns: Optional[Sequence[_builtins.str]] = None,
                  dest_ip_ranges: Optional[Sequence[_builtins.str]] = None,
+                 dest_network_context: Optional[_builtins.str] = None,
                  dest_network_scope: Optional[_builtins.str] = None,
                  dest_region_codes: Optional[Sequence[_builtins.str]] = None,
                  dest_threat_intelligences: Optional[Sequence[_builtins.str]] = None,
                  src_address_groups: Optional[Sequence[_builtins.str]] = None,
                  src_fqdns: Optional[Sequence[_builtins.str]] = None,
                  src_ip_ranges: Optional[Sequence[_builtins.str]] = None,
+                 src_network_context: Optional[_builtins.str] = None,
                  src_network_scope: Optional[_builtins.str] = None,
                  src_networks: Optional[Sequence[_builtins.str]] = None,
                  src_region_codes: Optional[Sequence[_builtins.str]] = None,
@@ -24506,19 +24767,22 @@ class NetworkFirewallPolicyRuleMatch(dict):
         :param Sequence[_builtins.str] dest_address_groups: Address groups which should be matched against the traffic destination. Maximum number of destination address groups is 10.
         :param Sequence[_builtins.str] dest_fqdns: Fully Qualified Domain Name (FQDN) which should be matched against traffic destination. Maximum number of destination fqdn allowed is 100.
         :param Sequence[_builtins.str] dest_ip_ranges: CIDR IP address range. Maximum number of destination CIDR IP ranges allowed is 5000.
+        :param _builtins.str dest_network_context: Network context of the traffic destination.
+               Possible values are: `UNSPECIFIED`, `INTERNET`, `INTRA_VPC`, `NON_INTERNET`, `VPC_NETWORKS`.
         :param _builtins.str dest_network_scope: (Optional, Beta)
                Network scope of the traffic destination.
-               Possible values are: `INTERNET`, `INTRA_VPC`, `NON_INTERNET`, `VPC_NETWORKS`.
+               Possible values are: `UNSPECIFIED`, `INTERNET`, `INTRA_VPC`, `NON_INTERNET`, `VPC_NETWORKS`.
         :param Sequence[_builtins.str] dest_region_codes: Region codes whose IP addresses will be used to match for destination of traffic. Should be specified as 2 letter country code defined as per ISO 3166 alpha-2 country codes. ex."US" Maximum number of dest region codes allowed is 5000.
         :param Sequence[_builtins.str] dest_threat_intelligences: Names of Network Threat Intelligence lists. The IPs in these lists will be matched against traffic destination.
         :param Sequence[_builtins.str] src_address_groups: Address groups which should be matched against the traffic source. Maximum number of source address groups is 10.
         :param Sequence[_builtins.str] src_fqdns: Fully Qualified Domain Name (FQDN) which should be matched against traffic source. Maximum number of source fqdn allowed is 100.
         :param Sequence[_builtins.str] src_ip_ranges: CIDR IP address range. Maximum number of source CIDR IP ranges allowed is 5000.
+        :param _builtins.str src_network_context: Network context of the traffic source.
+               Possible values are: `UNSPECIFIED`, `INTERNET`, `INTRA_VPC`, `NON_INTERNET`, `VPC_NETWORKS`.
         :param _builtins.str src_network_scope: (Optional, Beta)
                Network scope of the traffic source.
-               Possible values are: `INTERNET`, `INTRA_VPC`, `NON_INTERNET`, `VPC_NETWORKS`.
-        :param Sequence[_builtins.str] src_networks: (Optional, Beta)
-               Networks of the traffic source. It can be either a full or partial url.
+               Possible values are: `UNSPECIFIED`, `INTERNET`, `INTRA_VPC`, `NON_INTERNET`, `VPC_NETWORKS`.
+        :param Sequence[_builtins.str] src_networks: Networks of the traffic source. It can be either a full or partial url.
         :param Sequence[_builtins.str] src_region_codes: Region codes whose IP addresses will be used to match for source of traffic. Should be specified as 2 letter country code defined as per ISO 3166 alpha-2 country codes. ex."US" Maximum number of source region codes allowed is 5000.
         :param Sequence['NetworkFirewallPolicyRuleMatchSrcSecureTagArgs'] src_secure_tags: List of secure tag values, which should be matched at the source of the traffic. For INGRESS rule, if all the srcSecureTag are INEFFECTIVE, and there is no srcIpRange, this rule will be ignored. Maximum number of source tag values allowed is 256.
                Structure is documented below.
@@ -24534,6 +24798,8 @@ class NetworkFirewallPolicyRuleMatch(dict):
             pulumi.set(__self__, "dest_fqdns", dest_fqdns)
         if dest_ip_ranges is not None:
             pulumi.set(__self__, "dest_ip_ranges", dest_ip_ranges)
+        if dest_network_context is not None:
+            pulumi.set(__self__, "dest_network_context", dest_network_context)
         if dest_network_scope is not None:
             pulumi.set(__self__, "dest_network_scope", dest_network_scope)
         if dest_region_codes is not None:
@@ -24546,6 +24812,8 @@ class NetworkFirewallPolicyRuleMatch(dict):
             pulumi.set(__self__, "src_fqdns", src_fqdns)
         if src_ip_ranges is not None:
             pulumi.set(__self__, "src_ip_ranges", src_ip_ranges)
+        if src_network_context is not None:
+            pulumi.set(__self__, "src_network_context", src_network_context)
         if src_network_scope is not None:
             pulumi.set(__self__, "src_network_scope", src_network_scope)
         if src_networks is not None:
@@ -24591,12 +24859,21 @@ class NetworkFirewallPolicyRuleMatch(dict):
         return pulumi.get(self, "dest_ip_ranges")
 
     @_builtins.property
+    @pulumi.getter(name="destNetworkContext")
+    def dest_network_context(self) -> Optional[_builtins.str]:
+        """
+        Network context of the traffic destination.
+        Possible values are: `UNSPECIFIED`, `INTERNET`, `INTRA_VPC`, `NON_INTERNET`, `VPC_NETWORKS`.
+        """
+        return pulumi.get(self, "dest_network_context")
+
+    @_builtins.property
     @pulumi.getter(name="destNetworkScope")
     def dest_network_scope(self) -> Optional[_builtins.str]:
         """
         (Optional, Beta)
         Network scope of the traffic destination.
-        Possible values are: `INTERNET`, `INTRA_VPC`, `NON_INTERNET`, `VPC_NETWORKS`.
+        Possible values are: `UNSPECIFIED`, `INTERNET`, `INTRA_VPC`, `NON_INTERNET`, `VPC_NETWORKS`.
         """
         return pulumi.get(self, "dest_network_scope")
 
@@ -24641,12 +24918,21 @@ class NetworkFirewallPolicyRuleMatch(dict):
         return pulumi.get(self, "src_ip_ranges")
 
     @_builtins.property
+    @pulumi.getter(name="srcNetworkContext")
+    def src_network_context(self) -> Optional[_builtins.str]:
+        """
+        Network context of the traffic source.
+        Possible values are: `UNSPECIFIED`, `INTERNET`, `INTRA_VPC`, `NON_INTERNET`, `VPC_NETWORKS`.
+        """
+        return pulumi.get(self, "src_network_context")
+
+    @_builtins.property
     @pulumi.getter(name="srcNetworkScope")
     def src_network_scope(self) -> Optional[_builtins.str]:
         """
         (Optional, Beta)
         Network scope of the traffic source.
-        Possible values are: `INTERNET`, `INTRA_VPC`, `NON_INTERNET`, `VPC_NETWORKS`.
+        Possible values are: `UNSPECIFIED`, `INTERNET`, `INTRA_VPC`, `NON_INTERNET`, `VPC_NETWORKS`.
         """
         return pulumi.get(self, "src_network_scope")
 
@@ -24654,7 +24940,6 @@ class NetworkFirewallPolicyRuleMatch(dict):
     @pulumi.getter(name="srcNetworks")
     def src_networks(self) -> Optional[Sequence[_builtins.str]]:
         """
-        (Optional, Beta)
         Networks of the traffic source. It can be either a full or partial url.
         """
         return pulumi.get(self, "src_networks")
@@ -26604,9 +26889,8 @@ class OrganizationSecurityPolicyRuleMatch(dict):
                Structure is documented below.
         :param _builtins.str description: A description of the rule.
         :param _builtins.str versioned_expr: Preconfigured versioned expression. For organization security policy rules,
-               the only supported type is "FIREWALL".
-               Default value is `FIREWALL`.
-               Possible values are: `FIREWALL`.
+               the only supported type is "SRC_IPS_V1".
+               **NOTE** : 'FIREWALL' type is deprecated. Please use 'google_compute_firewall_policy_rule' resource instead.
         """
         pulumi.set(__self__, "config", config)
         if description is not None:
@@ -26636,9 +26920,8 @@ class OrganizationSecurityPolicyRuleMatch(dict):
     def versioned_expr(self) -> Optional[_builtins.str]:
         """
         Preconfigured versioned expression. For organization security policy rules,
-        the only supported type is "FIREWALL".
-        Default value is `FIREWALL`.
-        Possible values are: `FIREWALL`.
+        the only supported type is "SRC_IPS_V1".
+        **NOTE** : 'FIREWALL' type is deprecated. Please use 'google_compute_firewall_policy_rule' resource instead.
         """
         return pulumi.get(self, "versioned_expr")
 
@@ -26648,10 +26931,10 @@ class OrganizationSecurityPolicyRuleMatchConfig(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "layer4Configs":
-            suggest = "layer4_configs"
-        elif key == "destIpRanges":
+        if key == "destIpRanges":
             suggest = "dest_ip_ranges"
+        elif key == "layer4Configs":
+            suggest = "layer4_configs"
         elif key == "srcIpRanges":
             suggest = "src_ip_ranges"
 
@@ -26667,46 +26950,53 @@ class OrganizationSecurityPolicyRuleMatchConfig(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 layer4_configs: Sequence['outputs.OrganizationSecurityPolicyRuleMatchConfigLayer4Config'],
                  dest_ip_ranges: Optional[Sequence[_builtins.str]] = None,
+                 layer4_configs: Optional[Sequence['outputs.OrganizationSecurityPolicyRuleMatchConfigLayer4Config']] = None,
                  src_ip_ranges: Optional[Sequence[_builtins.str]] = None):
         """
-        :param Sequence['OrganizationSecurityPolicyRuleMatchConfigLayer4ConfigArgs'] layer4_configs: Pairs of IP protocols and ports that the rule should match.
+        :param Sequence[_builtins.str] dest_ip_ranges: (Optional, Beta)
+               Destination IP address range in CIDR format. Required for EGRESS rules.
+               This field may only be specified when versionedExpr is set to FIREWALL.
+        :param Sequence['OrganizationSecurityPolicyRuleMatchConfigLayer4ConfigArgs'] layer4_configs: (Optional, Beta)
+               Pairs of IP protocols and ports that the rule should match.
+               This field may only be specified when versionedExpr is set to FIREWALL.
                Structure is documented below.
                
                
                <a name="nested_match_config_layer4_config"></a>The `layer4_config` block supports:
-        :param Sequence[_builtins.str] dest_ip_ranges: Destination IP address range in CIDR format. Required for
-               EGRESS rules.
         :param Sequence[_builtins.str] src_ip_ranges: Source IP address range in CIDR format. Required for
                INGRESS rules.
         """
-        pulumi.set(__self__, "layer4_configs", layer4_configs)
         if dest_ip_ranges is not None:
             pulumi.set(__self__, "dest_ip_ranges", dest_ip_ranges)
+        if layer4_configs is not None:
+            pulumi.set(__self__, "layer4_configs", layer4_configs)
         if src_ip_ranges is not None:
             pulumi.set(__self__, "src_ip_ranges", src_ip_ranges)
 
     @_builtins.property
-    @pulumi.getter(name="layer4Configs")
-    def layer4_configs(self) -> Sequence['outputs.OrganizationSecurityPolicyRuleMatchConfigLayer4Config']:
+    @pulumi.getter(name="destIpRanges")
+    def dest_ip_ranges(self) -> Optional[Sequence[_builtins.str]]:
         """
+        (Optional, Beta)
+        Destination IP address range in CIDR format. Required for EGRESS rules.
+        This field may only be specified when versionedExpr is set to FIREWALL.
+        """
+        return pulumi.get(self, "dest_ip_ranges")
+
+    @_builtins.property
+    @pulumi.getter(name="layer4Configs")
+    def layer4_configs(self) -> Optional[Sequence['outputs.OrganizationSecurityPolicyRuleMatchConfigLayer4Config']]:
+        """
+        (Optional, Beta)
         Pairs of IP protocols and ports that the rule should match.
+        This field may only be specified when versionedExpr is set to FIREWALL.
         Structure is documented below.
 
 
         <a name="nested_match_config_layer4_config"></a>The `layer4_config` block supports:
         """
         return pulumi.get(self, "layer4_configs")
-
-    @_builtins.property
-    @pulumi.getter(name="destIpRanges")
-    def dest_ip_ranges(self) -> Optional[Sequence[_builtins.str]]:
-        """
-        Destination IP address range in CIDR format. Required for
-        EGRESS rules.
-        """
-        return pulumi.get(self, "dest_ip_ranges")
 
     @_builtins.property
     @pulumi.getter(name="srcIpRanges")
@@ -34359,6 +34649,8 @@ class RegionInstanceTemplateDisk(dict):
             suggest = "source_snapshot"
         elif key == "sourceSnapshotEncryptionKey":
             suggest = "source_snapshot_encryption_key"
+        elif key == "storagePool":
+            suggest = "storage_pool"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in RegionInstanceTemplateDisk. Access the value via the '{suggest}' property getter instead.")
@@ -34393,6 +34685,7 @@ class RegionInstanceTemplateDisk(dict):
                  source_image_encryption_key: Optional['outputs.RegionInstanceTemplateDiskSourceImageEncryptionKey'] = None,
                  source_snapshot: Optional[_builtins.str] = None,
                  source_snapshot_encryption_key: Optional['outputs.RegionInstanceTemplateDiskSourceSnapshotEncryptionKey'] = None,
+                 storage_pool: Optional[_builtins.str] = None,
                  type: Optional[_builtins.str] = None):
         """
         :param _builtins.str architecture: The architecture of the attached disk. Valid values are `ARM64` or `x86_64`.
@@ -34455,6 +34748,10 @@ class RegionInstanceTemplateDisk(dict):
         :param 'RegionInstanceTemplateDiskSourceSnapshotEncryptionKeyArgs' source_snapshot_encryption_key: The customer-supplied encryption
                key of the source snapshot. Structure
                documented below.
+        :param _builtins.str storage_pool: The URL of the storage pool in which the new disk is created.
+               For example:
+               * `https://www.googleapis.com/compute/v1/projects/{project}/zones/{zone}/storagePools/{storagePool}`
+               * `/projects/{project}/zones/{zone}/storagePools/{storagePool}`
         :param _builtins.str type: The type of GCE disk, can be either `"SCRATCH"` or
                `"PERSISTENT"`.
         """
@@ -34500,6 +34797,8 @@ class RegionInstanceTemplateDisk(dict):
             pulumi.set(__self__, "source_snapshot", source_snapshot)
         if source_snapshot_encryption_key is not None:
             pulumi.set(__self__, "source_snapshot_encryption_key", source_snapshot_encryption_key)
+        if storage_pool is not None:
+            pulumi.set(__self__, "storage_pool", storage_pool)
         if type is not None:
             pulumi.set(__self__, "type", type)
 
@@ -34709,6 +35008,17 @@ class RegionInstanceTemplateDisk(dict):
         documented below.
         """
         return pulumi.get(self, "source_snapshot_encryption_key")
+
+    @_builtins.property
+    @pulumi.getter(name="storagePool")
+    def storage_pool(self) -> Optional[_builtins.str]:
+        """
+        The URL of the storage pool in which the new disk is created.
+        For example:
+        * `https://www.googleapis.com/compute/v1/projects/{project}/zones/{zone}/storagePools/{storagePool}`
+        * `/projects/{project}/zones/{zone}/storagePools/{storagePool}`
+        """
+        return pulumi.get(self, "storage_pool")
 
     @_builtins.property
     @pulumi.getter
@@ -35659,6 +35969,8 @@ class RegionInstanceTemplateScheduling(dict):
             suggest = "on_host_maintenance"
         elif key == "onInstanceStopAction":
             suggest = "on_instance_stop_action"
+        elif key == "preemptionNoticeDuration":
+            suggest = "preemption_notice_duration"
         elif key == "provisioningModel":
             suggest = "provisioning_model"
         elif key == "skipGuestOsShutdown":
@@ -35691,6 +36003,7 @@ class RegionInstanceTemplateScheduling(dict):
                  on_host_maintenance: Optional[_builtins.str] = None,
                  on_instance_stop_action: Optional['outputs.RegionInstanceTemplateSchedulingOnInstanceStopAction'] = None,
                  preemptible: Optional[_builtins.bool] = None,
+                 preemption_notice_duration: Optional['outputs.RegionInstanceTemplateSchedulingPreemptionNoticeDuration'] = None,
                  provisioning_model: Optional[_builtins.str] = None,
                  skip_guest_os_shutdown: Optional[_builtins.bool] = None,
                  termination_time: Optional[_builtins.str] = None):
@@ -35720,6 +36033,7 @@ class RegionInstanceTemplateScheduling(dict):
         :param _builtins.bool preemptible: Allows instance to be preempted. This defaults to
                false. Read more on this
                [here](https://cloud.google.com/compute/docs/instances/preemptible).
+        :param 'RegionInstanceTemplateSchedulingPreemptionNoticeDurationArgs' preemption_notice_duration: The duration of the notice that the instance will receive before it is preempted.
         :param _builtins.str provisioning_model: Describe the type of preemptible VM. This field accepts the value `STANDARD` or `SPOT`. If the value is `STANDARD`, there will be no discount. If this   is set to `SPOT`,
                `preemptible` should be `true` and `automatic_restart` should be
                `false`. For more info about
@@ -35753,6 +36067,8 @@ class RegionInstanceTemplateScheduling(dict):
             pulumi.set(__self__, "on_instance_stop_action", on_instance_stop_action)
         if preemptible is not None:
             pulumi.set(__self__, "preemptible", preemptible)
+        if preemption_notice_duration is not None:
+            pulumi.set(__self__, "preemption_notice_duration", preemption_notice_duration)
         if provisioning_model is not None:
             pulumi.set(__self__, "provisioning_model", provisioning_model)
         if skip_guest_os_shutdown is not None:
@@ -35875,6 +36191,14 @@ class RegionInstanceTemplateScheduling(dict):
         [here](https://cloud.google.com/compute/docs/instances/preemptible).
         """
         return pulumi.get(self, "preemptible")
+
+    @_builtins.property
+    @pulumi.getter(name="preemptionNoticeDuration")
+    def preemption_notice_duration(self) -> Optional['outputs.RegionInstanceTemplateSchedulingPreemptionNoticeDuration']:
+        """
+        The duration of the notice that the instance will receive before it is preempted.
+        """
+        return pulumi.get(self, "preemption_notice_duration")
 
     @_builtins.property
     @pulumi.getter(name="provisioningModel")
@@ -36147,6 +36471,46 @@ class RegionInstanceTemplateSchedulingOnInstanceStopAction(dict):
         If true, the contents of any attached Local SSD disks will be discarded.
         """
         return pulumi.get(self, "discard_local_ssd")
+
+
+@pulumi.output_type
+class RegionInstanceTemplateSchedulingPreemptionNoticeDuration(dict):
+    def __init__(__self__, *,
+                 seconds: _builtins.int,
+                 nanos: Optional[_builtins.int] = None):
+        """
+        :param _builtins.int seconds: Span of time at a resolution of a second. Must be from 0 to
+               315,576,000,000 inclusive. Note: these bounds are computed from: 60
+               sec/min * 60 min/hr * 24 hr/day * 365.25 days/year * 10000 years.
+        :param _builtins.int nanos: Span of time that's a fraction of a second at nanosecond
+               resolution. Durations less than one second are represented with a 0
+               `seconds` field and a positive `nanos` field. Must be from 0 to
+               999,999,999 inclusive.
+        """
+        pulumi.set(__self__, "seconds", seconds)
+        if nanos is not None:
+            pulumi.set(__self__, "nanos", nanos)
+
+    @_builtins.property
+    @pulumi.getter
+    def seconds(self) -> _builtins.int:
+        """
+        Span of time at a resolution of a second. Must be from 0 to
+        315,576,000,000 inclusive. Note: these bounds are computed from: 60
+        sec/min * 60 min/hr * 24 hr/day * 365.25 days/year * 10000 years.
+        """
+        return pulumi.get(self, "seconds")
+
+    @_builtins.property
+    @pulumi.getter
+    def nanos(self) -> Optional[_builtins.int]:
+        """
+        Span of time that's a fraction of a second at nanosecond
+        resolution. Durations less than one second are represented with a 0
+        `seconds` field and a positive `nanos` field. Must be from 0 to
+        999,999,999 inclusive.
+        """
+        return pulumi.get(self, "nanos")
 
 
 @pulumi.output_type
@@ -36627,6 +36991,8 @@ class RegionNetworkFirewallPolicyRuleMatch(dict):
             suggest = "dest_fqdns"
         elif key == "destIpRanges":
             suggest = "dest_ip_ranges"
+        elif key == "destNetworkContext":
+            suggest = "dest_network_context"
         elif key == "destNetworkScope":
             suggest = "dest_network_scope"
         elif key == "destRegionCodes":
@@ -36639,6 +37005,8 @@ class RegionNetworkFirewallPolicyRuleMatch(dict):
             suggest = "src_fqdns"
         elif key == "srcIpRanges":
             suggest = "src_ip_ranges"
+        elif key == "srcNetworkContext":
+            suggest = "src_network_context"
         elif key == "srcNetworkScope":
             suggest = "src_network_scope"
         elif key == "srcNetworks":
@@ -36666,12 +37034,14 @@ class RegionNetworkFirewallPolicyRuleMatch(dict):
                  dest_address_groups: Optional[Sequence[_builtins.str]] = None,
                  dest_fqdns: Optional[Sequence[_builtins.str]] = None,
                  dest_ip_ranges: Optional[Sequence[_builtins.str]] = None,
+                 dest_network_context: Optional[_builtins.str] = None,
                  dest_network_scope: Optional[_builtins.str] = None,
                  dest_region_codes: Optional[Sequence[_builtins.str]] = None,
                  dest_threat_intelligences: Optional[Sequence[_builtins.str]] = None,
                  src_address_groups: Optional[Sequence[_builtins.str]] = None,
                  src_fqdns: Optional[Sequence[_builtins.str]] = None,
                  src_ip_ranges: Optional[Sequence[_builtins.str]] = None,
+                 src_network_context: Optional[_builtins.str] = None,
                  src_network_scope: Optional[_builtins.str] = None,
                  src_networks: Optional[Sequence[_builtins.str]] = None,
                  src_region_codes: Optional[Sequence[_builtins.str]] = None,
@@ -36683,19 +37053,22 @@ class RegionNetworkFirewallPolicyRuleMatch(dict):
         :param Sequence[_builtins.str] dest_address_groups: Address groups which should be matched against the traffic destination. Maximum number of destination address groups is 10.
         :param Sequence[_builtins.str] dest_fqdns: Fully Qualified Domain Name (FQDN) which should be matched against traffic destination. Maximum number of destination fqdn allowed is 100.
         :param Sequence[_builtins.str] dest_ip_ranges: CIDR IP address range. Maximum number of destination CIDR IP ranges allowed is 5000.
+        :param _builtins.str dest_network_context: Network context of the traffic destination.
+               Possible values are: `UNSPECIFIED`, `INTERNET`, `INTRA_VPC`, `NON_INTERNET`, `VPC_NETWORKS`.
         :param _builtins.str dest_network_scope: (Optional, Beta)
                Network scope of the traffic destination.
-               Possible values are: `INTERNET`, `INTRA_VPC`, `NON_INTERNET`, `VPC_NETWORKS`.
+               Possible values are: `UNSPECIFIED`, `INTERNET`, `INTRA_VPC`, `NON_INTERNET`, `VPC_NETWORKS`.
         :param Sequence[_builtins.str] dest_region_codes: Region codes whose IP addresses will be used to match for destination of traffic. Should be specified as 2 letter country code defined as per ISO 3166 alpha-2 country codes. ex."US" Maximum number of dest region codes allowed is 5000.
         :param Sequence[_builtins.str] dest_threat_intelligences: Names of Network Threat Intelligence lists. The IPs in these lists will be matched against traffic destination.
         :param Sequence[_builtins.str] src_address_groups: Address groups which should be matched against the traffic source. Maximum number of source address groups is 10.
         :param Sequence[_builtins.str] src_fqdns: Fully Qualified Domain Name (FQDN) which should be matched against traffic source. Maximum number of source fqdn allowed is 100.
         :param Sequence[_builtins.str] src_ip_ranges: CIDR IP address range. Maximum number of source CIDR IP ranges allowed is 5000.
+        :param _builtins.str src_network_context: Network context of the traffic source.
+               Possible values are: `UNSPECIFIED`, `INTERNET`, `INTRA_VPC`, `NON_INTERNET`, `VPC_NETWORKS`.
         :param _builtins.str src_network_scope: (Optional, Beta)
                Network scope of the traffic source.
-               Possible values are: `INTERNET`, `INTRA_VPC`, `NON_INTERNET`, `VPC_NETWORKS`.
-        :param Sequence[_builtins.str] src_networks: (Optional, Beta)
-               Networks of the traffic source. It can be either a full or partial url.
+               Possible values are: `UNSPECIFIED`, `INTERNET`, `INTRA_VPC`, `NON_INTERNET`, `VPC_NETWORKS`.
+        :param Sequence[_builtins.str] src_networks: Networks of the traffic source. It can be either a full or partial url.
         :param Sequence[_builtins.str] src_region_codes: Region codes whose IP addresses will be used to match for source of traffic. Should be specified as 2 letter country code defined as per ISO 3166 alpha-2 country codes. ex."US" Maximum number of source region codes allowed is 5000.
         :param Sequence['RegionNetworkFirewallPolicyRuleMatchSrcSecureTagArgs'] src_secure_tags: List of secure tag values, which should be matched at the source of the traffic. For INGRESS rule, if all the srcSecureTag are INEFFECTIVE, and there is no srcIpRange, this rule will be ignored. Maximum number of source tag values allowed is 256.
                Structure is documented below.
@@ -36711,6 +37084,8 @@ class RegionNetworkFirewallPolicyRuleMatch(dict):
             pulumi.set(__self__, "dest_fqdns", dest_fqdns)
         if dest_ip_ranges is not None:
             pulumi.set(__self__, "dest_ip_ranges", dest_ip_ranges)
+        if dest_network_context is not None:
+            pulumi.set(__self__, "dest_network_context", dest_network_context)
         if dest_network_scope is not None:
             pulumi.set(__self__, "dest_network_scope", dest_network_scope)
         if dest_region_codes is not None:
@@ -36723,6 +37098,8 @@ class RegionNetworkFirewallPolicyRuleMatch(dict):
             pulumi.set(__self__, "src_fqdns", src_fqdns)
         if src_ip_ranges is not None:
             pulumi.set(__self__, "src_ip_ranges", src_ip_ranges)
+        if src_network_context is not None:
+            pulumi.set(__self__, "src_network_context", src_network_context)
         if src_network_scope is not None:
             pulumi.set(__self__, "src_network_scope", src_network_scope)
         if src_networks is not None:
@@ -36768,12 +37145,21 @@ class RegionNetworkFirewallPolicyRuleMatch(dict):
         return pulumi.get(self, "dest_ip_ranges")
 
     @_builtins.property
+    @pulumi.getter(name="destNetworkContext")
+    def dest_network_context(self) -> Optional[_builtins.str]:
+        """
+        Network context of the traffic destination.
+        Possible values are: `UNSPECIFIED`, `INTERNET`, `INTRA_VPC`, `NON_INTERNET`, `VPC_NETWORKS`.
+        """
+        return pulumi.get(self, "dest_network_context")
+
+    @_builtins.property
     @pulumi.getter(name="destNetworkScope")
     def dest_network_scope(self) -> Optional[_builtins.str]:
         """
         (Optional, Beta)
         Network scope of the traffic destination.
-        Possible values are: `INTERNET`, `INTRA_VPC`, `NON_INTERNET`, `VPC_NETWORKS`.
+        Possible values are: `UNSPECIFIED`, `INTERNET`, `INTRA_VPC`, `NON_INTERNET`, `VPC_NETWORKS`.
         """
         return pulumi.get(self, "dest_network_scope")
 
@@ -36818,12 +37204,21 @@ class RegionNetworkFirewallPolicyRuleMatch(dict):
         return pulumi.get(self, "src_ip_ranges")
 
     @_builtins.property
+    @pulumi.getter(name="srcNetworkContext")
+    def src_network_context(self) -> Optional[_builtins.str]:
+        """
+        Network context of the traffic source.
+        Possible values are: `UNSPECIFIED`, `INTERNET`, `INTRA_VPC`, `NON_INTERNET`, `VPC_NETWORKS`.
+        """
+        return pulumi.get(self, "src_network_context")
+
+    @_builtins.property
     @pulumi.getter(name="srcNetworkScope")
     def src_network_scope(self) -> Optional[_builtins.str]:
         """
         (Optional, Beta)
         Network scope of the traffic source.
-        Possible values are: `INTERNET`, `INTRA_VPC`, `NON_INTERNET`, `VPC_NETWORKS`.
+        Possible values are: `UNSPECIFIED`, `INTERNET`, `INTRA_VPC`, `NON_INTERNET`, `VPC_NETWORKS`.
         """
         return pulumi.get(self, "src_network_scope")
 
@@ -36831,7 +37226,6 @@ class RegionNetworkFirewallPolicyRuleMatch(dict):
     @pulumi.getter(name="srcNetworks")
     def src_networks(self) -> Optional[Sequence[_builtins.str]]:
         """
-        (Optional, Beta)
         Networks of the traffic source. It can be either a full or partial url.
         """
         return pulumi.get(self, "src_networks")
@@ -51421,6 +51815,60 @@ class RouterMd5AuthenticationKeys(dict):
 
 
 @pulumi.output_type
+class RouterNamedSetElement(dict):
+    def __init__(__self__, *,
+                 expression: _builtins.str,
+                 description: Optional[_builtins.str] = None,
+                 location: Optional[_builtins.str] = None,
+                 title: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str expression: Textual representation of an expression in Common Expression Language syntax.
+        :param _builtins.str description: Description of the expression.
+        :param _builtins.str location: String indicating the location of the expression for error reporting, e.g. a file name and a position in the file.
+        :param _builtins.str title: Title for the expression, i.e. a short string describing its purpose.
+        """
+        pulumi.set(__self__, "expression", expression)
+        if description is not None:
+            pulumi.set(__self__, "description", description)
+        if location is not None:
+            pulumi.set(__self__, "location", location)
+        if title is not None:
+            pulumi.set(__self__, "title", title)
+
+    @_builtins.property
+    @pulumi.getter
+    def expression(self) -> _builtins.str:
+        """
+        Textual representation of an expression in Common Expression Language syntax.
+        """
+        return pulumi.get(self, "expression")
+
+    @_builtins.property
+    @pulumi.getter
+    def description(self) -> Optional[_builtins.str]:
+        """
+        Description of the expression.
+        """
+        return pulumi.get(self, "description")
+
+    @_builtins.property
+    @pulumi.getter
+    def location(self) -> Optional[_builtins.str]:
+        """
+        String indicating the location of the expression for error reporting, e.g. a file name and a position in the file.
+        """
+        return pulumi.get(self, "location")
+
+    @_builtins.property
+    @pulumi.getter
+    def title(self) -> Optional[_builtins.str]:
+        """
+        Title for the expression, i.e. a short string describing its purpose.
+        """
+        return pulumi.get(self, "title")
+
+
+@pulumi.output_type
 class RouterNatLogConfig(dict):
     def __init__(__self__, *,
                  enable: _builtins.bool,
@@ -55256,6 +55704,8 @@ class ServiceAttachmentConsumerAcceptList(dict):
         suggest = None
         if key == "connectionLimit":
             suggest = "connection_limit"
+        elif key == "endpointUrl":
+            suggest = "endpoint_url"
         elif key == "networkUrl":
             suggest = "network_url"
         elif key == "projectIdOrNum":
@@ -55274,17 +55724,23 @@ class ServiceAttachmentConsumerAcceptList(dict):
 
     def __init__(__self__, *,
                  connection_limit: _builtins.int,
+                 endpoint_url: Optional[_builtins.str] = None,
                  network_url: Optional[_builtins.str] = None,
                  project_id_or_num: Optional[_builtins.str] = None):
         """
         :param _builtins.int connection_limit: The number of consumer forwarding rules the consumer project can
                create.
+        :param _builtins.str endpoint_url: (Optional, Beta)
+               The endpoint that is allowed to connect to this service attachment.
+               Only one of project_id_or_num, network_url and endpoint_url may be set.
         :param _builtins.str network_url: The network that is allowed to connect to this service attachment.
                Only one of project_id_or_num and network_url may be set.
         :param _builtins.str project_id_or_num: A project that is allowed to connect to this service attachment.
                Only one of project_id_or_num and network_url may be set.
         """
         pulumi.set(__self__, "connection_limit", connection_limit)
+        if endpoint_url is not None:
+            pulumi.set(__self__, "endpoint_url", endpoint_url)
         if network_url is not None:
             pulumi.set(__self__, "network_url", network_url)
         if project_id_or_num is not None:
@@ -55298,6 +55754,16 @@ class ServiceAttachmentConsumerAcceptList(dict):
         create.
         """
         return pulumi.get(self, "connection_limit")
+
+    @_builtins.property
+    @pulumi.getter(name="endpointUrl")
+    def endpoint_url(self) -> Optional[_builtins.str]:
+        """
+        (Optional, Beta)
+        The endpoint that is allowed to connect to this service attachment.
+        Only one of project_id_or_num, network_url and endpoint_url may be set.
+        """
+        return pulumi.get(self, "endpoint_url")
 
     @_builtins.property
     @pulumi.getter(name="networkUrl")
@@ -71402,6 +71868,7 @@ class GetInstanceSchedulingResult(dict):
                  on_host_maintenance: _builtins.str,
                  on_instance_stop_actions: Sequence['outputs.GetInstanceSchedulingOnInstanceStopActionResult'],
                  preemptible: _builtins.bool,
+                 preemption_notice_durations: Sequence['outputs.GetInstanceSchedulingPreemptionNoticeDurationResult'],
                  provisioning_model: _builtins.str,
                  skip_guest_os_shutdown: _builtins.bool,
                  termination_time: _builtins.str):
@@ -71424,6 +71891,7 @@ class GetInstanceSchedulingResult(dict):
                [here](https://cloud.google.com/compute/docs/instances/setting-instance-scheduling-options)
         :param Sequence['GetInstanceSchedulingOnInstanceStopActionArgs'] on_instance_stop_actions: Defines the behaviour for instances with the instance_termination_action.
         :param _builtins.bool preemptible: Whether the instance is preemptible.
+        :param Sequence['GetInstanceSchedulingPreemptionNoticeDurationArgs'] preemption_notice_durations: The duration of the notice that the instance will receive before it is preempted.
         :param _builtins.str provisioning_model: Describe the type of preemptible VM.
         :param _builtins.bool skip_guest_os_shutdown: Default is false and there will be 120 seconds between GCE ACPI G2 Soft Off and ACPI G3 Mechanical Off for Standard VMs and 30 seconds for Spot VMs.
         :param _builtins.str termination_time: Specifies the timestamp, when the instance will be terminated,
@@ -71443,6 +71911,7 @@ class GetInstanceSchedulingResult(dict):
         pulumi.set(__self__, "on_host_maintenance", on_host_maintenance)
         pulumi.set(__self__, "on_instance_stop_actions", on_instance_stop_actions)
         pulumi.set(__self__, "preemptible", preemptible)
+        pulumi.set(__self__, "preemption_notice_durations", preemption_notice_durations)
         pulumi.set(__self__, "provisioning_model", provisioning_model)
         pulumi.set(__self__, "skip_guest_os_shutdown", skip_guest_os_shutdown)
         pulumi.set(__self__, "termination_time", termination_time)
@@ -71553,6 +72022,14 @@ class GetInstanceSchedulingResult(dict):
         Whether the instance is preemptible.
         """
         return pulumi.get(self, "preemptible")
+
+    @_builtins.property
+    @pulumi.getter(name="preemptionNoticeDurations")
+    def preemption_notice_durations(self) -> Sequence['outputs.GetInstanceSchedulingPreemptionNoticeDurationResult']:
+        """
+        The duration of the notice that the instance will receive before it is preempted.
+        """
+        return pulumi.get(self, "preemption_notice_durations")
 
     @_builtins.property
     @pulumi.getter(name="provisioningModel")
@@ -71767,6 +72244,35 @@ class GetInstanceSchedulingOnInstanceStopActionResult(dict):
         If true, the contents of any attached Local SSD disks will be discarded.
         """
         return pulumi.get(self, "discard_local_ssd")
+
+
+@pulumi.output_type
+class GetInstanceSchedulingPreemptionNoticeDurationResult(dict):
+    def __init__(__self__, *,
+                 nanos: _builtins.int,
+                 seconds: _builtins.int):
+        """
+        :param _builtins.int nanos: Span of time that's a fraction of a second at nanosecond resolution. Durations less than one second are represented with a 0 seconds field and a positive nanos field. Must be from 0 to 999,999,999 inclusive.
+        :param _builtins.int seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive.
+        """
+        pulumi.set(__self__, "nanos", nanos)
+        pulumi.set(__self__, "seconds", seconds)
+
+    @_builtins.property
+    @pulumi.getter
+    def nanos(self) -> _builtins.int:
+        """
+        Span of time that's a fraction of a second at nanosecond resolution. Durations less than one second are represented with a 0 seconds field and a positive nanos field. Must be from 0 to 999,999,999 inclusive.
+        """
+        return pulumi.get(self, "nanos")
+
+    @_builtins.property
+    @pulumi.getter
+    def seconds(self) -> _builtins.int:
+        """
+        Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive.
+        """
+        return pulumi.get(self, "seconds")
 
 
 @pulumi.output_type
@@ -72012,6 +72518,7 @@ class GetInstanceTemplateDiskResult(dict):
                  source_image_encryption_keys: Sequence['outputs.GetInstanceTemplateDiskSourceImageEncryptionKeyResult'],
                  source_snapshot: _builtins.str,
                  source_snapshot_encryption_keys: Sequence['outputs.GetInstanceTemplateDiskSourceSnapshotEncryptionKeyResult'],
+                 storage_pool: _builtins.str,
                  type: _builtins.str):
         """
         :param _builtins.str architecture: The architecture of the image. Allowed values are ARM64 or X86_64.
@@ -72069,6 +72576,7 @@ class GetInstanceTemplateDiskResult(dict):
                initializeParams.sourceImage, or disks.source is
                required except for local SSD.
         :param Sequence['GetInstanceTemplateDiskSourceSnapshotEncryptionKeyArgs'] source_snapshot_encryption_keys: The customer-supplied encryption key of the source snapshot.
+        :param _builtins.str storage_pool: The self_link or ID of the Storage Pool to create this disk in.
         :param _builtins.str type: The accelerator type resource to expose to this instance. E.g. `nvidia-tesla-k80`.
         """
         pulumi.set(__self__, "architecture", architecture)
@@ -72092,6 +72600,7 @@ class GetInstanceTemplateDiskResult(dict):
         pulumi.set(__self__, "source_image_encryption_keys", source_image_encryption_keys)
         pulumi.set(__self__, "source_snapshot", source_snapshot)
         pulumi.set(__self__, "source_snapshot_encryption_keys", source_snapshot_encryption_keys)
+        pulumi.set(__self__, "storage_pool", storage_pool)
         pulumi.set(__self__, "type", type)
 
     @_builtins.property
@@ -72295,6 +72804,14 @@ class GetInstanceTemplateDiskResult(dict):
         The customer-supplied encryption key of the source snapshot.
         """
         return pulumi.get(self, "source_snapshot_encryption_keys")
+
+    @_builtins.property
+    @pulumi.getter(name="storagePool")
+    def storage_pool(self) -> _builtins.str:
+        """
+        The self_link or ID of the Storage Pool to create this disk in.
+        """
+        return pulumi.get(self, "storage_pool")
 
     @_builtins.property
     @pulumi.getter
@@ -72949,6 +73466,7 @@ class GetInstanceTemplateSchedulingResult(dict):
                  on_host_maintenance: _builtins.str,
                  on_instance_stop_actions: Sequence['outputs.GetInstanceTemplateSchedulingOnInstanceStopActionResult'],
                  preemptible: _builtins.bool,
+                 preemption_notice_durations: Sequence['outputs.GetInstanceTemplateSchedulingPreemptionNoticeDurationResult'],
                  provisioning_model: _builtins.str,
                  skip_guest_os_shutdown: _builtins.bool,
                  termination_time: _builtins.str):
@@ -72978,6 +73496,7 @@ class GetInstanceTemplateSchedulingResult(dict):
         :param _builtins.bool preemptible: Allows instance to be preempted. This defaults to
                false. Read more on this
                [here](https://cloud.google.com/compute/docs/instances/preemptible).
+        :param Sequence['GetInstanceTemplateSchedulingPreemptionNoticeDurationArgs'] preemption_notice_durations: The duration of the notice that the instance will receive before it is preempted.
         :param _builtins.str provisioning_model: Describe the type of preemptible VM.
         :param _builtins.bool skip_guest_os_shutdown: Default is false and there will be 120 seconds between GCE ACPI G2 Soft Off and ACPI G3 Mechanical Off for Standard VMs and 30 seconds for Spot VMs.
         :param _builtins.str termination_time: Specifies the timestamp, when the instance will be terminated,
@@ -72997,6 +73516,7 @@ class GetInstanceTemplateSchedulingResult(dict):
         pulumi.set(__self__, "on_host_maintenance", on_host_maintenance)
         pulumi.set(__self__, "on_instance_stop_actions", on_instance_stop_actions)
         pulumi.set(__self__, "preemptible", preemptible)
+        pulumi.set(__self__, "preemption_notice_durations", preemption_notice_durations)
         pulumi.set(__self__, "provisioning_model", provisioning_model)
         pulumi.set(__self__, "skip_guest_os_shutdown", skip_guest_os_shutdown)
         pulumi.set(__self__, "termination_time", termination_time)
@@ -73116,6 +73636,14 @@ class GetInstanceTemplateSchedulingResult(dict):
         [here](https://cloud.google.com/compute/docs/instances/preemptible).
         """
         return pulumi.get(self, "preemptible")
+
+    @_builtins.property
+    @pulumi.getter(name="preemptionNoticeDurations")
+    def preemption_notice_durations(self) -> Sequence['outputs.GetInstanceTemplateSchedulingPreemptionNoticeDurationResult']:
+        """
+        The duration of the notice that the instance will receive before it is preempted.
+        """
+        return pulumi.get(self, "preemption_notice_durations")
 
     @_builtins.property
     @pulumi.getter(name="provisioningModel")
@@ -73342,6 +73870,35 @@ class GetInstanceTemplateSchedulingOnInstanceStopActionResult(dict):
         If true, the contents of any attached Local SSD disks will be discarded.
         """
         return pulumi.get(self, "discard_local_ssd")
+
+
+@pulumi.output_type
+class GetInstanceTemplateSchedulingPreemptionNoticeDurationResult(dict):
+    def __init__(__self__, *,
+                 nanos: _builtins.int,
+                 seconds: _builtins.int):
+        """
+        :param _builtins.int nanos: Span of time that's a fraction of a second at nanosecond resolution. Durations less than one second are represented with a 0 seconds field and a positive nanos field. Must be from 0 to 999,999,999 inclusive.
+        :param _builtins.int seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive.
+        """
+        pulumi.set(__self__, "nanos", nanos)
+        pulumi.set(__self__, "seconds", seconds)
+
+    @_builtins.property
+    @pulumi.getter
+    def nanos(self) -> _builtins.int:
+        """
+        Span of time that's a fraction of a second at nanosecond resolution. Durations less than one second are represented with a 0 seconds field and a positive nanos field. Must be from 0 to 999,999,999 inclusive.
+        """
+        return pulumi.get(self, "nanos")
+
+    @_builtins.property
+    @pulumi.getter
+    def seconds(self) -> _builtins.int:
+        """
+        Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive.
+        """
+        return pulumi.get(self, "seconds")
 
 
 @pulumi.output_type
@@ -77261,6 +77818,7 @@ class GetRegionInstanceTemplateDiskResult(dict):
                  source_image_encryption_keys: Sequence['outputs.GetRegionInstanceTemplateDiskSourceImageEncryptionKeyResult'],
                  source_snapshot: _builtins.str,
                  source_snapshot_encryption_keys: Sequence['outputs.GetRegionInstanceTemplateDiskSourceSnapshotEncryptionKeyResult'],
+                 storage_pool: _builtins.str,
                  type: _builtins.str):
         """
         :param _builtins.str architecture: The architecture of the image. Allowed values are ARM64 or X86_64.
@@ -77318,6 +77876,7 @@ class GetRegionInstanceTemplateDiskResult(dict):
                initializeParams.sourceImage, or disks.source is
                required except for local SSD.
         :param Sequence['GetRegionInstanceTemplateDiskSourceSnapshotEncryptionKeyArgs'] source_snapshot_encryption_keys: The customer-supplied encryption key of the source snapshot.
+        :param _builtins.str storage_pool: The self_link or ID of the Storage Pool to create this disk in.
         :param _builtins.str type: The accelerator type resource to expose to this instance. E.g. `nvidia-tesla-k80`.
         """
         pulumi.set(__self__, "architecture", architecture)
@@ -77341,6 +77900,7 @@ class GetRegionInstanceTemplateDiskResult(dict):
         pulumi.set(__self__, "source_image_encryption_keys", source_image_encryption_keys)
         pulumi.set(__self__, "source_snapshot", source_snapshot)
         pulumi.set(__self__, "source_snapshot_encryption_keys", source_snapshot_encryption_keys)
+        pulumi.set(__self__, "storage_pool", storage_pool)
         pulumi.set(__self__, "type", type)
 
     @_builtins.property
@@ -77544,6 +78104,14 @@ class GetRegionInstanceTemplateDiskResult(dict):
         The customer-supplied encryption key of the source snapshot.
         """
         return pulumi.get(self, "source_snapshot_encryption_keys")
+
+    @_builtins.property
+    @pulumi.getter(name="storagePool")
+    def storage_pool(self) -> _builtins.str:
+        """
+        The self_link or ID of the Storage Pool to create this disk in.
+        """
+        return pulumi.get(self, "storage_pool")
 
     @_builtins.property
     @pulumi.getter
@@ -78198,6 +78766,7 @@ class GetRegionInstanceTemplateSchedulingResult(dict):
                  on_host_maintenance: _builtins.str,
                  on_instance_stop_actions: Sequence['outputs.GetRegionInstanceTemplateSchedulingOnInstanceStopActionResult'],
                  preemptible: _builtins.bool,
+                 preemption_notice_durations: Sequence['outputs.GetRegionInstanceTemplateSchedulingPreemptionNoticeDurationResult'],
                  provisioning_model: _builtins.str,
                  skip_guest_os_shutdown: _builtins.bool,
                  termination_time: _builtins.str):
@@ -78227,6 +78796,7 @@ class GetRegionInstanceTemplateSchedulingResult(dict):
         :param _builtins.bool preemptible: Allows instance to be preempted. This defaults to
                false. Read more on this
                [here](https://cloud.google.com/compute/docs/instances/preemptible).
+        :param Sequence['GetRegionInstanceTemplateSchedulingPreemptionNoticeDurationArgs'] preemption_notice_durations: The duration of the notice that the instance will receive before it is preempted.
         :param _builtins.str provisioning_model: Describe the type of preemptible VM.
         :param _builtins.bool skip_guest_os_shutdown: Default is false and there will be 120 seconds between GCE ACPI G2 Soft Off and ACPI G3 Mechanical Off for Standard VMs and 30 seconds for Spot VMs.
         :param _builtins.str termination_time: Specifies the timestamp, when the instance will be terminated,
@@ -78246,6 +78816,7 @@ class GetRegionInstanceTemplateSchedulingResult(dict):
         pulumi.set(__self__, "on_host_maintenance", on_host_maintenance)
         pulumi.set(__self__, "on_instance_stop_actions", on_instance_stop_actions)
         pulumi.set(__self__, "preemptible", preemptible)
+        pulumi.set(__self__, "preemption_notice_durations", preemption_notice_durations)
         pulumi.set(__self__, "provisioning_model", provisioning_model)
         pulumi.set(__self__, "skip_guest_os_shutdown", skip_guest_os_shutdown)
         pulumi.set(__self__, "termination_time", termination_time)
@@ -78365,6 +78936,14 @@ class GetRegionInstanceTemplateSchedulingResult(dict):
         [here](https://cloud.google.com/compute/docs/instances/preemptible).
         """
         return pulumi.get(self, "preemptible")
+
+    @_builtins.property
+    @pulumi.getter(name="preemptionNoticeDurations")
+    def preemption_notice_durations(self) -> Sequence['outputs.GetRegionInstanceTemplateSchedulingPreemptionNoticeDurationResult']:
+        """
+        The duration of the notice that the instance will receive before it is preempted.
+        """
+        return pulumi.get(self, "preemption_notice_durations")
 
     @_builtins.property
     @pulumi.getter(name="provisioningModel")
@@ -78591,6 +79170,35 @@ class GetRegionInstanceTemplateSchedulingOnInstanceStopActionResult(dict):
         If true, the contents of any attached Local SSD disks will be discarded.
         """
         return pulumi.get(self, "discard_local_ssd")
+
+
+@pulumi.output_type
+class GetRegionInstanceTemplateSchedulingPreemptionNoticeDurationResult(dict):
+    def __init__(__self__, *,
+                 nanos: _builtins.int,
+                 seconds: _builtins.int):
+        """
+        :param _builtins.int nanos: Span of time that's a fraction of a second at nanosecond resolution. Durations less than one second are represented with a 0 seconds field and a positive nanos field. Must be from 0 to 999,999,999 inclusive.
+        :param _builtins.int seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive.
+        """
+        pulumi.set(__self__, "nanos", nanos)
+        pulumi.set(__self__, "seconds", seconds)
+
+    @_builtins.property
+    @pulumi.getter
+    def nanos(self) -> _builtins.int:
+        """
+        Span of time that's a fraction of a second at nanosecond resolution. Durations less than one second are represented with a 0 seconds field and a positive nanos field. Must be from 0 to 999,999,999 inclusive.
+        """
+        return pulumi.get(self, "nanos")
+
+    @_builtins.property
+    @pulumi.getter
+    def seconds(self) -> _builtins.int:
+        """
+        Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive.
+        """
+        return pulumi.get(self, "seconds")
 
 
 @pulumi.output_type

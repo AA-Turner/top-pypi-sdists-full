@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: sqlalchemy_dremio
-Version: 3.0.4
+Version: 3.0.5
 Summary: A SQLAlchemy dialect for Dremio via the Flight interface.
 Home-page: https://github.com/narendrans/sqlalchemy_dremio
 Author: Naren
@@ -15,14 +15,13 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.7
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: sqlalchemy>=1.3.24
-Requires-Dist: pyarrow>=5.0.0
+Requires-Dist: SQLAlchemy~=2.0.41
+Requires-Dist: pyarrow~=20.0.0
 
 # SQLAlchemy Dremio
 
 
 ![PyPI](https://img.shields.io/pypi/v/sqlalchemy_dremio.svg)
-![Build](https://github.com/narendrans/sqlalchemy_dremio/workflows/Build/badge.svg)
 
 A SQLAlchemy dialect for Dremio via ODBC and Flight interfaces.
 
@@ -68,15 +67,30 @@ Schema - (Optional) The schema to use
 TLS:
 
 UseEncryption=true|false - (Optional) Enables TLS connection. Must be enabled on Dremio to use it.
-DisableCertificateVerification=true|false - (Optional) Disables certificate verirication.
+DisableCertificateVerification=true|false - (Optional) Disables certificate verification.
 
 WLM:
 
 https://docs.dremio.com/software/advanced-administration/workload-management/#query-tagging--direct-routing-configuration
 
+
 routing_queue - (Optional) The queue in which queries should run
-routing_tag - (Optonal) Routing tag to use.
+routing_tag - (Optional) Routing tag to use.
 routing_engine - (Optional) The engine in which the queries should run
+
+Testing
+-------
+
+You can run the integration tests with the Dremio community edition Docker image.
+
+```bash
+docker run -d -p 9047:9047 -p 31010:31010 -p 32010:32010 --name dremio dremio/dremio-oss:latest
+export DREMIO_CONNECTION_URL="dremio+flight://dremio:dremio123@localhost:32010/dremio?UseEncryption=false"
+pytest
+```
+
+The workflow in `.github/workflows/dremio.yml` demonstrates how to run these tests automatically on GitHub Actions.
+The CI badge at the top of this file shows the current test status.
 
 Superset Integration
 -------------

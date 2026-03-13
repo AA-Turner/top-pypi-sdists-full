@@ -1,8 +1,8 @@
 import json
+import ssl
 import time
 from typing import Any, Dict, Iterator, Optional
 
-from pydantic import BaseModel
 from ratelimit import limits, sleep_and_retry
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
@@ -23,6 +23,7 @@ from elementary.messages.messaging_integrations.exceptions import (
 )
 from elementary.tracking.tracking_interface import Tracking
 from elementary.utils.log import get_logger
+from elementary.utils.pydantic_shim import BaseModel
 
 logger = get_logger(__name__)
 
@@ -54,9 +55,13 @@ class SlackWebMessagingIntegration(
 
     @classmethod
     def from_token(
-        cls, token: str, tracking: Optional[Tracking] = None, **kwargs: Any
+        cls,
+        token: str,
+        tracking: Optional[Tracking] = None,
+        ssl_context: Optional[ssl.SSLContext] = None,
+        **kwargs: Any,
     ) -> "SlackWebMessagingIntegration":
-        client = WebClient(token=token)
+        client = WebClient(token=token, ssl=ssl_context)
         client.retry_handlers.append(RateLimitErrorRetryHandler(max_retry_count=5))
         return cls(client, tracking, **kwargs)
 

@@ -5,6 +5,8 @@ import typing
 from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.request_options import RequestOptions
 from ..types.speech_sample_rate import SpeechSampleRate
+from ..types.speech_stream_bitrate import SpeechStreamBitrate
+from ..types.speech_stream_codec import SpeechStreamCodec
 from ..types.text_to_speech_language import TextToSpeechLanguage
 from ..types.text_to_speech_model import TextToSpeechModel
 from ..types.text_to_speech_output_audio_codec import TextToSpeechOutputAudioCodec
@@ -45,6 +47,8 @@ class TextToSpeechClient:
         model: typing.Optional[TextToSpeechModel] = OMIT,
         output_audio_codec: typing.Optional[TextToSpeechOutputAudioCodec] = OMIT,
         temperature: typing.Optional[float] = OMIT,
+        dict_id: typing.Optional[str] = OMIT,
+        enable_cached_responses: typing.Optional[bool] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> TextToSpeechResponse:
         """
@@ -141,6 +145,16 @@ class TextToSpeechClient:
             Lower values produce more stable and consistent output, while higher values sound more expressive but may introduce artifacts or errors. The suitable range is between 0.01 and 2.0. Default is 0.6.
 
             **Note:** This parameter is only supported for bulbul:v3. It has no effect on bulbul:v2.
+
+        dict_id : typing.Optional[str]
+            The ID of a pronunciation dictionary to apply during synthesis. When provided, matching words in the input text will be replaced with their custom pronunciations before generating speech.
+
+            Create and manage dictionaries via the [Pronunciation Dictionary API](/api-reference-docs/text-to-speech/pronunciation-dictionary/create). Only supported by **bulbul:v3**.
+
+        enable_cached_responses : typing.Optional[bool]
+            Enable caching for the request. When enabled, identical requests will return cached audio instead of regenerating. Default is false.
+
+            **Note:** Currently in beta and only available for bulbul:v1 and bulbul:v2 models.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -174,9 +188,145 @@ class TextToSpeechClient:
             model=model,
             output_audio_codec=output_audio_codec,
             temperature=temperature,
+            dict_id=dict_id,
+            enable_cached_responses=enable_cached_responses,
             request_options=request_options,
         )
         return _response.data
+
+    def convert_stream(
+        self,
+        *,
+        text: str,
+        target_language_code: typing.Optional[TextToSpeechLanguage] = OMIT,
+        speaker: typing.Optional[TextToSpeechSpeaker] = OMIT,
+        pitch: typing.Optional[float] = OMIT,
+        pace: typing.Optional[float] = OMIT,
+        loudness: typing.Optional[float] = OMIT,
+        speech_sample_rate: typing.Optional[SpeechSampleRate] = OMIT,
+        enable_preprocessing: typing.Optional[bool] = OMIT,
+        model: typing.Optional[TextToSpeechModel] = OMIT,
+        temperature: typing.Optional[float] = OMIT,
+        enable_cached_responses: typing.Optional[bool] = OMIT,
+        dict_id: typing.Optional[str] = OMIT,
+        output_audio_codec: typing.Optional[SpeechStreamCodec] = OMIT,
+        output_audio_bitrate: typing.Optional[SpeechStreamBitrate] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> typing.Iterator[bytes]:
+        """
+        Converts the input text into a streamed spoken audio response.
+
+        This endpoint supports streaming audio using the specified output codec (e.g., `audio/mpeg` for MP3). The response is returned as a binary audio stream, which can be played or saved directly by the client.
+
+        Supports the `dict_id` parameter to apply a [pronunciation dictionary](/api-reference-docs/text-to-speech/pronunciation-dictionary/create) during synthesis.
+
+        Parameters
+        ----------
+        text : str
+            The text to be converted into streamed speech.
+
+            **Features:**
+            - Max 3500 characters
+            - Supports code-mixed text (English and Indic languages)
+
+            **Important Note:**
+            - For numbers larger than 4 digits, use commas (e.g., '10,000' instead of '10000')
+            - This ensures proper pronunciation as a whole number
+
+        target_language_code : typing.Optional[TextToSpeechLanguage]
+            The language code in BCP-47 format.
+
+        speaker : typing.Optional[TextToSpeechSpeaker]
+            The speaker voice to be used for the output audio.
+
+            **Default:** Shubh (for bulbul:v3), Anushka (for bulbul:v2)
+
+            **Note:** Speaker selection must match the chosen model version.
+
+        pitch : typing.Optional[float]
+            Controls the pitch of the audio. Range: -0.75 to 0.75. Default is 0.0.
+
+            **Note:** Only supported for bulbul:v2.
+
+        pace : typing.Optional[float]
+            Controls the speed of the audio. Default is 1.0.
+
+            **Model-specific ranges:**
+            - **bulbul:v3:** 0.5 to 2.0
+            - **bulbul:v2:** 0.3 to 3.0
+
+        loudness : typing.Optional[float]
+            Controls the loudness of the audio. Range: 0.3 to 3.0. Default is 1.0.
+
+            **Note:** Only supported for bulbul:v2.
+
+        speech_sample_rate : typing.Optional[SpeechSampleRate]
+            Specifies the sample rate of the output audio. Default is 22050 Hz.
+
+            **Note:** OPUS codec only supports 8000, 12000, 16000, 24000, 48000 Hz.
+
+        enable_preprocessing : typing.Optional[bool]
+            Controls whether normalization of English words and numeric entities is performed. Default is false.
+
+        model : typing.Optional[TextToSpeechModel]
+            Specifies the model to use for text-to-speech conversion. Default is bulbul:v2.
+
+        temperature : typing.Optional[float]
+            Controls the randomness of the output. Range: 0.01 to 1.0. Default is 0.6.
+
+            **Note:** Only supported for bulbul:v3.
+
+        enable_cached_responses : typing.Optional[bool]
+            Enable caching for the request. Default is false. Currently in beta.
+
+        dict_id : typing.Optional[str]
+            The ID of a pronunciation dictionary to apply during synthesis. When provided, matching words in the input text will be replaced with their custom pronunciations before generating speech.
+
+            Create and manage dictionaries via the [Pronunciation Dictionary API](/api-reference-docs/text-to-speech/pronunciation-dictionary/create). Only supported by **bulbul:v3**.
+
+        output_audio_codec : typing.Optional[SpeechStreamCodec]
+            Specifies the codec for the streamed output audio (e.g., 'mp3').
+
+        output_audio_bitrate : typing.Optional[SpeechStreamBitrate]
+            Bitrate for the streamed output audio. Default is '128k'.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration. You can pass in configuration such as `chunk_size`, and more to customize the request and response.
+
+        Returns
+        -------
+        typing.Iterator[bytes]
+            Success. Returns a streamed audio response in the requested format (e.g., `audio/mpeg` for MP3, `audio/wav` for WAV).
+
+        Examples
+        --------
+        from sarvamai import SarvamAI
+
+        client = SarvamAI(
+            api_subscription_key="YOUR_API_SUBSCRIPTION_KEY",
+        )
+        client.text_to_speech.convert_stream(
+            text="x",
+        )
+        """
+        with self._raw_client.convert_stream(
+            text=text,
+            target_language_code=target_language_code,
+            speaker=speaker,
+            pitch=pitch,
+            pace=pace,
+            loudness=loudness,
+            speech_sample_rate=speech_sample_rate,
+            enable_preprocessing=enable_preprocessing,
+            model=model,
+            temperature=temperature,
+            enable_cached_responses=enable_cached_responses,
+            dict_id=dict_id,
+            output_audio_codec=output_audio_codec,
+            output_audio_bitrate=output_audio_bitrate,
+            request_options=request_options,
+        ) as r:
+            yield from r.data
 
 
 class AsyncTextToSpeechClient:
@@ -208,6 +358,8 @@ class AsyncTextToSpeechClient:
         model: typing.Optional[TextToSpeechModel] = OMIT,
         output_audio_codec: typing.Optional[TextToSpeechOutputAudioCodec] = OMIT,
         temperature: typing.Optional[float] = OMIT,
+        dict_id: typing.Optional[str] = OMIT,
+        enable_cached_responses: typing.Optional[bool] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> TextToSpeechResponse:
         """
@@ -304,6 +456,16 @@ class AsyncTextToSpeechClient:
             Lower values produce more stable and consistent output, while higher values sound more expressive but may introduce artifacts or errors. The suitable range is between 0.01 and 2.0. Default is 0.6.
 
             **Note:** This parameter is only supported for bulbul:v3. It has no effect on bulbul:v2.
+
+        dict_id : typing.Optional[str]
+            The ID of a pronunciation dictionary to apply during synthesis. When provided, matching words in the input text will be replaced with their custom pronunciations before generating speech.
+
+            Create and manage dictionaries via the [Pronunciation Dictionary API](/api-reference-docs/text-to-speech/pronunciation-dictionary/create). Only supported by **bulbul:v3**.
+
+        enable_cached_responses : typing.Optional[bool]
+            Enable caching for the request. When enabled, identical requests will return cached audio instead of regenerating. Default is false.
+
+            **Note:** Currently in beta and only available for bulbul:v1 and bulbul:v2 models.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -345,6 +507,151 @@ class AsyncTextToSpeechClient:
             model=model,
             output_audio_codec=output_audio_codec,
             temperature=temperature,
+            dict_id=dict_id,
+            enable_cached_responses=enable_cached_responses,
             request_options=request_options,
         )
         return _response.data
+
+    async def convert_stream(
+        self,
+        *,
+        text: str,
+        target_language_code: typing.Optional[TextToSpeechLanguage] = OMIT,
+        speaker: typing.Optional[TextToSpeechSpeaker] = OMIT,
+        pitch: typing.Optional[float] = OMIT,
+        pace: typing.Optional[float] = OMIT,
+        loudness: typing.Optional[float] = OMIT,
+        speech_sample_rate: typing.Optional[SpeechSampleRate] = OMIT,
+        enable_preprocessing: typing.Optional[bool] = OMIT,
+        model: typing.Optional[TextToSpeechModel] = OMIT,
+        temperature: typing.Optional[float] = OMIT,
+        enable_cached_responses: typing.Optional[bool] = OMIT,
+        dict_id: typing.Optional[str] = OMIT,
+        output_audio_codec: typing.Optional[SpeechStreamCodec] = OMIT,
+        output_audio_bitrate: typing.Optional[SpeechStreamBitrate] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> typing.AsyncIterator[bytes]:
+        """
+        Converts the input text into a streamed spoken audio response.
+
+        This endpoint supports streaming audio using the specified output codec (e.g., `audio/mpeg` for MP3). The response is returned as a binary audio stream, which can be played or saved directly by the client.
+
+        Supports the `dict_id` parameter to apply a [pronunciation dictionary](/api-reference-docs/text-to-speech/pronunciation-dictionary/create) during synthesis.
+
+        Parameters
+        ----------
+        text : str
+            The text to be converted into streamed speech.
+
+            **Features:**
+            - Max 3500 characters
+            - Supports code-mixed text (English and Indic languages)
+
+            **Important Note:**
+            - For numbers larger than 4 digits, use commas (e.g., '10,000' instead of '10000')
+            - This ensures proper pronunciation as a whole number
+
+        target_language_code : typing.Optional[TextToSpeechLanguage]
+            The language code in BCP-47 format.
+
+        speaker : typing.Optional[TextToSpeechSpeaker]
+            The speaker voice to be used for the output audio.
+
+            **Default:** Shubh (for bulbul:v3), Anushka (for bulbul:v2)
+
+            **Note:** Speaker selection must match the chosen model version.
+
+        pitch : typing.Optional[float]
+            Controls the pitch of the audio. Range: -0.75 to 0.75. Default is 0.0.
+
+            **Note:** Only supported for bulbul:v2.
+
+        pace : typing.Optional[float]
+            Controls the speed of the audio. Default is 1.0.
+
+            **Model-specific ranges:**
+            - **bulbul:v3:** 0.5 to 2.0
+            - **bulbul:v2:** 0.3 to 3.0
+
+        loudness : typing.Optional[float]
+            Controls the loudness of the audio. Range: 0.3 to 3.0. Default is 1.0.
+
+            **Note:** Only supported for bulbul:v2.
+
+        speech_sample_rate : typing.Optional[SpeechSampleRate]
+            Specifies the sample rate of the output audio. Default is 22050 Hz.
+
+            **Note:** OPUS codec only supports 8000, 12000, 16000, 24000, 48000 Hz.
+
+        enable_preprocessing : typing.Optional[bool]
+            Controls whether normalization of English words and numeric entities is performed. Default is false.
+
+        model : typing.Optional[TextToSpeechModel]
+            Specifies the model to use for text-to-speech conversion. Default is bulbul:v2.
+
+        temperature : typing.Optional[float]
+            Controls the randomness of the output. Range: 0.01 to 1.0. Default is 0.6.
+
+            **Note:** Only supported for bulbul:v3.
+
+        enable_cached_responses : typing.Optional[bool]
+            Enable caching for the request. Default is false. Currently in beta.
+
+        dict_id : typing.Optional[str]
+            The ID of a pronunciation dictionary to apply during synthesis. When provided, matching words in the input text will be replaced with their custom pronunciations before generating speech.
+
+            Create and manage dictionaries via the [Pronunciation Dictionary API](/api-reference-docs/text-to-speech/pronunciation-dictionary/create). Only supported by **bulbul:v3**.
+
+        output_audio_codec : typing.Optional[SpeechStreamCodec]
+            Specifies the codec for the streamed output audio (e.g., 'mp3').
+
+        output_audio_bitrate : typing.Optional[SpeechStreamBitrate]
+            Bitrate for the streamed output audio. Default is '128k'.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration. You can pass in configuration such as `chunk_size`, and more to customize the request and response.
+
+        Returns
+        -------
+        typing.AsyncIterator[bytes]
+            Success. Returns a streamed audio response in the requested format (e.g., `audio/mpeg` for MP3, `audio/wav` for WAV).
+
+        Examples
+        --------
+        import asyncio
+
+        from sarvamai import AsyncSarvamAI
+
+        client = AsyncSarvamAI(
+            api_subscription_key="YOUR_API_SUBSCRIPTION_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.text_to_speech.convert_stream(
+                text="x",
+            )
+
+
+        asyncio.run(main())
+        """
+        async with self._raw_client.convert_stream(
+            text=text,
+            target_language_code=target_language_code,
+            speaker=speaker,
+            pitch=pitch,
+            pace=pace,
+            loudness=loudness,
+            speech_sample_rate=speech_sample_rate,
+            enable_preprocessing=enable_preprocessing,
+            model=model,
+            temperature=temperature,
+            enable_cached_responses=enable_cached_responses,
+            dict_id=dict_id,
+            output_audio_codec=output_audio_codec,
+            output_audio_bitrate=output_audio_bitrate,
+            request_options=request_options,
+        ) as r:
+            async for _chunk in r.data:
+                yield _chunk

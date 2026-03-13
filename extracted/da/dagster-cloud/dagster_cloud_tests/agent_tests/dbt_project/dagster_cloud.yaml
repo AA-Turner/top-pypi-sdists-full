@@ -1,0 +1,4 @@
+locations:
+  - location_name: jaffle_dagster
+    code_source:
+      package_name: jaffle_dagster.definitions

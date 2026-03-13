@@ -103,6 +103,17 @@ class ConfigureConnectionData(UniversalBaseModel):
     Audio bitrate (choose from 5 supported bitrate options)
     """
 
+    dict_id: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    The ID of a pronunciation dictionary to apply during synthesis. 
+    When provided, matching words in the input text will be replaced 
+    with their custom pronunciations before generating speech.
+    
+    Create and manage dictionaries via the `/text-to-speech/pronunciation-dictionary` endpoints.
+    
+    **Note:** Only supported by **bulbul:v3**.
+    """
+
     min_buffer_size: typing.Optional[int] = pydantic.Field(default=None)
     """
     Minimum character length that triggers buffer flushing for TTS model processing

@@ -21,8 +21,10 @@
 
 #include <stdint.h>
 
+#include <utility>
 #include <vector>
 
+#include "absl/status/status.h"
 #include "riegeli/bytes/reader.h"
 #include "riegeli/bytes/writer.h"
 #include "tensorstore/kvstore/ocdbt/format/codec_util.h"
@@ -63,8 +65,11 @@ struct IndirectDataReferenceArrayCodec {
       // Validate length
       for (auto& v : vec) {
         auto& r = getter(v);
-        TENSORSTORE_RETURN_IF_ERROR(r.Validate(allow_missing),
-                                    (io.Fail(_), false));
+        TENSORSTORE_RETURN_IF_ERROR(r.Validate(allow_missing))
+            .With([&](absl::Status status) {
+              io.Fail(std::move(status));
+              return false;
+            });
       }
     }
 

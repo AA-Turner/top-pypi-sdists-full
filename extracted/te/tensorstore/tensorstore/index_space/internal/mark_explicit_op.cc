@@ -14,8 +14,17 @@
 
 #include "tensorstore/index_space/internal/mark_explicit_op.h"
 
+#include <utility>
+
 #include "absl/status/status.h"
-#include "tensorstore/util/str_cat.h"
+#include "absl/strings/str_format.h"
+#include "tensorstore/container_kind.h"
+#include "tensorstore/index.h"
+#include "tensorstore/index_space/dimension_index_buffer.h"
+#include "tensorstore/index_space/index_transform.h"
+#include "tensorstore/index_space/internal/transform_rep.h"
+#include "tensorstore/index_space/output_index_method.h"
+#include "tensorstore/util/result.h"
 
 namespace tensorstore {
 namespace internal_index_space {
@@ -38,11 +47,11 @@ Result<IndexTransform<>> ApplyChangeImplicitState(
       auto& index_array_data = map.index_array_data();
       for (DimensionIndex input_dim : *dimensions) {
         if (index_array_data.byte_strides[input_dim] != 0) {
-          return absl::InvalidArgumentError(tensorstore::StrCat(
-              "Cannot mark input dimension ", input_dim,
-              " as having implicit bounds because it indexes the index array "
-              "map for output dimension ",
-              output_dim));
+          return absl::InvalidArgumentError(absl::StrFormat(
+              "Cannot mark input dimension %d as having implicit bounds "
+              "because it indexes the index array "
+              "map for output dimension %d",
+              input_dim, output_dim));
         }
       }
     }

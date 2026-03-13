@@ -7,7 +7,7 @@ from json.decoder import JSONDecodeError
 from .core.api_error import ApiError
 from .core.jsonable_encoder import jsonable_encoder
 from .environment import WebflowEnvironment
-from .types import OauthScope
+from .types.oauth_scope import OauthScope
 
 try:
     import pydantic.v1 as pydantic  # type: ignore
